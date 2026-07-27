@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; font-family: 'Inter', -apple-system, sans-serif; color: #0f172a; background: #ffffff; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+  a { color: inherit; text-decoration: none; }
+  a:hover { color: #0F766E; }
+  button { font-family: inherit; cursor: pointer; border: 0; background: none; }
+  input, textarea, select { font-family: inherit; }
+  .ar { font-family: 'Noto Sans Arabic', 'Inter', sans-serif; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  details[open] .faq-chev { transform: rotate(180deg); }
+  .faq-chev { transition: transform .2s ease; }
+  .hover-lift { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+  .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 12px 30px -12px rgba(15, 23, 42, .18); border-color: #cbd5e1 !important; }
+  .btn-primary:hover { background: #0d5f5a !important; }
+  .btn-ghost:hover { background: #f1f5f9 !important; }
+  .nav-link:hover { color: #0F766E; }
+  .cta-white:hover { background: #f0fdfa !important; }
+</style>
+</helmet>
+
+<!-- ============ PAGE WRAPPER ============ -->
+<div style="background: #ffffff; color: #0f172a; font-size: 16px; line-height: 1.55;">
+
+<!-- ============ STICKY HEADER ============ -->
+<header style="position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,.85); backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px); border-bottom: 1px solid #e2e8f0;">
+  <div style="max-width: 1200px; margin: 0 auto; padding: 14px 32px; display: flex; align-items: center; gap: 32px;">
+    <a href="#" style="display: flex; align-items: center; gap: 10px;">
+      <span style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg,#0F766E, #14b8a6); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 15px; letter-spacing: -.02em;">CS</span>
+      <span style="font-weight: 700; font-size: 17px; letter-spacing: -.01em; color: #0f172a;">Centre Soutien</span>
+    </a>
+    <nav style="display: flex; align-items: center; gap: 28px; margin: 0 auto; font-size: 14.5px; color: #334155; font-weight: 500;">
+      <a class="nav-link" href="#features">Fonctionnalités</a>
+      <a class="nav-link" href="#pricing">Tarifs</a>
+      <a class="nav-link" href="#fondateur">Programme Fondateur</a>
+      <a class="nav-link" href="#faq">FAQ</a>
+      <a class="nav-link" href="#contact">Contact</a>
+    </nav>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="display: inline-flex; align-items: center; padding: 3px; background: #f1f5f9; border-radius: 8px; font-size: 12.5px; font-weight: 600;">
+        <span style="padding: 4px 10px; background: #ffffff; color: #0f172a; border-radius: 6px; box-shadow: 0 1px 2px rgba(15,23,42,.06);">FR</span>
+        <span style="padding: 4px 10px; color: #64748b;" class="ar">ع</span>
+      </div>
+      <button class="btn-ghost" style="padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #334155;">Se connecter</button>
+      <button class="btn-primary" style="padding: 9px 16px; border-radius: 8px; background: #0F766E; color: #ffffff; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Télécharger
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<section style="padding: 88px 32px 96px; max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1.1fr; gap: 56px; align-items: center;">
+  <div>
+    <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; background: #f0fdfa; border: 1px solid #ccfbf1; border-radius: 999px; font-size: 13px; font-weight: 600; color: #0F766E;">
+      <span style="font-size: 14px;">🇲🇦</span> Fabriqué au Maroc
+    </div>
+    <h1 style="margin: 22px 0 18px; font-size: 56px; line-height: 1.06; letter-spacing: -0.03em; font-weight: 800; color: #0f172a;">
+      Gérez votre centre de soutien <span style="color: #0F766E;">sans Excel, sans stress.</span>
+    </h1>
+    <p style="margin: 0 0 32px; font-size: 19px; line-height: 1.55; color: #475569; max-width: 560px;">
+      Planning, élèves, enseignants et factures — tout au même endroit, hors ligne, sur votre ordinateur.
+    </p>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+      <button class="btn-primary" style="padding: 14px 22px; border-radius: 10px; background: #0F766E; color: #ffffff; font-size: 15px; font-weight: 600; box-shadow: 0 8px 20px -8px rgba(15,118,110,.55);">
+        Essai gratuit 14 jours
+      </button>
+      <button class="btn-ghost" style="padding: 14px 20px; border-radius: 10px; background: #ffffff; border: 1px solid #e2e8f0; color: #0f172a; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#0F766E" stroke="#0F766E" stroke-width="2" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        Voir la démo
+      </button>
+    </div>
+    <div style="margin-top: 28px; display: flex; flex-wrap: wrap; gap: 18px 22px; font-size: 13.5px; color: #64748b;">
+      <span style="display: inline-flex; align-items: center; gap: 7px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Sans carte bancaire</span>
+      <span style="display: inline-flex; align-items: center; gap: 7px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Installation en 5 min</span>
+      <span style="display: inline-flex; align-items: center; gap: 7px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Données stockées localement</span>
+    </div>
+  </div>
+
+  <!-- MOCKUP: dashboard inside macOS window -->
+  <div style="transform: rotate(-1.2deg); filter: drop-shadow(0 30px 50px rgba(15, 23, 42, .18));">
+    <div style="border-radius: 14px; overflow: hidden; background: #ffffff; border: 1px solid #e2e8f0;">
+      <!-- title bar -->
+      <div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+        <span style="width: 12px; height: 12px; border-radius: 50%; background: #ef4444;"></span>
+        <span style="width: 12px; height: 12px; border-radius: 50%; background: #f59e0b;"></span>
+        <span style="width: 12px; height: 12px; border-radius: 50%; background: #10b981;"></span>
+        <span style="margin: 0 auto; font-size: 12px; color: #64748b; font-weight: 500;">Centre Soutien — Tableau de bord</span>
+      </div>
+      <!-- body -->
+      <div style="display: grid; grid-template-columns: 168px 1fr; height: 420px; background: #ffffff;">
+        <!-- sidebar -->
+        <div style="background: #f8fafc; border-right: 1px solid #e2e8f0; padding: 14px 10px; font-size: 12.5px; color: #334155;">
+          <div style="padding: 6px 8px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; font-weight: 600;">Centre Al Massar</div>
+          <div style="display: flex; flex-direction: column; gap: 2px; margin-top: 6px;">
+            <div style="padding: 7px 10px; border-radius: 6px; background: #0F766E; color: #fff; font-weight: 600; display: flex; align-items: center; gap: 8px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>Tableau de bord</div>
+            <div style="padding: 7px 10px; display: flex; align-items: center; gap: 8px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>Planning</div>
+            <div style="padding: 7px 10px; display: flex; align-items: center; gap: 8px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Élèves</div>
+            <div style="padding: 7px 10px; display: flex; align-items: center; gap: 8px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>Enseignants</div>
+            <div style="padding: 7px 10px; display: flex; align-items: center; gap: 8px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>Salles</div>
+            <div style="padding: 7px 10px; display: flex; align-items: center; gap: 8px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M2 10h20"></path></svg>Factures</div>
+          </div>
+        </div>
+        <!-- main -->
+        <div style="padding: 16px 18px; overflow: hidden;">
+          <div style="display: flex; align-items: baseline; justify-content: space-between;">
+            <div>
+              <div style="font-size: 15px; font-weight: 700; color: #0f172a;">Bonjour, Karim 👋</div>
+              <div style="font-size: 11.5px; color: #64748b;">Lundi 27 juillet 2026 · Rentrée dans 5 semaines</div>
+            </div>
+            <div style="font-size: 11px; color: #64748b; padding: 3px 8px; border: 1px solid #e2e8f0; border-radius: 999px;">● Synchronisé</div>
+          </div>
+          <!-- stat cards -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px;">
+            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;">
+              <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .05em; font-weight: 600;">Élèves</div>
+              <div style="font-size: 18px; font-weight: 700; color: #0f172a; margin-top: 2px;">147</div>
+              <div style="font-size: 10px; color: #10b981;">+12 ce mois</div>
+            </div>
+            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;">
+              <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .05em; font-weight: 600;">Enseignants</div>
+              <div style="font-size: 18px; font-weight: 700; color: #0f172a; margin-top: 2px;">8</div>
+              <div style="font-size: 10px; color: #64748b;">6 disponibles</div>
+            </div>
+            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;">
+              <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .05em; font-weight: 600;">Recettes</div>
+              <div style="font-size: 18px; font-weight: 700; color: #0f172a; margin-top: 2px;">48 250 <span style="font-size: 10px; color:#64748b; font-weight:500;">MAD</span></div>
+              <div style="font-size: 10px; color: #10b981;">+8% vs juin</div>
+            </div>
+            <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;">
+              <div style="font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .05em; font-weight: 600;">Impayés</div>
+              <div style="font-size: 18px; font-weight: 700; color: #ef4444; margin-top: 2px;">3</div>
+              <div style="font-size: 10px; color: #64748b;">1 250 MAD</div>
+            </div>
+          </div>
+          <!-- table -->
+          <div style="margin-top: 12px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+            <div style="padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 11.5px; font-weight: 600; color: #334155; display: flex; justify-content: space-between;">
+              <span>Prochaines séances</span>
+              <span style="font-size: 10.5px; color: #64748b; font-weight: 500;">Aujourd'hui</span>
+            </div>
+            <div style="font-size: 11.5px;">
+              <div style="display: grid; grid-template-columns: 60px 1fr 90px 80px; padding: 8px 12px; border-bottom: 1px solid #f1f5f9; align-items: center;">
+                <span style="color: #64748b; font-weight: 500;">15h00</span>
+                <span><span style="font-weight: 600; color: #0f172a;">Youssef El Amrani</span> <span style="color:#64748b;">· Mathématiques</span></span>
+                <span style="color: #64748b;">Salle 2</span>
+                <span style="color: #0f172a; font-weight: 600;">350 MAD</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 60px 1fr 90px 80px; padding: 8px 12px; border-bottom: 1px solid #f1f5f9; align-items: center;">
+                <span style="color: #64748b; font-weight: 500;">16h30</span>
+                <span><span style="font-weight: 600; color: #0f172a;">Fatima Zahra Bennani</span> <span style="color:#64748b;">· Physique-Chimie</span></span>
+                <span style="color: #64748b;">Salle 1</span>
+                <span style="color: #0f172a; font-weight: 600;">400 MAD</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 60px 1fr 90px 80px; padding: 8px 12px; align-items: center;">
+                <span style="color: #64748b; font-weight: 500;">18h00</span>
+                <span><span style="font-weight: 600; color: #0f172a;">Groupe Bac SVT · 6 élèves</span></span>
+                <span style="color: #64748b;">Salle 3</span>
+                <span style="color: #0f172a; font-weight: 600;">1 200 MAD</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LOGO STRIP ============ -->
+<section style="padding: 40px 32px 56px; max-width: 1200px; margin: 0 auto; border-top: 1px solid #f1f5f9;">
+  <div style="text-align: center; font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: #94a3b8; font-weight: 600;">Ils nous font confiance</div>
+  <div style="margin-top: 28px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 32px; align-items: center; filter: grayscale(1); opacity: .7;">
+    <div style="text-align: center; font-family: 'Inter'; font-weight: 800; font-size: 17px; letter-spacing: -.02em; color: #334155;">Al&nbsp;Massar</div>
+    <div style="text-align: center; font-family: serif; font-weight: 700; font-size: 17px; color: #334155; font-style: italic;">Éduq'Plus</div>
+    <div style="text-align: center; font-weight: 700; font-size: 15px; color: #334155;">◆ CENTRE ATLAS</div>
+    <div style="text-align: center; font-weight: 800; font-size: 17px; letter-spacing: .08em; color: #334155;">MENARA·EDU</div>
+    <div style="text-align: center; font-family: 'JetBrains Mono'; font-weight: 600; font-size: 15px; color: #334155;">&lt;codeur/&gt;</div>
+    <div style="text-align: center; font-weight: 700; font-size: 17px; color: #334155;">✦ Cap Réussite</div>
+  </div>
+</section>
+
+<!-- ============ PROBLEM ============ -->
+<section style="background: #f8fafc; border-top: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; padding: 88px 32px;">
+  <div style="max-width: 1200px; margin: 0 auto;">
+    <div style="max-width: 720px;">
+      <div style="font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: #0F766E; font-weight: 700;">Le problème</div>
+      <h2 style="margin: 10px 0 14px; font-size: 40px; letter-spacing: -.02em; font-weight: 800; line-height: 1.15;">Vous reconnaissez-vous ?</h2>
+      <p style="margin: 0; color: #475569; font-size: 17px;">Ce que nous avons entendu dans 40 centres à Casablanca, Rabat et Fès.</p>
+    </div>
+    <div style="margin-top: 44px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+      <div class="hover-lift" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 26px;">
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #fef2f2; display: inline-flex; align-items: center; justify-content: center; color: #ef4444;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        </div>
+        <h3 style="margin: 16px 0 8px; font-size: 19px; font-weight: 700; letter-spacing: -.01em;">Excel qui plante en pleine rentrée</h3>
+        <p style="margin: 0; color: #475569; font-size: 15px;">Cinq onglets, trois formules cassées, un fichier perdu. Le fichier maître n'a plus qu'un seul maître : la panique.</p>
+      </div>
+      <div class="hover-lift" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 26px;">
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #fffbeb; display: inline-flex; align-items: center; justify-content: center; color: #d97706;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M2 10h20"></path></svg>
+        </div>
+        <h3 style="margin: 16px 0 8px; font-size: 19px; font-weight: 700; letter-spacing: -.01em;">Factures oubliées, impayés qui s'accumulent</h3>
+        <p style="margin: 0; color: #475569; font-size: 15px;">Vous savez qui doit, mais pas depuis quand. Chaque mois recommence sur un carnet différent.</p>
+      </div>
+      <div class="hover-lift" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 26px;">
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #eff6ff; display: inline-flex; align-items: center; justify-content: center; color: #2563eb;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+        </div>
+        <h3 style="margin: 16px 0 8px; font-size: 19px; font-weight: 700; letter-spacing: -.01em;">Deux profs dans la même salle</h3>
+        <p style="margin: 0; color: #475569; font-size: 15px;">Il est 16h55, deux enseignants attendent devant la porte. Personne n'avait vu le conflit sur le planning papier.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section id="features" style="padding: 96px 32px; max-width: 1200px; margin: 0 auto;">
+  <div style="text-align: center; max-width: 720px; margin: 0 auto 64px;">
+    <div style="font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: #0F766E; font-weight: 700;">Fonctionnalités</div>
+    <h2 style="margin: 10px 0 14px; font-size: 42px; letter-spacing: -.02em; font-weight: 800; line-height: 1.12;">Pensé pour un vrai centre, pas pour un tableur.</h2>
+    <p style="margin: 0; color: #475569; font-size: 18px;">Six modules qui remplacent, un à un, les feuilles Excel que vous traînez depuis des années.</p>
+  </div>
+
+  <!-- Feature 1: Salles -->
+  <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 64px; align-items: center; margin-bottom: 96px;">
+    <div>
+      <!-- rooms mockup -->
+      <div style="border-radius: 14px; overflow: hidden; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 20px 40px -20px rgba(15,23,42,.14);">
+        <div style="display: flex; align-items: center; gap: 7px; padding: 9px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></span></div>
+        <div style="padding: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <div style="font-size: 15px; font-weight: 700;">Salles & équipements</div>
+            <div style="font-size: 12px; padding: 4px 10px; border-radius: 6px; background: #0F766E; color: #fff; font-weight: 600;">+ Nouvelle salle</div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+            <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px;"><div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-weight: 700; font-size: 14px;">Salle 1 · Sciences</span><span style="font-size: 10px; color: #10b981; font-weight: 600;">● Libre</span></div><div style="font-size: 12px; color: #64748b; margin-top: 4px;">12 places · Tableau blanc · Vidéoprojecteur</div></div>
+            <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px;"><div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-weight: 700; font-size: 14px;">Salle 2 · Maths</span><span style="font-size: 10px; color: #ef4444; font-weight: 600;">● Occupée</span></div><div style="font-size: 12px; color: #64748b; margin-top: 4px;">8 places · Tableau craie</div></div>
+            <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px;"><div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-weight: 700; font-size: 14px;">Salle 3 · Grande</span><span style="font-size: 10px; color: #10b981; font-weight: 600;">● Libre</span></div><div style="font-size: 12px; color: #64748b; margin-top: 4px;">20 places · Climatisation</div></div>
+            <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px;"><div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-weight: 700; font-size: 14px;">Salle 4 · Langues</span><span style="font-size: 10px; color: #f59e0b; font-weight: 600;">● Bientôt libre</span></div><div style="font-size: 12px; color: #64748b; margin-top: 4px;">10 places · Enceintes</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size: 12.5px; font-weight: 700; color: #0F766E; letter-spacing: .06em; text-transform: uppercase;">01 — Salles</div>
+      <h3 style="margin: 10px 0 14px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15;">Chaque salle, avec ses équipements et sa disponibilité.</h3>
+      <ul style="margin: 0; padding: 0; list-style: none; color: #334155; font-size: 15.5px; display: flex; flex-direction: column; gap: 10px;">
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Capacité, équipements et notes par salle.</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Voyants temps réel : libre, occupée, bientôt libre.</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Historique d'utilisation pour repérer les salles sous-exploitées.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Feature 2: Planning (right image) -->
+  <div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 64px; align-items: center; margin-bottom: 96px;">
+    <div>
+      <div style="font-size: 12.5px; font-weight: 700; color: #0F766E; letter-spacing: .06em; text-transform: uppercase;">02 — Planning</div>
+      <h3 style="margin: 10px 0 14px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15;">Un planning hebdomadaire qui détecte les conflits avant vous.</h3>
+      <ul style="margin: 0; padding: 0; list-style: none; color: #334155; font-size: 15.5px; display: flex; flex-direction: column; gap: 10px;">
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Séances récurrentes : créez une fois, elles se répètent toute l'année.</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Détection automatique : deux profs, même salle, même horaire → alerte.</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Vue jour, semaine, mois — impression au format A4.</li>
+      </ul>
+    </div>
+    <div>
+      <!-- planning mockup -->
+      <div style="border-radius: 14px; overflow: hidden; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 20px 40px -20px rgba(15,23,42,.14);">
+        <div style="display: flex; align-items: center; gap: 7px; padding: 9px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></span></div>
+        <div style="padding: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"><div style="font-weight: 700; font-size: 14px;">Semaine du 27 juillet</div><div style="font-size: 11px; color: #64748b;">◀ &nbsp;&nbsp; Lun–Sam &nbsp;&nbsp; ▶</div></div>
+          <div style="display: grid; grid-template-columns: 40px repeat(6, 1fr); gap: 4px; font-size: 10.5px;">
+            <div></div>
+            <div style="text-align: center; color: #64748b; font-weight: 600;">Lun</div><div style="text-align: center; color: #64748b; font-weight: 600;">Mar</div><div style="text-align: center; color: #64748b; font-weight: 600;">Mer</div><div style="text-align: center; color: #64748b; font-weight: 600;">Jeu</div><div style="text-align: center; color: #64748b; font-weight: 600;">Ven</div><div style="text-align: center; color: #64748b; font-weight: 600;">Sam</div>
+            <div style="color: #94a3b8; padding: 2px 0;">15h</div>
+            <div style="background: #ccfbf1; border-left: 3px solid #0F766E; padding: 4px 5px; border-radius: 3px; color: #134e4a; font-weight: 600;">Maths · S2</div>
+            <div></div>
+            <div style="background: #dbeafe; border-left: 3px solid #2563eb; padding: 4px 5px; border-radius: 3px; color: #1e3a8a; font-weight: 600;">Phys · S1</div>
+            <div></div>
+            <div style="background: #ccfbf1; border-left: 3px solid #0F766E; padding: 4px 5px; border-radius: 3px; color: #134e4a; font-weight: 600;">Maths · S2</div>
+            <div></div>
+            <div style="color: #94a3b8; padding: 2px 0;">16h</div>
+            <div></div>
+            <div style="background: #fde68a; border-left: 3px solid #d97706; padding: 4px 5px; border-radius: 3px; color: #78350f; font-weight: 600;">Français S3</div>
+            <div style="background: #fee2e2; border: 1px dashed #ef4444; padding: 4px 5px; border-radius: 3px; color: #991b1b; font-weight: 700;">⚠ Conflit</div>
+            <div style="background: #dbeafe; border-left: 3px solid #2563eb; padding: 4px 5px; border-radius: 3px; color: #1e3a8a; font-weight: 600;">Phys · S1</div>
+            <div></div>
+            <div></div>
+            <div style="color: #94a3b8; padding: 2px 0;">17h</div>
+            <div style="background: #ede9fe; border-left: 3px solid #7c3aed; padding: 4px 5px; border-radius: 3px; color: #4c1d95; font-weight: 600;">Arabe · S4</div>
+            <div style="background: #fde68a; border-left: 3px solid #d97706; padding: 4px 5px; border-radius: 3px; color: #78350f; font-weight: 600;">Français S3</div>
+            <div></div>
+            <div></div>
+            <div style="background: #ede9fe; border-left: 3px solid #7c3aed; padding: 4px 5px; border-radius: 3px; color: #4c1d95; font-weight: 600;">Arabe · S4</div>
+            <div style="background: #ccfbf1; border-left: 3px solid #0F766E; padding: 4px 5px; border-radius: 3px; color: #134e4a; font-weight: 600;">Bac SVT</div>
+            <div style="color: #94a3b8; padding: 2px 0;">18h</div>
+            <div></div>
+            <div style="background: #ccfbf1; border-left: 3px solid #0F766E; padding: 4px 5px; border-radius: 3px; color: #134e4a; font-weight: 600;">Bac SVT</div>
+            <div></div>
+            <div style="background: #dbeafe; border-left: 3px solid #2563eb; padding: 4px 5px; border-radius: 3px; color: #1e3a8a; font-weight: 600;">Phys · S1</div>
+            <div></div>
+            <div style="background: #ccfbf1; border-left: 3px solid #0F766E; padding: 4px 5px; border-radius: 3px; color: #134e4a; font-weight: 600;">Bac SVT</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature 3: Enseignants -->
+  <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 64px; align-items: center; margin-bottom: 96px;">
+    <div>
+      <div style="border-radius: 14px; overflow: hidden; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 20px 40px -20px rgba(15,23,42,.14);">
+        <div style="display: flex; align-items: center; gap: 7px; padding: 9px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></span></div>
+        <div style="padding: 20px;">
+          <div style="display: flex; gap: 16px; align-items: flex-start;">
+            <div style="width: 68px; height: 68px; border-radius: 50%; background: linear-gradient(135deg,#0F766E,#14b8a6); color:#fff; display:flex; align-items:center; justify-content:center; font-weight: 700; font-size: 22px;">AH</div>
+            <div style="flex: 1;">
+              <div style="font-size: 17px; font-weight: 700;">Amine Hassani</div>
+              <div style="font-size: 13px; color: #64748b;">Enseignant · Mathématiques, Physique-Chimie</div>
+              <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; font-size: 11.5px;">
+                <span style="padding: 3px 8px; background: #f0fdfa; color: #0F766E; border-radius: 999px; font-weight: 600;">Tronc commun</span>
+                <span style="padding: 3px 8px; background: #f0fdfa; color: #0F766E; border-radius: 999px; font-weight: 600;">Bac Sciences</span>
+                <span style="padding: 3px 8px; background: #eff6ff; color: #2563eb; border-radius: 999px; font-weight: 600;">Bac Éco</span>
+              </div>
+            </div>
+            <div style="text-align: right;"><div style="font-size: 20px; font-weight: 800; color: #0f172a;">180 <span style="font-size: 11px; color:#64748b;">MAD/h</span></div><div style="font-size: 11px; color: #64748b;">Taux horaire</div></div>
+          </div>
+          <div style="margin-top: 16px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .06em;">Disponibilités</div>
+            <div style="margin-top: 8px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; font-size: 10.5px; text-align: center;">
+              <div><div style="color:#64748b; margin-bottom: 3px;">L</div><div style="background:#0F766E; color:#fff; padding: 6px 0; border-radius: 4px;">15–20h</div></div>
+              <div><div style="color:#64748b; margin-bottom: 3px;">M</div><div style="background:#0F766E; color:#fff; padding: 6px 0; border-radius: 4px;">15–20h</div></div>
+              <div><div style="color:#64748b; margin-bottom: 3px;">M</div><div style="background:#f1f5f9; color:#94a3b8; padding: 6px 0; border-radius: 4px;">—</div></div>
+              <div><div style="color:#64748b; margin-bottom: 3px;">J</div><div style="background:#0F766E; color:#fff; padding: 6px 0; border-radius: 4px;">15–20h</div></div>
+              <div><div style="color:#64748b; margin-bottom: 3px;">V</div><div style="background:#0F766E; color:#fff; padding: 6px 0; border-radius: 4px;">15–19h</div></div>
+              <div><div style="color:#64748b; margin-bottom: 3px;">S</div><div style="background:#0F766E; color:#fff; padding: 6px 0; border-radius: 4px;">9–17h</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size: 12.5px; font-weight: 700; color: #0F766E; letter-spacing: .06em; text-transform: uppercase;">03 — Enseignants</div>
+      <h3 style="margin: 10px 0 14px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15;">Fiches profs avec disponibilités et taux horaires.</h3>
+      <ul style="margin: 0; padding: 0; list-style: none; color: #334155; font-size: 15.5px; display: flex; flex-direction: column; gap: 10px;">
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Matières, niveaux et créneaux disponibles par enseignant.</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Taux horaire fixe ou variable selon niveau.</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Calcul automatique des heures et de la rémunération mensuelle.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Feature 4: Élèves -->
+  <div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 64px; align-items: center; margin-bottom: 96px;">
+    <div>
+      <div style="font-size: 12.5px; font-weight: 700; color: #0F766E; letter-spacing: .06em; text-transform: uppercase;">04 — Élèves</div>
+      <h3 style="margin: 10px 0 14px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15;">Fiches élèves avec présences et suivi de progression.</h3>
+      <ul style="margin: 0; padding: 0; list-style: none; color: #334155; font-size: 15.5px; display: flex; flex-direction: column; gap: 10px;">
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Coordonnées parents, niveau scolaire, matières suivies.</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Présences et absences pointées en un clic.</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Notes internes partagées avec les enseignants concernés.</li>
+      </ul>
+    </div>
+    <div>
+      <div style="border-radius: 14px; overflow: hidden; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 20px 40px -20px rgba(15,23,42,.14);">
+        <div style="display: flex; align-items: center; gap: 7px; padding: 9px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></span></div>
+        <div style="padding: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"><div style="font-weight: 700; font-size: 14px;">Élèves · 147 inscrits</div><div style="font-size: 11px; padding: 4px 8px; background: #f0fdfa; border-radius: 6px; color: #0F766E; font-weight: 600;">🔍 Rechercher</div></div>
+          <div style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; font-size: 12.5px;">
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr .7fr .7fr; padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: 600; font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .04em;">
+              <span>Élève</span><span>Niveau</span><span>Présence</span><span>Solde</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr .7fr .7fr; padding: 9px 12px; border-bottom: 1px solid #f1f5f9; align-items: center;">
+              <span style="font-weight: 600;">Youssef El Amrani</span><span style="color:#64748b;">2ème Bac Sc.</span><span style="color:#10b981; font-weight:600;">96%</span><span style="color:#10b981; font-weight:600;">À jour</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr .7fr .7fr; padding: 9px 12px; border-bottom: 1px solid #f1f5f9; align-items: center;">
+              <span style="font-weight: 600;">Fatima Zahra Bennani</span><span style="color:#64748b;">1ère Bac Sc.</span><span style="color:#10b981; font-weight:600;">100%</span><span style="color:#10b981; font-weight:600;">À jour</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr .7fr .7fr; padding: 9px 12px; border-bottom: 1px solid #f1f5f9; align-items: center;">
+              <span style="font-weight: 600;">Mehdi Chraibi</span><span style="color:#64748b;">Tronc commun</span><span style="color:#f59e0b; font-weight:600;">78%</span><span style="color:#ef4444; font-weight:600;">−350 MAD</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr .7fr .7fr; padding: 9px 12px; border-bottom: 1px solid #f1f5f9; align-items: center;">
+              <span style="font-weight: 600;">Salma Ouazzani</span><span style="color:#64748b;">2ème Bac Éco</span><span style="color:#10b981; font-weight:600;">92%</span><span style="color:#10b981; font-weight:600;">À jour</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr .7fr .7fr; padding: 9px 12px; align-items: center;">
+              <span style="font-weight: 600;">Anas Berrada</span><span style="color:#64748b;">3ème collège</span><span style="color:#10b981; font-weight:600;">88%</span><span style="color:#10b981; font-weight:600;">À jour</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature 5: Facturation -->
+  <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 64px; align-items: center; margin-bottom: 96px;">
+    <div>
+      <div style="border-radius: 14px; overflow: hidden; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 20px 40px -20px rgba(15,23,42,.14);">
+        <div style="display: flex; align-items: center; gap: 7px; padding: 9px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></span></div>
+        <div style="padding: 22px 24px; background: #ffffff;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <div style="font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .08em; font-weight: 600;">Facture</div>
+              <div style="font-size: 18px; font-weight: 800; margin-top: 3px;">N° 2026-07-042</div>
+            </div>
+            <div style="text-align: right; font-size: 12px; color: #64748b;">Émise le 27/07/2026<br>Échéance 05/08/2026</div>
+          </div>
+          <div style="margin-top: 14px; padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 12.5px;">
+            <div style="color: #64748b;">Facturé à</div>
+            <div style="font-weight: 700; margin-top: 2px;">M. Rachid El Amrani</div>
+            <div>Parent de Youssef El Amrani · 2ème Bac Sc.</div>
+          </div>
+          <div style="margin-top: 14px; font-size: 12.5px;">
+            <div style="display: grid; grid-template-columns: 1fr 60px 90px; padding: 7px 0; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;"><span>Prestation</span><span style="text-align:right;">Heures</span><span style="text-align:right;">Total</span></div>
+            <div style="display: grid; grid-template-columns: 1fr 60px 90px; padding: 8px 0; border-bottom: 1px solid #f1f5f9;"><span>Mathématiques · juillet</span><span style="text-align:right;">8h</span><span style="text-align:right; font-weight: 600;">1 600 MAD</span></div>
+            <div style="display: grid; grid-template-columns: 1fr 60px 90px; padding: 8px 0; border-bottom: 1px solid #f1f5f9;"><span>Physique-Chimie · juillet</span><span style="text-align:right;">6h</span><span style="text-align:right; font-weight: 600;">1 200 MAD</span></div>
+            <div style="display: grid; grid-template-columns: 1fr 60px 90px; padding: 12px 0 4px; align-items: center;"><span style="font-weight: 700;">Total TTC</span><span></span><span style="text-align:right; font-weight: 800; font-size: 17px; color: #0F766E;">2 800 MAD</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size: 12.5px; font-weight: 700; color: #0F766E; letter-spacing: .06em; text-transform: uppercase;">05 — Facturation</div>
+      <h3 style="margin: 10px 0 14px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15;">Facturation mensuelle automatique, en dirhams.</h3>
+      <ul style="margin: 0; padding: 0; list-style: none; color: #334155; font-size: 15.5px; display: flex; flex-direction: column; gap: 10px;">
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Génération en un clic pour toutes les familles, à la date de votre choix.</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Suivi des paiements, relances automatiques par WhatsApp ou email.</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>PDF prêts à imprimer, conformes à la loi 09-08.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Feature 6: Bilingue -->
+  <div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 64px; align-items: center;">
+    <div>
+      <div style="font-size: 12.5px; font-weight: 700; color: #0F766E; letter-spacing: .06em; text-transform: uppercase;">06 — Bilingue</div>
+      <h3 style="margin: 10px 0 14px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15;">Interface FR/AR avec RTL natif — pas un plâtre.</h3>
+      <ul style="margin: 0; padding: 0; list-style: none; color: #334155; font-size: 15.5px; display: flex; flex-direction: column; gap: 10px;">
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Basculement immédiat, à tout moment, dans toute l'application.</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Impression des factures et plannings en français ou en arabe.</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E; margin-top: 2px;">✓</span>Typographie soignée avec Noto Sans Arabic.</li>
+      </ul>
+    </div>
+    <div>
+      <!-- side by side FR/AR mock -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div style="border-radius: 12px; overflow: hidden; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 20px 40px -20px rgba(15,23,42,.14);">
+          <div style="display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span><span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;"></span><span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span><span style="margin-left: auto; font-size: 10px; color: #64748b; font-weight: 600;">FR</span></div>
+          <div style="padding: 14px;">
+            <div style="font-size: 13px; font-weight: 700;">Élèves</div>
+            <div style="font-size: 11px; color: #64748b; margin-bottom: 10px;">147 inscrits</div>
+            <div style="font-size: 11.5px; display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; justify-content: space-between; padding: 6px 8px; background: #f8fafc; border-radius: 6px;"><span style="font-weight: 600;">Youssef El Amrani</span><span style="color: #0F766E; font-weight: 600;">Bac Sc.</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 8px; background: #f8fafc; border-radius: 6px;"><span style="font-weight: 600;">Fatima Bennani</span><span style="color: #0F766E; font-weight: 600;">Bac Sc.</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 8px; background: #f8fafc; border-radius: 6px;"><span style="font-weight: 600;">Mehdi Chraibi</span><span style="color: #0F766E; font-weight: 600;">TC</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="ar" dir="rtl" style="border-radius: 12px; overflow: hidden; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 20px 40px -20px rgba(15,23,42,.14);">
+          <div style="display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span><span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;"></span><span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span><span style="margin-right: auto; font-size: 10px; color: #64748b; font-weight: 600;">ع</span></div>
+          <div style="padding: 14px;">
+            <div style="font-size: 13px; font-weight: 700;">التلاميذ</div>
+            <div style="font-size: 11px; color: #64748b; margin-bottom: 10px;">147 مسجّل</div>
+            <div style="font-size: 11.5px; display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; justify-content: space-between; padding: 6px 8px; background: #f8fafc; border-radius: 6px;"><span style="font-weight: 600;">يوسف العمراني</span><span style="color: #0F766E; font-weight: 600;">باك علوم</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 8px; background: #f8fafc; border-radius: 6px;"><span style="font-weight: 600;">فاطمة الزهراء بناني</span><span style="color: #0F766E; font-weight: 600;">باك علوم</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 6px 8px; background: #f8fafc; border-radius: 6px;"><span style="font-weight: 600;">مهدي الشرايبي</span><span style="color: #0F766E; font-weight: 600;">ج مشترك</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section style="background: #f8fafc; border-top: 1px solid #f1f5f9; padding: 88px 32px;">
+  <div style="max-width: 1200px; margin: 0 auto;">
+    <div style="text-align: center; max-width: 720px; margin: 0 auto 48px;">
+      <div style="font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: #0F766E; font-weight: 700;">Comment ça marche</div>
+      <h2 style="margin: 10px 0 14px; font-size: 40px; letter-spacing: -.02em; font-weight: 800; line-height: 1.12;">De l'installation au premier planning, en moins de 10 minutes.</h2>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+      <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px; position: relative;">
+        <div style="font-size: 56px; font-weight: 800; color: #ccfbf1; line-height: 1; letter-spacing: -.03em;">01</div>
+        <h3 style="margin: 12px 0 8px; font-size: 20px; font-weight: 700;">Installer</h3>
+        <p style="margin: 0; color: #475569; font-size: 15px;">Téléchargez le programme (Windows ou Mac) et lancez-le. Aucun compte à créer, aucune connexion requise. <strong style="color: #0f172a;">1 minute.</strong></p>
+      </div>
+      <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px;">
+        <div style="font-size: 56px; font-weight: 800; color: #ccfbf1; line-height: 1; letter-spacing: -.03em;">02</div>
+        <h3 style="margin: 12px 0 8px; font-size: 20px; font-weight: 700;">Configurer votre centre</h3>
+        <p style="margin: 0; color: #475569; font-size: 15px;">Ajoutez vos salles, vos enseignants, importez vos élèves depuis Excel. Un assistant vous guide étape par étape. <strong style="color: #0f172a;">5 minutes.</strong></p>
+      </div>
+      <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px;">
+        <div style="font-size: 56px; font-weight: 800; color: #ccfbf1; line-height: 1; letter-spacing: -.03em;">03</div>
+        <h3 style="margin: 12px 0 8px; font-size: 20px; font-weight: 700;">Gérer au quotidien</h3>
+        <p style="margin: 0; color: #475569; font-size: 15px;">Planning, présences, factures — chaque tâche à la bonne place. Vos données restent sur votre ordinateur. <strong style="color: #0f172a;">Chaque jour.</strong></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRICING ============ -->
+<section id="pricing" style="padding: 96px 32px; max-width: 1200px; margin: 0 auto;">
+  <div style="text-align: center; max-width: 720px; margin: 0 auto 56px;">
+    <div style="font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: #0F766E; font-weight: 700;">Tarifs</div>
+    <h2 style="margin: 10px 0 14px; font-size: 42px; letter-spacing: -.02em; font-weight: 800; line-height: 1.12;">Un tarif clair, payé une fois par an.</h2>
+    <p style="margin: 0; color: #475569; font-size: 18px;">Tous les prix sont en dirhams marocains, TVA incluse. Paiement annuel unique.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1.06fr 1fr; gap: 20px; align-items: stretch;">
+    <!-- Essentiel -->
+    <div class="hover-lift" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px 28px; display: flex; flex-direction: column;">
+      <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #64748b;">Essentiel</div>
+      <div style="font-size: 13.5px; color: #64748b; margin-top: 4px;">Pour petits centres qui démarrent.</div>
+      <div style="margin-top: 22px; display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-size: 42px; font-weight: 800; letter-spacing: -.02em;">1 490</span>
+        <span style="font-size: 14px; color: #64748b; font-weight: 600;">MAD/an</span>
+      </div>
+      <div style="font-size: 12.5px; color: #94a3b8;">≈ 124 MAD/mois équivalent</div>
+      <button class="btn-ghost" style="margin-top: 22px; padding: 12px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; font-weight: 600; font-size: 14.5px;">Commencer l'essai</button>
+      <ul style="margin: 22px 0 0; padding: 0; list-style: none; font-size: 14.5px; color: #334155; display: flex; flex-direction: column; gap: 10px;">
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E;">✓</span>Jusqu'à 50 élèves</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E;">✓</span>2 enseignants</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E;">✓</span>1 salle</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E;">✓</span>Planning et facturation basique</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E;">✓</span>Support par email</li>
+      </ul>
+    </div>
+
+    <!-- Pro (highlighted) -->
+    <div style="background: #0f172a; color: #fff; border-radius: 16px; padding: 34px 30px; display: flex; flex-direction: column; position: relative; box-shadow: 0 30px 60px -30px rgba(15,118,110,.5); transform: scale(1.02);">
+      <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 5px 14px; background: #0F766E; color: #fff; font-size: 12px; font-weight: 700; border-radius: 999px; letter-spacing: .04em;">RECOMMANDÉ</div>
+      <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #5eead4;">Pro</div>
+      <div style="font-size: 13.5px; color: #94a3b8; margin-top: 4px;">Pour la plupart des centres, la formule la plus complète.</div>
+      <div style="margin-top: 22px; display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-size: 46px; font-weight: 800; letter-spacing: -.02em;">3 490</span>
+        <span style="font-size: 14px; color: #94a3b8; font-weight: 600;">MAD/an</span>
+      </div>
+      <div style="font-size: 12.5px; color: #64748b;">≈ 291 MAD/mois équivalent</div>
+      <button class="cta-white" style="margin-top: 22px; padding: 13px; border-radius: 10px; background: #ffffff; color: #0f172a; font-weight: 700; font-size: 14.5px;">Commencer l'essai</button>
+      <ul style="margin: 22px 0 0; padding: 0; list-style: none; font-size: 14.5px; color: #e2e8f0; display: flex; flex-direction: column; gap: 10px;">
+        <li style="display: flex; gap: 10px;"><span style="color: #5eead4;">✓</span>Jusqu'à 200 élèves</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #5eead4;">✓</span>10 enseignants</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #5eead4;">✓</span>5 salles</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #5eead4;">✓</span>Facturation avancée + relances</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #5eead4;">✓</span>Détection de conflits de planning</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #5eead4;">✓</span>Support prioritaire</li>
+      </ul>
+    </div>
+
+    <!-- Premium -->
+    <div class="hover-lift" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px 28px; display: flex; flex-direction: column;">
+      <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #64748b;">Premium</div>
+      <div style="font-size: 13.5px; color: #64748b; margin-top: 4px;">Pour centres établis avec plusieurs enseignants.</div>
+      <div style="margin-top: 22px; display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-size: 42px; font-weight: 800; letter-spacing: -.02em;">6 490</span>
+        <span style="font-size: 14px; color: #64748b; font-weight: 600;">MAD/an</span>
+      </div>
+      <div style="font-size: 12.5px; color: #94a3b8;">≈ 541 MAD/mois équivalent</div>
+      <button class="btn-ghost" style="margin-top: 22px; padding: 12px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; font-weight: 600; font-size: 14.5px;">Nous contacter</button>
+      <ul style="margin: 22px 0 0; padding: 0; list-style: none; font-size: 14.5px; color: #334155; display: flex; flex-direction: column; gap: 10px;">
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E;">✓</span>Élèves illimités</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E;">✓</span>Enseignants illimités</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E;">✓</span>Salles illimitées</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E;">✓</span>Support prioritaire téléphonique</li>
+        <li style="display: flex; gap: 10px;"><span style="color: #0F766E;">✓</span>Formation sur site incluse</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Comparison -->
+  <div style="margin-top: 56px; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;">
+    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 14px 22px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #64748b;">
+      <span>Comparatif détaillé</span><span style="text-align: center;">Essentiel</span><span style="text-align: center; color: #0F766E;">Pro</span><span style="text-align: center;">Premium</span>
+    </div>
+    <div style="font-size: 14.5px;">
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 14px 22px; border-bottom: 1px solid #f1f5f9; align-items: center;"><span>Élèves</span><span style="text-align: center; color: #334155;">50</span><span style="text-align: center; color: #334155; font-weight: 600;">200</span><span style="text-align: center; color: #334155;">Illimités</span></div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 14px 22px; border-bottom: 1px solid #f1f5f9; align-items: center;"><span>Enseignants</span><span style="text-align: center; color: #334155;">2</span><span style="text-align: center; color: #334155; font-weight: 600;">10</span><span style="text-align: center; color: #334155;">Illimités</span></div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 14px 22px; border-bottom: 1px solid #f1f5f9; align-items: center;"><span>Salles</span><span style="text-align: center; color: #334155;">1</span><span style="text-align: center; color: #334155; font-weight: 600;">5</span><span style="text-align: center; color: #334155;">Illimitées</span></div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 14px 22px; border-bottom: 1px solid #f1f5f9; align-items: center;"><span>Planning avec détection de conflits</span><span style="text-align: center; color: #cbd5e1;">—</span><span style="text-align: center; color: #0F766E; font-weight: 700;">✓</span><span style="text-align: center; color: #0F766E; font-weight: 700;">✓</span></div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 14px 22px; border-bottom: 1px solid #f1f5f9; align-items: center;"><span>Relances automatiques WhatsApp/email</span><span style="text-align: center; color: #cbd5e1;">—</span><span style="text-align: center; color: #0F766E; font-weight: 700;">✓</span><span style="text-align: center; color: #0F766E; font-weight: 700;">✓</span></div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 14px 22px; border-bottom: 1px solid #f1f5f9; align-items: center;"><span>Support prioritaire téléphonique</span><span style="text-align: center; color: #cbd5e1;">—</span><span style="text-align: center; color: #cbd5e1;">—</span><span style="text-align: center; color: #0F766E; font-weight: 700;">✓</span></div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 14px 22px; align-items: center;"><span>Formation sur site</span><span style="text-align: center; color: #cbd5e1;">—</span><span style="text-align: center; color: #cbd5e1;">—</span><span style="text-align: center; color: #0F766E; font-weight: 700;">✓</span></div>
+    </div>
+  </div>
+
+  <div style="margin-top: 20px; text-align: center; font-size: 13px; color: #64748b;">Paiement annuel · Facturation en dirhams · TVA incluse</div>
+</section>
+
+<!-- ============ PROGRAMME FONDATEUR ============ -->
+<section id="fondateur" style="padding: 96px 32px; background: linear-gradient(180deg, #0f172a 0%, #134e4a 100%); color: #ffffff;">
+  <div style="max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1.05fr 1fr; gap: 64px; align-items: start;">
+    <div>
+      <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(94, 234, 212, .1); border: 1px solid rgba(94, 234, 212, .25); border-radius: 999px; font-size: 12.5px; font-weight: 600; color: #5eead4;">
+        ★ Inscriptions ouvertes · 20 places
+      </div>
+      <h2 style="margin: 20px 0 18px; font-size: 42px; letter-spacing: -.02em; font-weight: 800; line-height: 1.12;">Programme Fondateur</h2>
+      <p style="margin: 0 0 18px; color: #cbd5e1; font-size: 18px; line-height: 1.6;">Vingt centres partenaires soigneusement sélectionnés bénéficient d'un accompagnement privilégié d'un an — sessions de travail directes avec l'équipe produit, formation approfondie, et influence directe sur la feuille de route — en échange de leurs retours honnêtes et détaillés.</p>
+      <p style="margin: 0; color: #94a3b8; font-size: 15px;">Places limitées. Sélection sur dossier. Réponse sous 5 jours ouvrés.</p>
+      <div style="margin-top: 28px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;">
+        <div><div style="font-size: 26px; font-weight: 800; color: #5eead4;">20</div><div style="font-size: 12.5px; color: #94a3b8;">places disponibles</div></div>
+        <div><div style="font-size: 26px; font-weight: 800; color: #5eead4;">12 mois</div><div style="font-size: 12.5px; color: #94a3b8;">d'accompagnement</div></div>
+        <div><div style="font-size: 26px; font-weight: 800; color: #5eead4;">1:1</div><div style="font-size: 12.5px; color: #94a3b8;">avec le fondateur</div></div>
+      </div>
+    </div>
+    <form style="background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 28px;">
+      <div style="font-size: 17px; font-weight: 700; margin-bottom: 4px;">Postuler au programme</div>
+      <div style="font-size: 13px; color: #94a3b8; margin-bottom: 20px;">Toutes les candidatures sont lues personnellement.</div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px;">Nom du centre</label>
+          <input type="text" placeholder="Centre Al Massar" style="width: 100%; padding: 10px 12px; background: rgba(15,23,42,.5); border: 1px solid rgba(255,255,255,.12); border-radius: 8px; color: #fff; font-size: 14px;">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px;">Ville</label>
+            <input type="text" placeholder="Casablanca" style="width: 100%; padding: 10px 12px; background: rgba(15,23,42,.5); border: 1px solid rgba(255,255,255,.12); border-radius: 8px; color: #fff; font-size: 14px;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px;">Élèves actuels</label>
+            <input type="text" placeholder="≈ 120" style="width: 100%; padding: 10px 12px; background: rgba(15,23,42,.5); border: 1px solid rgba(255,255,255,.12); border-radius: 8px; color: #fff; font-size: 14px;">
+          </div>
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px;">Email</label>
+          <input type="email" placeholder="karim@almassar.ma" style="width: 100%; padding: 10px 12px; background: rgba(15,23,42,.5); border: 1px solid rgba(255,255,255,.12); border-radius: 8px; color: #fff; font-size: 14px;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px;">Téléphone</label>
+          <input type="tel" placeholder="+212 6 12 34 56 78" style="width: 100%; padding: 10px 12px; background: rgba(15,23,42,.5); border: 1px solid rgba(255,255,255,.12); border-radius: 8px; color: #fff; font-size: 14px;">
+        </div>
+        <button type="button" style="margin-top: 6px; padding: 13px; background: #0F766E; color: #fff; border-radius: 10px; font-weight: 700; font-size: 15px;">Postuler</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- ============ TESTIMONIALS ============ -->
+<section style="padding: 96px 32px; max-width: 1200px; margin: 0 auto;">
+  <div style="text-align: center; max-width: 720px; margin: 0 auto 56px;">
+    <div style="font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: #0F766E; font-weight: 700;">Témoignages</div>
+    <h2 style="margin: 10px 0 14px; font-size: 40px; letter-spacing: -.02em; font-weight: 800; line-height: 1.12;">Ce qu'en disent les directeurs.</h2>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;">
+    <div class="hover-lift" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px;">
+      <div style="color: #f59e0b; font-size: 15px; letter-spacing: 2px;">★★★★★</div>
+      <blockquote style="margin: 14px 0 22px; font-size: 17px; line-height: 1.55; color: #0f172a; font-weight: 500;">"Avant, je passais mes dimanches sur Excel. Maintenant, j'ai retrouvé mes week-ends."</blockquote>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg,#0F766E,#14b8a6); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700;">KA</div>
+        <div><div style="font-weight: 700; font-size: 14.5px;">Karim Alaoui</div><div style="font-size: 13px; color: #64748b;">Directeur · Centre Al Massar · Casablanca</div></div>
+      </div>
+    </div>
+    <div class="hover-lift" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px;">
+      <div style="color: #f59e0b; font-size: 15px; letter-spacing: 2px;">★★★★★</div>
+      <blockquote style="margin: 14px 0 22px; font-size: 17px; line-height: 1.55; color: #0f172a; font-weight: 500;">"Les factures sortent en un clic, en dirhams, avec les bons noms. C'est la première fois qu'on ne s'engueule plus avec les parents à la fin du mois."</blockquote>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg,#7c3aed,#a78bfa); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700;">NB</div>
+        <div><div style="font-weight: 700; font-size: 14.5px;">Nadia Benjelloun</div><div style="font-size: 13px; color: #64748b;">Directrice · Éduq'Plus · Rabat</div></div>
+      </div>
+    </div>
+    <div class="hover-lift" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px;">
+      <div style="color: #f59e0b; font-size: 15px; letter-spacing: 2px;">★★★★★</div>
+      <blockquote style="margin: 14px 0 22px; font-size: 17px; line-height: 1.55; color: #0f172a; font-weight: 500;">"Mon secrétariat parle arabe, moi en français, les deux versions se synchronisent. On travaille enfin sur le même outil."</blockquote>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg,#d97706,#f59e0b); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700;">HT</div>
+        <div><div style="font-weight: 700; font-size: 14.5px;">Hicham Tazi</div><div style="font-size: 13px; color: #64748b;">Fondateur · Centre Atlas · Fès</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq" style="background: #f8fafc; border-top: 1px solid #f1f5f9; padding: 96px 32px;">
+  <div style="max-width: 820px; margin: 0 auto;">
+    <div style="text-align: center; margin-bottom: 48px;">
+      <div style="font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: #0F766E; font-weight: 700;">FAQ</div>
+      <h2 style="margin: 10px 0 14px; font-size: 40px; letter-spacing: -.02em; font-weight: 800; line-height: 1.12;">Questions fréquentes</h2>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <details style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px;" open>
+        <summary style="display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 16px;">L'application fonctionne-t-elle sans internet ? <span class="faq-chev" style="color: #0F766E;">▾</span></summary>
+        <div style="margin-top: 12px; color: #475569; font-size: 15px;">Oui. Centre Soutien est une application de bureau qui fonctionne 100% hors ligne. Toutes vos données sont stockées localement sur votre ordinateur. Internet n'est requis que pour les mises à jour et le support.</div>
+      </details>
+      <details style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px;">
+        <summary style="display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 16px;">Où sont stockées mes données ? <span class="faq-chev" style="color: #0F766E;">▾</span></summary>
+        <div style="margin-top: 12px; color: #475569; font-size: 15px;">Sur votre ordinateur, dans une base de données chiffrée. Rien n'est envoyé sur nos serveurs. Vous êtes seul propriétaire de vos données, conformément à la loi 09-08.</div>
+      </details>
+      <details style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px;">
+        <summary style="display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 16px;">Comment se passent les mises à jour ? <span class="faq-chev" style="color: #0F766E;">▾</span></summary>
+        <div style="margin-top: 12px; color: #475569; font-size: 15px;">L'application vérifie discrètement les nouvelles versions et vous propose d'installer les correctifs à un moment qui vous convient. Aucune interruption pendant une séance.</div>
+      </details>
+      <details style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px;">
+        <summary style="display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 16px;">Puis-je gérer plusieurs centres ? <span class="faq-chev" style="color: #0F766E;">▾</span></summary>
+        <div style="margin-top: 12px; color: #475569; font-size: 15px;">Oui, à partir de la formule Pro. Chaque centre a son propre espace, ses propres élèves et sa propre facturation, dans une seule installation.</div>
+      </details>
+      <details style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px;">
+        <summary style="display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 16px;">Comment fonctionne le support ? <span class="faq-chev" style="color: #0F766E;">▾</span></summary>
+        <div style="margin-top: 12px; color: #475569; font-size: 15px;">Par email pour Essentiel, prioritaire pour Pro (réponse sous 4h ouvrées), et par téléphone en français ou en darija pour Premium. Une base de connaissances complète est disponible dans l'app.</div>
+      </details>
+      <details style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px;">
+        <summary style="display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 16px;">Puis-je essayer avant d'acheter ? <span class="faq-chev" style="color: #0F766E;">▾</span></summary>
+        <div style="margin-top: 12px; color: #475569; font-size: 15px;">Oui, 14 jours gratuits sans carte bancaire. Toutes les fonctionnalités de la formule Pro sont accessibles pendant l'essai.</div>
+      </details>
+      <details style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px;">
+        <summary style="display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 16px;">Politique de remboursement ? <span class="faq-chev" style="color: #0F766E;">▾</span></summary>
+        <div style="margin-top: 12px; color: #475569; font-size: 15px;">30 jours satisfait ou remboursé, sans justification. Un simple email suffit.</div>
+      </details>
+      <details style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px;">
+        <summary style="display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 16px;">Formation incluse ? <span class="faq-chev" style="color: #0F766E;">▾</span></summary>
+        <div style="margin-top: 12px; color: #475569; font-size: 15px;">Une session de prise en main d'une heure en visioconférence est incluse dans Pro. Premium inclut une formation sur site d'une journée pour votre équipe.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section id="contact" style="padding: 88px 32px; background: #0F766E; color: #ffffff; text-align: center;">
+  <div style="max-width: 900px; margin: 0 auto;">
+    <h2 style="margin: 0 0 14px; font-size: 46px; letter-spacing: -.02em; font-weight: 800; line-height: 1.1;">Prêt à quitter Excel ?</h2>
+    <p style="margin: 0 auto 32px; color: #ccfbf1; font-size: 18px; max-width: 600px;">14 jours d'essai, sans carte bancaire. Vous ne réinstallez plus Excel après.</p>
+    <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+      <button class="cta-white" style="padding: 14px 24px; background: #ffffff; color: #0F766E; border-radius: 10px; font-weight: 700; font-size: 15px; display: inline-flex; align-items: center; gap: 8px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Télécharger
+      </button>
+      <button style="padding: 14px 24px; background: transparent; color: #ffffff; border: 1px solid rgba(255,255,255,.35); border-radius: 10px; font-weight: 600; font-size: 15px;">Planifier une démo →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer style="background: #0f172a; color: #cbd5e1; padding: 64px 32px 28px;">
+  <div style="max-width: 1200px; margin: 0 auto;">
+    <div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr; gap: 40px;">
+      <div>
+        <a href="#" style="display: flex; align-items: center; gap: 10px; color: #fff;">
+          <span style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg,#0F766E,#14b8a6); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 15px;">CS</span>
+          <span style="font-weight: 700; font-size: 17px; color: #fff;">Centre Soutien</span>
+        </a>
+        <p style="margin: 14px 0 0; font-size: 13.5px; color: #94a3b8; max-width: 260px;">Le logiciel de gestion pensé pour les centres de soutien scolaire marocains.</p>
+      </div>
+      <div>
+        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #64748b; font-weight: 700; margin-bottom: 14px;">Produit</div>
+        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;"><a href="#features">Fonctionnalités</a><a href="#pricing">Tarifs</a><a href="#">Téléchargement</a><a href="#">Nouveautés</a></div>
+      </div>
+      <div>
+        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #64748b; font-weight: 700; margin-bottom: 14px;">Ressources</div>
+        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;"><a href="#">Documentation</a><a href="#faq">FAQ</a><a href="#">Blog</a></div>
+      </div>
+      <div>
+        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #64748b; font-weight: 700; margin-bottom: 14px;">Entreprise</div>
+        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;"><a href="#">À propos</a><a href="#">Contact</a><a href="#fondateur">Programme Fondateur</a></div>
+      </div>
+      <div>
+        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #64748b; font-weight: 700; margin-bottom: 14px;">Légal</div>
+        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;"><a href="#">Mentions légales</a><a href="#">CGV</a><a href="#">Confidentialité</a><a href="#">Loi 09-08</a></div>
+      </div>
+    </div>
+    <div style="margin-top: 48px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.08); display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #64748b; flex-wrap: wrap; gap: 12px;">
+      <div>© 2026 Centre Soutien · Fabriqué au Maroc 🇲🇦</div>
+      <div style="display: flex; gap: 12px;">
+        <a href="#" style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgba(255,255,255,.1); display: inline-flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.063 2.063 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452z"/></svg></a>
+        <a href="#" style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgba(255,255,255,.1); display: inline-flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- =====================================================
+     DELIVERABLES: MOBILE + RTL + STYLE GUIDE
+     ===================================================== -->
+<section style="background: #f1f5f9; padding: 80px 32px; border-top: 1px solid #e2e8f0;">
+  <div style="max-width: 1400px; margin: 0 auto;">
+    <div style="text-align: center; margin-bottom: 48px;">
+      <div style="font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: #64748b; font-weight: 700;">Livrables complémentaires</div>
+      <h2 style="margin: 8px 0 6px; font-size: 32px; letter-spacing: -.02em; font-weight: 800;">Mobile 390px · RTL arabe · Guide de style</h2>
+      <p style="margin: 0; color: #64748b; font-size: 15px;">Preuves de mirroring et de responsive pour la revue design.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; justify-items: center;">
+      <!-- MOBILE FR - HERO -->
+      <div>
+        <div style="text-align: center; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 14px;">Mobile 390 · Hero (FR)</div>
+        <div style="width: 390px; background: #ffffff; border-radius: 32px; border: 8px solid #0f172a; box-shadow: 0 30px 60px -20px rgba(15,23,42,.35); overflow: hidden;">
+          <div style="height: 24px; background: #0f172a; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; font-size: 11px; color: #fff; font-weight: 600;"><span>9:41</span><span>●●●●</span></div>
+          <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg,#0F766E,#14b8a6); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:12px;">CS</span><span style="font-weight: 700; font-size: 15px;">Centre Soutien</span></div>
+            <div style="width: 28px; height: 28px; border-radius: 6px; background: #f1f5f9; display: flex; align-items: center; justify-content: center;"><span style="width: 14px; height: 2px; background: #334155; box-shadow: 0 -4px #334155, 0 4px #334155;"></span></div>
+          </div>
+          <div style="padding: 28px 22px 32px;">
+            <div style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; background: #f0fdfa; border: 1px solid #ccfbf1; border-radius: 999px; font-size: 11.5px; font-weight: 600; color: #0F766E;">🇲🇦 Fabriqué au Maroc</div>
+            <h1 style="margin: 14px 0 12px; font-size: 30px; line-height: 1.1; font-weight: 800; letter-spacing: -.02em;">Gérez votre centre <span style="color: #0F766E;">sans Excel, sans stress.</span></h1>
+            <p style="margin: 0 0 20px; font-size: 15px; color: #475569;">Planning, élèves, factures — tout au même endroit, hors ligne.</p>
+            <button class="btn-primary" style="width: 100%; padding: 13px; background: #0F766E; color: #fff; border-radius: 10px; font-weight: 600; font-size: 14.5px; margin-bottom: 8px;">Essai gratuit 14 jours</button>
+            <button class="btn-ghost" style="width: 100%; padding: 12px; background: #fff; border: 1px solid #e2e8f0; color: #0f172a; border-radius: 10px; font-weight: 600; font-size: 14.5px;">▶ Voir la démo</button>
+            <div style="margin-top: 20px; font-size: 12px; color: #64748b; text-align: center;">Sans carte · Installation 5 min · Local</div>
+            <div style="margin-top: 22px; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; background: #fff;">
+              <div style="display: flex; gap: 4px; padding: 6px 10px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #ef4444;"></span><span style="width: 7px; height: 7px; border-radius: 50%; background: #f59e0b;"></span><span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981;"></span></div>
+              <div style="padding: 12px;">
+                <div style="font-size: 12px; font-weight: 700;">147 élèves · 8 profs</div>
+                <div style="font-size: 10.5px; color: #64748b;">48 250 MAD · juillet 2026</div>
+                <div style="margin-top: 8px; font-size: 10.5px; display: flex; justify-content: space-between; padding: 4px 6px; background: #f8fafc; border-radius: 4px;"><span>Youssef El Amrani</span><span style="color: #0F766E; font-weight: 600;">350 MAD</span></div>
+                <div style="margin-top: 4px; font-size: 10.5px; display: flex; justify-content: space-between; padding: 4px 6px; background: #f8fafc; border-radius: 4px;"><span>Fatima Zahra Bennani</span><span style="color: #0F766E; font-weight: 600;">400 MAD</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MOBILE RTL - HERO -->
+      <div>
+        <div style="text-align: center; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 14px;">Mobile 390 · Hero (AR · RTL)</div>
+        <div dir="rtl" class="ar" style="width: 390px; background: #ffffff; border-radius: 32px; border: 8px solid #0f172a; box-shadow: 0 30px 60px -20px rgba(15,23,42,.35); overflow: hidden;">
+          <div style="height: 24px; background: #0f172a; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; font-size: 11px; color: #fff; font-weight: 600;"><span>9:41</span><span>●●●●</span></div>
+          <div style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg,#0F766E,#14b8a6); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:12px;">CS</span><span style="font-weight: 700; font-size: 15px;">مركز الدعم</span></div>
+            <div style="width: 28px; height: 28px; border-radius: 6px; background: #f1f5f9; display: flex; align-items: center; justify-content: center;"><span style="width: 14px; height: 2px; background: #334155; box-shadow: 0 -4px #334155, 0 4px #334155;"></span></div>
+          </div>
+          <div style="padding: 28px 22px 32px;">
+            <div style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; background: #f0fdfa; border: 1px solid #ccfbf1; border-radius: 999px; font-size: 12px; font-weight: 600; color: #0F766E;">🇲🇦 صُنع في المغرب</div>
+            <h1 style="margin: 14px 0 12px; font-size: 30px; line-height: 1.25; font-weight: 800;">أدر مركزك <span style="color: #0F766E;">بدون إكسل، بدون عناء.</span></h1>
+            <p style="margin: 0 0 20px; font-size: 15px; color: #475569; line-height: 1.6;">الجدول الزمني، التلاميذ، الفواتير — كلّ شيء في مكان واحد، دون الحاجة إلى الإنترنت.</p>
+            <button style="width: 100%; padding: 13px; background: #0F766E; color: #fff; border-radius: 10px; font-weight: 600; font-size: 14.5px; margin-bottom: 8px;" class="ar">تجربة مجانية 14 يومًا</button>
+            <button style="width: 100%; padding: 12px; background: #fff; border: 1px solid #e2e8f0; color: #0f172a; border-radius: 10px; font-weight: 600; font-size: 14.5px;" class="ar">◀ شاهد العرض التوضيحي</button>
+            <div style="margin-top: 20px; font-size: 12px; color: #64748b; text-align: center;">بدون بطاقة · التثبيت في 5 دقائق · محلّي</div>
+            <div style="margin-top: 22px; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; background: #fff;">
+              <div style="display: flex; gap: 4px; padding: 6px 10px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #ef4444;"></span><span style="width: 7px; height: 7px; border-radius: 50%; background: #f59e0b;"></span><span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981;"></span></div>
+              <div style="padding: 12px;">
+                <div style="font-size: 12px; font-weight: 700;">147 تلميذ · 8 أساتذة</div>
+                <div style="font-size: 10.5px; color: #64748b;">48 250 درهم · يوليوز 2026</div>
+                <div style="margin-top: 8px; font-size: 10.5px; display: flex; justify-content: space-between; padding: 4px 6px; background: #f8fafc; border-radius: 4px;"><span>يوسف العمراني</span><span style="color: #0F766E; font-weight: 600;">350 درهم</span></div>
+                <div style="margin-top: 4px; font-size: 10.5px; display: flex; justify-content: space-between; padding: 4px 6px; background: #f8fafc; border-radius: 4px;"><span>فاطمة الزهراء بناني</span><span style="color: #0F766E; font-weight: 600;">400 درهم</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MOBILE FR - PRICING -->
+      <div>
+        <div style="text-align: center; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 14px;">Mobile 390 · Tarifs (FR)</div>
+        <div style="width: 390px; background: #ffffff; border-radius: 32px; border: 8px solid #0f172a; box-shadow: 0 30px 60px -20px rgba(15,23,42,.35); overflow: hidden;">
+          <div style="height: 24px; background: #0f172a;"></div>
+          <div style="padding: 26px 20px;">
+            <div style="font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: #0F766E; font-weight: 700;">Tarifs</div>
+            <h2 style="margin: 6px 0 20px; font-size: 26px; letter-spacing: -.02em; font-weight: 800;">Un tarif clair, payé une fois par an.</h2>
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              <div style="border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px;">
+                <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .06em;">Essentiel</div>
+                <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 8px;"><span style="font-size: 30px; font-weight: 800; letter-spacing: -.02em;">1 490</span><span style="font-size: 12px; color: #64748b; font-weight: 600;">MAD/an</span></div>
+                <div style="font-size: 11.5px; color: #94a3b8;">≈ 124 MAD/mois</div>
+                <div style="font-size: 13px; color: #475569; margin-top: 10px;">50 élèves · 2 profs · 1 salle</div>
+              </div>
+              <div style="background: #0f172a; color: #fff; border-radius: 14px; padding: 22px; position: relative;">
+                <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); padding: 4px 12px; background: #0F766E; color: #fff; font-size: 11px; font-weight: 700; border-radius: 999px;">RECOMMANDÉ</div>
+                <div style="font-size: 12px; font-weight: 700; color: #5eead4; text-transform: uppercase; letter-spacing: .06em;">Pro</div>
+                <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 8px;"><span style="font-size: 32px; font-weight: 800; letter-spacing: -.02em;">3 490</span><span style="font-size: 12px; color: #94a3b8; font-weight: 600;">MAD/an</span></div>
+                <div style="font-size: 11.5px; color: #64748b;">≈ 291 MAD/mois</div>
+                <div style="font-size: 13px; color: #cbd5e1; margin-top: 10px;">200 élèves · 10 profs · 5 salles</div>
+                <button style="width: 100%; margin-top: 14px; padding: 11px; background: #fff; color: #0f172a; border-radius: 8px; font-weight: 700; font-size: 13.5px;">Commencer l'essai</button>
+              </div>
+              <div style="border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px;">
+                <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .06em;">Premium</div>
+                <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 8px;"><span style="font-size: 30px; font-weight: 800; letter-spacing: -.02em;">6 490</span><span style="font-size: 12px; color: #64748b; font-weight: 600;">MAD/an</span></div>
+                <div style="font-size: 11.5px; color: #94a3b8;">≈ 541 MAD/mois</div>
+                <div style="font-size: 13px; color: #475569; margin-top: 10px;">Illimité · Formation incluse</div>
+              </div>
+            </div>
+            <div style="margin-top: 16px; text-align: center; font-size: 11.5px; color: #64748b;">Paiement annuel · Dirhams · TVA incluse</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MOBILE RTL - PRICING -->
+      <div>
+        <div style="text-align: center; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 14px;">Mobile 390 · Tarifs (AR · RTL)</div>
+        <div dir="rtl" class="ar" style="width: 390px; background: #ffffff; border-radius: 32px; border: 8px solid #0f172a; box-shadow: 0 30px 60px -20px rgba(15,23,42,.35); overflow: hidden;">
+          <div style="height: 24px; background: #0f172a;"></div>
+          <div style="padding: 26px 20px;">
+            <div style="font-size: 12px; letter-spacing: .04em; color: #0F766E; font-weight: 700;">الأسعار</div>
+            <h2 style="margin: 6px 0 20px; font-size: 26px; font-weight: 800; line-height: 1.25;">سعر واضح، مرّة واحدة في السنة.</h2>
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              <div style="border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px;">
+                <div style="font-size: 13px; font-weight: 700; color: #64748b;">أساسي</div>
+                <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 8px;"><span style="font-size: 30px; font-weight: 800; letter-spacing: -.02em;">1 490</span><span style="font-size: 12px; color: #64748b; font-weight: 600;">درهم/سنة</span></div>
+                <div style="font-size: 11.5px; color: #94a3b8;">≈ 124 درهم/شهر</div>
+                <div style="font-size: 13px; color: #475569; margin-top: 10px;">50 تلميذ · أستاذان · قاعة واحدة</div>
+              </div>
+              <div style="background: #0f172a; color: #fff; border-radius: 14px; padding: 22px; position: relative;">
+                <div style="position: absolute; top: -10px; right: 50%; transform: translateX(50%); padding: 4px 12px; background: #0F766E; color: #fff; font-size: 11px; font-weight: 700; border-radius: 999px;">موصى به</div>
+                <div style="font-size: 13px; font-weight: 700; color: #5eead4;">احترافي</div>
+                <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 8px;"><span style="font-size: 32px; font-weight: 800; letter-spacing: -.02em;">3 490</span><span style="font-size: 12px; color: #94a3b8; font-weight: 600;">درهم/سنة</span></div>
+                <div style="font-size: 11.5px; color: #64748b;">≈ 291 درهم/شهر</div>
+                <div style="font-size: 13px; color: #cbd5e1; margin-top: 10px;">200 تلميذ · 10 أساتذة · 5 قاعات</div>
+                <button style="width: 100%; margin-top: 14px; padding: 11px; background: #fff; color: #0f172a; border-radius: 8px; font-weight: 700; font-size: 13.5px;" class="ar">ابدأ التجربة</button>
+              </div>
+              <div style="border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px;">
+                <div style="font-size: 13px; font-weight: 700; color: #64748b;">متميّز</div>
+                <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 8px;"><span style="font-size: 30px; font-weight: 800; letter-spacing: -.02em;">6 490</span><span style="font-size: 12px; color: #64748b; font-weight: 600;">درهم/سنة</span></div>
+                <div style="font-size: 11.5px; color: #94a3b8;">≈ 541 درهم/شهر</div>
+                <div style="font-size: 13px; color: #475569; margin-top: 10px;">غير محدود · مع تكوين</div>
+              </div>
+            </div>
+            <div style="margin-top: 16px; text-align: center; font-size: 11.5px; color: #64748b;">دفع سنوي · بالدرهم · شامل الضريبة</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RTL DESKTOP HERO + PRICING -->
+    <div style="margin-top: 72px;">
+      <div style="text-align: center; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 14px;">Desktop 1440 · Hero + Tarifs — RTL arabe (miroir)</div>
+      <div dir="rtl" class="ar" style="background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 60px -30px rgba(15,23,42,.25); border: 1px solid #e2e8f0;">
+        <!-- header AR -->
+        <div style="border-bottom: 1px solid #e2e8f0; padding: 14px 40px; display: flex; align-items: center; gap: 28px;">
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg,#0F766E,#14b8a6); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:15px;">CS</span><span style="font-weight: 700; font-size: 17px;">مركز الدعم</span></div>
+          <nav style="display: flex; gap: 24px; margin: 0 auto; font-size: 14.5px; color: #334155; font-weight: 500;">
+            <a>الميزات</a><a>الأسعار</a><a>برنامج المؤسسين</a><a>الأسئلة</a><a>اتصل بنا</a>
+          </nav>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="display: inline-flex; padding: 3px; background: #f1f5f9; border-radius: 8px; font-size: 12.5px; font-weight: 600;">
+              <span style="padding: 4px 10px; color: #64748b;">FR</span>
+              <span style="padding: 4px 10px; background: #fff; border-radius: 6px;">ع</span>
+            </div>
+            <button style="padding: 8px 14px; border-radius: 8px; font-size: 14px; color: #334155; font-weight: 500;" class="ar">تسجيل الدخول</button>
+            <button style="padding: 9px 16px; border-radius: 8px; background: #0F766E; color: #fff; font-size: 14px; font-weight: 600;" class="ar">تحميل</button>
+          </div>
+        </div>
+        <!-- hero AR -->
+        <div style="padding: 72px 40px; display: grid; grid-template-columns: 1fr 1.1fr; gap: 48px; align-items: center;">
+          <div>
+            <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; background: #f0fdfa; border: 1px solid #ccfbf1; border-radius: 999px; font-size: 13px; font-weight: 600; color: #0F766E;">🇲🇦 صُنع في المغرب</div>
+            <h1 style="margin: 18px 0 16px; font-size: 48px; line-height: 1.2; font-weight: 800;">أدر مركزك <span style="color: #0F766E;">بدون إكسل، بدون عناء.</span></h1>
+            <p style="margin: 0 0 26px; font-size: 18px; color: #475569; line-height: 1.7;">الجدول، التلاميذ، الأساتذة والفواتير — كلّ شيء في مكان واحد، دون إنترنت، على حاسوبك.</p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <button style="padding: 13px 22px; background: #0F766E; color: #fff; border-radius: 10px; font-weight: 600; font-size: 15px;" class="ar">تجربة مجانية 14 يومًا</button>
+              <button style="padding: 13px 20px; background: #fff; border: 1px solid #e2e8f0; color: #0f172a; border-radius: 10px; font-weight: 600; font-size: 15px;" class="ar">◀ شاهد العرض</button>
+            </div>
+            <div style="margin-top: 22px; display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; color: #64748b;"><span>✓ بدون بطاقة</span><span>✓ تثبيت في 5 دقائق</span><span>✓ تخزين محلي</span></div>
+          </div>
+          <div style="transform: rotate(1.2deg); filter: drop-shadow(0 30px 50px rgba(15,23,42,.18));">
+            <div style="border-radius: 14px; overflow: hidden; background: #fff; border: 1px solid #e2e8f0;">
+              <div style="display: flex; gap: 8px; padding: 10px 14px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;"><span style="width: 12px; height: 12px; border-radius: 50%; background: #ef4444;"></span><span style="width: 12px; height: 12px; border-radius: 50%; background: #f59e0b;"></span><span style="width: 12px; height: 12px; border-radius: 50%; background: #10b981;"></span><span style="margin-right: auto; font-size: 12px; color: #64748b;">مركز الدعم — لوحة التحكم</span></div>
+              <div style="padding: 18px;">
+                <div style="font-weight: 700; font-size: 15px;">مرحبًا كريم 👋</div>
+                <div style="font-size: 11.5px; color: #64748b;">الاثنين 27 يوليوز 2026</div>
+                <div style="margin-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+                  <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;"><div style="font-size: 10px; color:#64748b; font-weight: 600;">تلاميذ</div><div style="font-size: 18px; font-weight: 800;">147</div></div>
+                  <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;"><div style="font-size: 10px; color:#64748b; font-weight: 600;">أساتذة</div><div style="font-size: 18px; font-weight: 800;">8</div></div>
+                  <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;"><div style="font-size: 10px; color:#64748b; font-weight: 600;">المداخيل</div><div style="font-size: 15px; font-weight: 800;">48 250</div></div>
+                  <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;"><div style="font-size: 10px; color:#64748b; font-weight: 600;">غير مدفوع</div><div style="font-size: 18px; font-weight: 800; color: #ef4444;">3</div></div>
+                </div>
+                <div style="margin-top: 12px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-size: 12px;">
+                  <div style="padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: 700;">الحصص القادمة</div>
+                  <div style="display: grid; grid-template-columns: 50px 1fr 80px; padding: 8px 12px; border-bottom: 1px solid #f1f5f9;"><span style="color:#64748b;">15:00</span><span><b>يوسف العمراني</b> · الرياضيات</span><span style="font-weight: 600;">350 درهم</span></div>
+                  <div style="display: grid; grid-template-columns: 50px 1fr 80px; padding: 8px 12px; border-bottom: 1px solid #f1f5f9;"><span style="color:#64748b;">16:30</span><span><b>فاطمة الزهراء بناني</b> · الفيزياء</span><span style="font-weight: 600;">400 درهم</span></div>
+                  <div style="display: grid; grid-template-columns: 50px 1fr 80px; padding: 8px 12px;"><span style="color:#64748b;">18:00</span><span><b>فوج باك علوم</b> · 6 تلاميذ</span><span style="font-weight: 600;">1 200 درهم</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- pricing AR -->
+        <div style="padding: 60px 40px 72px; border-top: 1px solid #f1f5f9;">
+          <div style="text-align: center; margin-bottom: 36px;">
+            <div style="font-size: 13px; color: #0F766E; font-weight: 700; letter-spacing: .04em;">الأسعار</div>
+            <h2 style="margin: 8px 0 0; font-size: 34px; font-weight: 800; line-height: 1.2;">سعر واضح، مرّة واحدة في السنة.</h2>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1.05fr 1fr; gap: 16px;">
+            <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 26px;">
+              <div style="font-size: 13px; font-weight: 700; color: #64748b;">أساسي</div>
+              <div style="font-size: 13px; color: #64748b; margin-top: 2px;">للمراكز الصغيرة.</div>
+              <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 18px;"><span style="font-size: 36px; font-weight: 800; letter-spacing: -.02em;">1 490</span><span style="font-size: 13px; color: #64748b; font-weight: 600;">درهم/سنة</span></div>
+              <div style="font-size: 12px; color: #94a3b8;">≈ 124 درهم/شهر</div>
+              <ul style="margin: 18px 0 0; padding: 0; list-style: none; font-size: 14px; color: #334155; display: flex; flex-direction: column; gap: 8px;">
+                <li>✓ حتى 50 تلميذًا</li><li>✓ أستاذان</li><li>✓ قاعة واحدة</li>
+              </ul>
+            </div>
+            <div style="background: #0f172a; color: #fff; border-radius: 16px; padding: 28px; position: relative; transform: scale(1.02);">
+              <div style="position: absolute; top: -12px; right: 50%; transform: translateX(50%); padding: 5px 14px; background: #0F766E; color: #fff; font-size: 12px; font-weight: 700; border-radius: 999px;">موصى به</div>
+              <div style="font-size: 13px; font-weight: 700; color: #5eead4;">احترافي</div>
+              <div style="font-size: 13px; color: #94a3b8; margin-top: 2px;">الأكثر شمولاً.</div>
+              <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 18px;"><span style="font-size: 40px; font-weight: 800; letter-spacing: -.02em;">3 490</span><span style="font-size: 13px; color: #94a3b8; font-weight: 600;">درهم/سنة</span></div>
+              <div style="font-size: 12px; color: #64748b;">≈ 291 درهم/شهر</div>
+              <ul style="margin: 18px 0 0; padding: 0; list-style: none; font-size: 14px; color: #e2e8f0; display: flex; flex-direction: column; gap: 8px;">
+                <li>✓ حتى 200 تلميذ</li><li>✓ 10 أساتذة</li><li>✓ 5 قاعات</li><li>✓ فوترة متقدمة</li>
+              </ul>
+            </div>
+            <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 26px;">
+              <div style="font-size: 13px; font-weight: 700; color: #64748b;">متميّز</div>
+              <div style="font-size: 13px; color: #64748b; margin-top: 2px;">للمراكز الراسخة.</div>
+              <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 18px;"><span style="font-size: 36px; font-weight: 800; letter-spacing: -.02em;">6 490</span><span style="font-size: 13px; color: #64748b; font-weight: 600;">درهم/سنة</span></div>
+              <div style="font-size: 12px; color: #94a3b8;">≈ 541 درهم/شهر</div>
+              <ul style="margin: 18px 0 0; padding: 0; list-style: none; font-size: 14px; color: #334155; display: flex; flex-direction: column; gap: 8px;">
+                <li>✓ غير محدود</li><li>✓ دعم هاتفي</li><li>✓ تكوين ميداني</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STYLE GUIDE -->
+    <div style="margin-top: 72px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 40px 44px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px;">
+        <div>
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: #64748b; font-weight: 700;">01 · Couleurs</div>
+          <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 10px; font-size: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;"><span style="width: 36px; height: 36px; border-radius: 8px; background: #0F766E; border: 1px solid rgba(0,0,0,.06);"></span><div><div style="font-weight: 700;">Teal 700 — Primaire</div><div class="mono" style="color: #64748b;">#0F766E</div></div></div>
+            <div style="display: flex; align-items: center; gap: 12px;"><span style="width: 36px; height: 36px; border-radius: 8px; background: #14b8a6;"></span><div><div style="font-weight: 700;">Teal 500 — Accent</div><div class="mono" style="color: #64748b;">#14B8A6</div></div></div>
+            <div style="display: flex; align-items: center; gap: 12px;"><span style="width: 36px; height: 36px; border-radius: 8px; background: #ccfbf1; border: 1px solid #e2e8f0;"></span><div><div style="font-weight: 700;">Teal 100 — Fond doux</div><div class="mono" style="color: #64748b;">#CCFBF1</div></div></div>
+            <div style="display: flex; align-items: center; gap: 12px;"><span style="width: 36px; height: 36px; border-radius: 8px; background: #0f172a;"></span><div><div style="font-weight: 700;">Slate 900 — Texte</div><div class="mono" style="color: #64748b;">#0F172A</div></div></div>
+            <div style="display: flex; align-items: center; gap: 12px;"><span style="width: 36px; height: 36px; border-radius: 8px; background: #475569;"></span><div><div style="font-weight: 700;">Slate 600 — Corps</div><div class="mono" style="color: #64748b;">#475569</div></div></div>
+            <div style="display: flex; align-items: center; gap: 12px;"><span style="width: 36px; height: 36px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0;"></span><div><div style="font-weight: 700;">Slate 50 — Fond section</div><div class="mono" style="color: #64748b;">#F8FAFC</div></div></div>
+            <div style="display: flex; align-items: center; gap: 12px;"><span style="width: 36px; height: 36px; border-radius: 8px; background: #10b981;"></span><div><div style="font-weight: 700;">Emerald — Succès</div><div class="mono" style="color: #64748b;">#10B981</div></div></div>
+            <div style="display: flex; align-items: center; gap: 12px;"><span style="width: 36px; height: 36px; border-radius: 8px; background: #f59e0b;"></span><div><div style="font-weight: 700;">Amber — Avertissement</div><div class="mono" style="color: #64748b;">#F59E0B</div></div></div>
+            <div style="display: flex; align-items: center; gap: 12px;"><span style="width: 36px; height: 36px; border-radius: 8px; background: #ef4444;"></span><div><div style="font-weight: 700;">Red — Danger</div><div class="mono" style="color: #64748b;">#EF4444</div></div></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: #64748b; font-weight: 700;">02 · Typographie</div>
+          <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 16px;">
+            <div><div style="font-size: 44px; font-weight: 800; letter-spacing: -.03em; line-height: 1;">Aa Bb — أ ب</div><div class="mono" style="font-size: 11px; color: #64748b; margin-top: 6px;">Inter 800 · Noto Sans Arabic 700</div></div>
+            <div style="border-top: 1px solid #f1f5f9; padding-top: 14px;">
+              <div style="font-size: 40px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1;">Hero — 48/56</div>
+              <div style="font-size: 26px; font-weight: 800; letter-spacing: -.02em; margin-top: 8px;">Section — 30/40</div>
+              <div style="font-size: 18px; font-weight: 700; margin-top: 10px;">Titre carte — 18/20</div>
+              <div style="font-size: 15px; color: #475569; margin-top: 10px;">Corps de texte — 15/16, hauteur 1.55.</div>
+              <div style="font-size: 13px; color: #64748b; margin-top: 10px;">Légende — 13, uppercase &nbsp;·&nbsp; .1em tracking</div>
+              <div class="mono" style="font-size: 12px; color: #64748b; margin-top: 10px;">JetBrains Mono — codes couleur, chiffres tabulaires</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: #64748b; font-weight: 700;">03 · Composants shadcn/ui utilisés</div>
+          <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+            <div style="display: flex; gap: 8px;"><button style="padding: 10px 16px; background: #0F766E; color: #fff; border-radius: 10px; font-weight: 600; font-size: 13px;">Button (primary)</button><button style="padding: 10px 16px; background: #fff; border: 1px solid #cbd5e1; color: #0f172a; border-radius: 10px; font-weight: 600; font-size: 13px;">Button (outline)</button></div>
+            <div class="mono" style="font-size: 11.5px; color: #64748b; padding: 8px 10px; background: #f8fafc; border-radius: 6px;">Button · Card · Input · Label · Badge · Tabs · Accordion · Dialog · Sheet · Table · Avatar · Separator · Tooltip · Switch · Toast · Command · Popover</div>
+            <div style="margin-top: 8px; font-weight: 600;">Icônes</div>
+            <div class="mono" style="font-size: 11.5px; color: #64748b; padding: 8px 10px; background: #f8fafc; border-radius: 6px;">Lucide · stroke 2 · 16/20/24</div>
+            <div style="margin-top: 8px; font-weight: 600;">Rayons & ombres</div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <div style="width: 46px; height: 46px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;"></div>
+              <div style="width: 46px; height: 46px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;"></div>
+              <div style="width: 46px; height: 46px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;"></div>
+              <div style="width: 46px; height: 46px; background: #fff; border-radius: 12px; box-shadow: 0 12px 30px -12px rgba(15,23,42,.25);"></div>
+            </div>
+            <div class="mono" style="font-size: 11.5px; color: #64748b;">rounded-md 8 · rounded-xl 12 · rounded-2xl 16 · shadow-lg</div>
+            <div style="margin-top: 8px; font-weight: 600;">Grille</div>
+            <div class="mono" style="font-size: 11.5px; color: #64748b; padding: 8px 10px; background: #f8fafc; border-radius: 6px;">max-w 1200 · gutter 32 · section py 96 desktop / 64 mobile</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "metadata": {
+    "title": "Centre Soutien — logiciel de gestion scolaire au Maroc",
+    "description": "Gérez élèves, enseignants, planning et factures de votre centre de soutien scolaire, hors ligne. Application desktop pensée pour les centres marocains."
+  },
+  "header": {
+    "brand": "Centre Soutien",
+    "logo_mark": "CS",
+    "home_aria": "Centre Soutien — accueil",
+    "nav_aria": "Navigation principale",
+    "nav": {
+      "features": "Fonctionnalités",
+      "pricing": "Tarifs",
+      "founder": "Programme Fondateur",
+      "faq": "FAQ",
+      "contact": "Contact"
+    },
+    "cta": {
+      "download": "Télécharger"
+    },
+    "language": {
+      "aria": "Choisir la langue",
+      "french": "Français",
+      "arabic": "العربية"
+    }
+  }
+}
