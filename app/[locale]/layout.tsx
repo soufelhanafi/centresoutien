@@ -1,10 +1,17 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Inter, Noto_Sans_Arabic } from "next/font/google";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
+import { SITE_URL } from "@/lib/structured-data";
 import "../globals.css";
+
+// Base URL for resolving relative OG/Twitter image URLs across all routes.
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+};
 
 // Latin UI font, loaded on every route.
 const inter = Inter({

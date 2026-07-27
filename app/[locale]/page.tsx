@@ -5,6 +5,14 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { Header } from "@/components/sections/header";
 import { Hero } from "@/components/sections/hero";
+import { Problem } from "@/components/sections/problem";
+import { Features } from "@/components/sections/features";
+import { JsonLd } from "@/components/seo/json-ld";
+import {
+  getOrganizationSchema,
+  getSoftwareApplicationSchema,
+  getWebSiteSchema,
+} from "@/lib/structured-data";
 
 const SITE_URL = "https://centresoutien.com";
 
@@ -61,8 +69,13 @@ export default async function LandingPage({
 
   return (
     <main>
+      <JsonLd id="ld-organization" data={getOrganizationSchema()} />
+      <JsonLd id="ld-software" data={getSoftwareApplicationSchema(locale)} />
+      <JsonLd id="ld-website" data={getWebSiteSchema(locale)} />
       <Header />
       <Hero />
+      <Problem />
+      <Features />
     </main>
   );
 }
