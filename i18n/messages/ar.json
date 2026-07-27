@@ -23,5 +23,50 @@
       "french": "Français",
       "arabic": "العربية"
     }
+  },
+  "hero": {
+    "badge": "🇲🇦 صُنع في المغرب",
+    "headline": "أدِر مركز الدعم المدرسي <highlight>دون إكسل ودون توتر.</highlight>",
+    "subheadline": "الجدولة والتلاميذ والأساتذة والفواتير — كل شيء في مكان واحد، دون اتصال بالإنترنت، على حاسوبك.",
+    "cta": {
+      "primary": "تجربة مجانية لمدة 14 يومًا",
+      "secondary": "شاهد العرض التوضيحي"
+    },
+    "trust": {
+      "no_card": "بدون بطاقة بنكية",
+      "quick_install": "تثبيت في 5 دقائق",
+      "local_data": "بيانات مخزَّنة محليًا"
+    },
+    "mockup": {
+      "aria": "لمحة عن لوحة تحكم تطبيق Centre Soutien",
+      "window_title": "Centre Soutien — لوحة التحكم",
+      "center_name": "مركز المسار",
+      "nav": {
+        "dashboard": "لوحة التحكم",
+        "planning": "الجدولة",
+        "students": "التلاميذ",
+        "teachers": "الأساتذة",
+        "rooms": "القاعات",
+        "invoices": "الفواتير"
+      },
+      "greeting": "مرحبًا كريم 👋",
+      "date_line": "الاثنين 27 يوليوز 2026 · الدخول المدرسي بعد 5 أسابيع",
+      "sync": "متزامن",
+      "stats": {
+        "students": { "label": "التلاميذ", "value": "147", "delta": "+12 هذا الشهر" },
+        "teachers": { "label": "الأساتذة", "value": "8", "delta": "6 متاحون" },
+        "revenue": { "label": "المداخيل", "value": "48 250", "unit": "MAD", "delta": "+8% مقابل يونيو" },
+        "unpaid": { "label": "غير المؤدَّى", "value": "3", "delta": "1 250 MAD" }
+      },
+      "table": {
+        "title": "الحصص القادمة",
+        "today": "اليوم",
+        "rows": {
+          "one": { "time": "15:00", "name": "يوسف العمراني", "detail": "الرياضيات", "room": "القاعة 2", "price": "350 MAD" },
+          "two": { "time": "16:30", "name": "فاطمة الزهراء البناني", "detail": "الفيزياء والكيمياء", "room": "القاعة 1", "price": "400 MAD" },
+          "three": { "time": "18:00", "name": "مجموعة باك علوم الحياة · 6 تلاميذ", "detail": "", "room": "القاعة 3", "price": "1 200 MAD" }
+        }
+      }
+    }
   }
 }
