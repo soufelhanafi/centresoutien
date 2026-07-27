@@ -53,18 +53,348 @@
       "date_line": "Lundi 27 juillet 2026 · Rentrée dans 5 semaines",
       "sync": "Synchronisé",
       "stats": {
-        "students": { "label": "Élèves", "value": "147", "delta": "+12 ce mois" },
-        "teachers": { "label": "Enseignants", "value": "8", "delta": "6 disponibles" },
-        "revenue": { "label": "Recettes", "value": "48 250", "unit": "MAD", "delta": "+8% vs juin" },
-        "unpaid": { "label": "Impayés", "value": "3", "delta": "1 250 MAD" }
+        "students": {
+          "label": "Élèves",
+          "value": "147",
+          "delta": "+12 ce mois"
+        },
+        "teachers": {
+          "label": "Enseignants",
+          "value": "8",
+          "delta": "6 disponibles"
+        },
+        "revenue": {
+          "label": "Recettes",
+          "value": "48 250",
+          "unit": "MAD",
+          "delta": "+8% vs juin"
+        },
+        "unpaid": {
+          "label": "Impayés",
+          "value": "3",
+          "delta": "1 250 MAD"
+        }
       },
       "table": {
         "title": "Prochaines séances",
         "today": "Aujourd'hui",
         "rows": {
-          "one": { "time": "15h00", "name": "Youssef El Amrani", "detail": "Mathématiques", "room": "Salle 2", "price": "350 MAD" },
-          "two": { "time": "16h30", "name": "Fatima Zahra Bennani", "detail": "Physique-Chimie", "room": "Salle 1", "price": "400 MAD" },
-          "three": { "time": "18h00", "name": "Groupe Bac SVT · 6 élèves", "detail": "", "room": "Salle 3", "price": "1 200 MAD" }
+          "one": {
+            "time": "15h00",
+            "name": "Youssef El Amrani",
+            "detail": "Mathématiques",
+            "room": "Salle 2",
+            "price": "350 MAD"
+          },
+          "two": {
+            "time": "16h30",
+            "name": "Fatima Zahra Bennani",
+            "detail": "Physique-Chimie",
+            "room": "Salle 1",
+            "price": "400 MAD"
+          },
+          "three": {
+            "time": "18h00",
+            "name": "Groupe Bac SVT · 6 élèves",
+            "detail": "",
+            "room": "Salle 3",
+            "price": "1 200 MAD"
+          }
+        }
+      }
+    }
+  },
+  "problem": {
+    "eyebrow": "Le problème",
+    "heading": "Vous reconnaissez-vous ?",
+    "subheading": "Ce que nous avons entendu dans 40 centres à Casablanca, Rabat et Fès.",
+    "cards": {
+      "excel": {
+        "title": "Excel qui plante en pleine rentrée",
+        "body": "Cinq onglets, trois formules cassées, un fichier perdu. Le fichier maître n'a plus qu'un seul maître : la panique."
+      },
+      "invoices": {
+        "title": "Factures oubliées, impayés qui s'accumulent",
+        "body": "Vous savez qui doit, mais pas depuis quand. Chaque mois recommence sur un carnet différent."
+      },
+      "rooms": {
+        "title": "Deux profs dans la même salle",
+        "body": "Il est 16h55, deux enseignants attendent devant la porte. Personne n'avait vu le conflit sur le planning papier."
+      }
+    }
+  },
+  "features": {
+    "eyebrow": "Fonctionnalités",
+    "heading": "Pensé pour un vrai centre, pas pour un tableur.",
+    "subheading": "Six modules qui remplacent, un à un, les feuilles Excel que vous traînez depuis des années.",
+    "items": {
+      "rooms": {
+        "eyebrow": "01 — Salles",
+        "heading": "Chaque salle, avec ses équipements et sa disponibilité.",
+        "points": [
+          "Capacité, équipements et notes par salle.",
+          "Voyants temps réel : libre, occupée, bientôt libre.",
+          "Historique d'utilisation pour repérer les salles sous-exploitées."
+        ],
+        "mockup": {
+          "aria": "Aperçu de l'écran Salles et équipements de l'application",
+          "title": "Salles & équipements",
+          "action": "+ Nouvelle salle",
+          "places": "places",
+          "rooms": [
+            {
+              "name": "Salle 1 · Sciences",
+              "status": "Libre",
+              "capacity": "12",
+              "equip": "Tableau blanc, vidéoprojecteur"
+            },
+            {
+              "name": "Salle 2 · Maths",
+              "status": "Occupée",
+              "capacity": "8",
+              "equip": "Tableau craie"
+            },
+            {
+              "name": "Salle 3 · Grande",
+              "status": "Libre",
+              "capacity": "20",
+              "equip": "Climatisation"
+            },
+            {
+              "name": "Salle 4 · Langues",
+              "status": "Bientôt libre",
+              "capacity": "10",
+              "equip": "Enceintes"
+            }
+          ]
+        }
+      },
+      "planning": {
+        "eyebrow": "02 — Planning",
+        "heading": "Un planning hebdomadaire qui détecte les conflits avant vous.",
+        "points": [
+          "Séances récurrentes : créez une fois, elles se répètent toute l'année.",
+          "Détection automatique : deux profs, même salle, même horaire → alerte.",
+          "Vue jour, semaine, mois — impression au format A4."
+        ],
+        "mockup": {
+          "aria": "Aperçu du planning hebdomadaire avec détection de conflit",
+          "title": "Planning · Semaine",
+          "range": "Lun–Sam",
+          "days": [
+            "Lun",
+            "Mar",
+            "Mer",
+            "Jeu",
+            "Ven",
+            "Sam"
+          ],
+          "sessions": [
+            {
+              "time": "15h",
+              "label": "Maths · S2"
+            },
+            {
+              "time": "16h",
+              "label": "Français · S3"
+            },
+            {
+              "time": "16h",
+              "label": "Conflit · S1"
+            },
+            {
+              "time": "17h",
+              "label": "Arabe · S4"
+            }
+          ]
+        }
+      },
+      "teachers": {
+        "eyebrow": "03 — Enseignants",
+        "heading": "Fiches profs avec disponibilités et taux horaires.",
+        "points": [
+          "Matières, niveaux et créneaux disponibles par enseignant.",
+          "Taux horaire fixe ou variable selon niveau.",
+          "Calcul automatique des heures et de la rémunération mensuelle."
+        ],
+        "mockup": {
+          "aria": "Aperçu d'une fiche enseignant avec disponibilités et taux horaire",
+          "initials": "AH",
+          "name": "Amine Hassani",
+          "role": "Enseignant · Mathématiques, Physique-Chimie",
+          "rate": "180",
+          "rateUnit": "MAD/h",
+          "rateLabel": "Taux horaire",
+          "tags": [
+            "Tronc commun",
+            "Bac Sciences",
+            "Bac Éco"
+          ],
+          "availabilityLabel": "Disponibilités",
+          "availability": [
+            {
+              "day": "L",
+              "hours": "15–20h"
+            },
+            {
+              "day": "M",
+              "hours": "15–20h"
+            },
+            {
+              "day": "M",
+              "hours": "—"
+            },
+            {
+              "day": "J",
+              "hours": "15–20h"
+            },
+            {
+              "day": "V",
+              "hours": "15–19h"
+            },
+            {
+              "day": "S",
+              "hours": "9–17h"
+            }
+          ]
+        }
+      },
+      "students": {
+        "eyebrow": "04 — Élèves",
+        "heading": "Fiches élèves avec présences et suivi de progression.",
+        "points": [
+          "Coordonnées parents, niveau scolaire, matières suivies.",
+          "Présences et absences pointées en un clic.",
+          "Notes internes partagées avec les enseignants concernés."
+        ],
+        "mockup": {
+          "aria": "Aperçu de la liste des élèves avec présence et solde",
+          "title": "Élèves",
+          "count": "147 inscrits",
+          "search": "Rechercher",
+          "columns": {
+            "name": "Élève",
+            "level": "Niveau",
+            "attendance": "Présence",
+            "balance": "Solde"
+          },
+          "rows": [
+            {
+              "name": "Youssef El Amrani",
+              "level": "2ème Bac Sc.",
+              "attendance": "96%",
+              "balance": "À jour"
+            },
+            {
+              "name": "Fatima Zahra Bennani",
+              "level": "1ère Bac Sc.",
+              "attendance": "100%",
+              "balance": "À jour"
+            },
+            {
+              "name": "Mehdi Chraibi",
+              "level": "Tronc commun",
+              "attendance": "78%",
+              "balance": "−350 MAD"
+            },
+            {
+              "name": "Salma Ouazzani",
+              "level": "2ème Bac Éco",
+              "attendance": "92%",
+              "balance": "À jour"
+            }
+          ]
+        }
+      },
+      "billing": {
+        "eyebrow": "05 — Facturation",
+        "heading": "Facturation mensuelle automatique, en dirhams.",
+        "points": [
+          "Génération en un clic pour toutes les familles, à la date de votre choix.",
+          "Suivi des paiements, relances automatiques par WhatsApp ou email.",
+          "PDF prêts à imprimer, conformes à la loi 09-08."
+        ],
+        "mockup": {
+          "aria": "Aperçu d'une facture mensuelle en dirhams",
+          "label": "Facture",
+          "number": "2026-07-042",
+          "issuedLabel": "Émise le",
+          "issuedDate": "27/07/2026",
+          "dueLabel": "Échéance le",
+          "dueDate": "05/08/2026",
+          "billedTo": "Facturé à",
+          "client": "M. Rachid El Amrani",
+          "clientDetail": "Parent de Youssef El Amrani · 2ème Bac Sc.",
+          "columns": {
+            "item": "Prestation",
+            "hours": "Heures",
+            "total": "Total"
+          },
+          "lines": [
+            {
+              "item": "Mathématiques · juillet",
+              "hours": "8h",
+              "total": "1 600 MAD"
+            },
+            {
+              "item": "Physique-Chimie · juillet",
+              "hours": "6h",
+              "total": "1 200 MAD"
+            }
+          ],
+          "totalLabel": "Total TTC",
+          "totalValue": "2 800 MAD"
+        }
+      },
+      "bilingual": {
+        "eyebrow": "06 — Bilingue",
+        "heading": "Interface FR/AR avec RTL natif — pas un plâtre.",
+        "points": [
+          "Basculement immédiat, à tout moment, dans toute l'application.",
+          "Impression des factures et plannings en français ou en arabe.",
+          "Typographie soignée avec Noto Sans Arabic."
+        ],
+        "mockup": {
+          "ariaFr": "Aperçu de l'interface en français",
+          "ariaAr": "Aperçu de l'interface en arabe, de droite à gauche",
+          "badgeFr": "FR",
+          "badgeAr": "ع",
+          "fr": {
+            "title": "Élèves",
+            "count": "147 inscrits",
+            "rows": [
+              {
+                "name": "Youssef El Amrani",
+                "level": "Bac Sc."
+              },
+              {
+                "name": "Fatima Bennani",
+                "level": "Bac Sc."
+              },
+              {
+                "name": "Mehdi Chraibi",
+                "level": "TC"
+              }
+            ]
+          },
+          "ar": {
+            "title": "التلاميذ",
+            "count": "147 مسجّل",
+            "rows": [
+              {
+                "name": "يوسف العمراني",
+                "level": "باك علوم"
+              },
+              {
+                "name": "فاطمة الزهراء بناني",
+                "level": "باك علوم"
+              },
+              {
+                "name": "مهدي الشرايبي",
+                "level": "ج مشترك"
+              }
+            ]
+          }
         }
       }
     }
