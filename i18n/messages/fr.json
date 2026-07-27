@@ -23,5 +23,50 @@
       "french": "Français",
       "arabic": "العربية"
     }
+  },
+  "hero": {
+    "badge": "🇲🇦 Fabriqué au Maroc",
+    "headline": "Gérez votre centre de soutien <highlight>sans Excel, sans stress.</highlight>",
+    "subheadline": "Planning, élèves, enseignants et factures — tout au même endroit, hors ligne, sur votre ordinateur.",
+    "cta": {
+      "primary": "Essai gratuit 14 jours",
+      "secondary": "Voir la démo"
+    },
+    "trust": {
+      "no_card": "Sans carte bancaire",
+      "quick_install": "Installation en 5 min",
+      "local_data": "Données stockées localement"
+    },
+    "mockup": {
+      "aria": "Aperçu du tableau de bord de l'application Centre Soutien",
+      "window_title": "Centre Soutien — Tableau de bord",
+      "center_name": "Centre Al Massar",
+      "nav": {
+        "dashboard": "Tableau de bord",
+        "planning": "Planning",
+        "students": "Élèves",
+        "teachers": "Enseignants",
+        "rooms": "Salles",
+        "invoices": "Factures"
+      },
+      "greeting": "Bonjour, Karim 👋",
+      "date_line": "Lundi 27 juillet 2026 · Rentrée dans 5 semaines",
+      "sync": "Synchronisé",
+      "stats": {
+        "students": { "label": "Élèves", "value": "147", "delta": "+12 ce mois" },
+        "teachers": { "label": "Enseignants", "value": "8", "delta": "6 disponibles" },
+        "revenue": { "label": "Recettes", "value": "48 250", "unit": "MAD", "delta": "+8% vs juin" },
+        "unpaid": { "label": "Impayés", "value": "3", "delta": "1 250 MAD" }
+      },
+      "table": {
+        "title": "Prochaines séances",
+        "today": "Aujourd'hui",
+        "rows": {
+          "one": { "time": "15h00", "name": "Youssef El Amrani", "detail": "Mathématiques", "room": "Salle 2", "price": "350 MAD" },
+          "two": { "time": "16h30", "name": "Fatima Zahra Bennani", "detail": "Physique-Chimie", "room": "Salle 1", "price": "400 MAD" },
+          "three": { "time": "18h00", "name": "Groupe Bac SVT · 6 élèves", "detail": "", "room": "Salle 3", "price": "1 200 MAD" }
+        }
+      }
+    }
   }
 }

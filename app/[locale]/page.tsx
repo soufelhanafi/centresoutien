@@ -4,6 +4,7 @@ import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { Header } from "@/components/sections/header";
+import { Hero } from "@/components/sections/hero";
 
 const SITE_URL = "https://centresoutien.com";
 
@@ -61,6 +62,7 @@ export default async function LandingPage({
   return (
     <main>
       <Header />
+      <Hero />
     </main>
   );
 }
