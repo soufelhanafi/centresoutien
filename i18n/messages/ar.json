@@ -1,0 +1,27 @@
+{
+  "metadata": {
+    "title": "Centre Soutien — برنامج تدبير مراكز الدعم المدرسي بالمغرب",
+    "description": "دبّر تلاميذك وأساتذتك وجدولك وفواتيرك في مركز الدعم المدرسي، دون اتصال بالإنترنت. تطبيق مكتبي مصمَّم للمراكز المغربية."
+  },
+  "header": {
+    "brand": "Centre Soutien",
+    "logo_mark": "CS",
+    "home_aria": "Centre Soutien — الصفحة الرئيسية",
+    "nav_aria": "التنقل الرئيسي",
+    "nav": {
+      "features": "الميزات",
+      "pricing": "الأسعار",
+      "founder": "برنامج المؤسِّسين",
+      "faq": "الأسئلة الشائعة",
+      "contact": "اتصل بنا"
+    },
+    "cta": {
+      "download": "تحميل"
+    },
+    "language": {
+      "aria": "اختر اللغة",
+      "french": "Français",
+      "arabic": "العربية"
+    }
+  }
+}
