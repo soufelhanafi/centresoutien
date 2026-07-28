@@ -7,7 +7,10 @@ Object.defineProperty(window, 'api', {
   configurable: true,
   writable: true,
   value: {
-    invoke: async () => ({ reply: 'pong: test', appVersion: '0.0.0' }),
+    invoke: async (channel: string) =>
+      channel === 'plan.get'
+        ? { planId: 'essentiel' }
+        : { reply: 'pong: test', appVersion: '0.0.0' },
   },
 });
 

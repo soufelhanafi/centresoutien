@@ -7,7 +7,12 @@
     "openDialog": "افتح النافذة",
     "dialogTitle": "مرحبًا",
     "dialogBody": "أساس React 19 وTailwind وshadcn/ui جاهز.",
-    "close": "إغلاق"
+    "close": "إغلاق",
+    "premiumFeature": "المزامنة متعددة الأجهزة"
+  },
+  "plan": {
+    "locked": "غير متاح في خطتك",
+    "devSwitcher": "الخطة (تطوير)"
   },
   "language": {
     "switch": "Français"

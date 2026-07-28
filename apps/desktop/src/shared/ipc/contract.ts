@@ -11,6 +11,10 @@ export const ipcContract = {
     request: z.object({ message: z.string() }),
     response: z.object({ reply: z.string(), appVersion: z.string() }),
   },
+  'plan.get': {
+    request: z.object({}),
+    response: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
+  },
 } as const;
 
 export type IpcContract = typeof ipcContract;

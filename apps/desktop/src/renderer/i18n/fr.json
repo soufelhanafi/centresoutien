@@ -7,7 +7,12 @@
     "openDialog": "Ouvrir la fenêtre",
     "dialogTitle": "Bienvenue",
     "dialogBody": "Fondation React 19 + Tailwind + shadcn/ui prête.",
-    "close": "Fermer"
+    "close": "Fermer",
+    "premiumFeature": "Synchronisation multi-postes"
+  },
+  "plan": {
+    "locked": "Réservé à un plan supérieur",
+    "devSwitcher": "Plan (dev)"
   },
   "language": {
     "switch": "العربية"

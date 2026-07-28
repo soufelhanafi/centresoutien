@@ -13,11 +13,16 @@ import {
 } from '@centresoutien/ui';
 import { useHtmlDirection } from './hooks/use-html-direction';
 import { LanguageToggle } from './components/language-toggle';
+import { PlanSwitcher } from './components/plan-switcher';
+import { FeatureGate } from './components/feature-gate';
+import { PlanLock } from './components/plan-lock';
+import { usePlanStore } from './stores/plan-store';
 
-// Smoke page (SOU-16/21): React + Tailwind + shadcn/ui + typed IPC + i18n/RTL.
+// Smoke page: React + Tailwind + shadcn/ui + typed IPC + i18n/RTL + plan gating.
 export function App() {
   const { t } = useTranslation();
   useHtmlDirection();
+  const setPlan = usePlanStore((state) => state.setPlan);
   const [ping, setPing] = useState('…');
 
   useEffect(() => {
@@ -31,6 +36,13 @@ export function App() {
       .catch((error: unknown) => setPing(`IPC error: ${String(error)}`));
   }, []);
 
+  useEffect(() => {
+    window.api
+      ?.invoke('plan.get', {})
+      .then((res) => setPlan(res.planId))
+      .catch(() => undefined);
+  }, [setPlan]);
+
   return (
     <main className="flex min-h-screen flex-col items-start gap-6 bg-background p-8 text-foreground">
       <div className="flex w-full items-center justify-between">
@@ -41,6 +53,12 @@ export function App() {
       <p className="text-sm text-muted-foreground">
         {t('smoke.ipcLabel')} : {ping}
       </p>
+
+      <PlanSwitcher />
+
+      <FeatureGate feature="sync.multi-device" fallback={<PlanLock />}>
+        <Button variant="secondary">{t('smoke.premiumFeature')}</Button>
+      </FeatureGate>
 
       <Dialog>
         <DialogTrigger asChild>
