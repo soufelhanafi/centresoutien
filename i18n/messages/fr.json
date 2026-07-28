@@ -18,6 +18,10 @@
     "cta": {
       "download": "Télécharger"
     },
+    "menu": {
+      "open": "Ouvrir le menu",
+      "close": "Fermer le menu"
+    },
     "language": {
       "aria": "Choisir la langue",
       "french": "Français",

@@ -2,17 +2,8 @@ import { getTranslations } from "next-intl/server";
 import { Download } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
+import { NAV_LINKS } from "./nav-links";
 import { LanguageToggle } from "./language-toggle";
-
-// Anchor targets for the in-page sections (added in later PRs). Kept here as the
-// single source of nav order; labels are resolved from next-intl by key.
-const NAV_LINKS = [
-  { key: "features", href: "#fonctionnalites" },
-  { key: "pricing", href: "#tarifs" },
-  { key: "founder", href: "#programme-fondateur" },
-  { key: "faq", href: "#faq" },
-  { key: "contact", href: "#contact" },
-] as const;
 
 export async function Header() {
   const t = await getTranslations("header");
