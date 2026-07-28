@@ -60,6 +60,27 @@ describe('pre-merge gate scanner', () => {
     expect(scanForViolations(root)).toEqual([]);
   });
 
+  it('does NOT flag a banned pattern that appears only inside a comment', () => {
+    write(
+      'packages/domain/src/clock.ts',
+      [
+        '/**',
+        ' * The domain never calls `new Date()` directly.',
+        ' */',
+        'export const x = 1; // avoid new Date() here too',
+      ].join('\n'),
+    );
+    write('apps/desktop/src/data/m.sql', '-- DELETE FROM students is forbidden; AUTOINCREMENT too\n');
+    expect(scanForViolations(root)).toEqual([]);
+  });
+
+  it('still flags a banned pattern in real code even with a trailing comment', () => {
+    write('packages/domain/src/clock.ts', 'export const t = new Date(); // oops\n');
+    const v = scanForViolations(root);
+    expect(v).toHaveLength(1);
+    expect(v[0].gate).toBe('no-new-date-in-domain');
+  });
+
   it('exposes exactly the three documented gates', () => {
     expect(GATES.map((g) => g.name)).toEqual([
       'no-new-date-in-domain',

@@ -7,6 +7,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.build.json"
   },
+  "dependencies": {
+    "ulid": "^2.3.0"
+  },
   "devDependencies": {
     "@centresoutien/config": "workspace:*",
     "@centresoutien/domain": "workspace:*",

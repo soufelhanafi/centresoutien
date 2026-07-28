@@ -69,7 +69,7 @@ export function scanForViolations(root) {
       const lines = readFileSync(abs, 'utf8').split('\n');
       for (const gate of gates) {
         lines.forEach((text, i) => {
-          if (gate.pattern.test(text)) {
+          if (gate.pattern.test(stripComments(text))) {
             violations.push({ gate: gate.name, file: rel, line: i + 1, text: text.trim(), message: gate.message });
           }
         });
@@ -79,6 +79,18 @@ export function scanForViolations(root) {
 
   walk(root);
   return violations;
+}
+
+/**
+ * Return the code portion of a line, so a banned pattern that appears only in a
+ * comment (jsdoc, `//`, SQL `--`) is not a violation. Comment-only lines become
+ * empty; trailing comments are stripped. Real code (`const t = new Date()`)
+ * survives and is still caught.
+ */
+function stripComments(line) {
+  const trimmed = line.trimStart();
+  if (/^(\*|\/\/|\/\*|--)/.test(trimmed)) return '';
+  return line.replace(/\/\/.*$/, '').replace(/--.*$/, '');
 }
 
 // CLI entry point.

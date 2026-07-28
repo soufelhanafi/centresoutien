@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DOMAIN_PACKAGE } from '../index';
+import { DOMAIN_PACKAGE } from '../../src/index';
 
 describe('@centresoutien/domain', () => {
   it('exposes its package identity and evaluates with no DOM', () => {

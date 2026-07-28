@@ -10,15 +10,17 @@ export default defineWorkspace([
       name: 'domain',
       root: './packages/domain',
       environment: 'node',
-      include: ['src/**/*.test.ts'],
+      // Tests live inside the package, mirroring src/ (CLAUDE.md §3).
+      include: ['tests/**/*.test.ts'],
     },
   },
   {
     test: {
-      name: 'data',
+      name: 'desktop',
       root: './apps/desktop',
       environment: 'node',
-      include: ['src/data/**/*.test.ts'],
+      // Composition-root infra (Clock/IdGenerator adapters) + future Data-layer tests.
+      include: ['tests/**/*.test.ts'],
       passWithNoTests: true,
     },
   },
