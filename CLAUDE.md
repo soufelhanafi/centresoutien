@@ -10,6 +10,10 @@ Centre Soutien is a bilingual French / Arabic (with native RTL) offline-first de
 
 The landing page is at `centresoutien.com` and defines the visual language. Match it.
 
+### Design source of truth
+
+`desktop-design.html` at the repo root is the authoritative UI design for the desktop app — match it; do not invent screens or visual elements that aren't in it. It is a **bundled Claude Design canvas export**, not hand-editable markup: to view it, **render it in a browser** (open the file), don't read the raw ~1.1 MB source. Its tokens (teal `#0F766E` brand, typography, spacing, radii) are already codified in `packages/ui/src/styles/tokens.css` and consumed by the renderer — extend those, never hard-code values.
+
 ### Target users
 
 Center directors, secretaries, and admins. Not tech people. The UI must never leak Electron / SQLite / sync internals into user-facing copy.
