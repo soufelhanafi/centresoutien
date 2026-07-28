@@ -1,7 +1,21 @@
 /**
  * @centresoutien/ui — shared, RTL-safe shadcn/ui wrappers.
- *
- * Stub until SOU-16 (React 19 + Tailwind + shadcn/ui). Used by the desktop
- * renderer today and the future web SaaS frontend.
+ * Consumed by the desktop renderer today and the future web SaaS frontend.
+ * Design tokens: import '@centresoutien/ui/styles/tokens.css'.
  */
-export const UI_PACKAGE = '@centresoutien/ui' as const;
+export { cn } from './lib/utils';
+export { Button, buttonVariants } from './components/ui/button';
+export type { ButtonProps } from './components/ui/button';
+export {
+  Dialog,
+  DialogTrigger,
+  DialogPortal,
+  DialogClose,
+  DialogOverlay,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from './components/ui/dialog';
+export type { DialogContentProps } from './components/ui/dialog';

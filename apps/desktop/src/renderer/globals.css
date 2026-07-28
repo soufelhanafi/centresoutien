@@ -1,0 +1,12 @@
+@import 'tailwindcss';
+@import '@centresoutien/ui/styles/tokens.css';
+
+/* Scan the shared UI package so its Tailwind classes are generated. */
+@source '../../../../packages/ui/src';
+
+body {
+  margin: 0;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
