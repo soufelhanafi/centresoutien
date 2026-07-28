@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 
 // Brand/social glyphs as inline SVG: lucide-react no longer ships logo icons.
 // Paths taken from the design source of truth. Decorative — labelled via the
@@ -63,7 +64,7 @@ const LINK_COLUMNS = [
     links: [
       { key: "legal_notice", href: "#" }, // TODO: real route
       { key: "terms", href: "#" }, // TODO: real route
-      { key: "privacy", href: "#" }, // TODO: real route
+      { key: "privacy", href: "/confidentialite" },
       { key: "law0908", href: "#" }, // TODO: real route
     ],
   },
@@ -99,15 +100,20 @@ export async function Footer() {
                 {t(`columns.${column.key}.title`)}
               </h2>
               <nav className="flex flex-col gap-2.5 text-sm">
-                {column.links.map((link) => (
-                  <a
-                    key={link.key}
-                    href={link.href}
-                    className="text-slate-300 transition-colors hover:text-white"
-                  >
-                    {t(`columns.${column.key}.links.${link.key}`)}
-                  </a>
-                ))}
+                {column.links.map((link) => {
+                  const label = t(`columns.${column.key}.links.${link.key}`);
+                  const cls =
+                    "text-slate-300 transition-colors hover:text-white";
+                  return link.href.startsWith("/") ? (
+                    <Link key={link.key} href={link.href} className={cls}>
+                      {label}
+                    </Link>
+                  ) : (
+                    <a key={link.key} href={link.href} className={cls}>
+                      {label}
+                    </a>
+                  );
+                })}
               </nav>
             </div>
           ))}

@@ -139,3 +139,31 @@ export async function getFaqPageSchema(locale: Locale): Promise<FaqPageSchema> {
     })),
   };
 }
+
+type BreadcrumbSchema = {
+  "@context": "https://schema.org";
+  "@type": "BreadcrumbList";
+  itemListElement: Array<{
+    "@type": "ListItem";
+    position: number;
+    name: string;
+    item: string;
+  }>;
+};
+
+/** Breadcrumb trail for interior pages. `items` are ordered [root, …, current]. */
+export function getBreadcrumbSchema(
+  locale: Locale,
+  items: ReadonlyArray<{ name: string; path: string }>,
+): BreadcrumbSchema {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((entry, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: entry.name,
+      item: `${SITE_URL}/${locale}${entry.path}`,
+    })),
+  };
+}

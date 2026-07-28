@@ -633,5 +633,102 @@
       "linkedin": "Centre Soutien sur LinkedIn",
       "youtube": "Centre Soutien sur YouTube"
     }
+  },
+  "founder": {
+    "badge": "★ Inscriptions ouvertes · 20 places",
+    "heading": "Programme Fondateur",
+    "body": "Vingt centres partenaires soigneusement sélectionnés bénéficient d'un accompagnement privilégié d'un an — sessions de travail directes avec l'équipe produit, formation approfondie, et influence directe sur la feuille de route — en échange de leurs retours honnêtes et détaillés.",
+    "note": "Places limitées. Sélection sur dossier. Réponse sous 5 jours ouvrés.",
+    "stats": {
+      "places": {
+        "value": "20",
+        "label": "places disponibles"
+      },
+      "duration": {
+        "value": "12 mois",
+        "label": "d'accompagnement"
+      },
+      "one_on_one": {
+        "value": "1:1",
+        "label": "avec le fondateur"
+      }
+    },
+    "form": {
+      "title": "Postuler au programme",
+      "subtitle": "Toutes les candidatures sont lues personnellement.",
+      "fields": {
+        "center": {
+          "label": "Nom du centre",
+          "placeholder": "Centre Al Massar"
+        },
+        "city": {
+          "label": "Ville",
+          "placeholder": "Casablanca"
+        },
+        "students": {
+          "label": "Élèves actuels",
+          "placeholder": "Choisir…",
+          "options": {
+            "lt50": "Moins de 50",
+            "50-150": "50 à 150",
+            "150-300": "150 à 300",
+            "gt300": "Plus de 300"
+          }
+        },
+        "email": {
+          "label": "Email",
+          "placeholder": "karim@almassar.ma"
+        },
+        "phone": {
+          "label": "Téléphone"
+        }
+      },
+      "consent": "J'accepte que Centre Soutien collecte ces informations dans le cadre du Programme Fondateur. Données conservées 24 mois maximum, jamais transmises à des tiers. <link>Politique de confidentialité</link> — droits d'accès, de rectification et de suppression (loi 09-08).",
+      "submit": "Postuler",
+      "submitting": "Envoi…",
+      "success_title": "Candidature reçue 🎉",
+      "success_body": "Merci. Nous revenons vers vous sous 5 jours ouvrés.",
+      "toast_success": "Votre candidature a bien été envoyée.",
+      "toast_validation": "Veuillez corriger les champs en rouge.",
+      "toast_error": "Une erreur est survenue. Réessayez dans un instant.",
+      "errors": {
+        "centerName": "Indiquez le nom du centre (2 caractères min).",
+        "city": "Indiquez la ville.",
+        "studentsRange": "Choisissez une tranche d'élèves.",
+        "email": "Indiquez une adresse email valide.",
+        "phone": "Indiquez un numéro marocain valide.",
+        "consent": "Vous devez accepter la politique de confidentialité."
+      }
+    }
+  },
+  "confidentialite": {
+    "meta_title": "Politique de confidentialité — Centre Soutien",
+    "meta_description": "Ce que Centre Soutien collecte via le Programme Fondateur, la durée de conservation et vos droits au titre de la loi 09-08.",
+    "breadcrumb": "Confidentialité",
+    "heading": "Politique de confidentialité",
+    "updated": "Dernière mise à jour : 28 juillet 2026",
+    "intro": "Cette page décrit les données personnelles que Centre Soutien collecte via le formulaire du Programme Fondateur, pourquoi elles sont collectées, combien de temps elles sont conservées et les droits dont vous disposez au titre de la loi 09-08.",
+    "sections": {
+      "collected": {
+        "title": "Données collectées",
+        "body": "Le formulaire du Programme Fondateur collecte : le nom du centre, la ville, une tranche indicative du nombre d'élèves, une adresse email et un numéro de téléphone. Aucune autre donnée n'est collectée sur ce site."
+      },
+      "purpose": {
+        "title": "Finalité",
+        "body": "Ces informations servent uniquement à étudier votre candidature au Programme Fondateur et à vous recontacter. Elles ne sont jamais transmises à des tiers ni utilisées à des fins publicitaires."
+      },
+      "retention": {
+        "title": "Durée de conservation",
+        "body": "Les candidatures sont conservées 24 mois maximum, puis supprimées."
+      },
+      "access": {
+        "title": "Accès",
+        "body": "Les candidatures sont reçues par email par l'équipe de Centre Soutien. L'acheminement de l'email est assuré par notre prestataire technique Resend."
+      },
+      "rights": {
+        "title": "Vos droits (loi 09-08)",
+        "body": "Vous disposez d'un droit d'accès, de rectification, d'opposition et de suppression de vos données. Pour l'exercer, écrivez-nous à privacy@centresoutien.com."
+      }
+    }
   }
 }
