@@ -4,6 +4,7 @@ import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { NAV_LINKS } from "./nav-links";
 import { LanguageToggle } from "./language-toggle";
+import { MobileNav } from "./mobile-nav";
 
 export async function Header() {
   const t = await getTranslations("header");
@@ -42,13 +43,15 @@ export async function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2.5 ms-auto md:ms-0">
+        <div className="hidden items-center gap-2.5 md:flex">
           <LanguageToggle />
           <Button variant="primary" size="sm">
             <Download aria-hidden="true" />
             {t("cta.download")}
           </Button>
         </div>
+
+        <MobileNav />
       </div>
     </header>
   );
