@@ -8,11 +8,13 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
+    "better-sqlite3-multiple-ciphers": "^12.11.1",
     "ulid": "^2.3.0"
   },
   "devDependencies": {
     "@centresoutien/config": "workspace:*",
     "@centresoutien/domain": "workspace:*",
-    "@centresoutien/ui": "workspace:*"
+    "@centresoutien/ui": "workspace:*",
+    "@types/better-sqlite3": "^7.6.13"
   }
 }
