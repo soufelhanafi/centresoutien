@@ -22,13 +22,19 @@ const inter = Inter({
   weight: ["400", "500", "600", "700", "800"],
 });
 
-// Arabic font — its CSS variable is only attached to <html> on /ar routes, so
-// browsers never fetch it on the French side (CLAUDE.md §7.9).
+// Arabic font. Its CSS variable is only attached to <html> on /ar routes, but
+// next/font preloads every font instantiated in a layout on ALL routes sharing
+// it — which was shipping this ~163 KiB face on French pages (CLAUDE.md §7.9
+// violation, and the dominant cost in /fr's text LCP). `preload: false` drops
+// the forced preload; since /fr never applies the family, the browser no longer
+// fetches it there. On /ar the family is applied via <html>, so it still loads,
+// covered by `display: swap`.
 const notoArabic = Noto_Sans_Arabic({
   subsets: ["arabic"],
   variable: "--font-noto-arabic",
   display: "swap",
   weight: ["400", "500", "600", "700", "800"],
+  preload: false,
 });
 
 export function generateStaticParams() {
