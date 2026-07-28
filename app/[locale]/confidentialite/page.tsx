@@ -36,6 +36,17 @@ export async function generateMetadata({
       siteName: "Centre Soutien",
       title: t("meta_title"),
       description: t("meta_description"),
+      // The file-based opengraph-image at app/[locale] only auto-applies to that
+      // segment, not to this nested route once it sets its own openGraph — so we
+      // point at the same per-locale OG image route explicitly (CLAUDE.md §7.1).
+      images: [
+        {
+          url: `${SITE_URL}/${locale}/opengraph-image`,
+          width: 1200,
+          height: 630,
+          alt: "Centre Soutien",
+        },
+      ],
     },
     twitter: { card: "summary_large_image", title: t("meta_title") },
   };
