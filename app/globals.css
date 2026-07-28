@@ -55,3 +55,39 @@ body {
 html[dir="rtl"] body {
   font-family: var(--font-arabic);
 }
+
+/* Mobile nav dropdown — short entrance, disabled under reduced-motion. */
+@keyframes mobile-nav-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mobile-nav-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.mobile-nav-panel {
+  animation: mobile-nav-panel-in 150ms ease-out;
+}
+
+.mobile-nav-scrim {
+  animation: mobile-nav-scrim-in 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-nav-panel,
+  .mobile-nav-scrim {
+    animation: none;
+  }
+}
