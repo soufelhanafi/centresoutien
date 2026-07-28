@@ -4,7 +4,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**'] },
+  { ignores: ['**/dist/**', '**/out/**', '**/node_modules/**', '**/coverage/**'] },
   ...base,
   ...domainBoundaries,
   // Node-context tooling (build scripts, config files) may use Node globals.
