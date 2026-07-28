@@ -3,7 +3,9 @@ import { createIpcDispatcher } from '../../../src/main/ipc/dispatcher';
 import { createHandlers } from '../../../src/main/ipc/handlers';
 import type { IpcHandlers } from '../../../src/shared/ipc/contract';
 
-const dispatch = createIpcDispatcher(createHandlers({ appVersion: () => '2.0.0' }));
+const dispatch = createIpcDispatcher(
+  createHandlers({ appVersion: () => '2.0.0', activePlanId: () => 'pro' }),
+);
 
 describe('createIpcDispatcher', () => {
   it('validates the request, runs the handler, and validates the response', async () => {
@@ -11,6 +13,10 @@ describe('createIpcDispatcher', () => {
       reply: 'pong: hi',
       appVersion: '2.0.0',
     });
+  });
+
+  it('runs the plan.get handler', async () => {
+    await expect(dispatch('plan.get', {})).resolves.toEqual({ planId: 'pro' });
   });
 
   it('rejects a request that fails its schema', async () => {

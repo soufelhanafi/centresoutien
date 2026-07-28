@@ -1,8 +1,16 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain } from 'electron';
+import { PLANS } from '@centresoutien/domain';
+import type { PlanId } from '@centresoutien/domain';
 import { registerIpc } from './ipc/register';
 import { createHandlers } from './ipc/handlers';
 import { createMainWindow } from './window';
+
+/** Active plan: from the license later; for now a dev override, default Essentiel. */
+function activePlanId(): PlanId {
+  const requested = process.env['CS_PLAN'];
+  return requested && requested in PLANS ? (requested as PlanId) : 'essentiel';
+}
 
 /**
  * Electron main entry (SOU-15). Registers the typed IPC handlers, then opens the
@@ -20,7 +28,7 @@ function openWindow(): void {
 }
 
 app.whenReady().then(() => {
-  registerIpc(ipcMain, createHandlers({ appVersion: () => app.getVersion() }));
+  registerIpc(ipcMain, createHandlers({ appVersion: () => app.getVersion(), activePlanId }));
   openWindow();
 
   app.on('activate', () => {
