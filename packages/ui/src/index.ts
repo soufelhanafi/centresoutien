@@ -19,3 +19,15 @@ export {
   DialogDescription,
 } from './components/ui/dialog';
 export type { DialogContentProps } from './components/ui/dialog';
+export { Label } from './components/ui/label';
+export type { LabelProps } from './components/ui/label';
+export {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormDescription,
+  FormMessage,
+  useFormField,
+} from './components/ui/form';

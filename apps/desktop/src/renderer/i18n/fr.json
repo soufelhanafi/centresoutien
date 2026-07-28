@@ -16,5 +16,9 @@
   },
   "language": {
     "switch": "العربية"
+  },
+  "errors": {
+    "required": "Ce champ est requis",
+    "too-long": "Texte trop long"
   }
 }

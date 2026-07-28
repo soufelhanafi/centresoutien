@@ -16,5 +16,9 @@
   },
   "language": {
     "switch": "Français"
+  },
+  "errors": {
+    "required": "هذا الحقل مطلوب",
+    "too-long": "النص طويل جدًا"
   }
 }
