@@ -21,6 +21,8 @@ export {
 export type { DialogContentProps } from './components/ui/dialog';
 export { Label } from './components/ui/label';
 export type { LabelProps } from './components/ui/label';
+export { Input } from './components/ui/input';
+export type { InputProps } from './components/ui/input';
 export {
   Form,
   FormField,
