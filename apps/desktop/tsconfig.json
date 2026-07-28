@@ -1,0 +1,9 @@
+{
+  "extends": "@centresoutien/config/tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "rootDir": "src",
+    "noEmit": true
+  },
+  "include": ["src"]
+}

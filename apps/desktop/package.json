@@ -1,0 +1,15 @@
+{
+  "name": "@centresoutien/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "@centresoutien/config": "workspace:*",
+    "@centresoutien/domain": "workspace:*",
+    "@centresoutien/ui": "workspace:*"
+  }
+}
