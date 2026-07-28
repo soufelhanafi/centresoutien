@@ -21,6 +21,10 @@ export function App() {
   const [ping, setPing] = useState('…');
 
   useEffect(() => {
+    if (!window.api) {
+      setPing('IPC unavailable');
+      return;
+    }
     window.api
       .invoke('app.ping', { message: 'renderer' })
       .then((res) => setPing(`${res.reply} — v${res.appVersion}`))

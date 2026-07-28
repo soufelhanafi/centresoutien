@@ -11,6 +11,12 @@ export default defineConfig({
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
+    // Sandboxed preloads must be CommonJS — ESM `import` is rejected at runtime.
+    build: {
+      rollupOptions: {
+        output: { format: 'cjs', entryFileNames: '[name].js' },
+      },
+    },
   },
   renderer: {
     plugins: [react(), tailwindcss()],

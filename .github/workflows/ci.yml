@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -37,3 +37,29 @@ jobs:
 
       - name: Build desktop
         run: pnpm build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.9.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Electron needs its GUI system libraries + a virtual display on Linux.
+      - name: Install Playwright system dependencies
+        run: pnpm --filter @centresoutien/desktop exec playwright install-deps
+
+      - name: Build desktop
+        run: pnpm --filter @centresoutien/desktop build
+
+      - name: E2E (Electron under Xvfb, FR + AR)
+        run: xvfb-run -a pnpm --filter @centresoutien/desktop test:e2e
