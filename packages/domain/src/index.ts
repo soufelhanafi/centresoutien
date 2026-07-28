@@ -26,3 +26,9 @@ export { diffChangedFields } from './sync/change-log';
 
 // Repository ports
 export type { SoftDeletableRepository } from './repositories/soft-deletable';
+
+// Plans & gating
+export type { PlanId, FeatureFlag, PlanLimits, Plan } from './plans/plans';
+export { PLANS } from './plans/plans';
+export { PlanPolicy } from './plans/plan-policy';
+export { DomainError, PlanFeatureUnavailableError, PlanLimitExceededError } from './errors/plan-errors';
