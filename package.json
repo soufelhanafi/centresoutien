@@ -11,6 +11,7 @@
   "scripts": {
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
+    "gate": "node scripts/pre-merge-gate.mjs",
     "build": "pnpm --filter @centresoutien/desktop build"
   },
   "devDependencies": {
