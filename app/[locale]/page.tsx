@@ -9,7 +9,10 @@ import { Problem } from "@/components/sections/problem";
 import { Features } from "@/components/sections/features";
 import { HowItWorks } from "@/components/sections/how-it-works";
 import { Pricing } from "@/components/sections/pricing";
+import { Testimonials } from "@/components/sections/testimonials";
 import { Faq } from "@/components/sections/faq";
+import { FinalCta } from "@/components/sections/final-cta";
+import { Footer } from "@/components/sections/footer";
 import { JsonLd } from "@/components/seo/json-ld";
 import {
   getFaqPageSchema,
@@ -74,18 +77,23 @@ export default async function LandingPage({
   const faqSchema = await getFaqPageSchema(locale);
 
   return (
-    <main>
+    <>
       <JsonLd id="ld-organization" data={getOrganizationSchema()} />
       <JsonLd id="ld-software" data={getSoftwareApplicationSchema(locale)} />
       <JsonLd id="ld-website" data={getWebSiteSchema(locale)} />
       <JsonLd id="ld-faq" data={faqSchema} />
       <Header />
-      <Hero />
-      <Problem />
-      <Features />
-      <HowItWorks />
-      <Pricing />
-      <Faq />
-    </main>
+      <main>
+        <Hero />
+        <Problem />
+        <Features />
+        <HowItWorks />
+        <Pricing />
+        <Testimonials />
+        <Faq />
+        <FinalCta />
+      </main>
+      <Footer />
+    </>
   );
 }
