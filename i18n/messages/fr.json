@@ -558,5 +558,80 @@
         "answer": "Une session de prise en main d'une heure en visioconférence est incluse dans Pro. Premium inclut une formation sur site d'une journée pour votre équipe."
       }
     }
+  },
+  "testimonials": {
+    "eyebrow": "Témoignages",
+    "heading": "Ce qu'en disent les directeurs.",
+    "rating_label": "5 étoiles sur 5",
+    "cards": {
+      "karim": {
+        "quote": "Avant, je passais mes dimanches sur Excel. Maintenant, j'ai retrouvé mes week-ends.",
+        "name": "Karim Alaoui",
+        "role": "Directeur · Centre Al Massar · Casablanca"
+      },
+      "nadia": {
+        "quote": "Les factures sortent en un clic, en dirhams, avec les bons noms. C'est la première fois qu'on ne s'engueule plus avec les parents à la fin du mois.",
+        "name": "Nadia Benjelloun",
+        "role": "Directrice · Éduq'Plus · Rabat"
+      },
+      "hicham": {
+        "quote": "Mon secrétariat parle arabe, moi en français, les deux versions se synchronisent. On travaille enfin sur le même outil.",
+        "name": "Hicham Tazi",
+        "role": "Fondateur · Centre Atlas · Fès"
+      }
+    }
+  },
+  "final_cta": {
+    "heading": "Prêt à quitter Excel ?",
+    "subheading": "14 jours d'essai, sans carte bancaire. Vous ne réinstallez plus Excel après.",
+    "cta": {
+      "download": "Télécharger",
+      "demo": "Planifier une démo"
+    }
+  },
+  "footer": {
+    "brand": "Centre Soutien",
+    "tagline": "Le logiciel de gestion pensé pour les centres de soutien scolaire marocains.",
+    "columns": {
+      "product": {
+        "title": "Produit",
+        "links": {
+          "features": "Fonctionnalités",
+          "pricing": "Tarifs",
+          "download": "Téléchargement",
+          "changelog": "Nouveautés"
+        }
+      },
+      "resources": {
+        "title": "Ressources",
+        "links": {
+          "docs": "Documentation",
+          "faq": "FAQ",
+          "blog": "Blog"
+        }
+      },
+      "company": {
+        "title": "Entreprise",
+        "links": {
+          "about": "À propos",
+          "contact": "Contact",
+          "founder": "Programme Fondateur"
+        }
+      },
+      "legal": {
+        "title": "Légal",
+        "links": {
+          "legal_notice": "Mentions légales",
+          "terms": "CGV",
+          "privacy": "Confidentialité",
+          "law0908": "Loi 09-08"
+        }
+      }
+    },
+    "copyright": "© 2026 Centre Soutien · Fabriqué au Maroc 🇲🇦",
+    "social": {
+      "linkedin": "Centre Soutien sur LinkedIn",
+      "youtube": "Centre Soutien sur YouTube"
+    }
   }
 }
