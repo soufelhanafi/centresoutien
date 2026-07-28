@@ -2,6 +2,7 @@
   "comment": "Editor convenience only. CI typechecks via tsconfig.node.json + tsconfig.web.json.",
   "extends": "@centresoutien/config/tsconfig.base.json",
   "compilerOptions": {
+    "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node", "vite/client"],
     "noEmit": true

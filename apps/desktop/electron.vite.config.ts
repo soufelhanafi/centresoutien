@@ -1,6 +1,8 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
-// Three build targets: main + preload (Node/Electron) and renderer (web).
+// Three build targets: main + preload (Node/Electron) and renderer (React web).
 // externalizeDepsPlugin keeps node_modules (electron, the native SQLCipher
 // module) out of the main/preload bundles.
 export default defineConfig({
@@ -10,5 +12,7 @@ export default defineConfig({
   preload: {
     plugins: [externalizeDepsPlugin()],
   },
-  renderer: {},
+  renderer: {
+    plugins: [react(), tailwindcss()],
+  },
 });

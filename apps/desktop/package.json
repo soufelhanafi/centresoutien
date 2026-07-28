@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "better-sqlite3-multiple-ciphers": "^12.11.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "ulid": "^2.3.0",
     "zod": "^4.4.3"
   },
@@ -19,10 +21,15 @@
     "@centresoutien/config": "workspace:*",
     "@centresoutien/domain": "workspace:*",
     "@centresoutien/ui": "workspace:*",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
     "electron": "^43.2.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "tailwindcss": "^4.3.3",
     "vite": "^7.3.6"
   }
 }
