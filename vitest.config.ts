@@ -9,7 +9,15 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html'],
       include: ['packages/domain/src/**/*.ts'],
-      exclude: ['**/*.test.ts', '**/__tests__/**'],
+      exclude: [
+        '**/*.test.ts',
+        '**/__tests__/**',
+        // Type-only modules (interfaces / type aliases) compile to no runtime
+        // code — they have nothing to cover.
+        '**/ports/**',
+        '**/value-objects/brand.ts',
+        '**/repositories/soft-deletable.ts',
+      ],
       thresholds: {
         lines: 90,
         functions: 90,
