@@ -12,15 +12,19 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "gate": "node scripts/pre-merge-gate.mjs",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
     "build": "pnpm --filter @centresoutien/desktop build"
   },
   "devDependencies": {
     "@centresoutien/config": "workspace:*",
     "@eslint/js": "^9.13.0",
     "@types/node": "^22.7.5",
+    "@vitest/coverage-v8": "^2.1.3",
     "eslint": "^9.13.0",
     "globals": "^15.11.0",
     "typescript": "^5.6.3",
-    "typescript-eslint": "^8.11.0"
+    "typescript-eslint": "^8.11.0",
+    "vitest": "^2.1.3"
   }
 }
