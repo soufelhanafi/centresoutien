@@ -5,10 +5,19 @@
   "type": "module",
   "exports": {
     "./tsconfig.base.json": "./tsconfig.base.json",
-    "./tsconfig.domain.json": "./tsconfig.domain.json"
+    "./tsconfig.domain.json": "./tsconfig.domain.json",
+    "./eslint.base": "./eslint.base.mjs",
+    "./eslint.boundaries": "./eslint.boundaries.mjs"
   },
   "files": [
     "tsconfig.base.json",
-    "tsconfig.domain.json"
-  ]
+    "tsconfig.domain.json",
+    "eslint.base.mjs",
+    "eslint.boundaries.mjs"
+  ],
+  "peerDependencies": {
+    "@eslint/js": "*",
+    "eslint": "*",
+    "typescript-eslint": "*"
+  }
 }
