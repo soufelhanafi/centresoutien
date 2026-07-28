@@ -10,10 +10,12 @@ import { createMainWindow } from './window';
  * adapters and exposing them as IPC handlers — grows from here.
  */
 function openWindow(): void {
-  const preload = join(import.meta.dirname, '../preload/index.mjs');
+  const preload = join(import.meta.dirname, '../preload/index.js');
+  const locale = process.env['CS_LOCALE'];
   createMainWindow(preload, {
     devUrl: process.env['ELECTRON_RENDERER_URL'],
     indexHtml: join(import.meta.dirname, '../renderer/index.html'),
+    ...(locale ? { query: { locale } } : {}),
   });
 }
 
