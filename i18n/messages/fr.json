@@ -633,5 +633,72 @@
       "linkedin": "Centre Soutien sur LinkedIn",
       "youtube": "Centre Soutien sur YouTube"
     }
+  },
+  "founder": {
+    "badge": "★ Inscriptions ouvertes · 20 places",
+    "heading": "Programme Fondateur",
+    "body": "Vingt centres partenaires soigneusement sélectionnés bénéficient d'un accompagnement privilégié d'un an — sessions de travail directes avec l'équipe produit, formation approfondie, et influence directe sur la feuille de route — en échange de leurs retours honnêtes et détaillés.",
+    "note": "Places limitées. Sélection sur dossier. Réponse sous 5 jours ouvrés.",
+    "stats": {
+      "places": {
+        "value": "20",
+        "label": "places disponibles"
+      },
+      "duration": {
+        "value": "12 mois",
+        "label": "d'accompagnement"
+      },
+      "one_on_one": {
+        "value": "1:1",
+        "label": "avec le fondateur"
+      }
+    },
+    "form": {
+      "title": "Postuler au programme",
+      "subtitle": "Toutes les candidatures sont lues personnellement.",
+      "fields": {
+        "center": {
+          "label": "Nom du centre",
+          "placeholder": "Centre Al Massar"
+        },
+        "city": {
+          "label": "Ville",
+          "placeholder": "Casablanca"
+        },
+        "students": {
+          "label": "Élèves actuels",
+          "placeholder": "Choisir…",
+          "options": {
+            "lt50": "Moins de 50",
+            "50-150": "50 à 150",
+            "150-300": "150 à 300",
+            "gt300": "Plus de 300"
+          }
+        },
+        "email": {
+          "label": "Email",
+          "placeholder": "karim@almassar.ma"
+        },
+        "phone": {
+          "label": "Téléphone"
+        }
+      },
+      "consent": "J'accepte que Centre Soutien collecte ces informations dans le cadre du Programme Fondateur. Données conservées 24 mois maximum, jamais transmises à des tiers. <link>Politique de confidentialité</link> — droits d'accès, de rectification et de suppression (loi 09-08).",
+      "submit": "Postuler",
+      "submitting": "Envoi…",
+      "success_title": "Candidature reçue 🎉",
+      "success_body": "Merci. Nous revenons vers vous sous 5 jours ouvrés.",
+      "toast_success": "Votre candidature a bien été envoyée.",
+      "toast_validation": "Veuillez corriger les champs en rouge.",
+      "toast_error": "Une erreur est survenue. Réessayez dans un instant.",
+      "errors": {
+        "centerName": "Indiquez le nom du centre (2 caractères min).",
+        "city": "Indiquez la ville.",
+        "studentsRange": "Choisissez une tranche d'élèves.",
+        "email": "Indiquez une adresse email valide.",
+        "phone": "Indiquez un numéro marocain valide.",
+        "consent": "Vous devez accepter la politique de confidentialité."
+      }
+    }
   }
 }
