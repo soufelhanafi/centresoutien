@@ -1,5 +1,6 @@
 import { base } from '@centresoutien/config/eslint.base';
 import { domainBoundaries } from '@centresoutien/config/eslint.boundaries';
+import { rtlLogicalProperties } from '@centresoutien/config/eslint.rtl';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -7,6 +8,7 @@ export default tseslint.config(
   { ignores: ['**/dist/**', '**/out/**', '**/node_modules/**', '**/coverage/**'] },
   ...base,
   ...domainBoundaries,
+  ...rtlLogicalProperties,
   // Node-context tooling (build scripts, config files) may use Node globals.
   {
     files: ['scripts/**/*.mjs', '**/*.config.{ts,mjs}', '**/*.workspace.ts', 'eslint.config.mjs'],

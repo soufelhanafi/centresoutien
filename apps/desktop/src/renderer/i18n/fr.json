@@ -1,0 +1,15 @@
+{
+  "app": {
+    "title": "Centre Soutien"
+  },
+  "smoke": {
+    "ipcLabel": "IPC",
+    "openDialog": "Ouvrir la fenêtre",
+    "dialogTitle": "Bienvenue",
+    "dialogBody": "Fondation React 19 + Tailwind + shadcn/ui prête.",
+    "close": "Fermer"
+  },
+  "language": {
+    "switch": "العربية"
+  }
+}

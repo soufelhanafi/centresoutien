@@ -7,13 +7,15 @@
     "./tsconfig.base.json": "./tsconfig.base.json",
     "./tsconfig.domain.json": "./tsconfig.domain.json",
     "./eslint.base": "./eslint.base.mjs",
-    "./eslint.boundaries": "./eslint.boundaries.mjs"
+    "./eslint.boundaries": "./eslint.boundaries.mjs",
+    "./eslint.rtl": "./eslint.rtl.mjs"
   },
   "files": [
     "tsconfig.base.json",
     "tsconfig.domain.json",
     "eslint.base.mjs",
-    "eslint.boundaries.mjs"
+    "eslint.boundaries.mjs",
+    "eslint.rtl.mjs"
   ],
   "peerDependencies": {
     "@eslint/js": "*",
