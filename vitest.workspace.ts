@@ -25,6 +25,16 @@ export default defineWorkspace([
     },
   },
   {
+    esbuild: { jsx: 'automatic' },
+    test: {
+      name: 'renderer',
+      root: './apps/desktop',
+      environment: 'jsdom',
+      include: ['tests/renderer/**/*.test.tsx'],
+      setupFiles: ['./tests/renderer/setup.ts'],
+    },
+  },
+  {
     test: {
       name: 'tools',
       root: '.',

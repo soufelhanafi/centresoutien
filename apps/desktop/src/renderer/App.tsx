@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Button,
   Dialog,
@@ -10,10 +11,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@centresoutien/ui';
+import { useHtmlDirection } from './hooks/use-html-direction';
+import { LanguageToggle } from './components/language-toggle';
 
-// Smoke page (SOU-16): proves React + Tailwind + shadcn/ui + the typed IPC
-// bridge all work together. Real screens and i18n arrive in SOU-21+.
+// Smoke page (SOU-16/21): React + Tailwind + shadcn/ui + typed IPC + i18n/RTL.
 export function App() {
+  const { t } = useTranslation();
+  useHtmlDirection();
   const [ping, setPing] = useState('…');
 
   useEffect(() => {
@@ -25,23 +29,27 @@ export function App() {
 
   return (
     <main className="flex min-h-screen flex-col items-start gap-6 bg-background p-8 text-foreground">
-      <h1 className="text-2xl font-semibold text-primary">Centre Soutien</h1>
-      <p className="text-sm text-muted-foreground">IPC : {ping}</p>
+      <div className="flex w-full items-center justify-between">
+        <h1 className="text-2xl font-semibold text-primary">{t('app.title')}</h1>
+        <LanguageToggle />
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        {t('smoke.ipcLabel')} : {ping}
+      </p>
 
       <Dialog>
         <DialogTrigger asChild>
-          <Button>Ouvrir la fenêtre</Button>
+          <Button>{t('smoke.openDialog')}</Button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent closeLabel={t('smoke.close')}>
           <DialogHeader>
-            <DialogTitle>Bienvenue</DialogTitle>
-            <DialogDescription>
-              Fondation React 19 + Tailwind + shadcn/ui prête.
-            </DialogDescription>
+            <DialogTitle>{t('smoke.dialogTitle')}</DialogTitle>
+            <DialogDescription>{t('smoke.dialogBody')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="secondary">Fermer</Button>
+              <Button variant="secondary">{t('smoke.close')}</Button>
             </DialogClose>
           </DialogFooter>
         </DialogContent>
