@@ -398,5 +398,165 @@
         }
       }
     }
+  },
+  "how_it_works": {
+    "eyebrow": "Comment ça marche",
+    "heading": "De l'installation au premier planning, en moins de 10 minutes.",
+    "steps": {
+      "install": {
+        "number": "01",
+        "title": "Installer",
+        "body": "Téléchargez le programme (Windows ou Mac) et lancez-le. Aucun compte à créer, aucune connexion requise. <strong>1 minute.</strong>"
+      },
+      "setup": {
+        "number": "02",
+        "title": "Configurer votre centre",
+        "body": "Ajoutez vos salles, vos enseignants, importez vos élèves depuis Excel. Un assistant vous guide étape par étape. <strong>5 minutes.</strong>"
+      },
+      "daily": {
+        "number": "03",
+        "title": "Gérer au quotidien",
+        "body": "Planning, présences, factures — chaque tâche à la bonne place. Vos données restent sur votre ordinateur. <strong>Chaque jour.</strong>"
+      }
+    }
+  },
+  "pricing": {
+    "eyebrow": "Tarifs",
+    "heading": "Un tarif clair, payé une fois par an.",
+    "subheading": "Tous les prix sont en dirhams marocains, TVA incluse. Paiement annuel unique.",
+    "badge_recommended": "RECOMMANDÉ",
+    "per_year": "MAD/an",
+    "per_month_equiv": "MAD/mois équivalent",
+    "tiers": {
+      "essentiel": {
+        "name": "Essentiel",
+        "description": "Pour petits centres qui démarrent.",
+        "price": "1 490",
+        "monthly": "≈ 124 MAD/mois équivalent",
+        "cta": "Commencer l'essai",
+        "features": {
+          "0": "Jusqu'à 50 élèves",
+          "1": "2 enseignants",
+          "2": "1 salle",
+          "3": "Planning et facturation basique",
+          "4": "Support par email"
+        }
+      },
+      "pro": {
+        "name": "Pro",
+        "description": "Pour la plupart des centres, la formule la plus complète.",
+        "price": "3 490",
+        "monthly": "≈ 291 MAD/mois équivalent",
+        "cta": "Commencer l'essai",
+        "features": {
+          "0": "Jusqu'à 200 élèves",
+          "1": "10 enseignants",
+          "2": "5 salles",
+          "3": "Facturation avancée + relances",
+          "4": "Détection de conflits de planning",
+          "5": "Support prioritaire"
+        }
+      },
+      "premium": {
+        "name": "Premium",
+        "description": "Pour centres établis avec plusieurs enseignants.",
+        "price": "6 490",
+        "monthly": "≈ 541 MAD/mois équivalent",
+        "cta": "Nous contacter",
+        "features": {
+          "0": "Élèves illimités",
+          "1": "Enseignants illimités",
+          "2": "Salles illimitées",
+          "3": "Support prioritaire téléphonique",
+          "4": "Formation sur site incluse"
+        }
+      }
+    },
+    "comparison": {
+      "title": "Comparatif détaillé",
+      "rows": {
+        "0": {
+          "label": "Élèves",
+          "essentiel": "50",
+          "pro": "200",
+          "premium": "Illimités"
+        },
+        "1": {
+          "label": "Enseignants",
+          "essentiel": "2",
+          "pro": "10",
+          "premium": "Illimités"
+        },
+        "2": {
+          "label": "Salles",
+          "essentiel": "1",
+          "pro": "5",
+          "premium": "Illimitées"
+        },
+        "3": {
+          "label": "Planning avec détection de conflits",
+          "essentiel": "—",
+          "pro": "✓",
+          "premium": "✓"
+        },
+        "4": {
+          "label": "Relances automatiques WhatsApp/email",
+          "essentiel": "—",
+          "pro": "✓",
+          "premium": "✓"
+        },
+        "5": {
+          "label": "Support prioritaire téléphonique",
+          "essentiel": "—",
+          "pro": "—",
+          "premium": "✓"
+        },
+        "6": {
+          "label": "Formation sur site",
+          "essentiel": "—",
+          "pro": "—",
+          "premium": "✓"
+        }
+      }
+    },
+    "footnote": "Paiement annuel · Facturation en dirhams · TVA incluse"
+  },
+  "faq": {
+    "eyebrow": "FAQ",
+    "heading": "Questions fréquentes",
+    "items": {
+      "offline": {
+        "question": "L'application fonctionne-t-elle sans internet ?",
+        "answer": "Oui. Centre Soutien est une application de bureau qui fonctionne 100% hors ligne. Toutes vos données sont stockées localement sur votre ordinateur. Internet n'est requis que pour les mises à jour et le support."
+      },
+      "storage": {
+        "question": "Où sont stockées mes données ?",
+        "answer": "Sur votre ordinateur, dans une base de données chiffrée. Rien n'est envoyé sur nos serveurs. Vous êtes seul propriétaire de vos données, conformément à la loi 09-08."
+      },
+      "updates": {
+        "question": "Comment se passent les mises à jour ?",
+        "answer": "L'application vérifie discrètement les nouvelles versions et vous propose d'installer les correctifs à un moment qui vous convient. Aucune interruption pendant une séance."
+      },
+      "multi_center": {
+        "question": "Puis-je gérer plusieurs centres ?",
+        "answer": "Oui, à partir de la formule Pro. Chaque centre a son propre espace, ses propres élèves et sa propre facturation, dans une seule installation."
+      },
+      "support": {
+        "question": "Comment fonctionne le support ?",
+        "answer": "Par email pour Essentiel, prioritaire pour Pro (réponse sous 4h ouvrées), et par téléphone en français ou en darija pour Premium. Une base de connaissances complète est disponible dans l'app."
+      },
+      "trial": {
+        "question": "Puis-je essayer avant d'acheter ?",
+        "answer": "Oui, 14 jours gratuits sans carte bancaire. Toutes les fonctionnalités de la formule Pro sont accessibles pendant l'essai."
+      },
+      "refund": {
+        "question": "Politique de remboursement ?",
+        "answer": "30 jours satisfait ou remboursé, sans justification. Un simple email suffit."
+      },
+      "training": {
+        "question": "Formation incluse ?",
+        "answer": "Une session de prise en main d'une heure en visioconférence est incluse dans Pro. Premium inclut une formation sur site d'une journée pour votre équipe."
+      }
+    }
   }
 }

@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 
 /** Canonical production origin. Keep in sync with app metadata + sitemap/robots. */
@@ -95,5 +96,46 @@ export function getWebSiteSchema(locale: Locale): WebSiteSchema {
     name: "Centre Soutien",
     url: `${SITE_URL}/${locale}`,
     inLanguage: IN_LANGUAGE[locale],
+  };
+}
+
+/**
+ * FAQ item keys, in display order. Must stay in sync with the visible FAQ
+ * section (`faq.items.*` messages) so the FAQPage rich result mirrors the page.
+ */
+const FAQ_KEYS = [
+  "offline",
+  "storage",
+  "updates",
+  "multi_center",
+  "support",
+  "trial",
+  "refund",
+  "training",
+] as const;
+
+type FaqPageSchema = {
+  "@context": "https://schema.org";
+  "@type": "FAQPage";
+  mainEntity: Array<{
+    "@type": "Question";
+    name: string;
+    acceptedAnswer: { "@type": "Answer"; text: string };
+  }>;
+};
+
+export async function getFaqPageSchema(locale: Locale): Promise<FaqPageSchema> {
+  const t = await getTranslations({ locale, namespace: "faq.items" });
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQ_KEYS.map((key) => ({
+      "@type": "Question",
+      name: t(`${key}.question`),
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: t(`${key}.answer`),
+      },
+    })),
   };
 }
