@@ -20,9 +20,8 @@ import {
   getOrganizationSchema,
   getSoftwareApplicationSchema,
   getWebSiteSchema,
+  SITE_URL,
 } from "@/lib/structured-data";
-
-const SITE_URL = "https://centresoutien.com";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
