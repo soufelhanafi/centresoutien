@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { subjectInputSchema } from '@centresoutien/domain';
 
 /**
  * The typed IPC contract (SOU-15). Every renderer↔main call is a named channel
@@ -14,6 +15,12 @@ export const ipcContract = {
   'plan.get': {
     request: z.object({}),
     response: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
+  },
+  // The request schema is the domain's own input schema — validated once, shared
+  // by the form (zodResolver), the preload types, and this boundary.
+  'subject.create': {
+    request: subjectInputSchema,
+    response: z.object({ id: z.string() }),
   },
 } as const;
 
