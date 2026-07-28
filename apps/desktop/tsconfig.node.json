@@ -1,0 +1,9 @@
+{
+  "extends": "@centresoutien/config/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["src/main", "src/preload", "src/shared", "src/data", "electron.vite.config.ts"]
+}
