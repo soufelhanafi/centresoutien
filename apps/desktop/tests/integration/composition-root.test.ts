@@ -52,6 +52,28 @@ describe('composition root', () => {
     expect(saved?.deviceOrigin).toMatch(/^dev_/);
   });
 
+  it('wires centerHours.save + get end-to-end and persists the week across a restart', async () => {
+    const first = build();
+    const dispatch1 = createIpcDispatcher(createHandlers(first.handlerDeps));
+
+    expect(await dispatch1('centerHours.get', {})).toEqual({ week: [] }); // fresh center
+
+    const week = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+      dayOfWeek,
+      open: dayOfWeek === 0 ? null : '09:00',
+      close: dayOfWeek === 0 ? null : '18:00',
+    }));
+    const saved = await dispatch1('centerHours.save', week);
+    expect(saved.week).toEqual(week);
+    first.dispose();
+
+    // Reopen the same encrypted file: the week persists.
+    const second = build();
+    const dispatch2 = createIpcDispatcher(createHandlers(second.handlerDeps));
+    expect((await dispatch2('centerHours.get', {})).week).toEqual(week);
+    second.dispose();
+  });
+
   it('creates an admin account that survives a restart and then verifies (SOU-26)', async () => {
     const first = build();
     const dispatch1 = createIpcDispatcher(createHandlers(first.handlerDeps));
@@ -89,11 +111,11 @@ describe('composition root', () => {
 
   it('persists a stable device origin across container rebuilds', async () => {
     const first = build();
-    const dev1 = first.handlerDeps.subjectContext().deviceOrigin;
+    const dev1 = first.handlerDeps.envelopeContext().deviceOrigin;
     first.dispose();
 
     const second = build();
-    const dev2 = second.handlerDeps.subjectContext().deviceOrigin;
+    const dev2 = second.handlerDeps.envelopeContext().deviceOrigin;
     second.dispose();
 
     expect(dev1).toMatch(/^dev_/);
