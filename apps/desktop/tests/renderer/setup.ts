@@ -2,6 +2,15 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
+// jsdom has no ResizeObserver; some Radix primitives (e.g. Checkbox) require it.
+if (!('ResizeObserver' in globalThis)) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 // Stub the preload bridge so components that call it don't crash in jsdom.
 Object.defineProperty(window, 'api', {
   configurable: true,
@@ -15,6 +24,10 @@ Object.defineProperty(window, 'api', {
         // first-run wizard. Wizard-specific tests override `window.api.invoke`.
         case 'admin.exists':
           return { exists: true };
+        // Default to a remembered device so App smoke tests render the app, not
+        // the login screen. Auth-specific tests override `window.api.invoke`.
+        case 'auth.session':
+          return { authenticated: true };
         default:
           return { reply: 'pong: test', appVersion: '0.0.0' };
       }

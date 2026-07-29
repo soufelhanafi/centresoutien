@@ -6,6 +6,7 @@ import {
   activePlan,
   freshUserDataDir,
   launch,
+  passAuthGate,
   trySecondAdminCreate,
   type Launched,
   type Locale,
@@ -98,9 +99,10 @@ test('happy path: walks every mandatory step to Done and creates the admin exact
 
   await win.screenshot({ path: `test-results/wizard-done-${loc}.png` });
 
-  // Finishing hands off to the app.
+  // Finishing hands off to the auth gate (SOU-27); logging in reaches the app.
   await win.getByRole('button', { name: L.doneCta }).click();
   await expect(win.getByText(L.wizardTitle)).toHaveCount(0);
+  await passAuthGate(win);
   await expect(win.getByText(L.appMarker).first()).toBeVisible();
 });
 
@@ -185,10 +187,12 @@ test('first-run gate: fresh state shows the wizard; after completion a relaunch 
   await next(win, L).click(); // hours stub → done
   await expect(win.getByText(L.doneTitle).first()).toBeVisible();
   await win.getByRole('button', { name: L.doneCta }).click();
+  await passAuthGate(win);
   await expect(win.getByText(L.appMarker).first()).toBeVisible();
   await live.app.close();
 
-  // Relaunch the SAME userData dir → admin exists → app, not the wizard.
+  // Relaunch the SAME userData dir → admin exists + remembered session → app,
+  // not the wizard and not the login screen.
   live = await launch({ locale: loc, plan: 'essentiel', userDataDir: dir });
   win = live.win;
   await expect.poll(() => adminExists(win)).toBe(true);
