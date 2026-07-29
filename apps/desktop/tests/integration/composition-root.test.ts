@@ -52,6 +52,41 @@ describe('composition root', () => {
     expect(saved?.deviceOrigin).toMatch(/^dev_/);
   });
 
+  it('creates an admin account that survives a restart and then verifies (SOU-26)', async () => {
+    const first = build();
+    const dispatch1 = createIpcDispatcher(createHandlers(first.handlerDeps));
+
+    expect(await dispatch1('admin.exists', {})).toEqual({ exists: false });
+    const { id } = await dispatch1('admin.create', {
+      username: 'directrice',
+      password: 'Casa2026!',
+    });
+    expect(id).toMatch(/^adm_/);
+    first.dispose();
+
+    // Reopen the same encrypted file: the account persists and verifies.
+    const second = build();
+    const dispatch2 = createIpcDispatcher(createHandlers(second.handlerDeps));
+    expect(await dispatch2('admin.exists', {})).toEqual({ exists: true });
+    expect(await dispatch2('admin.verify', { username: 'directrice', password: 'Casa2026!' })).toEqual({
+      valid: true,
+    });
+    expect(await dispatch2('admin.verify', { username: 'directrice', password: 'Wrong1!' })).toEqual({
+      valid: false,
+    });
+    second.dispose();
+  });
+
+  it('rejects a second admin account on the same center (single-admin invariant)', async () => {
+    const container = build();
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+    await dispatch('admin.create', { username: 'directrice', password: 'Casa2026!' });
+    await expect(
+      dispatch('admin.create', { username: 'autre', password: 'Casa2026!' }),
+    ).rejects.toThrow();
+    container.dispose();
+  });
+
   it('persists a stable device origin across container rebuilds', async () => {
     const first = build();
     const dev1 = first.handlerDeps.subjectContext().deviceOrigin;

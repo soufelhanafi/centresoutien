@@ -1,5 +1,10 @@
-import { Algorithm, hash, verify } from '@node-rs/argon2';
+import { hash, verify } from '@node-rs/argon2';
+import type { Algorithm } from '@node-rs/argon2';
 import type { PasswordHasher } from '@centresoutien/domain';
+
+// `Algorithm` is an ambient const enum; `verbatimModuleSyntax` forbids importing
+// it as a value, so we spell the Argon2id member (2) as a typed literal.
+const ARGON2ID = 2 as Algorithm;
 
 /**
  * Concrete {@link PasswordHasher} for the desktop main process, backed by
@@ -10,7 +15,7 @@ import type { PasswordHasher } from '@centresoutien/domain';
  * Cost parameters follow the OWASP Argon2id baseline (≈19 MiB, 2 iterations).
  */
 const OPTIONS = {
-  algorithm: Algorithm.Argon2id,
+  algorithm: ARGON2ID,
   memoryCost: 19_456,
   timeCost: 2,
   parallelism: 1,

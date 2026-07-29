@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { subjectInputSchema } from '@centresoutien/domain';
+import { subjectInputSchema, adminCredentialsSchema } from '@centresoutien/domain';
 
 /**
  * The typed IPC contract (SOU-15). Every renderer↔main call is a named channel
@@ -21,6 +21,22 @@ export const ipcContract = {
   'subject.create': {
     request: subjectInputSchema,
     response: z.object({ id: z.string() }),
+  },
+  // Auth (SOU-26). `admin.exists` drives first-run detection; `admin.create`
+  // reuses the domain credential schema (password policy enforced here too);
+  // `admin.verify` is a bare presence check — login must not reject an existing
+  // account just because the password policy later tightened.
+  'admin.exists': {
+    request: z.object({}),
+    response: z.object({ exists: z.boolean() }),
+  },
+  'admin.create': {
+    request: adminCredentialsSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'admin.verify': {
+    request: z.object({ username: z.string().min(1), password: z.string().min(1) }),
+    response: z.object({ valid: z.boolean() }),
   },
 } as const;
 
