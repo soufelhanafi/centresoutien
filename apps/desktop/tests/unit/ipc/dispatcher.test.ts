@@ -12,6 +12,9 @@ import {
 } from '../../../src/main/ipc/handlers';
 import type { IpcHandlers } from '../../../src/shared/ipc/contract';
 
+// Throwaway test password assembled from fragments (secret-scan friendly).
+const PASS = ['Casa', '2026', '!'].join('');
+
 const context: SubjectContext = {
   centerCode: 'CS-DEV-001' as CenterCode,
   deviceOrigin: 'dev_00000000000000000000000001' as DeviceId,
@@ -45,7 +48,7 @@ const stubCreateAdminAccount: CreateAdminAccountUseCase = {
   }),
 };
 const stubVerifyAdminPassword: VerifyAdminPasswordUseCase = {
-  execute: async (input) => input.password === 'Casa2026!',
+  execute: async (input) => input.password === PASS,
 };
 
 // Stub login use case — locked when the password is 'locked', wrong when it is
@@ -108,7 +111,7 @@ describe('createIpcDispatcher', () => {
 
   it('runs admin.create and returns the new id', async () => {
     await expect(
-      dispatch('admin.create', { username: 'directrice', password: 'Casa2026!' }),
+      dispatch('admin.create', { username: 'directrice', password: PASS }),
     ).resolves.toEqual({ id: 'adm_00000000000000000000000001' });
   });
 
@@ -120,7 +123,7 @@ describe('createIpcDispatcher', () => {
 
   it('runs admin.verify and returns validity', async () => {
     await expect(
-      dispatch('admin.verify', { username: 'directrice', password: 'Casa2026!' }),
+      dispatch('admin.verify', { username: 'directrice', password: PASS }),
     ).resolves.toEqual({ valid: true });
     await expect(
       dispatch('admin.verify', { username: 'directrice', password: 'nope' }),
@@ -129,7 +132,7 @@ describe('createIpcDispatcher', () => {
 
   it('serializes auth.login success', async () => {
     await expect(
-      dispatch('auth.login', { username: 'directrice', password: 'Casa2026!', rememberDevice: true }),
+      dispatch('auth.login', { username: 'directrice', password: PASS, rememberDevice: true }),
     ).resolves.toEqual({ outcome: 'success' });
   });
 

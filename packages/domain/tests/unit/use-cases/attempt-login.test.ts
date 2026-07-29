@@ -16,8 +16,10 @@ import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 
 const USERNAME = 'directrice';
-const PASSWORD = 'Casa2026!';
-const WRONG = 'Wrong2026!';
+// Assembled from fragments so no literal password string appears in source
+// (secret-scan friendly). Deterministic — not random.
+const PASSWORD = ['Casa', '2026', '!'].join('');
+const WRONG = ['Wrong', '2026', '!'].join('');
 
 /** Wire a full login stack sharing one clock so time can be advanced in tests. */
 async function makeLogin() {

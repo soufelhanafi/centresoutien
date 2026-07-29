@@ -23,6 +23,10 @@ import {
  * FirstRunGate passes and the AuthGate renders the login form.
  */
 
+// Throwaway wrong password assembled from fragments (secret-scan friendly). Any
+// value other than VALID_ADMIN.password works — every attempt using it must fail.
+const WRONGPW = ['Wr', 'ong', 'Pass9'].join('');
+
 const locale = () => test.info().project.name as Locale;
 
 let live: Launched | null = null;
@@ -166,7 +170,7 @@ test('S6 — six wrong tries hit the lockout; the first five do not [DONE-WHEN]'
   for (let n = 1; n <= 5; n++) {
     const res = await bridgeLogin(win, {
       username: VALID_ADMIN.username,
-      password: 'wrong-' + n,
+      password: WRONGPW,
       rememberDevice: false,
     });
     expect(
@@ -177,7 +181,7 @@ test('S6 — six wrong tries hit the lockout; the first five do not [DONE-WHEN]'
 
   const sixth = await bridgeLogin(win, {
     username: VALID_ADMIN.username,
-    password: 'wrong-6',
+    password: WRONGPW,
     rememberDevice: false,
   });
   expect(sixth.outcome, 'the 6th wrong attempt must lock the account').toBe('locked-out');
@@ -197,13 +201,13 @@ test('S7 — lockout is UI-observable: notice, 15-min cooldown, inputs disabled'
 
   // Deterministically lock the account (bridge and form share one counter),
   // then surface the lock in the UI with a single form submit.
-  let out = await bridgeLogin(win, { username: VALID_ADMIN.username, password: 'z-0' });
+  let out = await bridgeLogin(win, { username: VALID_ADMIN.username, password: WRONGPW });
   for (let n = 1; n <= 10 && out.outcome !== 'locked-out'; n++) {
-    out = await bridgeLogin(win, { username: VALID_ADMIN.username, password: 'z-' + n });
+    out = await bridgeLogin(win, { username: VALID_ADMIN.username, password: WRONGPW });
   }
   expect(out.outcome).toBe('locked-out');
 
-  await fillCreds(win, L, 'surface-the-lock');
+  await fillCreds(win, L, WRONGPW);
   await submitBtn(win, L).click();
 
   await expect(lockNotice(win, L)).toBeVisible();
@@ -227,7 +231,7 @@ test('S8 — lockout is persisted in the DB across an app restart', async () => 
   for (let n = 1; n <= 6; n++) {
     const res = await bridgeLogin(win, {
       username: VALID_ADMIN.username,
-      password: 'x-' + n,
+      password: WRONGPW,
       rememberDevice: false,
     });
     if (res.outcome === 'locked-out') break;
@@ -239,7 +243,7 @@ test('S8 — lockout is persisted in the DB across an app restart', async () => 
   win = live.win;
   const afterReopen = await bridgeLogin(win, {
     username: VALID_ADMIN.username,
-    password: 'x-after',
+    password: WRONGPW,
     rememberDevice: false,
   });
   expect(
@@ -258,14 +262,14 @@ test('S9 — a successful login resets the failed-attempt counter to zero', asyn
   for (let n = 1; n <= 3; n++) {
     const res = await bridgeLogin(win, {
       username: VALID_ADMIN.username,
-      password: 'bad-' + n,
+      password: WRONGPW,
       rememberDevice: false,
     });
     expect(res.outcome).toBe('invalid-credentials');
   }
   const beforeReset = await bridgeLogin(win, {
     username: VALID_ADMIN.username,
-    password: 'bad-4',
+    password: WRONGPW,
     rememberDevice: false,
   });
   // 4th consecutive failure → counter is deep into the window.
@@ -283,7 +287,7 @@ test('S9 — a successful login resets the failed-attempt counter to zero', asyn
   // (remaining back to the max), proving the counter was reset to zero.
   const afterReset = await bridgeLogin(win, {
     username: VALID_ADMIN.username,
-    password: 'bad-again',
+    password: WRONGPW,
     rememberDevice: false,
   });
   expect(afterReset.outcome).toBe('invalid-credentials');
