@@ -7,10 +7,18 @@ Object.defineProperty(window, 'api', {
   configurable: true,
   writable: true,
   value: {
-    invoke: async (channel: string) =>
-      channel === 'plan.get'
-        ? { planId: 'essentiel' }
-        : { reply: 'pong: test', appVersion: '0.0.0' },
+    invoke: async (channel: string) => {
+      switch (channel) {
+        case 'plan.get':
+          return { planId: 'essentiel' };
+        // Default to a returning user so App smoke tests render the app, not the
+        // first-run wizard. Wizard-specific tests override `window.api.invoke`.
+        case 'admin.exists':
+          return { exists: true };
+        default:
+          return { reply: 'pong: test', appVersion: '0.0.0' };
+      }
+    },
   },
 });
 

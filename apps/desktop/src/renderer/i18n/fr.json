@@ -37,7 +37,15 @@
   },
   "errors": {
     "required": "Ce champ est requis",
-    "too-long": "Texte trop long"
+    "too-long": "Texte trop long",
+    "username-too-short": "Nom d'utilisateur trop court",
+    "username-too-long": "Nom d'utilisateur trop long",
+    "password-too-short": "Le mot de passe doit contenir au moins 8 caractères",
+    "password-too-long": "Mot de passe trop long",
+    "password-needs-lowercase": "Ajoutez au moins une minuscule",
+    "password-needs-uppercase": "Ajoutez au moins une majuscule",
+    "password-needs-digit": "Ajoutez au moins un chiffre",
+    "password-mismatch": "Les mots de passe ne correspondent pas"
   },
   "subjects": {
     "form": {
@@ -46,6 +54,67 @@
       "nameAr": "Nom (arabe)",
       "submit": "Créer la matière",
       "success": "Matière créée"
+    }
+  },
+  "wizard": {
+    "title": "Configuration initiale",
+    "subtitle": "Quelques étapes pour préparer votre centre",
+    "progressLabel": "Progression de la configuration",
+    "next": "Continuer",
+    "back": "Retour",
+    "skip": "Passer",
+    "steps": {
+      "language": {
+        "label": "Langue",
+        "title": "Choisissez la langue",
+        "description": "Sélectionnez la langue de l'application. Vous pourrez la changer plus tard."
+      },
+      "center-profile": {
+        "label": "Centre",
+        "title": "Profil du centre",
+        "description": "Nom, adresse et coordonnées de votre centre."
+      },
+      "admin-account": {
+        "label": "Administrateur",
+        "title": "Compte administrateur",
+        "description": "Créez le compte qui gérera l'application."
+      },
+      "hours": {
+        "label": "Horaires",
+        "title": "Horaires d'ouverture",
+        "description": "Définissez les heures d'ouverture pour chaque jour."
+      },
+      "holidays": {
+        "label": "Jours fériés",
+        "title": "Jours fériés",
+        "description": "Ajoutez les jours fériés et vacances (facultatif)."
+      }
+    },
+    "language": {
+      "legend": "Langue de l'application",
+      "fr": "Français",
+      "ar": "العربية"
+    },
+    "admin": {
+      "username": "Nom d'utilisateur",
+      "password": "Mot de passe",
+      "confirmPassword": "Confirmer le mot de passe",
+      "passwordHint": "Au moins 8 caractères, avec une majuscule, une minuscule et un chiffre.",
+      "createError": "La création du compte a échoué. Réessayez."
+    },
+    "stub": {
+      "note": "Cette étape sera bientôt configurable ici. Continuez pour l'instant."
+    },
+    "done": {
+      "title": "Configuration terminée",
+      "body": "Votre centre est prêt. Vous pouvez commencer à utiliser l'application.",
+      "cta": "Commencer"
+    },
+    "gate": {
+      "loading": "Chargement…",
+      "errorTitle": "Impossible de démarrer",
+      "errorBody": "La vérification de la configuration a échoué.",
+      "retry": "Réessayer"
     }
   }
 }

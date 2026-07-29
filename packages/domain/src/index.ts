@@ -57,6 +57,24 @@ export type { SubjectRepository } from './ports/subject-repository';
 export type { AdminAccountRepository } from './ports/admin-account-repository';
 export type { PasswordHasher } from './ports/password-hasher';
 
+// First-run wizard state machine (SOU-25) — a pure, portable sequencer.
+export type { WizardStepId } from './wizard/wizard-steps';
+export { MANDATORY_STEP_IDS, OPTIONAL_STEP_IDS, isMandatoryStep } from './wizard/wizard-steps';
+export type { WizardState, WizardStatus } from './wizard/wizard-machine';
+export {
+  initWizard,
+  currentStep,
+  isStepComplete,
+  submitStep,
+  skipStep,
+  goToPreviousStep,
+} from './wizard/wizard-machine';
+export {
+  WizardStepNotSkippableError,
+  WizardCompletedError,
+  WizardAtFirstStepError,
+} from './errors/wizard-errors';
+
 // Use cases
 export { CreateSubject } from './use-cases/create-subject';
 export type { CreateSubjectInput } from './use-cases/create-subject';
