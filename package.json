@@ -12,8 +12,8 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "gate": "node scripts/pre-merge-gate.mjs",
-    "test": "vitest run --coverage",
-    "test:watch": "vitest",
+    "test": "pnpm --filter @centresoutien/desktop rebuild:node && vitest run --coverage",
+    "test:watch": "pnpm --filter @centresoutien/desktop rebuild:node && vitest",
     "build": "pnpm --filter @centresoutien/desktop build"
   },
   "devDependencies": {

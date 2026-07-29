@@ -11,7 +11,7 @@ export default tseslint.config(
   ...rtlLogicalProperties,
   // Node-context tooling (build scripts, config files) may use Node globals.
   {
-    files: ['scripts/**/*.mjs', '**/*.config.{ts,mjs}', '**/*.workspace.ts', 'eslint.config.mjs'],
+    files: ['**/scripts/**/*.mjs', '**/*.config.{ts,mjs}', '**/*.workspace.ts', 'eslint.config.mjs'],
     languageOptions: { globals: { ...globals.node } },
   },
 );
