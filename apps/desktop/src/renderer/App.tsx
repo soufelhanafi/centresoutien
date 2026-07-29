@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DirectionProvider,
+  Toaster,
 } from '@centresoutien/ui';
 import { useHtmlDirection } from './hooks/use-html-direction';
 import { LanguageToggle } from './components/language-toggle';
@@ -22,6 +23,7 @@ import { FirstRunGate } from './components/wizard/first-run-gate';
 import { AuthGate } from './components/auth/auth-gate';
 import { LogoutButton } from './components/auth/logout-button';
 import { SubjectForm } from './components/subject/subject-form';
+import { SettingsPage } from './components/settings/settings-page';
 import { usePlanStore } from './stores/plan-store';
 import { queryClient } from './lib/query-client';
 import { Showcase } from './showcase/showcase';
@@ -77,6 +79,8 @@ export function App() {
 
           <SubjectForm />
 
+          <SettingsPage />
+
           <Dialog>
             <DialogTrigger asChild>
               <Button>{t('smoke.openDialog')}</Button>
@@ -98,6 +102,7 @@ export function App() {
         </main>
         </AuthGate>
         </FirstRunGate>
+        <Toaster />
       </DirectionProvider>
     </QueryClientProvider>
   );
