@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { subjectInputSchema } from '@centresoutien/domain';
+import { subjectInputSchema, adminCredentialsSchema, PASSWORD_MAX } from '@centresoutien/domain';
 
 /**
  * The typed IPC contract (SOU-15). Every renderer↔main call is a named channel
@@ -21,6 +21,27 @@ export const ipcContract = {
   'subject.create': {
     request: subjectInputSchema,
     response: z.object({ id: z.string() }),
+  },
+  // Auth (SOU-26). `admin.exists` drives first-run detection; `admin.create`
+  // reuses the domain credential schema (password policy enforced here too);
+  // `admin.verify` is a bare presence check — login must not reject an existing
+  // account just because the password policy later tightened. It only bounds
+  // length (a correct password can never exceed `PASSWORD_MAX`, so a longer
+  // input is always wrong) to keep unbounded strings off the Argon2 path.
+  'admin.exists': {
+    request: z.object({}),
+    response: z.object({ exists: z.boolean() }),
+  },
+  'admin.create': {
+    request: adminCredentialsSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'admin.verify': {
+    request: z.object({
+      username: z.string().trim().min(1),
+      password: z.string().min(1).max(PASSWORD_MAX),
+    }),
+    response: z.object({ valid: z.boolean() }),
   },
 } as const;
 

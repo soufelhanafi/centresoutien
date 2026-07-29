@@ -1,12 +1,20 @@
 /// <reference types="vite/client" />
 import type { Database as DB } from 'better-sqlite3';
-import { PLANS, PlanPolicy, CreateSubject } from '@centresoutien/domain';
+import {
+  PLANS,
+  PlanPolicy,
+  CreateSubject,
+  CreateAdminAccount,
+  VerifyAdminPassword,
+} from '@centresoutien/domain';
 import type { PlanId, CenterCode, DeviceId, UserId, IdGenerator } from '@centresoutien/domain';
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
+import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
+import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
 import { createHandlers, type HandlerDeps, type SubjectContext } from './ipc/handlers';
 
 // Migration SQL is bundled into the main process at build time (no runtime file
@@ -62,6 +70,11 @@ export function buildContainer(options: ContainerOptions): Container {
   const subjectRepo = new SqliteSubjectRepository(db);
   const createSubject = new CreateSubject(subjectRepo, clock, ids, plan);
 
+  const hasher = new Argon2PasswordHasher();
+  const adminRepo = new SqliteAdminAccountRepository(db);
+  const createAdminAccount = new CreateAdminAccount(adminRepo, hasher, clock, ids);
+  const verifyAdminPassword = new VerifyAdminPassword(adminRepo, hasher);
+
   const context: SubjectContext = {
     centerCode: options.centerCode,
     deviceOrigin: resolveDeviceOrigin(db, ids),
@@ -73,6 +86,9 @@ export function buildContainer(options: ContainerOptions): Container {
     activePlanId: () => options.planId,
     createSubject,
     subjectContext: () => context,
+    adminExists: () => adminRepo.exists(),
+    createAdminAccount,
+    verifyAdminPassword,
   };
 
   return { handlerDeps, dispose: () => db.close() };

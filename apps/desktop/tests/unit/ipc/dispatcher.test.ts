@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { CenterCode, DeviceId, SubjectId, UserId } from '@centresoutien/domain';
+import type { AdminAccountId, CenterCode, DeviceId, SubjectId, UserId } from '@centresoutien/domain';
 import { createIpcDispatcher } from '../../../src/main/ipc/dispatcher';
 import {
   createHandlers,
   type CreateSubjectUseCase,
+  type CreateAdminAccountUseCase,
+  type VerifyAdminPasswordUseCase,
   type SubjectContext,
 } from '../../../src/main/ipc/handlers';
 import type { IpcHandlers } from '../../../src/shared/ipc/contract';
@@ -30,12 +32,29 @@ const stubCreateSubject: CreateSubjectUseCase = {
   }),
 };
 
+// Stub admin use cases — the handler only needs `execute`.
+const stubCreateAdminAccount: CreateAdminAccountUseCase = {
+  execute: async (input) => ({
+    id: 'adm_00000000000000000000000001' as AdminAccountId,
+    username: input.username,
+    passwordHash: 'hashed',
+    createdAt: new Date('2026-07-29T10:00:00Z'),
+    updatedAt: new Date('2026-07-29T10:00:00Z'),
+  }),
+};
+const stubVerifyAdminPassword: VerifyAdminPasswordUseCase = {
+  execute: async (input) => input.password === 'Casa2026!',
+};
+
 const dispatch = createIpcDispatcher(
   createHandlers({
     appVersion: () => '2.0.0',
     activePlanId: () => 'pro',
     createSubject: stubCreateSubject,
     subjectContext: () => context,
+    adminExists: async () => false,
+    createAdminAccount: stubCreateAdminAccount,
+    verifyAdminPassword: stubVerifyAdminPassword,
   }),
 );
 
@@ -59,6 +78,31 @@ describe('createIpcDispatcher', () => {
 
   it('rejects subject.create whose name fails the shared schema', async () => {
     await expect(dispatch('subject.create', { name: { fr: '', ar: '' } })).rejects.toThrow();
+  });
+
+  it('runs admin.exists', async () => {
+    await expect(dispatch('admin.exists', {})).resolves.toEqual({ exists: false });
+  });
+
+  it('runs admin.create and returns the new id', async () => {
+    await expect(
+      dispatch('admin.create', { username: 'directrice', password: 'Casa2026!' }),
+    ).resolves.toEqual({ id: 'adm_00000000000000000000000001' });
+  });
+
+  it('rejects admin.create whose password fails the shared policy schema', async () => {
+    await expect(
+      dispatch('admin.create', { username: 'directrice', password: 'weak' }),
+    ).rejects.toThrow();
+  });
+
+  it('runs admin.verify and returns validity', async () => {
+    await expect(
+      dispatch('admin.verify', { username: 'directrice', password: 'Casa2026!' }),
+    ).resolves.toEqual({ valid: true });
+    await expect(
+      dispatch('admin.verify', { username: 'directrice', password: 'nope' }),
+    ).resolves.toEqual({ valid: false });
   });
 
   it('rejects a request that fails its schema', async () => {
