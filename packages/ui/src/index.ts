@@ -86,6 +86,7 @@ export {
 } from '@ui/components/ui/command';
 export type { CommandDialogProps } from '@ui/components/ui/command';
 export { Toaster } from '@ui/components/ui/sonner';
+export { toast } from 'sonner';
 export {
   Card,
   CardHeader,
