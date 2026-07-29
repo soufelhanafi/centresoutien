@@ -16,5 +16,18 @@
   },
   "language": {
     "switch": "Français"
+  },
+  "errors": {
+    "required": "هذا الحقل مطلوب",
+    "too-long": "النص طويل جدًا"
+  },
+  "subjects": {
+    "form": {
+      "title": "مادة جديدة",
+      "nameFr": "الاسم (بالفرنسية)",
+      "nameAr": "الاسم (بالعربية)",
+      "submit": "إنشاء المادة",
+      "success": "تم إنشاء المادة"
+    }
   }
 }

@@ -1,8 +1,9 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { PLANS } from '@centresoutien/domain';
-import type { PlanId } from '@centresoutien/domain';
+import type { PlanId, CenterCode } from '@centresoutien/domain';
 import { registerIpc } from './ipc/register';
+import { buildContainer, type Container } from './composition-root';
 import { createHandlers } from './ipc/handlers';
 import { createMainWindow } from './window';
 
@@ -11,6 +12,8 @@ function activePlanId(): PlanId {
   const requested = process.env['CS_PLAN'];
   return requested && requested in PLANS ? (requested as PlanId) : 'essentiel';
 }
+
+let container: Container | null = null;
 
 /**
  * Electron main entry (SOU-15). Registers the typed IPC handlers, then opens the
@@ -28,13 +31,28 @@ function openWindow(): void {
 }
 
 app.whenReady().then(() => {
-  registerIpc(ipcMain, createHandlers({ appVersion: () => app.getVersion(), activePlanId }));
+  // Dev defaults; real center selection, key management, and license-driven plan
+  // arrive with first-run setup and the center switcher.
+  container = buildContainer({
+    centreId: process.env['CS_CENTRE'] ?? 'local',
+    centerCode: (process.env['CS_CENTER_CODE'] ?? 'CS-DEV-001') as CenterCode,
+    key: process.env['CS_DB_KEY'] ?? 'dev-insecure-key',
+    dir: app.getPath('userData'),
+    planId: activePlanId(),
+    appVersion: () => app.getVersion(),
+  });
+  registerIpc(ipcMain, createHandlers(container.handlerDeps));
   openWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) openWindow();
   });
 }, console.error);
+
+app.on('will-quit', () => {
+  container?.dispose();
+  container = null;
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
