@@ -591,3 +591,64 @@ A change is done when:
 - [ ] The self-review from the `code-review` skill has been completed and pasted in the PR description.
 
 If any box is unchecked, the PR is not ready.
+
+---
+
+## 15. Multi-agent workflow
+
+Feature work runs through a four-stage pipeline of specialized agents defined in `.claude/agents/`. **There is no orchestrator agent — arbitration stays human.** Every handoff between agents goes through **Linear issue comments**, never shared context, so each agent starts from the durable record on the issue.
+
+### Stage 1 — Build (parallel, contract-first)
+
+`domain-backend` and `frontend` run **in parallel via git worktrees**, one per agent, so their file changes never collide:
+
+```bash
+# from the monorepo root
+git worktree add ../cs-backend  -b feature/SOU-XX-backend
+git worktree add ../cs-frontend -b feature/SOU-XX-frontend
+```
+
+- `domain-backend` works in `../cs-backend`: owns `packages/domain`, `apps/desktop/src/main`, and the data layer.
+- `frontend` works in `../cs-frontend`: owns `apps/desktop/src/renderer` and `packages/ui`, treating `packages/domain` as read-only.
+- **Contract-first**: the frontend waits for the domain to publish its ports/types, or mocks behind the same interface and swaps the real adapter in later. `domain-backend` publishes types early and comments on the Linear issue so the frontend can start.
+
+When both are done, merge each worktree branch into the integration branch `feature/SOU-XX`, then remove the worktrees:
+
+```bash
+git worktree remove ../cs-backend
+git worktree remove ../cs-frontend
+```
+
+### Stage 2 — Verify (parallel, on the integration branch)
+
+On `feature/SOU-XX`, run in parallel:
+
+- `qa-functional` — black-box Playwright specs against the running app (never reads implementation code).
+- `i18n-rtl-auditor` — bilingual FR/AR + RTL sweep of the renderer and `packages/ui`.
+- `migration-guardian` — **only if** `apps/desktop/src/data/sqlite/migrations/` changed on the branch.
+
+### Stage 3 — Gate
+
+- `reviewer` — read-only senior review of `feature/SOU-XX` vs `main`, emitting a markdown report with an APPROVE / APPROVE WITH COMMENTS / REQUEST CHANGES verdict.
+
+### Stage 4 — Decide
+
+The **human** reads the QA, audit, and review reports and makes the merge call. No agent merges.
+
+### Example invocation per agent
+
+```text
+# Stage 1
+@domain-backend  Implement SOU-42. Read the acceptance criteria, design the ports first,
+                 publish domain types, then implement use cases + SQLite adapters with unit tests.
+@frontend        Implement the SOU-42 screens against the domain ports (mock if not merged yet).
+                 Cover FR + AR/RTL and empty/loading/error/dark states.
+
+# Stage 2 (on feature/SOU-42)
+@qa-functional     Test SOU-42 against its acceptance criteria. Report PASS/FAIL per scenario on Linear.
+@i18n-rtl-auditor  Audit the SOU-42 diff for i18n/RTL issues. Report findings with file:line.
+@migration-guardian Audit the SOU-42 migrations for safe replay across versions. (only if migrations/ changed)
+
+# Stage 3
+@reviewer          Review feature/SOU-42 vs main. Emit the report and verdict.
+```
