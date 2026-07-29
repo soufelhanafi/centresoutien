@@ -1,9 +1,5 @@
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
-
-const dirname = fileURLToPath(new URL('.', import.meta.url));
-const mainEntry = join(dirname, '../../out/main/index.js');
+import { MAIN_ENTRY, VALID_ADMIN, freshUserDataDir } from './wizard.fixtures';
 
 const HEADING = { fr: 'Centre Soutien', ar: 'مركز الدعم' } as const;
 const DIRECTION = { fr: 'ltr', ar: 'rtl' } as const;
@@ -12,9 +8,26 @@ type Locale = 'fr' | 'ar';
 
 let app: ElectronApplication;
 
+/**
+ * Launch past the SOU-25 first-run gate. The gate renders the setup wizard
+ * whenever no admin is persisted, so we seed one through the public preload
+ * bridge (`admin.create`) and reload — `FirstRunGate` re-queries `admin.exists`,
+ * gets `true`, and renders the smoke page. Black-box: bridge + UI only.
+ */
 async function launch(locale: string): Promise<Page> {
-  app = await electron.launch({ args: [mainEntry], env: { ...process.env, CS_LOCALE: locale } });
-  return app.firstWindow();
+  app = await electron.launch({
+    args: [MAIN_ENTRY, `--user-data-dir=${freshUserDataDir()}`],
+    env: { ...process.env, CS_LOCALE: locale },
+  });
+  const window = await app.firstWindow();
+  await window.evaluate(async (admin) => {
+    const api = (window as unknown as {
+      api: { invoke: (channel: string, request: unknown) => Promise<unknown> };
+    }).api;
+    await api.invoke('admin.create', admin);
+  }, VALID_ADMIN);
+  await window.reload();
+  return window;
 }
 
 test.afterEach(async () => {
