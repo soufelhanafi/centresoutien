@@ -26,9 +26,16 @@ export function CenterHoursForm({ initialWeek }: { initialWeek: WeekdayHoursInpu
   });
   const { fields } = useFieldArray({ control: form.control, name: 'week' });
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    await save.mutateAsync(values.week);
-  });
+  const onSubmit = form.handleSubmit(
+    async (values) => {
+      await save.mutateAsync(values.week);
+    },
+    () => {
+      // A new attempt that fails client validation must clear any stale success
+      // banner, so the user never sees "saved" and an inline error at once.
+      if (save.isSuccess) save.reset();
+    },
+  );
 
   return (
     <Form {...form}>
