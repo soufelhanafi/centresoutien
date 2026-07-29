@@ -25,11 +25,11 @@ export class DeviceSessionService {
 
   /** Persist a fresh session for this device and return it. */
   async remember(): Promise<DeviceSession> {
-    const now = this.clock.now();
+    const nowMs = this.clock.now().getTime();
     const session: DeviceSession = {
       id: this.ids.next(DEVICE_SESSION_ID_PREFIX) as DeviceSessionId,
-      createdAt: now,
-      expiresAt: new Date(now.getTime() + DEVICE_SESSION_TTL_MS),
+      createdAt: nowMs,
+      expiresAt: nowMs + DEVICE_SESSION_TTL_MS,
     };
     await this.sessions.save(session);
     return session;

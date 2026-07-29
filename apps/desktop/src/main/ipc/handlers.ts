@@ -74,7 +74,7 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         case 'invalid-credentials':
           return { outcome: 'invalid-credentials', remainingAttempts: result.remainingAttempts };
         case 'locked-out':
-          return { outcome: 'locked-out', lockedUntilMs: result.lockedUntil.getTime() };
+          return { outcome: 'locked-out', lockedUntilMs: result.lockedUntil };
       }
     },
     'auth.session': async () => ({ authenticated: await deps.deviceSessions.isAuthenticated() }),

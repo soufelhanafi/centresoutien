@@ -13,7 +13,7 @@
 CREATE TABLE auth_lockout (
   id              INTEGER PRIMARY KEY CHECK (id = 1),  -- singleton
   failed_attempts INTEGER NOT NULL DEFAULT 0,          -- consecutive failures
-  locked_until    TEXT                                 -- ISO-8601 UTC; NULL = not locked
+  locked_until    INTEGER                              -- epoch millis UTC; NULL = not locked
 );
 
 INSERT INTO auth_lockout (id) VALUES (1);
@@ -21,8 +21,8 @@ INSERT INTO auth_lockout (id) VALUES (1);
 CREATE TABLE device_sessions (
   id          INTEGER PRIMARY KEY CHECK (id = 1),      -- singleton (one active session)
   session_id  TEXT,                                    -- ULID 'ses_' prefix; NULL = not remembered
-  created_at  TEXT,                                    -- ISO-8601 UTC (Clock port)
-  expires_at  TEXT,                                    -- ISO-8601 UTC; expiry decided in the domain
+  created_at  INTEGER,                                 -- epoch millis UTC (from the Clock port)
+  expires_at  INTEGER,                                 -- epoch millis UTC; expiry decided in the domain
   CHECK (session_id IS NULL OR session_id LIKE 'ses\_%' ESCAPE '\')
 );
 

@@ -4,12 +4,15 @@
  * transitions) and the {@link LoginThrottleStore} port (which persists it).
  *
  * `failedAttempts` counts consecutive failures since the last success or expiry.
- * `lockedUntil` is the UTC instant the console unlocks, or `null` when not locked.
- * Both are device-local — auth never syncs — so this carries no sync envelope.
+ * `lockedUntil` is the UTC instant the console unlocks as **epoch milliseconds**,
+ * or `null` when not locked. It is a computed instant (now + cooldown), not a
+ * clock reading, so it is a number the pure policy derives with plain arithmetic
+ * — the domain never constructs `Date`s. Both are device-local (auth never
+ * syncs), so this carries no sync envelope.
  */
 export type LockoutState = {
   readonly failedAttempts: number;
-  readonly lockedUntil: Date | null;
+  readonly lockedUntil: number | null;
 };
 
 /** The state of a console that has never recorded a failed attempt. */

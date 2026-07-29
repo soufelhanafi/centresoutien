@@ -15,11 +15,15 @@ export type DeviceSessionId = Brand<string, 'DeviceSessionId'>;
  * across a trust boundary — the renderer never sees it; the main process merely
  * checks whether a live session row exists. It lives in the encrypted per-center
  * DB, single active row at a time.
+ *
+ * `createdAt` / `expiresAt` are **epoch milliseconds** (UTC), not `Date`s:
+ * `expiresAt` is a computed instant (now + TTL), and the domain derives computed
+ * instants with plain arithmetic rather than constructing `Date`s.
  */
 export type DeviceSession = {
   readonly id: DeviceSessionId;
-  readonly createdAt: Date;
-  readonly expiresAt: Date;
+  readonly createdAt: number;
+  readonly expiresAt: number;
 };
 
 /** How long a remembered device stays authenticated: 30 days. */
@@ -27,5 +31,5 @@ export const DEVICE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** True while the session has not yet reached its `expiresAt` instant. */
 export function isSessionActive(session: DeviceSession, now: Date): boolean {
-  return session.expiresAt.getTime() > now.getTime();
+  return session.expiresAt > now.getTime();
 }

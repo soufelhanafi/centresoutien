@@ -50,10 +50,10 @@ const stubVerifyAdminPassword: VerifyAdminPasswordUseCase = {
 
 // Stub login use case — locked when the password is 'locked', wrong when it is
 // 'nope', otherwise success. Enough to exercise all three response shapes.
-const LOCKED_UNTIL = new Date('2026-07-29T10:15:00Z');
+const LOCKED_UNTIL_MS = new Date('2026-07-29T10:15:00Z').getTime();
 const stubAttemptLogin: AttemptLoginUseCase = {
   execute: async (input) => {
-    if (input.password === 'locked') return { outcome: 'locked-out', lockedUntil: LOCKED_UNTIL };
+    if (input.password === 'locked') return { outcome: 'locked-out', lockedUntil: LOCKED_UNTIL_MS };
     if (input.password === 'nope') return { outcome: 'invalid-credentials', remainingAttempts: 3 };
     return { outcome: 'success' };
   },
@@ -142,7 +142,7 @@ describe('createIpcDispatcher', () => {
   it('serializes auth.login locked-out as epoch millis', async () => {
     await expect(
       dispatch('auth.login', { username: 'directrice', password: 'locked' }),
-    ).resolves.toEqual({ outcome: 'locked-out', lockedUntilMs: LOCKED_UNTIL.getTime() });
+    ).resolves.toEqual({ outcome: 'locked-out', lockedUntilMs: LOCKED_UNTIL_MS });
   });
 
   it('runs auth.session and auth.logout', async () => {

@@ -31,7 +31,7 @@ describe('LoginThrottlePolicy', () => {
     expect(state.failedAttempts).toBe(MAX_FAILED_ATTEMPTS);
     expect(policy.remainingAttempts(state)).toBe(0);
     const until = policy.lockActiveUntil(state, NOW);
-    expect(until?.getTime()).toBe(NOW.getTime() + LOCKOUT_DURATION_MS);
+    expect(until).toBe(NOW.getTime() + LOCKOUT_DURATION_MS);
   });
 
   it('treats a lock as inactive once its window has elapsed', () => {

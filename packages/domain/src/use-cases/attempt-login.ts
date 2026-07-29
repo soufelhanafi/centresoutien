@@ -16,7 +16,8 @@ export type CredentialVerifier = Pick<VerifyAdminPassword, 'execute'>;
 export type LoginResult =
   | { readonly outcome: 'success' }
   | { readonly outcome: 'invalid-credentials'; readonly remainingAttempts: number }
-  | { readonly outcome: 'locked-out'; readonly lockedUntil: Date };
+  // `lockedUntil` is epoch millis (UTC) — the boundary forwards it as-is.
+  | { readonly outcome: 'locked-out'; readonly lockedUntil: number };
 
 /**
  * A throttled login attempt for the local admin console (SOU-27). Wraps the pure
@@ -42,7 +43,7 @@ export class AttemptLogin {
 
     const state = await this.throttle.get();
     const lockedUntil = this.policy.lockActiveUntil(state, now);
-    if (lockedUntil) return { outcome: 'locked-out', lockedUntil };
+    if (lockedUntil !== null) return { outcome: 'locked-out', lockedUntil };
 
     if (await this.verify.execute({ username, password })) {
       await this.throttle.reset();
@@ -54,7 +55,7 @@ export class AttemptLogin {
     const next = this.policy.registerFailure(state, now);
     await this.throttle.save(next);
     const lockedAfter = this.policy.lockActiveUntil(next, now);
-    if (lockedAfter) return { outcome: 'locked-out', lockedUntil: lockedAfter };
+    if (lockedAfter !== null) return { outcome: 'locked-out', lockedUntil: lockedAfter };
     return { outcome: 'invalid-credentials', remainingAttempts: this.policy.remainingAttempts(next) };
   }
 }

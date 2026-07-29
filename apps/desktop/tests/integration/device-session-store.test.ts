@@ -29,8 +29,8 @@ afterEach(() => {
 function makeSession(over: Partial<DeviceSession> = {}): DeviceSession {
   return {
     id: 'ses_00000000000000000000000001' as DeviceSessionId,
-    createdAt: new Date('2026-07-29T10:00:00Z'),
-    expiresAt: new Date('2026-08-28T10:00:00Z'),
+    createdAt: new Date('2026-07-29T10:00:00Z').getTime(),
+    expiresAt: new Date('2026-08-28T10:00:00Z').getTime(),
     ...over,
   };
 }

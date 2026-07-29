@@ -4,7 +4,7 @@ import type { LockoutState, LoginThrottleStore } from '@centresoutien/domain';
 /** The singleton `auth_lockout` row shape as SQLite returns it. */
 type LockoutRow = {
   failed_attempts: number;
-  locked_until: string | null;
+  locked_until: number | null; // epoch millis
 };
 
 /**
@@ -23,7 +23,7 @@ export class SqliteLoginThrottleStore implements LoginThrottleStore {
     if (!row) return { failedAttempts: 0, lockedUntil: null };
     return {
       failedAttempts: row.failed_attempts,
-      lockedUntil: row.locked_until ? new Date(row.locked_until) : null,
+      lockedUntil: row.locked_until,
     };
   }
 
@@ -32,7 +32,7 @@ export class SqliteLoginThrottleStore implements LoginThrottleStore {
       .prepare('UPDATE auth_lockout SET failed_attempts = @attempts, locked_until = @until WHERE id = 1')
       .run({
         attempts: state.failedAttempts,
-        until: state.lockedUntil ? state.lockedUntil.toISOString() : null,
+        until: state.lockedUntil,
       });
   }
 

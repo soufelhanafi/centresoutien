@@ -97,7 +97,7 @@ describe('AttemptLogin', () => {
     }
     const result = await login.execute({ username: USERNAME, password: PASSWORD });
     if (result.outcome !== 'locked-out') throw new Error('expected locked-out');
-    expect(result.lockedUntil.getTime()).toBe(clock.now().getTime() + LOCKOUT_DURATION_MS);
+    expect(result.lockedUntil).toBe(clock.now().getTime() + LOCKOUT_DURATION_MS);
   });
 
   it('lets the user back in after the cooldown elapses', async () => {

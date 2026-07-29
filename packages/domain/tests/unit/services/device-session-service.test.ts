@@ -19,8 +19,8 @@ describe('DeviceSessionService', () => {
     const session = await service.remember();
 
     expect(session.id).toMatch(/^ses_/);
-    expect(session.createdAt).toEqual(clock.now());
-    expect(session.expiresAt.getTime()).toBe(clock.now().getTime() + DEVICE_SESSION_TTL_MS);
+    expect(session.createdAt).toBe(clock.now().getTime());
+    expect(session.expiresAt).toBe(clock.now().getTime() + DEVICE_SESSION_TTL_MS);
     expect(await store.getCurrent()).not.toBeNull();
   });
 

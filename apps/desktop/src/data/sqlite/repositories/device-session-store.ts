@@ -4,8 +4,8 @@ import type { DeviceSession, DeviceSessionId, DeviceSessionStore } from '@centre
 /** The singleton `device_sessions` row shape as SQLite returns it. */
 type DeviceSessionRow = {
   session_id: string | null;
-  created_at: string | null;
-  expires_at: string | null;
+  created_at: number | null; // epoch millis
+  expires_at: number | null; // epoch millis
 };
 
 /**
@@ -28,8 +28,8 @@ export class SqliteDeviceSessionStore implements DeviceSessionStore {
       )
       .run({
         id: session.id,
-        createdAt: session.createdAt.toISOString(),
-        expiresAt: session.expiresAt.toISOString(),
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
       });
   }
 
@@ -42,8 +42,8 @@ export class SqliteDeviceSessionStore implements DeviceSessionStore {
     }
     return {
       id: row.session_id as DeviceSessionId,
-      createdAt: new Date(row.created_at),
-      expiresAt: new Date(row.expires_at),
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
     };
   }
 

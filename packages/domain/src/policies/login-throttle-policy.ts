@@ -18,11 +18,11 @@ export const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
  */
 export class LoginThrottlePolicy {
   /**
-   * The instant the console unlocks, or `null` when it is not currently locked.
-   * A lock whose window has already elapsed reads as unlocked.
+   * The instant the console unlocks as epoch millis, or `null` when it is not
+   * currently locked. A lock whose window has already elapsed reads as unlocked.
    */
-  lockActiveUntil(state: LockoutState, now: Date): Date | null {
-    if (state.lockedUntil !== null && state.lockedUntil.getTime() > now.getTime()) {
+  lockActiveUntil(state: LockoutState, now: Date): number | null {
+    if (state.lockedUntil !== null && state.lockedUntil > now.getTime()) {
       return state.lockedUntil;
     }
     return null;
@@ -34,12 +34,10 @@ export class LoginThrottlePolicy {
    * {@link MAX_FAILED_ATTEMPTS} sets a new lock window from `now`.
    */
   registerFailure(state: LockoutState, now: Date): LockoutState {
-    const expired = state.lockedUntil !== null && now.getTime() >= state.lockedUntil.getTime();
+    const expired = state.lockedUntil !== null && now.getTime() >= state.lockedUntil;
     const failedAttempts = (expired ? 0 : state.failedAttempts) + 1;
     const lockedUntil =
-      failedAttempts >= MAX_FAILED_ATTEMPTS
-        ? new Date(now.getTime() + LOCKOUT_DURATION_MS)
-        : null;
+      failedAttempts >= MAX_FAILED_ATTEMPTS ? now.getTime() + LOCKOUT_DURATION_MS : null;
     return { failedAttempts, lockedUntil };
   }
 

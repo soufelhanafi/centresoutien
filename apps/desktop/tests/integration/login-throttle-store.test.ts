@@ -31,13 +31,13 @@ describe('SqliteLoginThrottleStore', () => {
   });
 
   it('round-trips a locked state through save + get', async () => {
-    const until = new Date('2026-07-29T10:15:00Z');
+    const until = new Date('2026-07-29T10:15:00Z').getTime();
     await store.save({ failedAttempts: 5, lockedUntil: until });
     expect(await store.get()).toEqual({ failedAttempts: 5, lockedUntil: until });
   });
 
   it('reset clears attempts and the lock', async () => {
-    await store.save({ failedAttempts: 5, lockedUntil: new Date('2026-07-29T10:15:00Z') });
+    await store.save({ failedAttempts: 5, lockedUntil: Date.now() + 900_000 });
     await store.reset();
     expect(await store.get()).toEqual({ failedAttempts: 0, lockedUntil: null });
   });
