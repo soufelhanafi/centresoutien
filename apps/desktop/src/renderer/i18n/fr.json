@@ -47,7 +47,12 @@
     "password-needs-lowercase": "Ajoutez au moins une minuscule",
     "password-needs-uppercase": "Ajoutez au moins une majuscule",
     "password-needs-digit": "Ajoutez au moins un chiffre",
-    "password-mismatch": "Les mots de passe ne correspondent pas"
+    "password-mismatch": "Les mots de passe ne correspondent pas",
+    "invalid-time": "Heure invalide",
+    "close-before-open": "La fermeture doit être après l'ouverture",
+    "closed-partial": "Indiquez l'ouverture et la fermeture, ou fermez le jour",
+    "incomplete-week": "La semaine doit comporter les sept jours",
+    "invalid-weekday": "Jour invalide"
   },
   "subjects": {
     "form": {
@@ -56,6 +61,29 @@
       "nameAr": "Nom (arabe)",
       "submit": "Créer la matière",
       "success": "Matière créée"
+    }
+  },
+  "centerHours": {
+    "title": "Horaires d'ouverture",
+    "description": "Définissez les heures d'ouverture pour chaque jour de la semaine.",
+    "open": "Ouvert",
+    "closed": "Fermé",
+    "openLabel": "Ouverture",
+    "closeLabel": "Fermeture",
+    "toggleLabel": "Ouvert le {{day}}",
+    "save": "Enregistrer les horaires",
+    "saved": "Horaires enregistrés",
+    "saveError": "L'enregistrement a échoué. Réessayez.",
+    "loadError": "Le chargement des horaires a échoué.",
+    "retry": "Réessayer",
+    "weekdays": {
+      "0": "Dimanche",
+      "1": "Lundi",
+      "2": "Mardi",
+      "3": "Mercredi",
+      "4": "Jeudi",
+      "5": "Vendredi",
+      "6": "Samedi"
     }
   },
   "auth": {

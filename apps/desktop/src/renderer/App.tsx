@@ -22,6 +22,7 @@ import { FirstRunGate } from './components/wizard/first-run-gate';
 import { AuthGate } from './components/auth/auth-gate';
 import { LogoutButton } from './components/auth/logout-button';
 import { SubjectForm } from './components/subject/subject-form';
+import { CenterHoursSettings } from './components/center-hours/center-hours-settings';
 import { usePlanStore } from './stores/plan-store';
 import { queryClient } from './lib/query-client';
 import { Showcase } from './showcase/showcase';
@@ -76,6 +77,8 @@ export function App() {
           </FeatureGate>
 
           <SubjectForm />
+
+          <CenterHoursSettings />
 
           <Dialog>
             <DialogTrigger asChild>
