@@ -32,18 +32,35 @@ export type { PlanId, FeatureFlag, PlanLimits, Plan } from './plans/plans';
 export { PLANS } from './plans/plans';
 export { PlanPolicy } from './plans/plan-policy';
 export { DomainError, PlanFeatureUnavailableError, PlanLimitExceededError } from './errors/plan-errors';
+export { AdminAccountAlreadyExistsError } from './errors/auth-errors';
 
 // Input validation schemas (shared by forms via zodResolver and by use cases)
 export { subjectInputSchema, SUBJECT_NAME_MAX } from './schemas/subject';
 export type { SubjectInput } from './schemas/subject';
+export {
+  adminCredentialsSchema,
+  USERNAME_MIN,
+  USERNAME_MAX,
+  PASSWORD_MIN,
+  PASSWORD_MAX,
+} from './schemas/admin-account';
+export type { AdminCredentials } from './schemas/admin-account';
 
 // Entities
 export { SUBJECT_ID_PREFIX } from './entities/subject';
 export type { Subject, SubjectId } from './entities/subject';
+export { ADMIN_ACCOUNT_ID_PREFIX } from './entities/admin-account';
+export type { AdminAccount, AdminAccountId } from './entities/admin-account';
 
-// Repository ports
+// Repository & service ports
 export type { SubjectRepository } from './ports/subject-repository';
+export type { AdminAccountRepository } from './ports/admin-account-repository';
+export type { PasswordHasher } from './ports/password-hasher';
 
 // Use cases
 export { CreateSubject } from './use-cases/create-subject';
 export type { CreateSubjectInput } from './use-cases/create-subject';
+export { CreateAdminAccount } from './use-cases/create-admin-account';
+export type { CreateAdminAccountInput } from './use-cases/create-admin-account';
+export { VerifyAdminPassword } from './use-cases/verify-admin-password';
+export type { VerifyAdminPasswordInput } from './use-cases/verify-admin-password';
