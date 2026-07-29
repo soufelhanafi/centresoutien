@@ -24,7 +24,7 @@ describe('LoginThrottlePolicy', () => {
     }
   });
 
-  it('locks for 15 minutes on the fifth consecutive failure', () => {
+  it('locks for 15 minutes on the sixth consecutive failure', () => {
     let state = UNLOCKED_STATE;
     for (let i = 0; i < MAX_FAILED_ATTEMPTS; i += 1) state = policy.registerFailure(state, NOW);
 

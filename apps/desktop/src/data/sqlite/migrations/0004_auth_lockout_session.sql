@@ -1,7 +1,9 @@
 -- 0004_auth_lockout_session.sql
 -- What: login throttle state + remembered device session, one row each.
--- Why:  SOU-27 layers a 5-attempt / 15-minute lockout and a "remember this
---       device" session on top of the SOU-26 admin account.
+-- Why:  SOU-27 layers a lockout on the 6th failed attempt (15-minute cooldown)
+--       and a "remember this device" session on top of the SOU-26 admin account.
+-- Rollback: additive-only. Logical undo is DROP TABLE auth_lockout / device_sessions
+--       (disposable device-local state); never applied to a released DB in place.
 -- First ships in: v2.0.0.
 --
 -- LOCAL infra tables — like admin_accounts, app_meta, and _schema_migrations they

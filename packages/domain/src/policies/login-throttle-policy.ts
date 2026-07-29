@@ -1,7 +1,8 @@
 import { type LockoutState, UNLOCKED_STATE } from '../value-objects/lockout-state';
 
-/** Consecutive failures that trip the lock. The 5th wrong try locks the console. */
-export const MAX_FAILED_ATTEMPTS = 5;
+/** Consecutive failures that trip the lock. Five wrong tries are allowed with a
+ * warning; the 6th locks the console. */
+export const MAX_FAILED_ATTEMPTS = 6;
 
 /** How long the console stays locked once tripped: 15 minutes. */
 export const LOCKOUT_DURATION_MS = 15 * 60 * 1000;

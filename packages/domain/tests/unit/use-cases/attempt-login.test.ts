@@ -76,19 +76,19 @@ describe('AttemptLogin', () => {
     });
   });
 
-  it('locks the console on the fifth wrong try and blocks the sixth', async () => {
+  it('locks the console on the sixth wrong try and blocks the seventh', async () => {
     for (let i = 1; i < MAX_FAILED_ATTEMPTS; i += 1) {
       const r = await login.execute({ username: USERNAME, password: WRONG });
       expect(r.outcome).toBe('invalid-credentials');
     }
 
-    const fifth = await login.execute({ username: USERNAME, password: WRONG });
-    expect(fifth.outcome).toBe('locked-out');
+    const sixth = await login.execute({ username: USERNAME, password: WRONG });
+    expect(sixth.outcome).toBe('locked-out');
 
-    // Sixth try is blocked before the password is even checked — a correct
+    // Seventh try is blocked before the password is even checked — a correct
     // password does not get you in while locked.
-    const sixth = await login.execute({ username: USERNAME, password: PASSWORD });
-    expect(sixth).toMatchObject({ outcome: 'locked-out' });
+    const seventh = await login.execute({ username: USERNAME, password: PASSWORD });
+    expect(seventh).toMatchObject({ outcome: 'locked-out' });
   });
 
   it('exposes a lockedUntil 15 minutes ahead', async () => {

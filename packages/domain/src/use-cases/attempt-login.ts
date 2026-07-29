@@ -21,8 +21,9 @@ export type LoginResult =
 
 /**
  * A throttled login attempt for the local admin console (SOU-27). Wraps the pure
- * {@link VerifyAdminPassword} credential check with attempt counting, a 5-try /
- * 15-minute lockout persisted in the DB, and remembered-device sessions.
+ * {@link VerifyAdminPassword} credential check with attempt counting, a lockout
+ * on the 6th consecutive failure (15-minute cooldown) persisted in the DB, and
+ * remembered-device sessions.
  *
  * A locked console short-circuits before verification, so a wrong password never
  * pays the Argon2 cost while locked and every failed try — wrong username or
