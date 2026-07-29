@@ -15,6 +15,7 @@ import { FieldMessage } from '../../form/field-message';
 import { WizardFooter } from '../wizard-footer';
 import { useWizardNav } from '../../../hooks/wizard/use-wizard-nav';
 import { useCreateAdmin } from '../../../hooks/wizard/use-create-admin';
+import { useWizardStore } from '../../../stores/wizard-store';
 
 /**
  * Confirm-password is a UI concern only, so it extends — never forks — the shared
@@ -39,9 +40,13 @@ export function AdminAccountStep() {
   const { t } = useTranslation();
   const { back, submit, canGoBack } = useWizardNav();
   const createAdmin = useCreateAdmin();
+  const retainedUsername = useWizardStore((store) => store.adminUsername);
+  const setAdminUsername = useWizardStore((store) => store.setAdminUsername);
   const form = useForm<AdminFormValues>({
     resolver: zodResolver(adminFormSchema),
-    defaultValues: { username: '', password: '', confirmPassword: '' },
+    // Rehydrate the username from the wizard store so Back → Continue restores it;
+    // the password fields intentionally start empty and are never retained.
+    defaultValues: { username: retainedUsername, password: '', confirmPassword: '' },
   });
 
   const onSubmit = form.handleSubmit(async ({ username, password }) => {
@@ -59,7 +64,14 @@ export function AdminAccountStep() {
             <FormItem>
               <FormLabel>{t('wizard.admin.username')}</FormLabel>
               <FormControl>
-                <Input autoComplete="username" {...field} />
+                <Input
+                  autoComplete="username"
+                  {...field}
+                  onChange={(event) => {
+                    field.onChange(event);
+                    setAdminUsername(event.target.value);
+                  }}
+                />
               </FormControl>
               <FieldMessage />
             </FormItem>

@@ -19,6 +19,13 @@ import {
 type WizardStore = {
   state: WizardState | null;
   /**
+   * The admin step's username, retained in memory so returning to the step via
+   * Back rehydrates what was typed. Mirrors how the Language step keeps its
+   * choice across navigation. The password and its confirmation are deliberately
+   * NOT retained — they are sensitive and must not live in shared state.
+   */
+  adminUsername: string;
+  /**
    * Build the initial state for the active plan. Idempotent once the user has
    * begun — so a late plan hydration (`plan.get`) can still correct the Holidays
    * step before step one, but never resets real progress.
@@ -27,6 +34,7 @@ type WizardStore = {
   submit: () => void;
   skip: () => void;
   back: () => void;
+  setAdminUsername: (username: string) => void;
 };
 
 function hasStarted(state: WizardState | null): boolean {
@@ -35,6 +43,7 @@ function hasStarted(state: WizardState | null): boolean {
 
 export const useWizardStore = create<WizardStore>((set) => ({
   state: null,
+  adminUsername: '',
   init: (plan) =>
     set((store) => {
       if (hasStarted(store.state)) return store;
@@ -43,4 +52,5 @@ export const useWizardStore = create<WizardStore>((set) => ({
   submit: () => set((store) => (store.state ? { state: submitStep(store.state) } : store)),
   skip: () => set((store) => (store.state ? { state: skipStep(store.state) } : store)),
   back: () => set((store) => (store.state ? { state: goToPreviousStep(store.state) } : store)),
+  setAdminUsername: (username) => set({ adminUsername: username }),
 }));
