@@ -2,8 +2,8 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
-// jsdom ships no ResizeObserver; some Radix primitives (e.g. Switch) construct
-// one on mount. A no-op stub is enough for these DOM-only unit tests.
+// jsdom ships no ResizeObserver; some Radix primitives (e.g. Switch, Checkbox)
+// construct one on mount. A no-op stub is enough for these DOM-only unit tests.
 if (!('ResizeObserver' in globalThis)) {
   globalThis.ResizeObserver = class {
     observe(): void {}
@@ -28,6 +28,10 @@ Object.defineProperty(window, 'api', {
         // A fresh center persists no hours; the settings form seeds its defaults.
         case 'centerHours.get':
           return { week: [] };
+        // Default to a remembered device so App smoke tests render the app, not
+        // the login screen. Auth-specific tests override `window.api.invoke`.
+        case 'auth.session':
+          return { authenticated: true };
         default:
           return { reply: 'pong: test', appVersion: '0.0.0' };
       }

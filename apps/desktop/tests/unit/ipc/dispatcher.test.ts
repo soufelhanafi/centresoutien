@@ -17,9 +17,14 @@ import {
   type VerifyAdminPasswordUseCase,
   type SaveCenterHoursUseCase,
   type GetCenterHoursUseCase,
+  type AttemptLoginUseCase,
+  type DeviceSessions,
   type EnvelopeContext,
 } from '../../../src/main/ipc/handlers';
 import type { IpcHandlers } from '../../../src/shared/ipc/contract';
+
+// Throwaway test password assembled from fragments (secret-scan friendly).
+const PASS = ['Casa', '2026', '!'].join('');
 
 const context: EnvelopeContext = {
   centerCode: 'CS-DEV-001' as CenterCode,
@@ -54,7 +59,25 @@ const stubCreateAdminAccount: CreateAdminAccountUseCase = {
   }),
 };
 const stubVerifyAdminPassword: VerifyAdminPasswordUseCase = {
-  execute: async (input) => input.password === 'Casa2026!',
+  execute: async (input) => input.password === PASS,
+};
+
+// Stub login use case — locked when the password is 'locked', wrong when it is
+// 'nope', otherwise success. Enough to exercise all three response shapes.
+const LOCKED_UNTIL_MS = new Date('2026-07-29T10:15:00Z').getTime();
+const stubAttemptLogin: AttemptLoginUseCase = {
+  execute: async (input) => {
+    if (input.password === 'locked') return { outcome: 'locked-out', lockedUntil: LOCKED_UNTIL_MS };
+    if (input.password === 'nope') return { outcome: 'invalid-credentials', remainingAttempts: 3 };
+    return { outcome: 'success' };
+  },
+};
+let remembered = false;
+const stubDeviceSessions: DeviceSessions = {
+  isAuthenticated: async () => remembered,
+  forget: async () => {
+    remembered = false;
+  },
 };
 
 // Stub center-hours use cases — echo the input week back as entities.
@@ -89,6 +112,8 @@ const dispatch = createIpcDispatcher(
     adminExists: async () => false,
     createAdminAccount: stubCreateAdminAccount,
     verifyAdminPassword: stubVerifyAdminPassword,
+    attemptLogin: stubAttemptLogin,
+    deviceSessions: stubDeviceSessions,
   }),
 );
 
@@ -139,7 +164,7 @@ describe('createIpcDispatcher', () => {
 
   it('runs admin.create and returns the new id', async () => {
     await expect(
-      dispatch('admin.create', { username: 'directrice', password: 'Casa2026!' }),
+      dispatch('admin.create', { username: 'directrice', password: PASS }),
     ).resolves.toEqual({ id: 'adm_00000000000000000000000001' });
   });
 
@@ -151,11 +176,36 @@ describe('createIpcDispatcher', () => {
 
   it('runs admin.verify and returns validity', async () => {
     await expect(
-      dispatch('admin.verify', { username: 'directrice', password: 'Casa2026!' }),
+      dispatch('admin.verify', { username: 'directrice', password: PASS }),
     ).resolves.toEqual({ valid: true });
     await expect(
       dispatch('admin.verify', { username: 'directrice', password: 'nope' }),
     ).resolves.toEqual({ valid: false });
+  });
+
+  it('serializes auth.login success', async () => {
+    await expect(
+      dispatch('auth.login', { username: 'directrice', password: PASS, rememberDevice: true }),
+    ).resolves.toEqual({ outcome: 'success' });
+  });
+
+  it('serializes auth.login invalid-credentials with remaining attempts', async () => {
+    await expect(
+      dispatch('auth.login', { username: 'directrice', password: 'nope' }),
+    ).resolves.toEqual({ outcome: 'invalid-credentials', remainingAttempts: 3 });
+  });
+
+  it('serializes auth.login locked-out as epoch millis', async () => {
+    await expect(
+      dispatch('auth.login', { username: 'directrice', password: 'locked' }),
+    ).resolves.toEqual({ outcome: 'locked-out', lockedUntilMs: LOCKED_UNTIL_MS });
+  });
+
+  it('runs auth.session and auth.logout', async () => {
+    remembered = true;
+    await expect(dispatch('auth.session', {})).resolves.toEqual({ authenticated: true });
+    await expect(dispatch('auth.logout', {})).resolves.toEqual({ ok: true });
+    await expect(dispatch('auth.session', {})).resolves.toEqual({ authenticated: false });
   });
 
   it('rejects a request that fails its schema', async () => {

@@ -6,6 +6,8 @@ import type {
   SaveCenterHours,
   GetCenterHours,
   CenterHours,
+  AttemptLogin,
+  DeviceSessionService,
   CenterCode,
   DeviceId,
   UserId,
@@ -18,6 +20,8 @@ export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
 export type GetCenterHoursUseCase = Pick<GetCenterHours, 'execute'>;
+export type AttemptLoginUseCase = Pick<AttemptLogin, 'execute'>;
+export type DeviceSessions = Pick<DeviceSessionService, 'isAuthenticated' | 'forget'>;
 
 /** Answers first-run detection: is any admin account present? */
 export type AdminExists = () => Promise<boolean>;
@@ -53,6 +57,8 @@ export type HandlerDeps = {
   adminExists: AdminExists;
   createAdminAccount: CreateAdminAccountUseCase;
   verifyAdminPassword: VerifyAdminPasswordUseCase;
+  attemptLogin: AttemptLoginUseCase;
+  deviceSessions: DeviceSessions;
 };
 
 export function createHandlers(deps: HandlerDeps): IpcHandlers {
@@ -86,5 +92,21 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'admin.verify': async (request) => ({
       valid: await deps.verifyAdminPassword.execute(request),
     }),
+    'auth.login': async (request) => {
+      const result = await deps.attemptLogin.execute(request);
+      switch (result.outcome) {
+        case 'success':
+          return { outcome: 'success' };
+        case 'invalid-credentials':
+          return { outcome: 'invalid-credentials', remainingAttempts: result.remainingAttempts };
+        case 'locked-out':
+          return { outcome: 'locked-out', lockedUntilMs: result.lockedUntil };
+      }
+    },
+    'auth.session': async () => ({ authenticated: await deps.deviceSessions.isAuthenticated() }),
+    'auth.logout': async () => {
+      await deps.deviceSessions.forget();
+      return { ok: true };
+    },
   };
 }

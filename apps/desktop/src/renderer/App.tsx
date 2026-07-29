@@ -19,6 +19,8 @@ import { PlanSwitcher } from './components/plan-switcher';
 import { FeatureGate } from './components/feature-gate';
 import { PlanLock } from './components/plan-lock';
 import { FirstRunGate } from './components/wizard/first-run-gate';
+import { AuthGate } from './components/auth/auth-gate';
+import { LogoutButton } from './components/auth/logout-button';
 import { SubjectForm } from './components/subject/subject-form';
 import { CenterHoursSettings } from './components/center-hours/center-hours-settings';
 import { usePlanStore } from './stores/plan-store';
@@ -54,10 +56,14 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <DirectionProvider dir={direction}>
         <FirstRunGate>
+        <AuthGate>
         <main className="flex min-h-screen flex-col items-start gap-6 bg-background p-8 text-foreground">
           <div className="flex w-full items-center justify-between">
             <h1 className="text-2xl font-semibold text-primary">{t('app.title')}</h1>
-            <LanguageToggle />
+            <div className="flex items-center gap-2">
+              <LanguageToggle />
+              <LogoutButton />
+            </div>
           </div>
 
           <p className="text-sm text-muted-foreground">
@@ -93,6 +99,7 @@ export function App() {
 
           {import.meta.env.DEV ? <Showcase /> : null}
         </main>
+        </AuthGate>
         </FirstRunGate>
       </DirectionProvider>
     </QueryClientProvider>

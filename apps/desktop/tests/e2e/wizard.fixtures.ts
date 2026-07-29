@@ -93,6 +93,23 @@ export async function launch(opts: {
   return { app, win };
 }
 
+/**
+ * Get past the SOU-27 AuthGate. By the time this is called an admin already
+ * exists (created by the wizard or seeded through the bridge); we establish a
+ * remembered-device session via the same public `auth.login` the form uses, then
+ * reload so the gate's session probe passes and the app renders. Remembering the
+ * device also lets a later relaunch of the same userData dir skip the login.
+ */
+export async function passAuthGate(win: Page): Promise<void> {
+  await win.evaluate(async (admin) => {
+    const api = (window as unknown as {
+      api: { invoke: (c: string, r: unknown) => Promise<unknown> };
+    }).api;
+    await api.invoke('auth.login', { ...admin, rememberDevice: true });
+  }, VALID_ADMIN);
+  await win.reload();
+}
+
 /** First-run detection surface: is an admin account persisted? */
 export async function adminExists(win: Page): Promise<boolean> {
   return win.evaluate(async () => {

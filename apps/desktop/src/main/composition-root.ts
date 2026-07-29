@@ -8,6 +8,9 @@ import {
   VerifyAdminPassword,
   SaveCenterHours,
   GetCenterHours,
+  AttemptLogin,
+  LoginThrottlePolicy,
+  DeviceSessionService,
 } from '@centresoutien/domain';
 import type { PlanId, CenterCode, DeviceId, UserId, IdGenerator } from '@centresoutien/domain';
 import { openDatabase } from '../data/sqlite/db';
@@ -15,6 +18,8 @@ import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
+import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-throttle-store';
+import { SqliteDeviceSessionStore } from '../data/sqlite/repositories/device-session-store';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
@@ -82,6 +87,15 @@ export function buildContainer(options: ContainerOptions): Container {
   const createAdminAccount = new CreateAdminAccount(adminRepo, hasher, clock, ids);
   const verifyAdminPassword = new VerifyAdminPassword(adminRepo, hasher);
 
+  const deviceSessions = new DeviceSessionService(new SqliteDeviceSessionStore(db), clock, ids);
+  const attemptLogin = new AttemptLogin(
+    verifyAdminPassword,
+    new SqliteLoginThrottleStore(db),
+    new LoginThrottlePolicy(),
+    deviceSessions,
+    clock,
+  );
+
   const context: EnvelopeContext = {
     centerCode: options.centerCode,
     deviceOrigin: resolveDeviceOrigin(db, ids),
@@ -98,6 +112,8 @@ export function buildContainer(options: ContainerOptions): Container {
     adminExists: () => adminRepo.exists(),
     createAdminAccount,
     verifyAdminPassword,
+    attemptLogin,
+    deviceSessions,
   };
 
   return { handlerDeps, dispose: () => db.close() };

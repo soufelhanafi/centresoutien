@@ -38,6 +38,8 @@
   "errors": {
     "required": "هذا الحقل مطلوب",
     "too-long": "النص طويل جدًا",
+    "username-required": "اسم المستخدم مطلوب",
+    "password-required": "كلمة المرور مطلوبة",
     "username-too-short": "اسم المستخدم قصير جدًا",
     "username-too-long": "اسم المستخدم طويل جدًا",
     "password-too-short": "يجب أن تحتوي كلمة المرور على 8 أحرف على الأقل",
@@ -82,6 +84,34 @@
       "4": "الخميس",
       "5": "الجمعة",
       "6": "السبت"
+    }
+  },
+  "auth": {
+    "title": "تسجيل الدخول",
+    "subtitle": "سجّل الدخول للوصول إلى مركزك",
+    "username": "اسم المستخدم",
+    "password": "كلمة المرور",
+    "rememberDevice": "تذكّر هذا الجهاز",
+    "submit": "تسجيل الدخول",
+    "submitting": "جارٍ تسجيل الدخول…",
+    "logout": "تسجيل الخروج",
+    "invalidCredentials": "اسم المستخدم أو كلمة المرور غير صحيحة.",
+    "attemptsRemaining_zero": "لم تتبقّ لديك أي محاولة.",
+    "attemptsRemaining_one": "تبقّت لديك محاولة واحدة.",
+    "attemptsRemaining_two": "تبقّت لديك محاولتان.",
+    "attemptsRemaining_few": "تبقّى لديك {{count}} محاولات.",
+    "attemptsRemaining_many": "تبقّى لديك {{count}} محاولة.",
+    "attemptsRemaining_other": "تبقّى لديك {{count}} محاولة.",
+    "locked": {
+      "title": "الحساب مقفل مؤقتًا",
+      "body": "محاولات فاشلة كثيرة. أعد المحاولة بعد {{time}}."
+    },
+    "error": "فشل تسجيل الدخول. تحقّق من التثبيت وأعد المحاولة.",
+    "gate": {
+      "loading": "جارٍ التحميل…",
+      "errorTitle": "تعذّر التحقق من الجلسة",
+      "errorBody": "فشل التحقق من الجلسة.",
+      "retry": "إعادة المحاولة"
     }
   },
   "wizard": {

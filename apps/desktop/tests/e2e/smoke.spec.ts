@@ -1,5 +1,5 @@
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
-import { MAIN_ENTRY, VALID_ADMIN, freshUserDataDir } from './wizard.fixtures';
+import { MAIN_ENTRY, VALID_ADMIN, freshUserDataDir, passAuthGate } from './wizard.fixtures';
 
 const HEADING = { fr: 'Centre Soutien', ar: 'مركز الدعم' } as const;
 const DIRECTION = { fr: 'ltr', ar: 'rtl' } as const;
@@ -26,7 +26,8 @@ async function launch(locale: string): Promise<Page> {
     }).api;
     await api.invoke('admin.create', admin);
   }, VALID_ADMIN);
-  await window.reload();
+  // Past the first-run gate (admin now exists) and the SOU-27 auth gate.
+  await passAuthGate(window);
   return window;
 }
 

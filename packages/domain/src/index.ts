@@ -59,6 +59,8 @@ export {
   DEFAULT_WEEKLY_HOURS,
 } from './schemas/center-hours';
 export type { WeekdayHoursInput, WeeklyHoursInput } from './schemas/center-hours';
+export { loginInputSchema } from './schemas/login';
+export type { LoginInput } from './schemas/login';
 
 // Entities
 export { SUBJECT_ID_PREFIX } from './entities/subject';
@@ -67,12 +69,32 @@ export { CENTER_HOURS_ID_PREFIX, isClosed } from './entities/center-hours';
 export type { CenterHours, CenterHoursId } from './entities/center-hours';
 export { ADMIN_ACCOUNT_ID_PREFIX } from './entities/admin-account';
 export type { AdminAccount, AdminAccountId } from './entities/admin-account';
+export {
+  DEVICE_SESSION_ID_PREFIX,
+  DEVICE_SESSION_TTL_MS,
+  isSessionActive,
+} from './entities/device-session';
+export type { DeviceSession, DeviceSessionId } from './entities/device-session';
+
+// Value objects & policies (login throttle — SOU-27)
+export { UNLOCKED_STATE } from './value-objects/lockout-state';
+export type { LockoutState } from './value-objects/lockout-state';
+export {
+  LoginThrottlePolicy,
+  MAX_FAILED_ATTEMPTS,
+  LOCKOUT_DURATION_MS,
+} from './policies/login-throttle-policy';
 
 // Repository & service ports
 export type { SubjectRepository } from './ports/subject-repository';
 export type { CenterHoursRepository } from './ports/center-hours-repository';
 export type { AdminAccountRepository } from './ports/admin-account-repository';
 export type { PasswordHasher } from './ports/password-hasher';
+export type { LoginThrottleStore } from './ports/login-throttle-store';
+export type { DeviceSessionStore } from './ports/device-session-store';
+
+// Domain services
+export { DeviceSessionService } from './services/device-session-service';
 
 // Policies
 export { SessionConflictPolicy } from './policies/session-conflict-policy';
@@ -107,3 +129,5 @@ export { CreateAdminAccount } from './use-cases/create-admin-account';
 export type { CreateAdminAccountInput } from './use-cases/create-admin-account';
 export { VerifyAdminPassword } from './use-cases/verify-admin-password';
 export type { VerifyAdminPasswordInput } from './use-cases/verify-admin-password';
+export { AttemptLogin } from './use-cases/attempt-login';
+export type { LoginResult, CredentialVerifier } from './use-cases/attempt-login';

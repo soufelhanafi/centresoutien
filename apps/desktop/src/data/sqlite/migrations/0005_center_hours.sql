@@ -1,4 +1,4 @@
--- 0004_center_hours.sql
+-- 0005_center_hours.sql
 -- What: center_hours table — per-weekday opening hours for a center (SOU-29).
 -- Why:  scheduling rejects out-of-hours sessions (wired at the calendar seam in
 --       SOU-55); the Settings screen edits the seven weekday rows.
