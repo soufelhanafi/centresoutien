@@ -19,7 +19,7 @@ function renderWizard(onComplete = vi.fn()) {
 }
 
 beforeEach(() => {
-  useWizardStore.setState({ state: null });
+  useWizardStore.setState({ state: null, adminUsername: '' });
   usePlanStore.getState().setPlan('essentiel');
 });
 
@@ -79,6 +79,26 @@ describe('FirstRunWizard — French walk-through (Essentiel)', () => {
     // language, then profile, then hours are all mandatory — none may be skipped.
     expect(screen.getByText('Choisissez la langue')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Passer' })).toBeNull();
+  });
+
+  it('retains the admin username across a Back → Continue round trip', async () => {
+    window.api.invoke = vi.fn();
+    const user = userEvent.setup();
+    renderWizard();
+
+    await user.click(screen.getByRole('button', { name: 'Continuer' })); // language -> profile
+    await user.click(await screen.findByRole('button', { name: 'Continuer' })); // profile -> admin
+
+    const username = await screen.findByLabelText("Nom d'utilisateur");
+    await user.type(username, 'directeur');
+
+    // Back to the center-profile step, then forward to the admin step again.
+    await user.click(screen.getByRole('button', { name: 'Retour' })); // admin -> profile
+    expect(await screen.findByText('Profil du centre')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Continuer' })); // profile -> admin
+
+    // The remounted admin form rehydrates the previously typed username.
+    expect(await screen.findByLabelText("Nom d'utilisateur")).toHaveValue('directeur');
   });
 
   it('blocks the admin step until valid data is entered (mandatory data cannot be bypassed)', async () => {
