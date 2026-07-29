@@ -23,6 +23,7 @@ export type { DialogContentProps } from './components/ui/dialog';
 export { Input } from '@ui/components/ui/input';
 export type { InputProps } from '@ui/components/ui/input';
 export { Label } from '@ui/components/ui/label';
+export type { LabelProps } from '@ui/components/ui/label';
 export { Checkbox } from '@ui/components/ui/checkbox';
 export { Switch } from '@ui/components/ui/switch';
 export {
@@ -38,14 +39,14 @@ export {
 export type { SelectTriggerProps } from '@ui/components/ui/select';
 export {
   Form,
+  FormField,
   FormItem,
   FormLabel,
   FormControl,
   FormDescription,
   FormMessage,
-  FormField,
+  useFormField,
 } from '@ui/components/ui/form';
-export type { FormMessageProps } from '@ui/components/ui/form';
 export {
   Sheet,
   SheetTrigger,

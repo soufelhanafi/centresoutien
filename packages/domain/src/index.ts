@@ -32,3 +32,18 @@ export type { PlanId, FeatureFlag, PlanLimits, Plan } from './plans/plans';
 export { PLANS } from './plans/plans';
 export { PlanPolicy } from './plans/plan-policy';
 export { DomainError, PlanFeatureUnavailableError, PlanLimitExceededError } from './errors/plan-errors';
+
+// Input validation schemas (shared by forms via zodResolver and by use cases)
+export { subjectInputSchema, SUBJECT_NAME_MAX } from './schemas/subject';
+export type { SubjectInput } from './schemas/subject';
+
+// Entities
+export { SUBJECT_ID_PREFIX } from './entities/subject';
+export type { Subject, SubjectId } from './entities/subject';
+
+// Repository ports
+export type { SubjectRepository } from './ports/subject-repository';
+
+// Use cases
+export { CreateSubject } from './use-cases/create-subject';
+export type { CreateSubjectInput } from './use-cases/create-subject';

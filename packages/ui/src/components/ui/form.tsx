@@ -1,60 +1,60 @@
 import * as React from 'react';
-import type * as LabelPrimitive from '@radix-ui/react-label';
 import { Slot } from '@radix-ui/react-slot';
 import {
   Controller,
   FormProvider,
   useFormContext,
-  useFormState,
   type ControllerProps,
   type FieldPath,
   type FieldValues,
 } from 'react-hook-form';
+import { cn } from '../../lib/utils';
+import { Label } from './label';
 
-import { cn } from '@ui/lib/utils';
-import { Label } from '@ui/components/ui/label';
+/**
+ * shadcn/ui Form primitive, RTL-safe (logical properties only) and i18n-agnostic.
+ * This package cannot know about the consuming app's i18next instance, so
+ * `FormMessage` renders whatever it is given: pass translated `children`
+ * (e.g. `t(\`errors.${error.message}\`)`) and they win over the raw RHF message,
+ * which in this repo is a stable error *code*, not a user-facing string.
+ */
 
-export const Form = FormProvider;
+const Form = FormProvider;
 
 type FormFieldContextValue<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
-> = {
-  name: TName;
-};
+> = { name: TName };
 
-const FormFieldContext = React.createContext<FormFieldContextValue>({} as FormFieldContextValue);
+const FormFieldContext = React.createContext<FormFieldContextValue | null>(null);
 
-export function FormField<
+const FormField = <
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
->(props: ControllerProps<TFieldValues, TName>) {
-  return (
-    <FormFieldContext.Provider value={{ name: props.name }}>
-      <Controller {...props} />
-    </FormFieldContext.Provider>
-  );
-}
+>(
+  props: ControllerProps<TFieldValues, TName>,
+): React.ReactElement => (
+  <FormFieldContext.Provider value={{ name: props.name }}>
+    <Controller {...props} />
+  </FormFieldContext.Provider>
+);
 
-type FormItemContextValue = {
-  id: string;
-};
+type FormItemContextValue = { id: string };
 
-const FormItemContext = React.createContext<FormItemContextValue>({} as FormItemContextValue);
+const FormItemContext = React.createContext<FormItemContextValue | null>(null);
 
-export function useFormField() {
+function useFormField() {
   const fieldContext = React.useContext(FormFieldContext);
   const itemContext = React.useContext(FormItemContext);
+  const { getFieldState, formState } = useFormContext();
 
-  if (!('name' in fieldContext)) {
-    throw new Error('useFormField should be used within <FormField>');
+  if (!fieldContext) {
+    throw new Error('useFormField must be used within a <FormField>');
   }
-  if (!('id' in itemContext)) {
-    throw new Error('useFormField should be used within <FormItem>');
+  if (!itemContext) {
+    throw new Error('useFormField must be used within a <FormItem>');
   }
 
-  const { getFieldState } = useFormContext();
-  const formState = useFormState({ name: fieldContext.name });
   const fieldState = getFieldState(fieldContext.name, formState);
   const { id } = itemContext;
 
@@ -68,30 +68,27 @@ export function useFormField() {
   };
 }
 
-export const FormItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+const FormItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => {
     const id = React.useId();
-
     return (
       <FormItemContext.Provider value={{ id }}>
-        <div ref={ref} className={cn('grid gap-2', className)} {...props} />
+        <div ref={ref} className={cn('space-y-2', className)} {...props} />
       </FormItemContext.Provider>
     );
   },
 );
 FormItem.displayName = 'FormItem';
 
-export const FormLabel = React.forwardRef<
-  React.ComponentRef<typeof LabelPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root>
+const FormLabel = React.forwardRef<
+  React.ComponentRef<typeof Label>,
+  React.ComponentPropsWithoutRef<typeof Label>
 >(({ className, ...props }, ref) => {
   const { error, formItemId } = useFormField();
-
   return (
     <Label
       ref={ref}
-      data-error={!!error}
-      className={cn('data-[error=true]:text-destructive', className)}
+      className={cn(error && 'text-destructive', className)}
       htmlFor={formItemId}
       {...props}
     />
@@ -99,17 +96,16 @@ export const FormLabel = React.forwardRef<
 });
 FormLabel.displayName = 'FormLabel';
 
-export const FormControl = React.forwardRef<
+const FormControl = React.forwardRef<
   React.ComponentRef<typeof Slot>,
   React.ComponentPropsWithoutRef<typeof Slot>
->((props, ref) => {
+>(({ ...props }, ref) => {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
-
   return (
     <Slot
       ref={ref}
       id={formItemId}
-      aria-describedby={!error ? formDescriptionId : `${formDescriptionId} ${formMessageId}`}
+      aria-describedby={error ? `${formDescriptionId} ${formMessageId}` : formDescriptionId}
       aria-invalid={!!error}
       {...props}
     />
@@ -117,33 +113,52 @@ export const FormControl = React.forwardRef<
 });
 FormControl.displayName = 'FormControl';
 
-export const FormDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
-  ({ className, ...props }, ref) => {
-    const { formDescriptionId } = useFormField();
-
-    return (
-      <p ref={ref} id={formDescriptionId} className={cn('text-sm text-muted-foreground', className)} {...props} />
-    );
-  },
-);
+const FormDescription = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => {
+  const { formDescriptionId } = useFormField();
+  return (
+    <p
+      ref={ref}
+      id={formDescriptionId}
+      className={cn('text-sm text-muted-foreground', className)}
+      {...props}
+    />
+  );
+});
 FormDescription.displayName = 'FormDescription';
 
-export type FormMessageProps = React.HTMLAttributes<HTMLParagraphElement>;
-
-/**
- * Deliberate deviation from vanilla shadcn: renders caller-supplied `children`
- * in preference to the raw React Hook Form message so the consuming app can
- * pass a translated `t()` node while `packages/ui` stays i18n-agnostic. Zod
- * schemas in this project emit stable error codes, translated at display time.
- */
-export function FormMessage({ className, children, ...props }: FormMessageProps) {
+const FormMessage = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, children, ...props }, ref) => {
   const { error, formMessageId } = useFormField();
-  // Prefer caller-supplied translated content; fall back to RHF's raw message.
-  const body = children ?? (error ? String(error.message) : null);
-  if (!body) return null;
+  // Explicit children (a translated message) win over the raw RHF error code.
+  const body = children ?? (error ? String(error.message ?? '') : null);
+  if (!body) {
+    return null;
+  }
   return (
-    <p id={formMessageId} className={cn('text-sm text-destructive', className)} {...props}>
+    <p
+      ref={ref}
+      id={formMessageId}
+      className={cn('text-sm font-medium text-destructive', className)}
+      {...props}
+    >
       {body}
     </p>
   );
-}
+});
+FormMessage.displayName = 'FormMessage';
+
+export {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormDescription,
+  FormMessage,
+  useFormField,
+};

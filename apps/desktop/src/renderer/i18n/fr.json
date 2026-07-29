@@ -34,5 +34,18 @@
   },
   "language": {
     "switch": "العربية"
+  },
+  "errors": {
+    "required": "Ce champ est requis",
+    "too-long": "Texte trop long"
+  },
+  "subjects": {
+    "form": {
+      "title": "Nouvelle matière",
+      "nameFr": "Nom (français)",
+      "nameAr": "Nom (arabe)",
+      "submit": "Créer la matière",
+      "success": "Matière créée"
+    }
   }
 }
