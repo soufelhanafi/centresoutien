@@ -9,7 +9,8 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "build": "electron-vite build",
-    "test:e2e": "playwright test"
+    "rebuild:native": "electron-rebuild -f -w better-sqlite3-multiple-ciphers",
+    "test:e2e": "pnpm run rebuild:native && playwright test"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.5.7",
@@ -29,6 +30,7 @@
     "@centresoutien/config": "workspace:*",
     "@centresoutien/domain": "workspace:*",
     "@centresoutien/ui": "workspace:*",
+    "@electron/rebuild": "^4.2.0",
     "@playwright/test": "^1.62.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.1",

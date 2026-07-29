@@ -84,6 +84,9 @@ importers:
       '@centresoutien/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@electron/rebuild':
+        specifier: ^4.2.0
+        version: 4.2.0
       '@playwright/test':
         specifier: ^1.62.0
         version: 1.62.0
