@@ -20,6 +20,7 @@ import { FeatureGate } from './components/feature-gate';
 import { PlanLock } from './components/plan-lock';
 import { FirstRunGate } from './components/wizard/first-run-gate';
 import { SubjectForm } from './components/subject/subject-form';
+import { CenterHoursSettings } from './components/center-hours/center-hours-settings';
 import { usePlanStore } from './stores/plan-store';
 import { queryClient } from './lib/query-client';
 import { Showcase } from './showcase/showcase';
@@ -70,6 +71,8 @@ export function App() {
           </FeatureGate>
 
           <SubjectForm />
+
+          <CenterHoursSettings />
 
           <Dialog>
             <DialogTrigger asChild>
