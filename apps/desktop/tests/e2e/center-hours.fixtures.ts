@@ -91,11 +91,18 @@ export function launch(locale: Locale, userDataDir: string): Promise<Launched> {
     });
 }
 
-/** Seed the admin over the public bridge and reload past the first-run gate. */
+/**
+ * Seed the admin over the public bridge and reload past the gates to the app.
+ * Two gates now stand in front of the hours editor: the first-run gate (cleared
+ * by creating the admin) and, since SOU-27, the auth gate. We establish a
+ * remembered-device session via the same `auth.login` path the login form uses,
+ * so the app renders instead of the login screen.
+ */
 export async function passFirstRun(win: Page): Promise<void> {
   await win.evaluate(async (admin) => {
     const api = (window as unknown as { api: { invoke: (c: string, r: unknown) => Promise<unknown> } }).api;
     await api.invoke('admin.create', admin);
+    await api.invoke('auth.login', { ...admin, rememberDevice: true });
   }, VALID_ADMIN);
   await win.reload();
   await win.waitForLoadState('domcontentloaded');
