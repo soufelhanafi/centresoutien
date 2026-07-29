@@ -126,7 +126,7 @@ export function LoginForm({ onAuthenticated }: { onAuthenticated: () => void }) 
         {feedback?.kind === 'invalid' ? (
           <p role="alert" className="text-sm text-destructive">
             {t('auth.invalidCredentials')}{' '}
-            {t('auth.attemptsRemaining', { remaining: feedback.remaining })}
+            {t('auth.attemptsRemaining', { count: feedback.remaining })}
           </p>
         ) : null}
 

@@ -68,7 +68,8 @@
     "submitting": "Connexion…",
     "logout": "Se déconnecter",
     "invalidCredentials": "Nom d'utilisateur ou mot de passe incorrect.",
-    "attemptsRemaining": "Il vous reste {{remaining}} tentative(s).",
+    "attemptsRemaining_one": "Il vous reste {{count}} tentative.",
+    "attemptsRemaining_other": "Il vous reste {{count}} tentatives.",
     "locked": {
       "title": "Compte temporairement verrouillé",
       "body": "Trop de tentatives échouées. Réessayez dans {{time}}."

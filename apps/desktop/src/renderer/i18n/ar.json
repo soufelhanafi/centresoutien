@@ -68,7 +68,12 @@
     "submitting": "جارٍ تسجيل الدخول…",
     "logout": "تسجيل الخروج",
     "invalidCredentials": "اسم المستخدم أو كلمة المرور غير صحيحة.",
-    "attemptsRemaining": "تبقّى لديك {{remaining}} محاولة.",
+    "attemptsRemaining_zero": "لم تتبقّ لديك أي محاولة.",
+    "attemptsRemaining_one": "تبقّت لديك محاولة واحدة.",
+    "attemptsRemaining_two": "تبقّت لديك محاولتان.",
+    "attemptsRemaining_few": "تبقّى لديك {{count}} محاولات.",
+    "attemptsRemaining_many": "تبقّى لديك {{count}} محاولة.",
+    "attemptsRemaining_other": "تبقّى لديك {{count}} محاولة.",
     "locked": {
       "title": "الحساب مقفل مؤقتًا",
       "body": "محاولات فاشلة كثيرة. أعد المحاولة بعد {{time}}."
