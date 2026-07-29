@@ -10,6 +10,24 @@
     "close": "Fermer",
     "premiumFeature": "Synchronisation multi-postes"
   },
+  "showcase": {
+    "title": "Composants",
+    "badges": "Badges",
+    "feedback": "États",
+    "data": "Données",
+    "statusDraft": "Brouillon",
+    "statusPaid": "Payée",
+    "statusPartial": "Payée partiellement",
+    "statusCancelled": "Annulée",
+    "kindRegular": "Régulier",
+    "kindExam": "PE · Prépa examens",
+    "lockTitle": "Paie enseignants",
+    "lockBody": "Calculez les règlements automatiquement.",
+    "lockCta": "Voir les plans",
+    "emptyTitle": "Aucune matière configurée",
+    "emptyBody": "Commencez par ajouter les matières que votre centre enseigne.",
+    "emptyCta": "Ajouter une matière"
+  },
   "plan": {
     "locked": "Réservé à un plan supérieur",
     "devSwitcher": "Plan (dev)"

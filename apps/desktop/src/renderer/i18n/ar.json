@@ -10,6 +10,24 @@
     "close": "إغلاق",
     "premiumFeature": "المزامنة متعددة الأجهزة"
   },
+  "showcase": {
+    "title": "المكوّنات",
+    "badges": "الشارات",
+    "feedback": "الحالات",
+    "data": "البيانات",
+    "statusDraft": "مسودة",
+    "statusPaid": "مدفوعة",
+    "statusPartial": "مدفوعة جزئياً",
+    "statusCancelled": "ملغاة",
+    "kindRegular": "منتظم",
+    "kindExam": "تحضير الامتحانات",
+    "lockTitle": "أجور الأساتذة",
+    "lockBody": "احسب المستحقات تلقائياً.",
+    "lockCta": "عرض الخطط",
+    "emptyTitle": "لا توجد مواد مُعدّة",
+    "emptyBody": "ابدأ بإضافة المواد التي يدرّسها مركزك.",
+    "emptyCta": "إضافة مادة"
+  },
   "plan": {
     "locked": "غير متاح في خطتك",
     "devSwitcher": "الخطة (تطوير)"
