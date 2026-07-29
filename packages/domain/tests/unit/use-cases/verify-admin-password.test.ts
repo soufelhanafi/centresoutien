@@ -31,4 +31,8 @@ describe('VerifyAdminPassword', () => {
   it('rejects an unknown username without throwing', async () => {
     expect(await verify.execute({ username: 'ghost', password: 'Casa2026!' })).toBe(false);
   });
+
+  it('trims the username so a trailing space still matches the stored account', async () => {
+    expect(await verify.execute({ username: '  directrice ', password: 'Casa2026!' })).toBe(true);
+  });
 });
