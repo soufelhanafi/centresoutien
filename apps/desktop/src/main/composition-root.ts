@@ -9,6 +9,9 @@ import {
   AttemptLogin,
   LoginThrottlePolicy,
   DeviceSessionService,
+  GetCenterProfile,
+  SaveCenterProfile,
+  StoreCenterLogo,
 } from '@centresoutien/domain';
 import type { PlanId, CenterCode, DeviceId, UserId, IdGenerator } from '@centresoutien/domain';
 import { openDatabase } from '../data/sqlite/db';
@@ -17,10 +20,17 @@ import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-rep
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-throttle-store';
 import { SqliteDeviceSessionStore } from '../data/sqlite/repositories/device-session-store';
+import { SqliteCenterRepository } from '../data/sqlite/repositories/center-repository';
+import { FsLogoStore } from '../data/fs/logo-store';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
-import { createHandlers, type HandlerDeps, type SubjectContext } from './ipc/handlers';
+import {
+  createHandlers,
+  type HandlerDeps,
+  type SubjectContext,
+  type CenterContext,
+} from './ipc/handlers';
 
 // Migration SQL is bundled into the main process at build time (no runtime file
 // read — survives packaging/asar). Vitest resolves the same glob from source.
@@ -60,6 +70,23 @@ function resolveDeviceOrigin(db: DB, ids: IdGenerator): DeviceId {
 }
 
 /**
+ * The active plan, read once at startup from the center row (SOU-28 interim gate
+ * source). Falls back to `fallback` (the dev/license override) before the center
+ * profile has ever been saved. SOU-98 replaces this with a tamper-evident
+ * license file — until then this is honest-user enforcement, as CLAUDE.md §5quater
+ * accepts for the desktop tier.
+ */
+function resolvePlanId(db: DB, fallback: PlanId): PlanId {
+  const row = db.prepare('SELECT plan FROM center WHERE deleted_at IS NULL LIMIT 1').get() as
+    | { plan: string }
+    | undefined;
+  if (row && (row.plan === 'essentiel' || row.plan === 'pro' || row.plan === 'premium')) {
+    return row.plan;
+  }
+  return fallback;
+}
+
+/**
  * The one place concrete adapters are constructed and injected into use cases.
  * Opens the center database, migrates it, wires the SQLite repositories to the
  * domain use cases, and exposes them as IPC handler dependencies.
@@ -70,10 +97,16 @@ export function buildContainer(options: ContainerOptions): Container {
 
   const clock = new SystemClock();
   const ids = new UlidIdGenerator();
-  const plan = new PlanPolicy(PLANS[options.planId]);
+  const activePlanId = resolvePlanId(db, options.planId);
+  const plan = new PlanPolicy(PLANS[activePlanId]);
 
   const subjectRepo = new SqliteSubjectRepository(db);
   const createSubject = new CreateSubject(subjectRepo, clock, ids, plan);
+
+  const centerRepo = new SqliteCenterRepository(db);
+  const getCenterProfile = new GetCenterProfile(centerRepo);
+  const saveCenterProfile = new SaveCenterProfile(centerRepo, clock, ids);
+  const storeCenterLogo = new StoreCenterLogo(new FsLogoStore(options.dir, ids));
 
   const hasher = new Argon2PasswordHasher();
   const adminRepo = new SqliteAdminAccountRepository(db);
@@ -94,10 +127,11 @@ export function buildContainer(options: ContainerOptions): Container {
     deviceOrigin: resolveDeviceOrigin(db, ids),
     updatedBy: DEV_USER,
   };
+  const centerContext: CenterContext = { ...context, seedPlan: activePlanId };
 
   const handlerDeps: HandlerDeps = {
     appVersion: options.appVersion,
-    activePlanId: () => options.planId,
+    activePlanId: () => activePlanId,
     createSubject,
     subjectContext: () => context,
     adminExists: () => adminRepo.exists(),
@@ -105,6 +139,10 @@ export function buildContainer(options: ContainerOptions): Container {
     verifyAdminPassword,
     attemptLogin,
     deviceSessions,
+    getCenterProfile,
+    saveCenterProfile,
+    storeCenterLogo,
+    centerContext: () => centerContext,
   };
 
   return { handlerDeps, dispose: () => db.close() };

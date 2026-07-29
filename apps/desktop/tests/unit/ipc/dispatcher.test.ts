@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { AdminAccountId, CenterCode, DeviceId, SubjectId, UserId } from '@centresoutien/domain';
+import type {
+  AdminAccountId,
+  CenterCode,
+  CenterId,
+  DeviceId,
+  SubjectId,
+  UserId,
+} from '@centresoutien/domain';
 import { createIpcDispatcher } from '../../../src/main/ipc/dispatcher';
 import {
   createHandlers,
@@ -9,6 +16,10 @@ import {
   type AttemptLoginUseCase,
   type DeviceSessions,
   type SubjectContext,
+  type CenterContext,
+  type GetCenterProfileUseCase,
+  type SaveCenterProfileUseCase,
+  type StoreCenterLogoUseCase,
 } from '../../../src/main/ipc/handlers';
 import type { IpcHandlers } from '../../../src/shared/ipc/contract';
 
@@ -69,6 +80,60 @@ const stubDeviceSessions: DeviceSessions = {
   },
 };
 
+// Center stubs (SOU-28). The store echoes the last saved profile; the plan is
+// seeded from the context and never overwritten by the request.
+const centerContext: CenterContext = { ...context, seedPlan: 'pro' };
+let savedCenter: {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  logoPath: string | null;
+} | null = null;
+const stubGetCenter: GetCenterProfileUseCase = {
+  execute: async () =>
+    savedCenter === null
+      ? null
+      : {
+          id: 'ctr_00000000000000000000000001' as CenterId,
+          centerCode: context.centerCode,
+          deviceOrigin: context.deviceOrigin,
+          createdAt: new Date('2026-07-29T10:00:00Z'),
+          updatedAt: new Date('2026-07-29T10:00:00Z'),
+          updatedBy: context.updatedBy,
+          deletedAt: null,
+          version: 0,
+          plan: 'pro',
+          ...savedCenter,
+        },
+};
+const stubSaveCenter: SaveCenterProfileUseCase = {
+  execute: async (input) => {
+    savedCenter = {
+      name: input.name,
+      address: input.address,
+      phone: input.phone,
+      email: input.email,
+      logoPath: input.logoPath,
+    };
+    return {
+      id: 'ctr_00000000000000000000000001' as CenterId,
+      centerCode: input.centerCode,
+      deviceOrigin: input.deviceOrigin,
+      createdAt: new Date('2026-07-29T10:00:00Z'),
+      updatedAt: new Date('2026-07-29T10:00:00Z'),
+      updatedBy: input.updatedBy,
+      deletedAt: null,
+      version: 0,
+      plan: input.seedPlan,
+      ...savedCenter,
+    };
+  },
+};
+const stubStoreLogo: StoreCenterLogoUseCase = {
+  execute: async (input) => `logos/lgo_test.${input.extension}`,
+};
+
 const dispatch = createIpcDispatcher(
   createHandlers({
     appVersion: () => '2.0.0',
@@ -80,6 +145,10 @@ const dispatch = createIpcDispatcher(
     verifyAdminPassword: stubVerifyAdminPassword,
     attemptLogin: stubAttemptLogin,
     deviceSessions: stubDeviceSessions,
+    getCenterProfile: stubGetCenter,
+    saveCenterProfile: stubSaveCenter,
+    storeCenterLogo: stubStoreLogo,
+    centerContext: () => centerContext,
   }),
 );
 
@@ -153,6 +222,47 @@ describe('createIpcDispatcher', () => {
     await expect(dispatch('auth.session', {})).resolves.toEqual({ authenticated: true });
     await expect(dispatch('auth.logout', {})).resolves.toEqual({ ok: true });
     await expect(dispatch('auth.session', {})).resolves.toEqual({ authenticated: false });
+  });
+
+  it('returns null from center.get before any profile is saved', async () => {
+    savedCenter = null;
+    await expect(dispatch('center.get', {})).resolves.toEqual({ center: null });
+  });
+
+  it('runs center.save and returns the DTO with the seeded (not request-supplied) plan', async () => {
+    const res = await dispatch('center.save', {
+      name: 'Centre Al Ilm',
+      address: 'Rue X',
+      phone: '0522',
+      email: 'a@b.ma',
+      logoPath: null,
+    });
+    expect(res).toEqual({
+      center: {
+        name: 'Centre Al Ilm',
+        address: 'Rue X',
+        phone: '0522',
+        email: 'a@b.ma',
+        logoPath: null,
+        plan: 'pro',
+      },
+    });
+    // ...and it is then readable via center.get.
+    await expect(dispatch('center.get', {})).resolves.toMatchObject({
+      center: { name: 'Centre Al Ilm', plan: 'pro' },
+    });
+  });
+
+  it('rejects center.save whose name fails the shared schema', async () => {
+    await expect(
+      dispatch('center.save', { name: '   ', logoPath: null }),
+    ).rejects.toThrow();
+  });
+
+  it('runs center.saveLogo and returns the stored relative path', async () => {
+    await expect(
+      dispatch('center.saveLogo', { bytes: new Uint8Array([1, 2, 3]), extension: 'png' }),
+    ).resolves.toEqual({ path: 'logos/lgo_test.png' });
   });
 
   it('rejects a request that fails its schema', async () => {
