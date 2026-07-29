@@ -1,7 +1,7 @@
 /*
  * Centre Soutien design tokens — the single source shared by the desktop
- * renderer and (via SOU-22) the landing page. Brand primary is teal #0F766E,
- * matching desktop-design.html. Import AFTER `@import "tailwindcss"`.
+ * renderer and (via SOU-22) the landing page. Transcribed from design screen 1a
+ * (desktop-design.html). Import AFTER `@import "tailwindcss"`.
  */
 :root {
   --background: #ffffff;
@@ -18,11 +18,67 @@
   --muted-foreground: #64748b;
   --accent: #ccfbf1;
   --accent-foreground: #134e4a;
-  --destructive: #dc2626;
+  --destructive: #b91c1c;
   --destructive-foreground: #fef2f2;
+  --success: #047857;
+  --success-foreground: #ecfdf5;
+  --warning: #b45309;
+  --warning-foreground: #fffbeb;
+  --info: #1d4ed8;
+  --info-foreground: #eff6ff;
   --border: #e2e8f0;
   --input: #e2e8f0;
   --ring: #0f766e;
+  --surface-subtle: #f8fafc;
+
+  /* Badge surfaces — bg / fg / border / dot per semantic role. */
+  --badge-success-bg: #ecfdf5;
+  --badge-success-fg: #047857;
+  --badge-success-border: #a7f3d0;
+  --badge-success-dot: #10b981;
+  --badge-warning-bg: #fffbeb;
+  --badge-warning-fg: #b45309;
+  --badge-warning-border: #fde68a;
+  --badge-warning-dot: #f59e0b;
+  --badge-info-bg: #eff6ff;
+  --badge-info-fg: #1d4ed8;
+  --badge-info-border: #bfdbfe;
+  --badge-info-dot: #3b82f6;
+  --badge-destructive-bg: #fef2f2;
+  --badge-destructive-fg: #b91c1c;
+  --badge-destructive-border: #fecaca;
+  --badge-destructive-dot: #ef4444;
+  --badge-neutral-bg: #f1f5f9;
+  --badge-neutral-fg: #64748b;
+  --badge-neutral-border: #e2e8f0;
+  --badge-neutral-dot: #94a3b8;
+
+  /* Session / formula kind — exam-prep uses a dashed border (CLAUDE.md §7). */
+  --kind-regular-bg: #f0fdfa;
+  --kind-regular-fg: #0f766e;
+  --kind-regular-border: #ccfbf1;
+  --kind-exam-bg: #faf5ff;
+  --kind-exam-fg: #7e22ce;
+  --kind-exam-border: #d8b4fe;
+
+  /* Plan tiers. Premium is a gradient, so it is applied as `background`. */
+  --plan-essentiel-bg: #f1f5f9;
+  --plan-essentiel-fg: #475569;
+  --plan-pro-bg: #0f766e;
+  --plan-pro-fg: #ffffff;
+  --plan-premium-bg: linear-gradient(135deg, #7e22ce, #a855f7);
+  --plan-premium-fg: #ffffff;
+
+  /* Lock overlay scrim. */
+  --lock-scrim: rgba(255, 255, 255, 0.55);
+
+  /* Raw font stacks. Named `--font-family-*` rather than `--font-*` because
+     `--font-sans` is itself a Tailwind theme key — mapping it to `var(--font-sans)`
+     in `@theme inline` would be a circular reference. */
+  --font-family-sans: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-family-arabic: 'Noto Sans Arabic', 'Segoe UI', sans-serif;
+  --font-family-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
   --radius: 0.5rem;
 }
 
@@ -33,7 +89,7 @@
   --card-foreground: #e2e8f0;
   --popover: #0f172a;
   --popover-foreground: #e2e8f0;
-  --primary: #2dd4bf;
+  --primary: #14b8a6;
   --primary-foreground: #042f2e;
   --secondary: #1e293b;
   --secondary-foreground: #e2e8f0;
@@ -41,15 +97,60 @@
   --muted-foreground: #94a3b8;
   --accent: #134e4a;
   --accent-foreground: #ccfbf1;
-  --destructive: #ef4444;
+  --destructive: #f87171;
   --destructive-foreground: #fef2f2;
+  --success: #34d399;
+  --success-foreground: #052e21;
+  --warning: #fbbf24;
+  --warning-foreground: #2d2308;
+  --info: #60a5fa;
+  --info-foreground: #0e1a33;
   --border: #1e293b;
   --input: #1e293b;
-  --ring: #2dd4bf;
+  --ring: #14b8a6;
+  --surface-subtle: #0f172a;
+
+  --badge-success-bg: #052e21;
+  --badge-success-fg: #34d399;
+  --badge-success-border: #064e3b;
+  --badge-success-dot: #34d399;
+  --badge-warning-bg: #2d2308;
+  --badge-warning-fg: #fbbf24;
+  --badge-warning-border: #453a0c;
+  --badge-warning-dot: #fbbf24;
+  --badge-info-bg: #0e1a33;
+  --badge-info-fg: #60a5fa;
+  --badge-info-border: #1e3a5f;
+  --badge-info-dot: #60a5fa;
+  --badge-destructive-bg: #2d0f0f;
+  --badge-destructive-fg: #f87171;
+  --badge-destructive-border: #4c1414;
+  --badge-destructive-dot: #f87171;
+  --badge-neutral-bg: #1e293b;
+  --badge-neutral-fg: #94a3b8;
+  --badge-neutral-border: #334155;
+  --badge-neutral-dot: #64748b;
+
+  --kind-regular-bg: #042f2e;
+  --kind-regular-fg: #2dd4bf;
+  --kind-regular-border: #134e4a;
+  --kind-exam-bg: #2a1240;
+  --kind-exam-fg: #d8b4fe;
+  --kind-exam-border: #6b21a8;
+
+  --plan-essentiel-bg: #1e293b;
+  --plan-essentiel-fg: #cbd5e1;
+  --plan-pro-bg: #0f766e;
+  --plan-pro-fg: #ffffff;
+  --plan-premium-bg: linear-gradient(135deg, #7e22ce, #a855f7);
+  --plan-premium-fg: #ffffff;
+
+  --lock-scrim: rgba(11, 18, 32, 0.55);
 }
 
-/* Map the raw tokens onto Tailwind's color/radius scales so utilities like
-   `bg-primary`, `text-muted-foreground`, and `rounded-lg` resolve. */
+/* Map the raw tokens onto Tailwind's scales so utilities like `bg-primary`,
+   `text-muted-foreground`, `font-mono`, `rounded-xl` and `shadow-overlay`
+   resolve. Values come from design screen 1a — never hard-code them. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -67,10 +168,29 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --color-surface-subtle: var(--surface-subtle);
+
+  --font-sans: var(--font-family-sans);
+  --font-arabic: var(--font-family-arabic);
+  --font-mono: var(--font-family-mono);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 12px 30px -12px rgba(15, 23, 42, 0.18);
+  --shadow-lg: 0 20px 40px -20px rgba(15, 23, 42, 0.15);
+  --shadow-overlay: 0 12px 30px -12px rgba(15, 23, 42, 0.25);
 }
