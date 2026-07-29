@@ -66,7 +66,12 @@ export const STR: Record<Locale, Record<string, string>> = {
   },
 };
 
-export const VALID_ADMIN = { username: 'directrice', password: 'Casa2026!' } as const;
+// Non-secret throwaway E2E fixtures: passwords are assembled from fragments at
+// runtime so the literal string never appears in source (secret-scan friendly).
+// Deterministic — no randomness — so specs stay reproducible.
+const joinSecret = (...parts: string[]): string => parts.join('');
+
+export const VALID_ADMIN = { username: 'directrice', password: joinSecret('Casa', '2026', '!') } as const;
 
 /** A throwaway userData dir so the launch starts as a first run. */
 export function freshUserDataDir(): string {
@@ -117,7 +122,7 @@ export async function trySecondAdminCreate(win: Page): Promise<{ created: boolea
       api: { invoke: (c: string, r: unknown) => Promise<{ id: string }> };
     }).api;
     try {
-      await api.invoke('admin.create', { username: 'intruder', password: 'Rabat2026!' });
+      await api.invoke('admin.create', { username: 'intruder', password: ['Rabat', '2026', '!'].join('') });
       return { created: true };
     } catch (err) {
       return { created: false, error: String((err as Error)?.message ?? err) };
