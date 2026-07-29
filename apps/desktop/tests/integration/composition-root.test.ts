@@ -87,6 +87,72 @@ describe('composition root', () => {
     container.dispose();
   });
 
+  it('remembers a device across restart, then forgets on logout (SOU-27)', async () => {
+    const first = build();
+    const dispatch1 = createIpcDispatcher(createHandlers(first.handlerDeps));
+    await dispatch1('admin.create', { username: 'directrice', password: 'Casa2026!' });
+
+    // Not authenticated before logging in.
+    expect(await dispatch1('auth.session', {})).toEqual({ authenticated: false });
+    expect(
+      await dispatch1('auth.login', {
+        username: 'directrice',
+        password: 'Casa2026!',
+        rememberDevice: true,
+      }),
+    ).toEqual({ outcome: 'success' });
+    expect(await dispatch1('auth.session', {})).toEqual({ authenticated: true });
+    first.dispose();
+
+    // Reopen the same encrypted file: the remembered session survives.
+    const second = build();
+    const dispatch2 = createIpcDispatcher(createHandlers(second.handlerDeps));
+    expect(await dispatch2('auth.session', {})).toEqual({ authenticated: true });
+
+    // Logout forgets it, and the forgetting also survives a restart.
+    expect(await dispatch2('auth.logout', {})).toEqual({ ok: true });
+    second.dispose();
+
+    const third = build();
+    const dispatch3 = createIpcDispatcher(createHandlers(third.handlerDeps));
+    expect(await dispatch3('auth.session', {})).toEqual({ authenticated: false });
+    third.dispose();
+  });
+
+  it('does not remember the device when the toggle is off (SOU-27)', async () => {
+    const first = build();
+    const d1 = createIpcDispatcher(createHandlers(first.handlerDeps));
+    await d1('admin.create', { username: 'directrice', password: 'Casa2026!' });
+    await d1('auth.login', { username: 'directrice', password: 'Casa2026!', rememberDevice: false });
+    expect(await d1('auth.session', {})).toEqual({ authenticated: false });
+    first.dispose();
+
+    const second = build();
+    const d2 = createIpcDispatcher(createHandlers(second.handlerDeps));
+    expect(await d2('auth.session', {})).toEqual({ authenticated: false });
+    second.dispose();
+  });
+
+  it('locks the console on the sixth wrong try and blocks a correct password (SOU-27)', async () => {
+    const container = build();
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+    await dispatch('admin.create', { username: 'directrice', password: 'Casa2026!' });
+
+    for (let i = 0; i < 4; i += 1) {
+      const r = await dispatch('auth.login', { username: 'directrice', password: 'Wrong1!' });
+      expect(r.outcome).toBe('invalid-credentials');
+    }
+    // Fifth wrong try trips the lock.
+    expect((await dispatch('auth.login', { username: 'directrice', password: 'Wrong1!' })).outcome).toBe(
+      'locked-out',
+    );
+    // Sixth try — even with the correct password — is refused while locked.
+    const sixth = await dispatch('auth.login', { username: 'directrice', password: 'Casa2026!' });
+    expect(sixth).toMatchObject({ outcome: 'locked-out' });
+    if (sixth.outcome === 'locked-out') expect(sixth.lockedUntilMs).toBeGreaterThan(Date.now());
+    container.dispose();
+  });
+
   it('persists a stable device origin across container rebuilds', async () => {
     const first = build();
     const dev1 = first.handlerDeps.subjectContext().deviceOrigin;

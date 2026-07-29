@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { subjectInputSchema, adminCredentialsSchema, PASSWORD_MAX } from '@centresoutien/domain';
+import {
+  subjectInputSchema,
+  adminCredentialsSchema,
+  loginInputSchema,
+  PASSWORD_MAX,
+} from '@centresoutien/domain';
 
 /**
  * The typed IPC contract (SOU-15). Every renderer↔main call is a named channel
@@ -42,6 +47,35 @@ export const ipcContract = {
       password: z.string().min(1).max(PASSWORD_MAX),
     }),
     response: z.object({ valid: z.boolean() }),
+  },
+  // Login (SOU-27). `auth.login` is the throttled entry point: it counts failed
+  // attempts, enforces the 5-try / 15-minute lockout, and — when the "remember
+  // this device" toggle is on — persists a session. The response is a
+  // discriminated union so the screen can render its three states without
+  // guessing; `Date`s are serialized to epoch millis for the boundary.
+  'auth.login': {
+    request: loginInputSchema,
+    response: z.discriminatedUnion('outcome', [
+      z.object({ outcome: z.literal('success') }),
+      z.object({
+        outcome: z.literal('invalid-credentials'),
+        remainingAttempts: z.number().int().nonnegative(),
+      }),
+      z.object({
+        outcome: z.literal('locked-out'),
+        lockedUntilMs: z.number().int().nonnegative(),
+      }),
+    ]),
+  },
+  // `auth.session` answers "is this device still remembered?" on startup;
+  // `auth.logout` forgets it. Neither exposes the session id to the renderer.
+  'auth.session': {
+    request: z.object({}),
+    response: z.object({ authenticated: z.boolean() }),
+  },
+  'auth.logout': {
+    request: z.object({}),
+    response: z.object({ ok: z.literal(true) }),
   },
 } as const;
 
