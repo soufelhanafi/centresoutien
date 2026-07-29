@@ -26,6 +26,9 @@ export default defineWorkspace([
   },
   {
     esbuild: { jsx: 'automatic' },
+    resolve: {
+      alias: { '@ui': new URL('./packages/ui/src', import.meta.url).pathname },
+    },
     test: {
       name: 'renderer',
       root: './apps/desktop',
