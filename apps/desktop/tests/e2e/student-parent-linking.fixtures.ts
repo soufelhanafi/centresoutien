@@ -306,9 +306,17 @@ export async function linkViaAutocomplete(
   await option.click();
 }
 
-/** Click an undo-toast action ("Annuler" / "تراجع") to restore a just-removed link. */
+/**
+ * Click an undo-toast action ("Annuler" / "تراجع") to restore a just-removed
+ * link. Scoped to the Sonner toaster on purpose: the FR undo label ("Annuler")
+ * is identical to the parent sheet's close-button label, so a page-wide match
+ * could hit the sheet's close button (later in the DOM) instead of the toast.
+ */
 export async function clickUndo(win: Page, L: (typeof STR)[Locale]): Promise<void> {
-  const undo = win.getByRole('button', { name: L.undo, exact: true }).last();
+  const undo = win
+    .locator('[data-sonner-toaster]')
+    .getByRole('button', { name: L.undo, exact: true })
+    .last();
   await expect(undo).toBeVisible();
   await undo.click();
 }
