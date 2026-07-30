@@ -33,7 +33,10 @@ export function useSavedLogoUrl(savedPath: string | null): SavedLogoUrl {
       setUrl(null);
       return;
     }
-    const objectUrl = URL.createObjectURL(new Blob([bytes]));
+    // Copy into a fresh ArrayBuffer-backed view: the IPC contract types the bytes
+    // as the library-default `Uint8Array<ArrayBufferLike>`, which `Blob` won't take
+    // directly (it requires an `ArrayBuffer` backing, not `SharedArrayBuffer`).
+    const objectUrl = URL.createObjectURL(new Blob([new Uint8Array(bytes)]));
     setUrl(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [bytes]);
