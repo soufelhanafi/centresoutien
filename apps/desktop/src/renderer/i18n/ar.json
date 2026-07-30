@@ -2,6 +2,9 @@
   "app": {
     "title": "مركز الدعم"
   },
+  "common": {
+    "undo": "تراجع"
+  },
   "nav": {
     "dashboard": "لوحة القيادة",
     "students": "التلاميذ",
@@ -157,6 +160,14 @@
         "count_many": "{{count}} طالبًا",
         "count_other": "{{count}} طالب",
         "add": "إضافة طالب",
+        "linkExisting": "ربط طالب",
+        "searchPlaceholder": "ابحث عن طالب…",
+        "noMatches": "لم يُعثر على أي طالب.",
+        "unlink": "إزالة {{name}}",
+        "linkSuccess": "تم ربط الطالب",
+        "linkError": "فشل الربط. حاول مجددًا.",
+        "unlinkSuccess": "تم حذف الرابط",
+        "unlinkError": "فشل حذف الرابط. حاول مجددًا.",
         "empty": {
           "title": "لا يوجد طلاب مرتبطون",
           "body": "أضِف طالبًا مرتبطًا بولي الأمر هذا."
@@ -291,16 +302,26 @@
     },
     "guardians": {
       "title": "الأولياء",
+      "count_zero": "لا يوجد أولياء",
+      "count_one": "وليّ واحد",
+      "count_two": "وليّان",
+      "count_few": "{{count}} أولياء",
+      "count_many": "{{count}} وليًّا",
+      "count_other": "{{count}} وليّ",
       "empty": {
         "title": "لا يوجد وليّ مرتبط",
         "body": "اربط وليًّا أو وصيًّا بهذا التلميذ."
       },
       "add": "ربط وليّ",
-      "locked": {
-        "title": "إدارة الأولياء",
-        "body": "ربط الأولياء جزء من قسم أولياء الأمور (باقة Pro)."
-      },
-      "comingSoon": "إدارة الأولياء ستتوفر مع قسم أولياء الأمور."
+      "createNew": "إنشاء وليّ",
+      "searchPlaceholder": "ابحث عن وليّ…",
+      "noMatches": "لم يُعثر على أي وليّ.",
+      "unlink": "إزالة {{name}}",
+      "linkSuccess": "تم ربط الوليّ",
+      "linkError": "فشل الربط. حاول مجددًا.",
+      "unlinkSuccess": "تم حذف الرابط",
+      "unlinkError": "فشل حذف الرابط. حاول مجددًا.",
+      "loadError": "فشل تحميل الأولياء."
     },
     "comingSoon": {
       "enrollment": {

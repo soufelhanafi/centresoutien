@@ -2,6 +2,9 @@
   "app": {
     "title": "Centre Soutien"
   },
+  "common": {
+    "undo": "Annuler"
+  },
   "nav": {
     "dashboard": "Tableau de bord",
     "students": "Élèves",
@@ -154,6 +157,14 @@
         "count_one": "{{count}} élève",
         "count_other": "{{count}} élèves",
         "add": "Ajouter un élève",
+        "linkExisting": "Lier un élève",
+        "searchPlaceholder": "Rechercher un élève…",
+        "noMatches": "Aucun élève trouvé.",
+        "unlink": "Retirer {{name}}",
+        "linkSuccess": "Élève lié",
+        "linkError": "La liaison a échoué. Réessayez.",
+        "unlinkSuccess": "Lien supprimé",
+        "unlinkError": "La suppression du lien a échoué. Réessayez.",
         "empty": {
           "title": "Aucun élève lié",
           "body": "Ajoutez un élève rattaché à ce parent."
@@ -277,16 +288,23 @@
     },
     "guardians": {
       "title": "Responsables",
+      "count_zero": "Aucun responsable",
+      "count_one": "{{count}} responsable",
+      "count_other": "{{count}} responsables",
       "empty": {
         "title": "Aucun responsable lié",
         "body": "Liez un parent ou tuteur à cet élève."
       },
       "add": "Lier un responsable",
-      "locked": {
-        "title": "Gestion des responsables",
-        "body": "La liaison des responsables fait partie du module Parents (plan Pro)."
-      },
-      "comingSoon": "La gestion des responsables arrive avec le module Parents."
+      "createNew": "Créer un responsable",
+      "searchPlaceholder": "Rechercher un responsable…",
+      "noMatches": "Aucun responsable trouvé.",
+      "unlink": "Retirer {{name}}",
+      "linkSuccess": "Responsable lié",
+      "linkError": "La liaison a échoué. Réessayez.",
+      "unlinkSuccess": "Lien supprimé",
+      "unlinkError": "La suppression du lien a échoué. Réessayez.",
+      "loadError": "Le chargement des responsables a échoué."
     },
     "comingSoon": {
       "enrollment": {

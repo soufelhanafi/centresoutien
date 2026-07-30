@@ -1,10 +1,14 @@
 import { useTranslation } from 'react-i18next';
-import { Link } from '@tanstack/react-router';
 import { GraduationCap, Plus } from 'lucide-react';
-import { Button, EmptyState, Skeleton, BilingualText } from '@centresoutien/ui';
+import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import type { StudentView } from '../../lib/students/student-view';
 import { useParentChildren } from '../../hooks/parent/use-parent-children';
+import { useChildLinks } from '../../hooks/parent/use-child-links';
+import { localizedName } from '../../lib/students/localized-name';
+import { EntityCombobox } from '../common/entity-combobox';
+import { ParentChildRow } from './parent-child-row';
 
-/** The guardian's linked students, with a quick "add student" action. */
+/** The guardian's linked students: link an existing one, create inline, or unlink. */
 export function ParentChildrenList({
   parentId,
   enabled,
@@ -14,13 +18,14 @@ export function ParentChildrenList({
   enabled: boolean;
   onAddChild: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const query = useParentChildren(parentId, enabled);
   const children = query.data ?? [];
+  const { linkable, link, unlink, pending } = useChildLinks(parentId, children);
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-foreground">
           {t('parents.detail.children.title')}
           {query.isSuccess && (
@@ -29,10 +34,25 @@ export function ParentChildrenList({
             </span>
           )}
         </h3>
-        <Button variant="outline" size="sm" onClick={onAddChild}>
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          {t('parents.detail.children.add')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <EntityCombobox<StudentView>
+            items={linkable}
+            getKey={(student) => student.id}
+            getPrimary={(student) => localizedName(student, i18n.language)}
+            getSecondary={(student) => (i18n.language === 'ar' ? student.name.fr : student.name.ar)}
+            onSelect={(student) => link(student)}
+            labels={{
+              trigger: t('parents.detail.children.linkExisting'),
+              search: t('parents.detail.children.searchPlaceholder'),
+              empty: t('parents.detail.children.noMatches'),
+            }}
+            disabled={pending}
+          />
+          <Button type="button" variant="ghost" size="sm" onClick={onAddChild}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            {t('parents.detail.children.add')}
+          </Button>
+        </div>
       </div>
 
       {query.isPending && (
@@ -60,20 +80,12 @@ export function ParentChildrenList({
       {query.isSuccess && children.length > 0 && (
         <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
           {children.map((student) => (
-            <li key={student.id}>
-              <Link
-                to="/students/$studentId"
-                params={{ studentId: student.id }}
-                className="flex flex-col gap-0.5 p-3 hover:bg-muted/50"
-              >
-                <span className="text-sm font-medium text-foreground">{student.name.fr}</span>
-                <BilingualText
-                  value={student.name.ar}
-                  script="arabic"
-                  className="text-xs text-muted-foreground"
-                />
-              </Link>
-            </li>
+            <ParentChildRow
+              key={student.id}
+              student={student}
+              onUnlink={() => unlink(student)}
+              disabled={pending}
+            />
           ))}
         </ul>
       )}
