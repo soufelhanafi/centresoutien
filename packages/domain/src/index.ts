@@ -8,7 +8,7 @@ export const DOMAIN_PACKAGE = '@centresoutien/domain' as const;
 
 // Value objects
 export type { Brand } from './value-objects/brand';
-export type { CenterCode, DeviceId, UserId } from './value-objects/ids';
+export type { CenterCode, DeviceId, UserId, EntityId } from './value-objects/ids';
 export { ULID_REGEX, isUlid, hasIdPrefix } from './value-objects/ids';
 export type { PhoneNumber, PhoneRegion } from './value-objects/phone-number';
 export { normalizePhone, InvalidPhoneNumberError } from './value-objects/phone-number';
@@ -47,8 +47,8 @@ export { AdminAccountAlreadyExistsError } from './errors/auth-errors';
 export { StudentNotFoundError } from './errors/student-errors';
 export { DuplicateParentError, ParentNotFoundError } from './errors/people-errors';
 export { RoomInUseError, RoomNotFoundError } from './errors/room-errors';
-export { SessionOutsideCenterHoursError } from './errors/scheduling-errors';
-export type { OutsideCenterHoursReason } from './errors/scheduling-errors';
+export { SessionOutsideCenterHoursError, RoomConflictError } from './errors/scheduling-errors';
+export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/scheduling-errors';
 
 // Input validation schemas (shared by forms via zodResolver and by use cases)
 export { subjectInputSchema, SUBJECT_NAME_MAX } from './schemas/subject';
@@ -160,7 +160,10 @@ export { DeviceSessionService } from './services/device-session-service';
 
 // Policies
 export { SessionConflictPolicy } from './policies/session-conflict-policy';
-export type { SessionTimeCandidate } from './policies/session-conflict-policy';
+export type {
+  SessionTimeCandidate,
+  RoomSessionCandidate,
+} from './policies/session-conflict-policy';
 export { buildStudentNaturalKey } from './policies/natural-key';
 
 // First-run wizard state machine (SOU-25) — a pure, portable sequencer.
