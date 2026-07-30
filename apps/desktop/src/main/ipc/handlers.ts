@@ -24,6 +24,7 @@ import type {
   DeviceId,
   UserId,
 } from '@centresoutien/domain';
+import { StudentNotFoundError } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
@@ -148,20 +149,34 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       return { students: students.map(toStudentView) };
     },
     'student.get': async (request) => {
-      const student = await deps.getStudent.execute({ id: request.id as StudentId });
+      const student = await deps.getStudent.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        id: request.id as StudentId,
+      });
       return { student: student ? toStudentView(student) : null };
     },
     'student.update': async (request) => {
       const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
       const student = await deps.updateStudent.execute({
         ...fields,
+        centerCode,
         id: id as StudentId,
-        updatedBy: deps.envelopeContext().updatedBy,
+        updatedBy,
       });
       return { student: toStudentView(student) };
     },
     'student.archive': async (request) => {
-      await deps.archiveStudent.execute({ id: request.id as StudentId });
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      try {
+        await deps.archiveStudent.execute({ centerCode, id: request.id as StudentId, updatedBy });
+      } catch (error) {
+        // Archiving is idempotent at the boundary: an already-archived or
+        // unknown student means the desired end-state (row inactive) already
+        // holds, so report success instead of surfacing a generic error toast.
+        // The domain use case still throws so other callers/tests stay strict.
+        if (!(error instanceof StudentNotFoundError)) throw error;
+      }
       return { ok: true };
     },
     'centerHours.get': async () => {
