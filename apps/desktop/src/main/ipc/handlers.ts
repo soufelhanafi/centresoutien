@@ -8,6 +8,11 @@ import type {
   CenterHours,
   AttemptLogin,
   DeviceSessionService,
+  GetCenterProfile,
+  SaveCenterProfile,
+  StoreCenterLogo,
+  ReadCenterLogo,
+  Center,
   CenterCode,
   DeviceId,
   UserId,
@@ -22,6 +27,10 @@ export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
 export type GetCenterHoursUseCase = Pick<GetCenterHours, 'execute'>;
 export type AttemptLoginUseCase = Pick<AttemptLogin, 'execute'>;
 export type DeviceSessions = Pick<DeviceSessionService, 'isAuthenticated' | 'forget'>;
+export type GetCenterProfileUseCase = Pick<GetCenterProfile, 'execute'>;
+export type SaveCenterProfileUseCase = Pick<SaveCenterProfile, 'execute'>;
+export type StoreCenterLogoUseCase = Pick<StoreCenterLogo, 'execute'>;
+export type ReadCenterLogoUseCase = Pick<ReadCenterLogo, 'execute'>;
 
 /** Answers first-run detection: is any admin account present? */
 export type AdminExists = () => Promise<boolean>;
@@ -32,6 +41,21 @@ export type EnvelopeContext = {
   deviceOrigin: DeviceId;
   updatedBy: UserId;
 };
+
+/** Center writes also need the plan to seed the row on first creation. */
+export type CenterContext = EnvelopeContext & { seedPlan: PlanId };
+
+/** Project the domain entity down to the boundary DTO — envelope dates stay in main. */
+function toCenterDto(center: Center) {
+  return {
+    name: center.name,
+    address: center.address,
+    phone: center.phone,
+    email: center.email,
+    logoPath: center.logoPath,
+    plan: center.plan,
+  };
+}
 
 /** Strip the envelope: the renderer only needs the editable weekday fields. */
 function toWeekView(week: readonly CenterHours[]) {
@@ -59,6 +83,11 @@ export type HandlerDeps = {
   verifyAdminPassword: VerifyAdminPasswordUseCase;
   attemptLogin: AttemptLoginUseCase;
   deviceSessions: DeviceSessions;
+  getCenterProfile: GetCenterProfileUseCase;
+  saveCenterProfile: SaveCenterProfileUseCase;
+  storeCenterLogo: StoreCenterLogoUseCase;
+  readCenterLogo: ReadCenterLogoUseCase;
+  centerContext: () => CenterContext;
 };
 
 export function createHandlers(deps: HandlerDeps): IpcHandlers {
@@ -107,6 +136,22 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'auth.logout': async () => {
       await deps.deviceSessions.forget();
       return { ok: true };
+    },
+    'center.get': async () => {
+      const center = await deps.getCenterProfile.execute();
+      return { center: center ? toCenterDto(center) : null };
+    },
+    'center.save': async (request) => {
+      const center = await deps.saveCenterProfile.execute({ ...request, ...deps.centerContext() });
+      return { center: toCenterDto(center) };
+    },
+    'center.saveLogo': async (request) => {
+      const path = await deps.storeCenterLogo.execute(request);
+      return { path };
+    },
+    'center.logoBytes': async (request) => {
+      const bytes = await deps.readCenterLogo.execute(request);
+      return { bytes };
     },
   };
 }

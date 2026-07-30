@@ -10,6 +10,8 @@ export const DOMAIN_PACKAGE = '@centresoutien/domain' as const;
 export type { Brand } from './value-objects/brand';
 export type { CenterCode, DeviceId, UserId } from './value-objects/ids';
 export { ULID_REGEX, isUlid, hasIdPrefix } from './value-objects/ids';
+export type { PhoneNumber, PhoneRegion } from './value-objects/phone-number';
+export { normalizePhone, InvalidPhoneNumberError } from './value-objects/phone-number';
 export type { TimeOfDay } from './value-objects/time-of-day';
 export { TIME_OF_DAY_REGEX, isTimeOfDay, toMinutes } from './value-objects/time-of-day';
 export type { WeekdayIndex } from './value-objects/weekday';
@@ -61,6 +63,18 @@ export {
 export type { WeekdayHoursInput, WeeklyHoursInput } from './schemas/center-hours';
 export { loginInputSchema } from './schemas/login';
 export type { LoginInput } from './schemas/login';
+export {
+  centerProfileSchema,
+  logoUploadSchema,
+  LOGO_EXTENSIONS,
+  LOGO_MAX_BYTES,
+  CENTER_NAME_MAX,
+  CENTER_ADDRESS_MAX,
+  CENTER_PHONE_MAX,
+  CENTER_EMAIL_MAX,
+  CENTER_LOGO_PATH_MAX,
+} from './schemas/center';
+export type { CenterProfileInput, LogoExtension } from './schemas/center';
 
 // Entities
 export { SUBJECT_ID_PREFIX } from './entities/subject';
@@ -75,6 +89,8 @@ export {
   isSessionActive,
 } from './entities/device-session';
 export type { DeviceSession, DeviceSessionId } from './entities/device-session';
+export { CENTER_ID_PREFIX } from './entities/center';
+export type { Center, CenterId } from './entities/center';
 
 // Value objects & policies (login throttle — SOU-27)
 export { UNLOCKED_STATE } from './value-objects/lockout-state';
@@ -92,6 +108,8 @@ export type { AdminAccountRepository } from './ports/admin-account-repository';
 export type { PasswordHasher } from './ports/password-hasher';
 export type { LoginThrottleStore } from './ports/login-throttle-store';
 export type { DeviceSessionStore } from './ports/device-session-store';
+export type { CenterRepository } from './ports/center-repository';
+export type { LogoStore } from './ports/logo-store';
 
 // Domain services
 export { DeviceSessionService } from './services/device-session-service';
@@ -121,6 +139,13 @@ export {
 // Use cases
 export { CreateSubject } from './use-cases/create-subject';
 export type { CreateSubjectInput } from './use-cases/create-subject';
+export { GetCenterProfile } from './use-cases/get-center-profile';
+export { SaveCenterProfile } from './use-cases/save-center-profile';
+export type { SaveCenterProfileInput } from './use-cases/save-center-profile';
+export { StoreCenterLogo } from './use-cases/store-center-logo';
+export type { StoreCenterLogoInput } from './use-cases/store-center-logo';
+export { ReadCenterLogo } from './use-cases/read-center-logo';
+export type { ReadCenterLogoInput } from './use-cases/read-center-logo';
 export { SaveCenterHours } from './use-cases/save-center-hours';
 export type { SaveCenterHoursInput } from './use-cases/save-center-hours';
 export { GetCenterHours } from './use-cases/get-center-hours';

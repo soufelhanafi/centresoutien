@@ -1,9 +1,11 @@
 import { useTranslation } from 'react-i18next';
+import { CenterProfileSettings } from '../components/settings/settings-page';
 import { CenterHoursSettings } from '../components/center-hours/center-hours-settings';
 
 /**
- * Paramètres screen. Hosts the center opening-hours editor (SOU-29); further
- * settings sections mount alongside it here as they land.
+ * Paramètres screen. Hosts the center-profile editor (SOU-28) and the center
+ * opening-hours editor (SOU-29); further settings sections mount alongside them
+ * here as they land.
  */
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -13,7 +15,8 @@ export function SettingsPage() {
       <h1 id="settings-title" className="text-xl font-semibold text-foreground">
         {t('nav.settings')}
       </h1>
-      <div className="mt-6">
+      <div className="mt-6 flex flex-col gap-10">
+        <CenterProfileSettings />
         <CenterHoursSettings />
       </div>
     </section>

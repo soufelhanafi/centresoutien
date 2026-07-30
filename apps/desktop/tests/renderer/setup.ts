@@ -12,6 +12,22 @@ if (!('ResizeObserver' in globalThis)) {
   };
 }
 
+// jsdom leaves matchMedia undefined; sonner's <Toaster /> reads prefers-color-scheme.
+Object.defineProperty(window, 'matchMedia', {
+  configurable: true,
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  }),
+});
+
 // Stub the preload bridge so components that call it don't crash in jsdom.
 Object.defineProperty(window, 'api', {
   configurable: true,
@@ -32,6 +48,10 @@ Object.defineProperty(window, 'api', {
         // the login screen. Auth-specific tests override `window.api.invoke`.
         case 'auth.session':
           return { authenticated: true };
+        // Default to no saved profile so App smoke tests render the blank
+        // Settings form. Center-specific tests override `window.api.invoke`.
+        case 'center.get':
+          return { center: null };
         default:
           return { reply: 'pong: test', appVersion: '0.0.0' };
       }

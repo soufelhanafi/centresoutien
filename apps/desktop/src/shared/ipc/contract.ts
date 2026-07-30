@@ -4,8 +4,20 @@ import {
   adminCredentialsSchema,
   weeklyHoursSchema,
   loginInputSchema,
+  centerProfileSchema,
   PASSWORD_MAX,
+  CENTER_LOGO_PATH_MAX,
 } from '@centresoutien/domain';
+
+/** The center profile as it crosses the IPC boundary — envelope dates stay in main. */
+const centerDto = z.object({
+  name: z.string(),
+  address: z.string(),
+  phone: z.string(),
+  email: z.string(),
+  logoPath: z.string().nullable(),
+  plan: z.enum(['essentiel', 'pro', 'premium']),
+});
 
 // The display shape of one weekday's hours returned to the renderer: the
 // user-visible fields only, envelope stripped. `open`/`close` are `'HH:mm'` or
@@ -98,6 +110,42 @@ export const ipcContract = {
   'auth.logout': {
     request: z.object({}),
     response: z.object({ ok: z.literal(true) }),
+  },
+  // Center profile (SOU-28). `center.get` returns the single row (or null before
+  // first save). `center.save` upserts the editable profile fields — the request
+  // is the domain's own `centerProfileSchema` plus the `logoPath` produced by a
+  // prior `center.saveLogo` upload. `plan` is never accepted here (display-only,
+  // seeded once at creation). `center.saveLogo` writes the picked file's bytes
+  // under app data and returns the relative path to carry in the next save.
+  'center.get': {
+    request: z.object({}),
+    response: z.object({ center: centerDto.nullable() }),
+  },
+  'center.save': {
+    request: centerProfileSchema.extend({
+      logoPath: z.string().max(CENTER_LOGO_PATH_MAX).nullable(),
+    }),
+    response: z.object({ center: centerDto }),
+  },
+  'center.saveLogo': {
+    request: z.object({
+      bytes: z.instanceof(Uint8Array),
+      extension: z.string(),
+    }),
+    response: z.object({ path: z.string() }),
+  },
+  // `center.logoBytes` reads back a stored logo so the renderer can re-display it
+  // after a reload (the row keeps only the relative path, not the bytes). The data
+  // adapter guards against path traversal and returns `null` for an unknown or
+  // stale reference, so a missing logo is a normal, non-erroring response.
+  'center.logoBytes': {
+    request: z.object({ path: z.string().max(CENTER_LOGO_PATH_MAX) }),
+    // `z.custom<Uint8Array>` (not `z.instanceof`) so the inferred type stays the
+    // library-default `Uint8Array` the domain port returns — `z.instanceof`
+    // narrows to `Uint8Array<ArrayBuffer>` and rejects `ArrayBufferLike`-backed bytes.
+    response: z.object({
+      bytes: z.custom<Uint8Array>((v) => v instanceof Uint8Array).nullable(),
+    }),
   },
 } as const;
 

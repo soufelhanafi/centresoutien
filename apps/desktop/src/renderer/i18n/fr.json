@@ -38,6 +38,10 @@
   "errors": {
     "required": "Ce champ est requis",
     "too-long": "Texte trop long",
+    "invalid-email": "Adresse e-mail invalide",
+    "invalid-phone": "Numéro de téléphone invalide",
+    "unsupported-logo-type": "Format de logo non pris en charge (PNG, JPG, WEBP ou SVG)",
+    "logo-too-large": "Logo trop volumineux (2 Mo maximum)",
     "username-required": "Le nom d'utilisateur est requis",
     "password-required": "Le mot de passe est requis",
     "username-too-short": "Nom d'utilisateur trop court",
@@ -61,6 +65,34 @@
       "nameAr": "Nom (arabe)",
       "submit": "Créer la matière",
       "success": "Matière créée"
+    }
+  },
+  "settings": {
+    "title": "Paramètres",
+    "center": {
+      "title": "Profil du centre",
+      "subtitle": "Ces informations apparaissent sur vos factures.",
+      "nameLabel": "Nom du centre",
+      "namePlaceholder": "Centre Soutien Al Amal",
+      "addressLabel": "Adresse",
+      "phoneLabel": "Téléphone",
+      "emailLabel": "E-mail",
+      "planLabel": "Formule",
+      "logoLabel": "Logo",
+      "logoAlt": "Logo du centre",
+      "logoHint": "PNG, JPG, WEBP ou SVG — 2 Mo maximum.",
+      "logoPick": "Choisir un logo",
+      "logoReplace": "Changer le logo",
+      "logoRemove": "Retirer",
+      "logoUploading": "Téléversement…",
+      "logoLoading": "Chargement du logo…",
+      "submit": "Enregistrer",
+      "saving": "Enregistrement…",
+      "saveSuccess": "Profil enregistré",
+      "saveError": "L'enregistrement a échoué. Réessayez.",
+      "loadErrorTitle": "Impossible de charger le profil",
+      "loadErrorBody": "Le chargement du profil du centre a échoué.",
+      "retry": "Réessayer"
     }
   },
   "centerHours": {

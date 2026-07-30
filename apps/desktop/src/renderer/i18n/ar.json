@@ -38,6 +38,10 @@
   "errors": {
     "required": "هذا الحقل مطلوب",
     "too-long": "النص طويل جدًا",
+    "invalid-email": "عنوان بريد إلكتروني غير صالح",
+    "invalid-phone": "رقم الهاتف غير صالح",
+    "unsupported-logo-type": "صيغة الشعار غير مدعومة (PNG أو JPG أو WEBP أو SVG)",
+    "logo-too-large": "حجم الشعار كبير جدًا (2 ميغابايت كحد أقصى)",
     "username-required": "اسم المستخدم مطلوب",
     "password-required": "كلمة المرور مطلوبة",
     "username-too-short": "اسم المستخدم قصير جدًا",
@@ -61,6 +65,34 @@
       "nameAr": "الاسم (بالعربية)",
       "submit": "إنشاء المادة",
       "success": "تم إنشاء المادة"
+    }
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "center": {
+      "title": "ملف المركز",
+      "subtitle": "تظهر هذه المعلومات على فواتيرك.",
+      "nameLabel": "اسم المركز",
+      "namePlaceholder": "مركز الدعم الأمل",
+      "addressLabel": "العنوان",
+      "phoneLabel": "الهاتف",
+      "emailLabel": "البريد الإلكتروني",
+      "planLabel": "الباقة",
+      "logoLabel": "الشعار",
+      "logoAlt": "شعار المركز",
+      "logoHint": "PNG أو JPG أو WEBP أو SVG — 2 ميغابايت كحد أقصى.",
+      "logoPick": "اختيار شعار",
+      "logoReplace": "تغيير الشعار",
+      "logoRemove": "إزالة",
+      "logoUploading": "جارٍ الرفع…",
+      "logoLoading": "جارٍ تحميل الشعار…",
+      "submit": "حفظ",
+      "saving": "جارٍ الحفظ…",
+      "saveSuccess": "تم حفظ الملف",
+      "saveError": "فشل الحفظ. حاول مرة أخرى.",
+      "loadErrorTitle": "تعذّر تحميل الملف",
+      "loadErrorBody": "فشل تحميل ملف المركز.",
+      "retry": "إعادة المحاولة"
     }
   },
   "centerHours": {

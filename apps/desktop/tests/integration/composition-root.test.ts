@@ -179,6 +179,49 @@ describe('composition root', () => {
     container.dispose();
   });
 
+  it('wires center.save + center.get and persists the profile across restart (SOU-28)', async () => {
+    const first = build();
+    const dispatch1 = createIpcDispatcher(createHandlers(first.handlerDeps));
+
+    expect(await dispatch1('center.get', {})).toEqual({ center: null });
+    const saved = await dispatch1('center.save', {
+      name: 'Centre Al Ilm',
+      address: '12 Rue Mohammed V',
+      phone: '0522-000000',
+      email: 'contact@alilm.ma',
+      logoPath: null,
+    });
+    expect(saved.center).toMatchObject({ name: 'Centre Al Ilm', plan: 'essentiel' });
+    first.dispose();
+
+    // Reopen the same encrypted file: the profile persists as the single row.
+    const second = build();
+    const dispatch2 = createIpcDispatcher(createHandlers(second.handlerDeps));
+    const reread = await dispatch2('center.get', {});
+    expect(reread.center).toMatchObject({
+      name: 'Centre Al Ilm',
+      email: 'contact@alilm.ma',
+      logoPath: null,
+      plan: 'essentiel',
+    });
+    second.dispose();
+  });
+
+  it('reads the active plan from the saved center row, not the build override (SOU-28 interim gate)', async () => {
+    // Build as 'pro' and save — the row is seeded 'pro'.
+    const first = build('pro');
+    const dispatch1 = createIpcDispatcher(createHandlers(first.handlerDeps));
+    await dispatch1('center.save', { name: 'Centre Pro', address: '', phone: '', email: '', logoPath: null });
+    expect(await dispatch1('plan.get', {})).toEqual({ planId: 'pro' });
+    first.dispose();
+
+    // Rebuild with a *different* override — the stored plan still wins.
+    const second = build('essentiel');
+    const dispatch2 = createIpcDispatcher(createHandlers(second.handlerDeps));
+    expect(await dispatch2('plan.get', {})).toEqual({ planId: 'pro' });
+    second.dispose();
+  });
+
   it('persists a stable device origin across container rebuilds', async () => {
     const first = build();
     const dev1 = first.handlerDeps.envelopeContext().deviceOrigin;
