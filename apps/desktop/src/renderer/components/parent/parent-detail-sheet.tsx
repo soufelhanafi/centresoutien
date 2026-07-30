@@ -13,6 +13,7 @@ import {
 } from '@centresoutien/ui';
 import type { ParentView } from '../../lib/parents/parent-view';
 import { parentKeys } from '../../hooks/parent/keys';
+import { useParent } from '../../hooks/parent/use-parent';
 import { CreateStudentSheet } from '../student/create-student-sheet';
 import { ParentContactInfo } from './parent-contact-info';
 import { ParentChildrenList } from './parent-children-list';
@@ -37,6 +38,13 @@ export function ParentDetailSheet({
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [addChildOpen, setAddChildOpen] = useState(false);
 
+  // Read the guardian live so an in-sheet edit is reflected immediately: the row
+  // `parent` seeds `initialData` (instant paint), and the edit mutation's
+  // invalidation of `parentKeys.all` refetches this by prefix. Falls back to the
+  // snapshot if a refetch briefly resolves null (e.g. just-archived, sheet closing).
+  const live = useParent(parent.id, { enabled: open, initialData: parent });
+  const current = live.data ?? parent;
+
   const refreshChildren = () =>
     queryClient.invalidateQueries({ queryKey: parentKeys.children(parent.id) });
 
@@ -45,12 +53,12 @@ export function ParentDetailSheet({
       <SheetContent side="end" closeLabel={t('parents.form.cancel')} className="flex flex-col">
         <SheetHeader>
           <div className="flex items-center gap-2">
-            <SheetTitle>{parent.name}</SheetTitle>
-            {parent.archived && (
+            <SheetTitle>{current.name}</SheetTitle>
+            {current.archived && (
               <Badge variant="neutral">{t('parents.detail.archivedBadge')}</Badge>
             )}
           </div>
-          <SheetDescription>{t(`guardian.relation.${parent.relation}`)}</SheetDescription>
+          <SheetDescription>{t(`guardian.relation.${current.relation}`)}</SheetDescription>
         </SheetHeader>
 
         <div className="flex items-center gap-2">
@@ -65,18 +73,18 @@ export function ParentDetailSheet({
         </div>
 
         <div className="-mx-1 flex-1 space-y-6 overflow-y-auto px-1 py-2">
-          <ParentContactInfo parent={parent} />
+          <ParentContactInfo parent={current} />
           <ParentChildrenList
-            parentId={parent.id}
+            parentId={current.id}
             enabled={open}
             onAddChild={() => setAddChildOpen(true)}
           />
         </div>
       </SheetContent>
 
-      <EditParentSheet parent={parent} open={editOpen} onOpenChange={setEditOpen} />
+      <EditParentSheet parent={current} open={editOpen} onOpenChange={setEditOpen} />
       <ArchiveParentDialog
-        parent={parent}
+        parent={current}
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
         onArchived={onArchived}
@@ -84,7 +92,7 @@ export function ParentDetailSheet({
       <CreateStudentSheet
         open={addChildOpen}
         onOpenChange={setAddChildOpen}
-        defaultGuardianIds={[parent.id]}
+        defaultGuardianIds={[current.id]}
         onCreated={refreshChildren}
       />
     </Sheet>
