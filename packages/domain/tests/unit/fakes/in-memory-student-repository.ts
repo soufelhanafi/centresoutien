@@ -1,6 +1,7 @@
 import { InMemorySoftDeletableRepository } from './in-memory-soft-deletable';
 import type { StudentRepository } from '../../../src/ports/student-repository';
 import type { Student, StudentId } from '../../../src/entities/student';
+import type { ParentId } from '../../../src/entities/parent';
 import type { CenterCode } from '../../../src/value-objects/ids';
 
 /**
@@ -30,6 +31,15 @@ export class InMemoryStudentRepository
   async listActive(centerCode: CenterCode): Promise<readonly Student[]> {
     return this.all().filter(
       (student) => student.deletedAt === null && student.centerCode === centerCode,
+    );
+  }
+
+  async listByGuardian(centerCode: CenterCode, parentId: ParentId): Promise<readonly Student[]> {
+    return this.all().filter(
+      (student) =>
+        student.deletedAt === null &&
+        student.centerCode === centerCode &&
+        student.guardianIds.includes(parentId),
     );
   }
 }
