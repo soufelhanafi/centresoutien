@@ -2,12 +2,13 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { CenterCode, PlanId, SubjectId } from '@centresoutien/domain';
+import type { CenterCode, ParentId, PlanId, SubjectId } from '@centresoutien/domain';
 import { buildContainer } from '../../src/main/composition-root';
 import { createIpcDispatcher } from '../../src/main/ipc/dispatcher';
 import { createHandlers } from '../../src/main/ipc/handlers';
 import { openDatabase } from '../../src/data/sqlite/db';
 import { SqliteSubjectRepository } from '../../src/data/sqlite/repositories/subject-repository';
+import { SqliteParentRepository } from '../../src/data/sqlite/repositories/parent-repository';
 
 const KEY = 'passphrase-under-test';
 // Throwaway test credentials assembled from fragments so no literal password
@@ -54,6 +55,41 @@ describe('composition root', () => {
     expect(saved?.centerCode).toBe('CS-CASA-001');
     expect(saved?.active).toBe(true);
     expect(saved?.deviceOrigin).toMatch(/^dev_/);
+  });
+
+  it('wires parent.create end-to-end (Pro), normalizing the phone and persisting the row', async () => {
+    const container = build('pro'); // core.parents is a Pro feature
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+
+    const { id } = await dispatch('parent.create', {
+      name: 'Ahmed Benali',
+      phone: '06 12 34 56 78',
+      email: 'ahmed@benali.ma',
+      relation: 'pere',
+      whatsappOptIn: true,
+    });
+    expect(id).toMatch(/^prt_/);
+    container.dispose();
+
+    // Reopen the same encrypted file to prove it was actually persisted.
+    const db = openDatabase({ centreId: 'C1', key: KEY, dir });
+    const saved = await new SqliteParentRepository(db).findById(id as ParentId);
+    db.close();
+
+    expect(saved?.name).toBe('Ahmed Benali');
+    expect(saved?.phone).toBe('+212612345678'); // normalized to E.164 in the domain
+    expect(saved?.relation).toBe('pere');
+    expect(saved?.centerCode).toBe('CS-CASA-001');
+    expect(saved?.naturalKey).toContain('+212612345678');
+  });
+
+  it('rejects parent.create on Essentiel — core.parents is a Pro feature (plan gate)', async () => {
+    const container = build('essentiel');
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+    await expect(
+      dispatch('parent.create', { name: 'Ahmed', phone: '0612345678', relation: 'pere' }),
+    ).rejects.toThrow();
+    container.dispose();
   });
 
   it('wires centerHours.save + get end-to-end and persists the week across a restart', async () => {

@@ -1,6 +1,7 @@
 import type {
   PlanId,
   CreateSubject,
+  CreateParent,
   CreateAdminAccount,
   VerifyAdminPassword,
   SaveCenterHours,
@@ -21,6 +22,7 @@ import type { IpcHandlers } from '../../shared/ipc/contract';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
+export type CreateParentUseCase = Pick<CreateParent, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
@@ -75,6 +77,7 @@ export type HandlerDeps = {
   appVersion: () => string;
   activePlanId: () => PlanId;
   createSubject: CreateSubjectUseCase;
+  createParent: CreateParentUseCase;
   saveCenterHours: SaveCenterHoursUseCase;
   getCenterHours: GetCenterHoursUseCase;
   envelopeContext: () => EnvelopeContext;
@@ -102,6 +105,10 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'subject.create': async (request) => {
       const subject = await deps.createSubject.execute({ ...request, ...deps.envelopeContext() });
       return { id: subject.id };
+    },
+    'parent.create': async (request) => {
+      const parent = await deps.createParent.execute({ ...request, ...deps.envelopeContext() });
+      return { id: parent.id };
     },
     'centerHours.get': async () => {
       const week = await deps.getCenterHours.execute({

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   subjectInputSchema,
+  parentInputSchema,
   adminCredentialsSchema,
   weeklyHoursSchema,
   loginInputSchema,
@@ -47,6 +48,15 @@ export const ipcContract = {
   // by the form (zodResolver), the preload types, and this boundary.
   'subject.create': {
     request: subjectInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  // Parents/guardians (SOU-40). Gated by `core.parents` in the use case. The
+  // request is the domain's own `parentInputSchema` — phone required and
+  // normalized to E.164, `relation` an enum token — validated once here and
+  // reused by the form (zodResolver). centerCode/device/user are injected in
+  // main, never sent from the renderer.
+  'parent.create': {
+    request: parentInputSchema,
     response: z.object({ id: z.string() }),
   },
   // Auth (SOU-26). `admin.exists` drives first-run detection; `admin.create`
