@@ -36,3 +36,23 @@ export function normalizeNaturalKey(input: {
   const contact = input.contact.replace(CONTACT_NOISE, '').toLowerCase();
   return `${input.centerCode}::${name}::${contact}`;
 }
+
+/**
+ * Build a Student's `naturalKey`. Students are people-like but have no phone; the
+ * duplicate anchor is the **birth date** (until parent-linked matching lands in
+ * SOU-92) — two children sharing a normalized name but a different birth date get
+ * different keys. Delegates to {@link normalizeNaturalKey} so students and parents
+ * share one normalization, with the FR + AR names combined into the name slot.
+ * Stamped once at creation and never recomputed, so sync matching stays stable.
+ */
+export function buildStudentNaturalKey(input: {
+  centerCode: CenterCode;
+  name: { fr: string; ar: string };
+  birthDate: string;
+}): string {
+  return normalizeNaturalKey({
+    centerCode: input.centerCode,
+    fullName: `${input.name.fr} ${input.name.ar}`,
+    contact: input.birthDate,
+  });
+}

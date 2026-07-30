@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
-import { DirectionProvider, Toaster } from '@centresoutien/ui';
+import { DirectionProvider, Toaster, TooltipProvider } from '@centresoutien/ui';
 import { useHtmlDirection } from './hooks/use-html-direction';
 import { usePlanHydration } from './hooks/use-plan-hydration';
 import { FirstRunGate } from './components/wizard/first-run-gate';
@@ -21,12 +21,14 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <DirectionProvider dir={direction}>
-        <FirstRunGate>
-          <AuthGate>
-            <RouterProvider router={router} />
-          </AuthGate>
-        </FirstRunGate>
-        <Toaster />
+        <TooltipProvider>
+          <FirstRunGate>
+            <AuthGate>
+              <RouterProvider router={router} />
+            </AuthGate>
+          </FirstRunGate>
+          <Toaster />
+        </TooltipProvider>
       </DirectionProvider>
     </QueryClientProvider>
   );

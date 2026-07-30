@@ -33,8 +33,12 @@ export const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      // Centering is `left-1/2 + -translate-x-1/2` (both physical) on purpose: the
+      // translate is physical, so pairing it with a logical `start-1/2` pushes the
+      // modal off-screen in RTL (start becomes right, translate still goes left).
+      // A centered overlay is direction-agnostic; its inner text still flows via dir.
       className={cn(
-        'fixed start-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-border bg-background p-6 shadow-lg',
+        'fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-border bg-background p-6 shadow-lg',
         className,
       )}
       {...props}

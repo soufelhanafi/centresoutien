@@ -22,6 +22,8 @@ export {
 export type { DialogContentProps } from './components/ui/dialog';
 export { Input } from '@ui/components/ui/input';
 export type { InputProps } from '@ui/components/ui/input';
+export { Textarea } from '@ui/components/ui/textarea';
+export type { TextareaProps } from '@ui/components/ui/textarea';
 export { Label } from '@ui/components/ui/label';
 export type { LabelProps } from '@ui/components/ui/label';
 export { Checkbox } from '@ui/components/ui/checkbox';

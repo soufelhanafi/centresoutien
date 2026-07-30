@@ -8,6 +8,8 @@ import {
 import { AppShell } from '../components/shell/app-shell';
 import { ModulePlaceholder } from '../pages/module-placeholder';
 import { SettingsPage } from '../pages/settings-page';
+import { StudentsPage } from '../pages/students/students-page';
+import { StudentDetailPage } from '../pages/students/student-detail-page';
 import {
   DEFAULT_ROUTE,
   dashboardModule,
@@ -36,7 +38,12 @@ const dashboardRoute = createRoute({
 const studentsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: studentsModule.path,
-  component: () => <ModulePlaceholder module={studentsModule} />,
+  component: StudentsPage,
+});
+const studentDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/students/$studentId',
+  component: StudentDetailPage,
 });
 const teachersRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -97,6 +104,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   dashboardRoute,
   studentsRoute,
+  studentDetailRoute,
   teachersRoute,
   parentsRoute,
   groupsRoute,

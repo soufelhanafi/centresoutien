@@ -1,5 +1,6 @@
 import type { SoftDeletableRepository } from '../../../src/repositories/soft-deletable';
 import type { EntityEnvelope } from '../../../src/entities/envelope';
+import type { UserId } from '../../../src/value-objects/ids';
 
 /**
  * In-memory implementation of the soft-delete port, shared by all entity fakes.
@@ -24,11 +25,12 @@ export abstract class InMemorySoftDeletableRepository<
     return structuredClone(row);
   }
 
-  async softDelete(id: TId, at: Date): Promise<void> {
+  async softDelete(id: TId, at: Date, by: UserId): Promise<void> {
     const row = this.rows.get(id);
     if (!row) return;
     row.deletedAt = at;
     row.updatedAt = at;
+    row.updatedBy = by;
   }
 
   async listChangedSince(cursor: Date): Promise<readonly T[]> {

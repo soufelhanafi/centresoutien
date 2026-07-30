@@ -1,6 +1,13 @@
 import type {
   PlanId,
   CreateSubject,
+  CreateStudent,
+  ListStudents,
+  GetStudent,
+  UpdateStudent,
+  ArchiveStudent,
+  Student,
+  StudentId,
   CreateParent,
   CreateAdminAccount,
   VerifyAdminPassword,
@@ -18,10 +25,16 @@ import type {
   DeviceId,
   UserId,
 } from '@centresoutien/domain';
+import { StudentNotFoundError } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
+export type CreateStudentUseCase = Pick<CreateStudent, 'execute'>;
+export type ListStudentsUseCase = Pick<ListStudents, 'execute'>;
+export type GetStudentUseCase = Pick<GetStudent, 'execute'>;
+export type UpdateStudentUseCase = Pick<UpdateStudent, 'execute'>;
+export type ArchiveStudentUseCase = Pick<ArchiveStudent, 'execute'>;
 export type CreateParentUseCase = Pick<CreateParent, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
@@ -59,6 +72,22 @@ function toCenterDto(center: Center) {
   };
 }
 
+/** Project a Student to its boundary DTO: envelope stripped, dates serialized,
+ *  `archived` derived from the soft-delete tombstone. */
+function toStudentView(student: Student) {
+  return {
+    id: student.id,
+    name: { fr: student.name.fr, ar: student.name.ar },
+    birthDate: student.birthDate,
+    level: student.level,
+    school: student.school,
+    notes: student.notes,
+    guardianIds: [...student.guardianIds],
+    archived: student.deletedAt !== null,
+    createdAt: student.createdAt.toISOString(),
+  };
+}
+
 /** Strip the envelope: the renderer only needs the editable weekday fields. */
 function toWeekView(week: readonly CenterHours[]) {
   return week.map((hours) => ({
@@ -77,6 +106,11 @@ export type HandlerDeps = {
   appVersion: () => string;
   activePlanId: () => PlanId;
   createSubject: CreateSubjectUseCase;
+  createStudent: CreateStudentUseCase;
+  listStudents: ListStudentsUseCase;
+  getStudent: GetStudentUseCase;
+  updateStudent: UpdateStudentUseCase;
+  archiveStudent: ArchiveStudentUseCase;
   createParent: CreateParentUseCase;
   saveCenterHours: SaveCenterHoursUseCase;
   getCenterHours: GetCenterHoursUseCase;
@@ -105,6 +139,48 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'subject.create': async (request) => {
       const subject = await deps.createSubject.execute({ ...request, ...deps.envelopeContext() });
       return { id: subject.id };
+    },
+    'student.create': async (request) => {
+      const student = await deps.createStudent.execute({ ...request, ...deps.envelopeContext() });
+      return { id: student.id };
+    },
+    'student.list': async (request) => {
+      const students = await deps.listStudents.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        search: request.search,
+      });
+      return { students: students.map(toStudentView) };
+    },
+    'student.get': async (request) => {
+      const student = await deps.getStudent.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        id: request.id as StudentId,
+      });
+      return { student: student ? toStudentView(student) : null };
+    },
+    'student.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const student = await deps.updateStudent.execute({
+        ...fields,
+        centerCode,
+        id: id as StudentId,
+        updatedBy,
+      });
+      return { student: toStudentView(student) };
+    },
+    'student.archive': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      try {
+        await deps.archiveStudent.execute({ centerCode, id: request.id as StudentId, updatedBy });
+      } catch (error) {
+        // Archiving is idempotent at the boundary: an already-archived or
+        // unknown student means the desired end-state (row inactive) already
+        // holds, so report success instead of surfacing a generic error toast.
+        // The domain use case still throws so other callers/tests stay strict.
+        if (!(error instanceof StudentNotFoundError)) throw error;
+      }
+      return { ok: true };
     },
     'parent.create': async (request) => {
       const parent = await deps.createParent.execute({ ...request, ...deps.envelopeContext() });

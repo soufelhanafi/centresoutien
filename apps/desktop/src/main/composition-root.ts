@@ -4,6 +4,11 @@ import {
   PLANS,
   PlanPolicy,
   CreateSubject,
+  CreateStudent,
+  ListStudents,
+  GetStudent,
+  UpdateStudent,
+  ArchiveStudent,
   CreateParent,
   CreateAdminAccount,
   VerifyAdminPassword,
@@ -21,6 +26,7 @@ import type { PlanId, CenterCode, DeviceId, UserId, IdGenerator } from '@centres
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
+import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
@@ -109,6 +115,13 @@ export function buildContainer(options: ContainerOptions): Container {
   const subjectRepo = new SqliteSubjectRepository(db);
   const createSubject = new CreateSubject(subjectRepo, clock, ids, plan);
 
+  const studentRepo = new SqliteStudentRepository(db);
+  const createStudent = new CreateStudent(studentRepo, clock, ids, plan);
+  const listStudents = new ListStudents(studentRepo, plan);
+  const getStudent = new GetStudent(studentRepo, plan);
+  const updateStudent = new UpdateStudent(studentRepo, clock, plan);
+  const archiveStudent = new ArchiveStudent(studentRepo, clock, plan);
+
   const parentRepo = new SqliteParentRepository(db);
   const createParent = new CreateParent(parentRepo, clock, ids, plan);
 
@@ -148,6 +161,11 @@ export function buildContainer(options: ContainerOptions): Container {
     appVersion: options.appVersion,
     activePlanId: () => activePlanId,
     createSubject,
+    createStudent,
+    listStudents,
+    getStudent,
+    updateStudent,
+    archiveStudent,
     createParent,
     saveCenterHours,
     getCenterHours,

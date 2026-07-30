@@ -56,7 +56,9 @@
     "close-before-open": "يجب أن يكون وقت الإغلاق بعد وقت الفتح",
     "closed-partial": "حدّد وقت الفتح والإغلاق، أو أغلق اليوم",
     "incomplete-week": "يجب أن يشمل الأسبوع الأيام السبعة",
-    "invalid-weekday": "يوم غير صالح"
+    "invalid-weekday": "يوم غير صالح",
+    "invalid-date": "تاريخ غير صالح",
+    "invalid-id": "معرّف غير صالح"
   },
   "subjects": {
     "form": {
@@ -65,6 +67,149 @@
       "nameAr": "الاسم (بالعربية)",
       "submit": "إنشاء المادة",
       "success": "تم إنشاء المادة"
+    }
+  },
+  "students": {
+    "title": "التلاميذ",
+    "subtitle": "أدر تلاميذ مركزك.",
+    "search": "ابحث بالاسم أو المستوى",
+    "searchLabel": "البحث عن تلميذ",
+    "filters": {
+      "levelLabel": "المستوى",
+      "levelAll": "كل المستويات",
+      "groupLabel": "المجموعة",
+      "groupAll": "كل المجموعات",
+      "groupComingSoon": "تصفية حسب المجموعة ستتوفر مع قسم المجموعات."
+    },
+    "new": "تلميذ جديد",
+    "count_zero": "لا تلاميذ",
+    "count_one": "تلميذ واحد",
+    "count_two": "تلميذان",
+    "count_few": "{{count}} تلاميذ",
+    "count_many": "{{count}} تلميذًا",
+    "count_other": "{{count}} تلميذ",
+    "seats": {
+      "remaining_zero": "لم تتبقّ أي مقاعد من أصل {{max}}.",
+      "remaining_one": "يتبقّى مقعد واحد من أصل {{max}}.",
+      "remaining_two": "يتبقّى مقعدان من أصل {{max}}.",
+      "remaining_few": "تتبقّى {{count}} مقاعد من أصل {{max}}.",
+      "remaining_many": "يتبقّى {{count}} مقعدًا من أصل {{max}}.",
+      "remaining_other": "يتبقّى {{count}} مقعد من أصل {{max}}.",
+      "full": "تم بلوغ الحد الأقصى {{max}} تلميذًا."
+    },
+    "table": {
+      "name": "الاسم",
+      "level": "المستوى",
+      "school": "المدرسة",
+      "guardians": "الأولياء",
+      "actions": "إجراءات"
+    },
+    "guardiansCount_zero": "لا أحد",
+    "guardiansCount_one": "وليّ واحد",
+    "guardiansCount_two": "وليّان",
+    "guardiansCount_few": "{{count}} أولياء",
+    "guardiansCount_many": "{{count}} وليًّا",
+    "guardiansCount_other": "{{count}} وليّ",
+    "row": {
+      "open": "فتح البطاقة",
+      "menu": "إجراءات التلميذ",
+      "edit": "تعديل",
+      "archive": "أرشفة"
+    },
+    "empty": {
+      "title": "لا يوجد تلاميذ بعد",
+      "body": "أضف أول تلميذ للبدء.",
+      "cta": "إضافة تلميذ"
+    },
+    "noResults": {
+      "title": "لا نتائج",
+      "body": "لا يوجد تلميذ يطابق بحثك."
+    },
+    "loadError": {
+      "title": "تعذّر تحميل التلاميذ",
+      "body": "فشل تحميل القائمة.",
+      "retry": "إعادة المحاولة"
+    },
+    "form": {
+      "createTitle": "تلميذ جديد",
+      "editTitle": "تعديل التلميذ",
+      "createDescription": "أدخل معلومات التلميذ.",
+      "editDescription": "حدّث معلومات التلميذ.",
+      "nameFr": "الاسم (بالفرنسية)",
+      "nameAr": "الاسم (بالعربية)",
+      "birthDate": "تاريخ الميلاد",
+      "level": "المستوى",
+      "levelPlaceholder": "مثال: 2 باك علوم، 3 إعدادي",
+      "school": "المدرسة",
+      "schoolPlaceholder": "المدرسة الأصلية (اختياري)",
+      "notes": "ملاحظات",
+      "notesPlaceholder": "ملاحظات داخلية (اختياري)",
+      "create": "إنشاء التلميذ",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ…",
+      "cancel": "إلغاء",
+      "createSuccess": "تم إنشاء التلميذ",
+      "editSuccess": "تم حفظ التعديلات",
+      "error": "فشل الحفظ. حاول مرة أخرى."
+    },
+    "archive": {
+      "title": "أرشفة هذا التلميذ؟",
+      "body": "سيتم أرشفة التلميذ «{{name}}». يمكنك استعادته لاحقًا.",
+      "confirm": "أرشفة",
+      "cancel": "إلغاء",
+      "success": "تمت أرشفة التلميذ",
+      "error": "فشلت الأرشفة. حاول مرة أخرى."
+    },
+    "detail": {
+      "back": "العودة إلى التلاميذ",
+      "archivedBadge": "مؤرشف",
+      "edit": "تعديل",
+      "loadError": "فشل تحميل البطاقة.",
+      "notFoundTitle": "التلميذ غير موجود",
+      "notFoundBody": "هذا التلميذ غير موجود أو تمت أرشفته.",
+      "tabs": {
+        "info": "المعلومات",
+        "guardians": "الأولياء",
+        "enrollment": "التسجيلات",
+        "invoices": "الفواتير",
+        "attendance": "الحضور"
+      }
+    },
+    "info": {
+      "nameFr": "الاسم (فرنسية)",
+      "nameAr": "الاسم (عربية)",
+      "birthDate": "تاريخ الميلاد",
+      "level": "المستوى",
+      "school": "المدرسة",
+      "notes": "ملاحظات",
+      "none": "—"
+    },
+    "guardians": {
+      "title": "الأولياء",
+      "empty": {
+        "title": "لا يوجد وليّ مرتبط",
+        "body": "اربط وليًّا أو وصيًّا بهذا التلميذ."
+      },
+      "add": "ربط وليّ",
+      "locked": {
+        "title": "إدارة الأولياء",
+        "body": "ربط الأولياء جزء من قسم أولياء الأمور (باقة Pro)."
+      },
+      "comingSoon": "إدارة الأولياء ستتوفر مع قسم أولياء الأمور."
+    },
+    "comingSoon": {
+      "enrollment": {
+        "title": "التسجيلات قريبًا",
+        "body": "ستظهر هنا اشتراكات التلميذ في الصيغ."
+      },
+      "invoices": {
+        "title": "الفواتير قريبًا",
+        "body": "سيظهر هنا سجلّ فوترة التلميذ."
+      },
+      "attendance": {
+        "title": "الحضور قريبًا",
+        "body": "ستظهر هنا متابعة حضور التلميذ."
+      }
     }
   },
   "settings": {

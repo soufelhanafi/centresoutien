@@ -273,4 +273,52 @@ describe('composition root', () => {
     expect(dev1).toMatch(/^dev_/);
     expect(dev2).toBe(dev1);
   });
+
+  // The full Student read/write path through real SQLite — the wiring SOU-39's
+  // UI depends on. Guards against the regression where only `student.create` was
+  // registered and reads fell back to a mock (list/get returned nothing real).
+  it('wires the student list/get/update/archive channels end-to-end', async () => {
+    const container = build();
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+
+    const { id } = await dispatch('student.create', {
+      name: { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' },
+      birthDate: '2010-01-01',
+      level: '2 Bac SM',
+      school: null,
+      notes: null,
+      guardianIds: [],
+    });
+    expect(id).toMatch(/^stu_/);
+
+    // list — the freshly created student is really there (no mock).
+    const listed = await dispatch('student.list', { search: 'yass' });
+    expect(listed.students).toHaveLength(1);
+    expect(listed.students[0]?.id).toBe(id);
+    expect(listed.students[0]?.archived).toBe(false);
+
+    // get — same row by id.
+    const got = await dispatch('student.get', { id });
+    expect(got.student?.name).toEqual({ fr: 'Yassine Alaoui', ar: 'ياسين العلوي' });
+
+    // update — the change persists and reads back.
+    const updated = await dispatch('student.update', {
+      id,
+      name: { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' },
+      birthDate: '2010-01-01',
+      level: '1 Bac SE',
+      school: 'Lycée Ibn Sina',
+      notes: null,
+      guardianIds: [],
+    });
+    expect(updated.student.level).toBe('1 Bac SE');
+    expect((await dispatch('student.get', { id })).student?.school).toBe('Lycée Ibn Sina');
+
+    // archive — soft delete removes it from reads.
+    expect(await dispatch('student.archive', { id })).toEqual({ ok: true });
+    expect((await dispatch('student.list', { search: '' })).students).toHaveLength(0);
+    expect((await dispatch('student.get', { id })).student).toBeNull();
+
+    container.dispose();
+  });
 });

@@ -56,7 +56,9 @@
     "close-before-open": "La fermeture doit être après l'ouverture",
     "closed-partial": "Indiquez l'ouverture et la fermeture, ou fermez le jour",
     "incomplete-week": "La semaine doit comporter les sept jours",
-    "invalid-weekday": "Jour invalide"
+    "invalid-weekday": "Jour invalide",
+    "invalid-date": "Date invalide",
+    "invalid-id": "Identifiant invalide"
   },
   "subjects": {
     "form": {
@@ -65,6 +67,138 @@
       "nameAr": "Nom (arabe)",
       "submit": "Créer la matière",
       "success": "Matière créée"
+    }
+  },
+  "students": {
+    "title": "Élèves",
+    "subtitle": "Gérez les élèves de votre centre.",
+    "search": "Rechercher par nom ou niveau",
+    "searchLabel": "Rechercher un élève",
+    "filters": {
+      "levelLabel": "Niveau",
+      "levelAll": "Tous les niveaux",
+      "groupLabel": "Groupe",
+      "groupAll": "Tous les groupes",
+      "groupComingSoon": "Le filtre par groupe arrive avec le module Groupes."
+    },
+    "new": "Nouvel élève",
+    "count_one": "{{count}} élève",
+    "count_other": "{{count}} élèves",
+    "seats": {
+      "remaining_one": "Il reste {{count}} place sur {{max}}.",
+      "remaining_other": "Il reste {{count}} places sur {{max}}.",
+      "full": "Limite de {{max}} élèves atteinte."
+    },
+    "table": {
+      "name": "Nom",
+      "level": "Niveau",
+      "school": "École",
+      "guardians": "Responsables",
+      "actions": "Actions"
+    },
+    "guardiansCount_zero": "Aucun",
+    "guardiansCount_one": "{{count}} responsable",
+    "guardiansCount_other": "{{count}} responsables",
+    "row": {
+      "open": "Ouvrir la fiche",
+      "menu": "Actions de l'élève",
+      "edit": "Modifier",
+      "archive": "Archiver"
+    },
+    "empty": {
+      "title": "Aucun élève pour l'instant",
+      "body": "Ajoutez votre premier élève pour commencer.",
+      "cta": "Ajouter un élève"
+    },
+    "noResults": {
+      "title": "Aucun résultat",
+      "body": "Aucun élève ne correspond à votre recherche."
+    },
+    "loadError": {
+      "title": "Impossible de charger les élèves",
+      "body": "Le chargement de la liste a échoué.",
+      "retry": "Réessayer"
+    },
+    "form": {
+      "createTitle": "Nouvel élève",
+      "editTitle": "Modifier l'élève",
+      "createDescription": "Renseignez les informations de l'élève.",
+      "editDescription": "Mettez à jour les informations de l'élève.",
+      "nameFr": "Nom (français)",
+      "nameAr": "Nom (arabe)",
+      "birthDate": "Date de naissance",
+      "level": "Niveau",
+      "levelPlaceholder": "ex. 2 Bac SM, 3AC",
+      "school": "École",
+      "schoolPlaceholder": "École d'origine (facultatif)",
+      "notes": "Remarques",
+      "notesPlaceholder": "Remarques internes (facultatif)",
+      "create": "Créer l'élève",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Élève créé",
+      "editSuccess": "Modifications enregistrées",
+      "error": "L'enregistrement a échoué. Réessayez."
+    },
+    "archive": {
+      "title": "Archiver cet élève ?",
+      "body": "L'élève « {{name}} » sera archivé. Vous pourrez le restaurer plus tard.",
+      "confirm": "Archiver",
+      "cancel": "Annuler",
+      "success": "Élève archivé",
+      "error": "L'archivage a échoué. Réessayez."
+    },
+    "detail": {
+      "back": "Retour aux élèves",
+      "archivedBadge": "Archivé",
+      "edit": "Modifier",
+      "loadError": "Le chargement de la fiche a échoué.",
+      "notFoundTitle": "Élève introuvable",
+      "notFoundBody": "Cet élève n'existe pas ou a été archivé.",
+      "tabs": {
+        "info": "Informations",
+        "guardians": "Responsables",
+        "enrollment": "Inscriptions",
+        "invoices": "Factures",
+        "attendance": "Présence"
+      }
+    },
+    "info": {
+      "nameFr": "Nom (FR)",
+      "nameAr": "Nom (AR)",
+      "birthDate": "Date de naissance",
+      "level": "Niveau",
+      "school": "École",
+      "notes": "Remarques",
+      "none": "—"
+    },
+    "guardians": {
+      "title": "Responsables",
+      "empty": {
+        "title": "Aucun responsable lié",
+        "body": "Liez un parent ou tuteur à cet élève."
+      },
+      "add": "Lier un responsable",
+      "locked": {
+        "title": "Gestion des responsables",
+        "body": "La liaison des responsables fait partie du module Parents (plan Pro)."
+      },
+      "comingSoon": "La gestion des responsables arrive avec le module Parents."
+    },
+    "comingSoon": {
+      "enrollment": {
+        "title": "Inscriptions bientôt disponibles",
+        "body": "Les abonnements de l'élève aux formules apparaîtront ici."
+      },
+      "invoices": {
+        "title": "Factures bientôt disponibles",
+        "body": "L'historique de facturation de l'élève apparaîtra ici."
+      },
+      "attendance": {
+        "title": "Présence bientôt disponible",
+        "body": "Le suivi de présence de l'élève apparaîtra ici."
+      }
     }
   },
   "settings": {

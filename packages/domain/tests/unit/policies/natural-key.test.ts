@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeNaturalKey } from '../../../src/policies/natural-key';
+import { normalizeNaturalKey, buildStudentNaturalKey } from '../../../src/policies/natural-key';
 import type { CenterCode } from '../../../src/value-objects/ids';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
@@ -42,5 +42,37 @@ describe('normalizeNaturalKey', () => {
     const first = normalizeNaturalKey({ centerCode: CENTER, fullName: 'Ahmed Benali', contact: '+212612345678' });
     const again = normalizeNaturalKey({ centerCode: CENTER, fullName: ' Ahmed  Benali ', contact: '+212612345678' });
     expect(first).toBe(again);
+  });
+});
+
+describe('buildStudentNaturalKey', () => {
+  const name = { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' };
+
+  it('delegates to normalizeNaturalKey with the FR+AR name and birth date as contact', () => {
+    const key = buildStudentNaturalKey({ centerCode: CENTER, name, birthDate: '2012-05-03' });
+    expect(key).toBe(
+      normalizeNaturalKey({
+        centerCode: CENTER,
+        fullName: `${name.fr} ${name.ar}`,
+        contact: '2012-05-03',
+      }),
+    );
+    expect(key.startsWith('CS-CASA-001::')).toBe(true);
+  });
+
+  it('gives two children with the same name but different birth dates different keys', () => {
+    const a = buildStudentNaturalKey({ centerCode: CENTER, name, birthDate: '2012-05-03' });
+    const b = buildStudentNaturalKey({ centerCode: CENTER, name, birthDate: '2013-01-01' });
+    expect(a).not.toBe(b);
+  });
+
+  it('is stable across name spacing/case variants', () => {
+    const a = buildStudentNaturalKey({ centerCode: CENTER, name, birthDate: '2012-05-03' });
+    const b = buildStudentNaturalKey({
+      centerCode: CENTER,
+      name: { fr: '  Yassine   Alaoui ', ar: ' ياسين  العلوي ' },
+      birthDate: '2012-05-03',
+    });
+    expect(a).toBe(b);
   });
 });
