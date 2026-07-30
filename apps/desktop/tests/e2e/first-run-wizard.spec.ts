@@ -52,6 +52,13 @@ async function fillAdmin(win: Page, L: Record<string, string>) {
   await win.getByLabel(L.confirmPassword, { exact: true }).fill(VALID_ADMIN.password);
 }
 
+// The Center Profile step is real and blocking (SOU-111): name + valid phone are
+// required before Continue advances. Fills the minimum to move past it.
+async function fillCenter(win: Page, L: Record<string, string>) {
+  await win.getByLabel(L.centerName, { exact: true }).fill('Centre principal');
+  await win.getByLabel(L.centerPhone, { exact: true }).fill('+212612345678');
+}
+
 async function expectStep(win: Page, title: string) {
   await expect(win.getByText(title, { exact: false }).first()).toBeVisible();
 }
@@ -75,11 +82,12 @@ test('happy path: walks every mandatory step to Done and creates the admin exact
   await languageRadio(win, L, loc).check();
   await next(win, L).click();
 
-  // 2. Center Profile (stub)
+  // 2. Center Profile — real, mandatory step (SOU-111); persists the center row.
   await expectStep(win, L.centerStepTitle);
+  await fillCenter(win, L);
   await next(win, L).click();
 
-  // 3. Admin Account — the only persisting step.
+  // 3. Admin Account — persists the admin account.
   await expectStep(win, L.adminStepTitle);
   expect(await adminExists(win)).toBe(false);
   await fillAdmin(win, L);
@@ -118,6 +126,7 @@ test('cannot advance the Admin step without valid data (mandatory-data guard)', 
   await expectStep(win, L.centerStepTitle);
   // Mandatory steps expose no Skip control.
   await expect(skip(win, L)).toHaveCount(0);
+  await fillCenter(win, L);
   await next(win, L).click();
   await expectStep(win, L.adminStepTitle);
   await expect(skip(win, L)).toHaveCount(0);
@@ -149,6 +158,7 @@ test('Pro: Holidays step is present, skippable, and finishing with zero holidays
   await languageRadio(win, L, loc).check();
   await next(win, L).click();
   await expectStep(win, L.centerStepTitle);
+  await fillCenter(win, L);
   await next(win, L).click();
   await expectStep(win, L.adminStepTitle);
   await fillAdmin(win, L);
@@ -179,8 +189,9 @@ test('first-run gate: fresh state shows the wizard; after completion a relaunch 
 
   // Complete the wizard end to end.
   await languageRadio(win, L, loc).check();
-  await next(win, L).click();
-  await next(win, L).click(); // center stub
+  await next(win, L).click(); // language → center
+  await fillCenter(win, L);
+  await next(win, L).click(); // center → admin
   await fillAdmin(win, L);
   await next(win, L).click(); // creates admin
   await expectStep(win, L.hoursStepTitle);
@@ -244,11 +255,13 @@ test('back navigation preserves the Admin step input', async () => {
 
   await languageRadio(win, L, loc).check();
   await next(win, L).click(); // language → center
+  await fillCenter(win, L);
   await next(win, L).click(); // center → admin
   await expectStep(win, L.adminStepTitle);
   await win.getByLabel(L.username, { exact: true }).fill(VALID_ADMIN.username);
   await back(win, L).click(); // admin → center
   await expectStep(win, L.centerStepTitle);
+  // The saved center row re-hydrates the fields, so Continue advances again.
   await next(win, L).click(); // center → admin
   await win.screenshot({ path: `test-results/wizard-admin-retention-${loc}.png` });
   await expect(win.getByLabel(L.username, { exact: true })).toHaveValue(VALID_ADMIN.username);

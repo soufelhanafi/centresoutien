@@ -4,9 +4,10 @@ import { useWizardNav } from '../../../hooks/wizard/use-wizard-nav';
 
 /**
  * Placeholder body for steps whose real configuration lands in a later ticket
- * (Center Profile → SOU-28, Hours → SOU-29, Holidays → SOU-30). The wizard's
- * ordering and non-skippable guarantee are already real here; only the per-step
- * form is deferred. `optional` steps additionally show a Skip button — legal only
+ * (Hours → SOU-29, Holidays → SOU-30). Center Profile is now a real step
+ * (see `center-profile-step.tsx`, SOU-111). The wizard's ordering and
+ * non-skippable guarantee are already real here; only the per-step form is
+ * deferred. `optional` steps additionally show a Skip button — legal only
  * because the domain marks them optional (Holidays finishing empty is valid).
  */
 function StepStub({ optional = false }: { optional?: boolean }) {
@@ -27,10 +28,6 @@ function StepStub({ optional = false }: { optional?: boolean }) {
       />
     </div>
   );
-}
-
-export function CenterProfileStep() {
-  return <StepStub />;
 }
 
 export function HoursStep() {

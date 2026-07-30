@@ -126,15 +126,18 @@ export async function getCenter(win: Page): Promise<null | {
 /**
  * Walks the SOU-25 first-run wizard to the logged-in app shell.
  *
- * The Center Profile step is treated as a pass-through here (Continue) because
- * the dedicated wizard spec asserts on its real vs stub behaviour; this helper
- * exists only to land specs on the Settings surface deterministically. Runs the
- * app on `pro` so the plan mirror shows a real tier and the Holidays step exists.
+ * The Center Profile step is now real and blocking (SOU-111): it requires a name
+ * and a valid phone before Continue advances. The dedicated wizard spec asserts
+ * that behaviour; this helper only fills the minimum required to land specs on
+ * the Settings surface deterministically. Runs the app on `pro` so the plan
+ * mirror shows a real tier and the Holidays step exists.
  */
 export async function completeSetupAndLogin(win: Page, loc: Locale): Promise<void> {
   const t = CP[loc];
   await win.getByRole('radio', { name: t.langRadio }).check();
   await win.getByRole('button', { name: t.next }).click(); // language -> center
+  await win.getByLabel(t.nameLabel, { exact: true }).fill('Centre principal');
+  await win.getByLabel(t.phoneLabel, { exact: true }).fill('+212612345678');
   await win.getByRole('button', { name: t.next }).click(); // center -> admin
   await win.getByLabel(t.username, { exact: true }).fill(VALID_ADMIN.username);
   await win.getByLabel(t.password, { exact: true }).fill(VALID_ADMIN.password);
