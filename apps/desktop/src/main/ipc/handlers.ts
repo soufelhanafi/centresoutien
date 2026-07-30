@@ -8,6 +8,7 @@ import type {
   GetCenterProfile,
   SaveCenterProfile,
   StoreCenterLogo,
+  ReadCenterLogo,
   Center,
   CenterCode,
   DeviceId,
@@ -24,6 +25,7 @@ export type DeviceSessions = Pick<DeviceSessionService, 'isAuthenticated' | 'for
 export type GetCenterProfileUseCase = Pick<GetCenterProfile, 'execute'>;
 export type SaveCenterProfileUseCase = Pick<SaveCenterProfile, 'execute'>;
 export type StoreCenterLogoUseCase = Pick<StoreCenterLogo, 'execute'>;
+export type ReadCenterLogoUseCase = Pick<ReadCenterLogo, 'execute'>;
 
 /** Answers first-run detection: is any admin account present? */
 export type AdminExists = () => Promise<boolean>;
@@ -68,6 +70,7 @@ export type HandlerDeps = {
   getCenterProfile: GetCenterProfileUseCase;
   saveCenterProfile: SaveCenterProfileUseCase;
   storeCenterLogo: StoreCenterLogoUseCase;
+  readCenterLogo: ReadCenterLogoUseCase;
   centerContext: () => CenterContext;
 };
 
@@ -119,6 +122,10 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'center.saveLogo': async (request) => {
       const path = await deps.storeCenterLogo.execute(request);
       return { path };
+    },
+    'center.logoBytes': async (request) => {
+      const bytes = await deps.readCenterLogo.execute(request);
+      return { bytes };
     },
   };
 }

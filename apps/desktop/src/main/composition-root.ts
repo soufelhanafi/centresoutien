@@ -12,6 +12,7 @@ import {
   GetCenterProfile,
   SaveCenterProfile,
   StoreCenterLogo,
+  ReadCenterLogo,
 } from '@centresoutien/domain';
 import type { PlanId, CenterCode, DeviceId, UserId, IdGenerator } from '@centresoutien/domain';
 import { openDatabase } from '../data/sqlite/db';
@@ -106,7 +107,9 @@ export function buildContainer(options: ContainerOptions): Container {
   const centerRepo = new SqliteCenterRepository(db);
   const getCenterProfile = new GetCenterProfile(centerRepo);
   const saveCenterProfile = new SaveCenterProfile(centerRepo, clock, ids);
-  const storeCenterLogo = new StoreCenterLogo(new FsLogoStore(options.dir, ids));
+  const logoStore = new FsLogoStore(options.dir, ids);
+  const storeCenterLogo = new StoreCenterLogo(logoStore);
+  const readCenterLogo = new ReadCenterLogo(logoStore);
 
   const hasher = new Argon2PasswordHasher();
   const adminRepo = new SqliteAdminAccountRepository(db);
@@ -142,6 +145,7 @@ export function buildContainer(options: ContainerOptions): Container {
     getCenterProfile,
     saveCenterProfile,
     storeCenterLogo,
+    readCenterLogo,
     centerContext: () => centerContext,
   };
 

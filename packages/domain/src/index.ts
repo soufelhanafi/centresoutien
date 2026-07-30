@@ -10,6 +10,8 @@ export const DOMAIN_PACKAGE = '@centresoutien/domain' as const;
 export type { Brand } from './value-objects/brand';
 export type { CenterCode, DeviceId, UserId } from './value-objects/ids';
 export { ULID_REGEX, isUlid, hasIdPrefix } from './value-objects/ids';
+export type { PhoneNumber, PhoneRegion } from './value-objects/phone-number';
+export { normalizePhone, InvalidPhoneNumberError } from './value-objects/phone-number';
 
 // Ports
 export type { Clock } from './ports/clock';
@@ -121,6 +123,8 @@ export { SaveCenterProfile } from './use-cases/save-center-profile';
 export type { SaveCenterProfileInput } from './use-cases/save-center-profile';
 export { StoreCenterLogo } from './use-cases/store-center-logo';
 export type { StoreCenterLogoInput } from './use-cases/store-center-logo';
+export { ReadCenterLogo } from './use-cases/read-center-logo';
+export type { ReadCenterLogoInput } from './use-cases/read-center-logo';
 export { CreateAdminAccount } from './use-cases/create-admin-account';
 export type { CreateAdminAccountInput } from './use-cases/create-admin-account';
 export { VerifyAdminPassword } from './use-cases/verify-admin-password';
