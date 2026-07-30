@@ -12,8 +12,12 @@ import type { CenterCode } from '../value-objects/ids';
  *   hint, not a uniqueness constraint: the same name + birth date can legitimately
  *   recur across families, so those cases are flagged, never blocked.
  * - `countActive` — the live headcount the plan student limit checks against.
+ * - `listActive` — every live (non-tombstoned) student of the center, for the
+ *   list screen. Search/sort are applied by the `ListStudents` use case, not here:
+ *   the port stays a dumb tenant-scoped read.
  */
 export interface StudentRepository extends SoftDeletableRepository<StudentId, Student> {
   findByNaturalKey(centerCode: CenterCode, naturalKey: string): Promise<readonly Student[]>;
   countActive(centerCode: CenterCode): Promise<number>;
+  listActive(centerCode: CenterCode): Promise<readonly Student[]>;
 }

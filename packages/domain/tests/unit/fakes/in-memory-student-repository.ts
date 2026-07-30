@@ -26,4 +26,10 @@ export class InMemoryStudentRepository
       (student) => student.deletedAt === null && student.centerCode === centerCode,
     ).length;
   }
+
+  async listActive(centerCode: CenterCode): Promise<readonly Student[]> {
+    return this.all().filter(
+      (student) => student.deletedAt === null && student.centerCode === centerCode,
+    );
+  }
 }
