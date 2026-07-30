@@ -5,6 +5,10 @@ import {
   PlanPolicy,
   CreateSubject,
   CreateStudent,
+  ListStudents,
+  GetStudent,
+  UpdateStudent,
+  ArchiveStudent,
   CreateAdminAccount,
   VerifyAdminPassword,
   SaveCenterHours,
@@ -111,6 +115,10 @@ export function buildContainer(options: ContainerOptions): Container {
 
   const studentRepo = new SqliteStudentRepository(db);
   const createStudent = new CreateStudent(studentRepo, clock, ids, plan);
+  const listStudents = new ListStudents(studentRepo, plan);
+  const getStudent = new GetStudent(studentRepo, plan);
+  const updateStudent = new UpdateStudent(studentRepo, clock, plan);
+  const archiveStudent = new ArchiveStudent(studentRepo, clock, plan);
 
   const centerRepo = new SqliteCenterRepository(db);
   const getCenterProfile = new GetCenterProfile(centerRepo);
@@ -149,6 +157,10 @@ export function buildContainer(options: ContainerOptions): Container {
     activePlanId: () => activePlanId,
     createSubject,
     createStudent,
+    listStudents,
+    getStudent,
+    updateStudent,
+    archiveStudent,
     saveCenterHours,
     getCenterHours,
     envelopeContext: () => context,

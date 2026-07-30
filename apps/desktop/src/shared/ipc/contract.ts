@@ -20,6 +20,23 @@ const centerDto = z.object({
   plan: z.enum(['essentiel', 'pro', 'premium']),
 });
 
+// The presentation projection of a Student across the IPC boundary — the sync
+// envelope (version, deviceOrigin, updatedBy…) is stripped and Dates are
+// serialized to strings, exactly like `centerDto`. `archived` is derived from
+// `deletedAt != null` in main; the renderer never sees the raw entity. This is
+// the single source of truth for the renderer's `StudentView` type.
+const studentViewSchema = z.object({
+  id: z.string(),
+  name: z.object({ fr: z.string(), ar: z.string() }),
+  birthDate: z.string(),
+  level: z.string(),
+  school: z.string().nullable(),
+  notes: z.string().nullable(),
+  guardianIds: z.array(z.string()),
+  archived: z.boolean(),
+  createdAt: z.string(),
+});
+
 // The display shape of one weekday's hours returned to the renderer: the
 // user-visible fields only, envelope stripped. `open`/`close` are `'HH:mm'` or
 // null (closed). Reused by both centerHours responses.
@@ -56,6 +73,27 @@ export const ipcContract = {
   'student.create': {
     request: studentInputSchema,
     response: z.object({ id: z.string() }),
+  },
+  // Student reads/writes (SOU-39). `list` filters by an FR/AR name-or-level search
+  // (centerCode is injected in main); `get` returns the single view or null for an
+  // unknown/archived id; `update` takes the domain's own input schema plus the id
+  // and echoes the saved view; `archive` is a soft delete. All strip the envelope
+  // to `studentViewSchema`, like the center channels.
+  'student.list': {
+    request: z.object({ search: z.string() }),
+    response: z.object({ students: z.array(studentViewSchema) }),
+  },
+  'student.get': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ student: studentViewSchema.nullable() }),
+  },
+  'student.update': {
+    request: studentInputSchema.extend({ id: z.string() }),
+    response: z.object({ student: studentViewSchema }),
+  },
+  'student.archive': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
   },
   // Auth (SOU-26). `admin.exists` drives first-run detection; `admin.create`
   // reuses the domain credential schema (password policy enforced here too);
@@ -156,6 +194,9 @@ export const ipcContract = {
     }),
   },
 } as const;
+
+/** The Student boundary DTO — the renderer's `StudentView` is an alias of this. */
+export type StudentDto = z.infer<typeof studentViewSchema>;
 
 export type IpcContract = typeof ipcContract;
 export type IpcChannel = keyof IpcContract;
