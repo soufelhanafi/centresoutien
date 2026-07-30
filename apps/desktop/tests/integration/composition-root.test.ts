@@ -57,8 +57,8 @@ describe('composition root', () => {
     expect(saved?.deviceOrigin).toMatch(/^dev_/);
   });
 
-  it('wires parent.create end-to-end (Pro), normalizing the phone and persisting the row', async () => {
-    const container = build('pro'); // core.parents is a Pro feature
+  it('wires parent.create end-to-end (Essentiel), normalizing the phone and persisting the row', async () => {
+    const container = build('essentiel'); // core.parents is a base-tier feature
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
 
     const { id } = await dispatch('parent.create', {
@@ -83,12 +83,15 @@ describe('composition root', () => {
     expect(saved?.naturalKey).toContain('+212612345678');
   });
 
-  it('rejects parent.create on Essentiel — core.parents is a Pro feature (plan gate)', async () => {
+  it('allows parent.create on Essentiel — core.parents is a base-tier feature', async () => {
     const container = build('essentiel');
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
-    await expect(
-      dispatch('parent.create', { name: 'Ahmed', phone: '0612345678', relation: 'pere' }),
-    ).rejects.toThrow();
+    const { id } = await dispatch('parent.create', {
+      name: 'Ahmed',
+      phone: '0612345678',
+      relation: 'pere',
+    });
+    expect(id).toMatch(/^prt_/);
     container.dispose();
   });
 

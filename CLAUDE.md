@@ -214,10 +214,10 @@ export type FeatureFlag =
   | 'core.formulas'                  // configure priced subject bundles
   | 'core.calendar.week'
   | 'core.invoicing'                 // monthly, formula-based
+  | 'core.parents'                   // guardians/parents — base tier (SOU-40)
   | 'settings.center-hours'
   | 'dashboard.basic'
   // pro
-  | 'core.parents'
   | 'core.invoicing.partial-paid'
   | 'core.invoice-template.customize'
   | 'core.exam-prep'                 // exam-prep formulas + groups, kept separate

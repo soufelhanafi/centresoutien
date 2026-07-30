@@ -33,8 +33,8 @@ describe('CreateParent', () => {
 
   beforeEach(() => {
     parents = new InMemoryParentRepository();
-    // core.parents lives on Pro+ — build the policy from a plan that has it.
-    useCase = new CreateParent(parents, fakeClock('2026-07-29T10:00:00Z'), fakeIds(), new PlanPolicy(PLANS.pro));
+    // core.parents lives on Essentiel+ — build the policy from a plan that has it.
+    useCase = new CreateParent(parents, fakeClock('2026-07-29T10:00:00Z'), fakeIds(), new PlanPolicy(PLANS.essentiel));
   });
 
   describe('happy path', () => {
