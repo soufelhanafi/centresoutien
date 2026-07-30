@@ -1,5 +1,5 @@
 import type { RoomInput, RoomListFilter, RoomView } from './room-view';
-import { mockRoomsGateway } from './mock-rooms-gateway';
+import { ipcRoomsGateway } from './ipc-rooms-gateway';
 
 /**
  * The seam the Room UI depends on (Dependency Inversion). Hooks call this
@@ -8,15 +8,10 @@ import { mockRoomsGateway } from './mock-rooms-gateway';
  *
  * ## Contract status (SOU-34 frontend ↔ SOU-33 data)
  *
- * The `room.list / create / update / archive / restore` channels — and their
- * SQLite-backed IPC handlers — are SOU-33's deliverable and are **not published
- * yet**. Until they are, the active gateway is the in-memory
- * {@link mockRoomsGateway}, so the full UI (active/archived lists, create, edit,
- * archive, restore) runs end-to-end in both locales against this same interface.
- *
- * When SOU-33 lands, add an `IpcRoomsGateway implements RoomsGateway` (a thin
- * wrapper over `window.api.invoke('room.*')`, mirroring `ipc-students-gateway`)
- * and swap the one line below — no hook or component changes.
+ * All five channels are now published (`room.list / create / update / archive /
+ * restore`) with their SQLite-backed IPC handlers, so this ships against the real
+ * {@link ipcRoomsGateway}. The in-memory `MockRoomsGateway` stays in the tree for
+ * unit tests, which exercise the same interface without Electron.
  */
 export interface RoomsGateway {
   list(filter: RoomListFilter): Promise<readonly RoomView[]>;
@@ -26,5 +21,5 @@ export interface RoomsGateway {
   restore(id: string): Promise<void>;
 }
 
-/** The active gateway. Swap to the IPC adapter once SOU-33 publishes its channels. */
-export const roomsGateway: RoomsGateway = mockRoomsGateway;
+/** The active gateway: the real IPC adapter. Swapping it is this one line. */
+export const roomsGateway: RoomsGateway = ipcRoomsGateway;
