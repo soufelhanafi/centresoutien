@@ -11,7 +11,8 @@ beforeEach(async () => {
 describe('App — i18n + runtime RTL', () => {
   it('renders French by default and sets dir=ltr on <html>', async () => {
     render(<App />);
-    expect(await screen.findByRole('heading', { name: 'Centre Soutien' })).toBeInTheDocument();
+    // The shell boots on the default route, so the page heading is the dashboard title.
+    expect(await screen.findByRole('heading', { name: 'Tableau de bord' })).toBeInTheDocument();
     expect(document.documentElement.getAttribute('dir')).toBe('ltr');
     expect(document.documentElement.getAttribute('lang')).toBe('fr');
   });
@@ -22,7 +23,7 @@ describe('App — i18n + runtime RTL', () => {
 
     await user.click(screen.getByRole('button', { name: 'العربية' }));
 
-    expect(await screen.findByRole('heading', { name: 'مركز الدعم' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'لوحة القيادة' })).toBeInTheDocument();
     expect(document.documentElement.getAttribute('dir')).toBe('rtl');
     expect(document.documentElement.getAttribute('lang')).toBe('ar');
   });

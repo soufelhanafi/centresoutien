@@ -2,34 +2,34 @@
   "app": {
     "title": "مركز الدعم"
   },
-  "smoke": {
-    "ipcLabel": "IPC",
-    "openDialog": "افتح النافذة",
-    "dialogTitle": "مرحبًا",
-    "dialogBody": "أساس React 19 وTailwind وshadcn/ui جاهز.",
-    "close": "إغلاق",
-    "premiumFeature": "المزامنة متعددة الأجهزة"
+  "nav": {
+    "dashboard": "لوحة القيادة",
+    "students": "التلاميذ",
+    "teachers": "الأساتذة",
+    "parents": "أولياء الأمور",
+    "groups": "المجموعات",
+    "planning": "الجدولة",
+    "invoicing": "الفوترة",
+    "payments": "المدفوعات",
+    "payroll": "أجور الأساتذة",
+    "sync": "المزامنة",
+    "settings": "الإعدادات"
   },
-  "showcase": {
-    "title": "المكوّنات",
-    "badges": "الشارات",
-    "feedback": "الحالات",
-    "data": "البيانات",
-    "statusDraft": "مسودة",
-    "statusPaid": "مدفوعة",
-    "statusPartial": "مدفوعة جزئياً",
-    "statusCancelled": "ملغاة",
-    "kindRegular": "منتظم",
-    "kindExam": "تحضير الامتحانات",
-    "lockTitle": "أجور الأساتذة",
-    "lockBody": "احسب المستحقات تلقائياً.",
-    "lockCta": "عرض الخطط",
-    "emptyTitle": "لا توجد مواد مُعدّة",
-    "emptyBody": "ابدأ بإضافة المواد التي يدرّسها مركزك.",
-    "emptyCta": "إضافة مادة"
+  "shell": {
+    "navAriaLabel": "التنقل الرئيسي",
+    "collapse": "طيّ القائمة",
+    "expand": "توسيع القائمة",
+    "skipToContent": "الانتقال إلى المحتوى",
+    "currentCenter": "المركز الرئيسي",
+    "account": "الحساب",
+    "placeholder": {
+      "title": "قريباً",
+      "body": "هذا القسم سيتوفر قريباً."
+    }
   },
   "plan": {
     "locked": "غير متاح في خطتك",
+    "viewPlans": "عرض الخطط",
     "devSwitcher": "الخطة (تطوير)"
   },
   "language": {
