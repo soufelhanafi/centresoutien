@@ -63,6 +63,16 @@ describe('ListParents', () => {
     expect(result.map((p) => p.name)).toEqual(['Ahmed Benali']);
   });
 
+  it('matches a phone typed in the national 0X… form even though it is stored as +212…', async () => {
+    const result = await list.execute({ centerCode: CENTER, search: '0612345678' });
+    expect(result.map((p) => p.name)).toEqual(['Ahmed Benali']);
+  });
+
+  it('matches a phone typed in the +212 international form (digits only)', async () => {
+    const result = await list.execute({ centerCode: CENTER, search: '+212 612' });
+    expect(result.map((p) => p.name)).toEqual(['Ahmed Benali']);
+  });
+
   it('excludes guardians from another center (tenant scope)', async () => {
     await create.execute(parentInput({ name: 'Youssef Rabati', phone: '0699999999', centerCode: OTHER }));
     const result = await list.execute({ centerCode: OTHER, search: '' });

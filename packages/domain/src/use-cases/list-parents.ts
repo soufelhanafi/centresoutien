@@ -29,9 +29,24 @@ function fold(value: string): string {
     .toLowerCase();
 }
 
-function matches(parent: Parent, needle: string): boolean {
+/** Bare digits of a string — the phone comparison ignores +, spaces, and dashes. */
+function foldDigits(value: string): string {
+  return value.replace(/\D+/g, '');
+}
+
+// Phone is stored E.164 (`+212612345678`), but a Moroccan director searches the
+// way they dial — the national `0612…` form. Match the bare digits of the stored
+// number AND its `0`-prefixed national variant, so either shape a user types hits.
+function matchesPhone(phone: string, needleDigits: string): boolean {
+  if (needleDigits === '') return false;
+  const e164 = foldDigits(phone); // 212612345678
+  const national = e164.replace(/^212/, '0'); // 0612345678
+  return e164.includes(needleDigits) || national.includes(needleDigits);
+}
+
+function matches(parent: Parent, needle: string, needleDigits: string): boolean {
   if (needle === '') return true;
-  return [parent.name, parent.phone].some((field) => fold(field).includes(needle));
+  return fold(parent.name).includes(needle) || matchesPhone(parent.phone, needleDigits);
 }
 
 /**
@@ -49,9 +64,10 @@ export class ListParents {
   async execute(input: ListParentsInput): Promise<readonly Parent[]> {
     this.plan.require('core.parents');
     const needle = fold(input.search.trim());
+    const needleDigits = foldDigits(input.search);
     const active = await this.parents.listActive(input.centerCode);
     return [...active]
-      .filter((parent) => matches(parent, needle))
+      .filter((parent) => matches(parent, needle, needleDigits))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 }
