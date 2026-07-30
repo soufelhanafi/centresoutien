@@ -50,7 +50,19 @@ export function ParentDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="end" closeLabel={t('parents.form.cancel')} className="flex flex-col">
+      <SheetContent
+        side="end"
+        closeLabel={t('parents.form.cancel')}
+        className="flex flex-col"
+        // Unlinking a child raises an "undo" toast; the toast is portaled
+        // outside this modal sheet, so clicking it would otherwise be treated as
+        // an outside interaction and dismiss the sheet. Keep the sheet open when
+        // the interaction lands on a Sonner toast.
+        onInteractOutside={(event) => {
+          const target = event.detail.originalEvent.target as Element | null;
+          if (target?.closest('[data-sonner-toaster]')) event.preventDefault();
+        }}
+      >
         <SheetHeader>
           <div className="flex items-center gap-2">
             <SheetTitle>{current.name}</SheetTitle>
