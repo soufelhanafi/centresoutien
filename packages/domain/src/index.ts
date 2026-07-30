@@ -47,7 +47,12 @@ export { AdminAccountAlreadyExistsError } from './errors/auth-errors';
 export { StudentNotFoundError } from './errors/student-errors';
 export { DuplicateParentError, ParentNotFoundError } from './errors/people-errors';
 export { RoomInUseError, RoomNotFoundError } from './errors/room-errors';
-export { SessionOutsideCenterHoursError, RoomConflictError } from './errors/scheduling-errors';
+export {
+  SessionOutsideCenterHoursError,
+  RoomConflictError,
+  TeacherConflictError,
+  MalformedSessionTimeError,
+} from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/scheduling-errors';
 
 // Input validation schemas (shared by forms via zodResolver and by use cases)
@@ -163,7 +168,16 @@ export { SessionConflictPolicy } from './policies/session-conflict-policy';
 export type {
   SessionTimeCandidate,
   RoomSessionCandidate,
+  TeacherSessionCandidate,
+  DayHours,
 } from './policies/session-conflict-policy';
+export { detectSessionConflicts } from './policies/composite-session-conflicts';
+export type {
+  ConflictSeverity,
+  SessionConflict,
+  CompositeSessionCandidate,
+  ConflictCheckContext,
+} from './policies/composite-session-conflicts';
 export { buildStudentNaturalKey } from './policies/natural-key';
 
 // First-run wizard state machine (SOU-25) — a pure, portable sequencer.
