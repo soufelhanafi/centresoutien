@@ -36,7 +36,9 @@ async function createStudent(win: Page, L: (typeof STR)[Locale], s: NewStudent):
   if (s.school) await dialog.getByLabel(L.form.school, { exact: false }).fill(s.school);
   if (s.notes) await dialog.getByLabel(L.form.notes, { exact: false }).fill(s.notes);
   await dialog.getByRole('button', { name: L.form.create }).click();
-  await expect(win.getByText(L.form.createSuccess)).toBeVisible();
+  // Toasts stack when several students are created in a row; assert the newest.
+  await expect(win.getByText(L.form.createSuccess).first()).toBeVisible();
+  await expect(dialog).toBeHidden();
 }
 
 /** Assert the list page mounted without hitting the renderer error boundary. */
@@ -60,7 +62,9 @@ test('Scenario 1 — Students list renders with header, search and level filter'
   await expect(win.getByText(L.subtitle)).toBeVisible();
   await expect(win.getByRole('button', { name: L.newBtn })).toBeVisible();
   await expect(win.getByLabel(L.searchLabel, { exact: false }).or(win.getByPlaceholder(L.search))).toBeVisible();
-  await expect(win.getByText(L.levelLabel, { exact: false }).first()).toBeVisible();
+  // The level filter is a combobox labelled via aria-label (its visible text is
+  // the "all levels" option), so assert by accessible role+name, not by text.
+  await expect(win.getByRole('combobox', { name: L.levelLabel })).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------
@@ -117,19 +121,14 @@ test('Scenario 4 — form rejects empty required fields and an invalid date', as
   const dialog = win.getByRole('dialog');
   await expect(dialog).toBeVisible();
 
-  // Submit empty → required errors on the mandatory fields.
+  // Submit fully empty. The three text fields are required; the empty
+  // birth-date field (a native date input, which cannot hold a fake calendar
+  // date) is rejected by the domain schema as an invalid date.
   await dialog.getByRole('button', { name: L.form.create }).click();
   await expect(dialog.getByText(L.errors.required).first()).toBeVisible();
-  // Still open (submission blocked).
-  await expect(dialog).toBeVisible();
-
-  // Provide an impossible calendar date → invalid-date error.
-  await dialog.getByLabel(L.form.nameFr, { exact: false }).fill('Test');
-  await dialog.getByLabel(L.form.nameAr, { exact: false }).fill('اختبار');
-  await dialog.getByLabel(L.form.level, { exact: false }).fill('3AC');
-  await dialog.getByLabel(L.form.birthDate, { exact: false }).fill('2010-02-30'); // Feb 30 — not a real date
-  await dialog.getByRole('button', { name: L.form.create }).click();
   await expect(dialog.getByText(L.errors.invalidDate)).toBeVisible();
+  // Still open — submission was blocked.
+  await expect(dialog).toBeVisible();
   await win.screenshot({ path: `test-results/students-validation-${locale()}.png` });
 });
 
@@ -221,7 +220,18 @@ test('Scenario 8 — archive a student', async () => {
 
   const confirm = win.getByRole('alertdialog').or(win.getByRole('dialog'));
   await expect(confirm.getByText(L.archive.title)).toBeVisible();
-  await confirm.getByRole('button', { name: L.archive.confirm }).click();
+  const confirmBtn = confirm.getByRole('button', { name: L.archive.confirm });
+  await expect(confirmBtn).toBeVisible();
+
+  // The confirmation button must sit inside the viewport so the user can click
+  // it. (In RTL the AlertDialog is pinned to the left edge and its buttons
+  // overflow off-screen — this assertion catches that regression crisply.)
+  const box = (await confirmBtn.boundingBox())!;
+  const vw = await win.evaluate(() => window.innerWidth);
+  expect(box.x, 'archive confirm button is within the viewport (not off-screen)').toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(vw);
+
+  await confirmBtn.click();
   await expect(win.getByText(L.archive.success)).toBeVisible();
   await expect(win.getByRole('row', { name: /Yassine Alaoui/ })).toHaveCount(0);
 });
@@ -240,16 +250,21 @@ test('Scenario 9 — detail page shows 5 tabs; Info wired, others are stubs', as
   await createStudent(win, L, {
     nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', birthDate: '2010-05-14', level: '3AC', school: 'Collège Ibn Sina',
   });
-  await win.getByRole('row', { name: /Yassine Alaoui/ }).getByRole('link', { name: L.row.open }).click();
+  // The row's open affordance is the student-name link to the detail route.
+  await win.getByRole('row', { name: /Yassine Alaoui/ }).getByRole('link', { name: /Yassine Alaoui/ }).click();
 
   // 5 tabs present.
   for (const name of Object.values(L.detail.tabs)) {
     await expect(win.getByRole('tab', { name })).toBeVisible();
   }
-  // Info tab (default) shows the real values.
-  await expect(win.getByText('Yassine Alaoui')).toBeVisible();
-  await expect(win.getByText('3AC')).toBeVisible();
-  await expect(win.getByText('Collège Ibn Sina')).toBeVisible();
+  // Info tab (default) shows the real values. Scope to the Info tabpanel so we
+  // assert the wired data, not the page-header heading which repeats the name.
+  await expect(win.getByRole('heading', { name: 'Yassine Alaoui' })).toBeVisible();
+  const info = win.getByRole('tabpanel', { name: L.detail.tabs.info });
+  await expect(info.getByText('Yassine Alaoui')).toBeVisible();
+  await expect(info.getByText('ياسين العلوي')).toBeVisible();
+  await expect(info.getByText('3AC')).toBeVisible();
+  await expect(info.getByText('Collège Ibn Sina')).toBeVisible();
   await win.screenshot({ path: `test-results/students-detail-info-${locale()}.png` });
 
   // Stub tabs → placeholder shells (no real data expected).
