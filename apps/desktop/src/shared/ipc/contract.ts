@@ -68,6 +68,21 @@ const roomViewSchema = z.object({
   createdAt: z.string(),
 });
 
+// The presentation projection of a weekly recurring session across the IPC
+// boundary (SOU-53 seam for the SOU-54 planner grid) — the sync envelope is
+// stripped, there are no Dates on the view (the times are wall-clock `'HH:mm'`
+// strings, not timestamps). `teacherId` is nullable: a slot may exist before a
+// teacher is assigned. Single source of truth for the renderer's
+// `WeeklySessionView` type.
+const weeklySessionViewSchema = z.object({
+  id: z.string(),
+  roomId: z.string(),
+  teacherId: z.string().nullable(),
+  dayOfWeek: z.number().int().min(0).max(6),
+  start: z.string(),
+  end: z.string(),
+});
+
 // The display shape of one weekday's hours returned to the renderer: the
 // user-visible fields only, envelope stripped. `open`/`close` are `'HH:mm'` or
 // null (closed). Reused by both centerHours responses.
@@ -187,6 +202,15 @@ export const ipcContract = {
     request: z.object({ id: z.string() }),
     response: z.object({ room: roomViewSchema }),
   },
+  // Weekly recurring sessions (SOU-53 seam → SOU-54 planner grid). `session.week`
+  // returns every live session of the center for all seven weekdays, ordered by
+  // weekday then start time (the repository port's contract). centerCode is
+  // injected in main, never sent from the renderer — same rule as `room.list`.
+  // Filtering (teacher/room/level) is applied client-side in the grid for now.
+  'session.week': {
+    request: z.object({}),
+    response: z.object({ sessions: z.array(weeklySessionViewSchema) }),
+  },
   // Auth (SOU-26). `admin.exists` drives first-run detection; `admin.create`
   // reuses the domain credential schema (password policy enforced here too);
   // `admin.verify` is a bare presence check — login must not reject an existing
@@ -295,6 +319,9 @@ export type ParentDto = z.infer<typeof parentViewSchema>;
 
 /** The Room boundary DTO — the renderer's `RoomView` is an alias of this. */
 export type RoomDto = z.infer<typeof roomViewSchema>;
+
+/** The weekly-session boundary DTO — the renderer's `WeeklySessionView` aliases this. */
+export type WeeklySessionDto = z.infer<typeof weeklySessionViewSchema>;
 
 export type IpcContract = typeof ipcContract;
 export type IpcChannel = keyof IpcContract;

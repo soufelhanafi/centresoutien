@@ -12,6 +12,7 @@ import { StudentsPage } from '../pages/students/students-page';
 import { StudentDetailPage } from '../pages/students/student-detail-page';
 import { ParentsPage } from '../pages/parents/parents-page';
 import { RoomsPage } from '../pages/rooms/rooms-page';
+import { PlannerPage } from '../pages/planning/planner-page';
 import {
   DEFAULT_ROUTE,
   dashboardModule,
@@ -71,7 +72,7 @@ const roomsRoute = createRoute({
 const planningRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: planningModule.path,
-  component: () => <ModulePlaceholder module={planningModule} />,
+  component: PlannerPage,
 });
 const invoicingRoute = createRoute({
   getParentRoute: () => rootRoute,

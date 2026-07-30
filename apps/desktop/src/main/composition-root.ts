@@ -20,6 +20,7 @@ import {
   UpdateRoom,
   ArchiveRoom,
   RestoreRoom,
+  ListWeekSessions,
   CreateAdminAccount,
   VerifyAdminPassword,
   SaveCenterHours,
@@ -156,6 +157,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // referenced" stub with no change to ArchiveRoom or the port contract.
   const sessionRepo = new SqliteWeeklyRecurringSessionRepository(db);
   const roomReference: RoomReferencePort = sessionRepo;
+  const listWeekSessions = new ListWeekSessions(sessionRepo, plan);
   const createRoom = new CreateRoom(roomRepo, clock, ids, plan);
   const listRooms = new ListRooms(roomRepo, plan);
   const updateRoom = new UpdateRoom(roomRepo, clock, plan);
@@ -214,6 +216,7 @@ export function buildContainer(options: ContainerOptions): Container {
     updateRoom,
     archiveRoom,
     restoreRoom,
+    listWeekSessions,
     saveCenterHours,
     getCenterHours,
     envelopeContext: () => context,

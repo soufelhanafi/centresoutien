@@ -238,6 +238,8 @@ export { ArchiveRoom } from './use-cases/archive-room';
 export type { ArchiveRoomInput } from './use-cases/archive-room';
 export { ListRooms } from './use-cases/list-rooms';
 export type { ListRoomsInput, RoomScope } from './use-cases/list-rooms';
+export { ListWeekSessions } from './use-cases/list-week-sessions';
+export type { ListWeekSessionsInput } from './use-cases/list-week-sessions';
 export { UpdateRoom } from './use-cases/update-room';
 export type { UpdateRoomInput } from './use-cases/update-room';
 export { RestoreRoom } from './use-cases/restore-room';

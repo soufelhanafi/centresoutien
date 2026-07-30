@@ -7,10 +7,12 @@ import type {
   DeviceId,
   ParentId,
   PhoneNumber,
+  RoomId,
   SubjectId,
   TimeOfDay,
   UserId,
   WeekdayIndex,
+  WeeklyRecurringSessionId,
 } from '@centresoutien/domain';
 import { createIpcDispatcher } from '../../../src/main/ipc/dispatcher';
 import {
@@ -19,6 +21,7 @@ import {
   type CreateParentUseCase,
   type CreateAdminAccountUseCase,
   type VerifyAdminPasswordUseCase,
+  type ListWeekSessionsUseCase,
   type SaveCenterHoursUseCase,
   type GetCenterHoursUseCase,
   type AttemptLoginUseCase,
@@ -188,12 +191,35 @@ const stubSaveCenterHours: SaveCenterHoursUseCase = {
     })),
 };
 
+// Stub weekly-session read — returns one envelope-complete session so the handler
+// can prove it strips the envelope down to the boundary DTO (SOU-53 seam).
+const stubListWeekSessions: ListWeekSessionsUseCase = {
+  execute: async () => [
+    {
+      id: 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId,
+      centerCode: context.centerCode,
+      deviceOrigin: context.deviceOrigin,
+      createdAt: new Date('2026-07-29T10:00:00Z'),
+      updatedAt: new Date('2026-07-29T10:00:00Z'),
+      updatedBy: context.updatedBy,
+      deletedAt: null,
+      version: 0,
+      roomId: 'rom_00000000000000000000000001' as RoomId,
+      teacherId: null,
+      dayOfWeek: 1 as WeekdayIndex,
+      start: '09:00' as TimeOfDay,
+      end: '10:00' as TimeOfDay,
+    },
+  ],
+};
+
 const dispatch = createIpcDispatcher(
   createHandlers({
     appVersion: () => '2.0.0',
     activePlanId: () => 'pro',
     createSubject: stubCreateSubject,
     createParent: stubCreateParent,
+    listWeekSessions: stubListWeekSessions,
     saveCenterHours: stubSaveCenterHours,
     getCenterHours: stubGetCenterHours,
     envelopeContext: () => context,
@@ -246,6 +272,21 @@ describe('createIpcDispatcher', () => {
     await expect(
       dispatch('parent.create', { name: 'Ahmed', phone: '', relation: 'pere' }),
     ).rejects.toThrow();
+  });
+
+  it('runs session.week and returns the envelope-stripped session views', async () => {
+    await expect(dispatch('session.week', {})).resolves.toEqual({
+      sessions: [
+        {
+          id: 'wrs_00000000000000000000000001',
+          roomId: 'rom_00000000000000000000000001',
+          teacherId: null,
+          dayOfWeek: 1,
+          start: '09:00',
+          end: '10:00',
+        },
+      ],
+    });
   });
 
   it('runs centerHours.get and returns the week view', async () => {
