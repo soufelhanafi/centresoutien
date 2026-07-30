@@ -112,13 +112,14 @@ export const ALWAYS_ON = [
   'dashboard',
   'students',
   'teachers',
+  'parents',
   'groups',
   'planning',
   'invoicing',
   'payments',
   'settings',
 ] as const;
-export const PRO_GATED = ['parents', 'payroll'] as const; // core.parents, payroll.teacher
+export const PRO_GATED = ['payroll'] as const; // payroll.teacher
 export const PREMIUM_GATED = ['sync'] as const; // sync.multi-device
 export const ALL_MODULES = [...ALWAYS_ON, ...PRO_GATED, ...PREMIUM_GATED] as const;
 

@@ -17,10 +17,10 @@ export type FeatureFlag =
   | 'core.formulas'
   | 'core.calendar.week'
   | 'core.invoicing'
+  | 'core.parents'
   | 'settings.center-hours'
   | 'dashboard.basic'
   // pro
-  | 'core.parents'
   | 'core.invoicing.partial-paid'
   | 'core.invoice-template.customize'
   | 'core.exam-prep'
@@ -63,13 +63,13 @@ const essentielFeatures: readonly FeatureFlag[] = [
   'core.formulas',
   'core.calendar.week',
   'core.invoicing',
+  'core.parents',
   'settings.center-hours',
   'dashboard.basic',
 ];
 
 const proFeatures: readonly FeatureFlag[] = [
   ...essentielFeatures,
-  'core.parents',
   'core.invoicing.partial-paid',
   'core.invoice-template.customize',
   'core.exam-prep',

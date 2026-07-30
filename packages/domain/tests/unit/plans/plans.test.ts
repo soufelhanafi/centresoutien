@@ -20,9 +20,9 @@ describe('PLANS registry', () => {
   it('gates representative features to the right tier', () => {
     // core is everywhere
     expect(PLANS.essentiel.features.has('core.students')).toBe(true);
+    expect(PLANS.essentiel.features.has('core.parents')).toBe(true);
     // pro-only
-    expect(PLANS.essentiel.features.has('core.parents')).toBe(false);
-    expect(PLANS.pro.features.has('core.parents')).toBe(true);
+    expect(PLANS.essentiel.features.has('payroll.teacher')).toBe(false);
     expect(PLANS.pro.features.has('payroll.teacher')).toBe(true);
     // premium-only
     expect(PLANS.pro.features.has('sync.multi-device')).toBe(false);

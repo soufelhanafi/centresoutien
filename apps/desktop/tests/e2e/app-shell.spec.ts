@@ -196,14 +196,14 @@ test('Scenario 6 — locked entry is inert (no navigation) and shows the upgrade
   await waitForShell(win, L);
   const nav = win.getByRole('navigation', { name: L.navAria });
 
-  const parents = nav.getByRole('button').filter({ hasText: L.nav.parents });
-  await expect(parents).toHaveAttribute('aria-disabled', 'true');
-  await expect(parents).toHaveAttribute('title', L.lockedTitle);
+  const payroll = nav.getByRole('button').filter({ hasText: L.nav.payroll });
+  await expect(payroll).toHaveAttribute('aria-disabled', 'true');
+  await expect(payroll).toHaveAttribute('title', L.lockedTitle);
   // Plan badge present (PRO for a Pro-gated entry).
-  await expect(parents.getByText('PRO', { exact: true })).toBeVisible();
+  await expect(payroll.getByText('PRO', { exact: true })).toBeVisible();
 
   const hashBefore = await win.evaluate(() => location.hash);
-  await parents.click({ force: true });
+  await payroll.click({ force: true });
   // Still on the dashboard route; the disabled entry did not navigate.
   expect(await win.evaluate(() => location.hash)).toBe(hashBefore);
   await expect(win.getByRole('heading', { level: 1, name: L.dashboardHeading })).toBeVisible();

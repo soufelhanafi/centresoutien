@@ -5,6 +5,8 @@ import type {
   CenterHoursId,
   CenterId,
   DeviceId,
+  ParentId,
+  PhoneNumber,
   SubjectId,
   TimeOfDay,
   UserId,
@@ -14,6 +16,7 @@ import { createIpcDispatcher } from '../../../src/main/ipc/dispatcher';
 import {
   createHandlers,
   type CreateSubjectUseCase,
+  type CreateParentUseCase,
   type CreateAdminAccountUseCase,
   type VerifyAdminPasswordUseCase,
   type SaveCenterHoursUseCase,
@@ -51,6 +54,27 @@ const stubCreateSubject: CreateSubjectUseCase = {
     version: 0,
     name: input.name,
     active: true,
+  }),
+};
+
+// Stub parent use case — echoes an envelope-complete Parent; the handler only
+// needs `execute` and returns the new id.
+const stubCreateParent: CreateParentUseCase = {
+  execute: async (input) => ({
+    id: 'prt_00000000000000000000000001' as ParentId,
+    centerCode: input.centerCode,
+    deviceOrigin: input.deviceOrigin,
+    createdAt: new Date('2026-07-29T10:00:00Z'),
+    updatedAt: new Date('2026-07-29T10:00:00Z'),
+    updatedBy: input.updatedBy,
+    deletedAt: null,
+    version: 0,
+    naturalKey: `${input.centerCode}::x::${input.phone}`,
+    name: input.name,
+    phone: input.phone as PhoneNumber,
+    email: input.email,
+    relation: input.relation,
+    whatsappOptIn: input.whatsappOptIn,
   }),
 };
 
@@ -169,6 +193,7 @@ const dispatch = createIpcDispatcher(
     appVersion: () => '2.0.0',
     activePlanId: () => 'pro',
     createSubject: stubCreateSubject,
+    createParent: stubCreateParent,
     saveCenterHours: stubSaveCenterHours,
     getCenterHours: stubGetCenterHours,
     envelopeContext: () => context,
@@ -205,6 +230,22 @@ describe('createIpcDispatcher', () => {
 
   it('rejects subject.create whose name fails the shared schema', async () => {
     await expect(dispatch('subject.create', { name: { fr: '', ar: '' } })).rejects.toThrow();
+  });
+
+  it('runs parent.create, normalizing the phone through the shared schema', async () => {
+    await expect(
+      dispatch('parent.create', {
+        name: 'Ahmed Benali',
+        phone: '0612345678',
+        relation: 'pere',
+      }),
+    ).resolves.toEqual({ id: 'prt_00000000000000000000000001' });
+  });
+
+  it('rejects parent.create with a missing phone (the required anchor)', async () => {
+    await expect(
+      dispatch('parent.create', { name: 'Ahmed', phone: '', relation: 'pere' }),
+    ).rejects.toThrow();
   });
 
   it('runs centerHours.get and returns the week view', async () => {
