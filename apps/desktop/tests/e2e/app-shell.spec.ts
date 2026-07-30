@@ -38,7 +38,7 @@ async function waitForShell(win: Page, L: (typeof STR)[Locale]): Promise<void> {
 // Scenario 1 — every module entry renders with its localized label (premium =
 // all unlocked), in the project's locale.
 // ---------------------------------------------------------------------------
-test('Scenario 1 — all 11 module entries render with localized labels', async () => {
+test('Scenario 1 — all 12 module entries render with localized labels', async () => {
   const L = STR[locale()];
   live = await boot(locale(), 'premium');
   const win = live.win;
@@ -48,8 +48,8 @@ test('Scenario 1 — all 11 module entries render with localized labels', async 
   for (const key of ALL_MODULES) {
     await expect(nav.getByRole('link', { name: L.nav[key], exact: true })).toBeVisible();
   }
-  // Exactly 11 module links, no locked buttons on premium.
-  await expect(nav.getByRole('link')).toHaveCount(11);
+  // Exactly 12 module links, no locked buttons on premium.
+  await expect(nav.getByRole('link')).toHaveCount(12);
   await expect(win.locator('nav button[aria-disabled="true"]')).toHaveCount(0);
 
   await win.screenshot({ path: `test-results/shell-nav-premium-${locale()}.png` });

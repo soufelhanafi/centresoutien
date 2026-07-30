@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { CreateRoom, type CreateRoomInput } from '../../../src/use-cases/create-room';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
-import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
+import { PlanFeatureUnavailableError, PlanLimitExceededError } from '../../../src/errors/plan-errors';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
 import { fakeClock } from '../fakes/clock';
@@ -100,6 +100,39 @@ describe('CreateRoom', () => {
 
       await expect(useCase.execute(validInput())).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
       expect(rooms.all()).toHaveLength(0);
+    });
+  });
+
+  describe('maxRooms limit', () => {
+    it('rejects the create that would exceed the plan cap (Essentiel: 1 room)', async () => {
+      // fakeIds() yields distinct ids per call, so the first create is a real row.
+      await useCase.execute(validInput({ name: 'Salle A' }));
+
+      await expect(useCase.execute(validInput({ name: 'Salle B' }))).rejects.toBeInstanceOf(
+        PlanLimitExceededError,
+      );
+      expect(rooms.all()).toHaveLength(1);
+    });
+
+    it('counts only live rooms — an archived room frees a slot under the cap', async () => {
+      const first = await useCase.execute(validInput({ name: 'Salle A' }));
+      await rooms.softDelete(first.id, new Date('2026-07-30T00:00:00Z'), USER);
+
+      // With the only room tombstoned, the live count is 0 again — create succeeds.
+      const second = await useCase.execute(validInput({ name: 'Salle B' }));
+      expect(second.name).toBe('Salle B');
+      expect(await rooms.countActive(CENTER)).toBe(1);
+    });
+
+    it('does not cap higher tiers the same way (Pro: 5 rooms)', async () => {
+      useCase = new CreateRoom(rooms, fakeClock(), fakeIds(), new PlanPolicy(PLANS.pro));
+      for (let i = 0; i < 5; i += 1) {
+        await useCase.execute(validInput({ name: `Salle ${i}` }));
+      }
+      await expect(useCase.execute(validInput({ name: 'Salle 6' }))).rejects.toBeInstanceOf(
+        PlanLimitExceededError,
+      );
+      expect(rooms.all()).toHaveLength(5);
     });
   });
 });

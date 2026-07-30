@@ -15,14 +15,10 @@ export type CreateRoomInput = RoomInput & {
 
 /**
  * Creates a Room for a center. Gated by `core.rooms` (present on every plan; the
- * guard is still explicit so the check has one home). Validates its input with
- * the shared `roomInputSchema`, which carries the `capacity ≥ 1` invariant — the
- * domain is the authority even though the form validates first. A new room is
- * always `active`.
- *
- * The `maxRooms` plan limit is intentionally NOT enforced here: it needs a
- * per-center active-room count that the SQLite adapter provides in SOU-33. The
- * limit check is added to this use case once that query exists.
+ * guard is still explicit so the check has one home) and bounded by the plan's
+ * `maxRooms` limit. Validates its input with the shared `roomInputSchema`, which
+ * carries the `capacity ≥ 1` invariant — the domain is the authority even though
+ * the form validates first. A new room is always `active`.
  */
 export class CreateRoom {
   constructor(
@@ -38,6 +34,9 @@ export class CreateRoom {
       name: input.name,
       capacity: input.capacity,
     });
+
+    const activeCount = await this.rooms.countActive(input.centerCode);
+    this.plan.requireBelowLimit('maxRooms', activeCount);
 
     const room: Room = {
       id: this.ids.next(ROOM_ID_PREFIX) as RoomId,

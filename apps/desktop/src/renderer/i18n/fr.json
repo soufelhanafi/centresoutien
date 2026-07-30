@@ -8,6 +8,7 @@
     "teachers": "Enseignants",
     "parents": "Parents",
     "groups": "Groupes",
+    "rooms": "Salles",
     "planning": "Planning",
     "invoicing": "Facturation",
     "payments": "Paiements",
@@ -38,6 +39,8 @@
   "errors": {
     "required": "Ce champ est requis",
     "too-long": "Texte trop long",
+    "not-an-integer": "Saisissez un nombre entier",
+    "capacity-too-small": "La capacité doit être d'au moins 1",
     "invalid-email": "Adresse e-mail invalide",
     "invalid-phone": "Numéro de téléphone invalide",
     "unsupported-logo-type": "Format de logo non pris en charge (PNG, JPG, WEBP ou SVG)",
@@ -199,6 +202,80 @@
         "title": "Présence bientôt disponible",
         "body": "Le suivi de présence de l'élève apparaîtra ici."
       }
+    }
+  },
+  "rooms": {
+    "title": "Salles",
+    "subtitle": "Gérez les salles de votre centre.",
+    "new": "Nouvelle salle",
+    "seats": {
+      "remaining_one": "Il reste {{count}} salle sur {{max}}.",
+      "remaining_other": "Il reste {{count}} salles sur {{max}}.",
+      "full": "Limite de {{max}} salles atteinte."
+    },
+    "tabs": {
+      "active": "Actives",
+      "archived": "Archivées"
+    },
+    "table": {
+      "name": "Nom",
+      "capacity": "Capacité",
+      "sessions": "Séances",
+      "state": "État",
+      "actions": "Actions",
+      "noValue": "—"
+    },
+    "state": {
+      "active": "Active",
+      "archived": "Archivée"
+    },
+    "row": {
+      "menu": "Actions de la salle",
+      "edit": "Modifier",
+      "archive": "Archiver",
+      "restore": "Restaurer"
+    },
+    "empty": {
+      "title": "Aucune salle pour l'instant",
+      "body": "Ajoutez votre première salle pour commencer à planifier.",
+      "cta": "Ajouter une salle"
+    },
+    "archivedEmpty": {
+      "title": "Aucune salle archivée",
+      "body": "Les salles que vous archivez apparaîtront ici."
+    },
+    "loadError": {
+      "title": "Impossible de charger les salles",
+      "body": "Le chargement de la liste a échoué.",
+      "retry": "Réessayer"
+    },
+    "form": {
+      "createTitle": "Nouvelle salle",
+      "editTitle": "Modifier la salle",
+      "createDescription": "Renseignez le nom et la capacité de la salle.",
+      "editDescription": "Mettez à jour le nom et la capacité de la salle.",
+      "name": "Nom",
+      "namePlaceholder": "ex. Salle 1",
+      "capacity": "Capacité (places)",
+      "create": "Créer la salle",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Salle créée",
+      "editSuccess": "Modifications enregistrées",
+      "error": "L'enregistrement a échoué. Réessayez."
+    },
+    "archive": {
+      "title": "Archiver cette salle ?",
+      "body": "La salle « {{name}} » sera archivée. Vous pourrez la restaurer plus tard.",
+      "confirm": "Archiver",
+      "cancel": "Annuler",
+      "success": "Salle archivée",
+      "error": "L'archivage a échoué. Réessayez."
+    },
+    "restore": {
+      "success": "Salle restaurée",
+      "error": "La restauration a échoué. Réessayez."
     }
   },
   "settings": {
