@@ -1,6 +1,11 @@
-import { SessionOutsideCenterHoursError } from '../errors/scheduling-errors';
+import {
+  RoomConflictError,
+  SessionOutsideCenterHoursError,
+  type ScheduledSessionRef,
+} from '../errors/scheduling-errors';
 import { toMinutes, type TimeOfDay } from '../value-objects/time-of-day';
 import type { WeekdayIndex } from '../value-objects/weekday';
+import type { RoomId } from '../entities/room';
 import type { CenterHours } from '../entities/center-hours';
 
 /** A candidate session's placement, independent of the (not-yet-built) Session entity. */
@@ -10,8 +15,22 @@ export type SessionTimeCandidate = {
   end: TimeOfDay;
 };
 
+/** A candidate placement that also names the room it wants to occupy. */
+export type RoomSessionCandidate = SessionTimeCandidate & {
+  roomId: RoomId;
+};
+
 /** Just the fields the hours checks read — decoupled from the full envelope. */
 type DayHours = Pick<CenterHours, 'dayOfWeek' | 'open' | 'close'>;
+
+/**
+ * Strict half-open overlap: two intervals clash only when each starts before the
+ * other ends. Touching endpoints (back-to-back, `end === start`) do **not**
+ * overlap; a single shared minute does.
+ */
+function strictlyOverlaps(a: SessionTimeCandidate, b: ScheduledSessionRef): boolean {
+  return toMinutes(a.start) < toMinutes(b.end) && toMinutes(b.start) < toMinutes(a.end);
+}
 
 /**
  * Pure scheduling conflict checks (CLAUDE.md §6). Each check **returns** the
@@ -47,5 +66,28 @@ export const SessionConflictPolicy = {
       return new SessionOutsideCenterHoursError(candidate.dayOfWeek, 'after-close', day.open, day.close);
     }
     return null;
+  },
+
+  /**
+   * A candidate must not overlap another active weekly session **in the same
+   * room on the same day**. The caller supplies the already-loaded active refs
+   * (same center, not soft-deleted); this check filters to the matching room and
+   * day, keeps the {@link strictlyOverlaps} clashes, and returns a
+   * {@link RoomConflictError} carrying every overlapping ref — or `null` when the
+   * slot is free. Back-to-back sessions (one ends exactly as the next starts) are
+   * allowed; any shared minute is a conflict.
+   */
+  roomConflict(
+    candidate: RoomSessionCandidate,
+    existing: readonly ScheduledSessionRef[],
+  ): RoomConflictError | null {
+    const conflicts = existing.filter(
+      (ref) =>
+        ref.roomId === candidate.roomId &&
+        ref.dayOfWeek === candidate.dayOfWeek &&
+        strictlyOverlaps(candidate, ref),
+    );
+    if (conflicts.length === 0) return null;
+    return new RoomConflictError(candidate.roomId, candidate.dayOfWeek, conflicts);
   },
 } as const;

@@ -10,6 +10,14 @@ export type DeviceId = Brand<string, 'DeviceId'>; // machine that first created 
 export type UserId = Brand<string, 'UserId'>; // last editor, shown in the conflict popup
 
 /**
+ * A generic entity ULID, for references that name an entity without owning its
+ * concrete branded id (e.g. a scheduling ref to a Session whose entity is not
+ * built yet). Entity-specific ids stay stronger — prefer `RoomId`, `StudentId`,
+ * etc. where the entity exists.
+ */
+export type EntityId = Brand<string, 'EntityId'>;
+
+/**
  * Canonical 26-char ULID in Crockford base32 (excludes I, L, O, U). Anchored,
  * uppercase-only — the exact form the `ulid` package emits.
  */
