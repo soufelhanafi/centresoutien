@@ -46,6 +46,15 @@ export type { OutsideCenterHoursReason } from './errors/scheduling-errors';
 export { subjectInputSchema, SUBJECT_NAME_MAX } from './schemas/subject';
 export type { SubjectInput } from './schemas/subject';
 export {
+  studentInputSchema,
+  isCalendarDate,
+  STUDENT_NAME_MAX,
+  STUDENT_LEVEL_MAX,
+  STUDENT_SCHOOL_MAX,
+  STUDENT_NOTES_MAX,
+} from './schemas/student';
+export type { StudentInput } from './schemas/student';
+export {
   adminCredentialsSchema,
   USERNAME_MIN,
   USERNAME_MAX,
@@ -79,6 +88,8 @@ export type { CenterProfileInput, LogoExtension } from './schemas/center';
 // Entities
 export { SUBJECT_ID_PREFIX } from './entities/subject';
 export type { Subject, SubjectId } from './entities/subject';
+export { STUDENT_ID_PREFIX, PARENT_ID_PREFIX } from './entities/student';
+export type { Student, StudentId, ParentId } from './entities/student';
 export { CENTER_HOURS_ID_PREFIX, isClosed } from './entities/center-hours';
 export type { CenterHours, CenterHoursId } from './entities/center-hours';
 export { ADMIN_ACCOUNT_ID_PREFIX } from './entities/admin-account';
@@ -103,6 +114,7 @@ export {
 
 // Repository & service ports
 export type { SubjectRepository } from './ports/subject-repository';
+export type { StudentRepository } from './ports/student-repository';
 export type { CenterHoursRepository } from './ports/center-hours-repository';
 export type { AdminAccountRepository } from './ports/admin-account-repository';
 export type { PasswordHasher } from './ports/password-hasher';
@@ -117,6 +129,7 @@ export { DeviceSessionService } from './services/device-session-service';
 // Policies
 export { SessionConflictPolicy } from './policies/session-conflict-policy';
 export type { SessionTimeCandidate } from './policies/session-conflict-policy';
+export { normalizeName, buildStudentNaturalKey } from './policies/natural-key';
 
 // First-run wizard state machine (SOU-25) — a pure, portable sequencer.
 export type { WizardStepId } from './wizard/wizard-steps';
@@ -139,6 +152,8 @@ export {
 // Use cases
 export { CreateSubject } from './use-cases/create-subject';
 export type { CreateSubjectInput } from './use-cases/create-subject';
+export { CreateStudent } from './use-cases/create-student';
+export type { CreateStudentInput } from './use-cases/create-student';
 export { GetCenterProfile } from './use-cases/get-center-profile';
 export { SaveCenterProfile } from './use-cases/save-center-profile';
 export type { SaveCenterProfileInput } from './use-cases/save-center-profile';
