@@ -7,12 +7,14 @@ import { mockPlannerGateway } from './mock-planner-gateway';
  * in one place with no change to any component.
  *
  * ## Contract status (SOU-54 frontend ↔ SOU-53 data)
- * SOU-53 ships the `WeeklyRecurringSession` entity + repository port with a
- * `listForWeek(centerCode)` read, but **no IPC channel** exposes it to the
- * renderer yet (flagged there as a small follow-up). Until that `session.listWeek`
- * channel lands, the planner runs end-to-end against {@link mockPlannerGateway}.
- * Swapping in the real IPC adapter — which joins the entity with room / teacher /
- * subject to build {@link PlannerSessionView} — is this one line.
+ * SOU-53 now publishes the `session.week` IPC channel, but its `WeeklySessionDto`
+ * is the **bare entity** (`id`, `roomId`, `teacherId`, `dayOfWeek`, `start`,
+ * `end`) — it has no subject, no room/teacher names, no level, and no kind, so it
+ * cannot yet feed the grid's subject colouring, exam-prep badge, or
+ * teacher/room/level filters. Until that read model is enriched with the join
+ * (see {@link PlannerSessionView}), the planner runs end-to-end against
+ * {@link mockPlannerGateway}. Swapping in the real IPC adapter is then this one
+ * line, with no change to any component.
  */
 export interface PlannerGateway {
   /** All live sessions of the current center's week, any weekday, any kind. */

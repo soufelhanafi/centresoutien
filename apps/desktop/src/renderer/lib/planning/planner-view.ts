@@ -17,11 +17,13 @@ export type SessionKind = 'regular' | 'exam-prep';
  * entity.
  *
  * ## Contract status (SOU-54 frontend ↔ SOU-53 data)
- * SOU-53 published the entity + `listForWeek(centerCode)` port but **no IPC
- * channel yet** (flagged as a small follow-up that "won't change shapes"). The
- * grid therefore ships against {@link mockPlannerGateway}; the real read model —
- * a `session.listWeek` channel whose handler performs the room/teacher/subject
- * join above — drops in behind {@link PlannerGateway} with no component change.
+ * SOU-53 published the `session.week` IPC channel, but its `WeeklySessionDto` is
+ * the bare entity (`id`, `roomId`, `teacherId`, `dayOfWeek`, `start`, `end`) — it
+ * carries none of the joined fields below. The grid therefore ships against
+ * {@link mockPlannerGateway}; the real adapter drops in behind
+ * {@link PlannerGateway} with no component change once `session.week` is enriched
+ * to return `roomName`, `teacherName`, `subjectId` + `subjectName`, `level`, and
+ * `kind` (the room / teacher / group-subject join).
  */
 export type PlannerSessionView = {
   readonly id: string;
