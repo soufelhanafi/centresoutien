@@ -15,6 +15,7 @@
 -- needs no foreign key to a parents table that does not exist yet (SOU-40).
 --
 -- Soft-delete only. Envelope columns follow the standard template (order preserved).
+-- Rollback: additive-only. Logical undo is DROP TABLE students;
 
 CREATE TABLE students (
   id            TEXT PRIMARY KEY,             -- ULID with 'stu_' prefix

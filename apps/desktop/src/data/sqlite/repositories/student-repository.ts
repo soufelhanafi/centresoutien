@@ -145,4 +145,13 @@ export class SqliteStudentRepository implements StudentRepository {
       .get(centerCode) as { n: number };
     return row.n;
   }
+
+  async listActive(centerCode: CenterCode): Promise<readonly Student[]> {
+    const rows = this.db
+      .prepare(
+        'SELECT * FROM students WHERE center_code = ? AND deleted_at IS NULL ORDER BY name_fr COLLATE NOCASE, created_at',
+      )
+      .all(centerCode) as StudentRow[];
+    return rows.map(fromRow);
+  }
 }
