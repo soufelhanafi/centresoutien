@@ -44,6 +44,7 @@ export { PLANS } from './plans/plans';
 export { PlanPolicy } from './plans/plan-policy';
 export { DomainError, PlanFeatureUnavailableError, PlanLimitExceededError } from './errors/plan-errors';
 export { AdminAccountAlreadyExistsError } from './errors/auth-errors';
+export { DuplicateParentError } from './errors/people-errors';
 export { SessionOutsideCenterHoursError } from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason } from './errors/scheduling-errors';
 

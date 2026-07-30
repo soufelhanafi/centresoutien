@@ -3,6 +3,7 @@ import { CreateParent, type CreateParentInput } from '../../../src/use-cases/cre
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
+import { DuplicateParentError } from '../../../src/errors/people-errors';
 import { normalizeNaturalKey } from '../../../src/policies/natural-key';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryParentRepository } from '../fakes/in-memory-parent-repository';
@@ -83,6 +84,26 @@ describe('CreateParent', () => {
       expect(father.phone).toBe(mother.phone);
       expect(father.naturalKey).not.toBe(mother.naturalKey);
       expect(parents.all()).toHaveLength(2);
+    });
+  });
+
+  describe('exact duplicate', () => {
+    it('rejects a same-name + same-phone guardian with a typed DuplicateParentError and saves nothing new', async () => {
+      const first = await useCase.execute(validInput());
+
+      // Same name + phone (after normalization) → same naturalKey → a genuine duplicate.
+      await expect(useCase.execute(validInput())).rejects.toBeInstanceOf(DuplicateParentError);
+      await expect(useCase.execute(validInput())).rejects.toMatchObject({ naturalKey: first.naturalKey });
+      expect(parents.all()).toHaveLength(1);
+    });
+
+    it('allows recreating a guardian whose only match was soft-deleted (tombstone frees the key)', async () => {
+      const first = await useCase.execute(validInput());
+      await parents.softDelete(first.id, new Date('2026-08-02T00:00:00Z'));
+
+      const recreated = await useCase.execute(validInput());
+      expect(recreated.id).not.toBe(first.id);
+      expect(recreated.naturalKey).toBe(first.naturalKey);
     });
   });
 

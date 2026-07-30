@@ -7,6 +7,7 @@ import { newEnvelope } from '../entities/envelope';
 import { normalizeNaturalKey } from '../policies/natural-key';
 import { parentInputSchema, type ParentInput } from '../schemas/parent';
 import { PARENT_ID_PREFIX, type Parent, type ParentId } from '../entities/parent';
+import { DuplicateParentError } from '../errors/people-errors';
 
 export type CreateParentInput = ParentInput & {
   centerCode: CenterCode;
@@ -21,7 +22,9 @@ export type CreateParentInput = ParentInput & {
  * `parentInputSchema` (phone required + normalized to E.164), then stamps the
  * immutable `naturalKey` from the canonical phone so parents-first duplicate
  * matching has its anchor. A shared family phone is allowed: a different name
- * yields a different key, so both guardians save.
+ * yields a different key, so both guardians save. An exact match (same name +
+ * phone in the same center) is rejected with a typed {@link DuplicateParentError}
+ * so the renderer gets a localizable error instead of a raw DB constraint leak.
  */
 export class CreateParent {
   constructor(
@@ -41,6 +44,15 @@ export class CreateParent {
       whatsappOptIn: input.whatsappOptIn,
     });
 
+    const naturalKey = normalizeNaturalKey({
+      centerCode: input.centerCode,
+      fullName: fields.name,
+      contact: fields.phone,
+    });
+    if (await this.parents.findByNaturalKey(naturalKey)) {
+      throw new DuplicateParentError(naturalKey);
+    }
+
     const parent: Parent = {
       id: this.ids.next(PARENT_ID_PREFIX) as ParentId,
       ...newEnvelope(
@@ -51,11 +63,7 @@ export class CreateParent {
         },
         this.clock,
       ),
-      naturalKey: normalizeNaturalKey({
-        centerCode: input.centerCode,
-        fullName: fields.name,
-        contact: fields.phone,
-      }),
+      naturalKey,
       name: fields.name,
       phone: fields.phone,
       email: fields.email,
