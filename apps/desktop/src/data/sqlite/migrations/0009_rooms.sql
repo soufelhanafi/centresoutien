@@ -25,7 +25,8 @@ CREATE TABLE rooms (
   capacity      INTEGER NOT NULL,             -- seats
   active        INTEGER NOT NULL DEFAULT 1,   -- boolean 0/1
   CHECK (id LIKE 'rom\_%' ESCAPE '\'),
-  CHECK (capacity >= 1)
+  CHECK (capacity >= 1),
+  CHECK (active IN (0, 1))
 );
 
 CREATE INDEX ix_rooms_updated_at ON rooms(updated_at);

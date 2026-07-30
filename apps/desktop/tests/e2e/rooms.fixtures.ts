@@ -13,10 +13,10 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
  * (`i18n/fr.json` / `ar.json`) — the user-facing localization contract, exactly
  * as the SOU-39 students fixtures do.
  *
- * The Rooms screen currently runs against an in-memory mock gateway (SOU-33 will
- * publish the SQLite-backed `room.*` channels). The mock seeds two rooms
- * ("Salle 1", "Salle 2") and resets on reload, so specs interact within a single
- * page session and each test boots a fresh app for isolation.
+ * The Rooms screen is wired to the REAL SQLite-backed `room.*` IPC gateway
+ * (SOU-33). A fresh E2E database therefore starts with NO rooms, so every spec
+ * creates the data it needs through the UI. Each test boots a fresh app with a
+ * throwaway user-data dir for isolation.
  */
 
 const dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -56,7 +56,7 @@ export const STR: Record<
     };
     archive: { title: string; confirm: string; success: string };
     restore: { success: string };
-    errors: { required: string; notInteger: string };
+    errors: { required: string; notInteger: string; capacityTooSmall: string };
   }
 > = {
   fr: {
@@ -82,7 +82,11 @@ export const STR: Record<
     },
     archive: { title: 'Archiver cette salle ?', confirm: 'Archiver', success: 'Salle archivée' },
     restore: { success: 'Salle restaurée' },
-    errors: { required: 'Ce champ est requis', notInteger: 'Saisissez un nombre entier' },
+    errors: {
+      required: 'Ce champ est requis',
+      notInteger: 'Saisissez un nombre entier',
+      capacityTooSmall: "La capacité doit être d'au moins 1",
+    },
   },
   ar: {
     navRooms: 'القاعات',
@@ -107,7 +111,11 @@ export const STR: Record<
     },
     archive: { title: 'أرشفة هذه القاعة؟', confirm: 'أرشفة', success: 'تمت أرشفة القاعة' },
     restore: { success: 'تمت استعادة القاعة' },
-    errors: { required: 'هذا الحقل مطلوب', notInteger: 'أدخل عددًا صحيحًا' },
+    errors: {
+      required: 'هذا الحقل مطلوب',
+      notInteger: 'أدخل عددًا صحيحًا',
+      capacityTooSmall: 'يجب أن تكون السعة 1 على الأقل',
+    },
   },
 };
 

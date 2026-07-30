@@ -219,6 +219,15 @@
     "title": "القاعات",
     "subtitle": "أدر قاعات مركزك.",
     "new": "قاعة جديدة",
+    "seats": {
+      "remaining_zero": "لم تتبقّ أي قاعة من أصل {{max}}.",
+      "remaining_one": "تتبقّى قاعة واحدة من أصل {{max}}.",
+      "remaining_two": "تتبقّى قاعتان من أصل {{max}}.",
+      "remaining_few": "تتبقّى {{count}} قاعات من أصل {{max}}.",
+      "remaining_many": "تتبقّى {{count}} قاعةً من أصل {{max}}.",
+      "remaining_other": "تتبقّى {{count}} قاعة من أصل {{max}}.",
+      "full": "تم بلوغ الحد الأقصى {{max}} قاعة."
+    },
     "tabs": {
       "active": "النشطة",
       "archived": "المؤرشفة"

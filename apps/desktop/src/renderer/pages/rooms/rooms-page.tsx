@@ -4,12 +4,17 @@ import { Plus } from 'lucide-react';
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import { RoomListPanel } from '../../components/room/room-list-panel';
 import { CreateRoomDialog } from '../../components/room/create-room-dialog';
+import { RoomSeatsNotice } from '../../components/room/room-seats-notice';
+import { useRooms } from '../../hooks/room/use-rooms';
 
 /** Rooms module: active / archived tables with create, edit, archive, restore. */
 export function RoomsPage() {
   const { t } = useTranslation();
   const [createOpen, setCreateOpen] = useState(false);
   const openCreate = () => setCreateOpen(true);
+  // The plan cap is on live rooms, so the nudge tracks the active list (shares the
+  // active tab's cached query).
+  const activeCount = useRooms('active').data?.length ?? 0;
 
   return (
     <section aria-labelledby="rooms-title" className="mx-auto flex w-full max-w-5xl flex-col gap-5">
@@ -19,6 +24,7 @@ export function RoomsPage() {
             {t('rooms.title')}
           </h1>
           <p className="text-sm text-muted-foreground">{t('rooms.subtitle')}</p>
+          <RoomSeatsNotice activeCount={activeCount} />
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4" aria-hidden="true" />

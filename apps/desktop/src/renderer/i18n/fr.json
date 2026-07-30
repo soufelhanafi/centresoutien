@@ -208,6 +208,11 @@
     "title": "Salles",
     "subtitle": "Gérez les salles de votre centre.",
     "new": "Nouvelle salle",
+    "seats": {
+      "remaining_one": "Il reste {{count}} salle sur {{max}}.",
+      "remaining_other": "Il reste {{count}} salles sur {{max}}.",
+      "full": "Limite de {{max}} salles atteinte."
+    },
     "tabs": {
       "active": "Actives",
       "archived": "Archivées"

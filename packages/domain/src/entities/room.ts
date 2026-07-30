@@ -14,6 +14,11 @@ export type RoomId = Brand<string, 'RoomId'>;
  * via `roomInputSchema`). Soft-delete only: a room referenced by any active
  * weekly session cannot be archived — the `ArchiveRoom` use case rejects that
  * with `RoomInUseError`. Not people-like, so it carries no `naturalKey`.
+ *
+ * `active` is reserved for a future "temporarily unavailable" toggle (mirroring
+ * `Subject.active`); it is set `true` on creation and is not yet read by any
+ * policy. A room's live/archived lifecycle is driven solely by the envelope
+ * `deletedAt` tombstone (archive/restore), never by this flag.
  */
 export type Room = EntityEnvelope & {
   readonly id: RoomId;
