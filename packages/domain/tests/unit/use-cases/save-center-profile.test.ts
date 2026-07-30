@@ -42,7 +42,7 @@ describe('SaveCenterProfile', () => {
       expect(center.id).toMatch(/^ctr_/);
       expect(center.name).toBe('Centre Al Ilm');
       expect(center.address).toBe('12 Rue Mohammed V');
-      expect(center.phone).toBe('0522-000000');
+      expect(center.phone).toBe('+212522000000');
       expect(center.email).toBe('contact@alilm.ma');
       expect(center.logoPath).toBeNull();
       expect(center.plan).toBe('essentiel');
@@ -102,6 +102,11 @@ describe('SaveCenterProfile', () => {
 
     it('rejects a malformed email', async () => {
       await expect(useCase.execute(validInput({ email: 'not-an-email' }))).rejects.toThrow();
+    });
+
+    it('rejects a phone that cannot be normalized to E.164', async () => {
+      await expect(useCase.execute(validInput({ phone: 'abc' }))).rejects.toThrow();
+      expect(await centers.get()).toBeNull();
     });
 
     it('accepts a blank email/address/phone (optional contact)', async () => {

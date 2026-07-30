@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizePhone } from '../value-objects/phone-number';
 
 /**
  * Center profile input schemas — the user-editable fields of the center row.
@@ -24,6 +25,28 @@ const optionalText = (max: number) =>
     .max(max, { message: 'too-long' })
     .default('');
 
+/**
+ * Phone collapses to `''` when blank; otherwise it is normalized to E.164 via the
+ * {@link normalizePhone} value object (`0612345678` → `+212612345678`). A value
+ * that cannot be normalized fails with the stable `invalid-phone` code. Storing
+ * the canonical form is what makes parents-first duplicate matching (phone anchor)
+ * work across devices.
+ */
+const phoneField = z
+  .string()
+  .trim()
+  .max(CENTER_PHONE_MAX, { message: 'too-long' })
+  .transform((v, ctx) => {
+    if (v === '') return '';
+    try {
+      return normalizePhone(v);
+    } catch {
+      ctx.addIssue({ code: 'custom', message: 'invalid-phone' });
+      return z.NEVER;
+    }
+  })
+  .default('');
+
 const emailField = z
   .string()
   .trim()
@@ -36,7 +59,7 @@ const emailField = z
 export const centerProfileSchema = z.object({
   name: z.string().trim().min(1, { message: 'required' }).max(CENTER_NAME_MAX, { message: 'too-long' }),
   address: optionalText(CENTER_ADDRESS_MAX),
-  phone: optionalText(CENTER_PHONE_MAX),
+  phone: phoneField,
   email: emailField,
 });
 
@@ -44,8 +67,11 @@ export type CenterProfileInput = z.infer<typeof centerProfileSchema>;
 
 // --- Logo upload ---------------------------------------------------------
 
-/** Image types accepted for the center logo. */
-export const LOGO_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'svg'] as const;
+/**
+ * Image types accepted for the center logo. `svg` is deliberately excluded — an
+ * SVG can carry script, and the stored logo is re-served to the renderer.
+ */
+export const LOGO_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'] as const;
 export type LogoExtension = (typeof LOGO_EXTENSIONS)[number];
 
 /** 2 MiB ceiling — a logo, not a photo library. */

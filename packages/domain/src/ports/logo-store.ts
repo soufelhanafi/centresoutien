@@ -12,4 +12,12 @@ export interface LogoStore {
    * own app-data base.
    */
   save(input: { bytes: Uint8Array; extension: string }): Promise<string>;
+
+  /**
+   * Read back the bytes for a previously stored **relative** reference (the value
+   * {@link save} returned and the center row carries). Returns `null` when the
+   * path is unknown, missing, or points outside the logo store — so a stale or
+   * hostile reference can never read arbitrary files.
+   */
+  read(relativePath: string): Promise<Uint8Array | null>;
 }

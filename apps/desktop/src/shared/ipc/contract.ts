@@ -112,6 +112,19 @@ export const ipcContract = {
     }),
     response: z.object({ path: z.string() }),
   },
+  // `center.logoBytes` reads back a stored logo so the renderer can re-display it
+  // after a reload (the row keeps only the relative path, not the bytes). The data
+  // adapter guards against path traversal and returns `null` for an unknown or
+  // stale reference, so a missing logo is a normal, non-erroring response.
+  'center.logoBytes': {
+    request: z.object({ path: z.string().max(CENTER_LOGO_PATH_MAX) }),
+    // `z.custom<Uint8Array>` (not `z.instanceof`) so the inferred type stays the
+    // library-default `Uint8Array` the domain port returns — `z.instanceof`
+    // narrows to `Uint8Array<ArrayBuffer>` and rejects `ArrayBufferLike`-backed bytes.
+    response: z.object({
+      bytes: z.custom<Uint8Array>((v) => v instanceof Uint8Array).nullable(),
+    }),
+  },
 } as const;
 
 export type IpcContract = typeof ipcContract;
