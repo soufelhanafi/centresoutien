@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type {
   AdminAccountId,
   CenterCode,
+  CenterHoursId,
   CenterId,
   DeviceId,
   SubjectId,
+  TimeOfDay,
   UserId,
+  WeekdayIndex,
 } from '@centresoutien/domain';
 import { createIpcDispatcher } from '../../../src/main/ipc/dispatcher';
 import {
@@ -13,9 +16,11 @@ import {
   type CreateSubjectUseCase,
   type CreateAdminAccountUseCase,
   type VerifyAdminPasswordUseCase,
+  type SaveCenterHoursUseCase,
+  type GetCenterHoursUseCase,
   type AttemptLoginUseCase,
   type DeviceSessions,
-  type SubjectContext,
+  type EnvelopeContext,
   type CenterContext,
   type GetCenterProfileUseCase,
   type SaveCenterProfileUseCase,
@@ -27,7 +32,7 @@ import type { IpcHandlers } from '../../../src/shared/ipc/contract';
 // Throwaway test password assembled from fragments (secret-scan friendly).
 const PASS = ['Casa', '2026', '!'].join('');
 
-const context: SubjectContext = {
+const context: EnvelopeContext = {
   centerCode: 'CS-DEV-001' as CenterCode,
   deviceOrigin: 'dev_00000000000000000000000001' as DeviceId,
   updatedBy: 'usr_00000000000000000000000001' as UserId,
@@ -138,12 +143,35 @@ const stubReadLogo: ReadCenterLogoUseCase = {
   execute: async (input) => (input.path === 'logos/lgo_test.png' ? new Uint8Array([7, 8, 9]) : null),
 };
 
+// Stub center-hours use cases — echo the input week back as entities.
+const stubGetCenterHours: GetCenterHoursUseCase = {
+  execute: async () => [],
+};
+const stubSaveCenterHours: SaveCenterHoursUseCase = {
+  execute: async (input) =>
+    input.week.map((day, index) => ({
+      id: `chr_${String(index).padStart(26, '0')}` as CenterHoursId,
+      centerCode: input.centerCode,
+      deviceOrigin: input.deviceOrigin,
+      createdAt: new Date('2026-07-29T10:00:00Z'),
+      updatedAt: new Date('2026-07-29T10:00:00Z'),
+      updatedBy: input.updatedBy,
+      deletedAt: null,
+      version: 0,
+      dayOfWeek: day.dayOfWeek as WeekdayIndex,
+      open: day.open as TimeOfDay | null,
+      close: day.close as TimeOfDay | null,
+    })),
+};
+
 const dispatch = createIpcDispatcher(
   createHandlers({
     appVersion: () => '2.0.0',
     activePlanId: () => 'pro',
     createSubject: stubCreateSubject,
-    subjectContext: () => context,
+    saveCenterHours: stubSaveCenterHours,
+    getCenterHours: stubGetCenterHours,
+    envelopeContext: () => context,
     adminExists: async () => false,
     createAdminAccount: stubCreateAdminAccount,
     verifyAdminPassword: stubVerifyAdminPassword,
@@ -177,6 +205,25 @@ describe('createIpcDispatcher', () => {
 
   it('rejects subject.create whose name fails the shared schema', async () => {
     await expect(dispatch('subject.create', { name: { fr: '', ar: '' } })).rejects.toThrow();
+  });
+
+  it('runs centerHours.get and returns the week view', async () => {
+    await expect(dispatch('centerHours.get', {})).resolves.toEqual({ week: [] });
+  });
+
+  it('runs centerHours.save and echoes the saved week as an envelope-stripped view', async () => {
+    const week = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+      dayOfWeek,
+      open: '09:00',
+      close: '18:00',
+    }));
+    await expect(dispatch('centerHours.save', week)).resolves.toEqual({ week });
+  });
+
+  it('rejects centerHours.save whose week fails the shared schema', async () => {
+    await expect(
+      dispatch('centerHours.save', [{ dayOfWeek: 0, open: '18:00', close: '09:00' }]),
+    ).rejects.toThrow();
   });
 
   it('runs admin.exists', async () => {

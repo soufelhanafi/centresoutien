@@ -12,6 +12,10 @@ export type { CenterCode, DeviceId, UserId } from './value-objects/ids';
 export { ULID_REGEX, isUlid, hasIdPrefix } from './value-objects/ids';
 export type { PhoneNumber, PhoneRegion } from './value-objects/phone-number';
 export { normalizePhone, InvalidPhoneNumberError } from './value-objects/phone-number';
+export type { TimeOfDay } from './value-objects/time-of-day';
+export { TIME_OF_DAY_REGEX, isTimeOfDay, toMinutes } from './value-objects/time-of-day';
+export type { WeekdayIndex } from './value-objects/weekday';
+export { WEEKDAYS, isWeekdayIndex } from './value-objects/weekday';
 
 // Ports
 export type { Clock } from './ports/clock';
@@ -35,6 +39,8 @@ export { PLANS } from './plans/plans';
 export { PlanPolicy } from './plans/plan-policy';
 export { DomainError, PlanFeatureUnavailableError, PlanLimitExceededError } from './errors/plan-errors';
 export { AdminAccountAlreadyExistsError } from './errors/auth-errors';
+export { SessionOutsideCenterHoursError } from './errors/scheduling-errors';
+export type { OutsideCenterHoursReason } from './errors/scheduling-errors';
 
 // Input validation schemas (shared by forms via zodResolver and by use cases)
 export { subjectInputSchema, SUBJECT_NAME_MAX } from './schemas/subject';
@@ -47,6 +53,14 @@ export {
   PASSWORD_MAX,
 } from './schemas/admin-account';
 export type { AdminCredentials } from './schemas/admin-account';
+export {
+  weekdayHoursSchema,
+  weeklyHoursSchema,
+  DEFAULT_OPEN,
+  DEFAULT_CLOSE,
+  DEFAULT_WEEKLY_HOURS,
+} from './schemas/center-hours';
+export type { WeekdayHoursInput, WeeklyHoursInput } from './schemas/center-hours';
 export { loginInputSchema } from './schemas/login';
 export type { LoginInput } from './schemas/login';
 export {
@@ -65,6 +79,8 @@ export type { CenterProfileInput, LogoExtension } from './schemas/center';
 // Entities
 export { SUBJECT_ID_PREFIX } from './entities/subject';
 export type { Subject, SubjectId } from './entities/subject';
+export { CENTER_HOURS_ID_PREFIX, isClosed } from './entities/center-hours';
+export type { CenterHours, CenterHoursId } from './entities/center-hours';
 export { ADMIN_ACCOUNT_ID_PREFIX } from './entities/admin-account';
 export type { AdminAccount, AdminAccountId } from './entities/admin-account';
 export {
@@ -87,6 +103,7 @@ export {
 
 // Repository & service ports
 export type { SubjectRepository } from './ports/subject-repository';
+export type { CenterHoursRepository } from './ports/center-hours-repository';
 export type { AdminAccountRepository } from './ports/admin-account-repository';
 export type { PasswordHasher } from './ports/password-hasher';
 export type { LoginThrottleStore } from './ports/login-throttle-store';
@@ -96,6 +113,10 @@ export type { LogoStore } from './ports/logo-store';
 
 // Domain services
 export { DeviceSessionService } from './services/device-session-service';
+
+// Policies
+export { SessionConflictPolicy } from './policies/session-conflict-policy';
+export type { SessionTimeCandidate } from './policies/session-conflict-policy';
 
 // First-run wizard state machine (SOU-25) — a pure, portable sequencer.
 export type { WizardStepId } from './wizard/wizard-steps';
@@ -125,6 +146,10 @@ export { StoreCenterLogo } from './use-cases/store-center-logo';
 export type { StoreCenterLogoInput } from './use-cases/store-center-logo';
 export { ReadCenterLogo } from './use-cases/read-center-logo';
 export type { ReadCenterLogoInput } from './use-cases/read-center-logo';
+export { SaveCenterHours } from './use-cases/save-center-hours';
+export type { SaveCenterHoursInput } from './use-cases/save-center-hours';
+export { GetCenterHours } from './use-cases/get-center-hours';
+export type { GetCenterHoursInput } from './use-cases/get-center-hours';
 export { CreateAdminAccount } from './use-cases/create-admin-account';
 export type { CreateAdminAccountInput } from './use-cases/create-admin-account';
 export { VerifyAdminPassword } from './use-cases/verify-admin-password';

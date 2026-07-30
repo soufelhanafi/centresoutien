@@ -1,4 +1,4 @@
--- 0005_center.sql
+-- 0006_center.sql
 -- What: the center's own profile — a single synced row per center database.
 -- Why:  SOU-28. Shown in Settings and on the invoice PDF header; `plan` is the
 --       interim gate source (SOU-98 moves plan authority to a license file and

@@ -6,6 +6,8 @@ import {
   CreateSubject,
   CreateAdminAccount,
   VerifyAdminPassword,
+  SaveCenterHours,
+  GetCenterHours,
   AttemptLogin,
   LoginThrottlePolicy,
   DeviceSessionService,
@@ -18,6 +20,7 @@ import type { PlanId, CenterCode, DeviceId, UserId, IdGenerator } from '@centres
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
+import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-throttle-store';
 import { SqliteDeviceSessionStore } from '../data/sqlite/repositories/device-session-store';
@@ -29,7 +32,7 @@ import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
 import {
   createHandlers,
   type HandlerDeps,
-  type SubjectContext,
+  type EnvelopeContext,
   type CenterContext,
 } from './ipc/handlers';
 
@@ -111,6 +114,10 @@ export function buildContainer(options: ContainerOptions): Container {
   const storeCenterLogo = new StoreCenterLogo(logoStore);
   const readCenterLogo = new ReadCenterLogo(logoStore);
 
+  const centerHoursRepo = new SqliteCenterHoursRepository(db);
+  const saveCenterHours = new SaveCenterHours(centerHoursRepo, clock, ids, plan);
+  const getCenterHours = new GetCenterHours(centerHoursRepo, plan);
+
   const hasher = new Argon2PasswordHasher();
   const adminRepo = new SqliteAdminAccountRepository(db);
   const createAdminAccount = new CreateAdminAccount(adminRepo, hasher, clock, ids);
@@ -125,7 +132,7 @@ export function buildContainer(options: ContainerOptions): Container {
     clock,
   );
 
-  const context: SubjectContext = {
+  const context: EnvelopeContext = {
     centerCode: options.centerCode,
     deviceOrigin: resolveDeviceOrigin(db, ids),
     updatedBy: DEV_USER,
@@ -136,7 +143,9 @@ export function buildContainer(options: ContainerOptions): Container {
     appVersion: options.appVersion,
     activePlanId: () => activePlanId,
     createSubject,
-    subjectContext: () => context,
+    saveCenterHours,
+    getCenterHours,
+    envelopeContext: () => context,
     adminExists: () => adminRepo.exists(),
     createAdminAccount,
     verifyAdminPassword,

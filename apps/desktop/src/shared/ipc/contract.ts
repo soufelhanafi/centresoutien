@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   subjectInputSchema,
   adminCredentialsSchema,
+  weeklyHoursSchema,
   loginInputSchema,
   centerProfileSchema,
   PASSWORD_MAX,
@@ -16,6 +17,15 @@ const centerDto = z.object({
   email: z.string(),
   logoPath: z.string().nullable(),
   plan: z.enum(['essentiel', 'pro', 'premium']),
+});
+
+// The display shape of one weekday's hours returned to the renderer: the
+// user-visible fields only, envelope stripped. `open`/`close` are `'HH:mm'` or
+// null (closed). Reused by both centerHours responses.
+const centerHoursViewSchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6),
+  open: z.string().nullable(),
+  close: z.string().nullable(),
 });
 
 /**
@@ -59,6 +69,18 @@ export const ipcContract = {
       password: z.string().min(1).max(PASSWORD_MAX),
     }),
     response: z.object({ valid: z.boolean() }),
+  },
+  // Center opening hours (SOU-29). `get` returns only persisted rows (empty on a
+  // fresh center — the renderer seeds from the domain's DEFAULT_WEEKLY_HOURS).
+  // `save` takes the whole 7-row week (the domain's own schema) and echoes back
+  // the saved rows; centerCode/device/user are injected in main, never sent.
+  'centerHours.get': {
+    request: z.object({}),
+    response: z.object({ week: z.array(centerHoursViewSchema) }),
+  },
+  'centerHours.save': {
+    request: weeklyHoursSchema,
+    response: z.object({ week: z.array(centerHoursViewSchema) }),
   },
   // Login (SOU-27). `auth.login` is the throttled entry point: it counts failed
   // attempts, enforces the 5-try / 15-minute lockout, and — when the "remember
