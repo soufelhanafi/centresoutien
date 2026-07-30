@@ -16,6 +16,8 @@ export type { TimeOfDay } from './value-objects/time-of-day';
 export { TIME_OF_DAY_REGEX, isTimeOfDay, toMinutes } from './value-objects/time-of-day';
 export type { WeekdayIndex } from './value-objects/weekday';
 export { WEEKDAYS, isWeekdayIndex } from './value-objects/weekday';
+export type { GuardianRelation } from './value-objects/guardian-relation';
+export { GUARDIAN_RELATIONS, isGuardianRelation } from './value-objects/guardian-relation';
 
 // Ports
 export type { Clock } from './ports/clock';
@@ -30,6 +32,9 @@ export { applyWrite } from './entities/write';
 // Sync
 export { diffChangedFields } from './sync/change-log';
 
+// Duplicate-matching policy (people-like naturalKey)
+export { normalizeNaturalKey } from './policies/natural-key';
+
 // Repository ports
 export type { SoftDeletableRepository } from './repositories/soft-deletable';
 
@@ -40,6 +45,7 @@ export { PlanPolicy } from './plans/plan-policy';
 export { DomainError, PlanFeatureUnavailableError, PlanLimitExceededError } from './errors/plan-errors';
 export { AdminAccountAlreadyExistsError } from './errors/auth-errors';
 export { StudentNotFoundError } from './errors/student-errors';
+export { DuplicateParentError } from './errors/people-errors';
 export { SessionOutsideCenterHoursError } from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason } from './errors/scheduling-errors';
 
@@ -74,6 +80,13 @@ export type { WeekdayHoursInput, WeeklyHoursInput } from './schemas/center-hours
 export { loginInputSchema } from './schemas/login';
 export type { LoginInput } from './schemas/login';
 export {
+  parentInputSchema,
+  PARENT_NAME_MAX,
+  PARENT_PHONE_MAX,
+  PARENT_EMAIL_MAX,
+} from './schemas/parent';
+export type { ParentInput } from './schemas/parent';
+export {
   centerProfileSchema,
   logoUploadSchema,
   LOGO_EXTENSIONS,
@@ -89,8 +102,8 @@ export type { CenterProfileInput, LogoExtension } from './schemas/center';
 // Entities
 export { SUBJECT_ID_PREFIX } from './entities/subject';
 export type { Subject, SubjectId } from './entities/subject';
-export { STUDENT_ID_PREFIX, PARENT_ID_PREFIX } from './entities/student';
-export type { Student, StudentId, ParentId } from './entities/student';
+export { STUDENT_ID_PREFIX } from './entities/student';
+export type { Student, StudentId } from './entities/student';
 export { CENTER_HOURS_ID_PREFIX, isClosed } from './entities/center-hours';
 export type { CenterHours, CenterHoursId } from './entities/center-hours';
 export { ADMIN_ACCOUNT_ID_PREFIX } from './entities/admin-account';
@@ -103,6 +116,8 @@ export {
 export type { DeviceSession, DeviceSessionId } from './entities/device-session';
 export { CENTER_ID_PREFIX } from './entities/center';
 export type { Center, CenterId } from './entities/center';
+export { PARENT_ID_PREFIX } from './entities/parent';
+export type { Parent, ParentId } from './entities/parent';
 
 // Value objects & policies (login throttle — SOU-27)
 export { UNLOCKED_STATE } from './value-objects/lockout-state';
@@ -123,6 +138,14 @@ export type { LoginThrottleStore } from './ports/login-throttle-store';
 export type { DeviceSessionStore } from './ports/device-session-store';
 export type { CenterRepository } from './ports/center-repository';
 export type { LogoStore } from './ports/logo-store';
+export type { ParentRepository } from './ports/parent-repository';
+// Student↔parent link — DECLARED CONTRACT ONLY (implemented after SOU-38 merges).
+export { STUDENT_PARENT_LINK_ID_PREFIX } from './ports/student-parent-link';
+export type {
+  StudentParentLink,
+  StudentParentLinkId,
+  StudentParentLinkRepository,
+} from './ports/student-parent-link';
 
 // Domain services
 export { DeviceSessionService } from './services/device-session-service';
@@ -130,7 +153,7 @@ export { DeviceSessionService } from './services/device-session-service';
 // Policies
 export { SessionConflictPolicy } from './policies/session-conflict-policy';
 export type { SessionTimeCandidate } from './policies/session-conflict-policy';
-export { normalizeName, buildStudentNaturalKey } from './policies/natural-key';
+export { buildStudentNaturalKey } from './policies/natural-key';
 
 // First-run wizard state machine (SOU-25) — a pure, portable sequencer.
 export type { WizardStepId } from './wizard/wizard-steps';
@@ -163,6 +186,8 @@ export { UpdateStudent } from './use-cases/update-student';
 export type { UpdateStudentInput } from './use-cases/update-student';
 export { ArchiveStudent } from './use-cases/archive-student';
 export type { ArchiveStudentInput } from './use-cases/archive-student';
+export { CreateParent } from './use-cases/create-parent';
+export type { CreateParentInput } from './use-cases/create-parent';
 export { GetCenterProfile } from './use-cases/get-center-profile';
 export { SaveCenterProfile } from './use-cases/save-center-profile';
 export type { SaveCenterProfileInput } from './use-cases/save-center-profile';

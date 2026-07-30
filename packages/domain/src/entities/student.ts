@@ -1,21 +1,16 @@
 import type { Brand } from '../value-objects/brand';
 import type { EntityEnvelope } from './envelope';
+import type { ParentId } from './parent';
 
 /** ULID id prefix for students: `stu_01HW…`. */
 export const STUDENT_ID_PREFIX = 'stu';
 
 export type StudentId = Brand<string, 'StudentId'>;
 
-/**
- * Forward reference to the Parent entity (SOU-40), which does not exist yet.
- * Student is the first entity to link to guardians, so the `ParentId` brand and
- * its id prefix are declared here and published from the barrel. When SOU-40
- * creates `entities/parent.ts`, it relocates these two lines there (and re-exports
- * for compatibility) — the Student side keeps referencing `ParentId` unchanged.
- */
-export const PARENT_ID_PREFIX = 'prt';
-
-export type ParentId = Brand<string, 'ParentId'>;
+// `ParentId` / `PARENT_ID_PREFIX` now live in `./parent` (their real home, SOU-40).
+// Re-exported here so existing `from './entities/student'` imports keep resolving.
+export { PARENT_ID_PREFIX } from './parent';
+export type { ParentId } from './parent';
 
 /**
  * A student enrolled at the center (every-plan `core.students`). People-like, so

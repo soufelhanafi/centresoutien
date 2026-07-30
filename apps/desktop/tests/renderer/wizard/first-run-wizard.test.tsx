@@ -18,6 +18,35 @@ function renderWizard(onComplete = vi.fn()) {
   );
 }
 
+/**
+ * Stateful stub of the preload bridge for the channels the wizard touches. It
+ * remembers the saved center so returning to the (now real, SOU-111) Center
+ * Profile step re-hydrates its fields, mirroring the real `center.save` /
+ * `center.get` round trip.
+ */
+function stubApi() {
+  let savedCenter: Record<string, unknown> | null = null;
+  return vi.fn().mockImplementation((channel: string, req: Record<string, unknown>) => {
+    switch (channel) {
+      case 'center.get':
+        return Promise.resolve({ center: savedCenter });
+      case 'center.save':
+        savedCenter = { ...req, logoPath: req.logoPath ?? null, plan: 'essentiel' };
+        return Promise.resolve({ center: savedCenter });
+      case 'admin.create':
+        return Promise.resolve({ id: 'adm_00000000000000000000000001' });
+      default:
+        return Promise.resolve({});
+    }
+  });
+}
+
+/** Fill the mandatory Center Profile fields (name + valid phone) and continue. */
+async function fillCenter(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(await screen.findByLabelText('Nom du centre'), 'Centre principal');
+  await user.type(screen.getByLabelText('Téléphone'), '+212612345678');
+}
+
 beforeEach(() => {
   useWizardStore.setState({ state: null, adminUsername: '' });
   usePlanStore.getState().setPlan('essentiel');
@@ -33,7 +62,7 @@ describe('FirstRunWizard — French walk-through (Essentiel)', () => {
   });
 
   it('walks every mandatory step to Done and creates the admin account once', async () => {
-    const invoke = vi.fn().mockResolvedValue({ id: 'adm_00000000000000000000000001' });
+    const invoke = stubApi();
     window.api.invoke = invoke;
     const onComplete = vi.fn();
     const user = userEvent.setup();
@@ -43,8 +72,9 @@ describe('FirstRunWizard — French walk-through (Essentiel)', () => {
     expect(screen.getByText('Choisissez la langue')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Continuer' }));
 
-    // 2. Center profile (stub)
+    // 2. Center profile (real, mandatory — persists the center row)
     expect(await screen.findByText('Profil du centre')).toBeInTheDocument();
+    await fillCenter(user);
     await user.click(screen.getByRole('button', { name: 'Continuer' }));
 
     // 3. Admin account (real)
@@ -60,7 +90,9 @@ describe('FirstRunWizard — French walk-through (Essentiel)', () => {
         password: 'Motdepasse1',
       }),
     );
-    expect(invoke).toHaveBeenCalledTimes(1);
+    // The center row is persisted before the admin account.
+    expect(invoke).toHaveBeenCalledWith('center.save', expect.objectContaining({ name: 'Centre principal' }));
+    expect(invoke.mock.calls.filter((call) => call[0] === 'admin.create')).toHaveLength(1);
 
     // 4. Hours (stub) -> Done
     expect(await screen.findByText("Horaires d'ouverture")).toBeInTheDocument();
@@ -82,17 +114,19 @@ describe('FirstRunWizard — French walk-through (Essentiel)', () => {
   });
 
   it('retains the admin username across a Back → Continue round trip', async () => {
-    window.api.invoke = vi.fn();
+    window.api.invoke = stubApi();
     const user = userEvent.setup();
     renderWizard();
 
     await user.click(screen.getByRole('button', { name: 'Continuer' })); // language -> profile
+    await fillCenter(user);
     await user.click(await screen.findByRole('button', { name: 'Continuer' })); // profile -> admin
 
     const username = await screen.findByLabelText("Nom d'utilisateur");
     await user.type(username, 'directeur');
 
-    // Back to the center-profile step, then forward to the admin step again.
+    // Back to the center-profile step, then forward to the admin step again. The
+    // saved center row re-hydrates the fields, so Continue advances without re-entry.
     await user.click(screen.getByRole('button', { name: 'Retour' })); // admin -> profile
     expect(await screen.findByText('Profil du centre')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Continuer' })); // profile -> admin
@@ -102,21 +136,22 @@ describe('FirstRunWizard — French walk-through (Essentiel)', () => {
   });
 
   it('blocks the admin step until valid data is entered (mandatory data cannot be bypassed)', async () => {
-    const invoke = vi.fn();
+    const invoke = stubApi();
     window.api.invoke = invoke;
     const user = userEvent.setup();
     renderWizard();
 
     await user.click(screen.getByRole('button', { name: 'Continuer' })); // language -> profile
+    await fillCenter(user);
     await user.click(await screen.findByRole('button', { name: 'Continuer' })); // profile -> admin
     expect(await screen.findByText('Compte administrateur')).toBeInTheDocument();
 
-    // Submit with empty fields: validation blocks the step, no IPC, still on admin.
+    // Submit with empty fields: validation blocks the step, no admin created, still on admin.
     await user.click(screen.getByRole('button', { name: 'Continuer' }));
     expect(
       await screen.findByText('Le mot de passe doit contenir au moins 8 caractères'),
     ).toBeInTheDocument();
-    expect(invoke).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalledWith('admin.create', expect.anything());
     expect(screen.getByText('Compte administrateur')).toBeInTheDocument();
   });
 });
@@ -125,7 +160,7 @@ describe('FirstRunWizard — Holidays gating (Pro)', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('fr');
     usePlanStore.getState().setPlan('pro');
-    window.api.invoke = vi.fn().mockResolvedValue({ id: 'adm_1' });
+    window.api.invoke = stubApi();
   });
 
   it('offers a Skip button on the optional Holidays step', async () => {
@@ -133,6 +168,7 @@ describe('FirstRunWizard — Holidays gating (Pro)', () => {
     renderWizard();
 
     await user.click(screen.getByRole('button', { name: 'Continuer' })); // language
+    await fillCenter(user);
     await user.click(await screen.findByRole('button', { name: 'Continuer' })); // profile
     await user.type(await screen.findByLabelText("Nom d'utilisateur"), 'directeur');
     await user.type(screen.getByLabelText('Mot de passe'), 'Motdepasse1');

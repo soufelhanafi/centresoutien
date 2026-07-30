@@ -9,7 +9,7 @@ const premium = new PlanPolicy(PLANS.premium);
 describe('PlanPolicy.has / require', () => {
   it('has() reflects the plan feature set', () => {
     expect(essentiel.has('core.students')).toBe(true);
-    expect(essentiel.has('core.parents')).toBe(false);
+    expect(essentiel.has('payroll.teacher')).toBe(false);
   });
 
   it('require() is a no-op when the feature is present', () => {
@@ -18,12 +18,12 @@ describe('PlanPolicy.has / require', () => {
 
   it('require() throws PlanFeatureUnavailableError carrying the flag and plan', () => {
     try {
-      essentiel.require('core.parents');
+      essentiel.require('payroll.teacher');
       throw new Error('should have thrown');
     } catch (err) {
       expect(err).toBeInstanceOf(PlanFeatureUnavailableError);
       const e = err as PlanFeatureUnavailableError;
-      expect(e.feature).toBe('core.parents');
+      expect(e.feature).toBe('payroll.teacher');
       expect(e.planId).toBe('essentiel');
       expect(e.name).toBe('PlanFeatureUnavailableError');
     }

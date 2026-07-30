@@ -45,14 +45,15 @@ describe('Sidebar — plan-gated navigation', () => {
   it('renders always-on modules as navigable links', async () => {
     renderSidebar();
     expect(await screen.findByRole('link', { name: 'Élèves' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Parents' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Facturation' })).toBeInTheDocument();
   });
 
   it('shows gated modules as locked (non-link) affordances on Essentiel', async () => {
     renderSidebar();
-    expect(screen.queryByRole('link', { name: /Parents/ })).not.toBeInTheDocument();
-    const parents = await screen.findByRole('button', { name: /Parents/ });
-    expect(parents).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByRole('link', { name: /Paie/ })).not.toBeInTheDocument();
+    const payroll = await screen.findByRole('button', { name: /Paie/ });
+    expect(payroll).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('button', { name: /Synchronisation/ })).toHaveAttribute(
       'aria-disabled',
       'true',

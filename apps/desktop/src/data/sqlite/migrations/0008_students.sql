@@ -1,4 +1,4 @@
--- 0007_students.sql
+-- 0008_students.sql
 -- What: students table — the per-center roster of enrolled students.
 -- Why:  first People entity (SOU-38); parents (SOU-40), links (SOU-42), and
 --       enrollments build on it.

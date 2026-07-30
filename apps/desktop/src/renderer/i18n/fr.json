@@ -322,6 +322,12 @@
       "passwordHint": "Au moins 8 caractères, avec une majuscule, une minuscule et un chiffre.",
       "createError": "La création du compte a échoué. Réessayez."
     },
+    "centerProfile": {
+      "loading": "Chargement du profil…",
+      "loadError": "Le chargement du profil du centre a échoué.",
+      "retry": "Réessayer",
+      "saveError": "L'enregistrement du profil a échoué. Réessayez."
+    },
     "stub": {
       "note": "Cette étape sera bientôt configurable ici. Continuez pour l'instant."
     },

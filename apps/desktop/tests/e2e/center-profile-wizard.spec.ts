@@ -2,17 +2,13 @@ import { test, expect } from '@playwright/test';
 import { CP, freshUserDataDir, getCenter, launch, type Launched, type Locale } from './center-profile.fixtures';
 
 /**
- * SOU-28 — First-run wizard Center Profile step (black-box).
+ * SOU-111 — First-run wizard Center Profile step (black-box).
  *
  * Acceptance: the wizard's Center Profile step is a real, mandatory,
  * non-skippable step — you cannot advance past it without the required data, and
  * the data entered there persists (a center row exists after setup).
  *
  * Runs under both `fr` (LTR) and `ar` (RTL).
- *
- * NOTE: the wizard step is still a stub on this branch — wiring the real form in
- * is tracked as SOU-111. These two specs assert the target behaviour and are
- * marked `fixme` until that lands; unskip them as part of SOU-111.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -23,7 +19,7 @@ test.afterEach(async () => {
   live = null;
 });
 
-test.fixme('the Center Profile step captures required data and blocks advancing while empty', async () => {
+test('the Center Profile step captures required data and blocks advancing while empty', async () => {
   const loc = locale();
   const t = CP[loc];
   live = await launch({ locale: loc, plan: 'pro', userDataDir: freshUserDataDir() });
@@ -48,7 +44,7 @@ test.fixme('the Center Profile step captures required data and blocks advancing 
   await win.screenshot({ path: `test-results/wizard-center-step-${loc}.png` });
 });
 
-test.fixme('data entered in the wizard Center Profile step persists as a center row', async () => {
+test('data entered in the wizard Center Profile step persists as a center row', async () => {
   const loc = locale();
   const t = CP[loc];
   const dir = freshUserDataDir();

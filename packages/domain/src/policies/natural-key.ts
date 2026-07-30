@@ -1,39 +1,58 @@
 import type { CenterCode } from '../value-objects/ids';
 
-// Unicode ranges kept as escapes (never literal combining chars in source):
-// U+0300–U+036F combining diacritics; U+0621–U+064A the Arabic letters block.
-const COMBINING_DIACRITICS = /[̀-ͯ]/g;
-// Anything that is not a Latin letter, digit, or Arabic letter — spaces,
-// hyphens, and punctuation are all removed so separator variants collapse.
-const NON_NAME_CHARS = /[^a-z0-9ء-ي]/g;
+// Unicode-property escapes keep the source ASCII while matching any script
+// (Latin, Arabic, …). `\p{Mn}` = the combining marks NFKD leaves behind.
+const COMBINING_MARKS = /\p{Mn}/gu;
+const NON_NAME_CHARS = /[^\p{L}\p{N}\s]/gu; // keep letters + numbers + spacing
+const CONTACT_NOISE = /[\s\-()]/g;
 
 /**
- * Normalize a person's name for duplicate matching: strip diacritics, lowercase,
- * and drop every separator and punctuation mark, keeping only Latin letters,
- * digits, and the Arabic block. This makes "El Amrani" / "Elamrani" / "el-amrani"
- * collide and keeps Arabic letters intact ("محمد" stays "محمد"). Pure — no
- * platform or library dependency.
+ * Builds the `naturalKey` for a people-like entity — the fast exact-match tier of
+ * the parents-first duplicate-matching hierarchy (`sync-safe-entities`). It is a
+ * *matching key*, never a hard constraint: stamped once at creation, immutable
+ * thereafter (renaming a person must NOT change their key, or sync merges become
+ * unreliable), and scoped to a single center (the tenant never crosses).
+ *
+ * Shape: `{centerCode}::{normalized name}::{normalized contact}`. The name is
+ * diacritic-stripped, lower-cased, and punctuation-collapsed; Latin and Arabic
+ * letters are both preserved. The contact is the duplicate anchor — for parents
+ * this is the E.164 phone (already canonical from the {@link normalizePhone}
+ * value object), which is why two guardians sharing a family phone but with
+ * different names produce *different* keys (both saved), while the same name +
+ * same phone collides (a genuine duplicate).
  */
-export function normalizeName(raw: string): string {
-  return raw
+export function normalizeNaturalKey(input: {
+  centerCode: CenterCode;
+  fullName: string;
+  contact: string;
+}): string {
+  const name = input.fullName
     .normalize('NFKD')
-    .replace(COMBINING_DIACRITICS, '')
+    .replace(COMBINING_MARKS, '')
     .toLowerCase()
-    .replace(NON_NAME_CHARS, '');
+    .replace(NON_NAME_CHARS, '')
+    .trim()
+    .replace(/\s+/g, '-');
+  const contact = input.contact.replace(CONTACT_NOISE, '').toLowerCase();
+  return `${input.centerCode}::${name}::${contact}`;
 }
 
 /**
- * Build a Student's `naturalKey`: `centerCode :: normalizedName :: birthDate`.
- * The birth date is the discriminator that survives without a linked parent (the
- * Parent entity lands in SOU-40) — two children sharing a normalized name but a
- * different birth date get different keys. Stamped once at creation and never
- * recomputed, so sync matching stays deterministic.
+ * Build a Student's `naturalKey`. Students are people-like but have no phone; the
+ * duplicate anchor is the **birth date** (until parent-linked matching lands in
+ * SOU-92) — two children sharing a normalized name but a different birth date get
+ * different keys. Delegates to {@link normalizeNaturalKey} so students and parents
+ * share one normalization, with the FR + AR names combined into the name slot.
+ * Stamped once at creation and never recomputed, so sync matching stays stable.
  */
 export function buildStudentNaturalKey(input: {
   centerCode: CenterCode;
   name: { fr: string; ar: string };
   birthDate: string;
 }): string {
-  const name = `${normalizeName(input.name.fr)}-${normalizeName(input.name.ar)}`;
-  return `${input.centerCode}::${name}::${input.birthDate}`;
+  return normalizeNaturalKey({
+    centerCode: input.centerCode,
+    fullName: `${input.name.fr} ${input.name.ar}`,
+    contact: input.birthDate,
+  });
 }

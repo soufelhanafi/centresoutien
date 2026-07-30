@@ -8,6 +8,7 @@ import type {
   ArchiveStudent,
   Student,
   StudentId,
+  CreateParent,
   CreateAdminAccount,
   VerifyAdminPassword,
   SaveCenterHours,
@@ -34,6 +35,7 @@ export type ListStudentsUseCase = Pick<ListStudents, 'execute'>;
 export type GetStudentUseCase = Pick<GetStudent, 'execute'>;
 export type UpdateStudentUseCase = Pick<UpdateStudent, 'execute'>;
 export type ArchiveStudentUseCase = Pick<ArchiveStudent, 'execute'>;
+export type CreateParentUseCase = Pick<CreateParent, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
@@ -109,6 +111,7 @@ export type HandlerDeps = {
   getStudent: GetStudentUseCase;
   updateStudent: UpdateStudentUseCase;
   archiveStudent: ArchiveStudentUseCase;
+  createParent: CreateParentUseCase;
   saveCenterHours: SaveCenterHoursUseCase;
   getCenterHours: GetCenterHoursUseCase;
   envelopeContext: () => EnvelopeContext;
@@ -178,6 +181,10 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         if (!(error instanceof StudentNotFoundError)) throw error;
       }
       return { ok: true };
+    },
+    'parent.create': async (request) => {
+      const parent = await deps.createParent.execute({ ...request, ...deps.envelopeContext() });
+      return { id: parent.id };
     },
     'centerHours.get': async () => {
       const week = await deps.getCenterHours.execute({
