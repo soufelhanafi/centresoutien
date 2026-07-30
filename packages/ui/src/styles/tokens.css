@@ -61,6 +61,18 @@
   --kind-exam-fg: #7e22ce;
   --kind-exam-border: #d8b4fe;
 
+  /* Planner subject palette — 8 theme-aware slots a subject id hashes onto
+     (bg / fg / border). Colour never carries meaning alone; the block also shows
+     the subject name and kind badge. */
+  --subject-0-bg: #f0fdfa; --subject-0-fg: #0f766e; --subject-0-border: #99f6e4;
+  --subject-1-bg: #eff6ff; --subject-1-fg: #1d4ed8; --subject-1-border: #bfdbfe;
+  --subject-2-bg: #f5f3ff; --subject-2-fg: #6d28d9; --subject-2-border: #ddd6fe;
+  --subject-3-bg: #fffbeb; --subject-3-fg: #b45309; --subject-3-border: #fde68a;
+  --subject-4-bg: #fff1f2; --subject-4-fg: #be123c; --subject-4-border: #fecdd3;
+  --subject-5-bg: #f0fdf4; --subject-5-fg: #15803d; --subject-5-border: #bbf7d0;
+  --subject-6-bg: #ecfeff; --subject-6-fg: #0e7490; --subject-6-border: #a5f3fc;
+  --subject-7-bg: #fff7ed; --subject-7-fg: #c2410c; --subject-7-border: #fed7aa;
+
   /* Plan tiers. Premium is a gradient, so it is applied as `background`. */
   --plan-essentiel-bg: #f1f5f9;
   --plan-essentiel-fg: #475569;
@@ -137,6 +149,15 @@
   --kind-exam-bg: #2a1240;
   --kind-exam-fg: #d8b4fe;
   --kind-exam-border: #6b21a8;
+
+  --subject-0-bg: #042f2e; --subject-0-fg: #5eead4; --subject-0-border: #115e59;
+  --subject-1-bg: #0e1a33; --subject-1-fg: #93c5fd; --subject-1-border: #1e3a5f;
+  --subject-2-bg: #241448; --subject-2-fg: #c4b5fd; --subject-2-border: #5b21b6;
+  --subject-3-bg: #2d2308; --subject-3-fg: #fcd34d; --subject-3-border: #78350f;
+  --subject-4-bg: #300a12; --subject-4-fg: #fda4af; --subject-4-border: #881337;
+  --subject-5-bg: #052e1a; --subject-5-fg: #86efac; --subject-5-border: #166534;
+  --subject-6-bg: #083344; --subject-6-fg: #67e8f9; --subject-6-border: #155e75;
+  --subject-7-bg: #2b1608; --subject-7-fg: #fdba74; --subject-7-border: #9a3412;
 
   --plan-essentiel-bg: #1e293b;
   --plan-essentiel-fg: #cbd5e1;
