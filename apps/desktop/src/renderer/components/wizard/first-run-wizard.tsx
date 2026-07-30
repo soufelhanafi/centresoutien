@@ -9,7 +9,8 @@ import { WizardShell } from './wizard-shell';
 import { WizardDone } from './wizard-done';
 import { LanguageStep } from './steps/language-step';
 import { AdminAccountStep } from './steps/admin-account-step';
-import { CenterProfileStep, HoursStep, HolidaysStep } from './steps/stub-steps';
+import { CenterProfileStep } from './steps/center-profile-step';
+import { HoursStep, HolidaysStep } from './steps/stub-steps';
 
 /** One component per step. Adding a step is a domain change plus one entry here. */
 const STEP_COMPONENTS: Record<WizardStepId, ComponentType> = {
