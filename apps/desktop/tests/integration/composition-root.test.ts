@@ -321,4 +321,52 @@ describe('composition root', () => {
 
     container.dispose();
   });
+
+  // The full Room read/write path through real SQLite (SOU-33) — the wiring SOU-34's
+  // UI depends on. Proves migration 0009 applied and all five room channels reach
+  // their pre-wired use cases (not a mock).
+  it('wires the room create/list/update/archive/restore channels end-to-end', async () => {
+    const container = build();
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+
+    const { id } = await dispatch('room.create', { name: 'Salle A', capacity: 20 });
+    expect(id).toMatch(/^rom_/);
+
+    // list — the freshly created room is really there.
+    const listed = await dispatch('room.list', { scope: 'active' });
+    expect(listed.rooms).toHaveLength(1);
+    expect(listed.rooms[0]).toMatchObject({ id, name: 'Salle A', capacity: 20, archived: false });
+
+    // update — the change persists and reads back.
+    const updated = await dispatch('room.update', { id, name: 'Salle B', capacity: 30 });
+    expect(updated.room).toMatchObject({ name: 'Salle B', capacity: 30 });
+    expect((await dispatch('room.list', { scope: 'active' })).rooms[0]?.name).toBe('Salle B');
+
+    // archive — soft delete moves it out of the active list into the archive.
+    expect(await dispatch('room.archive', { id })).toEqual({ ok: true });
+    expect((await dispatch('room.list', { scope: 'active' })).rooms).toHaveLength(0);
+    const archived = await dispatch('room.list', { scope: 'archived' });
+    expect(archived.rooms.map((r) => r.id)).toEqual([id]);
+    expect(archived.rooms[0]?.archived).toBe(true);
+
+    // restore — brings it back to the live list.
+    const restored = await dispatch('room.restore', { id });
+    expect(restored.room).toMatchObject({ id, archived: false });
+    expect((await dispatch('room.list', { scope: 'active' })).rooms.map((r) => r.id)).toEqual([id]);
+
+    container.dispose();
+  });
+
+  // maxRooms is enforced in the domain (Essentiel cap = 1). The second create must
+  // fail through the wired path, not just in a unit test.
+  it('enforces the Essentiel maxRooms limit through the wired create channel', async () => {
+    const container = build('essentiel');
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+
+    await dispatch('room.create', { name: 'Salle A', capacity: 10 });
+    await expect(dispatch('room.create', { name: 'Salle B', capacity: 10 })).rejects.toThrow();
+    expect((await dispatch('room.list', { scope: 'active' })).rooms).toHaveLength(1);
+
+    container.dispose();
+  });
 });

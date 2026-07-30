@@ -3,6 +3,7 @@ import {
   subjectInputSchema,
   studentInputSchema,
   parentInputSchema,
+  roomInputSchema,
   adminCredentialsSchema,
   weeklyHoursSchema,
   loginInputSchema,
@@ -50,6 +51,19 @@ const parentViewSchema = z.object({
   email: z.string().nullable(),
   relation: z.enum(['pere', 'mere', 'tuteur', 'autre']),
   whatsappOptIn: z.boolean(),
+  archived: z.boolean(),
+  createdAt: z.string(),
+});
+
+// The presentation projection of a Room across the IPC boundary — the sync
+// envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized,
+// exactly like `studentViewSchema`. `archived` is derived from `deletedAt != null`
+// in main; the renderer never sees the raw entity. Single source of truth for the
+// renderer's `RoomView` type.
+const roomViewSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  capacity: z.number().int(),
   archived: z.boolean(),
   createdAt: z.string(),
 });
@@ -146,6 +160,32 @@ export const ipcContract = {
   'parent.children': {
     request: z.object({ id: z.string() }),
     response: z.object({ students: z.array(studentViewSchema) }),
+  },
+  // Rooms (SOU-33). `list` selects the live rooms or the archive via `scope`;
+  // `create` and `update` take the domain's own `roomInputSchema` (capacity ≥ 1),
+  // validated once and reused by the form (zodResolver); `archive` is a soft
+  // delete; `restore` clears the tombstone. centerCode/device/user are injected in
+  // main, never sent from the renderer. All reads strip the envelope to
+  // `roomViewSchema`, like the student channels.
+  'room.list': {
+    request: z.object({ scope: z.enum(['active', 'archived']) }),
+    response: z.object({ rooms: z.array(roomViewSchema) }),
+  },
+  'room.create': {
+    request: roomInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'room.update': {
+    request: roomInputSchema.extend({ id: z.string() }),
+    response: z.object({ room: roomViewSchema }),
+  },
+  'room.archive': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'room.restore': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ room: roomViewSchema }),
   },
   // Auth (SOU-26). `admin.exists` drives first-run detection; `admin.create`
   // reuses the domain credential schema (password policy enforced here too);
@@ -252,6 +292,9 @@ export type StudentDto = z.infer<typeof studentViewSchema>;
 
 /** The Parent boundary DTO — the renderer's `ParentView` is an alias of this. */
 export type ParentDto = z.infer<typeof parentViewSchema>;
+
+/** The Room boundary DTO — the renderer's `RoomView` is an alias of this. */
+export type RoomDto = z.infer<typeof roomViewSchema>;
 
 export type IpcContract = typeof ipcContract;
 export type IpcChannel = keyof IpcContract;

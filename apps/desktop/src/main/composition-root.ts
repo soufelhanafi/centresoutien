@@ -15,6 +15,11 @@ import {
   UpdateParent,
   ArchiveParent,
   ListParentChildren,
+  CreateRoom,
+  ListRooms,
+  UpdateRoom,
+  ArchiveRoom,
+  RestoreRoom,
   CreateAdminAccount,
   VerifyAdminPassword,
   SaveCenterHours,
@@ -27,12 +32,20 @@ import {
   StoreCenterLogo,
   ReadCenterLogo,
 } from '@centresoutien/domain';
-import type { PlanId, CenterCode, DeviceId, UserId, IdGenerator } from '@centresoutien/domain';
+import type {
+  PlanId,
+  CenterCode,
+  DeviceId,
+  UserId,
+  IdGenerator,
+  RoomReferencePort,
+} from '@centresoutien/domain';
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
 import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
+import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-throttle-store';
@@ -135,6 +148,21 @@ export function buildContainer(options: ContainerOptions): Container {
   const archiveParent = new ArchiveParent(parentRepo, clock, plan);
   const listParentChildren = new ListParentChildren(studentRepo, plan);
 
+  const roomRepo = new SqliteRoomRepository(db);
+  // The in-use guard for ArchiveRoom needs a Session-backed adapter that does not
+  // exist yet — the Session repository lands in SOU-53. Until then no session table
+  // exists, so no room can be referenced: a stub reporting "never referenced" is
+  // correct, not a placeholder. SOU-53 swaps in the real adapter here, unchanged
+  // elsewhere. (RoomReferencePort is a declared-only contract; see its doc.)
+  const roomReference: RoomReferencePort = {
+    hasActiveSessionForRoom: async () => false,
+  };
+  const createRoom = new CreateRoom(roomRepo, clock, ids, plan);
+  const listRooms = new ListRooms(roomRepo, plan);
+  const updateRoom = new UpdateRoom(roomRepo, clock, plan);
+  const archiveRoom = new ArchiveRoom(roomRepo, roomReference, clock, plan);
+  const restoreRoom = new RestoreRoom(roomRepo, clock, plan);
+
   const centerRepo = new SqliteCenterRepository(db);
   const getCenterProfile = new GetCenterProfile(centerRepo);
   const saveCenterProfile = new SaveCenterProfile(centerRepo, clock, ids);
@@ -182,6 +210,11 @@ export function buildContainer(options: ContainerOptions): Container {
     updateParent,
     archiveParent,
     listParentChildren,
+    createRoom,
+    listRooms,
+    updateRoom,
+    archiveRoom,
+    restoreRoom,
     saveCenterHours,
     getCenterHours,
     envelopeContext: () => context,

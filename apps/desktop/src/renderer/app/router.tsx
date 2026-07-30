@@ -11,6 +11,7 @@ import { SettingsPage } from '../pages/settings-page';
 import { StudentsPage } from '../pages/students/students-page';
 import { StudentDetailPage } from '../pages/students/student-detail-page';
 import { ParentsPage } from '../pages/parents/parents-page';
+import { RoomsPage } from '../pages/rooms/rooms-page';
 import {
   DEFAULT_ROUTE,
   dashboardModule,
@@ -18,6 +19,7 @@ import {
   teachersModule,
   parentsModule,
   groupsModule,
+  roomsModule,
   planningModule,
   invoicingModule,
   paymentsModule,
@@ -60,6 +62,11 @@ const groupsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: groupsModule.path,
   component: () => <ModulePlaceholder module={groupsModule} />,
+});
+const roomsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: roomsModule.path,
+  component: RoomsPage,
 });
 const planningRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -109,6 +116,7 @@ const routeTree = rootRoute.addChildren([
   teachersRoute,
   parentsRoute,
   groupsRoute,
+  roomsRoute,
   planningRoute,
   invoicingRoute,
   paymentsRoute,
