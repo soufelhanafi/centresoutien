@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ImageIcon } from 'lucide-react';
+import { ImageIcon, Loader2 } from 'lucide-react';
 import { LOGO_EXTENSIONS, logoUploadSchema } from '@centresoutien/domain';
 import { Button, Label, toast } from '@centresoutien/ui';
 import { useSaveLogo } from '../../hooks/center/use-save-logo';
+import { useSavedLogoUrl } from '../../hooks/center/use-saved-logo-url';
 
 const ACCEPT = LOGO_EXTENSIONS.map((ext) => `.${ext}`).join(',');
 
@@ -18,9 +19,9 @@ type LogoFieldProps = {
  * Logo picker for the center profile (SOU-28). A freshly picked file previews
  * live from its in-memory bytes; the bytes are uploaded via `center.saveLogo`
  * and the returned relative path is lifted to the form for the next
- * `center.save`. A logo persisted in a previous session can only be referenced
- * by path here (the renderer has no filesystem access), so it shows a saved
- * notice until the `center.logoUrl` helper channel lands — see SOU-28 handoff.
+ * `center.save`. A logo persisted in a previous session has no live preview, so
+ * its bytes are read back over `center.logoBytes` (renderer has no filesystem
+ * access) and shown too — see `useSavedLogoUrl`.
  */
 export function LogoField({ savedPath, onChange }: LogoFieldProps) {
   const { t } = useTranslation();
@@ -28,6 +29,10 @@ export function LogoField({ savedPath, onChange }: LogoFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+
+  // A live picked-file preview wins; otherwise re-hydrate the saved logo's bytes.
+  const savedLogo = useSavedLogoUrl(previewUrl ? null : savedPath);
+  const displayUrl = previewUrl ?? savedLogo.url;
 
   // Revoke the object URL when it is replaced or the field unmounts.
   useEffect(() => {
@@ -80,8 +85,13 @@ export function LogoField({ savedPath, onChange }: LogoFieldProps) {
 
       <div className="flex items-center gap-4">
         <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted/40">
-          {previewUrl ? (
-            <img src={previewUrl} alt={t('settings.center.logoAlt')} className="size-full object-contain" />
+          {displayUrl ? (
+            <img src={displayUrl} alt={t('settings.center.logoAlt')} className="size-full object-contain" />
+          ) : savedLogo.isLoading ? (
+            <Loader2
+              className="size-6 animate-spin text-muted-foreground motion-reduce:animate-none"
+              aria-label={t('settings.center.logoLoading')}
+            />
           ) : (
             <ImageIcon className="size-6 text-muted-foreground" aria-hidden="true" />
           )}
@@ -116,9 +126,6 @@ export function LogoField({ savedPath, onChange }: LogoFieldProps) {
               </Button>
             )}
           </div>
-          {!previewUrl && savedPath && (
-            <span className="text-xs text-muted-foreground">{t('settings.center.logoSavedNotice')}</span>
-          )}
           <span className="text-xs text-muted-foreground">{t('settings.center.logoHint')}</span>
         </div>
       </div>
