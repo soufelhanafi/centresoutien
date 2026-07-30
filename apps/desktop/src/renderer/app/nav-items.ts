@@ -4,6 +4,7 @@ import {
   Users,
   UserRound,
   Boxes,
+  DoorOpen,
   CalendarDays,
   ReceiptText,
   Wallet,
@@ -41,6 +42,7 @@ export const studentsModule = { id: 'students', path: '/students', icon: Graduat
 export const teachersModule = { id: 'teachers', path: '/teachers', icon: Users } as const satisfies NavModule;
 export const parentsModule = { id: 'parents', path: '/parents', icon: UserRound } as const satisfies NavModule;
 export const groupsModule = { id: 'groups', path: '/groups', icon: Boxes } as const satisfies NavModule;
+export const roomsModule = { id: 'rooms', path: '/rooms', icon: DoorOpen } as const satisfies NavModule;
 export const planningModule = { id: 'planning', path: '/planning', icon: CalendarDays } as const satisfies NavModule;
 export const invoicingModule = { id: 'invoicing', path: '/invoicing', icon: ReceiptText } as const satisfies NavModule;
 export const paymentsModule = { id: 'payments', path: '/payments', icon: Wallet } as const satisfies NavModule;
@@ -55,6 +57,7 @@ export const NAV_MODULES: readonly NavModule[] = [
   teachersModule,
   parentsModule,
   groupsModule,
+  roomsModule,
   planningModule,
   invoicingModule,
   paymentsModule,
