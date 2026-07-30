@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PLANS } from '@centresoutien/domain';
-import { SettingsPage } from '../../../src/renderer/components/settings/settings-page';
+import { CenterProfileSettings } from '../../../src/renderer/components/settings/settings-page';
 import { usePlanStore } from '../../../src/renderer/stores/plan-store';
 import i18n from '../../../src/renderer/i18n/config';
 
@@ -13,7 +13,7 @@ function renderSettings() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <SettingsPage />
+      <CenterProfileSettings />
     </QueryClientProvider>,
   );
 }

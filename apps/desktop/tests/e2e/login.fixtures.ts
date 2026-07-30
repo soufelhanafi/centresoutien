@@ -30,7 +30,9 @@ export const AUTH: Record<Locale, Record<string, string>> = {
     usernameRequired: "Le nom d'utilisateur est requis",
     passwordRequired: 'Le mot de passe est requis',
     appHeading: 'Centre Soutien',
-    appMarker: 'Nouvelle matière',
+    // Stable proof we're inside the app shell (header center name), not the
+    // login screen. SOU-99 replaced the smoke home with the sidebar shell.
+    appMarker: 'Centre principal',
   },
   ar: {
     loginTitle: 'تسجيل الدخول',
@@ -46,7 +48,7 @@ export const AUTH: Record<Locale, Record<string, string>> = {
     usernameRequired: 'اسم المستخدم مطلوب',
     passwordRequired: 'كلمة المرور مطلوبة',
     appHeading: 'مركز الدعم',
-    appMarker: 'مادة جديدة',
+    appMarker: 'المركز الرئيسي',
   },
 };
 

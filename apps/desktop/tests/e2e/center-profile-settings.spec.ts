@@ -7,6 +7,7 @@ import {
   completeSetupAndLogin,
   freshUserDataDir,
   getCenter,
+  gotoSettings,
   launch,
   type Launched,
   type Locale,
@@ -70,6 +71,7 @@ test('saving valid data shows a success result and persists across a reload', as
 
   // Reload the renderer: the saved values are re-hydrated into the form.
   await win.reload();
+  await gotoSettings(win, loc);
   await expect(f.name()).toHaveValue('Centre Al Amal');
   await expect(f.address()).toHaveValue('12 Rue de Casablanca');
   await expect(f.email()).toHaveValue('contact@alamal.ma');
@@ -95,7 +97,7 @@ test('saved values survive an app restart (same center DB)', async () => {
   // so this asserts SOU-28 persistence, not SOU-27 gate behaviour.
   live = await launch({ locale: loc, plan: 'pro', userDataDir: dir });
   win = live.win;
-  await bridgeLoginAndReload(win);
+  await bridgeLoginAndReload(win, loc);
   await expect.poll(async () => (await getCenter(win))?.name).toBe('Centre Ennour');
   await expect(f().name()).toHaveValue('Centre Ennour');
   await expect(f().address()).toHaveValue('45 Avenue Hassan II');

@@ -42,7 +42,8 @@ export const STR: Record<Locale, Record<string, string>> = {
     confirmPassword: 'Confirmer le mot de passe',
     doneTitle: 'Configuration terminée',
     doneCta: 'Commencer',
-    appMarker: 'Nouvelle matière',
+    // Header center name — proof the app shell (SOU-99) rendered post-setup.
+    appMarker: 'Centre principal',
   },
   ar: {
     wizardTitle: 'الإعداد الأولي',
@@ -62,7 +63,7 @@ export const STR: Record<Locale, Record<string, string>> = {
     confirmPassword: 'تأكيد كلمة المرور',
     doneTitle: 'اكتمل الإعداد',
     doneCta: 'ابدأ',
-    appMarker: 'مادة جديدة',
+    appMarker: 'المركز الرئيسي',
   },
 };
 

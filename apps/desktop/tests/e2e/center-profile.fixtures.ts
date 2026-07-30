@@ -24,6 +24,7 @@ export const CP: Record<
     next: string;
     skip: string;
     doneCta: string;
+    settingsNav: string;
     username: string;
     password: string;
     confirmPassword: string;
@@ -48,6 +49,7 @@ export const CP: Record<
     next: 'Continuer',
     skip: 'Passer',
     doneCta: 'Commencer',
+    settingsNav: 'Paramètres',
     username: "Nom d'utilisateur",
     password: 'Mot de passe',
     confirmPassword: 'Confirmer le mot de passe',
@@ -71,6 +73,7 @@ export const CP: Record<
     next: 'متابعة',
     skip: 'تخطٍّ',
     doneCta: 'ابدأ',
+    settingsNav: 'الإعدادات',
     username: 'اسم المستخدم',
     password: 'كلمة المرور',
     confirmPassword: 'تأكيد كلمة المرور',
@@ -149,14 +152,16 @@ export async function completeSetupAndLogin(win: Page, loc: Locale): Promise<voi
     await api.invoke('auth.login', { ...admin, rememberDevice: true });
   }, VALID_ADMIN);
   await win.reload();
+  await gotoSettings(win, loc);
 }
 
 /**
- * Establish a remembered-device session through the public bridge and reload,
- * for relaunch scenarios where the SOU-27 auth gate may show the login screen.
- * This isolates the SOU-28 persistence check from SOU-27 session behaviour.
+ * Establish a remembered-device session through the public bridge, reload, and
+ * land on the Settings page. For relaunch scenarios where the SOU-27 auth gate
+ * may show the login screen. This isolates the SOU-28 persistence check from
+ * SOU-27 session behaviour.
  */
-export async function bridgeLoginAndReload(win: Page): Promise<void> {
+export async function bridgeLoginAndReload(win: Page, loc: Locale): Promise<void> {
   await win.evaluate(async (admin) => {
     const api = (window as unknown as {
       api: { invoke: (c: string, r: unknown) => Promise<unknown> };
@@ -164,6 +169,7 @@ export async function bridgeLoginAndReload(win: Page): Promise<void> {
     await api.invoke('auth.login', { ...admin, rememberDevice: true });
   }, VALID_ADMIN);
   await win.reload();
+  await gotoSettings(win, loc);
 }
 
 /** The Settings center-profile form, disambiguated from the Subject form by its phone field. */
@@ -180,6 +186,15 @@ export function centerForm(win: Page, loc: Locale) {
     phone: () => win.getByLabel(t.phoneLabel, { exact: true }),
     email: () => win.getByLabel(t.emailLabel, { exact: true }),
     logo: () => win.getByLabel(t.logoLabel, { exact: true }),
-    submit: () => win.getByRole('button', { name: t.submit }),
+    // Scope the submit to the center-profile form: the Settings page also hosts
+    // the center-hours editor whose "Enregistrer les horaires" button would
+    // otherwise collide with this "Enregistrer" under Playwright strict mode.
+    submit: () => centerFormLocator(win).getByRole('button', { name: t.submit, exact: true }),
   };
+}
+
+/** Navigate from the app shell to the Settings page and wait for the center-profile form. */
+export async function gotoSettings(win: Page, loc: Locale): Promise<void> {
+  await win.getByRole('link', { name: CP[loc].settingsNav }).click();
+  await centerFormLocator(win).locator('input[name="phone"]').waitFor({ state: 'visible' });
 }

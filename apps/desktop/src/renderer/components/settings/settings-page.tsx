@@ -4,18 +4,17 @@ import { useCenterProfile } from '../../hooks/center/use-center-profile';
 import { CenterProfileForm } from './center-profile-form';
 
 /**
- * Settings screen for the center profile (SOU-28). Owns the load lifecycle —
- * skeleton while fetching, a retryable card on failure — then renders the form
- * seeded with the canonical row (or blank before the first save).
+ * Center-profile section of the Settings page (SOU-28). Owns the load lifecycle
+ * — skeleton while fetching, a retryable card on failure — then renders the form
+ * seeded with the canonical row (or blank before the first save). Mounts inside
+ * the routed Settings page alongside the other settings sections.
  */
-export function SettingsPage() {
+export function CenterProfileSettings() {
   const { t } = useTranslation();
   const query = useCenterProfile();
 
   return (
     <section className="flex w-full flex-col gap-4">
-      <h2 className="text-xl font-semibold">{t('settings.title')}</h2>
-
       {query.isPending && (
         <Card className="w-full max-w-2xl">
           <CardHeader>

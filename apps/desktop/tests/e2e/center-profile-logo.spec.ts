@@ -5,6 +5,7 @@ import {
   completeSetupAndLogin,
   freshUserDataDir,
   getCenter,
+  gotoSettings,
   launch,
   makeLogoFile,
   type Launched,
@@ -57,6 +58,7 @@ test('picking a logo persists a relative filename and shows a preview after relo
   // Acceptance: "logo shows after reload". After reloading, the persisted logo
   // must be rendered as a visible <img> re-hydrated from app data.
   await win.reload();
+  await gotoSettings(win, loc);
   await expect.poll(async () => (await getCenter(win))?.logoPath).toBe(stored?.logoPath);
   await win.screenshot({ path: `test-results/center-logo-${loc}.png` });
   await expect(win.locator('form img').first()).toBeVisible({ timeout: 5000 });

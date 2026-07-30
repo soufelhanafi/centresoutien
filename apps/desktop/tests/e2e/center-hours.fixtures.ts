@@ -33,6 +33,7 @@ export const STR: Record<Locale, {
   toggleAria: (day: string) => string;
   errCloseBeforeOpen: string;
   errInvalidTime: string;
+  settingsNav: string; // sidebar entry that opens the Paramètres screen
   dir: 'ltr' | 'rtl';
 }> = {
   fr: {
@@ -48,6 +49,7 @@ export const STR: Record<Locale, {
     toggleAria: (day) => `Ouvert le ${day}`,
     errCloseBeforeOpen: "La fermeture doit être après l'ouverture",
     errInvalidTime: 'Heure invalide',
+    settingsNav: 'Paramètres',
     dir: 'ltr',
   },
   ar: {
@@ -63,6 +65,7 @@ export const STR: Record<Locale, {
     toggleAria: (day) => `مفتوح يوم ${day}`,
     errCloseBeforeOpen: 'يجب أن يكون وقت الإغلاق بعد وقت الفتح',
     errInvalidTime: 'وقت غير صالح',
+    settingsNav: 'الإعدادات',
     dir: 'rtl',
   },
 };
