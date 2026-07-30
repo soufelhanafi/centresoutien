@@ -127,6 +127,7 @@ export const SessionConflictPolicy = {
   ): TeacherConflictError | null {
     const conflicts = existing.filter(
       (ref) =>
+        ref.teacherId !== undefined &&
         ref.teacherId === candidate.teacherId &&
         ref.dayOfWeek === candidate.dayOfWeek &&
         strictlyOverlaps(candidate, ref),

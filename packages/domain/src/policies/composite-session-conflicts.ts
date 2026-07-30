@@ -70,11 +70,9 @@ export function detectSessionConflicts(
   const room = SessionConflictPolicy.roomConflict(candidate, context.existing);
   if (room) conflicts.push({ kind: 'room', severity: 'error', error: room });
 
-  if (candidate.teacherId !== undefined) {
-    const teacher = SessionConflictPolicy.teacherConflict(
-      { ...candidate, teacherId: candidate.teacherId },
-      context.existing,
-    );
+  const { teacherId } = candidate;
+  if (teacherId !== undefined) {
+    const teacher = SessionConflictPolicy.teacherConflict({ ...candidate, teacherId }, context.existing);
     if (teacher) conflicts.push({ kind: 'teacher', severity: 'error', error: teacher });
   }
 
