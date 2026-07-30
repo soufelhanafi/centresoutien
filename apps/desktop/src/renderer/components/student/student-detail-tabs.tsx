@@ -3,7 +3,7 @@ import { CalendarDays, GraduationCap, ReceiptText } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import type { StudentView } from '../../lib/students/student-view';
 import { StudentInfoTab } from './student-info-tab';
-import { StudentGuardiansTab } from './student-guardians-tab';
+import { GuardianLinks } from './guardian-links';
 import { ComingSoonTab } from './coming-soon-tab';
 
 /** The five-tab student detail surface. Info + Guardians are live; the rest are shells. */
@@ -25,7 +25,7 @@ export function StudentDetailTabs({ student }: { student: StudentView }) {
         <StudentInfoTab student={student} />
       </TabsContent>
       <TabsContent value="guardians">
-        <StudentGuardiansTab />
+        <GuardianLinks student={student} />
       </TabsContent>
       <TabsContent value="enrollment">
         <ComingSoonTab

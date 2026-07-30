@@ -240,7 +240,7 @@ test('Scenario 8 — archive a student', async () => {
 // Scenario 9 — detail page: 5 tabs; Info shows real data; the four stub tabs
 // render coming-soon placeholders (per the agreed SOU-39 scope).
 // ---------------------------------------------------------------------------
-test('Scenario 9 — detail page shows 5 tabs; Info wired, others are stubs', async () => {
+test('Scenario 9 — detail page shows 5 tabs; Info + Guardians wired, rest are stubs', async () => {
   const L = STR[locale()];
   live = await boot(locale());
   const win = live.win;
@@ -274,8 +274,10 @@ test('Scenario 9 — detail page shows 5 tabs; Info wired, others are stubs', as
   await expect(win.getByText(L.comingSoon.invoices)).toBeVisible();
   await win.getByRole('tab', { name: L.detail.tabs.attendance }).click();
   await expect(win.getByText(L.comingSoon.attendance)).toBeVisible();
+  // Guardians is a live linking surface (SOU-42), no longer a stub: the tab
+  // exposes the "link a guardian" action.
   await win.getByRole('tab', { name: L.detail.tabs.guardians }).click();
-  await expect(win.getByText(L.comingSoon.guardians)).toBeVisible();
+  await expect(win.getByRole('button', { name: L.detail.guardiansLink })).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------

@@ -63,3 +63,16 @@ jobs:
 
       - name: E2E (Electron under Xvfb, FR + AR)
         run: xvfb-run -a pnpm --filter @centresoutien/desktop test:e2e
+
+      # On failure, keep the Playwright traces/screenshots so a flake or a
+      # headless-only failure can be inspected without re-running locally.
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-e2e-results
+          path: |
+            apps/desktop/test-results/
+            apps/desktop/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore

@@ -10,6 +10,12 @@ export function Toaster({ theme = 'system', ...props }: ToasterProps) {
     <Sonner
       theme={theme}
       className="toaster group"
+      // A modal Radix layer (Sheet/Dialog) sets `pointer-events: none` on
+      // <body>, which the portaled toast inherits — making toast actions (e.g.
+      // an "undo") unclickable while a sheet is open. Sonner never re-enables
+      // it, so force each visible toast back to `auto`. Toasts must stay
+      // interactive above modals.
+      toastOptions={{ className: 'pointer-events-auto' }}
       icons={{
         success: <CircleCheck className="size-4" aria-hidden="true" />,
         info: <Info className="size-4" aria-hidden="true" />,
