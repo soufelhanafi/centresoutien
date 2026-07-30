@@ -9,6 +9,13 @@ import type {
   Student,
   StudentId,
   CreateParent,
+  CreateRoom,
+  ListRooms,
+  UpdateRoom,
+  ArchiveRoom,
+  RestoreRoom,
+  Room,
+  RoomId,
   CreateAdminAccount,
   VerifyAdminPassword,
   SaveCenterHours,
@@ -25,7 +32,7 @@ import type {
   DeviceId,
   UserId,
 } from '@centresoutien/domain';
-import { StudentNotFoundError } from '@centresoutien/domain';
+import { StudentNotFoundError, RoomNotFoundError } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
@@ -36,6 +43,11 @@ export type GetStudentUseCase = Pick<GetStudent, 'execute'>;
 export type UpdateStudentUseCase = Pick<UpdateStudent, 'execute'>;
 export type ArchiveStudentUseCase = Pick<ArchiveStudent, 'execute'>;
 export type CreateParentUseCase = Pick<CreateParent, 'execute'>;
+export type CreateRoomUseCase = Pick<CreateRoom, 'execute'>;
+export type ListRoomsUseCase = Pick<ListRooms, 'execute'>;
+export type UpdateRoomUseCase = Pick<UpdateRoom, 'execute'>;
+export type ArchiveRoomUseCase = Pick<ArchiveRoom, 'execute'>;
+export type RestoreRoomUseCase = Pick<RestoreRoom, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
@@ -88,6 +100,18 @@ function toStudentView(student: Student) {
   };
 }
 
+/** Project a Room to its boundary DTO: envelope stripped, dates serialized,
+ *  `archived` derived from the soft-delete tombstone. */
+function toRoomView(room: Room) {
+  return {
+    id: room.id,
+    name: room.name,
+    capacity: room.capacity,
+    archived: room.deletedAt !== null,
+    createdAt: room.createdAt.toISOString(),
+  };
+}
+
 /** Strip the envelope: the renderer only needs the editable weekday fields. */
 function toWeekView(week: readonly CenterHours[]) {
   return week.map((hours) => ({
@@ -112,6 +136,11 @@ export type HandlerDeps = {
   updateStudent: UpdateStudentUseCase;
   archiveStudent: ArchiveStudentUseCase;
   createParent: CreateParentUseCase;
+  createRoom: CreateRoomUseCase;
+  listRooms: ListRoomsUseCase;
+  updateRoom: UpdateRoomUseCase;
+  archiveRoom: ArchiveRoomUseCase;
+  restoreRoom: RestoreRoomUseCase;
   saveCenterHours: SaveCenterHoursUseCase;
   getCenterHours: GetCenterHoursUseCase;
   envelopeContext: () => EnvelopeContext;
@@ -185,6 +214,48 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'parent.create': async (request) => {
       const parent = await deps.createParent.execute({ ...request, ...deps.envelopeContext() });
       return { id: parent.id };
+    },
+    'room.create': async (request) => {
+      const room = await deps.createRoom.execute({ ...request, ...deps.envelopeContext() });
+      return { id: room.id };
+    },
+    'room.list': async (request) => {
+      const rooms = await deps.listRooms.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        scope: request.scope,
+      });
+      return { rooms: rooms.map(toRoomView) };
+    },
+    'room.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const room = await deps.updateRoom.execute({
+        ...fields,
+        centerCode,
+        id: id as RoomId,
+        updatedBy,
+      });
+      return { room: toRoomView(room) };
+    },
+    'room.archive': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      try {
+        await deps.archiveRoom.execute({ centerCode, roomId: request.id as RoomId, updatedBy });
+      } catch (error) {
+        // Archiving is idempotent at the boundary: an already-archived or unknown
+        // room means the desired end-state (row inactive) already holds, so report
+        // success instead of a generic error toast. The domain use case still
+        // throws so other callers/tests stay strict. (RoomInUseError is a real
+        // failure and is NOT swallowed — the UI must tell the user to reassign
+        // the room's sessions first.)
+        if (!(error instanceof RoomNotFoundError)) throw error;
+      }
+      return { ok: true };
+    },
+    'room.restore': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const room = await deps.restoreRoom.execute({ centerCode, roomId: request.id as RoomId, updatedBy });
+      return { room: toRoomView(room) };
     },
     'centerHours.get': async () => {
       const week = await deps.getCenterHours.execute({
