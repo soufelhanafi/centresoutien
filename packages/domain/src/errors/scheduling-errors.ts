@@ -8,15 +8,21 @@ import type { RoomId } from '../entities/room';
 export type OutsideCenterHoursReason = 'closed' | 'before-open' | 'after-close';
 
 /**
- * The minimal shape of an already-scheduled weekly session the room check reads
- * and the {@link RoomConflictError} carries. The caller pre-filters to
+ * The minimal shape of an already-scheduled weekly session the room and teacher
+ * checks read and the conflict errors carry. The caller pre-filters to
  * same-center, non-deleted, active refs — the policy stays pure and never
  * touches the envelope or soft-delete state. Lives here (the leaf that owns the
  * error payload) so `policies` depends on `errors` one-way, never the reverse.
+ *
+ * `teacherId` is optional: a ref with no teacher (or a room-only caller from
+ * SOU-35) is simply skipped by the teacher-overlap check. It is an `EntityId`
+ * rather than a `TeacherId` for the same reason `id` is — the Teacher entity is
+ * not built yet (see `value-objects/ids.ts`); strengthen the brand when it lands.
  */
 export type ScheduledSessionRef = {
   id: EntityId;
   roomId: RoomId;
+  teacherId?: EntityId;
   dayOfWeek: WeekdayIndex;
   start: TimeOfDay;
   end: TimeOfDay;
@@ -55,5 +61,42 @@ export class RoomConflictError extends DomainError {
     readonly conflicts: readonly ScheduledSessionRef[],
   ) {
     super(`Session on weekday ${dayOfWeek} overlaps ${conflicts.length} session(s) in the same room.`);
+  }
+}
+
+/**
+ * Thrown when a candidate weekly session would overlap one or more active
+ * sessions already scheduled for the **same teacher on the same day** — a
+ * teacher cannot be in two places at once (CLAUDE.md §6,
+ * `SessionConflictPolicy.teacherConflict`). Mirrors {@link RoomConflictError}:
+ * the overlapping `conflicts`, `teacherId`, and `dayOfWeek` are carried as
+ * structured data so the renderer localizes the message. `teacherId` is an
+ * `EntityId` pending the Teacher entity, matching {@link ScheduledSessionRef}.
+ */
+export class TeacherConflictError extends DomainError {
+  constructor(
+    readonly teacherId: EntityId,
+    readonly dayOfWeek: WeekdayIndex,
+    readonly conflicts: readonly ScheduledSessionRef[],
+  ) {
+    super(`Session on weekday ${dayOfWeek} overlaps ${conflicts.length} session(s) for the same teacher.`);
+  }
+}
+
+/**
+ * Thrown when a candidate session's time range is not well-formed — its `end`
+ * does not fall strictly after its `start` (a backwards or zero-length slot).
+ * The overlap and center-hours checks assume a positive-duration interval, so
+ * the composite check rejects a malformed candidate up front. Flagged forward
+ * from the SOU-29 review: `withinCenterHours` alone would accept a backwards
+ * slot that still sits inside opening hours.
+ */
+export class MalformedSessionTimeError extends DomainError {
+  constructor(
+    readonly dayOfWeek: WeekdayIndex,
+    readonly start: TimeOfDay,
+    readonly end: TimeOfDay,
+  ) {
+    super(`Session on weekday ${dayOfWeek} has a non-positive duration (${start}–${end}).`);
   }
 }
