@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -39,5 +39,30 @@ describe('FsLogoStore', () => {
     const second = await store.save({ bytes: new Uint8Array([2]), extension: 'jpg' });
     expect(first).not.toBe(second);
     expect(existsSync(join(dir, LOGO_DIR))).toBe(true);
+  });
+
+  it('reads back the bytes of a previously saved logo', async () => {
+    const store = new FsLogoStore(dir, fakeIds());
+    const bytes = new Uint8Array([10, 20, 30]);
+    const path = await store.save({ bytes, extension: 'png' });
+
+    expect(await store.read(path)).toEqual(bytes);
+  });
+
+  it('returns null for a path that was never written', async () => {
+    const store = new FsLogoStore(dir, fakeIds());
+    expect(await store.read('logos/lgo_missing.png')).toBeNull();
+  });
+
+  it('refuses path traversal and absolute paths, returning null', async () => {
+    const store = new FsLogoStore(dir, fakeIds());
+    // Plant a secret next to the logo dir; none of these references may reach it.
+    writeFileSync(join(dir, 'secret.txt'), 'top secret');
+
+    expect(await store.read('logos/../secret.txt')).toBeNull();
+    expect(await store.read('../secret.txt')).toBeNull();
+    expect(await store.read('logos/../../etc/hosts')).toBeNull();
+    expect(await store.read(join(dir, 'secret.txt'))).toBeNull(); // absolute
+    expect(await store.read('')).toBeNull();
   });
 });

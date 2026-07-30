@@ -20,6 +20,7 @@ import {
   type GetCenterProfileUseCase,
   type SaveCenterProfileUseCase,
   type StoreCenterLogoUseCase,
+  type ReadCenterLogoUseCase,
 } from '../../../src/main/ipc/handlers';
 import type { IpcHandlers } from '../../../src/shared/ipc/contract';
 
@@ -133,6 +134,9 @@ const stubSaveCenter: SaveCenterProfileUseCase = {
 const stubStoreLogo: StoreCenterLogoUseCase = {
   execute: async (input) => `logos/lgo_test.${input.extension}`,
 };
+const stubReadLogo: ReadCenterLogoUseCase = {
+  execute: async (input) => (input.path === 'logos/lgo_test.png' ? new Uint8Array([7, 8, 9]) : null),
+};
 
 const dispatch = createIpcDispatcher(
   createHandlers({
@@ -148,6 +152,7 @@ const dispatch = createIpcDispatcher(
     getCenterProfile: stubGetCenter,
     saveCenterProfile: stubSaveCenter,
     storeCenterLogo: stubStoreLogo,
+    readCenterLogo: stubReadLogo,
     centerContext: () => centerContext,
   }),
 );
@@ -233,7 +238,7 @@ describe('createIpcDispatcher', () => {
     const res = await dispatch('center.save', {
       name: 'Centre Al Ilm',
       address: 'Rue X',
-      phone: '0522',
+      phone: '0522000000',
       email: 'a@b.ma',
       logoPath: null,
     });
@@ -241,7 +246,7 @@ describe('createIpcDispatcher', () => {
       center: {
         name: 'Centre Al Ilm',
         address: 'Rue X',
-        phone: '0522',
+        phone: '+212522000000', // normalized to E.164 at the contract boundary
         email: 'a@b.ma',
         logoPath: null,
         plan: 'pro',
@@ -263,6 +268,18 @@ describe('createIpcDispatcher', () => {
     await expect(
       dispatch('center.saveLogo', { bytes: new Uint8Array([1, 2, 3]), extension: 'png' }),
     ).resolves.toEqual({ path: 'logos/lgo_test.png' });
+  });
+
+  it('runs center.logoBytes and returns the stored bytes', async () => {
+    await expect(dispatch('center.logoBytes', { path: 'logos/lgo_test.png' })).resolves.toEqual({
+      bytes: new Uint8Array([7, 8, 9]),
+    });
+  });
+
+  it('returns null bytes from center.logoBytes for an unknown path', async () => {
+    await expect(dispatch('center.logoBytes', { path: 'logos/missing.png' })).resolves.toEqual({
+      bytes: null,
+    });
   });
 
   it('rejects a request that fails its schema', async () => {

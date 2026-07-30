@@ -7,14 +7,31 @@ import {
 } from '../../../src/schemas/center';
 
 describe('centerProfileSchema', () => {
-  it('trims fields and requires a name', () => {
+  it('trims fields, normalizes the phone to E.164, and requires a name', () => {
     const parsed = centerProfileSchema.parse({
       name: '  Centre  ',
       address: '  Rue X ',
-      phone: ' 06 ',
+      phone: ' 06 12 34 56 78 ',
       email: '  a@b.ma ',
     });
-    expect(parsed).toEqual({ name: 'Centre', address: 'Rue X', phone: '06', email: 'a@b.ma' });
+    expect(parsed).toEqual({
+      name: 'Centre',
+      address: 'Rue X',
+      phone: '+212612345678',
+      email: 'a@b.ma',
+    });
+  });
+
+  it('normalizes a Moroccan local number to E.164 and passes an already-E.164 value through', () => {
+    expect(centerProfileSchema.parse({ name: 'C', phone: '0612345678' }).phone).toBe('+212612345678');
+    expect(centerProfileSchema.parse({ name: 'C', phone: '+212612345678' }).phone).toBe('+212612345678');
+  });
+
+  it('accepts a blank phone but rejects garbage with the "invalid-phone" code', () => {
+    expect(centerProfileSchema.parse({ name: 'C', phone: '' }).phone).toBe('');
+    const bad = centerProfileSchema.safeParse({ name: 'C', phone: 'abc' });
+    expect(bad.success).toBe(false);
+    expect(bad.error?.issues.some((i) => i.message === 'invalid-phone')).toBe(true);
   });
 
   it('defaults optional contact fields to empty strings', () => {
