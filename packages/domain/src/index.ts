@@ -128,6 +128,14 @@ export { PARENT_ID_PREFIX } from './entities/parent';
 export type { Parent, ParentId } from './entities/parent';
 export { ROOM_ID_PREFIX } from './entities/room';
 export type { Room, RoomId } from './entities/room';
+export {
+  WEEKLY_RECURRING_SESSION_ID_PREFIX,
+  toScheduledSessionRef,
+} from './entities/weekly-recurring-session';
+export type {
+  WeeklyRecurringSession,
+  WeeklyRecurringSessionId,
+} from './entities/weekly-recurring-session';
 
 // Value objects & policies (login throttle — SOU-27)
 export { UNLOCKED_STATE } from './value-objects/lockout-state';
@@ -150,7 +158,8 @@ export type { CenterRepository } from './ports/center-repository';
 export type { LogoStore } from './ports/logo-store';
 export type { ParentRepository } from './ports/parent-repository';
 export type { RoomRepository } from './ports/room-repository';
-// Room in-use guard — DECLARED CONTRACT ONLY (adapter arrives with the Session repo, SOU-53).
+export type { WeeklyRecurringSessionRepository } from './ports/weekly-recurring-session-repository';
+// Room in-use guard — its concrete adapter is the weekly-session repo (SOU-53).
 export type { RoomReferencePort } from './ports/room-reference';
 // Student↔parent link — DECLARED CONTRACT ONLY (implemented after SOU-38 merges).
 export { STUDENT_PARENT_LINK_ID_PREFIX } from './ports/student-parent-link';
