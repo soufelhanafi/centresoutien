@@ -9,6 +9,13 @@ import type {
   Student,
   StudentId,
   CreateParent,
+  ListParents,
+  GetParent,
+  UpdateParent,
+  ArchiveParent,
+  ListParentChildren,
+  Parent,
+  ParentId,
   CreateRoom,
   ListRooms,
   UpdateRoom,
@@ -32,7 +39,7 @@ import type {
   DeviceId,
   UserId,
 } from '@centresoutien/domain';
-import { StudentNotFoundError, RoomNotFoundError } from '@centresoutien/domain';
+import { StudentNotFoundError, ParentNotFoundError, RoomNotFoundError } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
@@ -43,6 +50,11 @@ export type GetStudentUseCase = Pick<GetStudent, 'execute'>;
 export type UpdateStudentUseCase = Pick<UpdateStudent, 'execute'>;
 export type ArchiveStudentUseCase = Pick<ArchiveStudent, 'execute'>;
 export type CreateParentUseCase = Pick<CreateParent, 'execute'>;
+export type ListParentsUseCase = Pick<ListParents, 'execute'>;
+export type GetParentUseCase = Pick<GetParent, 'execute'>;
+export type UpdateParentUseCase = Pick<UpdateParent, 'execute'>;
+export type ArchiveParentUseCase = Pick<ArchiveParent, 'execute'>;
+export type ListParentChildrenUseCase = Pick<ListParentChildren, 'execute'>;
 export type CreateRoomUseCase = Pick<CreateRoom, 'execute'>;
 export type ListRoomsUseCase = Pick<ListRooms, 'execute'>;
 export type UpdateRoomUseCase = Pick<UpdateRoom, 'execute'>;
@@ -100,6 +112,21 @@ function toStudentView(student: Student) {
   };
 }
 
+/** Project a Parent to its boundary DTO: envelope stripped, dates serialized,
+ *  `archived` derived from the soft-delete tombstone. */
+function toParentView(parent: Parent) {
+  return {
+    id: parent.id,
+    name: parent.name,
+    phone: parent.phone,
+    email: parent.email,
+    relation: parent.relation,
+    whatsappOptIn: parent.whatsappOptIn,
+    archived: parent.deletedAt !== null,
+    createdAt: parent.createdAt.toISOString(),
+  };
+}
+
 /** Project a Room to its boundary DTO: envelope stripped, dates serialized,
  *  `archived` derived from the soft-delete tombstone. */
 function toRoomView(room: Room) {
@@ -136,6 +163,11 @@ export type HandlerDeps = {
   updateStudent: UpdateStudentUseCase;
   archiveStudent: ArchiveStudentUseCase;
   createParent: CreateParentUseCase;
+  listParents: ListParentsUseCase;
+  getParent: GetParentUseCase;
+  updateParent: UpdateParentUseCase;
+  archiveParent: ArchiveParentUseCase;
+  listParentChildren: ListParentChildrenUseCase;
   createRoom: CreateRoomUseCase;
   listRooms: ListRoomsUseCase;
   updateRoom: UpdateRoomUseCase;
@@ -214,6 +246,51 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'parent.create': async (request) => {
       const parent = await deps.createParent.execute({ ...request, ...deps.envelopeContext() });
       return { id: parent.id };
+    },
+    'parent.list': async (request) => {
+      const parents = await deps.listParents.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        search: request.search,
+      });
+      return { parents: parents.map(toParentView) };
+    },
+    'parent.get': async (request) => {
+      const parent = await deps.getParent.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        id: request.id as ParentId,
+      });
+      return { parent: parent ? toParentView(parent) : null };
+    },
+    'parent.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const parent = await deps.updateParent.execute({
+        ...fields,
+        centerCode,
+        id: id as ParentId,
+        updatedBy,
+      });
+      return { parent: toParentView(parent) };
+    },
+    'parent.archive': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      try {
+        await deps.archiveParent.execute({ centerCode, id: request.id as ParentId, updatedBy });
+      } catch (error) {
+        // Archiving is idempotent at the boundary: an already-archived or unknown
+        // guardian means the desired end-state (row inactive) already holds, so
+        // report success instead of a generic error toast. The domain use case
+        // still throws so other callers/tests stay strict. Mirrors student.archive.
+        if (!(error instanceof ParentNotFoundError)) throw error;
+      }
+      return { ok: true };
+    },
+    'parent.children': async (request) => {
+      const students = await deps.listParentChildren.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        parentId: request.id as ParentId,
+      });
+      return { students: students.map(toStudentView) };
     },
     'room.create': async (request) => {
       const room = await deps.createRoom.execute({ ...request, ...deps.envelopeContext() });

@@ -39,6 +39,22 @@ const studentViewSchema = z.object({
   createdAt: z.string(),
 });
 
+// The presentation projection of a Parent/guardian across the IPC boundary — the
+// sync envelope (version, deviceOrigin, updatedBy…) is stripped and Dates are
+// serialized to strings, exactly like `studentViewSchema`. `archived` is derived
+// from `deletedAt != null` in main; the renderer never sees the raw entity. This
+// is the single source of truth for the renderer's `ParentView` type.
+const parentViewSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  phone: z.string(),
+  email: z.string().nullable(),
+  relation: z.enum(['pere', 'mere', 'tuteur', 'autre']),
+  whatsappOptIn: z.boolean(),
+  archived: z.boolean(),
+  createdAt: z.string(),
+});
+
 // The presentation projection of a Room across the IPC boundary — the sync
 // envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized,
 // exactly like `studentViewSchema`. `archived` is derived from `deletedAt != null`
@@ -118,6 +134,32 @@ export const ipcContract = {
   'parent.create': {
     request: parentInputSchema,
     response: z.object({ id: z.string() }),
+  },
+  // Guardian reads/writes (SOU-41). `list` filters by a name-or-phone search
+  // (centerCode is injected in main); `get` returns the single view or null for an
+  // unknown/archived id; `update` takes the domain's own input schema plus the id
+  // and echoes the saved view; `archive` is a soft delete; `children` returns the
+  // guardian's linked students (as `studentViewSchema`) for the detail sheet. All
+  // strip the envelope, like the student channels.
+  'parent.list': {
+    request: z.object({ search: z.string() }),
+    response: z.object({ parents: z.array(parentViewSchema) }),
+  },
+  'parent.get': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ parent: parentViewSchema.nullable() }),
+  },
+  'parent.update': {
+    request: parentInputSchema.extend({ id: z.string() }),
+    response: z.object({ parent: parentViewSchema }),
+  },
+  'parent.archive': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'parent.children': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ students: z.array(studentViewSchema) }),
   },
   // Rooms (SOU-33). `list` selects the live rooms or the archive via `scope`;
   // `create` and `update` take the domain's own `roomInputSchema` (capacity ≥ 1),
@@ -247,6 +289,9 @@ export const ipcContract = {
 
 /** The Student boundary DTO — the renderer's `StudentView` is an alias of this. */
 export type StudentDto = z.infer<typeof studentViewSchema>;
+
+/** The Parent boundary DTO — the renderer's `ParentView` is an alias of this. */
+export type ParentDto = z.infer<typeof parentViewSchema>;
 
 /** The Room boundary DTO — the renderer's `RoomView` is an alias of this. */
 export type RoomDto = z.infer<typeof roomViewSchema>;

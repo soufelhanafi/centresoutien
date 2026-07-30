@@ -1,10 +1,11 @@
 import type { SoftDeletableRepository } from '../repositories/soft-deletable';
 import type { Student, StudentId } from '../entities/student';
+import type { ParentId } from '../entities/parent';
 import type { CenterCode } from '../value-objects/ids';
 
 /**
  * Persistence port for Students. Extends the soft-deletable surface
- * (`save` / `findById` / `softDelete` / `listChangedSince`) with two
+ * (`save` / `findById` / `softDelete` / `listChangedSince`) with these
  * Student-specific reads:
  *
  * - `findByNaturalKey` — the fast exact-match tier of the parents-first duplicate
@@ -15,9 +16,13 @@ import type { CenterCode } from '../value-objects/ids';
  * - `listActive` — every live (non-tombstoned) student of the center, for the
  *   list screen. Search/sort are applied by the `ListStudents` use case, not here:
  *   the port stays a dumb tenant-scoped read.
+ * - `listByGuardian` — every live student in the center whose `guardianIds`
+ *   include the given parent, for the guardian detail sheet's "linked children"
+ *   panel (SOU-41). Center-scoped; unsorted here (the use case orders).
  */
 export interface StudentRepository extends SoftDeletableRepository<StudentId, Student> {
   findByNaturalKey(centerCode: CenterCode, naturalKey: string): Promise<readonly Student[]>;
   countActive(centerCode: CenterCode): Promise<number>;
   listActive(centerCode: CenterCode): Promise<readonly Student[]>;
+  listByGuardian(centerCode: CenterCode, parentId: ParentId): Promise<readonly Student[]>;
 }

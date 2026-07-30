@@ -61,7 +61,106 @@
     "incomplete-week": "La semaine doit comporter les sept jours",
     "invalid-weekday": "Jour invalide",
     "invalid-date": "Date invalide",
-    "invalid-id": "Identifiant invalide"
+    "invalid-id": "Identifiant invalide",
+    "invalid-relation": "Lien de parenté invalide",
+    "parent-not-found": "Ce parent est introuvable"
+  },
+  "guardian": {
+    "relation": {
+      "pere": "Père",
+      "mere": "Mère",
+      "tuteur": "Tuteur",
+      "autre": "Autre"
+    }
+  },
+  "parents": {
+    "title": "Parents",
+    "subtitle": "Gérez les parents et tuteurs de votre centre.",
+    "search": "Rechercher par nom ou téléphone",
+    "searchLabel": "Rechercher un parent",
+    "new": "Nouveau parent",
+    "table": {
+      "name": "Nom",
+      "phone": "Téléphone",
+      "relation": "Lien",
+      "email": "E-mail",
+      "actions": "Actions"
+    },
+    "row": {
+      "open": "Ouvrir la fiche",
+      "menu": "Actions du parent",
+      "edit": "Modifier",
+      "archive": "Archiver"
+    },
+    "empty": {
+      "title": "Aucun parent pour l'instant",
+      "body": "Ajoutez votre premier parent pour commencer.",
+      "cta": "Ajouter un parent"
+    },
+    "noResults": {
+      "title": "Aucun résultat",
+      "body": "Aucun parent ne correspond à votre recherche."
+    },
+    "loadError": {
+      "title": "Impossible de charger les parents",
+      "body": "Le chargement de la liste a échoué.",
+      "retry": "Réessayer"
+    },
+    "form": {
+      "createTitle": "Nouveau parent",
+      "editTitle": "Modifier le parent",
+      "createDescription": "Renseignez les informations du parent.",
+      "editDescription": "Mettez à jour les informations du parent.",
+      "name": "Nom complet",
+      "namePlaceholder": "ex. Ahmed Alaoui",
+      "phone": "Téléphone",
+      "phonePlaceholder": "ex. 0612345678",
+      "email": "E-mail",
+      "emailPlaceholder": "Adresse e-mail (facultatif)",
+      "relation": "Lien de parenté",
+      "whatsappOptIn": "Joignable sur WhatsApp",
+      "create": "Créer le parent",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Parent créé",
+      "editSuccess": "Modifications enregistrées",
+      "error": "L'enregistrement a échoué. Réessayez."
+    },
+    "archive": {
+      "title": "Archiver ce parent ?",
+      "body": "Le parent « {{name}} » sera archivé. Ses élèves ne seront pas supprimés.",
+      "confirm": "Archiver",
+      "cancel": "Annuler",
+      "success": "Parent archivé",
+      "error": "L'archivage a échoué. Réessayez."
+    },
+    "detail": {
+      "title": "Fiche parent",
+      "archivedBadge": "Archivé",
+      "edit": "Modifier",
+      "contact": {
+        "phone": "Téléphone",
+        "email": "E-mail",
+        "relation": "Lien de parenté",
+        "whatsapp": "WhatsApp",
+        "whatsappYes": "Joignable sur WhatsApp",
+        "whatsappNo": "Non joignable sur WhatsApp",
+        "none": "—"
+      },
+      "children": {
+        "title": "Élèves",
+        "count_zero": "Aucun élève",
+        "count_one": "{{count}} élève",
+        "count_other": "{{count}} élèves",
+        "add": "Ajouter un élève",
+        "empty": {
+          "title": "Aucun élève lié",
+          "body": "Ajoutez un élève rattaché à ce parent."
+        },
+        "loadError": "Le chargement des élèves a échoué."
+      }
+    }
   },
   "subjects": {
     "form": {

@@ -10,6 +10,11 @@ import {
   UpdateStudent,
   ArchiveStudent,
   CreateParent,
+  ListParents,
+  GetParent,
+  UpdateParent,
+  ArchiveParent,
+  ListParentChildren,
   CreateRoom,
   ListRooms,
   UpdateRoom,
@@ -137,6 +142,11 @@ export function buildContainer(options: ContainerOptions): Container {
 
   const parentRepo = new SqliteParentRepository(db);
   const createParent = new CreateParent(parentRepo, clock, ids, plan);
+  const listParents = new ListParents(parentRepo, plan);
+  const getParent = new GetParent(parentRepo, plan);
+  const updateParent = new UpdateParent(parentRepo, clock, plan);
+  const archiveParent = new ArchiveParent(parentRepo, clock, plan);
+  const listParentChildren = new ListParentChildren(studentRepo, plan);
 
   const roomRepo = new SqliteRoomRepository(db);
   // The in-use guard for ArchiveRoom needs a Session-backed adapter that does not
@@ -195,6 +205,11 @@ export function buildContainer(options: ContainerOptions): Container {
     updateStudent,
     archiveStudent,
     createParent,
+    listParents,
+    getParent,
+    updateParent,
+    archiveParent,
+    listParentChildren,
     createRoom,
     listRooms,
     updateRoom,
