@@ -110,7 +110,7 @@ describe('SqliteStudentRepository', () => {
   it('softDelete hides the row from findById but keeps it as a tombstone', async () => {
     const student = makeStudent();
     await repo.save(student);
-    await repo.softDelete(student.id, new Date('2026-08-02T00:00:00Z'));
+    await repo.softDelete(student.id, new Date('2026-08-02T00:00:00Z'), 'usr_00000000000000000000000001' as UserId);
 
     expect(await repo.findById(student.id)).toBeNull();
     const changed = await repo.listChangedSince(AT);
@@ -138,7 +138,7 @@ describe('SqliteStudentRepository', () => {
       await repo.save(a);
       await repo.save(b);
       await repo.save(gone);
-      await repo.softDelete(gone.id, AT);
+      await repo.softDelete(gone.id, AT, 'usr_00000000000000000000000001' as UserId);
       await repo.save(makeStudent({ naturalKey: key, centerCode: OTHER_CENTER }));
 
       const matches = await repo.findByNaturalKey(CENTER, key);
@@ -151,7 +151,7 @@ describe('SqliteStudentRepository', () => {
       await repo.save(makeStudent());
       const gone = makeStudent();
       await repo.save(gone);
-      await repo.softDelete(gone.id, AT);
+      await repo.softDelete(gone.id, AT, 'usr_00000000000000000000000001' as UserId);
       await repo.save(makeStudent({ centerCode: OTHER_CENTER }));
 
       expect(await repo.countActive(CENTER)).toBe(1);

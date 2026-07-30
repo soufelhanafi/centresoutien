@@ -66,6 +66,7 @@ describe('UpdateStudent', () => {
     clock.advance(60_000);
 
     const updated = await update.execute({
+      centerCode: CENTER,
       id: created.id,
       updatedBy: EDITOR,
       ...editFields({ level: '1 Bac SE', school: 'Lycée Ibn Sina' }),
@@ -85,6 +86,7 @@ describe('UpdateStudent', () => {
   it('never recomputes naturalKey, even when the name changes', async () => {
     const created = await create.execute(createInput());
     const updated = await update.execute({
+      centerCode: CENTER,
       id: created.id,
       updatedBy: EDITOR,
       ...editFields({ name: { fr: 'Yassine El Alaoui', ar: 'ياسين' } }),
@@ -94,20 +96,47 @@ describe('UpdateStudent', () => {
 
   it('persists the change (a subsequent read reflects it)', async () => {
     const created = await create.execute(createInput());
-    await update.execute({ id: created.id, updatedBy: EDITOR, ...editFields({ level: '3AC' }) });
+    await update.execute({
+      centerCode: CENTER,
+      id: created.id,
+      updatedBy: EDITOR,
+      ...editFields({ level: '3AC' }),
+    });
     expect((await students.findById(created.id))?.level).toBe('3AC');
   });
 
   it('throws StudentNotFoundError for an unknown id', async () => {
     await expect(
-      update.execute({ id: 'stu_missing' as StudentId, updatedBy: EDITOR, ...editFields() }),
+      update.execute({
+        centerCode: CENTER,
+        id: 'stu_missing' as StudentId,
+        updatedBy: EDITOR,
+        ...editFields(),
+      }),
+    ).rejects.toBeInstanceOf(StudentNotFoundError);
+  });
+
+  it('throws StudentNotFoundError for a student in another center (tenant scope)', async () => {
+    const created = await create.execute(createInput());
+    await expect(
+      update.execute({
+        centerCode: 'CS-RABAT-002' as CenterCode,
+        id: created.id,
+        updatedBy: EDITOR,
+        ...editFields({ level: '3AC' }),
+      }),
     ).rejects.toBeInstanceOf(StudentNotFoundError);
   });
 
   it('is gated by core.students', async () => {
     const locked = new UpdateStudent(students, clock, new PlanPolicy(planWithoutStudents()));
     await expect(
-      locked.execute({ id: 'stu_x' as StudentId, updatedBy: EDITOR, ...editFields() }),
+      locked.execute({
+        centerCode: CENTER,
+        id: 'stu_x' as StudentId,
+        updatedBy: EDITOR,
+        ...editFields(),
+      }),
     ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
   });
 });

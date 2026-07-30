@@ -69,7 +69,7 @@ describe('SqliteSubjectRepository', () => {
   it('softDelete hides the row from findById but keeps it as a tombstone', async () => {
     const subject = makeSubject();
     await repo.save(subject);
-    await repo.softDelete(subject.id, new Date('2026-08-02T00:00:00Z'));
+    await repo.softDelete(subject.id, new Date('2026-08-02T00:00:00Z'), 'usr_00000000000000000000000001' as UserId);
 
     expect(await repo.findById(subject.id)).toBeNull();
     const changed = await repo.listChangedSince(AT);

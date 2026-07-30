@@ -1,12 +1,13 @@
 import type { StudentRepository } from '../ports/student-repository';
 import type { Clock } from '../ports/clock';
 import type { PlanPolicy } from '../plans/plan-policy';
-import type { UserId } from '../value-objects/ids';
+import type { CenterCode, UserId } from '../value-objects/ids';
 import { studentInputSchema, type StudentInput } from '../schemas/student';
 import { StudentNotFoundError } from '../errors/student-errors';
 import type { ParentId, Student, StudentId } from '../entities/student';
 
 export type UpdateStudentInput = StudentInput & {
+  centerCode: CenterCode;
   id: StudentId;
   updatedBy: UserId;
 };
@@ -33,7 +34,9 @@ export class UpdateStudent {
     const fields = studentInputSchema.parse(input);
 
     const existing = await this.students.findById(input.id);
-    if (existing === null) {
+    // Center-scoped: a row from another tenant is not editable here. Redundant on
+    // desktop (one DB per center), load-bearing on the future shared backend.
+    if (existing === null || existing.centerCode !== input.centerCode) {
       throw new StudentNotFoundError(input.id);
     }
 

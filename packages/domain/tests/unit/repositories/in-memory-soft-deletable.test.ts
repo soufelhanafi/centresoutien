@@ -36,7 +36,7 @@ describe('InMemorySoftDeletableRepository', () => {
 
   it('excludes soft-deleted rows from findById by default', async () => {
     await rooms.save(room('room_1', 'Salle A', '2026-01-01T00:00:00Z'));
-    await rooms.softDelete('room_1', new Date('2026-02-01T00:00:00Z'));
+    await rooms.softDelete('room_1', new Date('2026-02-01T00:00:00Z'), user);
     expect(await rooms.findById('room_1')).toBeNull();
   });
 
@@ -51,7 +51,7 @@ describe('InMemorySoftDeletableRepository', () => {
   it('listChangedSince returns rows updated after the cursor, tombstones included, sorted', async () => {
     await rooms.save(room('room_1', 'A', '2026-01-01T00:00:00Z'));
     await rooms.save(room('room_2', 'B', '2026-03-01T00:00:00Z'));
-    await rooms.softDelete('room_1', new Date('2026-04-01T00:00:00Z'));
+    await rooms.softDelete('room_1', new Date('2026-04-01T00:00:00Z'), user);
 
     const changed = await rooms.listChangedSince(new Date('2026-02-01T00:00:00Z'));
     expect(changed.map((r) => r.id)).toEqual(['room_2', 'room_1']); // room_1 now tombstoned at 04-01

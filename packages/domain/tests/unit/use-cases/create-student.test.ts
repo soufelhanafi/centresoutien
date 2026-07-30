@@ -142,7 +142,7 @@ describe('CreateStudent', () => {
       );
 
       const first = await useCase.execute(validInput({ name: { fr: 'Sara', ar: 'سارة' } }));
-      await students.softDelete(first.id, new Date('2026-07-30T00:00:00Z'));
+      await students.softDelete(first.id, new Date('2026-07-30T00:00:00Z'), USER);
 
       await expect(
         useCase.execute(validInput({ name: { fr: 'Omar', ar: 'عمر' } })),

@@ -49,25 +49,34 @@ describe('GetStudent', () => {
 
   it('returns the student for a known id', async () => {
     const created = await create.execute(validInput());
-    const found = await get.execute({ id: created.id });
+    const found = await get.execute({ centerCode: CENTER, id: created.id });
     expect(found?.id).toBe(created.id);
     expect(found?.name.fr).toBe('Yassine Alaoui');
   });
 
   it('returns null for an unknown id', async () => {
-    expect(await get.execute({ id: 'stu_does-not-exist' as StudentId })).toBeNull();
+    expect(
+      await get.execute({ centerCode: CENTER, id: 'stu_does-not-exist' as StudentId }),
+    ).toBeNull();
+  });
+
+  it('returns null for a student in another center (tenant scope)', async () => {
+    const created = await create.execute(validInput());
+    expect(
+      await get.execute({ centerCode: 'CS-RABAT-002' as CenterCode, id: created.id }),
+    ).toBeNull();
   });
 
   it('returns null for an archived student (tombstone hidden)', async () => {
     const created = await create.execute(validInput());
-    await archive.execute({ id: created.id });
-    expect(await get.execute({ id: created.id })).toBeNull();
+    await archive.execute({ centerCode: CENTER, id: created.id, updatedBy: USER });
+    expect(await get.execute({ centerCode: CENTER, id: created.id })).toBeNull();
   });
 
   it('is gated by core.students', async () => {
     const locked = new GetStudent(students, new PlanPolicy(planWithoutStudents()));
-    await expect(locked.execute({ id: 'stu_x' as StudentId })).rejects.toBeInstanceOf(
-      PlanFeatureUnavailableError,
-    );
+    await expect(
+      locked.execute({ centerCode: CENTER, id: 'stu_x' as StudentId }),
+    ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
   });
 });

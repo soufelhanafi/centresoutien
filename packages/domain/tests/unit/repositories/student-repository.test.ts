@@ -6,6 +6,7 @@ import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/id
 const CENTER = 'CS-CASA-001' as CenterCode;
 const OTHER_CENTER = 'CS-RABAT-001' as CenterCode;
 const AT = new Date('2026-07-29T10:00:00Z');
+const BY = 'usr_00000000000000000000000002' as UserId;
 
 let n = 0;
 function makeStudent(over: Partial<Student> = {}): Student {
@@ -41,7 +42,7 @@ describe('StudentRepository (in-memory contract)', () => {
   it('softDelete hides the row from findById but keeps it in the sync feed', async () => {
     const student = makeStudent();
     await repo.save(student);
-    await repo.softDelete(student.id, new Date('2026-08-02T00:00:00Z'));
+    await repo.softDelete(student.id, new Date('2026-08-02T00:00:00Z'), BY);
 
     expect(await repo.findById(student.id)).toBeNull();
     const changed = await repo.listChangedSince(AT);
@@ -52,7 +53,7 @@ describe('StudentRepository (in-memory contract)', () => {
   it('allows recreating a person after a soft delete (no unique block on naturalKey)', async () => {
     const first = makeStudent();
     await repo.save(first);
-    await repo.softDelete(first.id, new Date('2026-08-02T00:00:00Z'));
+    await repo.softDelete(first.id, new Date('2026-08-02T00:00:00Z'), BY);
 
     const second = makeStudent({ naturalKey: first.naturalKey });
     await expect(repo.save(second)).resolves.toBeUndefined();
@@ -74,7 +75,7 @@ describe('StudentRepository (in-memory contract)', () => {
       const deleted = makeStudent({ naturalKey: key });
       await repo.save(alive);
       await repo.save(deleted);
-      await repo.softDelete(deleted.id, AT);
+      await repo.softDelete(deleted.id, AT, BY);
       await repo.save(makeStudent({ naturalKey: key, centerCode: OTHER_CENTER }));
 
       const matches = await repo.findByNaturalKey(CENTER, key);
@@ -87,7 +88,7 @@ describe('StudentRepository (in-memory contract)', () => {
       await repo.save(makeStudent());
       const gone = makeStudent();
       await repo.save(gone);
-      await repo.softDelete(gone.id, AT);
+      await repo.softDelete(gone.id, AT, BY);
       await repo.save(makeStudent({ centerCode: OTHER_CENTER }));
 
       expect(await repo.countActive(CENTER)).toBe(1);

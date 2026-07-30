@@ -116,11 +116,11 @@ export class SqliteStudentRepository implements StudentRepository {
     return row ? fromRow(row) : null;
   }
 
-  async softDelete(id: StudentId, at: Date): Promise<void> {
+  async softDelete(id: StudentId, at: Date, by: UserId): Promise<void> {
     const iso = at.toISOString();
     this.db
-      .prepare('UPDATE students SET deleted_at = ?, updated_at = ? WHERE id = ?')
-      .run(iso, iso, id);
+      .prepare('UPDATE students SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?')
+      .run(iso, iso, by, id);
   }
 
   async listChangedSince(cursor: Date): Promise<readonly Student[]> {

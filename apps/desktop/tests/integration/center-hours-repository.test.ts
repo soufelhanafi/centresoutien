@@ -81,7 +81,7 @@ describe('SqliteCenterHoursRepository', () => {
   it('softDelete hides the row but keeps it in the sync feed', async () => {
     const hours = makeHours();
     await repo.save(hours);
-    await repo.softDelete(hours.id, new Date('2026-08-02T00:00:00Z'));
+    await repo.softDelete(hours.id, new Date('2026-08-02T00:00:00Z'), 'usr_00000000000000000000000001' as UserId);
 
     expect(await repo.findById(hours.id)).toBeNull();
     const changed = await repo.listChangedSince(AT);
@@ -95,7 +95,7 @@ describe('SqliteCenterHoursRepository', () => {
       await repo.save(makeHours({ dayOfWeek: 1 as WeekdayIndex }));
       const deleted = makeHours({ dayOfWeek: 5 as WeekdayIndex });
       await repo.save(deleted);
-      await repo.softDelete(deleted.id, AT);
+      await repo.softDelete(deleted.id, AT, 'usr_00000000000000000000000001' as UserId);
 
       const rows = await repo.listForCenter(CENTER);
       expect(rows.map((r) => r.dayOfWeek)).toEqual([1, 3]);
@@ -133,7 +133,7 @@ describe('SqliteCenterHoursRepository', () => {
     it('allows re-creating a weekday after its previous row was soft-deleted', async () => {
       const first = makeHours({ dayOfWeek: 6 as WeekdayIndex });
       await repo.save(first);
-      await repo.softDelete(first.id, AT);
+      await repo.softDelete(first.id, AT, 'usr_00000000000000000000000001' as UserId);
       await expect(repo.save(makeHours({ dayOfWeek: 6 as WeekdayIndex }))).resolves.toBeUndefined();
     });
   });

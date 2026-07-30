@@ -51,36 +51,50 @@ describe('ArchiveStudent', () => {
     const created = await create.execute(validInput());
     expect(await students.countActive(CENTER)).toBe(1);
 
-    await archive.execute({ id: created.id });
+    await archive.execute({ centerCode: CENTER, id: created.id, updatedBy: USER });
 
     expect(await students.findById(created.id)).toBeNull();
     expect(await students.countActive(CENTER)).toBe(0);
   });
 
-  it('never hard-deletes — the tombstone survives for sync', async () => {
+  it('never hard-deletes — the tombstone records who and survives for sync', async () => {
     const created = await create.execute(validInput());
-    await archive.execute({ id: created.id });
+    await archive.execute({ centerCode: CENTER, id: created.id, updatedBy: USER });
     const tombstone = students.all().find((s) => s.id === created.id);
     expect(tombstone).toBeDefined();
     expect(tombstone?.deletedAt).not.toBeNull();
+    expect(tombstone?.updatedBy).toBe(USER);
   });
 
   it('throws StudentNotFoundError for an unknown id', async () => {
-    await expect(archive.execute({ id: 'stu_missing' as StudentId })).rejects.toBeInstanceOf(
-      StudentNotFoundError,
-    );
+    await expect(
+      archive.execute({ centerCode: CENTER, id: 'stu_missing' as StudentId, updatedBy: USER }),
+    ).rejects.toBeInstanceOf(StudentNotFoundError);
+  });
+
+  it('throws StudentNotFoundError for a student in another center (tenant scope)', async () => {
+    const created = await create.execute(validInput());
+    await expect(
+      archive.execute({
+        centerCode: 'CS-RABAT-002' as CenterCode,
+        id: created.id,
+        updatedBy: USER,
+      }),
+    ).rejects.toBeInstanceOf(StudentNotFoundError);
+    // The foreign-tenant attempt must not have tombstoned the real row.
+    expect(await students.findById(created.id)).not.toBeNull();
   });
 
   it('throws StudentNotFoundError when the student is already archived', async () => {
     const created = await create.execute(validInput());
-    await archive.execute({ id: created.id });
-    await expect(archive.execute({ id: created.id })).rejects.toBeInstanceOf(StudentNotFoundError);
+    await archive.execute({ centerCode: CENTER, id: created.id, updatedBy: USER });
+    await expect(archive.execute({ centerCode: CENTER, id: created.id, updatedBy: USER })).rejects.toBeInstanceOf(StudentNotFoundError);
   });
 
   it('is gated by core.students', async () => {
     const locked = new ArchiveStudent(students, clock, new PlanPolicy(planWithoutStudents()));
-    await expect(locked.execute({ id: 'stu_x' as StudentId })).rejects.toBeInstanceOf(
-      PlanFeatureUnavailableError,
-    );
+    await expect(
+      locked.execute({ centerCode: CENTER, id: 'stu_x' as StudentId, updatedBy: USER }),
+    ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
   });
 });
