@@ -46,6 +46,7 @@ export { DomainError, PlanFeatureUnavailableError, PlanLimitExceededError } from
 export { AdminAccountAlreadyExistsError } from './errors/auth-errors';
 export { StudentNotFoundError } from './errors/student-errors';
 export { DuplicateParentError } from './errors/people-errors';
+export { RoomInUseError, RoomNotFoundError } from './errors/room-errors';
 export { SessionOutsideCenterHoursError } from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason } from './errors/scheduling-errors';
 
@@ -86,6 +87,8 @@ export {
   PARENT_EMAIL_MAX,
 } from './schemas/parent';
 export type { ParentInput } from './schemas/parent';
+export { roomInputSchema, ROOM_NAME_MAX, ROOM_CAPACITY_MIN } from './schemas/room';
+export type { RoomInput } from './schemas/room';
 export {
   centerProfileSchema,
   logoUploadSchema,
@@ -118,6 +121,8 @@ export { CENTER_ID_PREFIX } from './entities/center';
 export type { Center, CenterId } from './entities/center';
 export { PARENT_ID_PREFIX } from './entities/parent';
 export type { Parent, ParentId } from './entities/parent';
+export { ROOM_ID_PREFIX } from './entities/room';
+export type { Room, RoomId } from './entities/room';
 
 // Value objects & policies (login throttle — SOU-27)
 export { UNLOCKED_STATE } from './value-objects/lockout-state';
@@ -139,6 +144,9 @@ export type { DeviceSessionStore } from './ports/device-session-store';
 export type { CenterRepository } from './ports/center-repository';
 export type { LogoStore } from './ports/logo-store';
 export type { ParentRepository } from './ports/parent-repository';
+export type { RoomRepository } from './ports/room-repository';
+// Room in-use guard — DECLARED CONTRACT ONLY (adapter arrives with the Session repo, SOU-53).
+export type { RoomReferencePort } from './ports/room-reference';
 // Student↔parent link — DECLARED CONTRACT ONLY (implemented after SOU-38 merges).
 export { STUDENT_PARENT_LINK_ID_PREFIX } from './ports/student-parent-link';
 export type {
@@ -188,6 +196,10 @@ export { ArchiveStudent } from './use-cases/archive-student';
 export type { ArchiveStudentInput } from './use-cases/archive-student';
 export { CreateParent } from './use-cases/create-parent';
 export type { CreateParentInput } from './use-cases/create-parent';
+export { CreateRoom } from './use-cases/create-room';
+export type { CreateRoomInput } from './use-cases/create-room';
+export { ArchiveRoom } from './use-cases/archive-room';
+export type { ArchiveRoomInput } from './use-cases/archive-room';
 export { GetCenterProfile } from './use-cases/get-center-profile';
 export { SaveCenterProfile } from './use-cases/save-center-profile';
 export type { SaveCenterProfileInput } from './use-cases/save-center-profile';
