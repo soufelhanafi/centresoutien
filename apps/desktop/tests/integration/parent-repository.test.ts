@@ -34,6 +34,7 @@ afterEach(() => {
 });
 
 const AT = new Date('2026-07-29T10:00:00Z');
+const BY = 'usr_00000000000000000000000002' as UserId;
 
 function makeParent(over: Partial<Parent> = {}): Parent {
   return {
@@ -77,7 +78,7 @@ describe('SqliteParentRepository', () => {
     await repo.save(parent);
     expect(await repo.findByNaturalKey(parent.naturalKey)).toEqual(parent);
 
-    await repo.softDelete(parent.id, new Date('2026-08-02T00:00:00Z'));
+    await repo.softDelete(parent.id, new Date('2026-08-02T00:00:00Z'), BY);
     expect(await repo.findByNaturalKey(parent.naturalKey)).toBeNull();
   });
 
@@ -102,12 +103,30 @@ describe('SqliteParentRepository', () => {
   it('softDelete hides the row from findById but keeps it as a tombstone in the sync feed', async () => {
     const parent = makeParent();
     await repo.save(parent);
-    await repo.softDelete(parent.id, new Date('2026-08-02T00:00:00Z'));
+    await repo.softDelete(parent.id, new Date('2026-08-02T00:00:00Z'), BY);
 
     expect(await repo.findById(parent.id)).toBeNull();
     const changed = await repo.listChangedSince(AT);
     expect(changed).toHaveLength(1);
     expect(changed[0]?.deletedAt).toEqual(new Date('2026-08-02T00:00:00Z'));
+    // The tombstone records who archived — the delete-vs-edit conflict UI needs it.
+    expect(changed[0]?.updatedBy).toBe(BY);
+  });
+
+  describe('listActive', () => {
+    it('returns only live guardians of the center, ordered by name', async () => {
+      await repo.save(makeParent({ id: 'prt_00000000000000000000000001' as ParentId, name: 'Zaid', naturalKey: 'k-zaid' }));
+      await repo.save(makeParent({ id: 'prt_00000000000000000000000002' as ParentId, name: 'amine', naturalKey: 'k-amine' }));
+      const gone = makeParent({ id: 'prt_00000000000000000000000003' as ParentId, name: 'Bilal', naturalKey: 'k-bilal' });
+      await repo.save(gone);
+      await repo.softDelete(gone.id, AT, BY);
+      await repo.save(
+        makeParent({ id: 'prt_00000000000000000000000004' as ParentId, name: 'Farès', naturalKey: 'k-other', centerCode: 'CS-RABAT-002' as CenterCode }),
+      );
+
+      const rows = await repo.listActive('CS-CASA-001' as CenterCode);
+      expect(rows.map((p) => p.name)).toEqual(['amine', 'Zaid']);
+    });
   });
 
   describe('shared family phone', () => {
@@ -141,7 +160,7 @@ describe('SqliteParentRepository', () => {
     it('permits recreation of a soft-deleted natural key (partial index skips tombstones)', async () => {
       const first = makeParent({ id: 'prt_00000000000000000000000001' as ParentId });
       await repo.save(first);
-      await repo.softDelete(first.id, new Date('2026-08-02T00:00:00Z'));
+      await repo.softDelete(first.id, new Date('2026-08-02T00:00:00Z'), BY);
 
       await expect(
         repo.save(makeParent({ id: 'prt_00000000000000000000000002' as ParentId })), // same naturalKey, alive

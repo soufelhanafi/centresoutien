@@ -108,15 +108,26 @@ export class SqliteParentRepository implements ParentRepository {
     return row ? fromRow(row) : null;
   }
 
-  async softDelete(id: ParentId, at: Date): Promise<void> {
+  async softDelete(id: ParentId, at: Date, by: UserId): Promise<void> {
     const iso = at.toISOString();
-    this.db.prepare('UPDATE parents SET deleted_at = ?, updated_at = ? WHERE id = ?').run(iso, iso, id);
+    this.db
+      .prepare('UPDATE parents SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?')
+      .run(iso, iso, by, id);
   }
 
   async listChangedSince(cursor: Date): Promise<readonly Parent[]> {
     const rows = this.db
       .prepare('SELECT * FROM parents WHERE updated_at > ? ORDER BY updated_at')
       .all(cursor.toISOString()) as ParentRow[];
+    return rows.map(fromRow);
+  }
+
+  async listActive(centerCode: CenterCode): Promise<readonly Parent[]> {
+    const rows = this.db
+      .prepare(
+        'SELECT * FROM parents WHERE center_code = ? AND deleted_at IS NULL ORDER BY name COLLATE NOCASE, created_at',
+      )
+      .all(centerCode) as ParentRow[];
     return rows.map(fromRow);
   }
 }

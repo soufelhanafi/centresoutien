@@ -154,4 +154,20 @@ export class SqliteStudentRepository implements StudentRepository {
       .all(centerCode) as StudentRow[];
     return rows.map(fromRow);
   }
+
+  async listByGuardian(centerCode: CenterCode, parentId: ParentId): Promise<readonly Student[]> {
+    // `guardian_ids` is a JSON array of ParentIds; match membership via JSON1's
+    // json_each rather than a brittle LIKE on the serialized string.
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM students
+         WHERE center_code = ? AND deleted_at IS NULL
+           AND EXISTS (
+             SELECT 1 FROM json_each(students.guardian_ids) WHERE json_each.value = ?
+           )
+         ORDER BY name_fr COLLATE NOCASE, created_at`,
+      )
+      .all(centerCode, parentId) as StudentRow[];
+    return rows.map(fromRow);
+  }
 }

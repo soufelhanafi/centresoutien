@@ -159,6 +159,54 @@ describe('SqliteStudentRepository', () => {
     });
   });
 
+  describe('listActive', () => {
+    it('returns only live students of the center, ordered by French name', async () => {
+      await repo.save(makeStudent({ name: { fr: 'Zaid', ar: 'زيد' }, naturalKey: 'k-zaid' }));
+      await repo.save(makeStudent({ name: { fr: 'amine', ar: 'أمين' }, naturalKey: 'k-amine' }));
+      const gone = makeStudent({ name: { fr: 'Bilal', ar: 'بلال' }, naturalKey: 'k-bilal' });
+      await repo.save(gone);
+      await repo.softDelete(gone.id, AT, 'usr_00000000000000000000000001' as UserId);
+      await repo.save(makeStudent({ centerCode: OTHER_CENTER, naturalKey: 'k-other' }));
+
+      const rows = await repo.listActive(CENTER);
+      expect(rows.map((s) => s.name.fr)).toEqual(['amine', 'Zaid']);
+    });
+  });
+
+  describe('listByGuardian', () => {
+    const DAD = 'prt_00000000000000000000000001' as ParentId;
+    const MUM = 'prt_00000000000000000000000002' as ParentId;
+
+    it('returns live students whose guardian_ids include the parent (JSON1 json_each), tenant-scoped', async () => {
+      await repo.save(
+        makeStudent({ name: { fr: 'Zaid', ar: 'زيد' }, naturalKey: 'k-zaid', guardianIds: [DAD] as ParentId[] }),
+      );
+      await repo.save(
+        makeStudent({ name: { fr: 'Amine', ar: 'أمين' }, naturalKey: 'k-amine', guardianIds: [DAD, MUM] as ParentId[] }),
+      );
+      // Linked to MUM only — excluded for DAD.
+      await repo.save(
+        makeStudent({ name: { fr: 'Nadia', ar: 'نادية' }, naturalKey: 'k-nadia', guardianIds: [MUM] as ParentId[] }),
+      );
+      // Archived child of DAD — excluded.
+      const gone = makeStudent({ name: { fr: 'Bilal', ar: 'بلال' }, naturalKey: 'k-bilal', guardianIds: [DAD] as ParentId[] });
+      await repo.save(gone);
+      await repo.softDelete(gone.id, AT, 'usr_00000000000000000000000001' as UserId);
+      // Same guardian id in another center — excluded by tenant scope.
+      await repo.save(
+        makeStudent({ centerCode: OTHER_CENTER, naturalKey: 'k-other', guardianIds: [DAD] as ParentId[] }),
+      );
+
+      const rows = await repo.listByGuardian(CENTER, DAD);
+      expect(rows.map((s) => s.name.fr)).toEqual(['Amine', 'Zaid']);
+    });
+
+    it('returns an empty array for a guardian with no linked children', async () => {
+      await repo.save(makeStudent({ guardianIds: [] }));
+      expect(await repo.listByGuardian(CENTER, DAD)).toEqual([]);
+    });
+  });
+
   describe('DB constraints', () => {
     it('rejects an id without the stu_ prefix (CHECK)', async () => {
       await expect(
