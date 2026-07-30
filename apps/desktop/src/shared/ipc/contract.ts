@@ -112,6 +112,14 @@ export const ipcContract = {
     }),
     response: z.object({ path: z.string() }),
   },
+  // `center.logoBytes` reads back a previously saved logo so the renderer can
+  // re-display it after a reload (the renderer has no filesystem access). Main
+  // resolves the relative `path` under app data and returns the raw bytes, or
+  // `null` when the file is missing — the field then falls back to a placeholder.
+  'center.logoBytes': {
+    request: z.object({ path: z.string() }),
+    response: z.object({ bytes: z.instanceof(Uint8Array).nullable() }),
+  },
 } as const;
 
 export type IpcContract = typeof ipcContract;

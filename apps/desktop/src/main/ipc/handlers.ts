@@ -120,5 +120,11 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       const path = await deps.storeCenterLogo.execute(request);
       return { path };
     },
+    // SOU-28 (frontend fix): the renderer re-displays a persisted logo via this
+    // channel. Reading bytes back needs a `LogoStore.read(path)` port method +
+    // use case that the domain-backend agent still owns — until it lands, this
+    // returns `null` so the field falls back to the placeholder. Swap in the
+    // real `deps.readCenterLogo.execute(request)` when that contract merges.
+    'center.logoBytes': async () => ({ bytes: null }),
   };
 }
