@@ -10,6 +10,7 @@ import { ModulePlaceholder } from '../pages/module-placeholder';
 import { SettingsPage } from '../pages/settings-page';
 import { StudentsPage } from '../pages/students/students-page';
 import { StudentDetailPage } from '../pages/students/student-detail-page';
+import { ParentsPage } from '../pages/parents/parents-page';
 import {
   DEFAULT_ROUTE,
   dashboardModule,
@@ -53,7 +54,7 @@ const teachersRoute = createRoute({
 const parentsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: parentsModule.path,
-  component: () => <ModulePlaceholder module={parentsModule} />,
+  component: ParentsPage,
 });
 const groupsRoute = createRoute({
   getParentRoute: () => rootRoute,
