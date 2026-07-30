@@ -4,6 +4,7 @@ import {
   PLANS,
   PlanPolicy,
   CreateSubject,
+  CreateStudent,
   CreateAdminAccount,
   VerifyAdminPassword,
   SaveCenterHours,
@@ -20,6 +21,7 @@ import type { PlanId, CenterCode, DeviceId, UserId, IdGenerator } from '@centres
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
+import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-throttle-store';
@@ -107,6 +109,9 @@ export function buildContainer(options: ContainerOptions): Container {
   const subjectRepo = new SqliteSubjectRepository(db);
   const createSubject = new CreateSubject(subjectRepo, clock, ids, plan);
 
+  const studentRepo = new SqliteStudentRepository(db);
+  const createStudent = new CreateStudent(studentRepo, clock, ids, plan);
+
   const centerRepo = new SqliteCenterRepository(db);
   const getCenterProfile = new GetCenterProfile(centerRepo);
   const saveCenterProfile = new SaveCenterProfile(centerRepo, clock, ids);
@@ -143,6 +148,7 @@ export function buildContainer(options: ContainerOptions): Container {
     appVersion: options.appVersion,
     activePlanId: () => activePlanId,
     createSubject,
+    createStudent,
     saveCenterHours,
     getCenterHours,
     envelopeContext: () => context,

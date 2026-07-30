@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   subjectInputSchema,
+  studentInputSchema,
   adminCredentialsSchema,
   weeklyHoursSchema,
   loginInputSchema,
@@ -47,6 +48,13 @@ export const ipcContract = {
   // by the form (zodResolver), the preload types, and this boundary.
   'subject.create': {
     request: subjectInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  // The request is the domain's own input schema — validated once, shared by the
+  // form (zodResolver), the preload types, and this boundary. centerCode/device/
+  // user are injected in main, never sent from the renderer.
+  'student.create': {
+    request: studentInputSchema,
     response: z.object({ id: z.string() }),
   },
   // Auth (SOU-26). `admin.exists` drives first-run detection; `admin.create`
