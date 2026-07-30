@@ -41,6 +41,7 @@ export const STR: Record<
       | 'teachers'
       | 'parents'
       | 'groups'
+      | 'rooms'
       | 'planning'
       | 'invoicing'
       | 'payments'
@@ -66,6 +67,7 @@ export const STR: Record<
       teachers: 'Enseignants',
       parents: 'Parents',
       groups: 'Groupes',
+      rooms: 'Salles',
       planning: 'Planning',
       invoicing: 'Facturation',
       payments: 'Paiements',
@@ -89,6 +91,7 @@ export const STR: Record<
       teachers: 'الأساتذة',
       parents: 'أولياء الأمور',
       groups: 'المجموعات',
+      rooms: 'القاعات',
       planning: 'الجدولة',
       invoicing: 'الفوترة',
       payments: 'المدفوعات',
@@ -114,6 +117,7 @@ export const ALWAYS_ON = [
   'teachers',
   'parents',
   'groups',
+  'rooms',
   'planning',
   'invoicing',
   'payments',
