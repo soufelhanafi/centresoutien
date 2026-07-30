@@ -10,6 +10,11 @@ import {
   UpdateStudent,
   ArchiveStudent,
   CreateParent,
+  ListParents,
+  GetParent,
+  UpdateParent,
+  ArchiveParent,
+  ListParentChildren,
   CreateAdminAccount,
   VerifyAdminPassword,
   SaveCenterHours,
@@ -124,6 +129,11 @@ export function buildContainer(options: ContainerOptions): Container {
 
   const parentRepo = new SqliteParentRepository(db);
   const createParent = new CreateParent(parentRepo, clock, ids, plan);
+  const listParents = new ListParents(parentRepo, plan);
+  const getParent = new GetParent(parentRepo, plan);
+  const updateParent = new UpdateParent(parentRepo, clock, plan);
+  const archiveParent = new ArchiveParent(parentRepo, clock, plan);
+  const listParentChildren = new ListParentChildren(studentRepo, plan);
 
   const centerRepo = new SqliteCenterRepository(db);
   const getCenterProfile = new GetCenterProfile(centerRepo);
@@ -167,6 +177,11 @@ export function buildContainer(options: ContainerOptions): Container {
     updateStudent,
     archiveStudent,
     createParent,
+    listParents,
+    getParent,
+    updateParent,
+    archiveParent,
+    listParentChildren,
     saveCenterHours,
     getCenterHours,
     envelopeContext: () => context,
