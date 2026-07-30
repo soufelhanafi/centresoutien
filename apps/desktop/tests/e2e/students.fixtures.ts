@@ -70,8 +70,9 @@ export const STR: Record<
       edit: string;
       notFoundTitle: string;
       tabs: { info: string; guardians: string; enrollment: string; invoices: string; attendance: string };
+      guardiansLink: string;
     };
-    comingSoon: { enrollment: string; invoices: string; attendance: string; guardians: string };
+    comingSoon: { enrollment: string; invoices: string; attendance: string };
     errors: { required: string; invalidDate: string; tooLong: string };
   }
 > = {
@@ -112,12 +113,12 @@ export const STR: Record<
       edit: 'Modifier',
       notFoundTitle: 'Élève introuvable',
       tabs: { info: 'Informations', guardians: 'Responsables', enrollment: 'Inscriptions', invoices: 'Factures', attendance: 'Présence' },
+      guardiansLink: 'Lier un responsable',
     },
     comingSoon: {
       enrollment: 'Inscriptions bientôt disponibles',
       invoices: 'Factures bientôt disponibles',
       attendance: 'Présence bientôt disponible',
-      guardians: 'La gestion des responsables arrive avec le module Parents.',
     },
     errors: { required: 'Ce champ est requis', invalidDate: 'Date invalide', tooLong: 'Texte trop long' },
   },
@@ -158,12 +159,12 @@ export const STR: Record<
       edit: 'تعديل',
       notFoundTitle: 'التلميذ غير موجود',
       tabs: { info: 'المعلومات', guardians: 'الأولياء', enrollment: 'التسجيلات', invoices: 'الفواتير', attendance: 'الحضور' },
+      guardiansLink: 'ربط وليّ',
     },
     comingSoon: {
       enrollment: 'التسجيلات قريبًا',
       invoices: 'الفواتير قريبًا',
       attendance: 'الحضور قريبًا',
-      guardians: 'إدارة الأولياء ستتوفر مع قسم أولياء الأمور.',
     },
     errors: { required: 'هذا الحقل مطلوب', invalidDate: 'تاريخ غير صالح', tooLong: 'النص طويل جدًا' },
   },
