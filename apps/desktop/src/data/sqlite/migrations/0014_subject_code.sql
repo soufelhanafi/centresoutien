@@ -1,4 +1,4 @@
--- 0013_subject_code.sql
+-- 0014_subject_code.sql
 -- What: adds the optional `code` column to subjects + a per-center partial unique
 --       index enforcing code uniqueness among live subjects.
 -- Why:  SOU-45 gives subjects an optional short code (e.g. MATH, PC). Uniqueness
