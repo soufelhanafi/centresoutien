@@ -265,19 +265,19 @@ describe('SqliteInvoiceRepository', () => {
   });
 
   describe('migration replay', () => {
-    it('applies 0017 cleanly on a DB already migrated to a prior version (0016)', () => {
+    it('applies 0018 cleanly on a DB already migrated to a prior version (0017)', () => {
       const fresh = mkdtempSync(join(tmpdir(), 'cs-inv-replay-'));
       const stale = openDatabase({ centreId: 'C2', key: KEY, dir: fresh });
       try {
         const all = loadMigrations(REAL_MIGRATIONS);
-        const upTo16 = all.filter((m) => m.version <= 16);
-        // A laptop that stopped at 0016: invoices does not exist yet.
-        applyMigrations(stale, upTo16);
+        const upTo17 = all.filter((m) => m.version <= 17);
+        // A laptop that stopped at 0017: invoices does not exist yet.
+        applyMigrations(stale, upTo17);
         expect(() => stale.prepare('SELECT 1 FROM invoices LIMIT 1').get()).toThrow();
 
-        // Update to head: 0017 applies additively, no rebuild, no error.
+        // Update to head: 0018 applies additively, no rebuild, no error.
         const applied = applyMigrations(stale, all);
-        expect(applied).toContain(17);
+        expect(applied).toContain(18);
         expect(stale.prepare('SELECT COUNT(*) AS n FROM invoices').get()).toEqual({ n: 0 });
         expect(stale.prepare('SELECT COUNT(*) AS n FROM invoice_lines').get()).toEqual({ n: 0 });
       } finally {

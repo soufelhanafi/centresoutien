@@ -1,4 +1,4 @@
--- 0017_invoices.sql
+-- 0018_invoices.sql
 -- What: invoices + invoice_lines — the monthly, formula-based invoice (CLAUDE.md §7).
 --       One invoice per student per calendar month; one line per active subscription
 --       that month. Groups never appear on an invoice; billing is monthly, never
