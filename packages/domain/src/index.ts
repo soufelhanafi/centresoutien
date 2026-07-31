@@ -45,7 +45,13 @@ export { PlanPolicy } from './plans/plan-policy';
 export { DomainError, PlanFeatureUnavailableError, PlanLimitExceededError } from './errors/plan-errors';
 export { AdminAccountAlreadyExistsError } from './errors/auth-errors';
 export { StudentNotFoundError } from './errors/student-errors';
-export { DuplicateParentError, ParentNotFoundError } from './errors/people-errors';
+export {
+  DuplicateParentError,
+  ParentNotFoundError,
+  DuplicateTeacherError,
+  TeacherNotFoundError,
+  TeacherInUseError,
+} from './errors/people-errors';
 export { RoomInUseError, RoomNotFoundError } from './errors/room-errors';
 export { HolidayNotFoundError } from './errors/holiday-errors';
 export { GroupOverCapacityError, GroupSubjectUnavailableError } from './errors/group-errors';
@@ -103,6 +109,14 @@ export type { HolidayInput } from './schemas/holiday';
 export { groupInputSchema, GROUP_LEVEL_MAX, GROUP_CAPACITY_MIN } from './schemas/group';
 export type { GroupInput } from './schemas/group';
 export {
+  teacherInputSchema,
+  TEACHER_NAME_MAX,
+  TEACHER_CIN_MAX,
+  TEACHER_PHONE_MAX,
+  TEACHER_EMAIL_MAX,
+} from './schemas/teacher';
+export type { TeacherInput } from './schemas/teacher';
+export {
   centerProfileSchema,
   logoUploadSchema,
   LOGO_EXTENSIONS,
@@ -136,6 +150,8 @@ export { PARENT_ID_PREFIX } from './entities/parent';
 export type { Parent, ParentId } from './entities/parent';
 export { ROOM_ID_PREFIX } from './entities/room';
 export type { Room, RoomId } from './entities/room';
+export { TEACHER_ID_PREFIX } from './entities/teacher';
+export type { Teacher, TeacherId } from './entities/teacher';
 export { HOLIDAY_ID_PREFIX } from './entities/holiday';
 export type { Holiday, HolidayId, HolidayKind } from './entities/holiday';
 export { GROUP_ID_PREFIX, GROUP_KINDS } from './entities/group';
@@ -170,6 +186,10 @@ export type { CenterRepository } from './ports/center-repository';
 export type { LogoStore } from './ports/logo-store';
 export type { ParentRepository } from './ports/parent-repository';
 export type { RoomRepository } from './ports/room-repository';
+export type { TeacherRepository } from './ports/teacher-repository';
+// Teacher in-use guard — DECLARED CONTRACT ONLY; real adapter lands with Groups
+// (SOU-48) / payroll (SOU-70). Stubbed "never referenced" at the composition root.
+export type { TeacherReferencePort } from './ports/teacher-reference';
 export type { HolidayRepository } from './ports/holiday-repository';
 // Group repository — port declared here; SQLite adapter + migration are a follow-up.
 export type { GroupRepository } from './ports/group-repository';
@@ -204,7 +224,7 @@ export type {
   CompositeSessionCandidate,
   ConflictCheckContext,
 } from './policies/composite-session-conflicts';
-export { buildStudentNaturalKey } from './policies/natural-key';
+export { buildStudentNaturalKey, buildTeacherNaturalKey } from './policies/natural-key';
 
 // First-run wizard state machine (SOU-25) — a pure, portable sequencer.
 export type { WizardStepId } from './wizard/wizard-steps';
@@ -263,6 +283,16 @@ export { UpdateRoom } from './use-cases/update-room';
 export type { UpdateRoomInput } from './use-cases/update-room';
 export { RestoreRoom } from './use-cases/restore-room';
 export type { RestoreRoomInput } from './use-cases/restore-room';
+export { CreateTeacher } from './use-cases/create-teacher';
+export type { CreateTeacherInput } from './use-cases/create-teacher';
+export { ListTeachers } from './use-cases/list-teachers';
+export type { ListTeachersInput } from './use-cases/list-teachers';
+export { GetTeacher } from './use-cases/get-teacher';
+export type { GetTeacherInput } from './use-cases/get-teacher';
+export { UpdateTeacher } from './use-cases/update-teacher';
+export type { UpdateTeacherInput } from './use-cases/update-teacher';
+export { ArchiveTeacher } from './use-cases/archive-teacher';
+export type { ArchiveTeacherInput } from './use-cases/archive-teacher';
 export { CreateHoliday } from './use-cases/create-holiday';
 export type { CreateHolidayInput } from './use-cases/create-holiday';
 export { ListHolidays } from './use-cases/list-holidays';

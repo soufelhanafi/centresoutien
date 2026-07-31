@@ -56,3 +56,24 @@ export function buildStudentNaturalKey(input: {
     contact: input.birthDate,
   });
 }
+
+/**
+ * Build a Teacher's `naturalKey`. Teachers are people-like and — like Parents —
+ * anchored on the **E.164 phone** (already canonical from the {@link normalizePhone}
+ * value object), so two teachers sharing a number but with different names get
+ * different keys (both saved), while the same name + same phone collides (a
+ * genuine duplicate). The bilingual FR + AR names are combined into the name slot,
+ * exactly as {@link buildStudentNaturalKey} does. Stamped once at creation and
+ * never recomputed, so sync matching stays stable.
+ */
+export function buildTeacherNaturalKey(input: {
+  centerCode: CenterCode;
+  name: { fr: string; ar: string };
+  phone: string;
+}): string {
+  return normalizeNaturalKey({
+    centerCode: input.centerCode,
+    fullName: `${input.name.fr} ${input.name.ar}`,
+    contact: input.phone,
+  });
+}

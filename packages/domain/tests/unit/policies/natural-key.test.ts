@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeNaturalKey, buildStudentNaturalKey } from '../../../src/policies/natural-key';
+import {
+  normalizeNaturalKey,
+  buildStudentNaturalKey,
+  buildTeacherNaturalKey,
+} from '../../../src/policies/natural-key';
 import type { CenterCode } from '../../../src/value-objects/ids';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
@@ -72,6 +76,42 @@ describe('buildStudentNaturalKey', () => {
       centerCode: CENTER,
       name: { fr: '  Yassine   Alaoui ', ar: ' ياسين  العلوي ' },
       birthDate: '2012-05-03',
+    });
+    expect(a).toBe(b);
+  });
+});
+
+describe('buildTeacherNaturalKey', () => {
+  const name = { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' };
+
+  it('delegates to normalizeNaturalKey with the FR+AR name and E.164 phone as contact', () => {
+    const key = buildTeacherNaturalKey({ centerCode: CENTER, name, phone: '+212612345678' });
+    expect(key).toBe(
+      normalizeNaturalKey({
+        centerCode: CENTER,
+        fullName: `${name.fr} ${name.ar}`,
+        contact: '+212612345678',
+      }),
+    );
+    expect(key.startsWith('CS-CASA-001::')).toBe(true);
+  });
+
+  it('gives two teachers sharing a phone but with different names different keys', () => {
+    const a = buildTeacherNaturalKey({ centerCode: CENTER, name, phone: '+212612345678' });
+    const b = buildTeacherNaturalKey({
+      centerCode: CENTER,
+      name: { fr: 'Salma Idrissi', ar: 'سلمى الإدريسي' },
+      phone: '+212612345678',
+    });
+    expect(a).not.toBe(b);
+  });
+
+  it('is stable across name spacing/case variants (immutable matching key)', () => {
+    const a = buildTeacherNaturalKey({ centerCode: CENTER, name, phone: '+212612345678' });
+    const b = buildTeacherNaturalKey({
+      centerCode: CENTER,
+      name: { fr: '  Yassine   Alaoui ', ar: ' ياسين  العلوي ' },
+      phone: '+212612345678',
     });
     expect(a).toBe(b);
   });
