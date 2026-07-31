@@ -34,7 +34,9 @@ export class InMemorySubjectRepository
   async listWithUsage(centerCode: CenterCode): Promise<readonly SubjectUsage[]> {
     return [...this.rows.values()]
       .filter((row) => row.deletedAt === null && row.centerCode === centerCode)
-      .sort((a, b) => a.name.fr.localeCompare(b.name.fr))
+      // Match the adapter's `ORDER BY s.name_fr COLLATE NOCASE, s.id`: name first,
+      // then id as a stable tiebreak for equal names.
+      .sort((a, b) => a.name.fr.localeCompare(b.name.fr) || a.id.localeCompare(b.id))
       .map((row) => {
         const inUseCount = this.usage.get(row.id) ?? 0;
         return { subject: structuredClone(row), inUseCount, canDelete: inUseCount === 0 };

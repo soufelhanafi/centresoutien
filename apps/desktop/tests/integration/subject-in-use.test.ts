@@ -116,6 +116,17 @@ describe('SqliteSubjectRepository.listWithUsage', () => {
     expect(row?.canDelete).toBe(false);
   });
 
+  it('counts an inactive (active:false) but non-tombstoned group as in-use', async () => {
+    // In-use is driven by `deletedAt`, never the `active` flag: a deactivated but
+    // un-archived group still holds a live reference to the subject.
+    await subjects.save(makeSubject());
+    await groups.save(makeGroup({ subjectId: MATH, active: false, deletedAt: null }));
+
+    const [row] = await subjects.listWithUsage(CENTER);
+    expect(row?.inUseCount).toBe(1);
+    expect(row?.canDelete).toBe(false);
+  });
+
   it('counts each subject independently and excludes tombstoned subjects', async () => {
     await subjects.save(makeSubject({ id: MATH, name: { fr: 'Mathématiques', ar: 'الرياضيات' } }));
     await subjects.save(makeSubject({ id: PHYSICS, name: { fr: 'Physique', ar: 'الفيزياء' } }));
@@ -173,5 +184,12 @@ describe('SqliteGroupRepository.isSubjectInUse (SubjectReferencePort)', () => {
   it('is false for a different subject than the referenced one', async () => {
     await groups.save(makeGroup({ subjectId: MATH }));
     expect(await groups.isSubjectInUse(PHYSICS)).toBe(false);
+  });
+
+  it('is true for an inactive (active:false) but non-tombstoned group', async () => {
+    // Live/archived lifecycle is `deletedAt`, not `active`: a deactivated group
+    // that is not archived still references the subject.
+    await groups.save(makeGroup({ subjectId: MATH, active: false, deletedAt: null }));
+    expect(await groups.isSubjectInUse(MATH)).toBe(true);
   });
 });

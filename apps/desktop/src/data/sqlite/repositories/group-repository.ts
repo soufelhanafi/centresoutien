@@ -155,9 +155,20 @@ export class SqliteGroupRepository implements GroupRepository, SubjectReferenceP
 
   /**
    * {@link SubjectReferencePort}: true when any live group still references the
-   * subject. Uses `ix_groups_subject(subject_id, deleted_at)`. Extension point —
-   * when sessions/formulas gain a `subject_id`, OR their live-reference existence
-   * checks in here (or move this to a composite adapter); the port stays boolean.
+   * subject. Uses `ix_groups_subject(subject_id, deleted_at)`.
+   *
+   * No `center_code` filter is needed here (unlike `listWithUsage`, which
+   * correlates on center): the port is keyed by `subjectId` alone and a subject
+   * ULID is globally unique, so it identifies exactly one center's subject; only
+   * that center's groups can legitimately reference it. Each center is also its own
+   * SQLCipher file, and `ArchiveSubject` pre-verifies the subject's tenant before
+   * ever calling this guard — so a live group matching `subject_id` is necessarily
+   * same-tenant. Keep the port shape `isSubjectInUse(subjectId)`; do not add a
+   * center param.
+   *
+   * Extension point — when sessions/formulas gain a `subject_id`, OR their
+   * live-reference existence checks in here (or move this to a composite adapter);
+   * the port stays boolean.
    */
   async isSubjectInUse(subjectId: SubjectId): Promise<boolean> {
     const row = this.db

@@ -66,6 +66,12 @@ const SAVE_SQL = `
 // with no change to the port, the mapping below, or `ArchiveSubject`. The count is
 // tenant-scoped (`g.center_code = s.center_code`) so no other center's row can ever
 // inflate it, and both sides exclude tombstones; the WHERE scopes the subject rows.
+//
+// `inUseCount` counts referencing *rows*, so any future session/formula term must
+// reference a disjoint entity: a session that belongs to a subject-bearing group
+// must NOT be summed again here, or the displayed count double-counts one reference.
+// (`canDelete` is unaffected — any positive term keeps it false; this caveat is only
+// about the displayed scalar.)
 const LIST_WITH_USAGE_SQL = `
   SELECT s.*,
          (SELECT COUNT(*) FROM groups g
