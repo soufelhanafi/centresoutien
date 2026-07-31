@@ -48,6 +48,8 @@ export { StudentNotFoundError } from './errors/student-errors';
 export { DuplicateParentError, ParentNotFoundError } from './errors/people-errors';
 export { RoomInUseError, RoomNotFoundError } from './errors/room-errors';
 export { HolidayNotFoundError } from './errors/holiday-errors';
+export { GroupOverCapacityError, GroupSubjectUnavailableError } from './errors/group-errors';
+export type { GroupSubjectUnavailableReason } from './errors/group-errors';
 export {
   SessionOutsideCenterHoursError,
   RoomConflictError,
@@ -98,6 +100,8 @@ export { roomInputSchema, ROOM_NAME_MAX, ROOM_CAPACITY_MIN } from './schemas/roo
 export type { RoomInput } from './schemas/room';
 export { holidayInputSchema, HOLIDAY_NAME_MAX } from './schemas/holiday';
 export type { HolidayInput } from './schemas/holiday';
+export { groupInputSchema, GROUP_LEVEL_MAX, GROUP_CAPACITY_MIN } from './schemas/group';
+export type { GroupInput } from './schemas/group';
 export {
   centerProfileSchema,
   logoUploadSchema,
@@ -134,6 +138,8 @@ export { ROOM_ID_PREFIX } from './entities/room';
 export type { Room, RoomId } from './entities/room';
 export { HOLIDAY_ID_PREFIX } from './entities/holiday';
 export type { Holiday, HolidayId, HolidayKind } from './entities/holiday';
+export { GROUP_ID_PREFIX, GROUP_KINDS } from './entities/group';
+export type { Group, GroupId, GroupKind } from './entities/group';
 export {
   WEEKLY_RECURRING_SESSION_ID_PREFIX,
   toScheduledSessionRef,
@@ -165,6 +171,8 @@ export type { LogoStore } from './ports/logo-store';
 export type { ParentRepository } from './ports/parent-repository';
 export type { RoomRepository } from './ports/room-repository';
 export type { HolidayRepository } from './ports/holiday-repository';
+// Group repository — port declared here; SQLite adapter + migration are a follow-up.
+export type { GroupRepository } from './ports/group-repository';
 export type { WeeklyRecurringSessionRepository } from './ports/weekly-recurring-session-repository';
 // Room in-use guard — its concrete adapter is the weekly-session repo (SOU-53).
 export type { RoomReferencePort } from './ports/room-reference';
