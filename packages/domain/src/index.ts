@@ -345,8 +345,12 @@ export { CloseStudentSubscription } from './use-cases/close-student-subscription
 export type { CloseStudentSubscriptionInput } from './use-cases/close-student-subscription';
 export { ListStudentSubscriptions } from './use-cases/list-student-subscriptions';
 export type { ListStudentSubscriptionsInput } from './use-cases/list-student-subscriptions';
-export { ListGroups } from './use-cases/list-groups';
+export { ListGroups, orderGroupsForList } from './use-cases/list-groups';
 export type { ListGroupsInput, GroupScope } from './use-cases/list-groups';
+export { ListGroupsWithCounts } from './use-cases/list-groups-with-counts';
+export type { GroupWithCount } from './use-cases/list-groups-with-counts';
+export { GetGroupRoster } from './use-cases/get-group-roster';
+export type { GetGroupRosterInput, GroupRosterEntry } from './use-cases/get-group-roster';
 export { UpdateGroup } from './use-cases/update-group';
 export type { UpdateGroupInput } from './use-cases/update-group';
 export { ArchiveGroup } from './use-cases/archive-group';

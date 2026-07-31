@@ -92,6 +92,28 @@ const groupViewSchema = z.object({
   createdAt: z.string(),
 });
 
+// The group list enriched with its live enrollment count (SOU-127) — `groupView`
+// plus `enrolledCount`, so the list screen renders fill % = enrolledCount /
+// capacity without one IPC call per row. A sibling of `groupViewSchema` rather than
+// a field on it, so the group mutation responses (create/update/archive/restore)
+// keep the lean shape and only the list pays for the count query. Single source of
+// truth for the renderer's `GroupWithCountView` type.
+const groupWithCountViewSchema = groupViewSchema.extend({
+  enrolledCount: z.number().int().nonnegative(),
+});
+
+// One row of a group's roster across the IPC boundary (SOU-127): the enrollment id
+// (what the detail screen's unenroll action needs) plus the student resolved to a
+// display name. Envelope-free — it is a read-model row, not an entity. Single source
+// of truth for the renderer's `GroupRosterEntryView` type.
+const groupRosterEntrySchema = z.object({
+  enrollmentId: z.string(),
+  studentId: z.string(),
+  name: z.object({ fr: z.string(), ar: z.string() }),
+  level: z.string(),
+  startMonth: z.string(),
+});
+
 // The presentation projection of a StudentSubscription across the IPC boundary — the
 // sync envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized,
 // exactly like `groupViewSchema`. There is NO stored status: the renderer derives
@@ -312,6 +334,20 @@ export const ipcContract = {
   'group.restore': {
     request: z.object({ id: z.string() }),
     response: z.object({ group: groupViewSchema }),
+  },
+  // Group roster + counts read model (SOU-127), backing the SOU-50 detail/list UI.
+  // `listWithCounts` mirrors `group.list`'s `scope` request but returns each group
+  // with its live `enrolledCount` (one batch count query, never N+1) so the list can
+  // show fill %. `roster` returns a single group's active enrolled students resolved
+  // to names for the detail screen. centerCode is injected in main, never sent from
+  // the renderer. Both gated by `core.groups` (every plan) in the use cases.
+  'group.listWithCounts': {
+    request: z.object({ scope: z.enum(['active', 'archived']) }),
+    response: z.object({ groups: z.array(groupWithCountViewSchema) }),
+  },
+  'group.roster': {
+    request: z.object({ groupId: z.string() }),
+    response: z.object({ roster: z.array(groupRosterEntrySchema) }),
   },
   // Student subscriptions (SOU-63) — the formula-billing surface. `create` takes the
   // domain's own `studentSubscriptionInputSchema` (prefixed student/formula/subject
@@ -537,6 +573,12 @@ export type RoomDto = z.infer<typeof roomViewSchema>;
 
 /** The Group boundary DTO — the renderer's `GroupView` is an alias of this. */
 export type GroupDto = z.infer<typeof groupViewSchema>;
+
+/** The Group-with-count boundary DTO — the renderer's `GroupWithCountView` aliases this. */
+export type GroupWithCountDto = z.infer<typeof groupWithCountViewSchema>;
+
+/** One roster row across the boundary — the renderer's `GroupRosterEntryView` aliases this. */
+export type GroupRosterEntryDto = z.infer<typeof groupRosterEntrySchema>;
 
 /** The StudentSubscription boundary DTO — the renderer's `SubscriptionView` aliases this. */
 export type SubscriptionDto = z.infer<typeof subscriptionViewSchema>;

@@ -160,6 +160,24 @@ export class SqliteEnrollmentRepository implements EnrollmentRepository {
     return row.n;
   }
 
+  async countActiveByGroups(groupIds: readonly GroupId[]): Promise<ReadonlyMap<GroupId, number>> {
+    const counts = new Map<GroupId, number>();
+    // No group ids → no query (an `IN ()` is a syntax error), and nothing to count.
+    if (groupIds.length === 0) return counts;
+    const placeholders = groupIds.map(() => '?').join(', ');
+    const rows = this.db
+      .prepare(
+        `SELECT group_id, COUNT(*) AS n FROM enrollments
+         WHERE group_id IN (${placeholders}) AND deleted_at IS NULL
+         GROUP BY group_id`,
+      )
+      .all(...groupIds) as { group_id: string; n: number }[];
+    // GROUP BY only yields groups with matching rows; a zero-seat group is absent
+    // and the caller (ListGroupsWithCounts) defaults it to 0.
+    for (const row of rows) counts.set(row.group_id as GroupId, row.n);
+    return counts;
+  }
+
   async hasActiveEnrollment(studentId: StudentId, groupId: GroupId): Promise<boolean> {
     const row = this.db
       .prepare(

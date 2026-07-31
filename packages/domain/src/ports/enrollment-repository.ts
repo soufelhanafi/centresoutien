@@ -27,6 +27,15 @@ export interface EnrollmentRepository
   /** Live seat count in the group — the number the capacity guard checks against. */
   countActiveByGroup(groupId: GroupId): Promise<number>;
   /**
+   * Live seat count for **many** groups in one query — the batch behind the group
+   * list's fill % (SOU-127), so the list never fans out one `countActiveByGroup`
+   * per row (an N+1). Returns a map keyed by group id; a group with **no** live
+   * enrollment is absent from the map (the caller defaults it to 0), mirroring a
+   * `GROUP BY` that only yields groups with matching rows. Same "active" semantics
+   * as {@link countActiveByGroup} — tombstones (unenrolled rows) are excluded.
+   */
+  countActiveByGroups(groupIds: readonly GroupId[]): Promise<ReadonlyMap<GroupId, number>>;
+  /**
    * Whether the student already holds a **live** (non-tombstoned) enrollment in
    * the group — the duplicate-enrollment guard (SOU-123). `(studentId, groupId)`
    * is the idempotency key: a soft-deleted (unenrolled) row does not count, so
