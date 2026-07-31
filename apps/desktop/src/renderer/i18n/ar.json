@@ -68,7 +68,153 @@
     "invalid-relation": "صلة القرابة غير صالحة",
     "parent-not-found": "لم يتم العثور على ولي الأمر",
     "end-before-start": "يجب أن يكون تاريخ النهاية بعد تاريخ البداية",
-    "invalid-holiday-kind": "نوع العطلة غير صالح"
+    "invalid-holiday-kind": "نوع العطلة غير صالح",
+    "invalid-kind": "نوع المجموعة غير صالح",
+    "invalid-month": "شهر غير صالح (YYYY-MM)"
+  },
+  "groups": {
+    "title": "المجموعات",
+    "subtitle": "أنشئ مجموعات مركزك وأدرها.",
+    "new": "مجموعة جديدة",
+    "tabs": {
+      "active": "النشطة",
+      "archived": "المؤرشفة"
+    },
+    "kind": {
+      "regular": "عادي",
+      "examPrep": "تحضير الامتحان"
+    },
+    "kindHint": {
+      "regular": "درس عادي طوال السنة.",
+      "examPrep": "تحضير للامتحانات، منفصل عن المسار العادي."
+    },
+    "filters": {
+      "subjectLabel": "تصفية حسب المادة",
+      "subjectAll": "كل المواد",
+      "levelLabel": "تصفية حسب المستوى",
+      "levelAll": "كل المستويات",
+      "kindLabel": "تصفية حسب النوع",
+      "kindAll": "كل الأنواع"
+    },
+    "table": {
+      "subject": "المادة",
+      "level": "المستوى",
+      "teacher": "الأستاذ",
+      "room": "القاعة",
+      "fill": "نسبة الامتلاء",
+      "actions": "الإجراءات",
+      "unassigned": "غير مُسند"
+    },
+    "fill": {
+      "label": "المقاعد المشغولة",
+      "count": "{{enrolled}} / {{capacity}}",
+      "full": "مكتمل"
+    },
+    "row": {
+      "menu": "إجراءات المجموعة",
+      "open": "فتح",
+      "edit": "تعديل",
+      "archive": "أرشفة",
+      "restore": "استعادة"
+    },
+    "empty": {
+      "title": "لا توجد مجموعات بعد",
+      "body": "أنشئ مجموعتك الأولى لتنظيم دروسك.",
+      "cta": "إنشاء مجموعة"
+    },
+    "archivedEmpty": {
+      "title": "لا توجد مجموعات مؤرشفة",
+      "body": "ستظهر هنا المجموعات التي تؤرشفها."
+    },
+    "noResults": {
+      "title": "لا توجد مجموعة مطابقة",
+      "body": "عدّل عوامل التصفية لعرض مجموعات أخرى."
+    },
+    "loadError": {
+      "title": "تعذّر تحميل المجموعات",
+      "body": "فشل تحميل القائمة.",
+      "retry": "إعادة المحاولة"
+    },
+    "restore": {
+      "success": "تمت استعادة المجموعة",
+      "error": "فشلت الاستعادة"
+    },
+    "archive": {
+      "title": "أرشفة المجموعة؟",
+      "body": "ستتم أرشفة المجموعة «{{name}}». يمكنك استعادتها لاحقًا.",
+      "cancel": "إلغاء",
+      "confirm": "أرشفة",
+      "success": "تمت أرشفة المجموعة",
+      "error": "فشلت الأرشفة"
+    },
+    "form": {
+      "createTitle": "مجموعة جديدة",
+      "editTitle": "تعديل المجموعة",
+      "createDescription": "أدخل المادة والقاعة وسعة المجموعة.",
+      "editDescription": "حدّث معلومات المجموعة.",
+      "subject": "المادة",
+      "subjectPlaceholder": "اختر مادة",
+      "room": "القاعة",
+      "roomPlaceholder": "اختر قاعة",
+      "teacher": "الأستاذ",
+      "teacherPlaceholder": "اختر أستاذًا",
+      "teacherNone": "غير مُسند",
+      "level": "المستوى",
+      "levelPlaceholder": "مثال: 2 باك ع.ر",
+      "capacity": "السعة (مقاعد)",
+      "kind": "النوع",
+      "create": "إنشاء المجموعة",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ…",
+      "cancel": "إلغاء",
+      "createSuccess": "تم إنشاء المجموعة",
+      "editSuccess": "تم حفظ التعديلات",
+      "error": "فشل الحفظ"
+    },
+    "detail": {
+      "back": "العودة إلى المجموعات",
+      "edit": "تعديل",
+      "archivedBadge": "مؤرشفة",
+      "notFoundTitle": "المجموعة غير موجودة",
+      "notFoundBody": "هذه المجموعة غير موجودة أو تمت أرشفتها.",
+      "loadError": "فشل تحميل المجموعة.",
+      "meta": {
+        "room": "القاعة",
+        "teacher": "الأستاذ",
+        "level": "المستوى",
+        "capacity": "السعة"
+      }
+    },
+    "roster": {
+      "title": "الطلبة المسجّلون",
+      "count_zero": "لا طلبة",
+      "count_one": "طالب واحد",
+      "count_two": "طالبان",
+      "count_few": "{{count}} طلبة",
+      "count_many": "{{count}} طالبًا",
+      "count_other": "{{count}} طالب",
+      "add": "إضافة طالب",
+      "addTitle": "إضافة طالب إلى المجموعة",
+      "addDescription": "اختر طالبًا وشهر البداية.",
+      "studentLabel": "الطالب",
+      "studentPlaceholder": "اختر طالبًا",
+      "noCandidates": "لا يوجد طلبة متاحون للتسجيل.",
+      "month": "شهر البداية",
+      "addConfirm": "تسجيل",
+      "addCancel": "إلغاء",
+      "addSuccess": "تم تسجيل الطالب",
+      "addError": "فشل التسجيل",
+      "remove": "إزالة",
+      "removeSuccess": "تمت إزالة الطالب",
+      "removeError": "فشلت الإزالة",
+      "full": "المجموعة مكتملة.",
+      "empty": {
+        "title": "لا يوجد طلبة مسجّلون",
+        "body": "أضف طالبًا لتكوين هذه المجموعة."
+      },
+      "loadError": "فشل تحميل التسجيلات.",
+      "pending": "نموذج قراءة مؤقت — التسجيلات الفعلية ستصل مع SOU-127."
+    }
   },
   "guardian": {
     "relation": {
