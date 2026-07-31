@@ -218,7 +218,6 @@ export type { TeacherRepository } from './ports/teacher-repository';
 // (SOU-48) / payroll (SOU-70). Stubbed "never referenced" at the composition root.
 export type { TeacherReferencePort } from './ports/teacher-reference';
 export type { HolidayRepository } from './ports/holiday-repository';
-// Group repository — port declared here; SQLite adapter + migration are a follow-up.
 export type { GroupRepository } from './ports/group-repository';
 // Enrollment repository — port declared here; SQLite adapter + migration are a follow-up.
 export type { EnrollmentRepository } from './ports/enrollment-repository';
@@ -314,6 +313,14 @@ export { EnrollStudent } from './use-cases/enroll-student';
 export type { EnrollStudentInput } from './use-cases/enroll-student';
 export { UnenrollStudent } from './use-cases/unenroll-student';
 export type { UnenrollStudentInput } from './use-cases/unenroll-student';
+export { ListGroups } from './use-cases/list-groups';
+export type { ListGroupsInput, GroupScope } from './use-cases/list-groups';
+export { UpdateGroup } from './use-cases/update-group';
+export type { UpdateGroupInput } from './use-cases/update-group';
+export { ArchiveGroup } from './use-cases/archive-group';
+export type { ArchiveGroupInput } from './use-cases/archive-group';
+export { RestoreGroup } from './use-cases/restore-group';
+export type { RestoreGroupInput } from './use-cases/restore-group';
 export { ArchiveRoom } from './use-cases/archive-room';
 export type { ArchiveRoomInput } from './use-cases/archive-room';
 export { ListRooms } from './use-cases/list-rooms';

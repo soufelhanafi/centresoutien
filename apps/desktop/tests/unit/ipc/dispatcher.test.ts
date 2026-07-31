@@ -5,6 +5,8 @@ import type {
   CenterHoursId,
   CenterId,
   DeviceId,
+  Group,
+  GroupId,
   ParentId,
   PhoneNumber,
   RoomId,
@@ -14,6 +16,7 @@ import type {
   WeekdayIndex,
   WeeklyRecurringSessionId,
 } from '@centresoutien/domain';
+import { GroupNotFoundError } from '@centresoutien/domain';
 import { createIpcDispatcher } from '../../../src/main/ipc/dispatcher';
 import {
   createHandlers,
@@ -21,6 +24,11 @@ import {
   type CreateParentUseCase,
   type CreateAdminAccountUseCase,
   type VerifyAdminPasswordUseCase,
+  type CreateGroupUseCase,
+  type ListGroupsUseCase,
+  type UpdateGroupUseCase,
+  type ArchiveGroupUseCase,
+  type RestoreGroupUseCase,
   type ListWeekSessionsUseCase,
   type SaveCenterHoursUseCase,
   type GetCenterHoursUseCase,
@@ -213,8 +221,61 @@ const stubListWeekSessions: ListWeekSessionsUseCase = {
   ],
 };
 
+// Group stubs (SOU-120). Each echoes an envelope-complete Group so the handler
+// can prove it strips the envelope down to `groupViewSchema`. `archive` throws
+// GroupNotFoundError for the sentinel id to exercise the boundary's idempotent
+// swallow (the same shape room.archive uses).
+const SUBJECT_ID = 'sub_00000000000000000000000001' as SubjectId;
+const ROOM_ID = 'rom_00000000000000000000000001' as RoomId;
+const GROUP_ID = 'grp_00000000000000000000000001' as GroupId;
+const MISSING_GROUP_ID = 'grp_00000000000000000000000099' as GroupId;
+
+function makeGroup(over: Partial<Group> = {}) {
+  return {
+    id: GROUP_ID,
+    centerCode: context.centerCode,
+    deviceOrigin: context.deviceOrigin,
+    createdAt: new Date('2026-07-29T10:00:00Z'),
+    updatedAt: new Date('2026-07-29T10:00:00Z'),
+    updatedBy: context.updatedBy,
+    deletedAt: null,
+    version: 0,
+    subjectId: SUBJECT_ID,
+    teacherId: null,
+    roomId: ROOM_ID,
+    level: '2ème Bac',
+    capacity: 15,
+    kind: 'regular' as const,
+    active: true,
+    ...over,
+  };
+}
+
+const stubCreateGroup: CreateGroupUseCase = {
+  execute: async () => makeGroup(),
+};
+const stubListGroups: ListGroupsUseCase = {
+  execute: async () => [makeGroup()],
+};
+const stubUpdateGroup: UpdateGroupUseCase = {
+  execute: async (input) => makeGroup({ id: input.id, level: input.level, capacity: input.capacity }),
+};
+const stubArchiveGroup: ArchiveGroupUseCase = {
+  execute: async (input) => {
+    if (input.groupId === MISSING_GROUP_ID) throw new GroupNotFoundError(input.groupId);
+  },
+};
+const stubRestoreGroup: RestoreGroupUseCase = {
+  execute: async (input) => makeGroup({ id: input.groupId }),
+};
+
 const dispatch = createIpcDispatcher(
   createHandlers({
+    createGroup: stubCreateGroup,
+    listGroups: stubListGroups,
+    updateGroup: stubUpdateGroup,
+    archiveGroup: stubArchiveGroup,
+    restoreGroup: stubRestoreGroup,
     appVersion: () => '2.0.0',
     activePlanId: () => 'pro',
     createSubject: stubCreateSubject,
@@ -408,6 +469,90 @@ describe('createIpcDispatcher', () => {
   it('returns null bytes from center.logoBytes for an unknown path', async () => {
     await expect(dispatch('center.logoBytes', { path: 'logos/missing.png' })).resolves.toEqual({
       bytes: null,
+    });
+  });
+
+  it('runs group.create and returns the new id', async () => {
+    await expect(
+      dispatch('group.create', {
+        subjectId: SUBJECT_ID,
+        teacherId: null,
+        roomId: ROOM_ID,
+        level: '2ème Bac',
+        capacity: 15,
+        kind: 'regular',
+      }),
+    ).resolves.toEqual({ id: GROUP_ID });
+  });
+
+  it('rejects group.create whose capacity fails the shared schema', async () => {
+    await expect(
+      dispatch('group.create', {
+        subjectId: SUBJECT_ID,
+        teacherId: null,
+        roomId: ROOM_ID,
+        level: '2ème Bac',
+        capacity: 0,
+        kind: 'regular',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects group.create whose kind is off-contract', async () => {
+    await expect(
+      dispatch('group.create', {
+        subjectId: SUBJECT_ID,
+        teacherId: null,
+        roomId: ROOM_ID,
+        level: '2ème Bac',
+        capacity: 15,
+        kind: 'bootcamp',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('runs group.list and returns the envelope-stripped group views', async () => {
+    await expect(dispatch('group.list', { scope: 'active' })).resolves.toEqual({
+      groups: [
+        {
+          id: GROUP_ID,
+          subjectId: SUBJECT_ID,
+          teacherId: null,
+          roomId: ROOM_ID,
+          level: '2ème Bac',
+          capacity: 15,
+          kind: 'regular',
+          archived: false,
+          createdAt: '2026-07-29T10:00:00.000Z',
+        },
+      ],
+    });
+  });
+
+  it('runs group.update and echoes the saved view', async () => {
+    const res = await dispatch('group.update', {
+      id: GROUP_ID,
+      subjectId: SUBJECT_ID,
+      teacherId: null,
+      roomId: ROOM_ID,
+      level: '1ère Bac',
+      capacity: 18,
+      kind: 'regular',
+    });
+    expect(res).toMatchObject({ group: { id: GROUP_ID, level: '1ère Bac', capacity: 18 } });
+  });
+
+  it('runs group.archive and returns ok', async () => {
+    await expect(dispatch('group.archive', { id: GROUP_ID })).resolves.toEqual({ ok: true });
+  });
+
+  it('swallows a GroupNotFoundError on group.archive (idempotent boundary)', async () => {
+    await expect(dispatch('group.archive', { id: MISSING_GROUP_ID })).resolves.toEqual({ ok: true });
+  });
+
+  it('runs group.restore and echoes the revived view', async () => {
+    await expect(dispatch('group.restore', { id: GROUP_ID })).resolves.toMatchObject({
+      group: { id: GROUP_ID, archived: false },
     });
   });
 

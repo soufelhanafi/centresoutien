@@ -20,6 +20,11 @@ import {
   UpdateRoom,
   ArchiveRoom,
   RestoreRoom,
+  CreateGroup,
+  ListGroups,
+  UpdateGroup,
+  ArchiveGroup,
+  RestoreGroup,
   CreateTeacher,
   ListTeachers,
   GetTeacher,
@@ -58,6 +63,7 @@ import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-rep
 import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
 import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repository';
+import { SqliteGroupRepository } from '../data/sqlite/repositories/group-repository';
 import { SqliteTeacherRepository } from '../data/sqlite/repositories/teacher-repository';
 import { SqliteHolidayRepository } from '../data/sqlite/repositories/holiday-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
@@ -177,6 +183,13 @@ export function buildContainer(options: ContainerOptions): Container {
   const archiveRoom = new ArchiveRoom(roomRepo, roomReference, clock, plan);
   const restoreRoom = new RestoreRoom(roomRepo, clock, plan);
 
+  const groupRepo = new SqliteGroupRepository(db);
+  const createGroup = new CreateGroup(groupRepo, roomRepo, subjectRepo, clock, ids, plan);
+  const listGroups = new ListGroups(groupRepo, plan);
+  const updateGroup = new UpdateGroup(groupRepo, roomRepo, subjectRepo, clock, plan);
+  const archiveGroup = new ArchiveGroup(groupRepo, clock, plan);
+  const restoreGroup = new RestoreGroup(groupRepo, clock, plan);
+
   const teacherRepo = new SqliteTeacherRepository(db);
   // The teacher in-use guard's real backing (a query over live groups / sessions /
   // payroll rules) lands with Groups (SOU-48) and payroll (SOU-70). Until then no
@@ -251,6 +264,11 @@ export function buildContainer(options: ContainerOptions): Container {
     updateRoom,
     archiveRoom,
     restoreRoom,
+    createGroup,
+    listGroups,
+    updateGroup,
+    archiveGroup,
+    restoreGroup,
     createTeacher,
     listTeachers,
     getTeacher,
