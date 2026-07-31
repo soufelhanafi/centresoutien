@@ -323,6 +323,131 @@
       }
     }
   },
+  "teachers": {
+    "title": "Enseignants",
+    "subtitle": "Gérez les enseignants de votre centre.",
+    "search": "Rechercher par nom ou téléphone",
+    "searchLabel": "Rechercher un enseignant",
+    "filters": {
+      "subjectLabel": "Matière",
+      "subjectAll": "Toutes les matières",
+      "subjectComingSoon": "Le filtre par matière arrive avec le module Matières."
+    },
+    "new": "Nouvel enseignant",
+    "seats": {
+      "remaining_one": "Il reste {{count}} place sur {{max}}.",
+      "remaining_other": "Il reste {{count}} places sur {{max}}.",
+      "full": "Limite de {{max}} enseignants atteinte."
+    },
+    "table": {
+      "name": "Nom",
+      "phone": "Téléphone",
+      "cin": "CIN",
+      "subjects": "Matières",
+      "actions": "Actions"
+    },
+    "subjectsCount_zero": "Aucune",
+    "subjectsCount_one": "{{count}} matière",
+    "subjectsCount_other": "{{count}} matières",
+    "tabs": {
+      "active": "Actifs",
+      "archived": "Archivés"
+    },
+    "row": {
+      "open": "Ouvrir la fiche",
+      "menu": "Actions de l'enseignant",
+      "edit": "Modifier",
+      "archive": "Archiver",
+      "restore": "Restaurer"
+    },
+    "restore": {
+      "success": "Enseignant restauré",
+      "error": "La restauration a échoué. Réessayez."
+    },
+    "archivedEmpty": {
+      "title": "Aucun enseignant archivé",
+      "body": "Les enseignants que vous archivez apparaîtront ici."
+    },
+    "empty": {
+      "title": "Aucun enseignant pour l'instant",
+      "body": "Ajoutez votre premier enseignant pour commencer.",
+      "cta": "Ajouter un enseignant"
+    },
+    "noResults": {
+      "title": "Aucun résultat",
+      "body": "Aucun enseignant ne correspond à votre recherche."
+    },
+    "loadError": {
+      "title": "Impossible de charger les enseignants",
+      "body": "Le chargement de la liste a échoué.",
+      "retry": "Réessayer"
+    },
+    "form": {
+      "createTitle": "Nouvel enseignant",
+      "editTitle": "Modifier l'enseignant",
+      "createDescription": "Renseignez les informations de l'enseignant.",
+      "editDescription": "Mettez à jour les informations de l'enseignant.",
+      "nameFr": "Nom (français)",
+      "nameAr": "Nom (arabe)",
+      "phone": "Téléphone",
+      "phonePlaceholder": "ex. 0612345678",
+      "cin": "CIN",
+      "cinPlaceholder": "Carte nationale (facultatif)",
+      "email": "E-mail",
+      "emailPlaceholder": "Adresse e-mail (facultatif)",
+      "create": "Créer l'enseignant",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Enseignant créé",
+      "editSuccess": "Modifications enregistrées",
+      "error": "L'enregistrement a échoué. Réessayez."
+    },
+    "archive": {
+      "title": "Archiver cet enseignant ?",
+      "body": "L'enseignant « {{name}} » sera archivé et retiré des sélecteurs de planning.",
+      "confirm": "Archiver",
+      "cancel": "Annuler",
+      "success": "Enseignant archivé",
+      "error": "L'archivage a échoué. Réessayez."
+    },
+    "detail": {
+      "back": "Retour aux enseignants",
+      "archivedBadge": "Archivé",
+      "edit": "Modifier",
+      "loadError": "Le chargement de la fiche a échoué.",
+      "notFoundTitle": "Enseignant introuvable",
+      "notFoundBody": "Cet enseignant n'existe pas ou a été archivé.",
+      "tabs": {
+        "info": "Informations",
+        "subjects": "Matières",
+        "groups": "Groupes",
+        "payroll": "Rémunération"
+      }
+    },
+    "info": {
+      "nameFr": "Nom (FR)",
+      "nameAr": "Nom (AR)",
+      "phone": "Téléphone",
+      "cin": "CIN",
+      "email": "E-mail",
+      "none": "—"
+    },
+    "comingSoon": {
+      "subjects": {
+        "title": "Matières bientôt disponibles",
+        "body": "Les matières enseignées par cet enseignant apparaîtront ici."
+      },
+      "groups": {
+        "title": "Groupes bientôt disponibles",
+        "body": "Les groupes animés par cet enseignant apparaîtront ici."
+      },
+      "payroll": {
+        "title": "Rémunération bientôt disponible",
+        "body": "Les règles de paie et les versements de cet enseignant apparaîtront ici."
+      }
+    }
+  },
   "rooms": {
     "title": "Salles",
     "subtitle": "Gérez les salles de votre centre.",

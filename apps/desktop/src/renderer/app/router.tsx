@@ -10,6 +10,8 @@ import { ModulePlaceholder } from '../pages/module-placeholder';
 import { SettingsPage } from '../pages/settings-page';
 import { StudentsPage } from '../pages/students/students-page';
 import { StudentDetailPage } from '../pages/students/student-detail-page';
+import { TeachersPage } from '../pages/teachers/teachers-page';
+import { TeacherDetailPage } from '../pages/teachers/teacher-detail-page';
 import { ParentsPage } from '../pages/parents/parents-page';
 import { RoomsPage } from '../pages/rooms/rooms-page';
 import { PlannerPage } from '../pages/planning/planner-page';
@@ -52,7 +54,12 @@ const studentDetailRoute = createRoute({
 const teachersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: teachersModule.path,
-  component: () => <ModulePlaceholder module={teachersModule} />,
+  component: TeachersPage,
+});
+const teacherDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/teachers/$teacherId',
+  component: TeacherDetailPage,
 });
 const parentsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -115,6 +122,7 @@ const routeTree = rootRoute.addChildren([
   studentsRoute,
   studentDetailRoute,
   teachersRoute,
+  teacherDetailRoute,
   parentsRoute,
   groupsRoute,
   roomsRoute,

@@ -83,7 +83,8 @@ const SAVE_SQL = `
 /**
  * SQLite adapter for {@link TeacherRepository}. Pure translation between the port
  * and SQL — no business decisions. Reads hide tombstones; `listChangedSince` (the
- * sync feed) includes them. Identity columns and the immutable `natural_key` are
+ * sync feed) and `listArchived` / `findArchivedById` (the restore path)
+ * deliberately see them. Identity columns and the immutable `natural_key` are
  * never rewritten on upsert.
  */
 export class SqliteTeacherRepository implements TeacherRepository {
@@ -152,5 +153,21 @@ export class SqliteTeacherRepository implements TeacherRepository {
       )
       .all(centerCode) as TeacherRow[];
     return rows.map(fromRow);
+  }
+
+  async listArchived(centerCode: CenterCode): Promise<readonly Teacher[]> {
+    const rows = this.db
+      .prepare(
+        'SELECT * FROM teachers WHERE center_code = ? AND deleted_at IS NOT NULL ORDER BY name_fr COLLATE NOCASE, created_at',
+      )
+      .all(centerCode) as TeacherRow[];
+    return rows.map(fromRow);
+  }
+
+  async findArchivedById(id: TeacherId): Promise<Teacher | null> {
+    const row = this.db
+      .prepare('SELECT * FROM teachers WHERE id = ? AND deleted_at IS NOT NULL')
+      .get(id) as TeacherRow | undefined;
+    return row ? fromRow(row) : null;
   }
 }

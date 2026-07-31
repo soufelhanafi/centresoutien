@@ -144,6 +144,36 @@ describe('SqliteTeacherRepository', () => {
     });
   });
 
+  describe('listArchived + findArchivedById', () => {
+    it('lists only archived teachers of the center, ordered by FR name', async () => {
+      const zaid = makeTeacher({ id: 'tch_00000000000000000000000001' as TeacherId, name: { fr: 'Zaid', ar: 'زيد' }, naturalKey: 'k-zaid' });
+      const amine = makeTeacher({ id: 'tch_00000000000000000000000002' as TeacherId, name: { fr: 'amine', ar: 'أمين' }, naturalKey: 'k-amine' });
+      await repo.save(zaid);
+      await repo.save(amine);
+      await repo.save(makeTeacher({ id: 'tch_00000000000000000000000003' as TeacherId, name: { fr: 'Live', ar: 'حي' }, naturalKey: 'k-live' })); // stays live
+      // Archive a teacher of another center — must not leak into CASA's archive.
+      const other = makeTeacher({ id: 'tch_00000000000000000000000004' as TeacherId, naturalKey: 'k-other', centerCode: 'CS-RABAT-002' as CenterCode });
+      await repo.save(other);
+      await repo.softDelete(zaid.id, AT, BY);
+      await repo.softDelete(amine.id, AT, BY);
+      await repo.softDelete(other.id, AT, BY);
+
+      const rows = await repo.listArchived('CS-CASA-001' as CenterCode);
+      expect(rows.map((t) => t.name.fr)).toEqual(['amine', 'Zaid']);
+    });
+
+    it('findArchivedById sees only tombstones — null for a live id, the row once archived', async () => {
+      const teacher = makeTeacher();
+      await repo.save(teacher);
+      expect(await repo.findArchivedById(teacher.id)).toBeNull();
+
+      await repo.softDelete(teacher.id, new Date('2026-08-02T00:00:00Z'), BY);
+      const archived = await repo.findArchivedById(teacher.id);
+      expect(archived?.id).toBe(teacher.id);
+      expect(archived?.deletedAt).toEqual(new Date('2026-08-02T00:00:00Z'));
+    });
+  });
+
   describe('shared phone', () => {
     it('allows two teachers with the same phone but different natural keys', async () => {
       await repo.save(makeTeacher({ id: 'tch_00000000000000000000000001' as TeacherId, naturalKey: 'CS-CASA-001::a::+212612345678' }));

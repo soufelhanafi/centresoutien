@@ -3,8 +3,13 @@ import type { PlanPolicy } from '../plans/plan-policy';
 import type { CenterCode } from '../value-objects/ids';
 import type { Teacher } from '../entities/teacher';
 
+/** Which slice of a center's teachers to return: the live list or the archive. */
+export type TeacherScope = 'active' | 'archived';
+
 export type ListTeachersInput = {
   centerCode: CenterCode;
+  /** `'active'` (default view) or `'archived'` (the restore list). */
+  scope: TeacherScope;
   /** Accent/case-insensitive substring; matches the FR or AR name or the phone. Empty = all. */
   search: string;
 };
@@ -54,9 +59,11 @@ function matches(teacher: Teacher, needle: string, needleDigits: string): boolea
 }
 
 /**
- * Lists a center's live teachers for the list screen, filtered by a search term
- * over the FR/AR name and E.164 phone. Gated by `core.teachers` (every plan; the
- * guard still has one home). Ordering is alphabetical by French name — a stable,
+ * Lists a center's teachers for the list screen, filtered by a search term over
+ * the FR/AR name and E.164 phone. Gated by `core.teachers` (every plan; the guard
+ * still has one home). `scope` selects the live teachers or the archived
+ * (tombstoned) ones, so a single use case backs both the main list and the restore
+ * view (mirrors `ListRooms`). Ordering is alphabetical by French name — a stable,
  * locale-agnostic default; the presentation layer may re-sort per active locale.
  */
 export class ListTeachers {
@@ -69,8 +76,11 @@ export class ListTeachers {
     this.plan.require('core.teachers');
     const needle = fold(input.search.trim());
     const needleDigits = foldDigits(input.search);
-    const active = await this.teachers.listActive(input.centerCode);
-    return [...active]
+    const teachers =
+      input.scope === 'archived'
+        ? await this.teachers.listArchived(input.centerCode)
+        : await this.teachers.listActive(input.centerCode);
+    return [...teachers]
       .filter((teacher) => matches(teacher, needle, needleDigits))
       .sort((a, b) => a.name.fr.localeCompare(b.name.fr));
   }

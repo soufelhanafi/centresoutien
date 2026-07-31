@@ -35,6 +35,7 @@ import type {
   GetTeacher,
   UpdateTeacher,
   ArchiveTeacher,
+  RestoreTeacher,
   Teacher,
   TeacherId,
   CreateHoliday,
@@ -100,6 +101,7 @@ export type ListTeachersUseCase = Pick<ListTeachers, 'execute'>;
 export type GetTeacherUseCase = Pick<GetTeacher, 'execute'>;
 export type UpdateTeacherUseCase = Pick<UpdateTeacher, 'execute'>;
 export type ArchiveTeacherUseCase = Pick<ArchiveTeacher, 'execute'>;
+export type RestoreTeacherUseCase = Pick<RestoreTeacher, 'execute'>;
 export type CreateHolidayUseCase = Pick<CreateHoliday, 'execute'>;
 export type ListHolidaysUseCase = Pick<ListHolidays, 'execute'>;
 export type UpdateHolidayUseCase = Pick<UpdateHoliday, 'execute'>;
@@ -289,6 +291,7 @@ export type HandlerDeps = {
   getTeacher: GetTeacherUseCase;
   updateTeacher: UpdateTeacherUseCase;
   archiveTeacher: ArchiveTeacherUseCase;
+  restoreTeacher: RestoreTeacherUseCase;
   createHoliday: CreateHolidayUseCase;
   listHolidays: ListHolidaysUseCase;
   updateHoliday: UpdateHolidayUseCase;
@@ -503,6 +506,7 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'teacher.list': async (request) => {
       const teachers = await deps.listTeachers.execute({
         centerCode: deps.envelopeContext().centerCode,
+        scope: request.scope,
         search: request.search,
       });
       return { teachers: teachers.map(toTeacherView) };
@@ -539,6 +543,15 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         if (!(error instanceof TeacherNotFoundError)) throw error;
       }
       return { ok: true };
+    },
+    'teacher.restore': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const teacher = await deps.restoreTeacher.execute({
+        centerCode,
+        id: request.id as TeacherId,
+        updatedBy,
+      });
+      return { teacher: toTeacherView(teacher) };
     },
     'holiday.create': async (request) => {
       const holiday = await deps.createHoliday.execute({ ...request, ...deps.envelopeContext() });
