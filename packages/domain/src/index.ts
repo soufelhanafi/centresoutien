@@ -68,6 +68,7 @@ export type { GroupSubjectUnavailableReason } from './errors/group-errors';
 export {
   GroupFullError,
   CrossKindEnrollmentError,
+  DuplicateEnrollmentError,
   EnrollmentSubscriptionMissingError,
   EnrollmentNotFoundError,
 } from './errors/enrollment-errors';

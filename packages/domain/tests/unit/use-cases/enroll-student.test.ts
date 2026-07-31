@@ -7,6 +7,7 @@ import { StudentNotFoundError } from '../../../src/errors/student-errors';
 import { GroupNotFoundError } from '../../../src/errors/group-errors';
 import {
   CrossKindEnrollmentError,
+  DuplicateEnrollmentError,
   EnrollmentSubscriptionMissingError,
   GroupFullError,
 } from '../../../src/errors/enrollment-errors';
@@ -192,6 +193,44 @@ describe('EnrollStudent', () => {
       const second = await build(PLANS.essentiel, [
         { studentId: other, subjectId: SUBJECT_ID, kind: 'regular' },
       ]).execute(validInput({ studentId: other }));
+      expect(await enrollments.findById(second.id)).not.toBeNull();
+    });
+  });
+
+  describe('duplicate-enrollment guard (idempotency)', () => {
+    it('throws DuplicateEnrollmentError on a second live enrollment of the same student in the same group', async () => {
+      await build(PLANS.essentiel).execute(validInput());
+      await expect(build(PLANS.essentiel).execute(validInput())).rejects.toBeInstanceOf(
+        DuplicateEnrollmentError,
+      );
+      // No phantom seat: the rejected duplicate did not inflate the count.
+      expect(await enrollments.countActiveByGroup(GROUP_ID)).toBe(1);
+    });
+
+    it('carries the studentId and groupId on the error', async () => {
+      await build(PLANS.essentiel).execute(validInput());
+      await expect(build(PLANS.essentiel).execute(validInput())).rejects.toMatchObject({
+        code: 'duplicate-enrollment',
+        studentId: STUDENT_ID,
+        groupId: GROUP_ID,
+      });
+    });
+
+    it('allows re-enrolling the same student in the group after an unenroll (tombstoned row does not count)', async () => {
+      const first = await build(PLANS.essentiel).execute(validInput());
+      await enrollments.softDelete(first.id, new Date('2026-08-01T00:00:00Z'), USER);
+
+      const second = await build(PLANS.essentiel).execute(validInput());
+      expect(second.id).not.toBe(first.id);
+      expect(await enrollments.findById(second.id)).not.toBeNull();
+      expect(await enrollments.countActiveByGroup(GROUP_ID)).toBe(1);
+    });
+
+    it('does not block the same student enrolling in a different group', async () => {
+      await build(PLANS.essentiel).execute(validInput());
+      const otherGroup = 'grp_00000000000000000000000007' as GroupId;
+      await groups.save(makeGroup({ id: otherGroup }));
+      const second = await build(PLANS.essentiel).execute(validInput({ groupId: otherGroup }));
       expect(await enrollments.findById(second.id)).not.toBeNull();
     });
   });

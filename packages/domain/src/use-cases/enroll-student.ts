@@ -15,6 +15,7 @@ import { StudentNotFoundError } from '../errors/student-errors';
 import { GroupNotFoundError } from '../errors/group-errors';
 import {
   CrossKindEnrollmentError,
+  DuplicateEnrollmentError,
   EnrollmentSubscriptionMissingError,
   GroupFullError,
 } from '../errors/enrollment-errors';
@@ -36,10 +37,13 @@ export type EnrollStudentInput = EnrollmentInput & {
  *     (`GroupNotFoundError`).
  *  2. The `studentId` resolves to a live student **of the same center**
  *     (`StudentNotFoundError`).
- *  3. The group is not at its seat ceiling — live enrollment count `<`
+ *  3. The student does not already hold a live enrollment in the group — the
+ *     idempotency guard (`DuplicateEnrollmentError`, SOU-123). Checked before
+ *     capacity so a duplicate never inflates the seat count.
+ *  4. The group is not at its seat ceiling — live enrollment count `<`
  *     `Group.capacity` (`GroupFullError`). This is the runtime seat-full guard
  *     SOU-48 deferred to this ticket.
- *  4. The student has an active subscription covering the group's `subjectId` for
+ *  5. The student has an active subscription covering the group's `subjectId` for
  *     the enrollment's `startMonth` (`EnrollmentSubscriptionMissingError`), and
  *     that subscription's `kind` matches the group's `kind` — the exam-prep
  *     isolation rule (`CrossKindEnrollmentError`).
@@ -75,6 +79,15 @@ export class EnrollStudent {
     const student = await this.students.findById(studentId);
     if (student === null || student.centerCode !== input.centerCode) {
       throw new StudentNotFoundError(studentId);
+    }
+
+    // Idempotency guard (SOU-123): reject a second live enrollment of the same
+    // student in the same group. Runs *before* the capacity guard so a duplicate
+    // never inflates `countActiveByGroup` and fires `GroupFullError` against
+    // phantom seats. On sync-resolve, `(studentId, groupId)` is the idempotency
+    // key so two concurrent creates converge to one live row (Epic 9 — SOU-80/81).
+    if (await this.enrollments.hasActiveEnrollment(studentId, groupId)) {
+      throw new DuplicateEnrollmentError(studentId, groupId);
     }
 
     const seats = await this.enrollments.countActiveByGroup(groupId);

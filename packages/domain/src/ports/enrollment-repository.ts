@@ -26,4 +26,13 @@ export interface EnrollmentRepository
   listActiveByStudent(studentId: StudentId): Promise<readonly Enrollment[]>;
   /** Live seat count in the group — the number the capacity guard checks against. */
   countActiveByGroup(groupId: GroupId): Promise<number>;
+  /**
+   * Whether the student already holds a **live** (non-tombstoned) enrollment in
+   * the group — the duplicate-enrollment guard (SOU-123). `(studentId, groupId)`
+   * is the idempotency key: a soft-deleted (unenrolled) row does not count, so
+   * re-enrolling after an unenroll is allowed. Deliberately a domain read, not a
+   * `UNIQUE(studentId, groupId)` DB index — the constraint must *merge* two
+   * concurrent creates on sync, not reject the push.
+   */
+  hasActiveEnrollment(studentId: StudentId, groupId: GroupId): Promise<boolean>;
 }
