@@ -68,7 +68,149 @@
     "invalid-relation": "Lien de parenté invalide",
     "parent-not-found": "Ce parent est introuvable",
     "end-before-start": "La date de fin doit être après la date de début",
-    "invalid-holiday-kind": "Type de jour férié invalide"
+    "invalid-holiday-kind": "Type de jour férié invalide",
+    "invalid-kind": "Type de groupe invalide",
+    "invalid-month": "Mois invalide (AAAA-MM)"
+  },
+  "groups": {
+    "title": "Groupes",
+    "subtitle": "Créez et gérez les groupes de votre centre.",
+    "new": "Nouveau groupe",
+    "tabs": {
+      "active": "Actifs",
+      "archived": "Archivés"
+    },
+    "kind": {
+      "regular": "Régulier",
+      "examPrep": "Prépa examen"
+    },
+    "kindHint": {
+      "regular": "Cours régulier tout au long de l'année.",
+      "examPrep": "Préparation aux examens, distincte du cursus régulier."
+    },
+    "filters": {
+      "subjectLabel": "Filtrer par matière",
+      "subjectAll": "Toutes les matières",
+      "levelLabel": "Filtrer par niveau",
+      "levelAll": "Tous les niveaux",
+      "kindLabel": "Filtrer par type",
+      "kindAll": "Tous les types"
+    },
+    "table": {
+      "subject": "Matière",
+      "level": "Niveau",
+      "teacher": "Enseignant",
+      "room": "Salle",
+      "fill": "Remplissage",
+      "actions": "Actions",
+      "unassigned": "Non affecté"
+    },
+    "fill": {
+      "label": "Places occupées",
+      "count": "{{enrolled}} / {{capacity}}",
+      "full": "Complet"
+    },
+    "row": {
+      "menu": "Actions du groupe",
+      "open": "Ouvrir",
+      "edit": "Modifier",
+      "archive": "Archiver",
+      "restore": "Restaurer"
+    },
+    "empty": {
+      "title": "Aucun groupe pour l'instant",
+      "body": "Créez votre premier groupe pour organiser vos cours.",
+      "cta": "Créer un groupe"
+    },
+    "archivedEmpty": {
+      "title": "Aucun groupe archivé",
+      "body": "Les groupes que vous archivez apparaîtront ici."
+    },
+    "noResults": {
+      "title": "Aucun groupe ne correspond",
+      "body": "Ajustez les filtres pour voir d'autres groupes."
+    },
+    "loadError": {
+      "title": "Impossible de charger les groupes",
+      "body": "Le chargement de la liste a échoué.",
+      "retry": "Réessayer"
+    },
+    "restore": {
+      "success": "Groupe restauré",
+      "error": "La restauration a échoué"
+    },
+    "archive": {
+      "title": "Archiver le groupe ?",
+      "body": "Le groupe « {{name}} » sera archivé. Vous pourrez le restaurer plus tard.",
+      "cancel": "Annuler",
+      "confirm": "Archiver",
+      "success": "Groupe archivé",
+      "error": "L'archivage a échoué"
+    },
+    "form": {
+      "createTitle": "Nouveau groupe",
+      "editTitle": "Modifier le groupe",
+      "createDescription": "Renseignez la matière, la salle et la capacité du groupe.",
+      "editDescription": "Mettez à jour les informations du groupe.",
+      "subject": "Matière",
+      "subjectPlaceholder": "Choisir une matière",
+      "room": "Salle",
+      "roomPlaceholder": "Choisir une salle",
+      "teacher": "Enseignant",
+      "teacherPlaceholder": "Choisir un enseignant",
+      "teacherNone": "Non affecté",
+      "level": "Niveau",
+      "levelPlaceholder": "ex. 2 Bac SM",
+      "capacity": "Capacité (places)",
+      "kind": "Type",
+      "create": "Créer le groupe",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Groupe créé",
+      "editSuccess": "Modifications enregistrées",
+      "error": "L'enregistrement a échoué"
+    },
+    "detail": {
+      "back": "Retour aux groupes",
+      "edit": "Modifier",
+      "archivedBadge": "Archivé",
+      "notFoundTitle": "Groupe introuvable",
+      "notFoundBody": "Ce groupe n'existe pas ou a été archivé.",
+      "loadError": "Le chargement du groupe a échoué.",
+      "meta": {
+        "room": "Salle",
+        "teacher": "Enseignant",
+        "level": "Niveau",
+        "capacity": "Capacité"
+      }
+    },
+    "roster": {
+      "title": "Élèves inscrits",
+      "count_one": "{{count}} élève",
+      "count_other": "{{count}} élèves",
+      "add": "Ajouter un élève",
+      "addTitle": "Ajouter un élève au groupe",
+      "addDescription": "Sélectionnez un élève et son mois de début.",
+      "studentLabel": "Élève",
+      "studentPlaceholder": "Choisir un élève",
+      "noCandidates": "Aucun élève disponible à inscrire.",
+      "month": "Mois de début",
+      "addConfirm": "Inscrire",
+      "addCancel": "Annuler",
+      "addSuccess": "Élève inscrit",
+      "addError": "L'inscription a échoué",
+      "remove": "Retirer",
+      "removeSuccess": "Élève retiré",
+      "removeError": "Le retrait a échoué",
+      "full": "Le groupe est complet.",
+      "empty": {
+        "title": "Aucun élève inscrit",
+        "body": "Ajoutez un élève pour constituer ce groupe."
+      },
+      "loadError": "Le chargement des inscriptions a échoué.",
+      "pending": "Read-model provisoire — les inscriptions réelles arrivent avec SOU-127."
+    }
   },
   "guardian": {
     "relation": {
