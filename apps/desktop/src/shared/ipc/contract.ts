@@ -10,6 +10,8 @@ import {
   holidayInputSchema,
   studentSubscriptionInputSchema,
   closeStudentSubscriptionMonthSchema,
+  recordPaymentSchema,
+  voidPaymentSchema,
   adminCredentialsSchema,
   weeklyHoursSchema,
   loginInputSchema,
@@ -131,6 +133,40 @@ const subscriptionViewSchema = z.object({
   endMonth: z.string().nullable(),
   archived: z.boolean(),
   createdAt: z.string(),
+});
+
+// The presentation projection of a Payment across the IPC boundary (SOU-93) — the
+// sync envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized.
+// A `payment` row has `reversesPaymentId: null`; a `reversal` row references the payment
+// it voids. `amountMad` is non-negative integer centimes for both kinds (reversals
+// subtract in the derivation, they are not stored negative). Single source of truth for
+// the renderer's `PaymentView` type.
+const paymentViewSchema = z.object({
+  id: z.string(),
+  invoiceId: z.string(),
+  kind: z.enum(['payment', 'reversal']),
+  amountMad: z.number().int().nonnegative(),
+  method: z.enum(['cash', 'cheque', 'transfer', 'other']),
+  paidOn: z.string(),
+  reversesPaymentId: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+// The derived payment status of an invoice (SOU-93) — never stored, always a function
+// of the append-only payment ledger. Reused by the record + summary responses.
+const paymentStatusSchema = z.enum(['unpaid', 'partially-paid', 'paid']);
+
+// The invoice payment summary across the IPC boundary (SOU-93): the total, the net paid,
+// the outstanding balance, the derived status, and the ledger — everything the invoice
+// view / cash desk needs to show paid-ness without a stored scalar. Single source of
+// truth for the renderer's `InvoicePaymentSummaryView` type.
+const invoicePaymentSummarySchema = z.object({
+  invoiceId: z.string(),
+  totalMad: z.number().int(),
+  netPaidMad: z.number().int(),
+  outstandingMad: z.number().int().nonnegative(),
+  status: paymentStatusSchema,
+  payments: z.array(paymentViewSchema),
 });
 
 // The presentation projection of a Teacher across the IPC boundary — the sync
@@ -370,6 +406,28 @@ export const ipcContract = {
     request: z.object({ studentId: z.string() }),
     response: z.object({ subscriptions: z.array(subscriptionViewSchema) }),
   },
+  // Payments (SOU-93) — the append-only money ledger; Payment capture UI is SOU-101,
+  // the duplicates/conflict tab is SOU-91. `record` takes the domain's own
+  // `recordPaymentSchema` (prefixed invoice id, positive integer amountMad, method
+  // enum, real paidOn date) and appends a `payment` row, returning the new id and the
+  // freshly DERIVED status; a below-balance amount needs `core.invoicing.partial-paid`
+  // (Pro+), enforced in the use case. `void` appends a `reversal` for a payment
+  // (never a DELETE/UPDATE), returning the reversal's id. `summary` returns the
+  // invoice total, net paid, outstanding, derived status, and the ledger — the seam
+  // SOU-67 deferred (status is derived, never stored). centerCode/device/user are
+  // injected in main, never sent from the renderer. Gated by `core.invoicing`.
+  'payment.record': {
+    request: recordPaymentSchema,
+    response: z.object({ id: z.string(), status: paymentStatusSchema }),
+  },
+  'payment.void': {
+    request: voidPaymentSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'payment.summary': {
+    request: z.object({ invoiceId: z.string() }),
+    response: invoicePaymentSummarySchema,
+  },
   // Enrollments (SOU-121/123 domain; SQLite adapter + wiring is SOU-126). `create`
   // takes the domain's own `enrollmentInputSchema` (prefixed student/group ids,
   // `YYYY-MM` startMonth, optional endMonth ≥ startMonth), validated once and reused
@@ -582,6 +640,12 @@ export type GroupRosterEntryDto = z.infer<typeof groupRosterEntrySchema>;
 
 /** The StudentSubscription boundary DTO — the renderer's `SubscriptionView` aliases this. */
 export type SubscriptionDto = z.infer<typeof subscriptionViewSchema>;
+
+/** The Payment boundary DTO — the renderer's `PaymentView` is an alias of this. */
+export type PaymentDto = z.infer<typeof paymentViewSchema>;
+
+/** The invoice payment summary DTO — the renderer's `InvoicePaymentSummaryView` aliases this. */
+export type InvoicePaymentSummaryDto = z.infer<typeof invoicePaymentSummarySchema>;
 
 /** The Teacher boundary DTO — the renderer's `TeacherView` is an alias of this. */
 export type TeacherDto = z.infer<typeof teacherViewSchema>;

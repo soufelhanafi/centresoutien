@@ -31,6 +31,9 @@ import {
   CreateStudentSubscription,
   CloseStudentSubscription,
   ListStudentSubscriptions,
+  RecordPayment,
+  VoidPayment,
+  GetInvoicePaymentSummary,
   EnrollStudent,
   UnenrollStudent,
   CreateTeacher,
@@ -78,6 +81,8 @@ import { SqliteGroupRepository } from '../data/sqlite/repositories/group-reposit
 import { SqliteStudentSubscriptionRepository } from '../data/sqlite/repositories/student-subscription-repository';
 import { SqliteStudentSubscriptionReference } from '../data/sqlite/repositories/student-subscription-reference';
 import { SqliteEnrollmentRepository } from '../data/sqlite/repositories/enrollment-repository';
+import { SqliteInvoiceRepository } from '../data/sqlite/repositories/invoice-repository';
+import { SqlitePaymentRepository } from '../data/sqlite/repositories/payment-repository';
 import { SqliteTeacherRepository } from '../data/sqlite/repositories/teacher-repository';
 import { SqliteHolidayRepository } from '../data/sqlite/repositories/holiday-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
@@ -254,6 +259,17 @@ export function buildContainer(options: ContainerOptions): Container {
   const getGroupRoster = new GetGroupRoster(enrollmentRepo, studentRepo, plan);
   const listGroupsWithCounts = new ListGroupsWithCounts(listGroups, enrollmentRepo);
 
+  // Invoicing + the append-only payment ledger (SOU-93). The invoice repository (SOU-67)
+  // is constructed here for the first time — payment use cases read the invoice header +
+  // its immutable lines to size the balance. RecordPayment appends a `payment` (gating a
+  // partial amount on `core.invoicing.partial-paid`); VoidPayment appends a `reversal`
+  // (never a delete); GetInvoicePaymentSummary derives the status from the ledger.
+  const invoiceRepo = new SqliteInvoiceRepository(db);
+  const paymentRepo = new SqlitePaymentRepository(db);
+  const recordPayment = new RecordPayment(paymentRepo, invoiceRepo, clock, ids, plan);
+  const voidPayment = new VoidPayment(paymentRepo, clock, ids, plan);
+  const getInvoicePaymentSummary = new GetInvoicePaymentSummary(paymentRepo, invoiceRepo, plan);
+
   const teacherRepo = new SqliteTeacherRepository(db);
   // The teacher in-use guard's real backing (a query over live groups / sessions /
   // payroll rules) lands with Groups (SOU-48) and payroll (SOU-70). Until then no
@@ -340,6 +356,9 @@ export function buildContainer(options: ContainerOptions): Container {
     createStudentSubscription,
     closeStudentSubscription,
     listStudentSubscriptions,
+    recordPayment,
+    voidPayment,
+    getInvoicePaymentSummary,
     enrollStudent,
     unenrollStudent,
     createTeacher,

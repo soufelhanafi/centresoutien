@@ -41,6 +41,11 @@ import type {
   ListStudentSubscriptions,
   StudentSubscription,
   StudentSubscriptionId,
+  RecordPayment,
+  VoidPayment,
+  GetInvoicePaymentSummary,
+  Payment,
+  InvoiceId,
   EnrollStudent,
   UnenrollStudent,
   EnrollmentId,
@@ -117,6 +122,9 @@ export type RestoreGroupUseCase = Pick<RestoreGroup, 'execute'>;
 export type CreateStudentSubscriptionUseCase = Pick<CreateStudentSubscription, 'execute'>;
 export type CloseStudentSubscriptionUseCase = Pick<CloseStudentSubscription, 'execute'>;
 export type ListStudentSubscriptionsUseCase = Pick<ListStudentSubscriptions, 'execute'>;
+export type RecordPaymentUseCase = Pick<RecordPayment, 'execute'>;
+export type VoidPaymentUseCase = Pick<VoidPayment, 'execute'>;
+export type GetInvoicePaymentSummaryUseCase = Pick<GetInvoicePaymentSummary, 'execute'>;
 export type EnrollStudentUseCase = Pick<EnrollStudent, 'execute'>;
 export type UnenrollStudentUseCase = Pick<UnenrollStudent, 'execute'>;
 export type CreateTeacherUseCase = Pick<CreateTeacher, 'execute'>;
@@ -262,6 +270,21 @@ function toSubscriptionView(subscription: StudentSubscription) {
   };
 }
 
+/** Project a Payment to its boundary DTO: envelope stripped, dates serialized. A
+ *  `reversal` carries `reversesPaymentId`; a `payment` has it null. */
+function toPaymentView(payment: Payment) {
+  return {
+    id: payment.id,
+    invoiceId: payment.invoiceId,
+    kind: payment.kind,
+    amountMad: payment.amountMad,
+    method: payment.method,
+    paidOn: payment.paidOn,
+    reversesPaymentId: payment.reversesPaymentId,
+    createdAt: payment.createdAt.toISOString(),
+  };
+}
+
 /** Project a Teacher to its boundary DTO: envelope stripped, dates serialized,
  *  `archived` derived from the soft-delete tombstone. */
 function toTeacherView(teacher: Teacher) {
@@ -350,6 +373,9 @@ export type HandlerDeps = {
   createStudentSubscription: CreateStudentSubscriptionUseCase;
   closeStudentSubscription: CloseStudentSubscriptionUseCase;
   listStudentSubscriptions: ListStudentSubscriptionsUseCase;
+  recordPayment: RecordPaymentUseCase;
+  voidPayment: VoidPaymentUseCase;
+  getInvoicePaymentSummary: GetInvoicePaymentSummaryUseCase;
   enrollStudent: EnrollStudentUseCase;
   unenrollStudent: UnenrollStudentUseCase;
   createTeacher: CreateTeacherUseCase;
@@ -621,6 +647,31 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         studentId: request.studentId as StudentId,
       });
       return { subscriptions: subscriptions.map(toSubscriptionView) };
+    },
+    'payment.record': async (request) => {
+      const { payment, status } = await deps.recordPayment.execute({
+        ...request,
+        ...deps.envelopeContext(),
+      });
+      return { id: payment.id, status };
+    },
+    'payment.void': async (request) => {
+      const reversal = await deps.voidPayment.execute({ ...request, ...deps.envelopeContext() });
+      return { id: reversal.id };
+    },
+    'payment.summary': async (request) => {
+      const summary = await deps.getInvoicePaymentSummary.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        invoiceId: request.invoiceId as InvoiceId,
+      });
+      return {
+        invoiceId: summary.invoiceId,
+        totalMad: summary.totalMad,
+        netPaidMad: summary.netPaidMad,
+        outstandingMad: summary.outstandingMad,
+        status: summary.status,
+        payments: summary.payments.map(toPaymentView),
+      };
     },
     'enrollment.create': async (request) => {
       const enrollment = await deps.enrollStudent.execute({ ...request, ...deps.envelopeContext() });
