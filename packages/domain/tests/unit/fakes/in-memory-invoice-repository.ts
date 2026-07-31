@@ -3,6 +3,7 @@ import type { InvoiceRepository } from '../../../src/ports/invoice-repository';
 import type { Invoice, InvoiceId } from '../../../src/entities/invoice';
 import type { InvoiceLine } from '../../../src/entities/invoice-line';
 import type { StudentId } from '../../../src/entities/student';
+import type { CenterCode, UserId } from '../../../src/value-objects/ids';
 
 /**
  * In-memory {@link InvoiceRepository} for unit tests. Inherits the soft-deletable
@@ -30,10 +31,28 @@ export class InMemoryInvoiceRepository
       .map((line) => structuredClone(line));
   }
 
-  async findByStudentMonth(studentId: StudentId, month: string): Promise<Invoice | null> {
+  // Cascade the tombstone to lines, mirroring the SQLite adapter so line-level reads in
+  // unit tests match production: discarding an invoice tombstones its lines too.
+  override async softDelete(id: InvoiceId, at: Date, by: UserId): Promise<void> {
+    await super.softDelete(id, at, by);
+    for (const line of this.lines) {
+      if (line.invoiceId === id && line.deletedAt === null) {
+        line.deletedAt = at;
+        line.updatedAt = at;
+        line.updatedBy = by;
+      }
+    }
+  }
+
+  async findByStudentMonth(
+    centerCode: CenterCode,
+    studentId: StudentId,
+    month: string,
+  ): Promise<Invoice | null> {
     const found = this.all().find(
       (invoice) =>
         invoice.deletedAt === null &&
+        invoice.centerCode === centerCode &&
         invoice.studentId === studentId &&
         invoice.month === month,
     );

@@ -157,9 +157,10 @@ const INSERT_LINE_SQL = `
  * SQLite adapter for {@link InvoiceRepository}. Pure translation between the port and
  * SQL — no business decisions. Every header/line read hides tombstones
  * (`deleted_at IS NULL`); only the sync feeds (`listChangedSince` /
- * `listLinesChangedSince`) see them. Soft-delete only — there is no hard `DELETE`, and
- * there is deliberately NO invoice_lines UPDATE path (lines are inserted once with the
- * draft and read-only thereafter). Mirrors {@link SqliteEnrollmentRepository}.
+ * `listLinesChangedSince`) see them. Soft-delete only — there is no hard `DELETE`. A
+ * line's billed fields are never rewritten (the line INSERT has no upsert); the sole
+ * line UPDATE is the tombstone that `softDelete` cascades from the header. Mirrors
+ * {@link SqliteEnrollmentRepository}.
  */
 export class SqliteInvoiceRepository implements InvoiceRepository {
   constructor(private readonly db: DB) {}
@@ -187,20 +188,38 @@ export class SqliteInvoiceRepository implements InvoiceRepository {
     return row ? invoiceFromRow(row) : null;
   }
 
-  async findByStudentMonth(studentId: StudentId, month: string): Promise<Invoice | null> {
+  async findByStudentMonth(
+    centerCode: CenterCode,
+    studentId: StudentId,
+    month: string,
+  ): Promise<Invoice | null> {
     const row = this.db
       .prepare(
-        'SELECT * FROM invoices WHERE student_id = ? AND month = ? AND deleted_at IS NULL LIMIT 1',
+        'SELECT * FROM invoices WHERE center_code = ? AND student_id = ? AND month = ? AND deleted_at IS NULL LIMIT 1',
       )
-      .get(studentId, month) as InvoiceRow | undefined;
+      .get(centerCode, studentId, month) as InvoiceRow | undefined;
     return row ? invoiceFromRow(row) : null;
   }
 
+  // Tombstone the header AND its live lines in one transaction. Tombstoning is the one
+  // envelope-level write lines accept (it is not a billed-field rewrite): without it a
+  // discarded invoice's lines would stay `deleted_at IS NULL` forever, and any
+  // cross-invoice, kind-level line scan (dashboard, teacher-fee attribution) would
+  // silently count them. Cancelling an invoice is a *lifecycle* state, not a delete —
+  // its lines stay live by design, so those scans must still join the header status.
   async softDelete(id: InvoiceId, at: Date, by: UserId): Promise<void> {
     const iso = at.toISOString();
-    this.db
-      .prepare('UPDATE invoices SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?')
-      .run(iso, iso, by, id);
+    const cascade = this.db.transaction((invoiceId: InvoiceId) => {
+      this.db
+        .prepare('UPDATE invoices SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?')
+        .run(iso, iso, by, invoiceId);
+      this.db
+        .prepare(
+          'UPDATE invoice_lines SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE invoice_id = ? AND deleted_at IS NULL',
+        )
+        .run(iso, iso, by, invoiceId);
+    });
+    cascade(id);
   }
 
   async listChangedSince(cursor: Date): Promise<readonly Invoice[]> {

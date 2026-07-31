@@ -2,6 +2,7 @@ import type { SoftDeletableRepository } from '../repositories/soft-deletable';
 import type { Invoice, InvoiceId } from '../entities/invoice';
 import type { InvoiceLine } from '../entities/invoice-line';
 import type { StudentId } from '../entities/student';
+import type { CenterCode } from '../value-objects/ids';
 
 /**
  * Persistence port for the Invoice aggregate (SOU-67). The `Invoice` header is the
@@ -15,10 +16,12 @@ import type { StudentId } from '../entities/student';
  * lines. An invoice is identified by its `(studentId, month)` relationship, so there
  * is no `findByNaturalKey`.
  *
- * ⚠️ There is deliberately **no line-update method**. Lines are inserted exactly once
- * with the draft (`createDraft`) and are read-only thereafter — the structural
- * guarantee behind "invoice + lines immutable after `issued`". Discarding a draft or
- * cancelling an invoice is a header operation; the frozen lines are never rewritten.
+ * ⚠️ There is deliberately **no line-update method**. A line's billed fields are
+ * inserted exactly once with the draft (`createDraft`) and are read-only thereafter —
+ * the structural guarantee behind "invoice + lines immutable after `issued`". The one
+ * envelope-level exception is deletion: `softDelete` cascades the tombstone onto the
+ * invoice's lines (so a line read in isolation is trustworthy for deletes). Cancelling
+ * is a lifecycle state, not a delete — a cancelled invoice's lines stay live.
  */
 export interface InvoiceRepository extends SoftDeletableRepository<InvoiceId, Invoice> {
   /**
@@ -32,11 +35,17 @@ export interface InvoiceRepository extends SoftDeletableRepository<InvoiceId, In
   listLines(invoiceId: InvoiceId): Promise<readonly InvoiceLine[]>;
 
   /**
-   * The live header for `(studentId, month)`, or `null` — backs the one-invoice-per
-   * -student-per-month guard in `CreateInvoiceDraft`. A domain read, not a DB unique
-   * index, so concurrent same-month creates converge on sync-resolve.
+   * The live header for `(centerCode, studentId, month)`, or `null` — backs the
+   * one-invoice-per-student-per-month guard in `CreateInvoiceDraft`. Center-scoped in
+   * the query itself (not a post-filter) so the future shared backend cannot resolve a
+   * foreign tenant's row. A domain read, not a DB unique index, so concurrent
+   * same-month creates converge on sync-resolve.
    */
-  findByStudentMonth(studentId: StudentId, month: string): Promise<Invoice | null>;
+  findByStudentMonth(
+    centerCode: CenterCode,
+    studentId: StudentId,
+    month: string,
+  ): Promise<Invoice | null>;
 
   /**
    * Sync cursor query for lines: rows updated strictly after `cursor`. Lines carry

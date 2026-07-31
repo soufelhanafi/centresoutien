@@ -147,14 +147,18 @@ describe('SqliteInvoiceRepository', () => {
   });
 
   describe('findByStudentMonth', () => {
-    it('returns the live invoice for a student+month, and null after it is discarded', async () => {
+    it('returns the live invoice for a center+student+month, and null after it is discarded', async () => {
       await repo.save(makeInvoice());
-      expect((await repo.findByStudentMonth(STUDENT_A, '2026-09'))?.id).toBe(INVOICE_A);
-      expect(await repo.findByStudentMonth(STUDENT_A, '2026-10')).toBeNull();
-      expect(await repo.findByStudentMonth(STUDENT_B, '2026-09')).toBeNull();
+      expect((await repo.findByStudentMonth(CENTER, STUDENT_A, '2026-09'))?.id).toBe(INVOICE_A);
+      expect(await repo.findByStudentMonth(CENTER, STUDENT_A, '2026-10')).toBeNull();
+      expect(await repo.findByStudentMonth(CENTER, STUDENT_B, '2026-09')).toBeNull();
+      // Center-scoped in the query: another tenant never resolves this row.
+      expect(
+        await repo.findByStudentMonth('CS-RABAT-002' as CenterCode, STUDENT_A, '2026-09'),
+      ).toBeNull();
 
       await repo.softDelete(INVOICE_A, new Date('2026-08-02T00:00:00Z'), USER);
-      expect(await repo.findByStudentMonth(STUDENT_A, '2026-09')).toBeNull();
+      expect(await repo.findByStudentMonth(CENTER, STUDENT_A, '2026-09')).toBeNull();
     });
   });
 
@@ -190,6 +194,23 @@ describe('SqliteInvoiceRepository', () => {
       expect(changed).toHaveLength(1);
       expect(changed[0]?.deletedAt).toEqual(new Date('2026-08-02T00:00:00Z'));
       expect(changed[0]?.updatedBy).toBe(USER);
+    });
+
+    it('cascades the tombstone to its lines: a discarded invoice leaves no live lines', async () => {
+      const invoice = makeInvoice();
+      await repo.createDraft(invoice, [makeLine(invoice.id), makeLine(invoice.id)]);
+      await repo.softDelete(invoice.id, new Date('2026-08-02T00:00:00Z'), USER);
+
+      // Header hidden and no lines are live any more…
+      expect(await repo.findById(invoice.id)).toBeNull();
+      expect(await repo.listLines(invoice.id)).toHaveLength(0);
+      // …but the lines survive as tombstones in the sync feed, carrying who/when.
+      const changedLines = await repo.listLinesChangedSince(AT);
+      expect(changedLines).toHaveLength(2);
+      for (const line of changedLines) {
+        expect(line.deletedAt).toEqual(new Date('2026-08-02T00:00:00Z'));
+        expect(line.updatedBy).toBe(USER);
+      }
     });
 
     it('lists lines updated strictly after the cursor', async () => {

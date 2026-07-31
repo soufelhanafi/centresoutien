@@ -12,6 +12,7 @@ import {
 import { createInvoiceDraftSchema } from '../schemas/invoice';
 import { DuplicateInvoiceError } from '../errors/invoice-errors';
 import type { StudentId } from '../entities/student';
+import type { GroupKind } from '../entities/group';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 
 export type CreateInvoiceDraftInput = {
@@ -20,7 +21,7 @@ export type CreateInvoiceDraftInput = {
   lines: readonly {
     formulaId: string;
     label: { fr: string; ar: string };
-    kind: 'regular' | 'exam-prep';
+    kind: GroupKind;
     amountMad: number;
   }[];
   centerCode: CenterCode;
@@ -46,7 +47,8 @@ export type CreateInvoiceDraftResult = {
  *  2. Validate the user-derivable fields with `createInvoiceDraftSchema` (month shape,
  *     ≥ 1 line, per-line snapshot shape).
  *  3. Enforce one-invoice-per-student-per-month: if a **live** invoice already exists
- *     for `(studentId, month)`, throw {@link DuplicateInvoiceError}. This is the domain
+ *     for `(centerCode, studentId, month)`, throw {@link DuplicateInvoiceError}. The
+ *     lookup is center-scoped in the query, not a post-filter. This is the domain
  *     idempotency guard (no DB unique index, so concurrent same-month creates converge
  *     on sync-resolve, CLAUDE.md §5bis).
  *  4. Build the `draft` header and one {@link InvoiceLine} per snapshot, each with its
@@ -68,8 +70,12 @@ export class CreateInvoiceDraft {
     const fields = createInvoiceDraftSchema.parse(input);
 
     const studentId = fields.studentId as StudentId;
-    const existing = await this.invoices.findByStudentMonth(studentId, fields.month);
-    if (existing !== null && existing.centerCode === input.centerCode) {
+    const existing = await this.invoices.findByStudentMonth(
+      input.centerCode,
+      studentId,
+      fields.month,
+    );
+    if (existing !== null) {
       throw new DuplicateInvoiceError(studentId, fields.month);
     }
 

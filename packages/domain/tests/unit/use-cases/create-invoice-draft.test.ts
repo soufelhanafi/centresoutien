@@ -113,7 +113,7 @@ describe('CreateInvoiceDraft', () => {
       );
 
       expect(await invoices.findById(invoice.id)).toEqual(invoice);
-      expect(await invoices.findByStudentMonth(STUDENT_ID, '2026-09')).toEqual(invoice);
+      expect(await invoices.findByStudentMonth(CENTER, STUDENT_ID, '2026-09')).toEqual(invoice);
       const lines = await invoices.listLines(invoice.id);
       expect(lines).toHaveLength(2);
       expect(invoiceTotalMad(lines)).toBe(35000);
@@ -151,12 +151,19 @@ describe('CreateInvoiceDraft', () => {
       expect(second.invoice.id).not.toBe(first.invoice.id);
     });
 
-    it('does not treat another center’s same-month invoice as a duplicate', async () => {
-      // Defensive: on desktop one DB is one center, but the guard is center-scoped so
-      // it never mistakes a foreign-tenant row (future shared backend) for a clash.
+    it('is center-scoped: a foreign center’s same-month row is not a duplicate, a same-center repeat still is', async () => {
+      // Defensive: on desktop one DB is one center, but the guard filters by center in
+      // the query, so it never mistakes a foreign-tenant row (future shared backend) for
+      // a clash — and never *misses* a real same-center duplicate, regardless of the
+      // order rows were inserted. Seeding OTHER_CENTER first proves order-independence.
       await build(PLANS.essentiel).execute(validInput({ centerCode: OTHER_CENTER }));
       const { invoice } = await build(PLANS.essentiel).execute(validInput({ centerCode: CENTER }));
       expect(invoice.centerCode).toBe(CENTER);
+
+      // A second CENTER draft for the same student+month is still refused.
+      await expect(
+        build(PLANS.essentiel).execute(validInput({ centerCode: CENTER })),
+      ).rejects.toBeInstanceOf(DuplicateInvoiceError);
     });
   });
 
