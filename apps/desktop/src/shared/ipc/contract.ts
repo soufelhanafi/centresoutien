@@ -236,17 +236,20 @@ export const ipcContract = {
     request: z.object({ id: z.string() }),
     response: z.object({ room: roomViewSchema }),
   },
-  // Teachers (SOU-36 domain/data; CRUD UI is SOU-37). Gated by `core.teachers`
-  // and bounded by the `maxTeachers` plan limit in the use case. `create` and
-  // `update` take the domain's own `teacherInputSchema` (phone required + E.164,
-  // bilingual name, optional CIN/email, subjectIds), validated once and reused by
-  // the form (zodResolver); `list` filters by a name-or-phone search; `get`
-  // returns the single view or null for an unknown/archived id; `archive` is a
-  // soft delete (rejected by TeacherInUseError once groups/payroll reference the
-  // teacher). centerCode/device/user are injected in main, never sent from the
-  // renderer. All reads strip the envelope to `teacherViewSchema`.
+  // Teachers (SOU-36 domain/data; CRUD UI + archive/restore is SOU-37). Gated by
+  // `core.teachers` and bounded by the `maxTeachers` plan limit in the use cases.
+  // `create` and `update` take the domain's own `teacherInputSchema` (phone
+  // required + E.164, bilingual name, optional CIN/email, subjectIds), validated
+  // once and reused by the form (zodResolver); `list` selects the live teachers or
+  // the archive via `scope` (mirrors `room.list`) and filters by a name-or-phone
+  // search; `get` returns the single view or null for an unknown/archived id;
+  // `archive` is a soft delete (rejected by TeacherInUseError once groups/payroll
+  // reference the teacher); `restore` clears the tombstone (rejected by the
+  // maxTeachers cap or a live natural-key duplicate). centerCode/device/user are
+  // injected in main, never sent from the renderer. All reads strip the envelope
+  // to `teacherViewSchema`.
   'teacher.list': {
-    request: z.object({ search: z.string() }),
+    request: z.object({ scope: z.enum(['active', 'archived']), search: z.string() }),
     response: z.object({ teachers: z.array(teacherViewSchema) }),
   },
   'teacher.create': {
@@ -264,6 +267,10 @@ export const ipcContract = {
   'teacher.archive': {
     request: z.object({ id: z.string() }),
     response: z.object({ ok: z.literal(true) }),
+  },
+  'teacher.restore': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ teacher: teacherViewSchema }),
   },
   // Holidays (SOU-30). `list` selects the live holidays or the archive via `scope`;
   // `create` and `update` take the domain's own `holidayInputSchema` (bilingual

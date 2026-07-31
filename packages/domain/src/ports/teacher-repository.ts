@@ -14,9 +14,11 @@ import type { CenterCode } from '../value-objects/ids';
  * a legitimate second record.
  *
  * Adds `countActive` — the live headcount the plan `maxTeachers` limit checks
- * against — and `listActive` — every live (non-tombstoned) teacher of the center,
- * for the list screen. Search/sort are applied by the `ListTeachers` use case, not
- * here: the port stays a dumb tenant-scoped read, mirroring `StudentRepository`.
+ * against — `listActive` — every live (non-tombstoned) teacher of the center, for
+ * the list screen — and, for the archive/restore flow (SOU-37), `listArchived` /
+ * `findArchivedById`, which deliberately see only tombstones. Search/sort are
+ * applied by the `ListTeachers` use case, not here: the port stays a dumb
+ * tenant-scoped read, mirroring `RoomRepository` / `StudentRepository`.
  */
 export interface TeacherRepository extends SoftDeletableRepository<TeacherId, Teacher> {
   /** The single live teacher whose immutable naturalKey matches, or null. */
@@ -25,4 +27,15 @@ export interface TeacherRepository extends SoftDeletableRepository<TeacherId, Te
   countActive(centerCode: CenterCode): Promise<number>;
   /** Every live teacher of the center, unfiltered and unsorted. */
   listActive(centerCode: CenterCode): Promise<readonly Teacher[]>;
+  /**
+   * Every archived (tombstoned) teacher of the center, so the UI can offer
+   * restore. The mirror of `listActive` — only rows with `deletedAt` set.
+   */
+  listArchived(centerCode: CenterCode): Promise<readonly Teacher[]>;
+  /**
+   * Read a tombstoned teacher by id so `RestoreTeacher` can revive it. Returns
+   * null for an unknown or still-live id — the inverse of `findById`, which hides
+   * tombstones. Center scoping is enforced by the use case, not here.
+   */
+  findArchivedById(id: TeacherId): Promise<Teacher | null>;
 }

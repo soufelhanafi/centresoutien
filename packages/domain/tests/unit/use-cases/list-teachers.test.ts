@@ -43,34 +43,53 @@ describe('ListTeachers', () => {
     await add({ fr: 'amine', ar: 'أمين' }, '0622222222');
     await add({ fr: 'Bilal', ar: 'بلال' }, '0633333333', OTHER); // other tenant
 
-    const rows = await useCase.execute({ centerCode: CENTER, search: '' });
+    const rows = await useCase.execute({ centerCode: CENTER, scope: 'active', search: '' });
     expect(rows.map((t) => t.name.fr)).toEqual(['amine', 'Zaid']);
   });
 
-  it('excludes archived teachers', async () => {
+  it('excludes archived teachers from the active scope', async () => {
     const gone = await add({ fr: 'Farès', ar: 'فارس' }, '0644444444');
     await teachers.softDelete(gone.id, new Date('2026-08-01T00:00:00Z'), USER);
     await add({ fr: 'Nadia', ar: 'نادية' }, '0655555555');
 
-    const rows = await useCase.execute({ centerCode: CENTER, search: '' });
+    const rows = await useCase.execute({ centerCode: CENTER, scope: 'active', search: '' });
     expect(rows.map((t) => t.name.fr)).toEqual(['Nadia']);
+  });
+
+  it('returns only archived teachers of the center under the archived scope (the restore list)', async () => {
+    const gone = await add({ fr: 'Farès', ar: 'فارس' }, '0644444444');
+    await teachers.softDelete(gone.id, new Date('2026-08-01T00:00:00Z'), USER);
+    await add({ fr: 'Nadia', ar: 'نادية' }, '0655555555'); // stays live
+
+    const rows = await useCase.execute({ centerCode: CENTER, scope: 'archived', search: '' });
+    expect(rows.map((t) => t.name.fr)).toEqual(['Farès']);
+  });
+
+  it('applies the search term within the archived scope', async () => {
+    const fares = await add({ fr: 'Farès', ar: 'فارس' }, '0644444444');
+    const nadia = await add({ fr: 'Nadia', ar: 'نادية' }, '0655555555');
+    await teachers.softDelete(fares.id, new Date('2026-08-01T00:00:00Z'), USER);
+    await teachers.softDelete(nadia.id, new Date('2026-08-01T00:00:00Z'), USER);
+
+    const rows = await useCase.execute({ centerCode: CENTER, scope: 'archived', search: 'fares' });
+    expect(rows.map((t) => t.name.fr)).toEqual(['Farès']);
   });
 
   it('matches accent-insensitively on the FR name', async () => {
     await add({ fr: 'Farès', ar: 'فارس' }, '0644444444');
-    const rows = await useCase.execute({ centerCode: CENTER, search: 'fares' });
+    const rows = await useCase.execute({ centerCode: CENTER, scope: 'active', search: 'fares' });
     expect(rows).toHaveLength(1);
   });
 
   it('matches on the AR name', async () => {
     await add({ fr: 'Nadia', ar: 'نادية' }, '0655555555');
-    const rows = await useCase.execute({ centerCode: CENTER, search: 'نادية' });
+    const rows = await useCase.execute({ centerCode: CENTER, scope: 'active', search: 'نادية' });
     expect(rows).toHaveLength(1);
   });
 
   it('matches the national 0-prefixed phone form against the stored E.164 number', async () => {
     await add({ fr: 'Yassine', ar: 'ياسين' }, '0612345678');
-    const rows = await useCase.execute({ centerCode: CENTER, search: '0612' });
+    const rows = await useCase.execute({ centerCode: CENTER, scope: 'active', search: '0612' });
     expect(rows).toHaveLength(1);
   });
 
@@ -78,7 +97,7 @@ describe('ListTeachers', () => {
     await add({ fr: 'Yassine', ar: 'ياسين' }, '0612345678');
     // A non-digit needle whose digits fold to '' → the phone branch bails out and
     // the name branches miss, so no teacher matches.
-    const rows = await useCase.execute({ centerCode: CENTER, search: 'zzz' });
+    const rows = await useCase.execute({ centerCode: CENTER, scope: 'active', search: 'zzz' });
     expect(rows).toEqual([]);
   });
 
@@ -89,8 +108,8 @@ describe('ListTeachers', () => {
       limits: PLANS.essentiel.limits,
     };
     useCase = new ListTeachers(teachers, new PlanPolicy(planWithout));
-    await expect(useCase.execute({ centerCode: CENTER, search: '' })).rejects.toBeInstanceOf(
-      PlanFeatureUnavailableError,
-    );
+    await expect(
+      useCase.execute({ centerCode: CENTER, scope: 'active', search: '' }),
+    ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
   });
 });

@@ -25,6 +25,7 @@ import {
   GetTeacher,
   UpdateTeacher,
   ArchiveTeacher,
+  RestoreTeacher,
   CreateHoliday,
   ListHolidays,
   UpdateHoliday,
@@ -191,6 +192,7 @@ export function buildContainer(options: ContainerOptions): Container {
   const getTeacher = new GetTeacher(teacherRepo, plan);
   const updateTeacher = new UpdateTeacher(teacherRepo, clock, plan);
   const archiveTeacher = new ArchiveTeacher(teacherRepo, teacherReference, clock, plan);
+  const restoreTeacher = new RestoreTeacher(teacherRepo, clock, plan);
 
   const holidayRepo = new SqliteHolidayRepository(db);
   const createHoliday = new CreateHoliday(holidayRepo, clock, ids, plan);
@@ -256,6 +258,7 @@ export function buildContainer(options: ContainerOptions): Container {
     getTeacher,
     updateTeacher,
     archiveTeacher,
+    restoreTeacher,
     createHoliday,
     listHolidays,
     updateHoliday,

@@ -5,9 +5,11 @@ import type { CenterCode } from '../../../src/value-objects/ids';
 
 /**
  * In-memory {@link TeacherRepository} for unit tests. Extends the shared
- * soft-deletable base and adds the `findByNaturalKey`, `countActive`, and
- * `listActive` reads — which, like the SQLite adapter, match only live
- * (non-tombstoned) rows and scope to a center.
+ * soft-deletable base and adds the `findByNaturalKey`, `countActive`,
+ * `listActive`, `listArchived`, and `findArchivedById` reads — which, like the
+ * SQLite adapter, scope to a center and split live rows from tombstones
+ * (`listActive`/`countActive`/`findByNaturalKey` see only live rows;
+ * `listArchived`/`findArchivedById` see only tombstones).
  */
 export class InMemoryTeacherRepository
   extends InMemorySoftDeletableRepository<TeacherId, Teacher>
@@ -28,5 +30,15 @@ export class InMemoryTeacherRepository
     return this.all().filter(
       (teacher) => teacher.deletedAt === null && teacher.centerCode === centerCode,
     );
+  }
+
+  async listArchived(centerCode: CenterCode): Promise<readonly Teacher[]> {
+    return this.all().filter(
+      (teacher) => teacher.deletedAt !== null && teacher.centerCode === centerCode,
+    );
+  }
+
+  async findArchivedById(id: TeacherId): Promise<Teacher | null> {
+    return this.all().find((teacher) => teacher.id === id && teacher.deletedAt !== null) ?? null;
   }
 }
