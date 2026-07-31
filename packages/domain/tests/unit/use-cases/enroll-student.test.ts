@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EnrollStudent, type EnrollStudentInput } from '../../../src/use-cases/enroll-student';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
@@ -224,6 +224,19 @@ describe('EnrollStudent', () => {
       expect(second.id).not.toBe(first.id);
       expect(await enrollments.findById(second.id)).not.toBeNull();
       expect(await enrollments.countActiveByGroup(GROUP_ID)).toBe(1);
+    });
+
+    it('throws DuplicateEnrollmentError when the atomic saveIfAbsent loses the race (TOCTOU backstop)', async () => {
+      // Simulate a same-device concurrent enroll: the `hasActiveEnrollment`
+      // pre-check passes (no live row yet), but between it and the insert another
+      // enroll wins, so the adapter's transactional `saveIfAbsent` returns false.
+      // The use case must surface that as a DuplicateEnrollmentError, not a silent
+      // success — and never a duplicate live row.
+      vi.spyOn(enrollments, 'saveIfAbsent').mockResolvedValueOnce(false);
+      await expect(build(PLANS.essentiel).execute(validInput())).rejects.toBeInstanceOf(
+        DuplicateEnrollmentError,
+      );
+      expect(await enrollments.countActiveByGroup(GROUP_ID)).toBe(0);
     });
 
     it('does not block the same student enrolling in a different group', async () => {

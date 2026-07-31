@@ -30,4 +30,17 @@ export class InMemoryEnrollmentRepository
       (e) => e.deletedAt === null && e.studentId === studentId && e.groupId === groupId,
     );
   }
+
+  /**
+   * Atomic in the single-threaded test harness: the JS body runs to completion
+   * without yielding, mirroring the SQLite adapter's one-transaction guarantee.
+   * Inserts only when no live `(studentId, groupId)` exists; tombstones do not block.
+   */
+  async saveIfAbsent(enrollment: Enrollment): Promise<boolean> {
+    if (await this.hasActiveEnrollment(enrollment.studentId, enrollment.groupId)) {
+      return false;
+    }
+    await this.save(enrollment);
+    return true;
+  }
 }
