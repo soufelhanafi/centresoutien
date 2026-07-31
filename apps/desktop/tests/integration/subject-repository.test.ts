@@ -39,6 +39,7 @@ function makeSubject(over: Partial<Subject> = {}): Subject {
     deletedAt: null,
     version: 0,
     name: { fr: 'Mathématiques', ar: 'الرياضيات' },
+    code: null,
     active: true,
     ...over,
   };
@@ -75,6 +76,69 @@ describe('SqliteSubjectRepository', () => {
     const changed = await repo.listChangedSince(AT);
     expect(changed).toHaveLength(1);
     expect(changed[0]?.deletedAt).toEqual(new Date('2026-08-02T00:00:00Z'));
+  });
+
+  describe('code', () => {
+    it('round-trips a subject with a code intact', async () => {
+      const subject = makeSubject({ code: 'MATH' });
+      await repo.save(subject);
+      expect(await repo.findById(subject.id)).toEqual(subject);
+    });
+
+    it('findByCode returns the live subject with that code in the center', async () => {
+      const subject = makeSubject({ code: 'MATH' });
+      await repo.save(subject);
+      expect(await repo.findByCode('CS-CASA-001' as CenterCode, 'MATH')).toEqual(subject);
+    });
+
+    it('findByCode returns null for an unknown code', async () => {
+      await repo.save(makeSubject({ code: 'MATH' }));
+      expect(await repo.findByCode('CS-CASA-001' as CenterCode, 'PC')).toBeNull();
+    });
+
+    it('findByCode is center-scoped', async () => {
+      await repo.save(makeSubject({ code: 'MATH' }));
+      expect(await repo.findByCode('CS-RABAT-002' as CenterCode, 'MATH')).toBeNull();
+    });
+
+    it('findByCode ignores a tombstoned subject (freed code)', async () => {
+      const subject = makeSubject({ code: 'MATH' });
+      await repo.save(subject);
+      await repo.softDelete(subject.id, new Date('2026-08-02T00:00:00Z'), 'usr_00000000000000000000000001' as UserId);
+      expect(await repo.findByCode('CS-CASA-001' as CenterCode, 'MATH')).toBeNull();
+    });
+
+    it('the partial unique index rejects a duplicate live code in the same center', async () => {
+      await repo.save(makeSubject({ id: 'sub_00000000000000000000000001' as SubjectId, code: 'MATH' }));
+      await expect(
+        repo.save(makeSubject({ id: 'sub_00000000000000000000000002' as SubjectId, code: 'MATH' })),
+      ).rejects.toThrow();
+    });
+
+    it('allows the same code across centers and after a soft delete', async () => {
+      const casa = makeSubject({ id: 'sub_00000000000000000000000001' as SubjectId, code: 'MATH' });
+      await repo.save(casa);
+      // Different center → allowed.
+      await repo.save(
+        makeSubject({
+          id: 'sub_00000000000000000000000002' as SubjectId,
+          centerCode: 'CS-RABAT-002' as CenterCode,
+          code: 'MATH',
+        }),
+      );
+      // Free the code by tombstoning, then reuse it in the original center.
+      await repo.softDelete(casa.id, new Date('2026-08-02T00:00:00Z'), 'usr_00000000000000000000000001' as UserId);
+      await expect(
+        repo.save(makeSubject({ id: 'sub_00000000000000000000000003' as SubjectId, code: 'MATH' })),
+      ).resolves.toBeUndefined();
+    });
+
+    it('allows multiple live subjects with no code (NULLs do not clash)', async () => {
+      await repo.save(makeSubject({ id: 'sub_00000000000000000000000001' as SubjectId, code: null }));
+      await expect(
+        repo.save(makeSubject({ id: 'sub_00000000000000000000000002' as SubjectId, code: null })),
+      ).resolves.toBeUndefined();
+    });
   });
 
   describe('listChangedSince', () => {
