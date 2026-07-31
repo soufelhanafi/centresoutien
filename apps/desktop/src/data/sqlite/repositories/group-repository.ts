@@ -4,6 +4,7 @@ import type {
   GroupId,
   GroupKind,
   GroupRepository,
+  SubjectReferencePort,
   CenterCode,
   DeviceId,
   EntityId,
@@ -77,9 +78,13 @@ const SAVE_SQL = `
  * SQL — no business decisions. Reads hide tombstones; `listChangedSince` (the sync
  * feed) and `listArchived` / `findArchivedById` (the restore path) deliberately
  * see them. Identity columns (`id`, `center_code`, `device_origin`, `created_at`)
- * are never rewritten on upsert. Mirrors {@link SqliteRoomRepository}.
+ * are never rewritten on upsert. Mirrors {@link SqliteRoomRepository}. Also
+ * satisfies {@link SubjectReferencePort}: `groups` is the only table that carries
+ * `subject_id` today, so this repository owns the in-use query the `ArchiveSubject`
+ * guard needs, and the composition root passes this same instance as the
+ * subject-reference adapter (mirroring the session repo → `RoomReferencePort` wiring).
  */
-export class SqliteGroupRepository implements GroupRepository {
+export class SqliteGroupRepository implements GroupRepository, SubjectReferencePort {
   constructor(private readonly db: DB) {}
 
   async save(group: Group): Promise<void> {
@@ -146,5 +151,18 @@ export class SqliteGroupRepository implements GroupRepository {
       .prepare('SELECT * FROM groups WHERE id = ? AND deleted_at IS NOT NULL')
       .get(id) as GroupRow | undefined;
     return row ? fromRow(row) : null;
+  }
+
+  /**
+   * {@link SubjectReferencePort}: true when any live group still references the
+   * subject. Uses `ix_groups_subject(subject_id, deleted_at)`. Extension point —
+   * when sessions/formulas gain a `subject_id`, OR their live-reference existence
+   * checks in here (or move this to a composite adapter); the port stays boolean.
+   */
+  async isSubjectInUse(subjectId: SubjectId): Promise<boolean> {
+    const row = this.db
+      .prepare('SELECT 1 FROM groups WHERE subject_id = ? AND deleted_at IS NULL LIMIT 1')
+      .get(subjectId) as { 1: number } | undefined;
+    return row !== undefined;
   }
 }

@@ -199,9 +199,9 @@ export {
 } from './policies/login-throttle-policy';
 
 // Repository & service ports
-export type { SubjectRepository } from './ports/subject-repository';
-// Subject in-use guard — its concrete adapter is the group/session/formula
-// reference query, wired once those references exist.
+export type { SubjectRepository, SubjectUsage } from './ports/subject-repository';
+// Subject in-use guard — its concrete adapter (SOU-46) is the live-groups
+// reference query; sessions/formulas join the scope once they reference subjects.
 export type { SubjectReferencePort } from './ports/subject-reference';
 export type { StudentRepository } from './ports/student-repository';
 export type { CenterHoursRepository } from './ports/center-hours-repository';
