@@ -1,23 +1,31 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
 import { BilingualText, DataTableCell, DataTableRow } from '@centresoutien/ui';
-import type { TeacherView } from '../../lib/teachers/teacher-view';
+import type { TeacherStatus, TeacherView } from '../../lib/teachers/teacher-view';
 import { TeacherRowActions } from './teacher-row-actions';
 
-/** One teacher row: bilingual name (FR + AR), phone, CIN, subject count, actions. */
-export function TeacherRow({ teacher }: { teacher: TeacherView }) {
+/**
+ * One teacher row: bilingual name (FR + AR), phone, CIN, subject count, actions.
+ * Active rows link to the detail sheet; archived rows show the name as plain text
+ * (their only action is restore), mirroring the Rooms list.
+ */
+export function TeacherRow({ teacher, variant }: { teacher: TeacherView; variant: TeacherStatus }) {
   const { t } = useTranslation();
 
   return (
     <DataTableRow>
       <DataTableCell>
-        <Link
-          to="/teachers/$teacherId"
-          params={{ teacherId: teacher.id }}
-          className="font-medium text-foreground hover:underline"
-        >
-          {teacher.name.fr}
-        </Link>
+        {variant === 'archived' ? (
+          <span className="font-medium text-foreground">{teacher.name.fr}</span>
+        ) : (
+          <Link
+            to="/teachers/$teacherId"
+            params={{ teacherId: teacher.id }}
+            className="font-medium text-foreground hover:underline"
+          >
+            {teacher.name.fr}
+          </Link>
+        )}
         <BilingualText
           value={teacher.name.ar}
           script="arabic"
@@ -34,7 +42,7 @@ export function TeacherRow({ teacher }: { teacher: TeacherView }) {
         {t('teachers.subjectsCount', { count: teacher.subjectIds.length })}
       </DataTableCell>
       <DataTableCell className="text-end">
-        <TeacherRowActions teacher={teacher} />
+        <TeacherRowActions teacher={teacher} variant={variant} />
       </DataTableCell>
     </DataTableRow>
   );

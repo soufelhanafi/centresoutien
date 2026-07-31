@@ -16,7 +16,14 @@ export type TeacherView = TeacherDto;
 /** The editable fields when creating or editing a teacher — the domain's own schema. */
 export type { TeacherInput };
 
-/** List query parameters. `search` matches the FR/AR name or the phone number. */
+/** A teacher's lifecycle state; the list is queried one state at a time. */
+export type TeacherStatus = 'active' | 'archived';
+
+/**
+ * List query parameters. `status` selects the active list or the archived view;
+ * `search` matches the FR/AR name or the phone number.
+ */
 export type TeacherListFilter = {
+  readonly status: TeacherStatus;
   readonly search: string;
 };

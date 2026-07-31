@@ -349,11 +349,24 @@
     "subjectsCount_zero": "Aucune",
     "subjectsCount_one": "{{count}} matière",
     "subjectsCount_other": "{{count}} matières",
+    "tabs": {
+      "active": "Actifs",
+      "archived": "Archivés"
+    },
     "row": {
       "open": "Ouvrir la fiche",
       "menu": "Actions de l'enseignant",
       "edit": "Modifier",
-      "archive": "Archiver"
+      "archive": "Archiver",
+      "restore": "Restaurer"
+    },
+    "restore": {
+      "success": "Enseignant restauré",
+      "error": "La restauration a échoué. Réessayez."
+    },
+    "archivedEmpty": {
+      "title": "Aucun enseignant archivé",
+      "body": "Les enseignants que vous archivez apparaîtront ici."
     },
     "empty": {
       "title": "Aucun enseignant pour l'instant",

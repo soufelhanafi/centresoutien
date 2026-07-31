@@ -1,35 +1,23 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
-import { Button } from '@centresoutien/ui';
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import { useTeachers } from '../../hooks/teacher/use-teachers';
 import { TeacherListToolbar } from '../../components/teacher/teacher-list-toolbar';
 import { TeacherSeatsNotice } from '../../components/teacher/teacher-seats-notice';
-import {
-  TeacherListContent,
-  type TeacherListStatus,
-} from '../../components/teacher/teacher-list-content';
+import { TeacherListPanel } from '../../components/teacher/teacher-list-panel';
 import { CreateTeacherSheet } from '../../components/teacher/create-teacher-sheet';
 
-/** Teachers module: searchable list with create / edit / archive. */
+/** Teachers module: active / archived lists with search, create, edit, archive, restore. */
 export function TeachersPage() {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const openCreate = () => setCreateOpen(true);
 
-  const query = useTeachers(search);
-  const teachers = useMemo(() => query.data ?? [], [query.data]);
-  const isFiltered = search.trim() !== '';
-
-  const status: TeacherListStatus = query.isPending
-    ? 'loading'
-    : query.isError
-      ? 'error'
-      : teachers.length > 0
-        ? 'ready'
-        : isFiltered
-          ? 'noResults'
-          : 'empty';
+  // The plan cap is on all live teachers, so the nudge tracks the unfiltered active
+  // list (its own query — never the search-filtered or archived view).
+  const activeCount = useTeachers('active', '').data?.length ?? 0;
 
   return (
     <section aria-labelledby="teachers-title" className="mx-auto flex w-full max-w-5xl flex-col gap-5">
@@ -39,9 +27,9 @@ export function TeachersPage() {
             {t('teachers.title')}
           </h1>
           <p className="text-sm text-muted-foreground">{t('teachers.subtitle')}</p>
-          {!isFiltered && <TeacherSeatsNotice activeCount={teachers.length} />}
+          <TeacherSeatsNotice activeCount={activeCount} />
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
+        <Button onClick={openCreate}>
           <Plus className="h-4 w-4" aria-hidden="true" />
           {t('teachers.new')}
         </Button>
@@ -49,12 +37,18 @@ export function TeachersPage() {
 
       <TeacherListToolbar search={search} onSearchChange={setSearch} />
 
-      <TeacherListContent
-        status={status}
-        teachers={teachers}
-        onRetry={() => void query.refetch()}
-        onCreate={() => setCreateOpen(true)}
-      />
+      <Tabs defaultValue="active">
+        <TabsList>
+          <TabsTrigger value="active">{t('teachers.tabs.active')}</TabsTrigger>
+          <TabsTrigger value="archived">{t('teachers.tabs.archived')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="active" className="mt-4">
+          <TeacherListPanel variant="active" search={search} onCreate={openCreate} />
+        </TabsContent>
+        <TabsContent value="archived" className="mt-4">
+          <TeacherListPanel variant="archived" search={search} onCreate={openCreate} />
+        </TabsContent>
+      </Tabs>
 
       <CreateTeacherSheet open={createOpen} onOpenChange={setCreateOpen} />
     </section>

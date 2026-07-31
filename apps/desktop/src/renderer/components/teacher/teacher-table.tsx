@@ -1,12 +1,18 @@
 import { useTranslation } from 'react-i18next';
 import { DataTable, DataTableHead, DataTableRow } from '@centresoutien/ui';
-import type { TeacherView } from '../../lib/teachers/teacher-view';
+import type { TeacherStatus, TeacherView } from '../../lib/teachers/teacher-view';
 import { TeacherRow } from './teacher-row';
 
-const COLUMNS = ['1.6fr', '1.2fr', '1fr', '0.9fr', '56px'] as const;
+const COLUMNS = ['1.6fr', '1.2fr', '1fr', '0.9fr', '96px'] as const;
 
 /** The teachers list as an accessible grid-styled table (design 1a geometry). */
-export function TeacherTable({ teachers }: { teachers: readonly TeacherView[] }) {
+export function TeacherTable({
+  teachers,
+  variant,
+}: {
+  teachers: readonly TeacherView[];
+  variant: TeacherStatus;
+}) {
   const { t } = useTranslation();
 
   return (
@@ -25,7 +31,7 @@ export function TeacherTable({ teachers }: { teachers: readonly TeacherView[] })
         </thead>
         <tbody>
           {teachers.map((teacher) => (
-            <TeacherRow key={teacher.id} teacher={teacher} />
+            <TeacherRow key={teacher.id} teacher={teacher} variant={variant} />
           ))}
         </tbody>
       </DataTable>

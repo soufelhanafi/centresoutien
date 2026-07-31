@@ -373,11 +373,24 @@
     "subjectsCount_few": "{{count}} مواد",
     "subjectsCount_many": "{{count}} مادةً",
     "subjectsCount_other": "{{count}} مادة",
+    "tabs": {
+      "active": "النشطون",
+      "archived": "المؤرشفون"
+    },
     "row": {
       "open": "فتح البطاقة",
       "menu": "إجراءات الأستاذ",
       "edit": "تعديل",
-      "archive": "أرشفة"
+      "archive": "أرشفة",
+      "restore": "استعادة"
+    },
+    "restore": {
+      "success": "تمت استعادة الأستاذ",
+      "error": "فشلت الاستعادة. أعد المحاولة."
+    },
+    "archivedEmpty": {
+      "title": "لا يوجد أساتذة مؤرشفون",
+      "body": "سيظهر هنا الأساتذة الذين تؤرشفهم."
     },
     "empty": {
       "title": "لا يوجد أساتذة بعد",

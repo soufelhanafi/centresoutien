@@ -11,7 +11,10 @@ import type { TeachersGateway } from './teachers-gateway';
  */
 class IpcTeachersGateway implements TeachersGateway {
   async list(filter: TeacherListFilter): Promise<readonly TeacherView[]> {
-    const { teachers } = await window.api.invoke('teacher.list', { search: filter.search });
+    const { teachers } = await window.api.invoke('teacher.list', {
+      scope: filter.status,
+      search: filter.search,
+    });
     return teachers;
   }
 
@@ -36,6 +39,10 @@ class IpcTeachersGateway implements TeachersGateway {
 
   async archive(id: string): Promise<void> {
     await window.api.invoke('teacher.archive', { id });
+  }
+
+  async restore(id: string): Promise<void> {
+    await window.api.invoke('teacher.restore', { id });
   }
 }
 

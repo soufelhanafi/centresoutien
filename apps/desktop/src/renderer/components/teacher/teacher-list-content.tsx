@@ -1,21 +1,23 @@
 import { useTranslation } from 'react-i18next';
-import { Users } from 'lucide-react';
+import { Users, Archive } from 'lucide-react';
 import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
-import type { TeacherView } from '../../lib/teachers/teacher-view';
+import type { TeacherStatus, TeacherView } from '../../lib/teachers/teacher-view';
 import { TeacherTable } from './teacher-table';
 
 export type TeacherListStatus = 'loading' | 'error' | 'empty' | 'noResults' | 'ready';
 
 type TeacherListContentProps = {
   status: TeacherListStatus;
+  variant: TeacherStatus;
   teachers: readonly TeacherView[];
   onRetry: () => void;
   onCreate: () => void;
 };
 
-/** Renders the correct state for the list: loading, error, empty, no-results, or table. */
+/** Renders the correct state for one teachers list: loading, error, empty, no-results, or table. */
 export function TeacherListContent({
   status,
+  variant,
   teachers,
   onRetry,
   onCreate,
@@ -48,7 +50,13 @@ export function TeacherListContent({
   }
 
   if (status === 'empty') {
-    return (
+    return variant === 'archived' ? (
+      <EmptyState
+        icon={<Archive className="h-5 w-5" aria-hidden="true" />}
+        title={t('teachers.archivedEmpty.title')}
+        description={t('teachers.archivedEmpty.body')}
+      />
+    ) : (
       <EmptyState
         icon={<Users className="h-5 w-5" aria-hidden="true" />}
         title={t('teachers.empty.title')}
@@ -72,5 +80,5 @@ export function TeacherListContent({
     );
   }
 
-  return <TeacherTable teachers={teachers} />;
+  return <TeacherTable teachers={teachers} variant={variant} />;
 }

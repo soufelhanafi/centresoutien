@@ -6,12 +6,12 @@ import { ipcTeachersGateway } from './ipc-teachers-gateway';
  * interface, never `window.api` directly, so the concrete adapter is swappable
  * in one place with no change to any component.
  *
- * ## Contract status (SOU-37 frontend ↔ SOU-36 domain)
+ * ## Contract status (SOU-37 frontend ↔ SOU-36/SOU-37 domain)
  *
- * Five channels are published (`teacher.create` / `list` / `get` / `update` /
- * `archive`), so this ships against the real {@link ipcTeachersGateway}. There is
- * deliberately **no `restore`** and no archived-scope `list`: teachers are
- * archive-only for now (tracked as a follow-up — see the SOU-37 handoff comment).
+ * All six channels are published (`teacher.create` / `list` / `get` / `update` /
+ * `archive` / `restore`), so this ships against the real {@link ipcTeachersGateway}.
+ * `list` now takes a `status` scope (active | archived) and `restore` clears the
+ * tombstone, mirroring the Rooms gateway.
  */
 export interface TeachersGateway {
   list(filter: TeacherListFilter): Promise<readonly TeacherView[]>;
@@ -19,6 +19,7 @@ export interface TeachersGateway {
   create(input: TeacherInput): Promise<TeacherView>;
   update(id: string, input: TeacherInput): Promise<TeacherView>;
   archive(id: string): Promise<void>;
+  restore(id: string): Promise<void>;
 }
 
 /** The active gateway: the real IPC adapter. Swapping it is this one line. */
