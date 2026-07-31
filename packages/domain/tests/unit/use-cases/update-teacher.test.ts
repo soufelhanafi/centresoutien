@@ -94,6 +94,27 @@ describe('UpdateTeacher', () => {
     expect(updated.naturalKey).toBe(original.naturalKey);
   });
 
+  it('is a no-op when no field changed: preserves updatedAt/updatedBy and emits no spurious sync delta', async () => {
+    const original = await seedTeacher(teachers, clock);
+    clock.advance(60_000);
+
+    // Re-submit the seeded values verbatim (phone re-normalizes to the same E.164).
+    const result = await useCase.execute(
+      editInput(original.id, {
+        name: { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' },
+        cin: 'AB12345',
+        phone: '0612345678',
+        email: 'yassine@centre.ma',
+        subjectIds: [SUB_MATH],
+      }),
+    );
+
+    // applyWrite returns the row untouched: no bump to updatedAt/updatedBy despite the advanced clock.
+    expect(result).toEqual(original);
+    expect(result.updatedAt).toEqual(original.updatedAt);
+    expect(result.updatedBy).toBe(original.updatedBy);
+  });
+
   it('throws TeacherNotFoundError for an unknown id', async () => {
     await expect(
       useCase.execute(editInput('tch_00000000000000000000000099' as TeacherId)),

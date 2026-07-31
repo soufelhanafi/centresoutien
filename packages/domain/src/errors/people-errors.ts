@@ -37,10 +37,18 @@ export class ParentNotFoundError extends DomainError {
  * the use case detects it via `findByNaturalKey` and rejects with a typed error
  * the renderer maps to a localized `errors.*` message, rather than letting the DB
  * partial-unique index leak a raw persistence error. Mirrors {@link DuplicateParentError}.
+ *
+ * The human-readable message is deliberately PII-free: it crosses the IPC boundary
+ * to the renderer (and may be logged there), so the `naturalKey` — a normalized
+ * name + E.164 phone — is carried only as a typed field, never in the message text
+ * (loi 09-08 / CNDP). The renderer maps the stable `duplicate-teacher` code via
+ * `t(\`errors.${code}\`)`.
  */
 export class DuplicateTeacherError extends DomainError {
+  readonly code = 'duplicate-teacher';
+
   constructor(readonly naturalKey: string) {
-    super(`A teacher with the same name and phone already exists (naturalKey "${naturalKey}").`);
+    super('A teacher with the same name and phone already exists.');
   }
 }
 

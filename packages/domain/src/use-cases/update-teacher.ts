@@ -2,6 +2,7 @@ import type { TeacherRepository } from '../ports/teacher-repository';
 import type { Clock } from '../ports/clock';
 import type { PlanPolicy } from '../plans/plan-policy';
 import type { CenterCode, UserId } from '../value-objects/ids';
+import { applyWrite } from '../entities/write';
 import { teacherInputSchema, type TeacherInput } from '../schemas/teacher';
 import { TeacherNotFoundError } from '../errors/people-errors';
 import type { Teacher, TeacherId } from '../entities/teacher';
@@ -20,10 +21,12 @@ export type UpdateTeacherInput = TeacherInput & {
  * `createdAt`, `active`, and `version` are never touched, and — per the entity
  * contract — the `naturalKey` is **not** recomputed even when the name or phone
  * change, so the duplicate engine keeps matching on the original key (and the
- * partial-unique index never trips on an edit). Only `updatedAt` (from the Clock
- * port) and `updatedBy` advance. Unknown or archived ids raise
- * {@link TeacherNotFoundError} rather than silently inserting a new row. Mirrors
- * `UpdateParent`.
+ * partial-unique index never trips on an edit). The write goes through
+ * `applyWrite`, which advances `updatedAt` (from the Clock port) and `updatedBy`
+ * and records the changed field names **only when something actually changed** — a
+ * no-op edit returns the row untouched and emits no spurious sync delta (invariant
+ * 5). Unknown or archived ids raise {@link TeacherNotFoundError} rather than
+ * silently inserting a new row.
  */
 export class UpdateTeacher {
   constructor(
@@ -49,18 +52,20 @@ export class UpdateTeacher {
       throw new TeacherNotFoundError(input.id);
     }
 
-    const updated: Teacher = {
-      ...existing,
-      updatedAt: this.clock.now(),
-      updatedBy: input.updatedBy,
-      name: fields.name,
-      cin: fields.cin,
-      phone: fields.phone,
-      email: fields.email,
-      subjectIds: fields.subjectIds as SubjectId[],
-    };
-
-    await this.teachers.save(updated);
-    return updated;
+    const { next, changedFields } = applyWrite(
+      existing,
+      {
+        name: fields.name,
+        cin: fields.cin,
+        phone: fields.phone,
+        email: fields.email,
+        subjectIds: fields.subjectIds as SubjectId[],
+      },
+      { clock: this.clock, updatedBy: input.updatedBy },
+    );
+    if (changedFields.length > 0) {
+      await this.teachers.save(next);
+    }
+    return next;
   }
 }
