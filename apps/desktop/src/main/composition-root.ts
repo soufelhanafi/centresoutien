@@ -4,6 +4,7 @@ import {
   PLANS,
   PlanPolicy,
   CreateSubject,
+  ArchiveSubject,
   CreateStudent,
   ListStudents,
   GetStudent,
@@ -28,6 +29,8 @@ import {
   CreateStudentSubscription,
   CloseStudentSubscription,
   ListStudentSubscriptions,
+  EnrollStudent,
+  UnenrollStudent,
   CreateTeacher,
   ListTeachers,
   GetTeacher,
@@ -59,6 +62,7 @@ import type {
   UserId,
   IdGenerator,
   RoomReferencePort,
+  SubjectReferencePort,
   TeacherReferencePort,
   StudentSubscriptionReferencePort,
 } from '@centresoutien/domain';
@@ -71,6 +75,7 @@ import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repositor
 import { SqliteGroupRepository } from '../data/sqlite/repositories/group-repository';
 import { SqliteStudentSubscriptionRepository } from '../data/sqlite/repositories/student-subscription-repository';
 import { SqliteStudentSubscriptionReference } from '../data/sqlite/repositories/student-subscription-reference';
+import { SqliteEnrollmentRepository } from '../data/sqlite/repositories/enrollment-repository';
 import { SqliteTeacherRepository } from '../data/sqlite/repositories/teacher-repository';
 import { SqliteHolidayRepository } from '../data/sqlite/repositories/holiday-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
@@ -203,6 +208,15 @@ export function buildContainer(options: ContainerOptions): Container {
   const archiveGroup = new ArchiveGroup(groupRepo, clock, plan);
   const restoreGroup = new RestoreGroup(groupRepo, clock, plan);
 
+  // `groups` is the only table that carries `subject_id` today, so the group
+  // repository owns the query the ArchiveSubject in-use guard needs and satisfies
+  // SubjectReferencePort (SOU-46). Passing the same instance backs the guard with
+  // real live-group counting, mirroring how sessionRepo backs RoomReferencePort;
+  // sessions/formulas join the scope inside the adapter once they reference
+  // subjects, with no change here or to ArchiveSubject.
+  const subjectReference: SubjectReferencePort = groupRepo;
+  const archiveSubject = new ArchiveSubject(subjectRepo, subjectReference, clock, plan);
+
   const subscriptionRepo = new SqliteStudentSubscriptionRepository(db);
   const createStudentSubscription = new CreateStudentSubscription(
     subscriptionRepo,
@@ -214,14 +228,24 @@ export function buildContainer(options: ContainerOptions): Container {
   const closeStudentSubscription = new CloseStudentSubscription(subscriptionRepo, clock, plan);
   const listStudentSubscriptions = new ListStudentSubscriptions(subscriptionRepo, plan);
   // The real StudentSubscriptionReferencePort adapter (SOU-63): the coverage query
-  // EnrollStudent (SOU-121) needs for its subscription/cross-kind guards, replacing
-  // the declared-only in-memory fake. EnrollStudent + UnenrollStudent are not yet
-  // constructed here — their SQLite EnrollmentRepository + migration (0016) + IPC land
-  // with SOU-126, which injects this `subscriptionReference` into `new EnrollStudent(...)`
-  // then, with no change to the port contract or the use-case body. It is published on
-  // the container so that wiring is a one-liner.
+  // EnrollStudent (SOU-121) needs for its subscription/cross-kind guards. SOU-126 wired
+  // EnrollStudent with a null-returning placeholder; this replaces it with the real
+  // "does an active subscription cover this subject in this month, and of which kind"
+  // query, with no change to the port contract or the use-case body.
   const subscriptionReference: StudentSubscriptionReferencePort =
     new SqliteStudentSubscriptionReference(subscriptionRepo);
+
+  const enrollmentRepo = new SqliteEnrollmentRepository(db);
+  const enrollStudent = new EnrollStudent(
+    enrollmentRepo,
+    groupRepo,
+    studentRepo,
+    subscriptionReference,
+    clock,
+    ids,
+    plan,
+  );
+  const unenrollStudent = new UnenrollStudent(enrollmentRepo, clock, plan);
 
   const teacherRepo = new SqliteTeacherRepository(db);
   // The teacher in-use guard's real backing (a query over live groups / sessions /
@@ -282,6 +306,7 @@ export function buildContainer(options: ContainerOptions): Container {
     appVersion: options.appVersion,
     activePlanId: () => activePlanId,
     createSubject,
+    archiveSubject,
     createStudent,
     listStudents,
     getStudent,
@@ -306,6 +331,8 @@ export function buildContainer(options: ContainerOptions): Container {
     createStudentSubscription,
     closeStudentSubscription,
     listStudentSubscriptions,
+    enrollStudent,
+    unenrollStudent,
     createTeacher,
     listTeachers,
     getTeacher,

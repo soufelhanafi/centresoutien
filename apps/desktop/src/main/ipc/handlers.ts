@@ -1,6 +1,8 @@
 import type {
   PlanId,
   CreateSubject,
+  ArchiveSubject,
+  SubjectId,
   CreateStudent,
   ListStudents,
   GetStudent,
@@ -35,6 +37,9 @@ import type {
   ListStudentSubscriptions,
   StudentSubscription,
   StudentSubscriptionId,
+  EnrollStudent,
+  UnenrollStudent,
+  EnrollmentId,
   CreateTeacher,
   ListTeachers,
   GetTeacher,
@@ -69,6 +74,7 @@ import type {
   UserId,
 } from '@centresoutien/domain';
 import {
+  SubjectNotFoundError,
   StudentNotFoundError,
   ParentNotFoundError,
   RoomNotFoundError,
@@ -80,6 +86,7 @@ import type { IpcHandlers } from '../../shared/ipc/contract';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
+export type ArchiveSubjectUseCase = Pick<ArchiveSubject, 'execute'>;
 export type CreateStudentUseCase = Pick<CreateStudent, 'execute'>;
 export type ListStudentsUseCase = Pick<ListStudents, 'execute'>;
 export type GetStudentUseCase = Pick<GetStudent, 'execute'>;
@@ -104,6 +111,8 @@ export type RestoreGroupUseCase = Pick<RestoreGroup, 'execute'>;
 export type CreateStudentSubscriptionUseCase = Pick<CreateStudentSubscription, 'execute'>;
 export type CloseStudentSubscriptionUseCase = Pick<CloseStudentSubscription, 'execute'>;
 export type ListStudentSubscriptionsUseCase = Pick<ListStudentSubscriptions, 'execute'>;
+export type EnrollStudentUseCase = Pick<EnrollStudent, 'execute'>;
+export type UnenrollStudentUseCase = Pick<UnenrollStudent, 'execute'>;
 export type CreateTeacherUseCase = Pick<CreateTeacher, 'execute'>;
 export type ListTeachersUseCase = Pick<ListTeachers, 'execute'>;
 export type GetTeacherUseCase = Pick<GetTeacher, 'execute'>;
@@ -290,6 +299,7 @@ export type HandlerDeps = {
   appVersion: () => string;
   activePlanId: () => PlanId;
   createSubject: CreateSubjectUseCase;
+  archiveSubject: ArchiveSubjectUseCase;
   createStudent: CreateStudentUseCase;
   listStudents: ListStudentsUseCase;
   getStudent: GetStudentUseCase;
@@ -314,6 +324,8 @@ export type HandlerDeps = {
   createStudentSubscription: CreateStudentSubscriptionUseCase;
   closeStudentSubscription: CloseStudentSubscriptionUseCase;
   listStudentSubscriptions: ListStudentSubscriptionsUseCase;
+  enrollStudent: EnrollStudentUseCase;
+  unenrollStudent: UnenrollStudentUseCase;
   createTeacher: CreateTeacherUseCase;
   listTeachers: ListTeachersUseCase;
   getTeacher: GetTeacherUseCase;
@@ -353,6 +365,25 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'subject.create': async (request) => {
       const subject = await deps.createSubject.execute({ ...request, ...deps.envelopeContext() });
       return { id: subject.id };
+    },
+    'subject.archive': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      try {
+        await deps.archiveSubject.execute({
+          centerCode,
+          subjectId: request.id as SubjectId,
+          updatedBy,
+        });
+      } catch (error) {
+        // Archiving is idempotent at the boundary: an already-archived or unknown
+        // subject means the desired end-state (row inactive) already holds, so
+        // report success instead of a generic error toast. The domain use case
+        // still throws so other callers/tests stay strict. (SubjectInUseError is a
+        // real failure and is NOT swallowed — the UI must tell the user to detach
+        // the subject's groups first.) Mirrors room.archive.
+        if (!(error instanceof SubjectNotFoundError)) throw error;
+      }
+      return { ok: true };
     },
     'student.create': async (request) => {
       const student = await deps.createStudent.execute({ ...request, ...deps.envelopeContext() });
@@ -550,6 +581,23 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         studentId: request.studentId as StudentId,
       });
       return { subscriptions: subscriptions.map(toSubscriptionView) };
+    },
+    'enrollment.create': async (request) => {
+      const enrollment = await deps.enrollStudent.execute({ ...request, ...deps.envelopeContext() });
+      return { id: enrollment.id };
+    },
+    'enrollment.unenroll': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      // Not swallowed like *.archive: the domain deliberately rejects an unknown,
+      // already-unenrolled, or foreign-center id (EnrollmentNotFoundError) so a
+      // stale renderer id can never silently no-op as success. The renderer maps
+      // the stable `enrollment-not-found` code.
+      await deps.unenrollStudent.execute({
+        centerCode,
+        enrollmentId: request.id as EnrollmentId,
+        updatedBy,
+      });
+      return { ok: true };
     },
     'teacher.create': async (request) => {
       const teacher = await deps.createTeacher.execute({ ...request, ...deps.envelopeContext() });

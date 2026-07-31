@@ -3,6 +3,7 @@ import type {
   Subject,
   SubjectId,
   SubjectRepository,
+  SubjectUsage,
   CenterCode,
   DeviceId,
   UserId,
@@ -58,6 +59,30 @@ const SAVE_SQL = `
     active     = excluded.active
 `;
 
+// Live subjects of the center, each with its active-reference count in one pass.
+// `in_use_count` is a single scalar expression — the in-use scope extension point:
+// today it counts live `groups` (the only table with `subject_id`); when sessions
+// and formulas gain a `subject_id`, add their correlated live counts to this sum
+// with no change to the port, the mapping below, or `ArchiveSubject`. The count is
+// tenant-scoped (`g.center_code = s.center_code`) so no other center's row can ever
+// inflate it, and both sides exclude tombstones; the WHERE scopes the subject rows.
+//
+// `inUseCount` counts referencing *rows*, so any future session/formula term must
+// reference a disjoint entity: a session that belongs to a subject-bearing group
+// must NOT be summed again here, or the displayed count double-counts one reference.
+// (`canDelete` is unaffected — any positive term keeps it false; this caveat is only
+// about the displayed scalar.)
+const LIST_WITH_USAGE_SQL = `
+  SELECT s.*,
+         (SELECT COUNT(*) FROM groups g
+           WHERE g.subject_id = s.id
+             AND g.center_code = s.center_code
+             AND g.deleted_at IS NULL) AS in_use_count
+    FROM subjects s
+   WHERE s.center_code = ? AND s.deleted_at IS NULL
+   ORDER BY s.name_fr COLLATE NOCASE, s.id
+`;
+
 /**
  * SQLite adapter for {@link SubjectRepository}. Pure translation between the
  * port and SQL — no business decisions. Reads hide tombstones; `listChangedSince`
@@ -111,5 +136,15 @@ export class SqliteSubjectRepository implements SubjectRepository {
       .prepare('SELECT * FROM subjects WHERE updated_at > ? ORDER BY updated_at')
       .all(cursor.toISOString()) as SubjectRow[];
     return rows.map(fromRow);
+  }
+
+  async listWithUsage(centerCode: CenterCode): Promise<readonly SubjectUsage[]> {
+    const rows = this.db
+      .prepare(LIST_WITH_USAGE_SQL)
+      .all(centerCode) as (SubjectRow & { in_use_count: number })[];
+    return rows.map((row) => {
+      const inUseCount = row.in_use_count;
+      return { subject: fromRow(row), inUseCount, canDelete: inUseCount === 0 };
+    });
   }
 }

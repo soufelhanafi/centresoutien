@@ -5,6 +5,7 @@ import {
   parentInputSchema,
   roomInputSchema,
   groupInputSchema,
+  enrollmentInputSchema,
   teacherInputSchema,
   holidayInputSchema,
   studentSubscriptionInputSchema,
@@ -187,6 +188,14 @@ export const ipcContract = {
     request: subjectInputSchema,
     response: z.object({ id: z.string() }),
   },
+  // Subject archive (SOU-46): a soft delete guarded in the domain by the in-use
+  // rule — a subject still referenced by an active group (later: sessions/formulas)
+  // is rejected with `SubjectInUseError`. centerCode/user are injected in main,
+  // never sent from the renderer. Mirrors room.archive.
+  'subject.archive': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
+  },
   // The request is the domain's own input schema — validated once, shared by the
   // form (zodResolver), the preload types, and this boundary. centerCode/device/
   // user are injected in main, never sent from the renderer.
@@ -324,6 +333,25 @@ export const ipcContract = {
   'subscription.list': {
     request: z.object({ studentId: z.string() }),
     response: z.object({ subscriptions: z.array(subscriptionViewSchema) }),
+  },
+  // Enrollments (SOU-121/123 domain; SQLite adapter + wiring is SOU-126). `create`
+  // takes the domain's own `enrollmentInputSchema` (prefixed student/group ids,
+  // `YYYY-MM` startMonth, optional endMonth ≥ startMonth), validated once and reused
+  // by the future enrollment form (zodResolver); it runs the capacity, cross-kind,
+  // duplicate, and subscription-coverage guards in the use case and returns the new
+  // id. `unenroll` is a soft delete by enrollment id (freeing the seat); unlike the
+  // `*.archive` channels it does NOT swallow a not-found id — the domain rejects an
+  // unknown/already-unenrolled/foreign-center id so it never silently no-ops.
+  // centerCode/device/user are injected in main, never sent from the renderer. Gated
+  // by `core.groups` (every plan) in the use cases; exam-prep coverage additionally
+  // requires an exam-prep subscription.
+  'enrollment.create': {
+    request: enrollmentInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'enrollment.unenroll': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
   },
   // Teachers (SOU-36 domain/data; CRUD UI + archive/restore is SOU-37). Gated by
   // `core.teachers` and bounded by the `maxTeachers` plan limit in the use cases.
