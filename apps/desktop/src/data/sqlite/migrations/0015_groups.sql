@@ -1,4 +1,4 @@
--- 0013_groups.sql
+-- 0015_groups.sql
 -- What: groups table — a class the center runs (one subject, one room, optional
 --       teacher, a level, a seat capacity, a regular/exam-prep track).
 -- Why:  SOU-120. The Group domain (entity + port + CreateGroup) landed in SOU-48;

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { subjectInputSchema, SUBJECT_NAME_MAX } from '../../../src/schemas/subject';
+import {
+  subjectInputSchema,
+  SUBJECT_NAME_MAX,
+  SUBJECT_CODE_MAX,
+} from '../../../src/schemas/subject';
 
 /** First issue's code for a given input, or null when parsing succeeds. */
 function firstCode(input: unknown): string | null {
@@ -16,7 +20,42 @@ describe('subjectInputSchema', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.name).toEqual({ fr: 'Mathématiques', ar: 'الرياضيات' });
+        expect(result.data.code).toBeUndefined();
       }
+    });
+  });
+
+  describe('code', () => {
+    it('trims and uppercases a supplied code', () => {
+      const result = subjectInputSchema.safeParse({
+        name: { fr: 'Maths', ar: 'رياضيات' },
+        code: '  math-1 ',
+      });
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.code).toBe('MATH-1');
+    });
+
+    it.each(['', '   ', undefined])('treats %o as no code (undefined)', (code) => {
+      const result = subjectInputSchema.safeParse({ name: { fr: 'Maths', ar: 'رياضيات' }, code });
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.code).toBeUndefined();
+    });
+
+    const codeErrors = [
+      { name: 'illegal space', code: 'MA TH', message: 'invalid-code' },
+      { name: 'leading hyphen', code: '-MATH', message: 'invalid-code' },
+      { name: 'illegal symbol', code: 'MATH!', message: 'invalid-code' },
+      { name: 'over max length', code: 'X'.repeat(SUBJECT_CODE_MAX + 1), message: 'too-long' },
+    ] as const;
+
+    it.each(codeErrors)('rejects $name → "$message"', ({ code, message }) => {
+      expect(firstCode({ name: { fr: 'Maths', ar: 'رياضيات' }, code })).toBe(message);
+    });
+
+    it('accepts a code exactly at the max length', () => {
+      expect(
+        firstCode({ name: { fr: 'Maths', ar: 'رياضيات' }, code: 'X'.repeat(SUBJECT_CODE_MAX) }),
+      ).toBeNull();
     });
   });
 

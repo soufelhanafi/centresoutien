@@ -30,6 +30,13 @@ import type {
   RestoreGroup,
   Group,
   GroupId,
+  CreateTeacher,
+  ListTeachers,
+  GetTeacher,
+  UpdateTeacher,
+  ArchiveTeacher,
+  Teacher,
+  TeacherId,
   CreateHoliday,
   ListHolidays,
   UpdateHoliday,
@@ -60,6 +67,7 @@ import {
   ParentNotFoundError,
   RoomNotFoundError,
   GroupNotFoundError,
+  TeacherNotFoundError,
   HolidayNotFoundError,
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
@@ -87,6 +95,11 @@ export type ListGroupsUseCase = Pick<ListGroups, 'execute'>;
 export type UpdateGroupUseCase = Pick<UpdateGroup, 'execute'>;
 export type ArchiveGroupUseCase = Pick<ArchiveGroup, 'execute'>;
 export type RestoreGroupUseCase = Pick<RestoreGroup, 'execute'>;
+export type CreateTeacherUseCase = Pick<CreateTeacher, 'execute'>;
+export type ListTeachersUseCase = Pick<ListTeachers, 'execute'>;
+export type GetTeacherUseCase = Pick<GetTeacher, 'execute'>;
+export type UpdateTeacherUseCase = Pick<UpdateTeacher, 'execute'>;
+export type ArchiveTeacherUseCase = Pick<ArchiveTeacher, 'execute'>;
 export type CreateHolidayUseCase = Pick<CreateHoliday, 'execute'>;
 export type ListHolidaysUseCase = Pick<ListHolidays, 'execute'>;
 export type UpdateHolidayUseCase = Pick<UpdateHoliday, 'execute'>;
@@ -189,6 +202,21 @@ function toGroupView(group: Group) {
   };
 }
 
+/** Project a Teacher to its boundary DTO: envelope stripped, dates serialized,
+ *  `archived` derived from the soft-delete tombstone. */
+function toTeacherView(teacher: Teacher) {
+  return {
+    id: teacher.id,
+    name: { fr: teacher.name.fr, ar: teacher.name.ar },
+    cin: teacher.cin,
+    phone: teacher.phone,
+    email: teacher.email,
+    subjectIds: [...teacher.subjectIds],
+    archived: teacher.deletedAt !== null,
+    createdAt: teacher.createdAt.toISOString(),
+  };
+}
+
 /** Project a Holiday to its boundary DTO: envelope stripped, dates serialized,
  *  `archived` derived from the soft-delete tombstone. `affectsInvoicing` (an
  *  always-false invariant) never crosses the boundary. */
@@ -256,6 +284,11 @@ export type HandlerDeps = {
   updateGroup: UpdateGroupUseCase;
   archiveGroup: ArchiveGroupUseCase;
   restoreGroup: RestoreGroupUseCase;
+  createTeacher: CreateTeacherUseCase;
+  listTeachers: ListTeachersUseCase;
+  getTeacher: GetTeacherUseCase;
+  updateTeacher: UpdateTeacherUseCase;
+  archiveTeacher: ArchiveTeacherUseCase;
   createHoliday: CreateHolidayUseCase;
   listHolidays: ListHolidaysUseCase;
   updateHoliday: UpdateHolidayUseCase;
@@ -462,6 +495,50 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       const { centerCode, updatedBy } = deps.envelopeContext();
       const group = await deps.restoreGroup.execute({ centerCode, groupId: request.id as GroupId, updatedBy });
       return { group: toGroupView(group) };
+    },
+    'teacher.create': async (request) => {
+      const teacher = await deps.createTeacher.execute({ ...request, ...deps.envelopeContext() });
+      return { id: teacher.id };
+    },
+    'teacher.list': async (request) => {
+      const teachers = await deps.listTeachers.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        search: request.search,
+      });
+      return { teachers: teachers.map(toTeacherView) };
+    },
+    'teacher.get': async (request) => {
+      const teacher = await deps.getTeacher.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        id: request.id as TeacherId,
+      });
+      return { teacher: teacher ? toTeacherView(teacher) : null };
+    },
+    'teacher.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const teacher = await deps.updateTeacher.execute({
+        ...fields,
+        centerCode,
+        id: id as TeacherId,
+        updatedBy,
+      });
+      return { teacher: toTeacherView(teacher) };
+    },
+    'teacher.archive': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      try {
+        await deps.archiveTeacher.execute({ centerCode, id: request.id as TeacherId, updatedBy });
+      } catch (error) {
+        // Archiving is idempotent at the boundary: an already-archived or unknown
+        // teacher means the desired end-state (row inactive) already holds, so
+        // report success instead of a generic error toast. The domain use case
+        // still throws so other callers/tests stay strict. Mirrors room.archive —
+        // TeacherInUseError is a real failure and is NOT swallowed (the UI must
+        // tell the user to reassign the teacher's groups/rules first).
+        if (!(error instanceof TeacherNotFoundError)) throw error;
+      }
+      return { ok: true };
     },
     'holiday.create': async (request) => {
       const holiday = await deps.createHoliday.execute({ ...request, ...deps.envelopeContext() });

@@ -20,6 +20,7 @@ type SubjectRow = {
   version: number;
   name_fr: string;
   name_ar: string;
+  code: string | null;
   active: number;
 };
 
@@ -34,6 +35,7 @@ function fromRow(row: SubjectRow): Subject {
     deletedAt: row.deleted_at === null ? null : new Date(row.deleted_at),
     version: row.version,
     name: { fr: row.name_fr, ar: row.name_ar },
+    code: row.code,
     active: row.active === 1,
   };
 }
@@ -41,10 +43,10 @@ function fromRow(row: SubjectRow): Subject {
 const SAVE_SQL = `
   INSERT INTO subjects
     (id, center_code, device_origin, created_at, updated_at, updated_by,
-     deleted_at, version, name_fr, name_ar, active)
+     deleted_at, version, name_fr, name_ar, code, active)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
-     @deleted_at, @version, @name_fr, @name_ar, @active)
+     @deleted_at, @version, @name_fr, @name_ar, @code, @active)
   ON CONFLICT(id) DO UPDATE SET
     updated_at = excluded.updated_at,
     updated_by = excluded.updated_by,
@@ -52,6 +54,7 @@ const SAVE_SQL = `
     version    = excluded.version,
     name_fr    = excluded.name_fr,
     name_ar    = excluded.name_ar,
+    code       = excluded.code,
     active     = excluded.active
 `;
 
@@ -75,6 +78,7 @@ export class SqliteSubjectRepository implements SubjectRepository {
       version: subject.version,
       name_fr: subject.name.fr,
       name_ar: subject.name.ar,
+      code: subject.code,
       active: subject.active ? 1 : 0,
     });
   }
@@ -83,6 +87,15 @@ export class SqliteSubjectRepository implements SubjectRepository {
     const row = this.db
       .prepare('SELECT * FROM subjects WHERE id = ? AND deleted_at IS NULL')
       .get(id) as SubjectRow | undefined;
+    return row ? fromRow(row) : null;
+  }
+
+  async findByCode(centerCode: CenterCode, code: string): Promise<Subject | null> {
+    const row = this.db
+      .prepare(
+        'SELECT * FROM subjects WHERE center_code = ? AND code = ? AND deleted_at IS NULL',
+      )
+      .get(centerCode, code) as SubjectRow | undefined;
     return row ? fromRow(row) : null;
   }
 

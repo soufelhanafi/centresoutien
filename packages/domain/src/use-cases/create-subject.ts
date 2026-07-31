@@ -6,6 +6,7 @@ import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import { newEnvelope } from '../entities/envelope';
 import { subjectInputSchema, type SubjectInput } from '../schemas/subject';
 import { SUBJECT_ID_PREFIX, type Subject, type SubjectId } from '../entities/subject';
+import { DuplicateSubjectCodeError } from '../errors/subject-errors';
 
 export type CreateSubjectInput = SubjectInput & {
   centerCode: CenterCode;
@@ -17,7 +18,10 @@ export type CreateSubjectInput = SubjectInput & {
  * Creates a Subject for a center. Gated by `core.subjects` (present on every
  * plan; the guard is still explicit so the check has one home). Validates its
  * input with the shared `subjectInputSchema` — the domain is the authority even
- * though the form validates first.
+ * though the form validates first. When a `code` is supplied it must be unique
+ * per center among live subjects: the guard consults `findByCode` and rejects a
+ * clash with a typed {@link DuplicateSubjectCodeError}. An absent/blank code
+ * normalizes to `null` (no code), and any number of subjects may have no code.
  */
 export class CreateSubject {
   constructor(
@@ -29,7 +33,15 @@ export class CreateSubject {
 
   async execute(input: CreateSubjectInput): Promise<Subject> {
     this.plan.require('core.subjects');
-    const { name } = subjectInputSchema.parse({ name: input.name });
+    const { name, code } = subjectInputSchema.parse({ name: input.name, code: input.code });
+
+    const normalizedCode = code ?? null;
+    if (normalizedCode !== null) {
+      const clash = await this.subjects.findByCode(input.centerCode, normalizedCode);
+      if (clash !== null) {
+        throw new DuplicateSubjectCodeError(normalizedCode);
+      }
+    }
 
     const subject: Subject = {
       id: this.ids.next(SUBJECT_ID_PREFIX) as SubjectId,
@@ -42,6 +54,7 @@ export class CreateSubject {
         this.clock,
       ),
       name,
+      code: normalizedCode,
       active: true,
     };
 
