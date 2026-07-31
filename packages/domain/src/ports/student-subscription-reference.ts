@@ -29,10 +29,20 @@ export interface StudentSubscriptionReferencePort {
   /**
    * The active subscription covering `subjectId` for the student in `month`
    * (`YYYY-MM`), or `null` when none covers it.
+   *
+   * `kind` is the **target track to prefer** when the subject is covered by more than
+   * one active subscription (a student holding both a `regular` and an `exam-prep`
+   * bundle that include it): the covering subscription of that track is returned if
+   * one exists, otherwise the first covering one. It is deliberately a *preference*,
+   * not a filter — `EnrollStudent` must still tell apart "no covering subscription"
+   * (`null`) from "covered only by the wrong track" (returns the wrong `kind`), so
+   * that its `EnrollmentSubscriptionMissingError` and `CrossKindEnrollmentError`
+   * stay distinct. Omitting `kind` preserves the prior first-match behavior.
    */
   activeCoverage(
     studentId: StudentId,
     subjectId: SubjectId,
     month: string,
+    kind?: GroupKind,
   ): Promise<ActiveSubscriptionCoverage | null>;
 }

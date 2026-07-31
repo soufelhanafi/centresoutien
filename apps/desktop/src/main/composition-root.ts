@@ -26,6 +26,9 @@ import {
   UpdateGroup,
   ArchiveGroup,
   RestoreGroup,
+  CreateStudentSubscription,
+  CloseStudentSubscription,
+  ListStudentSubscriptions,
   EnrollStudent,
   UnenrollStudent,
   CreateTeacher,
@@ -70,6 +73,8 @@ import { SqliteStudentRepository } from '../data/sqlite/repositories/student-rep
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
 import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repository';
 import { SqliteGroupRepository } from '../data/sqlite/repositories/group-repository';
+import { SqliteStudentSubscriptionRepository } from '../data/sqlite/repositories/student-subscription-repository';
+import { SqliteStudentSubscriptionReference } from '../data/sqlite/repositories/student-subscription-reference';
 import { SqliteEnrollmentRepository } from '../data/sqlite/repositories/enrollment-repository';
 import { SqliteTeacherRepository } from '../data/sqlite/repositories/teacher-repository';
 import { SqliteHolidayRepository } from '../data/sqlite/repositories/holiday-repository';
@@ -113,6 +118,12 @@ export type ContainerOptions = {
 
 export type Container = {
   handlerDeps: HandlerDeps;
+  /**
+   * The real {@link StudentSubscriptionReferencePort} adapter (SOU-63), published so
+   * SOU-126 can inject it into `EnrollStudent` when it wires the enrollment
+   * persistence + IPC. Nothing consumes it yet on this branch.
+   */
+  subscriptionReference: StudentSubscriptionReferencePort;
   dispose: () => void;
 };
 
@@ -206,18 +217,25 @@ export function buildContainer(options: ContainerOptions): Container {
   const subjectReference: SubjectReferencePort = groupRepo;
   const archiveSubject = new ArchiveSubject(subjectRepo, subjectReference, clock, plan);
 
+  const subscriptionRepo = new SqliteStudentSubscriptionRepository(db);
+  const createStudentSubscription = new CreateStudentSubscription(
+    subscriptionRepo,
+    studentRepo,
+    clock,
+    ids,
+    plan,
+  );
+  const closeStudentSubscription = new CloseStudentSubscription(subscriptionRepo, clock, plan);
+  const listStudentSubscriptions = new ListStudentSubscriptions(subscriptionRepo, plan);
+  // The real StudentSubscriptionReferencePort adapter (SOU-63): the coverage query
+  // EnrollStudent (SOU-121) needs for its subscription/cross-kind guards. SOU-126 wired
+  // EnrollStudent with a null-returning placeholder; this replaces it with the real
+  // "does an active subscription cover this subject in this month, and of which kind"
+  // query, with no change to the port contract or the use-case body.
+  const subscriptionReference: StudentSubscriptionReferencePort =
+    new SqliteStudentSubscriptionReference(subscriptionRepo);
+
   const enrollmentRepo = new SqliteEnrollmentRepository(db);
-  // StudentSubscription persistence lands in SOU-63; until then no student holds a
-  // subscription, so coverage is legitimately empty. Returning null is the honest
-  // current state (mirrors the teacherReference stub), not a placeholder value —
-  // SOU-63 swaps in the real "does an active subscription cover this subject in this
-  // month, and of which kind" query here, with no change to EnrollStudent or the
-  // StudentSubscriptionReferencePort contract. Enrollment is not yet UI-exposed;
-  // unenroll works fully through the wired path, and the capacity/duplicate guards
-  // fire on real rows before coverage is consulted.
-  const subscriptionReference: StudentSubscriptionReferencePort = {
-    activeCoverage: async () => null,
-  };
   const enrollStudent = new EnrollStudent(
     enrollmentRepo,
     groupRepo,
@@ -310,6 +328,9 @@ export function buildContainer(options: ContainerOptions): Container {
     updateGroup,
     archiveGroup,
     restoreGroup,
+    createStudentSubscription,
+    closeStudentSubscription,
+    listStudentSubscriptions,
     enrollStudent,
     unenrollStudent,
     createTeacher,
@@ -339,7 +360,7 @@ export function buildContainer(options: ContainerOptions): Container {
     centerContext: () => centerContext,
   };
 
-  return { handlerDeps, dispose: () => db.close() };
+  return { handlerDeps, subscriptionReference, dispose: () => db.close() };
 }
 
 /** Convenience: build the container and its IPC handler set together. */
