@@ -4,6 +4,7 @@ import {
   PLANS,
   PlanPolicy,
   CreateSubject,
+  ArchiveSubject,
   CreateStudent,
   ListStudents,
   GetStudent,
@@ -56,6 +57,7 @@ import type {
   UserId,
   IdGenerator,
   RoomReferencePort,
+  SubjectReferencePort,
   TeacherReferencePort,
 } from '@centresoutien/domain';
 import { openDatabase } from '../data/sqlite/db';
@@ -191,6 +193,15 @@ export function buildContainer(options: ContainerOptions): Container {
   const archiveGroup = new ArchiveGroup(groupRepo, clock, plan);
   const restoreGroup = new RestoreGroup(groupRepo, clock, plan);
 
+  // `groups` is the only table that carries `subject_id` today, so the group
+  // repository owns the query the ArchiveSubject in-use guard needs and satisfies
+  // SubjectReferencePort (SOU-46). Passing the same instance backs the guard with
+  // real live-group counting, mirroring how sessionRepo backs RoomReferencePort;
+  // sessions/formulas join the scope inside the adapter once they reference
+  // subjects, with no change here or to ArchiveSubject.
+  const subjectReference: SubjectReferencePort = groupRepo;
+  const archiveSubject = new ArchiveSubject(subjectRepo, subjectReference, clock, plan);
+
   const teacherRepo = new SqliteTeacherRepository(db);
   // The teacher in-use guard's real backing (a query over live groups / sessions /
   // payroll rules) lands with Groups (SOU-48) and payroll (SOU-70). Until then no
@@ -250,6 +261,7 @@ export function buildContainer(options: ContainerOptions): Container {
     appVersion: options.appVersion,
     activePlanId: () => activePlanId,
     createSubject,
+    archiveSubject,
     createStudent,
     listStudents,
     getStudent,

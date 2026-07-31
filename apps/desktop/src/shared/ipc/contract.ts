@@ -166,6 +166,14 @@ export const ipcContract = {
     request: subjectInputSchema,
     response: z.object({ id: z.string() }),
   },
+  // Subject archive (SOU-46): a soft delete guarded in the domain by the in-use
+  // rule — a subject still referenced by an active group (later: sessions/formulas)
+  // is rejected with `SubjectInUseError`. centerCode/user are injected in main,
+  // never sent from the renderer. Mirrors room.archive.
+  'subject.archive': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
+  },
   // The request is the domain's own input schema — validated once, shared by the
   // form (zodResolver), the preload types, and this boundary. centerCode/device/
   // user are injected in main, never sent from the renderer.

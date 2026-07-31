@@ -1,6 +1,8 @@
 import type {
   PlanId,
   CreateSubject,
+  ArchiveSubject,
+  SubjectId,
   CreateStudent,
   ListStudents,
   GetStudent,
@@ -64,6 +66,7 @@ import type {
   UserId,
 } from '@centresoutien/domain';
 import {
+  SubjectNotFoundError,
   StudentNotFoundError,
   ParentNotFoundError,
   RoomNotFoundError,
@@ -75,6 +78,7 @@ import type { IpcHandlers } from '../../shared/ipc/contract';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
+export type ArchiveSubjectUseCase = Pick<ArchiveSubject, 'execute'>;
 export type CreateStudentUseCase = Pick<CreateStudent, 'execute'>;
 export type ListStudentsUseCase = Pick<ListStudents, 'execute'>;
 export type GetStudentUseCase = Pick<GetStudent, 'execute'>;
@@ -265,6 +269,7 @@ export type HandlerDeps = {
   appVersion: () => string;
   activePlanId: () => PlanId;
   createSubject: CreateSubjectUseCase;
+  archiveSubject: ArchiveSubjectUseCase;
   createStudent: CreateStudentUseCase;
   listStudents: ListStudentsUseCase;
   getStudent: GetStudentUseCase;
@@ -325,6 +330,25 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'subject.create': async (request) => {
       const subject = await deps.createSubject.execute({ ...request, ...deps.envelopeContext() });
       return { id: subject.id };
+    },
+    'subject.archive': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      try {
+        await deps.archiveSubject.execute({
+          centerCode,
+          subjectId: request.id as SubjectId,
+          updatedBy,
+        });
+      } catch (error) {
+        // Archiving is idempotent at the boundary: an already-archived or unknown
+        // subject means the desired end-state (row inactive) already holds, so
+        // report success instead of a generic error toast. The domain use case
+        // still throws so other callers/tests stay strict. (SubjectInUseError is a
+        // real failure and is NOT swallowed — the UI must tell the user to detach
+        // the subject's groups first.) Mirrors room.archive.
+        if (!(error instanceof SubjectNotFoundError)) throw error;
+      }
+      return { ok: true };
     },
     'student.create': async (request) => {
       const student = await deps.createStudent.execute({ ...request, ...deps.envelopeContext() });
