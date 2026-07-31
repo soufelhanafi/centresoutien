@@ -73,6 +73,11 @@ export {
   EnrollmentNotFoundError,
 } from './errors/enrollment-errors';
 export {
+  InvalidInvoiceTransitionError,
+  InvoiceNotFoundError,
+  DuplicateInvoiceError,
+} from './errors/invoice-errors';
+export {
   SessionOutsideCenterHoursError,
   RoomConflictError,
   SessionOnHolidayError,
@@ -132,6 +137,12 @@ export type { GroupInput } from './schemas/group';
 export { enrollmentInputSchema, MONTH_PATTERN } from './schemas/enrollment';
 export type { EnrollmentInput } from './schemas/enrollment';
 export {
+  invoiceLineSnapshotSchema,
+  createInvoiceDraftSchema,
+  INVOICE_LINE_LABEL_MAX,
+} from './schemas/invoice';
+export type { InvoiceLineSnapshot, CreateInvoiceDraftFields } from './schemas/invoice';
+export {
   teacherInputSchema,
   TEACHER_NAME_MAX,
   TEACHER_CIN_MAX,
@@ -181,6 +192,10 @@ export { GROUP_ID_PREFIX, GROUP_KINDS } from './entities/group';
 export type { Group, GroupId, GroupKind } from './entities/group';
 export { ENROLLMENT_ID_PREFIX } from './entities/enrollment';
 export type { Enrollment, EnrollmentId } from './entities/enrollment';
+export { INVOICE_ID_PREFIX, INVOICE_STATUSES } from './entities/invoice';
+export type { Invoice, InvoiceId, InvoiceStatus } from './entities/invoice';
+export { INVOICE_LINE_ID_PREFIX } from './entities/invoice-line';
+export type { InvoiceLine, InvoiceLineId } from './entities/invoice-line';
 export {
   WEEKLY_RECURRING_SESSION_ID_PREFIX,
   toScheduledSessionRef,
@@ -222,6 +237,7 @@ export type { HolidayRepository } from './ports/holiday-repository';
 export type { GroupRepository } from './ports/group-repository';
 // Enrollment repository — port declared here; SQLite adapter + migration are a follow-up.
 export type { EnrollmentRepository } from './ports/enrollment-repository';
+export type { InvoiceRepository } from './ports/invoice-repository';
 // Student-subscription coverage — DECLARED CONTRACT ONLY; real adapter lands with
 // StudentSubscription (SOU-63). Drives the EnrollStudent coverage + cross-kind guards.
 export type {
@@ -260,6 +276,8 @@ export type {
   ConflictCheckContext,
 } from './policies/composite-session-conflicts';
 export { buildStudentNaturalKey, buildTeacherNaturalKey } from './policies/natural-key';
+export { INVOICE_STATUS_TRANSITIONS, canTransitionInvoice } from './policies/invoice-status';
+export { invoiceTotalMad } from './policies/invoice-total';
 
 // First-run wizard state machine (SOU-25) — a pure, portable sequencer.
 export type { WizardStepId } from './wizard/wizard-steps';
@@ -314,6 +332,15 @@ export { EnrollStudent } from './use-cases/enroll-student';
 export type { EnrollStudentInput } from './use-cases/enroll-student';
 export { UnenrollStudent } from './use-cases/unenroll-student';
 export type { UnenrollStudentInput } from './use-cases/unenroll-student';
+export { CreateInvoiceDraft } from './use-cases/create-invoice-draft';
+export type {
+  CreateInvoiceDraftInput,
+  CreateInvoiceDraftResult,
+} from './use-cases/create-invoice-draft';
+export { IssueInvoice } from './use-cases/issue-invoice';
+export type { IssueInvoiceInput } from './use-cases/issue-invoice';
+export { CancelInvoice } from './use-cases/cancel-invoice';
+export type { CancelInvoiceInput } from './use-cases/cancel-invoice';
 export { ListGroups } from './use-cases/list-groups';
 export type { ListGroupsInput, GroupScope } from './use-cases/list-groups';
 export { UpdateGroup } from './use-cases/update-group';
