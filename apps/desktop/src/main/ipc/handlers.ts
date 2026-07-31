@@ -27,6 +27,10 @@ import type {
   RoomId,
   CreateGroup,
   ListGroups,
+  ListGroupsWithCounts,
+  GetGroupRoster,
+  GroupWithCount,
+  GroupRosterEntry,
   UpdateGroup,
   ArchiveGroup,
   RestoreGroup,
@@ -105,6 +109,8 @@ export type ArchiveRoomUseCase = Pick<ArchiveRoom, 'execute'>;
 export type RestoreRoomUseCase = Pick<RestoreRoom, 'execute'>;
 export type CreateGroupUseCase = Pick<CreateGroup, 'execute'>;
 export type ListGroupsUseCase = Pick<ListGroups, 'execute'>;
+export type ListGroupsWithCountsUseCase = Pick<ListGroupsWithCounts, 'execute'>;
+export type GetGroupRosterUseCase = Pick<GetGroupRoster, 'execute'>;
 export type UpdateGroupUseCase = Pick<UpdateGroup, 'execute'>;
 export type ArchiveGroupUseCase = Pick<ArchiveGroup, 'execute'>;
 export type RestoreGroupUseCase = Pick<RestoreGroup, 'execute'>;
@@ -221,6 +227,24 @@ function toGroupView(group: Group) {
   };
 }
 
+/** Project a group + its live enrollment count to the list-with-counts DTO: the
+ *  lean group view plus `enrolledCount` for the fill % the list renders. */
+function toGroupWithCountView(row: GroupWithCount) {
+  return { ...toGroupView(row.group), enrolledCount: row.enrolledCount };
+}
+
+/** Project a roster entry to its boundary DTO: already envelope-free, branded ids
+ *  widened to plain strings for the wire. */
+function toRosterEntryView(entry: GroupRosterEntry) {
+  return {
+    enrollmentId: entry.enrollmentId,
+    studentId: entry.studentId,
+    name: { fr: entry.name.fr, ar: entry.name.ar },
+    level: entry.level,
+    startMonth: entry.startMonth,
+  };
+}
+
 /** Project a StudentSubscription to its boundary DTO: envelope stripped, dates
  *  serialized, `archived` derived from the soft-delete tombstone. No status field —
  *  the renderer derives active/closed from `endMonth` against the current month. */
@@ -318,6 +342,8 @@ export type HandlerDeps = {
   restoreRoom: RestoreRoomUseCase;
   createGroup: CreateGroupUseCase;
   listGroups: ListGroupsUseCase;
+  listGroupsWithCounts: ListGroupsWithCountsUseCase;
+  getGroupRoster: GetGroupRosterUseCase;
   updateGroup: UpdateGroupUseCase;
   archiveGroup: ArchiveGroupUseCase;
   restoreGroup: RestoreGroupUseCase;
@@ -557,6 +583,20 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       const { centerCode, updatedBy } = deps.envelopeContext();
       const group = await deps.restoreGroup.execute({ centerCode, groupId: request.id as GroupId, updatedBy });
       return { group: toGroupView(group) };
+    },
+    'group.listWithCounts': async (request) => {
+      const rows = await deps.listGroupsWithCounts.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        scope: request.scope,
+      });
+      return { groups: rows.map(toGroupWithCountView) };
+    },
+    'group.roster': async (request) => {
+      const roster = await deps.getGroupRoster.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        groupId: request.groupId as GroupId,
+      });
+      return { roster: roster.map(toRosterEntryView) };
     },
     'subscription.create': async (request) => {
       const subscription = await deps.createStudentSubscription.execute({

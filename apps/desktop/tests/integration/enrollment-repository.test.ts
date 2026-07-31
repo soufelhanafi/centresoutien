@@ -179,6 +179,34 @@ describe('SqliteEnrollmentRepository', () => {
     });
   });
 
+  describe('countActiveByGroups (batch, for the list fill %)', () => {
+    it('returns one entry per group with live rows, matching countActiveByGroup, omitting empties', async () => {
+      const GROUP_C = 'grp_00000000000000000000000003' as GroupId;
+      await repo.save(makeEnrollment({ studentId: STUDENT_A, groupId: GROUP_A }));
+      await repo.save(makeEnrollment({ studentId: STUDENT_B, groupId: GROUP_A }));
+      await repo.save(makeEnrollment({ studentId: STUDENT_A, groupId: GROUP_B }));
+      const gone = makeEnrollment({ studentId: STUDENT_B, groupId: GROUP_B });
+      await repo.save(gone);
+      await repo.softDelete(gone.id, AT, USER);
+
+      // GROUP_C has no enrollment at all.
+      const counts = await repo.countActiveByGroups([GROUP_A, GROUP_B, GROUP_C]);
+
+      expect(counts.get(GROUP_A)).toBe(await repo.countActiveByGroup(GROUP_A));
+      expect(counts.get(GROUP_B)).toBe(await repo.countActiveByGroup(GROUP_B));
+      expect(counts.get(GROUP_A)).toBe(2);
+      expect(counts.get(GROUP_B)).toBe(1);
+      // A zero-seat group is absent from the map (the caller defaults it to 0).
+      expect(counts.has(GROUP_C)).toBe(false);
+    });
+
+    it('returns an empty map for an empty group-id list (no IN () syntax error)', async () => {
+      await repo.save(makeEnrollment({ groupId: GROUP_A }));
+      const counts = await repo.countActiveByGroups([]);
+      expect(counts.size).toBe(0);
+    });
+  });
+
   describe('saveIfAbsent (atomic duplicate guard)', () => {
     it('inserts and returns true when no live row exists', async () => {
       const first = makeEnrollment();
