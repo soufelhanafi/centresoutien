@@ -48,7 +48,11 @@ export { StudentNotFoundError } from './errors/student-errors';
 export { DuplicateParentError, ParentNotFoundError } from './errors/people-errors';
 export { RoomInUseError, RoomNotFoundError } from './errors/room-errors';
 export { HolidayNotFoundError } from './errors/holiday-errors';
-export { GroupOverCapacityError, GroupSubjectUnavailableError } from './errors/group-errors';
+export {
+  GroupOverCapacityError,
+  GroupSubjectUnavailableError,
+  GroupNotFoundError,
+} from './errors/group-errors';
 export type { GroupSubjectUnavailableReason } from './errors/group-errors';
 export {
   SessionOutsideCenterHoursError,
@@ -171,7 +175,6 @@ export type { LogoStore } from './ports/logo-store';
 export type { ParentRepository } from './ports/parent-repository';
 export type { RoomRepository } from './ports/room-repository';
 export type { HolidayRepository } from './ports/holiday-repository';
-// Group repository — port declared here; SQLite adapter + migration are a follow-up.
 export type { GroupRepository } from './ports/group-repository';
 export type { WeeklyRecurringSessionRepository } from './ports/weekly-recurring-session-repository';
 // Room in-use guard — its concrete adapter is the weekly-session repo (SOU-53).
@@ -253,6 +256,14 @@ export { CreateRoom } from './use-cases/create-room';
 export type { CreateRoomInput } from './use-cases/create-room';
 export { CreateGroup } from './use-cases/create-group';
 export type { CreateGroupInput } from './use-cases/create-group';
+export { ListGroups } from './use-cases/list-groups';
+export type { ListGroupsInput, GroupScope } from './use-cases/list-groups';
+export { UpdateGroup } from './use-cases/update-group';
+export type { UpdateGroupInput } from './use-cases/update-group';
+export { ArchiveGroup } from './use-cases/archive-group';
+export type { ArchiveGroupInput } from './use-cases/archive-group';
+export { RestoreGroup } from './use-cases/restore-group';
+export type { RestoreGroupInput } from './use-cases/restore-group';
 export { ArchiveRoom } from './use-cases/archive-room';
 export type { ArchiveRoomInput } from './use-cases/archive-room';
 export { ListRooms } from './use-cases/list-rooms';
