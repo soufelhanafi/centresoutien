@@ -4,6 +4,7 @@ import {
   studentInputSchema,
   parentInputSchema,
   roomInputSchema,
+  teacherInputSchema,
   adminCredentialsSchema,
   weeklyHoursSchema,
   loginInputSchema,
@@ -64,6 +65,23 @@ const roomViewSchema = z.object({
   id: z.string(),
   name: z.string(),
   capacity: z.number().int(),
+  archived: z.boolean(),
+  createdAt: z.string(),
+});
+
+// The presentation projection of a Teacher across the IPC boundary — the sync
+// envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized,
+// exactly like `parentViewSchema`. `name` is bilingual; `cin`/`email` are
+// nullable; `subjectIds` is the "subjects taught" link. `archived` is derived from
+// `deletedAt != null` in main; the renderer never sees the raw entity. Single
+// source of truth for the renderer's `TeacherView` type.
+const teacherViewSchema = z.object({
+  id: z.string(),
+  name: z.object({ fr: z.string(), ar: z.string() }),
+  cin: z.string().nullable(),
+  phone: z.string(),
+  email: z.string().nullable(),
+  subjectIds: z.array(z.string()),
   archived: z.boolean(),
   createdAt: z.string(),
 });
@@ -202,6 +220,35 @@ export const ipcContract = {
     request: z.object({ id: z.string() }),
     response: z.object({ room: roomViewSchema }),
   },
+  // Teachers (SOU-36 domain/data; CRUD UI is SOU-37). Gated by `core.teachers`
+  // and bounded by the `maxTeachers` plan limit in the use case. `create` and
+  // `update` take the domain's own `teacherInputSchema` (phone required + E.164,
+  // bilingual name, optional CIN/email, subjectIds), validated once and reused by
+  // the form (zodResolver); `list` filters by a name-or-phone search; `get`
+  // returns the single view or null for an unknown/archived id; `archive` is a
+  // soft delete (rejected by TeacherInUseError once groups/payroll reference the
+  // teacher). centerCode/device/user are injected in main, never sent from the
+  // renderer. All reads strip the envelope to `teacherViewSchema`.
+  'teacher.list': {
+    request: z.object({ search: z.string() }),
+    response: z.object({ teachers: z.array(teacherViewSchema) }),
+  },
+  'teacher.create': {
+    request: teacherInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'teacher.get': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ teacher: teacherViewSchema.nullable() }),
+  },
+  'teacher.update': {
+    request: teacherInputSchema.extend({ id: z.string() }),
+    response: z.object({ teacher: teacherViewSchema }),
+  },
+  'teacher.archive': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
+  },
   // Weekly recurring sessions (SOU-53 seam → SOU-54 planner grid). `session.week`
   // returns every live session of the center for all seven weekdays, ordered by
   // weekday then start time (the repository port's contract). centerCode is
@@ -319,6 +366,9 @@ export type ParentDto = z.infer<typeof parentViewSchema>;
 
 /** The Room boundary DTO — the renderer's `RoomView` is an alias of this. */
 export type RoomDto = z.infer<typeof roomViewSchema>;
+
+/** The Teacher boundary DTO — the renderer's `TeacherView` is an alias of this. */
+export type TeacherDto = z.infer<typeof teacherViewSchema>;
 
 /** The weekly-session boundary DTO — the renderer's `WeeklySessionView` aliases this. */
 export type WeeklySessionDto = z.infer<typeof weeklySessionViewSchema>;

@@ -20,6 +20,11 @@ import {
   UpdateRoom,
   ArchiveRoom,
   RestoreRoom,
+  CreateTeacher,
+  ListTeachers,
+  GetTeacher,
+  UpdateTeacher,
+  ArchiveTeacher,
   ListWeekSessions,
   CreateAdminAccount,
   VerifyAdminPassword,
@@ -40,6 +45,7 @@ import type {
   UserId,
   IdGenerator,
   RoomReferencePort,
+  TeacherReferencePort,
 } from '@centresoutien/domain';
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
@@ -47,6 +53,7 @@ import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-rep
 import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
 import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repository';
+import { SqliteTeacherRepository } from '../data/sqlite/repositories/teacher-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
@@ -164,6 +171,21 @@ export function buildContainer(options: ContainerOptions): Container {
   const archiveRoom = new ArchiveRoom(roomRepo, roomReference, clock, plan);
   const restoreRoom = new RestoreRoom(roomRepo, clock, plan);
 
+  const teacherRepo = new SqliteTeacherRepository(db);
+  // The teacher in-use guard's real backing (a query over live groups / sessions /
+  // payroll rules) lands with Groups (SOU-48) and payroll (SOU-70). Until then no
+  // teacher can be referenced: a stub reporting "never referenced" is correct, not
+  // a placeholder — those tickets swap in the real adapter here, unchanged
+  // elsewhere. (TeacherReferencePort is a declared-only contract; see its doc.)
+  const teacherReference: TeacherReferencePort = {
+    hasReferencesForTeacher: async () => false,
+  };
+  const createTeacher = new CreateTeacher(teacherRepo, clock, ids, plan);
+  const listTeachers = new ListTeachers(teacherRepo, plan);
+  const getTeacher = new GetTeacher(teacherRepo, plan);
+  const updateTeacher = new UpdateTeacher(teacherRepo, clock, plan);
+  const archiveTeacher = new ArchiveTeacher(teacherRepo, teacherReference, clock, plan);
+
   const centerRepo = new SqliteCenterRepository(db);
   const getCenterProfile = new GetCenterProfile(centerRepo);
   const saveCenterProfile = new SaveCenterProfile(centerRepo, clock, ids);
@@ -216,6 +238,11 @@ export function buildContainer(options: ContainerOptions): Container {
     updateRoom,
     archiveRoom,
     restoreRoom,
+    createTeacher,
+    listTeachers,
+    getTeacher,
+    updateTeacher,
+    archiveTeacher,
     listWeekSessions,
     saveCenterHours,
     getCenterHours,

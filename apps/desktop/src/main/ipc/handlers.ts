@@ -23,6 +23,13 @@ import type {
   RestoreRoom,
   Room,
   RoomId,
+  CreateTeacher,
+  ListTeachers,
+  GetTeacher,
+  UpdateTeacher,
+  ArchiveTeacher,
+  Teacher,
+  TeacherId,
   ListWeekSessions,
   WeeklyRecurringSession,
   CreateAdminAccount,
@@ -41,7 +48,12 @@ import type {
   DeviceId,
   UserId,
 } from '@centresoutien/domain';
-import { StudentNotFoundError, ParentNotFoundError, RoomNotFoundError } from '@centresoutien/domain';
+import {
+  StudentNotFoundError,
+  ParentNotFoundError,
+  RoomNotFoundError,
+  TeacherNotFoundError,
+} from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
@@ -62,6 +74,11 @@ export type ListRoomsUseCase = Pick<ListRooms, 'execute'>;
 export type UpdateRoomUseCase = Pick<UpdateRoom, 'execute'>;
 export type ArchiveRoomUseCase = Pick<ArchiveRoom, 'execute'>;
 export type RestoreRoomUseCase = Pick<RestoreRoom, 'execute'>;
+export type CreateTeacherUseCase = Pick<CreateTeacher, 'execute'>;
+export type ListTeachersUseCase = Pick<ListTeachers, 'execute'>;
+export type GetTeacherUseCase = Pick<GetTeacher, 'execute'>;
+export type UpdateTeacherUseCase = Pick<UpdateTeacher, 'execute'>;
+export type ArchiveTeacherUseCase = Pick<ArchiveTeacher, 'execute'>;
 export type ListWeekSessionsUseCase = Pick<ListWeekSessions, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
@@ -142,6 +159,21 @@ function toRoomView(room: Room) {
   };
 }
 
+/** Project a Teacher to its boundary DTO: envelope stripped, dates serialized,
+ *  `archived` derived from the soft-delete tombstone. */
+function toTeacherView(teacher: Teacher) {
+  return {
+    id: teacher.id,
+    name: { fr: teacher.name.fr, ar: teacher.name.ar },
+    cin: teacher.cin,
+    phone: teacher.phone,
+    email: teacher.email,
+    subjectIds: [...teacher.subjectIds],
+    archived: teacher.deletedAt !== null,
+    createdAt: teacher.createdAt.toISOString(),
+  };
+}
+
 /** Project a weekly recurring session to its boundary DTO: envelope stripped, the
  *  branded `TimeOfDay`/id values widened to plain strings for the wire. */
 function toWeeklySessionView(session: WeeklyRecurringSession) {
@@ -189,6 +221,11 @@ export type HandlerDeps = {
   updateRoom: UpdateRoomUseCase;
   archiveRoom: ArchiveRoomUseCase;
   restoreRoom: RestoreRoomUseCase;
+  createTeacher: CreateTeacherUseCase;
+  listTeachers: ListTeachersUseCase;
+  getTeacher: GetTeacherUseCase;
+  updateTeacher: UpdateTeacherUseCase;
+  archiveTeacher: ArchiveTeacherUseCase;
   listWeekSessions: ListWeekSessionsUseCase;
   saveCenterHours: SaveCenterHoursUseCase;
   getCenterHours: GetCenterHoursUseCase;
@@ -350,6 +387,50 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       const { centerCode, updatedBy } = deps.envelopeContext();
       const room = await deps.restoreRoom.execute({ centerCode, roomId: request.id as RoomId, updatedBy });
       return { room: toRoomView(room) };
+    },
+    'teacher.create': async (request) => {
+      const teacher = await deps.createTeacher.execute({ ...request, ...deps.envelopeContext() });
+      return { id: teacher.id };
+    },
+    'teacher.list': async (request) => {
+      const teachers = await deps.listTeachers.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        search: request.search,
+      });
+      return { teachers: teachers.map(toTeacherView) };
+    },
+    'teacher.get': async (request) => {
+      const teacher = await deps.getTeacher.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        id: request.id as TeacherId,
+      });
+      return { teacher: teacher ? toTeacherView(teacher) : null };
+    },
+    'teacher.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const teacher = await deps.updateTeacher.execute({
+        ...fields,
+        centerCode,
+        id: id as TeacherId,
+        updatedBy,
+      });
+      return { teacher: toTeacherView(teacher) };
+    },
+    'teacher.archive': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      try {
+        await deps.archiveTeacher.execute({ centerCode, id: request.id as TeacherId, updatedBy });
+      } catch (error) {
+        // Archiving is idempotent at the boundary: an already-archived or unknown
+        // teacher means the desired end-state (row inactive) already holds, so
+        // report success instead of a generic error toast. The domain use case
+        // still throws so other callers/tests stay strict. Mirrors room.archive —
+        // TeacherInUseError is a real failure and is NOT swallowed (the UI must
+        // tell the user to reassign the teacher's groups/rules first).
+        if (!(error instanceof TeacherNotFoundError)) throw error;
+      }
+      return { ok: true };
     },
     'session.week': async () => {
       const sessions = await deps.listWeekSessions.execute({
