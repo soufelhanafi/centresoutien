@@ -53,6 +53,11 @@ export {
   TeacherInUseError,
 } from './errors/people-errors';
 export { RoomInUseError, RoomNotFoundError } from './errors/room-errors';
+export {
+  SubjectInUseError,
+  SubjectNotFoundError,
+  DuplicateSubjectCodeError,
+} from './errors/subject-errors';
 export { HolidayNotFoundError } from './errors/holiday-errors';
 export { GroupOverCapacityError, GroupSubjectUnavailableError } from './errors/group-errors';
 export type { GroupSubjectUnavailableReason } from './errors/group-errors';
@@ -66,7 +71,12 @@ export {
 export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/scheduling-errors';
 
 // Input validation schemas (shared by forms via zodResolver and by use cases)
-export { subjectInputSchema, SUBJECT_NAME_MAX } from './schemas/subject';
+export {
+  subjectInputSchema,
+  SUBJECT_NAME_MAX,
+  SUBJECT_CODE_MAX,
+  SUBJECT_CODE_PATTERN,
+} from './schemas/subject';
 export type { SubjectInput } from './schemas/subject';
 export {
   studentInputSchema,
@@ -176,6 +186,9 @@ export {
 
 // Repository & service ports
 export type { SubjectRepository } from './ports/subject-repository';
+// Subject in-use guard — its concrete adapter is the group/session/formula
+// reference query, wired once those references exist.
+export type { SubjectReferencePort } from './ports/subject-reference';
 export type { StudentRepository } from './ports/student-repository';
 export type { CenterHoursRepository } from './ports/center-hours-repository';
 export type { AdminAccountRepository } from './ports/admin-account-repository';
@@ -247,6 +260,8 @@ export {
 // Use cases
 export { CreateSubject } from './use-cases/create-subject';
 export type { CreateSubjectInput } from './use-cases/create-subject';
+export { ArchiveSubject } from './use-cases/archive-subject';
+export type { ArchiveSubjectInput } from './use-cases/archive-subject';
 export { CreateStudent } from './use-cases/create-student';
 export type { CreateStudentInput } from './use-cases/create-student';
 export { ListStudents } from './use-cases/list-students';
