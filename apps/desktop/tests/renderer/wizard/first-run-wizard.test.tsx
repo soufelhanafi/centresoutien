@@ -61,7 +61,7 @@ describe('FirstRunWizard — French walk-through (Essentiel)', () => {
     await i18n.changeLanguage('fr');
   });
 
-  it('walks every mandatory step to Done and creates the admin account once', async () => {
+  it('walks every step (incl. the optional Holidays) to Done and creates the admin account once', async () => {
     const invoke = stubApi();
     window.api.invoke = invoke;
     const onComplete = vi.fn();
@@ -94,8 +94,13 @@ describe('FirstRunWizard — French walk-through (Essentiel)', () => {
     expect(invoke).toHaveBeenCalledWith('center.save', expect.objectContaining({ name: 'Centre principal' }));
     expect(invoke.mock.calls.filter((call) => call[0] === 'admin.create')).toHaveLength(1);
 
-    // 4. Hours (stub) -> Done
+    // 4. Hours (stub) -> Holidays (optional; present on every plan since SOU-30
+    //    moved settings.holidays to Essentiel)
     expect(await screen.findByText("Horaires d'ouverture")).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Continuer' }));
+
+    // 5. Holidays (optional) -> Done
+    expect(await screen.findByRole('heading', { name: 'Jours fériés' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Continuer' }));
 
     expect(await screen.findByText('Configuration terminée')).toBeInTheDocument();

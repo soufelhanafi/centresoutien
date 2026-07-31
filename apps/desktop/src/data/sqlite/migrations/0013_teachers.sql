@@ -1,4 +1,4 @@
--- 0011_teachers.sql
+-- 0013_teachers.sql
 -- What: teachers table — the per-center list of teachers the center schedules
 --       into groups and pays monthly.
 -- Why:  SOU-36. People-like entity; the Group (SOU-48) and payroll (SOU-70)

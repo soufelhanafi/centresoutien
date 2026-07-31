@@ -19,6 +19,7 @@ export type FeatureFlag =
   | 'core.invoicing'
   | 'core.parents'
   | 'settings.center-hours'
+  | 'settings.holidays'
   | 'dashboard.basic'
   // pro
   | 'core.invoicing.partial-paid'
@@ -27,7 +28,6 @@ export type FeatureFlag =
   | 'payroll.teacher'
   | 'payroll.teacher.fixed'
   | 'payroll.teacher.percentage'
-  | 'settings.holidays'
   | 'io.excel.export'
   | 'io.excel.import'
   | 'io.excel.sync'
@@ -65,6 +65,7 @@ const essentielFeatures: readonly FeatureFlag[] = [
   'core.invoicing',
   'core.parents',
   'settings.center-hours',
+  'settings.holidays',
   'dashboard.basic',
 ];
 
@@ -76,7 +77,6 @@ const proFeatures: readonly FeatureFlag[] = [
   'payroll.teacher',
   'payroll.teacher.fixed',
   'payroll.teacher.percentage',
-  'settings.holidays',
   'io.excel.export',
   'io.excel.import',
   'io.excel.sync',

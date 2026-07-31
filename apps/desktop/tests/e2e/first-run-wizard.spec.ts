@@ -16,8 +16,9 @@ import {
  * SOU-25 — First-run wizard flow (state machine), black-box.
  *
  * Step sequence: Language → Center Profile → Admin Account → Hours → Holidays → Done.
- * Holidays only appears on Pro+ (`settings.holidays`) and is skippable; every other
- * step is mandatory. The admin account is created exactly once (the completion signal).
+ * Holidays is present on every plan (`settings.holidays`, Essentiel since SOU-30) and
+ * is skippable; every other step is mandatory. The admin account is created exactly
+ * once (the completion signal).
  *
  * Each `test` launches its own packaged Electron app against a fresh userData dir,
  * so first-run state is guaranteed. Runs under both the `fr` and `ar` projects.
@@ -74,8 +75,8 @@ test('happy path: walks every mandatory step to Done and creates the admin exact
   // First-run gate opened the wizard; no admin persisted yet.
   await expect(win.getByText(L.wizardTitle).first()).toBeVisible();
   expect(await adminExists(win)).toBe(false);
-  // Essentiel: Holidays step is absent from the stepper.
-  await expect(win.getByText(L.stepHolidaysLabel)).toHaveCount(0);
+  // Holidays is available on every plan since SOU-30, including Essentiel.
+  await expect(win.getByText(L.stepHolidaysLabel).first()).toBeVisible();
 
   // 1. Language
   await expectStep(win, L.languageStepTitle);
@@ -98,7 +99,11 @@ test('happy path: walks every mandatory step to Done and creates the admin exact
   await expect.poll(() => adminExists(win)).toBe(true);
   await next(win, L).click();
 
-  // 5. Done (no Holidays on Essentiel).
+  // 5. Holidays (optional, present on every plan since SOU-30) — skip it.
+  await expectStep(win, L.holidaysStepTitle);
+  await skip(win, L).click();
+
+  // 6. Done.
   await expect(win.getByText(L.doneTitle).first()).toBeVisible();
 
   // Exactly once: a second create through the bridge must be rejected.
@@ -195,7 +200,9 @@ test('first-run gate: fresh state shows the wizard; after completion a relaunch 
   await fillAdmin(win, L);
   await next(win, L).click(); // creates admin
   await expectStep(win, L.hoursStepTitle);
-  await next(win, L).click(); // hours stub → done
+  await next(win, L).click(); // hours → holidays
+  await expectStep(win, L.holidaysStepTitle);
+  await skip(win, L).click(); // holidays (optional) → done
   await expect(win.getByText(L.doneTitle).first()).toBeVisible();
   await win.getByRole('button', { name: L.doneCta }).click();
   await passAuthGate(win);

@@ -3,6 +3,7 @@ import type { EntityId } from '../value-objects/ids';
 import type { TimeOfDay } from '../value-objects/time-of-day';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import type { RoomId } from '../entities/room';
+import type { HolidayId } from '../entities/holiday';
 
 /** Why a session falls outside the center's opening hours. */
 export type OutsideCenterHoursReason = 'closed' | 'before-open' | 'after-close';
@@ -61,6 +62,25 @@ export class RoomConflictError extends DomainError {
     readonly conflicts: readonly ScheduledSessionRef[],
   ) {
     super(`Session on weekday ${dayOfWeek} overlaps ${conflicts.length} session(s) in the same room.`);
+  }
+}
+
+/**
+ * Thrown when a session would fall on a day the center is closed for a holiday
+ * (CLAUDE.md §6, `SessionConflictPolicy.notOnHoliday`). The offending `date`
+ * (`YYYY-MM-DD`) and the matched holiday's `holidayId` + bilingual `holidayName`
+ * are carried as structured data so the renderer can localize the message and
+ * name the holiday, without the domain formatting strings. Single-session
+ * creation on a holiday is rejected; the future session generator (SOU-56) uses
+ * the same policy to skip holiday days when materializing recurring sessions.
+ */
+export class SessionOnHolidayError extends DomainError {
+  constructor(
+    readonly date: string,
+    readonly holidayId: HolidayId,
+    readonly holidayName: { fr: string; ar: string },
+  ) {
+    super(`Session on ${date} falls on holiday "${holidayName.fr}".`);
   }
 }
 

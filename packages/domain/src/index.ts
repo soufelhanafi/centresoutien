@@ -53,9 +53,13 @@ export {
   TeacherInUseError,
 } from './errors/people-errors';
 export { RoomInUseError, RoomNotFoundError } from './errors/room-errors';
+export { HolidayNotFoundError } from './errors/holiday-errors';
+export { GroupOverCapacityError, GroupSubjectUnavailableError } from './errors/group-errors';
+export type { GroupSubjectUnavailableReason } from './errors/group-errors';
 export {
   SessionOutsideCenterHoursError,
   RoomConflictError,
+  SessionOnHolidayError,
   TeacherConflictError,
   MalformedSessionTimeError,
 } from './errors/scheduling-errors';
@@ -100,6 +104,10 @@ export {
 export type { ParentInput } from './schemas/parent';
 export { roomInputSchema, ROOM_NAME_MAX, ROOM_CAPACITY_MIN } from './schemas/room';
 export type { RoomInput } from './schemas/room';
+export { holidayInputSchema, HOLIDAY_NAME_MAX } from './schemas/holiday';
+export type { HolidayInput } from './schemas/holiday';
+export { groupInputSchema, GROUP_LEVEL_MAX, GROUP_CAPACITY_MIN } from './schemas/group';
+export type { GroupInput } from './schemas/group';
 export {
   teacherInputSchema,
   TEACHER_NAME_MAX,
@@ -144,6 +152,10 @@ export { ROOM_ID_PREFIX } from './entities/room';
 export type { Room, RoomId } from './entities/room';
 export { TEACHER_ID_PREFIX } from './entities/teacher';
 export type { Teacher, TeacherId } from './entities/teacher';
+export { HOLIDAY_ID_PREFIX } from './entities/holiday';
+export type { Holiday, HolidayId, HolidayKind } from './entities/holiday';
+export { GROUP_ID_PREFIX, GROUP_KINDS } from './entities/group';
+export type { Group, GroupId, GroupKind } from './entities/group';
 export {
   WEEKLY_RECURRING_SESSION_ID_PREFIX,
   toScheduledSessionRef,
@@ -178,6 +190,9 @@ export type { TeacherRepository } from './ports/teacher-repository';
 // Teacher in-use guard — DECLARED CONTRACT ONLY; real adapter lands with Groups
 // (SOU-48) / payroll (SOU-70). Stubbed "never referenced" at the composition root.
 export type { TeacherReferencePort } from './ports/teacher-reference';
+export type { HolidayRepository } from './ports/holiday-repository';
+// Group repository — port declared here; SQLite adapter + migration are a follow-up.
+export type { GroupRepository } from './ports/group-repository';
 export type { WeeklyRecurringSessionRepository } from './ports/weekly-recurring-session-repository';
 // Room in-use guard — its concrete adapter is the weekly-session repo (SOU-53).
 export type { RoomReferencePort } from './ports/room-reference';
@@ -200,6 +215,8 @@ export type {
   TeacherSessionCandidate,
   DayHours,
 } from './policies/session-conflict-policy';
+export { holidayCoversDate, holidayOn } from './policies/holiday-policy';
+export type { HolidayOccurrence } from './policies/holiday-policy';
 export { detectSessionConflicts } from './policies/composite-session-conflicts';
 export type {
   ConflictSeverity,
@@ -254,6 +271,8 @@ export { ListParentChildren } from './use-cases/list-parent-children';
 export type { ListParentChildrenInput } from './use-cases/list-parent-children';
 export { CreateRoom } from './use-cases/create-room';
 export type { CreateRoomInput } from './use-cases/create-room';
+export { CreateGroup } from './use-cases/create-group';
+export type { CreateGroupInput } from './use-cases/create-group';
 export { ArchiveRoom } from './use-cases/archive-room';
 export type { ArchiveRoomInput } from './use-cases/archive-room';
 export { ListRooms } from './use-cases/list-rooms';
@@ -274,6 +293,16 @@ export { UpdateTeacher } from './use-cases/update-teacher';
 export type { UpdateTeacherInput } from './use-cases/update-teacher';
 export { ArchiveTeacher } from './use-cases/archive-teacher';
 export type { ArchiveTeacherInput } from './use-cases/archive-teacher';
+export { CreateHoliday } from './use-cases/create-holiday';
+export type { CreateHolidayInput } from './use-cases/create-holiday';
+export { ListHolidays } from './use-cases/list-holidays';
+export type { ListHolidaysInput, HolidayScope } from './use-cases/list-holidays';
+export { UpdateHoliday } from './use-cases/update-holiday';
+export type { UpdateHolidayInput } from './use-cases/update-holiday';
+export { ArchiveHoliday } from './use-cases/archive-holiday';
+export type { ArchiveHolidayInput } from './use-cases/archive-holiday';
+export { RestoreHoliday } from './use-cases/restore-holiday';
+export type { RestoreHolidayInput } from './use-cases/restore-holiday';
 export { GetCenterProfile } from './use-cases/get-center-profile';
 export { SaveCenterProfile } from './use-cases/save-center-profile';
 export type { SaveCenterProfileInput } from './use-cases/save-center-profile';
