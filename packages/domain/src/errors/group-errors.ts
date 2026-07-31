@@ -1,6 +1,7 @@
 import { DomainError } from './plan-errors';
 import type { RoomId } from '../entities/room';
 import type { SubjectId } from '../entities/subject';
+import type { GroupId } from '../entities/group';
 
 /**
  * Thrown when a group's requested `capacity` exceeds the seat capacity of the room
@@ -46,5 +47,21 @@ export class GroupSubjectUnavailableError extends DomainError {
   ) {
     super(`Subject "${subjectId}" cannot back a group (${reason}).`);
     this.code = reason === 'not-found' ? 'group-subject-not-found' : 'group-subject-inactive';
+  }
+}
+
+/**
+ * Thrown when an update, archive, or restore targets a group id that has no
+ * matching row in the current center — unknown, or (for the live-row paths)
+ * already tombstoned, or belonging to another center. The renderer resolves the
+ * stable `group-not-found` code via `t(\`errors.${code}\`)`; the domain stays
+ * i18n-agnostic. Mirrors {@link RoomNotFoundError} so the group and room CRUD use
+ * cases behave consistently and neither silently no-ops on a stale/foreign id.
+ */
+export class GroupNotFoundError extends DomainError {
+  readonly code = 'group-not-found';
+
+  constructor(readonly groupId: GroupId) {
+    super(`No live group with id "${groupId}".`);
   }
 }
