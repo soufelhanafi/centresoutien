@@ -186,6 +186,7 @@ describe('CreateGroup', () => {
       await expect(
         build(PLANS.essentiel).execute(validInput({ roomId: otherRoomId })),
       ).rejects.toBeInstanceOf(RoomNotFoundError);
+      expect(groups.all()).toHaveLength(0);
     });
 
     it('rejects an archived (tombstoned) room', async () => {
@@ -193,6 +194,7 @@ describe('CreateGroup', () => {
       await expect(build(PLANS.essentiel).execute(validInput())).rejects.toBeInstanceOf(
         RoomNotFoundError,
       );
+      expect(groups.all()).toHaveLength(0);
     });
   });
 
@@ -210,6 +212,7 @@ describe('CreateGroup', () => {
       const error = await build(PLANS.essentiel).execute(validInput()).catch((e: unknown) => e);
       expect(error).toBeInstanceOf(GroupSubjectUnavailableError);
       expect((error as GroupSubjectUnavailableError).reason).toBe('inactive');
+      expect(groups.all()).toHaveLength(0);
     });
 
     it('rejects a subject that belongs to another center (tenant scoping)', async () => {
@@ -221,6 +224,7 @@ describe('CreateGroup', () => {
         .catch((e: unknown) => e);
       expect(error).toBeInstanceOf(GroupSubjectUnavailableError);
       expect((error as GroupSubjectUnavailableError).reason).toBe('not-found');
+      expect(groups.all()).toHaveLength(0);
     });
   });
 
