@@ -59,8 +59,18 @@ export {
   DuplicateSubjectCodeError,
 } from './errors/subject-errors';
 export { HolidayNotFoundError } from './errors/holiday-errors';
-export { GroupOverCapacityError, GroupSubjectUnavailableError } from './errors/group-errors';
+export {
+  GroupOverCapacityError,
+  GroupSubjectUnavailableError,
+  GroupNotFoundError,
+} from './errors/group-errors';
 export type { GroupSubjectUnavailableReason } from './errors/group-errors';
+export {
+  GroupFullError,
+  CrossKindEnrollmentError,
+  EnrollmentSubscriptionMissingError,
+  EnrollmentNotFoundError,
+} from './errors/enrollment-errors';
 export {
   SessionOutsideCenterHoursError,
   RoomConflictError,
@@ -118,6 +128,8 @@ export { holidayInputSchema, HOLIDAY_NAME_MAX } from './schemas/holiday';
 export type { HolidayInput } from './schemas/holiday';
 export { groupInputSchema, GROUP_LEVEL_MAX, GROUP_CAPACITY_MIN } from './schemas/group';
 export type { GroupInput } from './schemas/group';
+export { enrollmentInputSchema, MONTH_PATTERN } from './schemas/enrollment';
+export type { EnrollmentInput } from './schemas/enrollment';
 export {
   teacherInputSchema,
   TEACHER_NAME_MAX,
@@ -166,6 +178,8 @@ export { HOLIDAY_ID_PREFIX } from './entities/holiday';
 export type { Holiday, HolidayId, HolidayKind } from './entities/holiday';
 export { GROUP_ID_PREFIX, GROUP_KINDS } from './entities/group';
 export type { Group, GroupId, GroupKind } from './entities/group';
+export { ENROLLMENT_ID_PREFIX } from './entities/enrollment';
+export type { Enrollment, EnrollmentId } from './entities/enrollment';
 export {
   WEEKLY_RECURRING_SESSION_ID_PREFIX,
   toScheduledSessionRef,
@@ -206,6 +220,14 @@ export type { TeacherReferencePort } from './ports/teacher-reference';
 export type { HolidayRepository } from './ports/holiday-repository';
 // Group repository — port declared here; SQLite adapter + migration are a follow-up.
 export type { GroupRepository } from './ports/group-repository';
+// Enrollment repository — port declared here; SQLite adapter + migration are a follow-up.
+export type { EnrollmentRepository } from './ports/enrollment-repository';
+// Student-subscription coverage — DECLARED CONTRACT ONLY; real adapter lands with
+// StudentSubscription (SOU-63). Drives the EnrollStudent coverage + cross-kind guards.
+export type {
+  StudentSubscriptionReferencePort,
+  ActiveSubscriptionCoverage,
+} from './ports/student-subscription-reference';
 export type { WeeklyRecurringSessionRepository } from './ports/weekly-recurring-session-repository';
 // Room in-use guard — its concrete adapter is the weekly-session repo (SOU-53).
 export type { RoomReferencePort } from './ports/room-reference';
@@ -288,6 +310,10 @@ export { CreateRoom } from './use-cases/create-room';
 export type { CreateRoomInput } from './use-cases/create-room';
 export { CreateGroup } from './use-cases/create-group';
 export type { CreateGroupInput } from './use-cases/create-group';
+export { EnrollStudent } from './use-cases/enroll-student';
+export type { EnrollStudentInput } from './use-cases/enroll-student';
+export { UnenrollStudent } from './use-cases/unenroll-student';
+export type { UnenrollStudentInput } from './use-cases/unenroll-student';
 export { ArchiveRoom } from './use-cases/archive-room';
 export type { ArchiveRoomInput } from './use-cases/archive-room';
 export { ListRooms } from './use-cases/list-rooms';
