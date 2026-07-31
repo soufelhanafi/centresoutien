@@ -82,6 +82,9 @@ export class EnrollStudent {
       throw new GroupFullError(groupId, group.capacity);
     }
 
+    // Coverage is verified at `startMonth` only, not re-checked across the
+    // enrollment span: per-month coverage is an invoicing-time concern (monthly
+    // subscriptions are close-and-reopen), not an enrollment-time one.
     const coverage = await this.subscriptions.activeCoverage(
       studentId,
       group.subjectId,

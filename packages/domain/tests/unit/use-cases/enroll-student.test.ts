@@ -267,6 +267,13 @@ describe('EnrollStudent', () => {
         build(PLANS.essentiel).execute(validInput({ studentId: otherStudent })),
       ).rejects.toBeInstanceOf(StudentNotFoundError);
     });
+
+    it('throws StudentNotFoundError for an archived (tombstoned) student', async () => {
+      await students.softDelete(STUDENT_ID, new Date('2026-07-30T00:00:00Z'), USER);
+      await expect(build(PLANS.essentiel).execute(validInput())).rejects.toBeInstanceOf(
+        StudentNotFoundError,
+      );
+    });
   });
 
   describe('validation', () => {
@@ -292,6 +299,14 @@ describe('EnrollStudent', () => {
       await expect(
         build(PLANS.essentiel).execute(validInput({ startMonth: '2026-09', endMonth: '2026-08' })),
       ).rejects.toThrow();
+    });
+
+    it('accepts a single-month enrollment where endMonth equals startMonth', async () => {
+      const enrollment = await build(PLANS.essentiel).execute(
+        validInput({ startMonth: '2026-09', endMonth: '2026-09' }),
+      );
+      expect(enrollment.startMonth).toBe('2026-09');
+      expect(enrollment.endMonth).toBe('2026-09');
     });
   });
 });
