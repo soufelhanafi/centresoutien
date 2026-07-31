@@ -1,6 +1,10 @@
 /** Locale-aware formatting helpers. Morocco uses Western digits in both locales. */
 
-function bcp47(locale: string): string {
+/**
+ * Maps an app locale to its Morocco BCP-47 tag. The `-MA` region makes Arabic
+ * render Western (Latin) digits, matching Moroccan usage across the app.
+ */
+export function bcp47(locale: string): string {
   return locale === 'ar' ? 'ar-MA' : 'fr-MA';
 }
 

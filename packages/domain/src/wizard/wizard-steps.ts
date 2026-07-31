@@ -3,7 +3,9 @@
  *
  * The wizard sequences a center's initial setup. Language, Center Profile, Admin
  * Account, and Hours are mandatory and non-skippable; Holidays is optional and
- * only present when the plan grants `settings.holidays` (Pro+). Persistence for
+ * present when the plan grants `settings.holidays` — every plan since SOU-30 moved
+ * that feature to Essentiel (the gating stays feature-flag-driven, not plan-named,
+ * so it still omits the step for any plan that lacks the flag). Persistence for
  * each step lives in its own ticket (SOU-28 profile, SOU-29 hours, SOU-30
  * holidays) — this module owns ordering only, never the per-step data shapes.
  */

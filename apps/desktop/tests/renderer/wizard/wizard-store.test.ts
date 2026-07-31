@@ -9,10 +9,10 @@ function reset() {
 describe('wizard store — plan-driven sequencing', () => {
   beforeEach(reset);
 
-  it('builds four mandatory steps on Essentiel (no Holidays)', () => {
+  it('includes the optional Holidays step on Essentiel (settings.holidays moved there in SOU-30)', () => {
     useWizardStore.getState().init(PLANS.essentiel);
     const state = useWizardStore.getState().state;
-    expect(state?.steps).toEqual(['language', 'center-profile', 'admin-account', 'hours']);
+    expect(state?.steps).toEqual(['language', 'center-profile', 'admin-account', 'hours', 'holidays']);
   });
 
   it('appends Holidays when the plan grants it (Pro)', () => {
@@ -25,12 +25,13 @@ describe('wizard store — plan-driven sequencing', () => {
   it('is idempotent once the user has started — a late plan change never resets progress', () => {
     const store = useWizardStore.getState();
     store.init(PLANS.essentiel);
-    store.submit(); // now started
-    store.init(PLANS.pro); // would add Holidays if it re-initialised
+    store.submit(); // language committed, run now started
+    const before = useWizardStore.getState().state;
+    store.init(PLANS.pro); // must be a no-op once started, not a re-sequence
 
-    const state = useWizardStore.getState().state;
-    expect(state?.steps).not.toContain('holidays');
-    expect(state?.completed.has('language')).toBe(true);
+    const after = useWizardStore.getState().state;
+    expect(after?.currentIndex).toBe(before?.currentIndex);
+    expect(after?.completed.has('language')).toBe(true);
   });
 });
 
@@ -43,7 +44,8 @@ describe('wizard store — transitions delegate to the domain machine', () => {
     store.submit(); // language
     store.submit(); // center-profile
     store.submit(); // admin-account
-    store.submit(); // hours -> completed
+    store.submit(); // hours
+    store.submit(); // holidays -> completed
 
     const state = useWizardStore.getState().state;
     expect(state?.status).toBe('completed');

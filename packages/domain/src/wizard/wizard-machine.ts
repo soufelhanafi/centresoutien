@@ -29,8 +29,8 @@ export type WizardState = {
 
 /**
  * Build the initial wizard state. Holidays is appended only when the active plan
- * grants `settings.holidays` (Pro+) — gating stays in the domain via PlanPolicy,
- * never a plan-name comparison in the UI.
+ * grants `settings.holidays` (every plan since SOU-30) — gating stays in the domain
+ * via PlanPolicy, never a plan-name comparison in the UI.
  */
 export function initWizard(plan: PlanPolicy): WizardState {
   const steps: WizardStepId[] = [...MANDATORY_STEP_IDS];

@@ -349,10 +349,10 @@ The admin configures per-weekday opening and closing times (Sunday is treated as
 
 ### Holidays
 
-The admin can add one-off or annually recurring holidays (national holidays, Eid, school breaks). Stored as `Holiday` entities: `{ id, centerCode, name: { fr, ar }, startDate, endDate, recurrence: 'none' | 'annual-gregorian' }`.
+The admin can add one-off or annually recurring holidays (national holidays, Eid, school breaks). Stored as `Holiday` entities: `{ id, centerCode, name: { fr, ar }, kind: 'fixed' | 'lunar', startDate, endDate }` (inclusive `YYYY-MM-DD` range; single-day = start==end). A `fixed` holiday recurs every year on the same Gregorian month-day; a `lunar` one is entered manually for one specific year.
 
-- Feature flag: `settings.holidays` (Pro+).
-- **Lunar holidays** (Eid al-Fitr, Eid al-Adha, etc.) are added manually each year with `recurrence: 'none'` — we deliberately do **not** compute a Hijri calendar. Moroccan lunar dates are officially announced by the government and can shift by a day at the last minute; predicting them is not our business.
+- Feature flag: `settings.holidays` (every plan — moved from Pro to Essentiel in SOU-30).
+- **Lunar holidays** (Eid al-Fitr, Eid al-Adha, etc.) are added manually each year with `kind: 'lunar'` — we deliberately do **not** compute a Hijri calendar. Moroccan lunar dates are officially announced by the government and can shift by a day at the last minute; predicting them is not our business.
 - Conflict detection: `SessionConflictPolicy` gains a `notOnHoliday` check. Recurring sessions skip holiday days when materialized into concrete session instances; single-session creation on a holiday is rejected with `SessionOnHolidayError`.
 - **Invoicing is not affected by holidays.** All billing is monthly (student subscriptions to formulas, teacher payouts) — never per session. A month with a holiday charges the same as any other month. This is the standard practice for Moroccan support centers and it simplifies the domain.
 - Calendar rendering: holiday days show the holiday name (bilingual) as a full-day banner across the day column.

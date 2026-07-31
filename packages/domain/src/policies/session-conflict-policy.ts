@@ -1,10 +1,12 @@
 import {
   MalformedSessionTimeError,
   RoomConflictError,
+  SessionOnHolidayError,
   SessionOutsideCenterHoursError,
   TeacherConflictError,
   type ScheduledSessionRef,
 } from '../errors/scheduling-errors';
+import { holidayOn, type HolidayOccurrence } from './holiday-policy';
 import { toMinutes, type TimeOfDay } from '../value-objects/time-of-day';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import type { RoomId } from '../entities/room';
@@ -110,6 +112,23 @@ export const SessionConflictPolicy = {
     );
     if (conflicts.length === 0) return null;
     return new RoomConflictError(candidate.roomId, candidate.dayOfWeek, conflicts);
+  },
+
+  /**
+   * A session must not fall on a day the center is closed for a holiday
+   * (CLAUDE.md §6). The caller supplies the concrete calendar date of the session
+   * instance (`YYYY-MM-DD`) and the center's holidays; this returns a
+   * {@link SessionOnHolidayError} naming the first matching holiday, or `null`
+   * when the day is clear. `fixed` holidays match on month-day every year, `lunar`
+   * ones only in their entered year — the recurrence math lives in
+   * {@link holidayOn}. Invoicing is never affected: this only guards scheduling.
+   */
+  notOnHoliday(
+    candidateDate: string,
+    holidays: readonly HolidayOccurrence[],
+  ): SessionOnHolidayError | null {
+    const match = holidayOn(candidateDate, holidays);
+    return match === null ? null : new SessionOnHolidayError(candidateDate, match.id, match.name);
   },
 
   /**
