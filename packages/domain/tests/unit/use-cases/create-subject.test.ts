@@ -3,6 +3,7 @@ import { CreateSubject, type CreateSubjectInput } from '../../../src/use-cases/c
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
+import { DuplicateSubjectCodeError } from '../../../src/errors/subject-errors';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemorySubjectRepository } from '../fakes/in-memory-subject-repository';
 import { fakeClock } from '../fakes/clock';
@@ -52,9 +53,59 @@ describe('CreateSubject', () => {
       expect(subject.version).toBe(0);
     });
 
+    it('defaults code to null when none is supplied', async () => {
+      const subject = await useCase.execute(validInput());
+      expect(subject.code).toBeNull();
+    });
+
     it('persists the subject so it can be read back by id', async () => {
       const subject = await useCase.execute(validInput());
       expect(await subjects.findById(subject.id)).toEqual(subject);
+    });
+  });
+
+  describe('code', () => {
+    it('normalizes a supplied code (trim + uppercase) and stores it', async () => {
+      const subject = await useCase.execute(validInput({ code: '  math-1 ' }));
+      expect(subject.code).toBe('MATH-1');
+    });
+
+    it('treats a blank/whitespace code as no code (null)', async () => {
+      const subject = await useCase.execute(validInput({ code: '   ' }));
+      expect(subject.code).toBeNull();
+    });
+
+    it('rejects a second live subject with the same code in the same center', async () => {
+      await useCase.execute(validInput({ code: 'MATH' }));
+
+      await expect(
+        useCase.execute(validInput({ code: 'math', name: { fr: 'Maths sup', ar: 'رياضيات' } })),
+      ).rejects.toBeInstanceOf(DuplicateSubjectCodeError);
+      expect(subjects.all()).toHaveLength(1);
+    });
+
+    it('allows the same code in a different center (per-center uniqueness)', async () => {
+      await useCase.execute(validInput({ code: 'MATH' }));
+      const other = await useCase.execute(
+        validInput({ code: 'MATH', centerCode: 'CS-RABAT-002' as CenterCode }),
+      );
+      expect(other.code).toBe('MATH');
+      expect(subjects.all()).toHaveLength(2);
+    });
+
+    it('allows reusing a code freed by archiving (tombstones do not clash)', async () => {
+      const first = await useCase.execute(validInput({ code: 'MATH' }));
+      await subjects.softDelete(first.id, new Date('2026-07-30T09:00:00Z'), USER);
+
+      const second = await useCase.execute(validInput({ code: 'MATH' }));
+      expect(second.id).not.toBe(first.id);
+      expect(second.code).toBe('MATH');
+    });
+
+    it('allows any number of subjects with no code', async () => {
+      await useCase.execute(validInput());
+      await useCase.execute(validInput({ name: { fr: 'Physique', ar: 'فيزياء' } }));
+      expect(subjects.all()).toHaveLength(2);
     });
   });
 
@@ -77,6 +128,10 @@ describe('CreateSubject', () => {
       await expect(
         useCase.execute(validInput({ name: { fr: '   ', ar: 'الرياضيات' } })),
       ).rejects.toThrow();
+    });
+
+    it('rejects a code with an illegal character', async () => {
+      await expect(useCase.execute(validInput({ code: 'MA TH' }))).rejects.toThrow();
     });
 
     it('persists nothing when validation fails', async () => {
