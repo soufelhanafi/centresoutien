@@ -24,4 +24,10 @@ export class InMemoryEnrollmentRepository
   async countActiveByGroup(groupId: GroupId): Promise<number> {
     return this.all().filter((e) => e.deletedAt === null && e.groupId === groupId).length;
   }
+
+  async hasActiveEnrollment(studentId: StudentId, groupId: GroupId): Promise<boolean> {
+    return this.all().some(
+      (e) => e.deletedAt === null && e.studentId === studentId && e.groupId === groupId,
+    );
+  }
 }

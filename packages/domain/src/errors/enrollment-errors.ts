@@ -69,6 +69,26 @@ export class EnrollmentSubscriptionMissingError extends DomainError {
 }
 
 /**
+ * Thrown when a student already holds a **live** enrollment in the target group —
+ * the duplicate-enrollment guard (SOU-123). Idempotency is a domain
+ * responsibility here, not a `UNIQUE(studentId, groupId)` DB index: a benign
+ * double-click (or two laptops enrolling the same student before a sync) must
+ * *converge* to one live row on sync-resolve, never fail the push. A re-enroll
+ * after an unenroll is allowed — the tombstoned row does not count. The renderer
+ * resolves the stable `duplicate-enrollment` code; the domain stays i18n-agnostic.
+ */
+export class DuplicateEnrollmentError extends DomainError {
+  readonly code = 'duplicate-enrollment';
+
+  constructor(
+    readonly studentId: StudentId,
+    readonly groupId: GroupId,
+  ) {
+    super(`Student "${studentId}" already holds a live enrollment in group "${groupId}".`);
+  }
+}
+
+/**
  * Thrown when an unenroll targets an enrollment id that has no live row — unknown,
  * already unenrolled (tombstoned), or belonging to another center. The renderer
  * resolves the stable `enrollment-not-found` code; the domain stays i18n-agnostic.
