@@ -19,7 +19,7 @@ import { deriveTimeRange } from '../../lib/planning/time-range';
  * Weekly planner: a 7-column × time-slot grid of the center's recurring
  * sessions, colour-coded by subject, filterable by teacher / room / level (and
  * exam-prep kind on Pro+). Clicking a block opens its session template. Runs
- * against the mock gateway until the `session.listWeek` IPC channel lands.
+ * against the mock gateway until the `session.week` read model is enriched.
  */
 export function PlannerPage() {
   const { t } = useTranslation();

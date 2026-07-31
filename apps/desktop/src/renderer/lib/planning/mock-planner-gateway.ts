@@ -2,7 +2,7 @@ import type { PlannerGateway } from './planner-gateway';
 import type { PlannerSessionView } from './planner-view';
 
 /**
- * In-memory stand-in for the not-yet-published `session.listWeek` channel (see
+ * In-memory stand-in for the not-yet-enriched `session.week` read model (see
  * `planner-gateway.ts` for the contract requested from SOU-53). It lets the full
  * planner — grid, subject colours, teacher/room/level filters, exam-prep badge,
  * click-to-open dialog — run end-to-end in both locales before the IPC read model
