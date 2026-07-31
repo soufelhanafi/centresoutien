@@ -23,6 +23,8 @@ import {
   RestoreRoom,
   CreateGroup,
   ListGroups,
+  ListGroupsWithCounts,
+  GetGroupRoster,
   UpdateGroup,
   ArchiveGroup,
   RestoreGroup,
@@ -246,6 +248,11 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
   const unenrollStudent = new UnenrollStudent(enrollmentRepo, clock, plan);
+  // Group roster + list-counts read models (SOU-127): the roster resolves a group's
+  // live enrollments to student names; list-with-counts reuses ListGroups and adds a
+  // single batch enrollment count so the list renders fill % without an N+1.
+  const getGroupRoster = new GetGroupRoster(enrollmentRepo, studentRepo, plan);
+  const listGroupsWithCounts = new ListGroupsWithCounts(listGroups, enrollmentRepo);
 
   const teacherRepo = new SqliteTeacherRepository(db);
   // The teacher in-use guard's real backing (a query over live groups / sessions /
@@ -325,6 +332,8 @@ export function buildContainer(options: ContainerOptions): Container {
     restoreRoom,
     createGroup,
     listGroups,
+    listGroupsWithCounts,
+    getGroupRoster,
     updateGroup,
     archiveGroup,
     restoreGroup,

@@ -5,9 +5,11 @@ import type {
   CenterHoursId,
   CenterId,
   DeviceId,
+  EnrollmentId,
   Group,
   GroupId,
   ParentId,
+  StudentId,
   PhoneNumber,
   RoomId,
   SubjectId,
@@ -26,6 +28,8 @@ import {
   type VerifyAdminPasswordUseCase,
   type CreateGroupUseCase,
   type ListGroupsUseCase,
+  type ListGroupsWithCountsUseCase,
+  type GetGroupRosterUseCase,
   type UpdateGroupUseCase,
   type ArchiveGroupUseCase,
   type RestoreGroupUseCase,
@@ -268,11 +272,30 @@ const stubArchiveGroup: ArchiveGroupUseCase = {
 const stubRestoreGroup: RestoreGroupUseCase = {
   execute: async (input) => makeGroup({ id: input.groupId }),
 };
+// Read-model stubs (SOU-127). list-with-counts echoes a group + its count so the
+// handler proves it flattens `{ group, enrolledCount }` onto the group view; roster
+// echoes one already-envelope-free entry so the handler proves the passthrough.
+const stubListGroupsWithCounts: ListGroupsWithCountsUseCase = {
+  execute: async () => [{ group: makeGroup(), enrolledCount: 3 }],
+};
+const stubGetGroupRoster: GetGroupRosterUseCase = {
+  execute: async () => [
+    {
+      enrollmentId: 'enr_00000000000000000000000001' as EnrollmentId,
+      studentId: 'stu_00000000000000000000000001' as StudentId,
+      name: { fr: 'Amine Bennani', ar: 'أمين بناني' },
+      level: '2ème Bac',
+      startMonth: '2026-09',
+    },
+  ],
+};
 
 const dispatch = createIpcDispatcher(
   createHandlers({
     createGroup: stubCreateGroup,
     listGroups: stubListGroups,
+    listGroupsWithCounts: stubListGroupsWithCounts,
+    getGroupRoster: stubGetGroupRoster,
     updateGroup: stubUpdateGroup,
     archiveGroup: stubArchiveGroup,
     restoreGroup: stubRestoreGroup,
@@ -553,6 +576,39 @@ describe('createIpcDispatcher', () => {
   it('runs group.restore and echoes the revived view', async () => {
     await expect(dispatch('group.restore', { id: GROUP_ID })).resolves.toMatchObject({
       group: { id: GROUP_ID, archived: false },
+    });
+  });
+
+  it('runs group.listWithCounts and flattens enrolledCount onto each group view', async () => {
+    await expect(dispatch('group.listWithCounts', { scope: 'active' })).resolves.toEqual({
+      groups: [
+        {
+          id: GROUP_ID,
+          subjectId: SUBJECT_ID,
+          teacherId: null,
+          roomId: ROOM_ID,
+          level: '2ème Bac',
+          capacity: 15,
+          kind: 'regular',
+          archived: false,
+          createdAt: '2026-07-29T10:00:00.000Z',
+          enrolledCount: 3,
+        },
+      ],
+    });
+  });
+
+  it('runs group.roster and returns the resolved roster entries', async () => {
+    await expect(dispatch('group.roster', { groupId: GROUP_ID })).resolves.toEqual({
+      roster: [
+        {
+          enrollmentId: 'enr_00000000000000000000000001',
+          studentId: 'stu_00000000000000000000000001',
+          name: { fr: 'Amine Bennani', ar: 'أمين بناني' },
+          level: '2ème Bac',
+          startMonth: '2026-09',
+        },
+      ],
     });
   });
 
