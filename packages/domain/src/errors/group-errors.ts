@@ -1,6 +1,23 @@
 import { DomainError } from './plan-errors';
 import type { RoomId } from '../entities/room';
 import type { SubjectId } from '../entities/subject';
+import type { GroupId } from '../entities/group';
+
+/**
+ * Thrown when an operation targets a group id that has no live row — unknown, or
+ * already soft-deleted, or belonging to another center (center scoping lives in
+ * the use case, since `findById` does not scope). The renderer resolves the stable
+ * `group-not-found` code via `t(\`errors.${code}\`)`; the domain stays
+ * i18n-agnostic. `EnrollStudent` raises this before touching anything so a stale
+ * or wrong-tenant id from the renderer can never silently no-op as a success.
+ */
+export class GroupNotFoundError extends DomainError {
+  readonly code = 'group-not-found';
+
+  constructor(readonly id: GroupId) {
+    super(`No live group with id "${id}".`);
+  }
+}
 
 /**
  * Thrown when a group's requested `capacity` exceeds the seat capacity of the room
