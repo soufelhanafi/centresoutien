@@ -30,6 +30,11 @@ import type {
   RestoreGroup,
   Group,
   GroupId,
+  CreateStudentSubscription,
+  CloseStudentSubscription,
+  ListStudentSubscriptions,
+  StudentSubscription,
+  StudentSubscriptionId,
   CreateTeacher,
   ListTeachers,
   GetTeacher,
@@ -96,6 +101,9 @@ export type ListGroupsUseCase = Pick<ListGroups, 'execute'>;
 export type UpdateGroupUseCase = Pick<UpdateGroup, 'execute'>;
 export type ArchiveGroupUseCase = Pick<ArchiveGroup, 'execute'>;
 export type RestoreGroupUseCase = Pick<RestoreGroup, 'execute'>;
+export type CreateStudentSubscriptionUseCase = Pick<CreateStudentSubscription, 'execute'>;
+export type CloseStudentSubscriptionUseCase = Pick<CloseStudentSubscription, 'execute'>;
+export type ListStudentSubscriptionsUseCase = Pick<ListStudentSubscriptions, 'execute'>;
 export type CreateTeacherUseCase = Pick<CreateTeacher, 'execute'>;
 export type ListTeachersUseCase = Pick<ListTeachers, 'execute'>;
 export type GetTeacherUseCase = Pick<GetTeacher, 'execute'>;
@@ -204,6 +212,23 @@ function toGroupView(group: Group) {
   };
 }
 
+/** Project a StudentSubscription to its boundary DTO: envelope stripped, dates
+ *  serialized, `archived` derived from the soft-delete tombstone. No status field —
+ *  the renderer derives active/closed from `endMonth` against the current month. */
+function toSubscriptionView(subscription: StudentSubscription) {
+  return {
+    id: subscription.id,
+    studentId: subscription.studentId,
+    formulaId: subscription.formulaId,
+    kind: subscription.kind,
+    subjectIds: [...subscription.subjectIds],
+    startMonth: subscription.startMonth,
+    endMonth: subscription.endMonth,
+    archived: subscription.deletedAt !== null,
+    createdAt: subscription.createdAt.toISOString(),
+  };
+}
+
 /** Project a Teacher to its boundary DTO: envelope stripped, dates serialized,
  *  `archived` derived from the soft-delete tombstone. */
 function toTeacherView(teacher: Teacher) {
@@ -286,6 +311,9 @@ export type HandlerDeps = {
   updateGroup: UpdateGroupUseCase;
   archiveGroup: ArchiveGroupUseCase;
   restoreGroup: RestoreGroupUseCase;
+  createStudentSubscription: CreateStudentSubscriptionUseCase;
+  closeStudentSubscription: CloseStudentSubscriptionUseCase;
+  listStudentSubscriptions: ListStudentSubscriptionsUseCase;
   createTeacher: CreateTeacherUseCase;
   listTeachers: ListTeachersUseCase;
   getTeacher: GetTeacherUseCase;
@@ -498,6 +526,30 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       const { centerCode, updatedBy } = deps.envelopeContext();
       const group = await deps.restoreGroup.execute({ centerCode, groupId: request.id as GroupId, updatedBy });
       return { group: toGroupView(group) };
+    },
+    'subscription.create': async (request) => {
+      const subscription = await deps.createStudentSubscription.execute({
+        ...request,
+        ...deps.envelopeContext(),
+      });
+      return { id: subscription.id };
+    },
+    'subscription.close': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const subscription = await deps.closeStudentSubscription.execute({
+        centerCode,
+        subscriptionId: request.subscriptionId as StudentSubscriptionId,
+        endMonth: request.endMonth,
+        updatedBy,
+      });
+      return { subscription: toSubscriptionView(subscription) };
+    },
+    'subscription.list': async (request) => {
+      const subscriptions = await deps.listStudentSubscriptions.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        studentId: request.studentId as StudentId,
+      });
+      return { subscriptions: subscriptions.map(toSubscriptionView) };
     },
     'teacher.create': async (request) => {
       const teacher = await deps.createTeacher.execute({ ...request, ...deps.envelopeContext() });

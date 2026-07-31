@@ -25,6 +25,9 @@ import {
   UpdateGroup,
   ArchiveGroup,
   RestoreGroup,
+  CreateStudentSubscription,
+  CloseStudentSubscription,
+  ListStudentSubscriptions,
   CreateTeacher,
   ListTeachers,
   GetTeacher,
@@ -57,6 +60,7 @@ import type {
   IdGenerator,
   RoomReferencePort,
   TeacherReferencePort,
+  StudentSubscriptionReferencePort,
 } from '@centresoutien/domain';
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
@@ -65,6 +69,8 @@ import { SqliteStudentRepository } from '../data/sqlite/repositories/student-rep
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
 import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repository';
 import { SqliteGroupRepository } from '../data/sqlite/repositories/group-repository';
+import { SqliteStudentSubscriptionRepository } from '../data/sqlite/repositories/student-subscription-repository';
+import { SqliteStudentSubscriptionReference } from '../data/sqlite/repositories/student-subscription-reference';
 import { SqliteTeacherRepository } from '../data/sqlite/repositories/teacher-repository';
 import { SqliteHolidayRepository } from '../data/sqlite/repositories/holiday-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
@@ -107,6 +113,12 @@ export type ContainerOptions = {
 
 export type Container = {
   handlerDeps: HandlerDeps;
+  /**
+   * The real {@link StudentSubscriptionReferencePort} adapter (SOU-63), published so
+   * SOU-126 can inject it into `EnrollStudent` when it wires the enrollment
+   * persistence + IPC. Nothing consumes it yet on this branch.
+   */
+  subscriptionReference: StudentSubscriptionReferencePort;
   dispose: () => void;
 };
 
@@ -191,6 +203,26 @@ export function buildContainer(options: ContainerOptions): Container {
   const archiveGroup = new ArchiveGroup(groupRepo, clock, plan);
   const restoreGroup = new RestoreGroup(groupRepo, clock, plan);
 
+  const subscriptionRepo = new SqliteStudentSubscriptionRepository(db);
+  const createStudentSubscription = new CreateStudentSubscription(
+    subscriptionRepo,
+    studentRepo,
+    clock,
+    ids,
+    plan,
+  );
+  const closeStudentSubscription = new CloseStudentSubscription(subscriptionRepo, clock, plan);
+  const listStudentSubscriptions = new ListStudentSubscriptions(subscriptionRepo, plan);
+  // The real StudentSubscriptionReferencePort adapter (SOU-63): the coverage query
+  // EnrollStudent (SOU-121) needs for its subscription/cross-kind guards, replacing
+  // the declared-only in-memory fake. EnrollStudent + UnenrollStudent are not yet
+  // constructed here — their SQLite EnrollmentRepository + migration (0016) + IPC land
+  // with SOU-126, which injects this `subscriptionReference` into `new EnrollStudent(...)`
+  // then, with no change to the port contract or the use-case body. It is published on
+  // the container so that wiring is a one-liner.
+  const subscriptionReference: StudentSubscriptionReferencePort =
+    new SqliteStudentSubscriptionReference(subscriptionRepo);
+
   const teacherRepo = new SqliteTeacherRepository(db);
   // The teacher in-use guard's real backing (a query over live groups / sessions /
   // payroll rules) lands with Groups (SOU-48) and payroll (SOU-70). Until then no
@@ -271,6 +303,9 @@ export function buildContainer(options: ContainerOptions): Container {
     updateGroup,
     archiveGroup,
     restoreGroup,
+    createStudentSubscription,
+    closeStudentSubscription,
+    listStudentSubscriptions,
     createTeacher,
     listTeachers,
     getTeacher,
@@ -298,7 +333,7 @@ export function buildContainer(options: ContainerOptions): Container {
     centerContext: () => centerContext,
   };
 
-  return { handlerDeps, dispose: () => db.close() };
+  return { handlerDeps, subscriptionReference, dispose: () => db.close() };
 }
 
 /** Convenience: build the container and its IPC handler set together. */

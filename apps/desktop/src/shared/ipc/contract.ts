@@ -7,6 +7,8 @@ import {
   groupInputSchema,
   teacherInputSchema,
   holidayInputSchema,
+  studentSubscriptionInputSchema,
+  closeStudentSubscriptionMonthSchema,
   adminCredentialsSchema,
   weeklyHoursSchema,
   loginInputSchema,
@@ -85,6 +87,25 @@ const groupViewSchema = z.object({
   level: z.string(),
   capacity: z.number().int(),
   kind: z.enum(['regular', 'exam-prep']),
+  archived: z.boolean(),
+  createdAt: z.string(),
+});
+
+// The presentation projection of a StudentSubscription across the IPC boundary — the
+// sync envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized,
+// exactly like `groupViewSchema`. There is NO stored status: the renderer derives
+// active/closed from `endMonth` (null = open-ended/active) against the current month.
+// `archived` is derived from `deletedAt != null` in main. `subjectIds` is the frozen
+// snapshot of the formula's subjects. Single source of truth for the renderer's
+// `SubscriptionView` type.
+const subscriptionViewSchema = z.object({
+  id: z.string(),
+  studentId: z.string(),
+  formulaId: z.string(),
+  kind: z.enum(['regular', 'exam-prep']),
+  subjectIds: z.array(z.string()),
+  startMonth: z.string(),
+  endMonth: z.string().nullable(),
   archived: z.boolean(),
   createdAt: z.string(),
 });
@@ -283,6 +304,27 @@ export const ipcContract = {
     request: z.object({ id: z.string() }),
     response: z.object({ group: groupViewSchema }),
   },
+  // Student subscriptions (SOU-63) — the formula-billing surface. `create` takes the
+  // domain's own `studentSubscriptionInputSchema` (prefixed student/formula/subject
+  // ids, kind, a non-empty subjectIds snapshot, YYYY-MM start with optional end),
+  // validated once and reused by the future subscription form (zodResolver); `close`
+  // caps a live subscription's `endMonth` (the close half of close-and-reopen); `list`
+  // returns a student's live subscriptions (both tracks). centerCode/device/user are
+  // injected in main, never sent from the renderer. Gated by `core.formulas` (every
+  // plan) in the use cases; exam-prep additionally needs `core.exam-prep` (Pro+). All
+  // reads strip the envelope to `subscriptionViewSchema`; status is derived, not stored.
+  'subscription.create': {
+    request: studentSubscriptionInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'subscription.close': {
+    request: z.object({ subscriptionId: z.string(), endMonth: closeStudentSubscriptionMonthSchema }),
+    response: z.object({ subscription: subscriptionViewSchema }),
+  },
+  'subscription.list': {
+    request: z.object({ studentId: z.string() }),
+    response: z.object({ subscriptions: z.array(subscriptionViewSchema) }),
+  },
   // Teachers (SOU-36 domain/data; CRUD UI + archive/restore is SOU-37). Gated by
   // `core.teachers` and bounded by the `maxTeachers` plan limit in the use cases.
   // `create` and `update` take the domain's own `teacherInputSchema` (phone
@@ -467,6 +509,9 @@ export type RoomDto = z.infer<typeof roomViewSchema>;
 
 /** The Group boundary DTO — the renderer's `GroupView` is an alias of this. */
 export type GroupDto = z.infer<typeof groupViewSchema>;
+
+/** The StudentSubscription boundary DTO — the renderer's `SubscriptionView` aliases this. */
+export type SubscriptionDto = z.infer<typeof subscriptionViewSchema>;
 
 /** The Teacher boundary DTO — the renderer's `TeacherView` is an alias of this. */
 export type TeacherDto = z.infer<typeof teacherViewSchema>;

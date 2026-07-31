@@ -98,10 +98,16 @@ export class EnrollStudent {
     // Coverage is verified at `startMonth` only, not re-checked across the
     // enrollment span: per-month coverage is an invoicing-time concern (monthly
     // subscriptions are close-and-reopen), not an enrollment-time one.
+    // Pass the group's kind as the preferred track: when the subject is covered by
+    // both a regular and an exam-prep subscription, the guard resolves to this
+    // group's kind and never throws a spurious CrossKindEnrollmentError. A student
+    // covered only by the other track still returns that (wrong) kind and trips the
+    // guard; no coverage at all still returns null (missing-subscription).
     const coverage = await this.subscriptions.activeCoverage(
       studentId,
       group.subjectId,
       fields.startMonth,
+      group.kind,
     );
     if (coverage === null) {
       throw new EnrollmentSubscriptionMissingError(
