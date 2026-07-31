@@ -10,7 +10,9 @@
 -- (they had no code) with no backfill. Nothing touches updated_at / updated_by /
 -- version, so this migration produces zero sync traffic — every replica converges
 -- to identical NULLs on its own. The partial index (WHERE code IS NOT NULL) lets
--- any number of subjects have no code while blocking duplicate live codes.
+-- any number of subjects have no code while blocking duplicate live codes. Logical
+-- undo is DROP INDEX ux_subjects_code; then (SQLite >= 3.35) ALTER TABLE subjects
+-- DROP COLUMN code; — trivially reversible.
 
 ALTER TABLE subjects ADD COLUMN code TEXT;   -- NULL when the center assigned no code
 
