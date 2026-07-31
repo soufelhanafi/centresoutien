@@ -45,6 +45,11 @@ export class VoidPayment {
   ) {}
 
   async execute(input: VoidPaymentInput): Promise<Payment> {
+    // Deliberately gated on `core.invoicing` only, NOT `core.invoicing.partial-paid`:
+    // a correction must never be plan-locked. This means voiding one of several payments
+    // can legitimately leave an Essentiel invoice `partially-paid` — a state RecordPayment
+    // gates behind Pro. That asymmetry is intentional; do not "fix" it by adding the
+    // partial-paid gate here.
     this.plan.require('core.invoicing');
     const fields = voidPaymentSchema.parse(input);
 

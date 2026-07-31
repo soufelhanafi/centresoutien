@@ -316,8 +316,8 @@ export {
   derivePaymentStatus,
 } from './policies/payment-status';
 export type { PaymentStatus } from './policies/payment-status';
-export { detectProbableDoubleEntry } from './policies/payment-duplicate';
-export type { DoubleEntryCandidate } from './policies/payment-duplicate';
+export { detectProbableDoubleEntry, detectDuplicateReversals } from './policies/payment-duplicate';
+export type { DoubleEntryCandidate, ReversalCandidate } from './policies/payment-duplicate';
 export {
   isSubscriptionActiveInMonth,
   subscriptionRangesOverlap,

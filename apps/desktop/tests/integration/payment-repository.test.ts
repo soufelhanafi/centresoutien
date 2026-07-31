@@ -180,6 +180,14 @@ describe('SqlitePaymentRepository', () => {
         repo.append(makePayment({ kind: 'reversal', reversesPaymentId: null })),
       ).rejects.toThrow();
     });
+
+    it('rejects a reversal whose reference lacks the pay_ prefix (CHECK)', async () => {
+      await expect(
+        repo.append(
+          makePayment({ kind: 'reversal', reversesPaymentId: 'bad_1' as PaymentId }),
+        ),
+      ).rejects.toThrow();
+    });
   });
 
   describe('sync union (two devices, one invoice)', () => {

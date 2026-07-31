@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { detectProbableDoubleEntry } from '../../../src/policies/payment-duplicate';
+import {
+  detectProbableDoubleEntry,
+  detectDuplicateReversals,
+} from '../../../src/policies/payment-duplicate';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Payment, PaymentId, PaymentKind } from '../../../src/entities/payment';
 import type { InvoiceId } from '../../../src/entities/invoice';
@@ -74,5 +77,51 @@ describe('detectProbableDoubleEntry', () => {
     const candidate = makePayment();
     const deleted = makePayment({ deletedAt: new Date('2026-08-02T00:00:00Z') });
     expect(detectProbableDoubleEntry(candidate, [deleted])).toEqual([]);
+  });
+});
+
+const ORIGINAL = 'pay_00000000000000000000000099' as PaymentId;
+
+function makeReversal(over: Partial<Payment> = {}): Payment {
+  return makePayment({ kind: 'reversal', reversesPaymentId: ORIGINAL, ...over });
+}
+
+describe('detectDuplicateReversals', () => {
+  it('flags two reversals that void the same payment from different devices', () => {
+    // Two laptops void the same payment while offline; each appends a distinct reversal.
+    const onDeviceA = makeReversal({ deviceOrigin: DEVICE_A });
+    const onDeviceB = makeReversal({ deviceOrigin: DEVICE_B });
+    expect(detectDuplicateReversals(onDeviceB, [onDeviceA, onDeviceB])).toEqual([onDeviceA]);
+  });
+
+  it('excludes the candidate itself by id', () => {
+    const r = makeReversal();
+    expect(detectDuplicateReversals(r, [r])).toEqual([]);
+  });
+
+  it('does not flag reversals of a different original payment', () => {
+    const candidate = makeReversal({ reversesPaymentId: ORIGINAL });
+    const other = makeReversal({
+      reversesPaymentId: 'pay_00000000000000000000000098' as PaymentId,
+    });
+    expect(detectDuplicateReversals(candidate, [other])).toEqual([]);
+  });
+
+  it('never flags a plain payment — only reversals carry a target', () => {
+    const candidate = makeReversal();
+    const payment = makePayment();
+    expect(detectDuplicateReversals(candidate, [payment])).toEqual([]);
+  });
+
+  it('returns [] when the candidate is a plain payment (null target)', () => {
+    const candidate = makePayment();
+    const reversal = makeReversal();
+    expect(detectDuplicateReversals(candidate, [reversal])).toEqual([]);
+  });
+
+  it('ignores tombstoned reversals', () => {
+    const candidate = makeReversal();
+    const deleted = makeReversal({ deletedAt: new Date('2026-08-02T00:00:00Z') });
+    expect(detectDuplicateReversals(candidate, [deleted])).toEqual([]);
   });
 });

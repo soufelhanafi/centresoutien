@@ -52,6 +52,10 @@ CREATE TABLE payments (
   CHECK (kind IN ('payment', 'reversal')),
   CHECK (method IN ('cash', 'cheque', 'transfer', 'other')),
   CHECK (amount_mad >= 0),
+  -- When set, a reversal's target is itself a payment id — mirror the id-prefix CHECK so a
+  -- stray writer can't store a non-'pay_' reference (defense-in-depth; the domain always
+  -- sets this from a real payment id).
+  CHECK (reverses_payment_id IS NULL OR reverses_payment_id LIKE 'pay\_%' ESCAPE '\'),
   -- A payment never references another; a reversal always does. Keeps the two kinds honest.
   CHECK (
     (kind = 'payment'  AND reverses_payment_id IS NULL) OR

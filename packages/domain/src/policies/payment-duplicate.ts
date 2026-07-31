@@ -31,3 +31,36 @@ export function detectProbableDoubleEntry(
       payment.paidOn === candidate.paidOn,
   );
 }
+
+/** The identifying key of a duplicate reversal: it voids the same original payment. */
+export type ReversalCandidate = Pick<Payment, 'reversesPaymentId'> & { id?: Payment['id'] };
+
+/**
+ * Detect duplicate reversals (SOU-93): the append-only twin of
+ * {@link detectProbableDoubleEntry}. `VoidPayment`'s already-reversed guard only sees one
+ * device's ledger, so two laptops voiding the *same* payment while offline each append a
+ * distinct reversal. They union at sync, the net is subtracted twice, and the derived
+ * status silently over-reverses to `unpaid` — the error hides itself instead of surfacing.
+ *
+ * Two reversals match when they share a non-null `reversesPaymentId` (they void the same
+ * original). Like its sibling this is a **flag, not an auto-merge** — the duplicates tab
+ * (SOU-91) lets the admin keep one and discard the other. Pure and portable; the candidate
+ * itself (matched by `id`) is excluded. A `null` `reversesPaymentId` (a plain payment) can
+ * never match — only reversals carry a target.
+ *
+ * @returns the existing reversals that void the same payment as `candidate`, `[]` if none.
+ */
+export function detectDuplicateReversals(
+  candidate: ReversalCandidate,
+  existing: readonly Payment[],
+): readonly Payment[] {
+  if (candidate.reversesPaymentId === null) return [];
+  return existing.filter(
+    (payment) =>
+      payment.kind === 'reversal' &&
+      payment.deletedAt === null &&
+      payment.id !== candidate.id &&
+      payment.reversesPaymentId !== null &&
+      payment.reversesPaymentId === candidate.reversesPaymentId,
+  );
+}
