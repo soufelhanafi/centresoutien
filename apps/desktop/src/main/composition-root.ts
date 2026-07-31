@@ -20,6 +20,7 @@ import {
   UpdateRoom,
   ArchiveRoom,
   RestoreRoom,
+  ListWeekSessions,
   CreateAdminAccount,
   VerifyAdminPassword,
   SaveCenterHours,
@@ -46,6 +47,7 @@ import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-rep
 import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
 import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repository';
+import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-throttle-store';
@@ -149,14 +151,13 @@ export function buildContainer(options: ContainerOptions): Container {
   const listParentChildren = new ListParentChildren(studentRepo, plan);
 
   const roomRepo = new SqliteRoomRepository(db);
-  // The in-use guard for ArchiveRoom needs a Session-backed adapter that does not
-  // exist yet — the Session repository lands in SOU-53. Until then no session table
-  // exists, so no room can be referenced: a stub reporting "never referenced" is
-  // correct, not a placeholder. SOU-53 swaps in the real adapter here, unchanged
-  // elsewhere. (RoomReferencePort is a declared-only contract; see its doc.)
-  const roomReference: RoomReferencePort = {
-    hasActiveSessionForRoom: async () => false,
-  };
+  // The weekly-session repository (SOU-53) is the real backing for the ArchiveRoom
+  // in-use guard: it owns the query over live sessions, so it also satisfies
+  // RoomReferencePort. Passing the same instance replaces the SOU-33 "never
+  // referenced" stub with no change to ArchiveRoom or the port contract.
+  const sessionRepo = new SqliteWeeklyRecurringSessionRepository(db);
+  const roomReference: RoomReferencePort = sessionRepo;
+  const listWeekSessions = new ListWeekSessions(sessionRepo, plan);
   const createRoom = new CreateRoom(roomRepo, clock, ids, plan);
   const listRooms = new ListRooms(roomRepo, plan);
   const updateRoom = new UpdateRoom(roomRepo, clock, plan);
@@ -215,6 +216,7 @@ export function buildContainer(options: ContainerOptions): Container {
     updateRoom,
     archiveRoom,
     restoreRoom,
+    listWeekSessions,
     saveCenterHours,
     getCenterHours,
     envelopeContext: () => context,

@@ -23,6 +23,8 @@ import type {
   RestoreRoom,
   Room,
   RoomId,
+  ListWeekSessions,
+  WeeklyRecurringSession,
   CreateAdminAccount,
   VerifyAdminPassword,
   SaveCenterHours,
@@ -60,6 +62,7 @@ export type ListRoomsUseCase = Pick<ListRooms, 'execute'>;
 export type UpdateRoomUseCase = Pick<UpdateRoom, 'execute'>;
 export type ArchiveRoomUseCase = Pick<ArchiveRoom, 'execute'>;
 export type RestoreRoomUseCase = Pick<RestoreRoom, 'execute'>;
+export type ListWeekSessionsUseCase = Pick<ListWeekSessions, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
@@ -139,6 +142,19 @@ function toRoomView(room: Room) {
   };
 }
 
+/** Project a weekly recurring session to its boundary DTO: envelope stripped, the
+ *  branded `TimeOfDay`/id values widened to plain strings for the wire. */
+function toWeeklySessionView(session: WeeklyRecurringSession) {
+  return {
+    id: session.id,
+    roomId: session.roomId,
+    teacherId: session.teacherId,
+    dayOfWeek: session.dayOfWeek,
+    start: session.start,
+    end: session.end,
+  };
+}
+
 /** Strip the envelope: the renderer only needs the editable weekday fields. */
 function toWeekView(week: readonly CenterHours[]) {
   return week.map((hours) => ({
@@ -173,6 +189,7 @@ export type HandlerDeps = {
   updateRoom: UpdateRoomUseCase;
   archiveRoom: ArchiveRoomUseCase;
   restoreRoom: RestoreRoomUseCase;
+  listWeekSessions: ListWeekSessionsUseCase;
   saveCenterHours: SaveCenterHoursUseCase;
   getCenterHours: GetCenterHoursUseCase;
   envelopeContext: () => EnvelopeContext;
@@ -333,6 +350,12 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       const { centerCode, updatedBy } = deps.envelopeContext();
       const room = await deps.restoreRoom.execute({ centerCode, roomId: request.id as RoomId, updatedBy });
       return { room: toRoomView(room) };
+    },
+    'session.week': async () => {
+      const sessions = await deps.listWeekSessions.execute({
+        centerCode: deps.envelopeContext().centerCode,
+      });
+      return { sessions: sessions.map(toWeeklySessionView) };
     },
     'centerHours.get': async () => {
       const week = await deps.getCenterHours.execute({
