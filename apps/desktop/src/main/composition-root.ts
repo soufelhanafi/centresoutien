@@ -26,6 +26,8 @@ import {
   UpdateGroup,
   ArchiveGroup,
   RestoreGroup,
+  EnrollStudent,
+  UnenrollStudent,
   CreateTeacher,
   ListTeachers,
   GetTeacher,
@@ -59,6 +61,7 @@ import type {
   RoomReferencePort,
   SubjectReferencePort,
   TeacherReferencePort,
+  StudentSubscriptionReferencePort,
 } from '@centresoutien/domain';
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
@@ -67,6 +70,7 @@ import { SqliteStudentRepository } from '../data/sqlite/repositories/student-rep
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
 import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repository';
 import { SqliteGroupRepository } from '../data/sqlite/repositories/group-repository';
+import { SqliteEnrollmentRepository } from '../data/sqlite/repositories/enrollment-repository';
 import { SqliteTeacherRepository } from '../data/sqlite/repositories/teacher-repository';
 import { SqliteHolidayRepository } from '../data/sqlite/repositories/holiday-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
@@ -202,6 +206,29 @@ export function buildContainer(options: ContainerOptions): Container {
   const subjectReference: SubjectReferencePort = groupRepo;
   const archiveSubject = new ArchiveSubject(subjectRepo, subjectReference, clock, plan);
 
+  const enrollmentRepo = new SqliteEnrollmentRepository(db);
+  // StudentSubscription persistence lands in SOU-63; until then no student holds a
+  // subscription, so coverage is legitimately empty. Returning null is the honest
+  // current state (mirrors the teacherReference stub), not a placeholder value —
+  // SOU-63 swaps in the real "does an active subscription cover this subject in this
+  // month, and of which kind" query here, with no change to EnrollStudent or the
+  // StudentSubscriptionReferencePort contract. Enrollment is not yet UI-exposed;
+  // unenroll works fully through the wired path, and the capacity/duplicate guards
+  // fire on real rows before coverage is consulted.
+  const subscriptionReference: StudentSubscriptionReferencePort = {
+    activeCoverage: async () => null,
+  };
+  const enrollStudent = new EnrollStudent(
+    enrollmentRepo,
+    groupRepo,
+    studentRepo,
+    subscriptionReference,
+    clock,
+    ids,
+    plan,
+  );
+  const unenrollStudent = new UnenrollStudent(enrollmentRepo, clock, plan);
+
   const teacherRepo = new SqliteTeacherRepository(db);
   // The teacher in-use guard's real backing (a query over live groups / sessions /
   // payroll rules) lands with Groups (SOU-48) and payroll (SOU-70). Until then no
@@ -283,6 +310,8 @@ export function buildContainer(options: ContainerOptions): Container {
     updateGroup,
     archiveGroup,
     restoreGroup,
+    enrollStudent,
+    unenrollStudent,
     createTeacher,
     listTeachers,
     getTeacher,

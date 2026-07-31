@@ -32,6 +32,9 @@ import type {
   RestoreGroup,
   Group,
   GroupId,
+  EnrollStudent,
+  UnenrollStudent,
+  EnrollmentId,
   CreateTeacher,
   ListTeachers,
   GetTeacher,
@@ -100,6 +103,8 @@ export type ListGroupsUseCase = Pick<ListGroups, 'execute'>;
 export type UpdateGroupUseCase = Pick<UpdateGroup, 'execute'>;
 export type ArchiveGroupUseCase = Pick<ArchiveGroup, 'execute'>;
 export type RestoreGroupUseCase = Pick<RestoreGroup, 'execute'>;
+export type EnrollStudentUseCase = Pick<EnrollStudent, 'execute'>;
+export type UnenrollStudentUseCase = Pick<UnenrollStudent, 'execute'>;
 export type CreateTeacherUseCase = Pick<CreateTeacher, 'execute'>;
 export type ListTeachersUseCase = Pick<ListTeachers, 'execute'>;
 export type GetTeacherUseCase = Pick<GetTeacher, 'execute'>;
@@ -291,6 +296,8 @@ export type HandlerDeps = {
   updateGroup: UpdateGroupUseCase;
   archiveGroup: ArchiveGroupUseCase;
   restoreGroup: RestoreGroupUseCase;
+  enrollStudent: EnrollStudentUseCase;
+  unenrollStudent: UnenrollStudentUseCase;
   createTeacher: CreateTeacherUseCase;
   listTeachers: ListTeachersUseCase;
   getTeacher: GetTeacherUseCase;
@@ -522,6 +529,23 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       const { centerCode, updatedBy } = deps.envelopeContext();
       const group = await deps.restoreGroup.execute({ centerCode, groupId: request.id as GroupId, updatedBy });
       return { group: toGroupView(group) };
+    },
+    'enrollment.create': async (request) => {
+      const enrollment = await deps.enrollStudent.execute({ ...request, ...deps.envelopeContext() });
+      return { id: enrollment.id };
+    },
+    'enrollment.unenroll': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      // Not swallowed like *.archive: the domain deliberately rejects an unknown,
+      // already-unenrolled, or foreign-center id (EnrollmentNotFoundError) so a
+      // stale renderer id can never silently no-op as success. The renderer maps
+      // the stable `enrollment-not-found` code.
+      await deps.unenrollStudent.execute({
+        centerCode,
+        enrollmentId: request.id as EnrollmentId,
+        updatedBy,
+      });
+      return { ok: true };
     },
     'teacher.create': async (request) => {
       const teacher = await deps.createTeacher.execute({ ...request, ...deps.envelopeContext() });

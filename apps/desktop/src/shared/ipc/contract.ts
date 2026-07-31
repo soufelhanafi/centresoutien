@@ -5,6 +5,7 @@ import {
   parentInputSchema,
   roomInputSchema,
   groupInputSchema,
+  enrollmentInputSchema,
   teacherInputSchema,
   holidayInputSchema,
   adminCredentialsSchema,
@@ -290,6 +291,25 @@ export const ipcContract = {
   'group.restore': {
     request: z.object({ id: z.string() }),
     response: z.object({ group: groupViewSchema }),
+  },
+  // Enrollments (SOU-121/123 domain; SQLite adapter + wiring is SOU-126). `create`
+  // takes the domain's own `enrollmentInputSchema` (prefixed student/group ids,
+  // `YYYY-MM` startMonth, optional endMonth ≥ startMonth), validated once and reused
+  // by the future enrollment form (zodResolver); it runs the capacity, cross-kind,
+  // duplicate, and subscription-coverage guards in the use case and returns the new
+  // id. `unenroll` is a soft delete by enrollment id (freeing the seat); unlike the
+  // `*.archive` channels it does NOT swallow a not-found id — the domain rejects an
+  // unknown/already-unenrolled/foreign-center id so it never silently no-ops.
+  // centerCode/device/user are injected in main, never sent from the renderer. Gated
+  // by `core.groups` (every plan) in the use cases; exam-prep coverage additionally
+  // requires an exam-prep subscription.
+  'enrollment.create': {
+    request: enrollmentInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'enrollment.unenroll': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
   },
   // Teachers (SOU-36 domain/data; CRUD UI + archive/restore is SOU-37). Gated by
   // `core.teachers` and bounded by the `maxTeachers` plan limit in the use cases.

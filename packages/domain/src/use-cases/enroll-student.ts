@@ -131,7 +131,16 @@ export class EnrollStudent {
       endMonth: fields.endMonth,
     };
 
-    await this.enrollments.save(enrollment);
+    // Atomic check-then-insert (SOU-126): the `hasActiveEnrollment` pre-check above
+    // yields the friendly error before the capacity/coverage work, but it and this
+    // insert are separate awaits, so a same-device concurrent enroll can interleave
+    // between them (both pass the pre-check). `saveIfAbsent` re-checks and inserts in
+    // one transaction, so exactly one of two racing enrolls wins; the loser gets
+    // `false` and the same `DuplicateEnrollmentError` — no duplicate live row, ever.
+    const inserted = await this.enrollments.saveIfAbsent(enrollment);
+    if (!inserted) {
+      throw new DuplicateEnrollmentError(studentId, groupId);
+    }
     return enrollment;
   }
 }

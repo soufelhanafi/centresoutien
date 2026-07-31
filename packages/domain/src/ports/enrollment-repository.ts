@@ -35,4 +35,21 @@ export interface EnrollmentRepository
    * concurrent creates on sync, not reject the push.
    */
   hasActiveEnrollment(studentId: StudentId, groupId: GroupId): Promise<boolean>;
+  /**
+   * Atomically insert the enrollment **iff** the student holds no live enrollment
+   * in the group. Returns `true` when the row was inserted, `false` when a live
+   * `(studentId, groupId)` already existed.
+   *
+   * This is the transactional backstop for the check-then-insert TOCTOU (SOU-123
+   * review): `EnrollStudent` runs `hasActiveEnrollment` and then persists as two
+   * separate awaits, and the event loop can interleave a second concurrent enroll
+   * of the same student between them so both pass the pre-check. The adapter runs
+   * the seat-existence check and the insert inside **one** transaction, so exactly
+   * one of two racing enrolls wins and the other gets `false` (mapped to
+   * `DuplicateEnrollmentError` by the use case). `hasActiveEnrollment` stays the
+   * cheap pre-check that yields the friendly error *before* the capacity/coverage
+   * work; this method is the last-line guarantee. Like every write here it is
+   * soft-delete-aware — a tombstoned row does not block the insert.
+   */
+  saveIfAbsent(enrollment: Enrollment): Promise<boolean>;
 }
