@@ -4,6 +4,7 @@ import {
   studentInputSchema,
   parentInputSchema,
   roomInputSchema,
+  holidayInputSchema,
   adminCredentialsSchema,
   weeklyHoursSchema,
   loginInputSchema,
@@ -64,6 +65,21 @@ const roomViewSchema = z.object({
   id: z.string(),
   name: z.string(),
   capacity: z.number().int(),
+  archived: z.boolean(),
+  createdAt: z.string(),
+});
+
+// The presentation projection of a Holiday across the IPC boundary — the sync
+// envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized,
+// exactly like `roomViewSchema`. `archived` is derived from `deletedAt != null` in
+// main; `affectsInvoicing` never crosses the boundary (it is an always-false domain
+// invariant). Single source of truth for the renderer's `HolidayView` type.
+const holidayViewSchema = z.object({
+  id: z.string(),
+  name: z.object({ fr: z.string(), ar: z.string() }),
+  kind: z.enum(['fixed', 'lunar']),
+  startDate: z.string(),
+  endDate: z.string(),
   archived: z.boolean(),
   createdAt: z.string(),
 });
@@ -202,6 +218,34 @@ export const ipcContract = {
     request: z.object({ id: z.string() }),
     response: z.object({ room: roomViewSchema }),
   },
+  // Holidays (SOU-30). `list` selects the live holidays or the archive via `scope`;
+  // `create` and `update` take the domain's own `holidayInputSchema` (bilingual
+  // name, kind fixed|lunar, calendar-date range with end >= start), validated once
+  // and reused by the form (zodResolver); `archive` is a soft delete; `restore`
+  // clears the tombstone. `holidayInputSchema` carries a superRefine, so `update`
+  // composes the id with `.and(...)` rather than `.extend(...)`. centerCode/device/
+  // user are injected in main, never sent from the renderer. Gated by
+  // `settings.holidays` (every plan since SOU-30) in the use cases.
+  'holiday.list': {
+    request: z.object({ scope: z.enum(['active', 'archived']) }),
+    response: z.object({ holidays: z.array(holidayViewSchema) }),
+  },
+  'holiday.create': {
+    request: holidayInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'holiday.update': {
+    request: holidayInputSchema.and(z.object({ id: z.string() })),
+    response: z.object({ holiday: holidayViewSchema }),
+  },
+  'holiday.archive': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'holiday.restore': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ holiday: holidayViewSchema }),
+  },
   // Weekly recurring sessions (SOU-53 seam → SOU-54 planner grid). `session.week`
   // returns every live session of the center for all seven weekdays, ordered by
   // weekday then start time (the repository port's contract). centerCode is
@@ -319,6 +363,9 @@ export type ParentDto = z.infer<typeof parentViewSchema>;
 
 /** The Room boundary DTO — the renderer's `RoomView` is an alias of this. */
 export type RoomDto = z.infer<typeof roomViewSchema>;
+
+/** The Holiday boundary DTO — the renderer's `HolidayView` is an alias of this. */
+export type HolidayDto = z.infer<typeof holidayViewSchema>;
 
 /** The weekly-session boundary DTO — the renderer's `WeeklySessionView` aliases this. */
 export type WeeklySessionDto = z.infer<typeof weeklySessionViewSchema>;

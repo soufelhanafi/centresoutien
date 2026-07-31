@@ -11,15 +11,23 @@ import {
   type WizardState,
 } from '../../../src/wizard/wizard-machine';
 import { MANDATORY_STEP_IDS, type WizardStepId } from '../../../src/wizard/wizard-steps';
+import type { FeatureFlag } from '../../../src/plans/plans';
 import {
   WizardAtFirstStepError,
   WizardCompletedError,
   WizardStepNotSkippableError,
 } from '../../../src/errors/wizard-errors';
 
-// Essentiel lacks `settings.holidays`; Pro grants it — the only step-set difference.
+// Every shipping plan grants `settings.holidays` since SOU-30, so both include the
+// optional Holidays step. `noHolidays` is a synthetic plan that lacks the flag,
+// used to prove the feature-driven omission branch still works.
 const essentiel = new PlanPolicy(PLANS.essentiel);
 const pro = new PlanPolicy(PLANS.pro);
+const noHolidays = new PlanPolicy({
+  id: 'essentiel',
+  features: new Set<FeatureFlag>(),
+  limits: PLANS.essentiel.limits,
+});
 
 /** Submit steps until the wizard reports completed, returning the final state. */
 function submitUntilDone(state: WizardState): WizardState {
@@ -37,15 +45,15 @@ describe('initWizard', () => {
     expect(state.completed.size).toBe(0);
   });
 
-  it('omits Holidays when the plan lacks settings.holidays (Essentiel)', () => {
-    const state = initWizard(essentiel);
+  it('omits Holidays when the plan lacks settings.holidays', () => {
+    const state = initWizard(noHolidays);
     expect(state.steps).toEqual([...MANDATORY_STEP_IDS]);
     expect(state.steps).not.toContain('holidays');
   });
 
-  it('appends Holidays when the plan grants settings.holidays (Pro)', () => {
-    const state = initWizard(pro);
-    expect(state.steps).toEqual([...MANDATORY_STEP_IDS, 'holidays']);
+  it('appends Holidays when the plan grants settings.holidays (Essentiel since SOU-30)', () => {
+    expect(initWizard(essentiel).steps).toEqual([...MANDATORY_STEP_IDS, 'holidays']);
+    expect(initWizard(pro).steps).toEqual([...MANDATORY_STEP_IDS, 'holidays']);
   });
 });
 

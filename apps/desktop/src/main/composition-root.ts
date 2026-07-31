@@ -20,6 +20,11 @@ import {
   UpdateRoom,
   ArchiveRoom,
   RestoreRoom,
+  CreateHoliday,
+  ListHolidays,
+  UpdateHoliday,
+  ArchiveHoliday,
+  RestoreHoliday,
   ListWeekSessions,
   CreateAdminAccount,
   VerifyAdminPassword,
@@ -47,6 +52,7 @@ import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-rep
 import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
 import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repository';
+import { SqliteHolidayRepository } from '../data/sqlite/repositories/holiday-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
@@ -164,6 +170,13 @@ export function buildContainer(options: ContainerOptions): Container {
   const archiveRoom = new ArchiveRoom(roomRepo, roomReference, clock, plan);
   const restoreRoom = new RestoreRoom(roomRepo, clock, plan);
 
+  const holidayRepo = new SqliteHolidayRepository(db);
+  const createHoliday = new CreateHoliday(holidayRepo, clock, ids, plan);
+  const listHolidays = new ListHolidays(holidayRepo, plan);
+  const updateHoliday = new UpdateHoliday(holidayRepo, clock, plan);
+  const archiveHoliday = new ArchiveHoliday(holidayRepo, clock, plan);
+  const restoreHoliday = new RestoreHoliday(holidayRepo, clock, plan);
+
   const centerRepo = new SqliteCenterRepository(db);
   const getCenterProfile = new GetCenterProfile(centerRepo);
   const saveCenterProfile = new SaveCenterProfile(centerRepo, clock, ids);
@@ -216,6 +229,11 @@ export function buildContainer(options: ContainerOptions): Container {
     updateRoom,
     archiveRoom,
     restoreRoom,
+    createHoliday,
+    listHolidays,
+    updateHoliday,
+    archiveHoliday,
+    restoreHoliday,
     listWeekSessions,
     saveCenterHours,
     getCenterHours,

@@ -23,6 +23,13 @@ import type {
   RestoreRoom,
   Room,
   RoomId,
+  CreateHoliday,
+  ListHolidays,
+  UpdateHoliday,
+  ArchiveHoliday,
+  RestoreHoliday,
+  Holiday,
+  HolidayId,
   ListWeekSessions,
   WeeklyRecurringSession,
   CreateAdminAccount,
@@ -41,7 +48,12 @@ import type {
   DeviceId,
   UserId,
 } from '@centresoutien/domain';
-import { StudentNotFoundError, ParentNotFoundError, RoomNotFoundError } from '@centresoutien/domain';
+import {
+  StudentNotFoundError,
+  ParentNotFoundError,
+  RoomNotFoundError,
+  HolidayNotFoundError,
+} from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
@@ -62,6 +74,11 @@ export type ListRoomsUseCase = Pick<ListRooms, 'execute'>;
 export type UpdateRoomUseCase = Pick<UpdateRoom, 'execute'>;
 export type ArchiveRoomUseCase = Pick<ArchiveRoom, 'execute'>;
 export type RestoreRoomUseCase = Pick<RestoreRoom, 'execute'>;
+export type CreateHolidayUseCase = Pick<CreateHoliday, 'execute'>;
+export type ListHolidaysUseCase = Pick<ListHolidays, 'execute'>;
+export type UpdateHolidayUseCase = Pick<UpdateHoliday, 'execute'>;
+export type ArchiveHolidayUseCase = Pick<ArchiveHoliday, 'execute'>;
+export type RestoreHolidayUseCase = Pick<RestoreHoliday, 'execute'>;
 export type ListWeekSessionsUseCase = Pick<ListWeekSessions, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
@@ -142,6 +159,21 @@ function toRoomView(room: Room) {
   };
 }
 
+/** Project a Holiday to its boundary DTO: envelope stripped, dates serialized,
+ *  `archived` derived from the soft-delete tombstone. `affectsInvoicing` (an
+ *  always-false invariant) never crosses the boundary. */
+function toHolidayView(holiday: Holiday) {
+  return {
+    id: holiday.id,
+    name: { fr: holiday.name.fr, ar: holiday.name.ar },
+    kind: holiday.kind,
+    startDate: holiday.startDate,
+    endDate: holiday.endDate,
+    archived: holiday.deletedAt !== null,
+    createdAt: holiday.createdAt.toISOString(),
+  };
+}
+
 /** Project a weekly recurring session to its boundary DTO: envelope stripped, the
  *  branded `TimeOfDay`/id values widened to plain strings for the wire. */
 function toWeeklySessionView(session: WeeklyRecurringSession) {
@@ -189,6 +221,11 @@ export type HandlerDeps = {
   updateRoom: UpdateRoomUseCase;
   archiveRoom: ArchiveRoomUseCase;
   restoreRoom: RestoreRoomUseCase;
+  createHoliday: CreateHolidayUseCase;
+  listHolidays: ListHolidaysUseCase;
+  updateHoliday: UpdateHolidayUseCase;
+  archiveHoliday: ArchiveHolidayUseCase;
+  restoreHoliday: RestoreHolidayUseCase;
   listWeekSessions: ListWeekSessionsUseCase;
   saveCenterHours: SaveCenterHoursUseCase;
   getCenterHours: GetCenterHoursUseCase;
@@ -350,6 +387,50 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       const { centerCode, updatedBy } = deps.envelopeContext();
       const room = await deps.restoreRoom.execute({ centerCode, roomId: request.id as RoomId, updatedBy });
       return { room: toRoomView(room) };
+    },
+    'holiday.create': async (request) => {
+      const holiday = await deps.createHoliday.execute({ ...request, ...deps.envelopeContext() });
+      return { id: holiday.id };
+    },
+    'holiday.list': async (request) => {
+      const holidays = await deps.listHolidays.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        scope: request.scope,
+      });
+      return { holidays: holidays.map(toHolidayView) };
+    },
+    'holiday.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const holiday = await deps.updateHoliday.execute({
+        ...fields,
+        centerCode,
+        id: id as HolidayId,
+        updatedBy,
+      });
+      return { holiday: toHolidayView(holiday) };
+    },
+    'holiday.archive': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      try {
+        await deps.archiveHoliday.execute({ centerCode, holidayId: request.id as HolidayId, updatedBy });
+      } catch (error) {
+        // Archiving is idempotent at the boundary: an already-archived or unknown
+        // holiday means the desired end-state (row inactive) already holds, so
+        // report success instead of a generic error toast. The domain use case
+        // still throws so other callers/tests stay strict. Mirrors room.archive.
+        if (!(error instanceof HolidayNotFoundError)) throw error;
+      }
+      return { ok: true };
+    },
+    'holiday.restore': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const holiday = await deps.restoreHoliday.execute({
+        centerCode,
+        holidayId: request.id as HolidayId,
+        updatedBy,
+      });
+      return { holiday: toHolidayView(holiday) };
     },
     'session.week': async () => {
       const sessions = await deps.listWeekSessions.execute({

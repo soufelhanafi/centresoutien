@@ -66,7 +66,9 @@
     "invalid-date": "Date invalide",
     "invalid-id": "Identifiant invalide",
     "invalid-relation": "Lien de parenté invalide",
-    "parent-not-found": "Ce parent est introuvable"
+    "parent-not-found": "Ce parent est introuvable",
+    "end-before-start": "La date de fin doit être après la date de début",
+    "invalid-holiday-kind": "Type de jour férié invalide"
   },
   "guardian": {
     "relation": {
@@ -392,6 +394,94 @@
     },
     "restore": {
       "success": "Salle restaurée",
+      "error": "La restauration a échoué. Réessayez."
+    }
+  },
+  "holidays": {
+    "title": "Jours fériés et vacances",
+    "subtitle": "Gérez les jours fériés solaires et les fêtes lunaires, saisies chaque année.",
+    "new": "Nouveau jour férié",
+    "filter": {
+      "year": "Année",
+      "allYears": "Toutes les années"
+    },
+    "tabs": {
+      "active": "Actifs",
+      "archived": "Archivés"
+    },
+    "kind": {
+      "fixed": "Solaire (fixe)",
+      "lunar": "Lunaire (manuel)"
+    },
+    "kindHint": {
+      "fixed": "Se répète chaque année à la même date grégorienne.",
+      "lunar": "À saisir manuellement chaque année (Aïd, Mawlid…). Aucun calcul du calendrier hégirien."
+    },
+    "table": {
+      "name": "Nom",
+      "kind": "Type",
+      "dates": "Dates",
+      "state": "État",
+      "actions": "Actions"
+    },
+    "state": {
+      "active": "Actif",
+      "archived": "Archivé"
+    },
+    "row": {
+      "menu": "Actions du jour férié",
+      "edit": "Modifier",
+      "archive": "Archiver",
+      "restore": "Restaurer"
+    },
+    "empty": {
+      "title": "Aucun jour férié pour l'instant",
+      "body": "Ajoutez les jours fériés et vacances de votre centre pour que la planification les évite.",
+      "cta": "Ajouter un jour férié"
+    },
+    "yearEmpty": {
+      "title": "Aucun jour férié pour cette année",
+      "body": "Choisissez une autre année ou ajoutez un nouveau jour férié."
+    },
+    "archivedEmpty": {
+      "title": "Aucun jour férié archivé",
+      "body": "Les jours fériés que vous archivez apparaîtront ici."
+    },
+    "loadError": {
+      "title": "Impossible de charger les jours fériés",
+      "body": "Le chargement de la liste a échoué.",
+      "retry": "Réessayer"
+    },
+    "form": {
+      "createTitle": "Nouveau jour férié",
+      "editTitle": "Modifier le jour férié",
+      "createDescription": "Renseignez le nom, le type et la période.",
+      "editDescription": "Mettez à jour le nom, le type et la période.",
+      "nameFr": "Nom (français)",
+      "nameAr": "Nom (arabe)",
+      "nameFrPlaceholder": "ex. Fête du Trône",
+      "nameArPlaceholder": "ex. عيد العرش",
+      "kind": "Type",
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "create": "Créer",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Jour férié créé",
+      "editSuccess": "Modifications enregistrées",
+      "error": "L'enregistrement a échoué. Réessayez."
+    },
+    "archive": {
+      "title": "Archiver ce jour férié ?",
+      "body": "« {{name}} » sera archivé. Vous pourrez le restaurer plus tard.",
+      "confirm": "Archiver",
+      "cancel": "Annuler",
+      "success": "Jour férié archivé",
+      "error": "L'archivage a échoué. Réessayez."
+    },
+    "restore": {
+      "success": "Jour férié restauré",
       "error": "La restauration a échoué. Réessayez."
     }
   },

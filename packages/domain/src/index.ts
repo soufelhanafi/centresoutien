@@ -47,9 +47,11 @@ export { AdminAccountAlreadyExistsError } from './errors/auth-errors';
 export { StudentNotFoundError } from './errors/student-errors';
 export { DuplicateParentError, ParentNotFoundError } from './errors/people-errors';
 export { RoomInUseError, RoomNotFoundError } from './errors/room-errors';
+export { HolidayNotFoundError } from './errors/holiday-errors';
 export {
   SessionOutsideCenterHoursError,
   RoomConflictError,
+  SessionOnHolidayError,
   TeacherConflictError,
   MalformedSessionTimeError,
 } from './errors/scheduling-errors';
@@ -94,6 +96,8 @@ export {
 export type { ParentInput } from './schemas/parent';
 export { roomInputSchema, ROOM_NAME_MAX, ROOM_CAPACITY_MIN } from './schemas/room';
 export type { RoomInput } from './schemas/room';
+export { holidayInputSchema, HOLIDAY_NAME_MAX } from './schemas/holiday';
+export type { HolidayInput } from './schemas/holiday';
 export {
   centerProfileSchema,
   logoUploadSchema,
@@ -128,6 +132,8 @@ export { PARENT_ID_PREFIX } from './entities/parent';
 export type { Parent, ParentId } from './entities/parent';
 export { ROOM_ID_PREFIX } from './entities/room';
 export type { Room, RoomId } from './entities/room';
+export { HOLIDAY_ID_PREFIX } from './entities/holiday';
+export type { Holiday, HolidayId, HolidayKind } from './entities/holiday';
 export {
   WEEKLY_RECURRING_SESSION_ID_PREFIX,
   toScheduledSessionRef,
@@ -158,6 +164,7 @@ export type { CenterRepository } from './ports/center-repository';
 export type { LogoStore } from './ports/logo-store';
 export type { ParentRepository } from './ports/parent-repository';
 export type { RoomRepository } from './ports/room-repository';
+export type { HolidayRepository } from './ports/holiday-repository';
 export type { WeeklyRecurringSessionRepository } from './ports/weekly-recurring-session-repository';
 // Room in-use guard — its concrete adapter is the weekly-session repo (SOU-53).
 export type { RoomReferencePort } from './ports/room-reference';
@@ -180,6 +187,8 @@ export type {
   TeacherSessionCandidate,
   DayHours,
 } from './policies/session-conflict-policy';
+export { holidayCoversDate, holidayOn } from './policies/holiday-policy';
+export type { HolidayOccurrence } from './policies/holiday-policy';
 export { detectSessionConflicts } from './policies/composite-session-conflicts';
 export type {
   ConflictSeverity,
@@ -244,6 +253,16 @@ export { UpdateRoom } from './use-cases/update-room';
 export type { UpdateRoomInput } from './use-cases/update-room';
 export { RestoreRoom } from './use-cases/restore-room';
 export type { RestoreRoomInput } from './use-cases/restore-room';
+export { CreateHoliday } from './use-cases/create-holiday';
+export type { CreateHolidayInput } from './use-cases/create-holiday';
+export { ListHolidays } from './use-cases/list-holidays';
+export type { ListHolidaysInput, HolidayScope } from './use-cases/list-holidays';
+export { UpdateHoliday } from './use-cases/update-holiday';
+export type { UpdateHolidayInput } from './use-cases/update-holiday';
+export { ArchiveHoliday } from './use-cases/archive-holiday';
+export type { ArchiveHolidayInput } from './use-cases/archive-holiday';
+export { RestoreHoliday } from './use-cases/restore-holiday';
+export type { RestoreHolidayInput } from './use-cases/restore-holiday';
 export { GetCenterProfile } from './use-cases/get-center-profile';
 export { SaveCenterProfile } from './use-cases/save-center-profile';
 export type { SaveCenterProfileInput } from './use-cases/save-center-profile';
