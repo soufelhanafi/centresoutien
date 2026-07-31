@@ -1,0 +1,245 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { CreateGroup, type CreateGroupInput } from '../../../src/use-cases/create-group';
+import { PlanPolicy } from '../../../src/plans/plan-policy';
+import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
+import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
+import { RoomNotFoundError } from '../../../src/errors/room-errors';
+import {
+  GroupOverCapacityError,
+  GroupSubjectUnavailableError,
+} from '../../../src/errors/group-errors';
+import { newEnvelope } from '../../../src/entities/envelope';
+import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
+import type { Room, RoomId } from '../../../src/entities/room';
+import type { Subject, SubjectId } from '../../../src/entities/subject';
+import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
+import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
+import { InMemorySubjectRepository } from '../fakes/in-memory-subject-repository';
+import { fakeClock } from '../fakes/clock';
+import { fakeIds } from '../fakes/ids';
+
+const CENTER = 'CS-CASA-001' as CenterCode;
+const OTHER_CENTER = 'CS-RABAT-002' as CenterCode;
+const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
+const USER = 'usr_00000000000000000000000001' as UserId;
+const SUBJECT_ID = 'sub_00000000000000000000000001' as SubjectId;
+const ROOM_ID = 'rom_00000000000000000000000002' as RoomId;
+
+const envelopeClock = fakeClock('2026-01-01T00:00:00Z');
+
+function makeRoom(overrides: Partial<Room> = {}): Room {
+  return {
+    id: ROOM_ID,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
+    name: 'Salle A',
+    capacity: 20,
+    active: true,
+    ...overrides,
+  };
+}
+
+function makeSubject(overrides: Partial<Subject> = {}): Subject {
+  return {
+    id: SUBJECT_ID,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
+    name: { fr: 'Maths', ar: 'الرياضيات' },
+    active: true,
+    ...overrides,
+  };
+}
+
+function validInput(overrides: Partial<CreateGroupInput> = {}): CreateGroupInput {
+  return {
+    subjectId: SUBJECT_ID,
+    teacherId: null,
+    roomId: ROOM_ID,
+    level: '  2ème Bac ',
+    capacity: 15,
+    kind: 'regular',
+    centerCode: CENTER,
+    deviceOrigin: DEVICE,
+    updatedBy: USER,
+    ...overrides,
+  };
+}
+
+describe('CreateGroup', () => {
+  let groups: InMemoryGroupRepository;
+  let rooms: InMemoryRoomRepository;
+  let subjects: InMemorySubjectRepository;
+
+  function build(plan: Plan): CreateGroup {
+    return new CreateGroup(
+      groups,
+      rooms,
+      subjects,
+      fakeClock('2026-07-31T10:00:00Z'),
+      fakeIds(),
+      new PlanPolicy(plan),
+    );
+  }
+
+  beforeEach(async () => {
+    groups = new InMemoryGroupRepository();
+    rooms = new InMemoryRoomRepository();
+    subjects = new InMemorySubjectRepository();
+    await rooms.save(makeRoom());
+    await subjects.save(makeSubject());
+  });
+
+  describe('happy path', () => {
+    it('creates an active regular group with a prefixed id, trimmed level, and a fresh envelope', async () => {
+      const group = await build(PLANS.essentiel).execute(validInput());
+
+      expect(group.id).toMatch(/^grp_/);
+      expect(group.subjectId).toBe(SUBJECT_ID);
+      expect(group.roomId).toBe(ROOM_ID);
+      expect(group.teacherId).toBeNull();
+      expect(group.level).toBe('2ème Bac');
+      expect(group.capacity).toBe(15);
+      expect(group.kind).toBe('regular');
+      expect(group.active).toBe(true);
+      expect(group.centerCode).toBe(CENTER);
+      expect(group.deviceOrigin).toBe(DEVICE);
+      expect(group.updatedBy).toBe(USER);
+      expect(group.createdAt).toEqual(new Date('2026-07-31T10:00:00Z'));
+      expect(group.updatedAt).toEqual(group.createdAt);
+      expect(group.deletedAt).toBeNull();
+      expect(group.version).toBe(0);
+    });
+
+    it('persists the group so it can be read back by id', async () => {
+      const group = await build(PLANS.essentiel).execute(validInput());
+      expect(await groups.findById(group.id)).toEqual(group);
+    });
+
+    it('keeps an assigned teacher id', async () => {
+      const teacherId = 'tch_00000000000000000000000009';
+      const group = await build(PLANS.essentiel).execute(validInput({ teacherId }));
+      expect(group.teacherId).toBe(teacherId);
+    });
+
+    it('accepts capacity exactly equal to the room capacity', async () => {
+      const group = await build(PLANS.essentiel).execute(validInput({ capacity: 20 }));
+      expect(group.capacity).toBe(20);
+    });
+  });
+
+  describe('exam-prep gating', () => {
+    it('creates an exam-prep group on Pro', async () => {
+      const group = await build(PLANS.pro).execute(validInput({ kind: 'exam-prep' }));
+      expect(group.kind).toBe('exam-prep');
+    });
+
+    it('rejects an exam-prep group on Essentiel (lacks core.exam-prep)', async () => {
+      await expect(
+        build(PLANS.essentiel).execute(validInput({ kind: 'exam-prep' })),
+      ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
+      expect(groups.all()).toHaveLength(0);
+    });
+  });
+
+  describe('plan gating', () => {
+    it('throws PlanFeatureUnavailableError when the plan lacks core.groups', async () => {
+      const planWithout: Plan = {
+        id: 'essentiel',
+        features: new Set<FeatureFlag>(),
+        limits: PLANS.essentiel.limits,
+      };
+      await expect(build(planWithout).execute(validInput())).rejects.toBeInstanceOf(
+        PlanFeatureUnavailableError,
+      );
+      expect(groups.all()).toHaveLength(0);
+    });
+  });
+
+  describe('capacity invariant', () => {
+    it('rejects capacity above the room capacity with GroupOverCapacityError', async () => {
+      await expect(
+        build(PLANS.essentiel).execute(validInput({ capacity: 21 })),
+      ).rejects.toBeInstanceOf(GroupOverCapacityError);
+      expect(groups.all()).toHaveLength(0);
+    });
+
+    it('rejects a capacity below 1 (schema invariant)', async () => {
+      await expect(build(PLANS.essentiel).execute(validInput({ capacity: 0 }))).rejects.toThrow();
+      expect(groups.all()).toHaveLength(0);
+    });
+
+    it('rejects a non-integer capacity', async () => {
+      await expect(build(PLANS.essentiel).execute(validInput({ capacity: 1.5 }))).rejects.toThrow();
+      expect(groups.all()).toHaveLength(0);
+    });
+  });
+
+  describe('room resolution', () => {
+    it('rejects an unknown room with RoomNotFoundError', async () => {
+      const input = validInput({ roomId: 'rom_00000000000000000000000099' as RoomId });
+      await expect(build(PLANS.essentiel).execute(input)).rejects.toBeInstanceOf(RoomNotFoundError);
+      expect(groups.all()).toHaveLength(0);
+    });
+
+    it('rejects a room that belongs to another center (tenant scoping)', async () => {
+      const otherRoomId = 'rom_00000000000000000000000003' as RoomId;
+      await rooms.save(makeRoom({ id: otherRoomId, centerCode: OTHER_CENTER }));
+      // Actor stays in CENTER but points at OTHER_CENTER's room → not found for them.
+      await expect(
+        build(PLANS.essentiel).execute(validInput({ roomId: otherRoomId })),
+      ).rejects.toBeInstanceOf(RoomNotFoundError);
+    });
+
+    it('rejects an archived (tombstoned) room', async () => {
+      await rooms.softDelete(ROOM_ID, new Date('2026-07-30T00:00:00Z'), USER);
+      await expect(build(PLANS.essentiel).execute(validInput())).rejects.toBeInstanceOf(
+        RoomNotFoundError,
+      );
+    });
+  });
+
+  describe('subject resolution', () => {
+    it('rejects an unknown subject as not-found', async () => {
+      const input = validInput({ subjectId: 'sub_00000000000000000000000099' as SubjectId });
+      const error = await build(PLANS.essentiel).execute(input).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(GroupSubjectUnavailableError);
+      expect((error as GroupSubjectUnavailableError).reason).toBe('not-found');
+      expect(groups.all()).toHaveLength(0);
+    });
+
+    it('rejects an inactive subject as inactive', async () => {
+      await subjects.save(makeSubject({ active: false }));
+      const error = await build(PLANS.essentiel).execute(validInput()).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(GroupSubjectUnavailableError);
+      expect((error as GroupSubjectUnavailableError).reason).toBe('inactive');
+    });
+
+    it('rejects a subject that belongs to another center (tenant scoping)', async () => {
+      const otherSubjectId = 'sub_00000000000000000000000003' as SubjectId;
+      await subjects.save(makeSubject({ id: otherSubjectId, centerCode: OTHER_CENTER }));
+      // Actor stays in CENTER (its room passes) but points at OTHER_CENTER's subject.
+      const error = await build(PLANS.essentiel)
+        .execute(validInput({ subjectId: otherSubjectId }))
+        .catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(GroupSubjectUnavailableError);
+      expect((error as GroupSubjectUnavailableError).reason).toBe('not-found');
+    });
+  });
+
+  describe('validation', () => {
+    it('rejects a blank level', async () => {
+      await expect(build(PLANS.essentiel).execute(validInput({ level: '   ' }))).rejects.toThrow();
+      expect(groups.all()).toHaveLength(0);
+    });
+
+    it('rejects an invalid kind', async () => {
+      const input = validInput({ kind: 'bootcamp' as CreateGroupInput['kind'] });
+      await expect(build(PLANS.essentiel).execute(input)).rejects.toThrow();
+      expect(groups.all()).toHaveLength(0);
+    });
+
+    it('rejects a malformed subject id', async () => {
+      const input = validInput({ subjectId: 'not-an-id' as SubjectId });
+      await expect(build(PLANS.essentiel).execute(input)).rejects.toThrow();
+      expect(groups.all()).toHaveLength(0);
+    });
+  });
+});

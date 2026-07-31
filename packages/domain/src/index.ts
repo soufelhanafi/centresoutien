@@ -251,6 +251,8 @@ export { ListParentChildren } from './use-cases/list-parent-children';
 export type { ListParentChildrenInput } from './use-cases/list-parent-children';
 export { CreateRoom } from './use-cases/create-room';
 export type { CreateRoomInput } from './use-cases/create-room';
+export { CreateGroup } from './use-cases/create-group';
+export type { CreateGroupInput } from './use-cases/create-group';
 export { ArchiveRoom } from './use-cases/archive-room';
 export type { ArchiveRoomInput } from './use-cases/archive-room';
 export { ListRooms } from './use-cases/list-rooms';
