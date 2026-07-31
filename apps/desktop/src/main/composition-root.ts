@@ -20,6 +20,11 @@ import {
   UpdateRoom,
   ArchiveRoom,
   RestoreRoom,
+  CreateGroup,
+  ListGroups,
+  UpdateGroup,
+  ArchiveGroup,
+  RestoreGroup,
   CreateHoliday,
   ListHolidays,
   UpdateHoliday,
@@ -52,6 +57,7 @@ import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-rep
 import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
 import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repository';
+import { SqliteGroupRepository } from '../data/sqlite/repositories/group-repository';
 import { SqliteHolidayRepository } from '../data/sqlite/repositories/holiday-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
@@ -170,6 +176,13 @@ export function buildContainer(options: ContainerOptions): Container {
   const archiveRoom = new ArchiveRoom(roomRepo, roomReference, clock, plan);
   const restoreRoom = new RestoreRoom(roomRepo, clock, plan);
 
+  const groupRepo = new SqliteGroupRepository(db);
+  const createGroup = new CreateGroup(groupRepo, roomRepo, subjectRepo, clock, ids, plan);
+  const listGroups = new ListGroups(groupRepo, plan);
+  const updateGroup = new UpdateGroup(groupRepo, roomRepo, subjectRepo, clock, plan);
+  const archiveGroup = new ArchiveGroup(groupRepo, clock, plan);
+  const restoreGroup = new RestoreGroup(groupRepo, clock, plan);
+
   const holidayRepo = new SqliteHolidayRepository(db);
   const createHoliday = new CreateHoliday(holidayRepo, clock, ids, plan);
   const listHolidays = new ListHolidays(holidayRepo, plan);
@@ -229,6 +242,11 @@ export function buildContainer(options: ContainerOptions): Container {
     updateRoom,
     archiveRoom,
     restoreRoom,
+    createGroup,
+    listGroups,
+    updateGroup,
+    archiveGroup,
+    restoreGroup,
     createHoliday,
     listHolidays,
     updateHoliday,

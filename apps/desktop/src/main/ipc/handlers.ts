@@ -23,6 +23,13 @@ import type {
   RestoreRoom,
   Room,
   RoomId,
+  CreateGroup,
+  ListGroups,
+  UpdateGroup,
+  ArchiveGroup,
+  RestoreGroup,
+  Group,
+  GroupId,
   CreateHoliday,
   ListHolidays,
   UpdateHoliday,
@@ -52,6 +59,7 @@ import {
   StudentNotFoundError,
   ParentNotFoundError,
   RoomNotFoundError,
+  GroupNotFoundError,
   HolidayNotFoundError,
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
@@ -74,6 +82,11 @@ export type ListRoomsUseCase = Pick<ListRooms, 'execute'>;
 export type UpdateRoomUseCase = Pick<UpdateRoom, 'execute'>;
 export type ArchiveRoomUseCase = Pick<ArchiveRoom, 'execute'>;
 export type RestoreRoomUseCase = Pick<RestoreRoom, 'execute'>;
+export type CreateGroupUseCase = Pick<CreateGroup, 'execute'>;
+export type ListGroupsUseCase = Pick<ListGroups, 'execute'>;
+export type UpdateGroupUseCase = Pick<UpdateGroup, 'execute'>;
+export type ArchiveGroupUseCase = Pick<ArchiveGroup, 'execute'>;
+export type RestoreGroupUseCase = Pick<RestoreGroup, 'execute'>;
 export type CreateHolidayUseCase = Pick<CreateHoliday, 'execute'>;
 export type ListHolidaysUseCase = Pick<ListHolidays, 'execute'>;
 export type UpdateHolidayUseCase = Pick<UpdateHoliday, 'execute'>;
@@ -159,6 +172,23 @@ function toRoomView(room: Room) {
   };
 }
 
+/** Project a Group to its boundary DTO: envelope stripped, dates serialized,
+ *  `archived` derived from the soft-delete tombstone. `active` (a not-yet-read
+ *  domain flag) never crosses the boundary. */
+function toGroupView(group: Group) {
+  return {
+    id: group.id,
+    subjectId: group.subjectId,
+    teacherId: group.teacherId,
+    roomId: group.roomId,
+    level: group.level,
+    capacity: group.capacity,
+    kind: group.kind,
+    archived: group.deletedAt !== null,
+    createdAt: group.createdAt.toISOString(),
+  };
+}
+
 /** Project a Holiday to its boundary DTO: envelope stripped, dates serialized,
  *  `archived` derived from the soft-delete tombstone. `affectsInvoicing` (an
  *  always-false invariant) never crosses the boundary. */
@@ -221,6 +251,11 @@ export type HandlerDeps = {
   updateRoom: UpdateRoomUseCase;
   archiveRoom: ArchiveRoomUseCase;
   restoreRoom: RestoreRoomUseCase;
+  createGroup: CreateGroupUseCase;
+  listGroups: ListGroupsUseCase;
+  updateGroup: UpdateGroupUseCase;
+  archiveGroup: ArchiveGroupUseCase;
+  restoreGroup: RestoreGroupUseCase;
   createHoliday: CreateHolidayUseCase;
   listHolidays: ListHolidaysUseCase;
   updateHoliday: UpdateHolidayUseCase;
@@ -387,6 +422,46 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       const { centerCode, updatedBy } = deps.envelopeContext();
       const room = await deps.restoreRoom.execute({ centerCode, roomId: request.id as RoomId, updatedBy });
       return { room: toRoomView(room) };
+    },
+    'group.create': async (request) => {
+      const group = await deps.createGroup.execute({ ...request, ...deps.envelopeContext() });
+      return { id: group.id };
+    },
+    'group.list': async (request) => {
+      const groups = await deps.listGroups.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        scope: request.scope,
+      });
+      return { groups: groups.map(toGroupView) };
+    },
+    'group.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const group = await deps.updateGroup.execute({
+        ...fields,
+        centerCode,
+        id: id as GroupId,
+        updatedBy,
+      });
+      return { group: toGroupView(group) };
+    },
+    'group.archive': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      try {
+        await deps.archiveGroup.execute({ centerCode, groupId: request.id as GroupId, updatedBy });
+      } catch (error) {
+        // Archiving is idempotent at the boundary: an already-archived or unknown
+        // group means the desired end-state (row inactive) already holds, so report
+        // success instead of a generic error toast. The domain use case still
+        // throws so other callers/tests stay strict. Mirrors room.archive.
+        if (!(error instanceof GroupNotFoundError)) throw error;
+      }
+      return { ok: true };
+    },
+    'group.restore': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const group = await deps.restoreGroup.execute({ centerCode, groupId: request.id as GroupId, updatedBy });
+      return { group: toGroupView(group) };
     },
     'holiday.create': async (request) => {
       const holiday = await deps.createHoliday.execute({ ...request, ...deps.envelopeContext() });

@@ -4,6 +4,7 @@ import {
   studentInputSchema,
   parentInputSchema,
   roomInputSchema,
+  groupInputSchema,
   holidayInputSchema,
   adminCredentialsSchema,
   weeklyHoursSchema,
@@ -65,6 +66,24 @@ const roomViewSchema = z.object({
   id: z.string(),
   name: z.string(),
   capacity: z.number().int(),
+  archived: z.boolean(),
+  createdAt: z.string(),
+});
+
+// The presentation projection of a Group across the IPC boundary — the sync
+// envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized,
+// exactly like `roomViewSchema`. `archived` is derived from `deletedAt != null` in
+// main; `active` (a not-yet-read domain flag) never crosses the boundary.
+// `teacherId` is nullable (a group may exist before a teacher is assigned). Single
+// source of truth for the renderer's `GroupView` type.
+const groupViewSchema = z.object({
+  id: z.string(),
+  subjectId: z.string(),
+  teacherId: z.string().nullable(),
+  roomId: z.string(),
+  level: z.string(),
+  capacity: z.number().int(),
+  kind: z.enum(['regular', 'exam-prep']),
   archived: z.boolean(),
   createdAt: z.string(),
 });
@@ -218,6 +237,34 @@ export const ipcContract = {
     request: z.object({ id: z.string() }),
     response: z.object({ room: roomViewSchema }),
   },
+  // Groups (SOU-120), mirroring the room.* contract. `list` selects the live
+  // groups or the archive via `scope`; `create` and `update` take the domain's own
+  // `groupInputSchema` (capacity ≥ 1, kind regular|exam-prep, prefixed subject/room
+  // ids), validated once and reused by the future group form (zodResolver);
+  // `archive` is a soft delete; `restore` clears the tombstone. centerCode/device/
+  // user are injected in main, never sent from the renderer. Gated by `core.groups`
+  // (every plan) in the use cases; exam-prep additionally needs `core.exam-prep`
+  // (Pro+). All reads strip the envelope to `groupViewSchema`.
+  'group.list': {
+    request: z.object({ scope: z.enum(['active', 'archived']) }),
+    response: z.object({ groups: z.array(groupViewSchema) }),
+  },
+  'group.create': {
+    request: groupInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'group.update': {
+    request: groupInputSchema.extend({ id: z.string() }),
+    response: z.object({ group: groupViewSchema }),
+  },
+  'group.archive': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'group.restore': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ group: groupViewSchema }),
+  },
   // Holidays (SOU-30). `list` selects the live holidays or the archive via `scope`;
   // `create` and `update` take the domain's own `holidayInputSchema` (bilingual
   // name, kind fixed|lunar, calendar-date range with end >= start), validated once
@@ -363,6 +410,9 @@ export type ParentDto = z.infer<typeof parentViewSchema>;
 
 /** The Room boundary DTO — the renderer's `RoomView` is an alias of this. */
 export type RoomDto = z.infer<typeof roomViewSchema>;
+
+/** The Group boundary DTO — the renderer's `GroupView` is an alias of this. */
+export type GroupDto = z.infer<typeof groupViewSchema>;
 
 /** The Holiday boundary DTO — the renderer's `HolidayView` is an alias of this. */
 export type HolidayDto = z.infer<typeof holidayViewSchema>;
