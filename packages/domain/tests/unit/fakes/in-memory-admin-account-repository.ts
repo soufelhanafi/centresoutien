@@ -19,6 +19,11 @@ export class InMemoryAdminAccountRepository implements AdminAccountRepository {
     return null;
   }
 
+  async findOnly(): Promise<AdminAccount | null> {
+    const [first] = this.rows.values();
+    return first ? structuredClone(first) : null;
+  }
+
   async save(account: AdminAccount): Promise<void> {
     this.rows.set(account.id, structuredClone(account));
   }

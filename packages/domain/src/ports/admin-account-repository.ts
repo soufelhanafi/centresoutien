@@ -10,6 +10,11 @@ export interface AdminAccountRepository {
   /** True when any admin account is present (drives first-run detection). */
   exists(): Promise<boolean>;
   findByUsername(username: string): Promise<AdminAccount | null>;
+  /**
+   * The sole admin account (single-admin app). Backs password change, which has
+   * no username to look up by — the settings screen never asks for one.
+   */
+  findOnly(): Promise<AdminAccount | null>;
   /** Insert on first creation, or update the hash/username on a later change. */
   save(account: AdminAccount): Promise<void>;
 }

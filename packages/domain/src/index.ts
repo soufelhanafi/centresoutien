@@ -45,7 +45,11 @@ export type { PlanId, FeatureFlag, PlanLimits, Plan } from './plans/plans';
 export { PLANS } from './plans/plans';
 export { PlanPolicy } from './plans/plan-policy';
 export { DomainError, PlanFeatureUnavailableError, PlanLimitExceededError } from './errors/plan-errors';
-export { AdminAccountAlreadyExistsError } from './errors/auth-errors';
+export {
+  AdminAccountAlreadyExistsError,
+  AdminAccountNotFoundError,
+  InvalidCurrentPasswordError,
+} from './errors/auth-errors';
 export { StudentNotFoundError } from './errors/student-errors';
 export {
   DuplicateParentError,
@@ -119,12 +123,13 @@ export {
 export type { StudentInput } from './schemas/student';
 export {
   adminCredentialsSchema,
+  changeAdminPasswordSchema,
   USERNAME_MIN,
   USERNAME_MAX,
   PASSWORD_MIN,
   PASSWORD_MAX,
 } from './schemas/admin-account';
-export type { AdminCredentials } from './schemas/admin-account';
+export type { AdminCredentials, ChangeAdminPasswordCredentials } from './schemas/admin-account';
 export {
   weekdayHoursSchema,
   weeklyHoursSchema,
@@ -505,5 +510,7 @@ export { CreateAdminAccount } from './use-cases/create-admin-account';
 export type { CreateAdminAccountInput } from './use-cases/create-admin-account';
 export { VerifyAdminPassword } from './use-cases/verify-admin-password';
 export type { VerifyAdminPasswordInput } from './use-cases/verify-admin-password';
+export { ChangeAdminPassword } from './use-cases/change-admin-password';
+export type { ChangeAdminPasswordInput } from './use-cases/change-admin-password';
 export { AttemptLogin } from './use-cases/attempt-login';
 export type { LoginResult, CredentialVerifier } from './use-cases/attempt-login';
