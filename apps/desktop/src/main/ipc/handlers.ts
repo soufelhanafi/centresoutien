@@ -107,6 +107,7 @@ import {
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import type { LocalePreference } from '../infra/locale-preference-store';
 import { createBackupHandlers, type BackupHandlerDeps } from './backup-handlers';
+import { createDialogHandlers } from './dialog-handlers';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
@@ -1011,5 +1012,6 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       return { ok: true };
     },
     ...createBackupHandlers(deps),
+    ...createDialogHandlers(),
   };
 }
