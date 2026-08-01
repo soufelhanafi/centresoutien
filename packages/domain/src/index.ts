@@ -94,6 +94,7 @@ export {
   SessionOnHolidayError,
   TeacherConflictError,
   MalformedSessionTimeError,
+  InvalidSessionValidityRangeError,
   WeeklyRecurringSessionNotFoundError,
 } from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/scheduling-errors';
@@ -232,10 +233,12 @@ export type {
 export {
   WEEKLY_RECURRING_SESSION_ID_PREFIX,
   toScheduledSessionRef,
+  createWeeklyRecurringSession,
 } from './entities/weekly-recurring-session';
 export type {
   WeeklyRecurringSession,
   WeeklyRecurringSessionId,
+  WeeklyRecurringSessionDraft,
 } from './entities/weekly-recurring-session';
 export { SESSION_ID_PREFIX } from './entities/session';
 export type { Session, SessionId } from './entities/session';
@@ -312,6 +315,7 @@ export type {
   TeacherSessionCandidate,
   DayHours,
 } from './policies/session-conflict-policy';
+export { teacherTeachesSubject } from './policies/teacher-teaches-subject';
 export { holidayCoversDate, holidayOn } from './policies/holiday-policy';
 export type { HolidayOccurrence } from './policies/holiday-policy';
 export { detectSessionConflicts } from './policies/composite-session-conflicts';

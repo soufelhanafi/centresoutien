@@ -43,6 +43,9 @@ function recurring(over: Partial<WeeklyRecurringSession> = {}): WeeklyRecurringS
     dayOfWeek: 4,
     start: '09:00' as TimeOfDay,
     end: '10:30' as TimeOfDay,
+    active: true,
+    validFrom: null,
+    validTo: null,
     ...over,
   };
 }
