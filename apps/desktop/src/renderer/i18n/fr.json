@@ -59,6 +59,7 @@
     "password-needs-digit": "Ajoutez au moins un chiffre",
     "password-mismatch": "Les mots de passe ne correspondent pas",
     "invalid-current-password": "Mot de passe actuel incorrect",
+    "admin-account-not-found": "Ce compte administrateur est introuvable. Contactez le support.",
     "invalid-time": "Heure invalide",
     "close-before-open": "La fermeture doit être après l'ouverture",
     "closed-partial": "Indiquez l'ouverture et la fermeture, ou fermez le jour",

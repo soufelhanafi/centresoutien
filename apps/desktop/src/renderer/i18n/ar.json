@@ -59,6 +59,7 @@
     "password-needs-digit": "أضف رقمًا واحدًا على الأقل",
     "password-mismatch": "كلمتا المرور غير متطابقتين",
     "invalid-current-password": "كلمة المرور الحالية غير صحيحة",
+    "admin-account-not-found": "تعذّر العثور على حساب المسؤول. اتصل بالدعم.",
     "invalid-time": "وقت غير صالح",
     "close-before-open": "يجب أن يكون وقت الإغلاق بعد وقت الفتح",
     "closed-partial": "حدّد وقت الفتح والإغلاق، أو أغلق اليوم",
