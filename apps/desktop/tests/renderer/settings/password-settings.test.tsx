@@ -75,6 +75,27 @@ describe('Password settings — French', () => {
 
     expect(await screen.findByText('Mot de passe actuel incorrect')).toBeInTheDocument();
   });
+
+  it('shows a weak-new-password rejection inline on the new-password field, not a toast', async () => {
+    window.api.invoke = vi.fn(async () => {
+      throw new Error(
+        'Error invoking remote method \'admin.changePassword\': ZodError: [{"code":"custom","message":"password-needs-digit","path":["newPassword"]}]',
+      );
+    });
+    const user = userEvent.setup();
+    renderForm();
+
+    // A value that satisfies the client-side zodResolver so submit actually
+    // reaches the mocked IPC rejection above — proving the *server-side*
+    // defense-in-depth mapping (dispatcher-level Zod re-validation), which is
+    // the only realistic way this branch is reached in production.
+    await user.type(screen.getByLabelText('Mot de passe actuel'), 'OldPass1');
+    await user.type(screen.getByLabelText('Nouveau mot de passe'), 'NewPass1');
+    await user.type(screen.getByLabelText('Confirmer le nouveau mot de passe'), 'NewPass1');
+    await user.click(screen.getByRole('button', { name: 'Mettre à jour' }));
+
+    expect(await screen.findByText('Ajoutez au moins un chiffre')).toBeInTheDocument();
+  });
 });
 
 describe('Password settings — Arabic (RTL)', () => {

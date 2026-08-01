@@ -20,7 +20,7 @@ import {
 } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
 import { useChangePassword } from '../../hooks/settings/use-change-password';
-import { mapChangePasswordError } from '../../lib/settings/change-password-error';
+import { NEW_PASSWORD_ERROR_CODES, mapChangePasswordError } from '../../lib/settings/change-password-error';
 
 /**
  * Confirm-password is a UI concern only, so it extends — never forks — the
@@ -55,6 +55,8 @@ export function PasswordSettings() {
       const code = mapChangePasswordError(error);
       if (code === 'invalid-current-password') {
         form.setError('currentPassword', { message: code });
+      } else if (code && NEW_PASSWORD_ERROR_CODES.has(code)) {
+        form.setError('newPassword', { message: code });
       } else {
         toast.error(t('settings.password.error'));
       }
