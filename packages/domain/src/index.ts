@@ -424,6 +424,8 @@ export { ListRooms } from './use-cases/list-rooms';
 export type { ListRoomsInput, RoomScope } from './use-cases/list-rooms';
 export { ListWeekSessions } from './use-cases/list-week-sessions';
 export type { ListWeekSessionsInput } from './use-cases/list-week-sessions';
+export { GenerateSessions } from './use-cases/generate-sessions';
+export type { GenerateSessionsInput } from './use-cases/generate-sessions';
 export { UpdateRoom } from './use-cases/update-room';
 export type { UpdateRoomInput } from './use-cases/update-room';
 export { RestoreRoom } from './use-cases/restore-room';
