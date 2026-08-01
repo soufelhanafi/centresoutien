@@ -10,6 +10,7 @@
     "students": "Élèves",
     "teachers": "Enseignants",
     "parents": "Parents",
+    "subjects": "Matières",
     "groups": "Groupes",
     "rooms": "Salles",
     "planning": "Planning",
@@ -76,7 +77,11 @@
     "room-conflict": "La salle est déjà occupée sur ce créneau",
     "teacher-conflict": "L'enseignant a déjà une séance sur ce créneau",
     "invalid-session-validity-range": "La période de validité de la séance est invalide",
-    "weekly-recurring-session-not-found": "Cette séance n'existe plus"
+    "weekly-recurring-session-not-found": "Cette séance n'existe plus",
+    "invalid-code": "Code invalide (majuscules, chiffres, - et _ uniquement)",
+    "subject-in-use": "Cette matière est utilisée par au moins un groupe et ne peut pas être supprimée",
+    "subject-not-found": "Cette matière est introuvable",
+    "duplicate-subject-code": "Ce code est déjà utilisé par une autre matière"
   },
   "groups": {
     "title": "Groupes",
@@ -324,12 +329,90 @@
     }
   },
   "subjects": {
+    "title": "Matières",
+    "subtitle": "Configurez les matières proposées par votre centre.",
+    "new": "Nouvelle matière",
+    "tabs": {
+      "active": "Actives",
+      "inactive": "Inactives"
+    },
+    "table": {
+      "code": "Code",
+      "name": "Nom",
+      "state": "État",
+      "inUse": "Utilisation",
+      "actions": "Actions",
+      "noCode": "—"
+    },
+    "state": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "referenceKind": {
+      "group": "Groupe",
+      "formula": "Formule",
+      "session": "Séance"
+    },
+    "row": {
+      "menu": "Actions de la matière « {{name}} »",
+      "edit": "Modifier",
+      "deactivate": "Désactiver",
+      "activate": "Réactiver",
+      "delete": "Supprimer",
+      "deleteBlockedHint_one": "Utilisée par {{count}} élément — désactivez-la à la place.",
+      "deleteBlockedHint_other": "Utilisée par {{count}} éléments — désactivez-la à la place."
+    },
+    "empty": {
+      "title": "Aucune matière pour l'instant",
+      "body": "Ajoutez votre première matière pour commencer à composer des formules.",
+      "cta": "Ajouter une matière"
+    },
+    "inactiveEmpty": {
+      "title": "Aucune matière inactive",
+      "body": "Les matières que vous désactivez apparaîtront ici."
+    },
+    "loadError": {
+      "title": "Impossible de charger les matières",
+      "body": "Le chargement de la liste a échoué.",
+      "retry": "Réessayer"
+    },
     "form": {
-      "title": "Nouvelle matière",
+      "createTitle": "Nouvelle matière",
+      "editTitle": "Modifier la matière",
+      "createDescription": "Renseignez le nom bilingue et, si besoin, un code court.",
+      "editDescription": "Mettez à jour le nom bilingue de la matière.",
       "nameFr": "Nom (français)",
       "nameAr": "Nom (arabe)",
-      "submit": "Créer la matière",
-      "success": "Matière créée"
+      "code": "Code (optionnel)",
+      "codePlaceholder": "ex. MATH",
+      "codeHint": "Majuscules, chiffres, - et _ uniquement. Laissez vide si inutile.",
+      "create": "Créer la matière",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Matière créée",
+      "editSuccess": "Modifications enregistrées",
+      "error": "L'enregistrement a échoué. Réessayez."
+    },
+    "activate": {
+      "success": "Matière réactivée",
+      "error": "La réactivation a échoué. Réessayez."
+    },
+    "deactivate": {
+      "success": "Matière désactivée",
+      "error": "La désactivation a échoué. Réessayez."
+    },
+    "delete": {
+      "title": "Supprimer cette matière ?",
+      "body": "La matière « {{name}} » sera définitivement supprimée. Cette action est irréversible.",
+      "confirm": "Supprimer",
+      "cancel": "Annuler",
+      "success": "Matière supprimée",
+      "error": "La suppression a échoué. Réessayez.",
+      "blockedTitle": "Impossible de supprimer cette matière",
+      "blockedBody_one": "« {{name}} » est utilisée par {{count}} élément. Détachez-le d'abord, ou désactivez la matière à la place :",
+      "blockedBody_other": "« {{name}} » est utilisée par {{count}} éléments. Détachez-les d'abord, ou désactivez la matière à la place :",
+      "deactivateInstead": "Désactiver la matière"
     }
   },
   "students": {

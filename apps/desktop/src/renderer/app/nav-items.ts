@@ -3,6 +3,7 @@ import {
   GraduationCap,
   Users,
   UserRound,
+  BookOpen,
   Boxes,
   DoorOpen,
   CalendarDays,
@@ -41,6 +42,7 @@ export const dashboardModule = { id: 'dashboard', path: '/dashboard', icon: Layo
 export const studentsModule = { id: 'students', path: '/students', icon: GraduationCap } as const satisfies NavModule;
 export const teachersModule = { id: 'teachers', path: '/teachers', icon: Users } as const satisfies NavModule;
 export const parentsModule = { id: 'parents', path: '/parents', icon: UserRound } as const satisfies NavModule;
+export const subjectsModule = { id: 'subjects', path: '/subjects', icon: BookOpen } as const satisfies NavModule;
 export const groupsModule = { id: 'groups', path: '/groups', icon: Boxes } as const satisfies NavModule;
 export const roomsModule = { id: 'rooms', path: '/rooms', icon: DoorOpen } as const satisfies NavModule;
 export const planningModule = { id: 'planning', path: '/planning', icon: CalendarDays } as const satisfies NavModule;
@@ -56,6 +58,7 @@ export const NAV_MODULES: readonly NavModule[] = [
   studentsModule,
   teachersModule,
   parentsModule,
+  subjectsModule,
   groupsModule,
   roomsModule,
   planningModule,
