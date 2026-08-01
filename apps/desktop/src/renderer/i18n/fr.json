@@ -70,7 +70,11 @@
     "end-before-start": "La date de fin doit être après la date de début",
     "invalid-holiday-kind": "Type de jour férié invalide",
     "invalid-kind": "Type de groupe invalide",
-    "invalid-month": "Mois invalide (AAAA-MM)"
+    "invalid-month": "Mois invalide (AAAA-MM)",
+    "group-full": "Ce groupe est complet : toutes les places sont occupées.",
+    "duplicate-enrollment": "Cet élève est déjà inscrit dans ce groupe.",
+    "cross-kind-enrollment": "L'abonnement de l'élève ne correspond pas au type du groupe (régulier / prépa examen).",
+    "enrollment-subscription-missing": "L'élève n'a aucun abonnement actif couvrant la matière de ce groupe."
   },
   "groups": {
     "title": "Groupes",

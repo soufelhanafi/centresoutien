@@ -70,7 +70,11 @@
     "end-before-start": "يجب أن يكون تاريخ النهاية بعد تاريخ البداية",
     "invalid-holiday-kind": "نوع العطلة غير صالح",
     "invalid-kind": "نوع المجموعة غير صالح",
-    "invalid-month": "شهر غير صالح (YYYY-MM)"
+    "invalid-month": "شهر غير صالح (YYYY-MM)",
+    "group-full": "هذه المجموعة مكتملة: جميع المقاعد مشغولة.",
+    "duplicate-enrollment": "هذا التلميذ مسجّل بالفعل في هذه المجموعة.",
+    "cross-kind-enrollment": "اشتراك التلميذ لا يطابق نوع المجموعة (عادي / تحضير الامتحان).",
+    "enrollment-subscription-missing": "لا يملك التلميذ أي اشتراك نشط يغطي مادة هذه المجموعة."
   },
   "groups": {
     "title": "المجموعات",
