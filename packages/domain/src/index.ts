@@ -94,6 +94,10 @@ export {
 } from './errors/subscription-errors';
 export { FormulaImmutableError } from './errors/formula-errors';
 export {
+  TooManyActivePayrollRulesError,
+  TeacherPayrollRuleNotFoundError,
+} from './errors/payroll-errors';
+export {
   SessionOutsideCenterHoursError,
   RoomConflictError,
   SessionOnHolidayError,
@@ -182,6 +186,11 @@ export type { StudentSubscriptionInput } from './schemas/student-subscription';
 export { formulaInputSchema, FORMULA_NAME_MAX } from './schemas/formula';
 export type { FormulaInput } from './schemas/formula';
 export {
+  teacherPayrollRuleInputSchema,
+  closeTeacherPayrollRuleMonthSchema,
+} from './schemas/teacher-payroll-rule';
+export type { TeacherPayrollRuleInput } from './schemas/teacher-payroll-rule';
+export {
   teacherInputSchema,
   TEACHER_NAME_MAX,
   TEACHER_CIN_MAX,
@@ -242,6 +251,15 @@ export type { StudentSubscription, StudentSubscriptionId } from './entities/stud
 export { FORMULA_ID_PREFIX } from './entities/formula';
 export type { Formula, FormulaId } from './entities/formula';
 export {
+  TEACHER_PAYROLL_RULE_ID_PREFIX,
+  TEACHER_PAYROLL_RULE_KINDS,
+} from './entities/teacher-payroll-rule';
+export type {
+  TeacherPayrollRule,
+  TeacherPayrollRuleId,
+  TeacherPayrollRuleKind,
+} from './entities/teacher-payroll-rule';
+export {
   WEEKLY_RECURRING_SESSION_ID_PREFIX,
   toScheduledSessionRef,
   createWeeklyRecurringSession,
@@ -300,6 +318,9 @@ export type { InvoiceRepository } from './ports/invoice-repository';
 export type { PaymentReader, PaymentRepository } from './ports/payment-repository';
 // StudentSubscription repository (SOU-63) — port + SQLite adapter land together.
 export type { StudentSubscriptionRepository } from './ports/student-subscription-repository';
+// TeacherPayrollRule repository (SOU-70) — port declared here; SQLite adapter +
+// migration are SOU-71's scope.
+export type { TeacherPayrollRuleRepository } from './ports/teacher-payroll-rule-repository';
 // Student-subscription coverage — DECLARED CONTRACT ONLY; real adapter lands with
 // StudentSubscription (SOU-63). Drives the EnrollStudent coverage + cross-kind guards.
 export type {
@@ -359,6 +380,10 @@ export {
   subscriptionRangesOverlap,
   findActiveCoverage,
 } from './policies/student-subscription-policy';
+export {
+  isPayrollRuleActiveInMonth,
+  payrollRuleRangesOverlap,
+} from './policies/teacher-payroll-rule-policy';
 export { updateFormula } from './policies/formula-policy';
 export type { FormulaPatch } from './policies/formula-policy';
 
@@ -447,6 +472,10 @@ export { CloseStudentSubscription } from './use-cases/close-student-subscription
 export type { CloseStudentSubscriptionInput } from './use-cases/close-student-subscription';
 export { ListStudentSubscriptions } from './use-cases/list-student-subscriptions';
 export type { ListStudentSubscriptionsInput } from './use-cases/list-student-subscriptions';
+export { CreateTeacherPayrollRule } from './use-cases/create-teacher-payroll-rule';
+export type { CreateTeacherPayrollRuleInput } from './use-cases/create-teacher-payroll-rule';
+export { CloseTeacherPayrollRule } from './use-cases/close-teacher-payroll-rule';
+export type { CloseTeacherPayrollRuleInput } from './use-cases/close-teacher-payroll-rule';
 export { ListGroups, orderGroupsForList } from './use-cases/list-groups';
 export type { ListGroupsInput, GroupScope } from './use-cases/list-groups';
 export { ListGroupsWithCounts } from './use-cases/list-groups-with-counts';
