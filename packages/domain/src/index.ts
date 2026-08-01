@@ -94,6 +94,7 @@ export {
   SessionOnHolidayError,
   TeacherConflictError,
   MalformedSessionTimeError,
+  WeeklyRecurringSessionNotFoundError,
 } from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/scheduling-errors';
 
@@ -426,6 +427,8 @@ export { ListWeekSessions } from './use-cases/list-week-sessions';
 export type { ListWeekSessionsInput } from './use-cases/list-week-sessions';
 export { GenerateSessions } from './use-cases/generate-sessions';
 export type { GenerateSessionsInput } from './use-cases/generate-sessions';
+export { GenerateAndPersistSessions } from './use-cases/generate-and-persist-sessions';
+export type { GenerateAndPersistSessionsInput } from './use-cases/generate-and-persist-sessions';
 export { UpdateRoom } from './use-cases/update-room';
 export type { UpdateRoomInput } from './use-cases/update-room';
 export { RestoreRoom } from './use-cases/restore-room';
