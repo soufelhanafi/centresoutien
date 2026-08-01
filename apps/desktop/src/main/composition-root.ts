@@ -48,6 +48,8 @@ import {
   ArchiveHoliday,
   RestoreHoliday,
   ListWeekSessions,
+  GenerateSessions,
+  GenerateAndPersistSessions,
   CreateAdminAccount,
   VerifyAdminPassword,
   SaveCenterHours,
@@ -86,6 +88,7 @@ import { SqlitePaymentRepository } from '../data/sqlite/repositories/payment-rep
 import { SqliteTeacherRepository } from '../data/sqlite/repositories/teacher-repository';
 import { SqliteHolidayRepository } from '../data/sqlite/repositories/holiday-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
+import { SqliteSessionRepository } from '../data/sqlite/repositories/session-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-throttle-store';
@@ -293,6 +296,19 @@ export function buildContainer(options: ContainerOptions): Container {
   const archiveHoliday = new ArchiveHoliday(holidayRepo, clock, plan);
   const restoreHoliday = new RestoreHoliday(holidayRepo, clock, plan);
 
+  // Concrete dated sessions (SOU-129): the SOU-56 generator is pure, so the plan
+  // gate + persistence live here. GenerateAndPersistSessions resolves the
+  // recurrence template (the WRS repo above) and the center's holidays, runs the
+  // pure generator, and upserts idempotently on (recurringSessionId, date).
+  const concreteSessionRepo = new SqliteSessionRepository(db);
+  const generateSessions = new GenerateAndPersistSessions(
+    concreteSessionRepo,
+    sessionRepo,
+    holidayRepo,
+    new GenerateSessions(clock, ids),
+    plan,
+  );
+
   const centerRepo = new SqliteCenterRepository(db);
   const getCenterProfile = new GetCenterProfile(centerRepo);
   const saveCenterProfile = new SaveCenterProfile(centerRepo, clock, ids);
@@ -373,6 +389,7 @@ export function buildContainer(options: ContainerOptions): Container {
     archiveHoliday,
     restoreHoliday,
     listWeekSessions,
+    generateSessions,
     saveCenterHours,
     getCenterHours,
     envelopeContext: () => context,

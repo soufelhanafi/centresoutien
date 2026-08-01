@@ -66,6 +66,9 @@ import type {
   HolidayId,
   ListWeekSessions,
   WeeklyRecurringSession,
+  GenerateAndPersistSessions,
+  Session,
+  WeeklyRecurringSessionId,
   CreateAdminAccount,
   VerifyAdminPassword,
   SaveCenterHours,
@@ -139,6 +142,7 @@ export type UpdateHolidayUseCase = Pick<UpdateHoliday, 'execute'>;
 export type ArchiveHolidayUseCase = Pick<ArchiveHoliday, 'execute'>;
 export type RestoreHolidayUseCase = Pick<RestoreHoliday, 'execute'>;
 export type ListWeekSessionsUseCase = Pick<ListWeekSessions, 'execute'>;
+export type GenerateAndPersistSessionsUseCase = Pick<GenerateAndPersistSessions, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
@@ -328,6 +332,20 @@ function toWeeklySessionView(session: WeeklyRecurringSession) {
   };
 }
 
+/** Project a concrete dated session to its boundary DTO: envelope stripped, the
+ *  branded id / `TimeOfDay` values widened to plain strings for the wire. */
+function toSessionView(session: Session) {
+  return {
+    id: session.id,
+    recurringSessionId: session.recurringSessionId,
+    roomId: session.roomId,
+    teacherId: session.teacherId,
+    date: session.date,
+    start: session.start,
+    end: session.end,
+  };
+}
+
 /** Strip the envelope: the renderer only needs the editable weekday fields. */
 function toWeekView(week: readonly CenterHours[]) {
   return week.map((hours) => ({
@@ -390,6 +408,7 @@ export type HandlerDeps = {
   archiveHoliday: ArchiveHolidayUseCase;
   restoreHoliday: RestoreHolidayUseCase;
   listWeekSessions: ListWeekSessionsUseCase;
+  generateSessions: GenerateAndPersistSessionsUseCase;
   saveCenterHours: SaveCenterHoursUseCase;
   getCenterHours: GetCenterHoursUseCase;
   envelopeContext: () => EnvelopeContext;
@@ -793,6 +812,17 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         centerCode: deps.envelopeContext().centerCode,
       });
       return { sessions: sessions.map(toWeeklySessionView) };
+    },
+    'session.generate': async (request) => {
+      const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
+      const sessions = await deps.generateSessions.execute({
+        centerCode,
+        recurringSessionId: request.recurringSessionId as WeeklyRecurringSessionId,
+        range: { start: request.from, end: request.to },
+        deviceOrigin,
+        updatedBy,
+      });
+      return { sessions: sessions.map(toSessionView) };
     },
     'centerHours.get': async () => {
       const week = await deps.getCenterHours.execute({

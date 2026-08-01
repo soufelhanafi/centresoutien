@@ -17,6 +17,7 @@ import type {
   UserId,
   WeekdayIndex,
   WeeklyRecurringSessionId,
+  SessionId,
 } from '@centresoutien/domain';
 import { GroupNotFoundError } from '@centresoutien/domain';
 import { createIpcDispatcher } from '../../../src/main/ipc/dispatcher';
@@ -34,6 +35,7 @@ import {
   type ArchiveGroupUseCase,
   type RestoreGroupUseCase,
   type ListWeekSessionsUseCase,
+  type GenerateAndPersistSessionsUseCase,
   type SaveCenterHoursUseCase,
   type GetCenterHoursUseCase,
   type AttemptLoginUseCase,
@@ -225,6 +227,30 @@ const stubListWeekSessions: ListWeekSessionsUseCase = {
   ],
 };
 
+// Stub concrete-session generator (SOU-129) — echoes the injected envelope
+// context and one materialized occurrence so the handler can prove it maps the
+// request (from/to → range) and strips the envelope to `sessionViewSchema`.
+const stubGenerateSessions: GenerateAndPersistSessionsUseCase = {
+  execute: async (input) => [
+    {
+      id: 'ses_00000000000000000000000001' as SessionId,
+      centerCode: input.centerCode,
+      deviceOrigin: input.deviceOrigin,
+      createdAt: new Date('2026-07-29T10:00:00Z'),
+      updatedAt: new Date('2026-07-29T10:00:00Z'),
+      updatedBy: input.updatedBy,
+      deletedAt: null,
+      version: 0,
+      recurringSessionId: input.recurringSessionId,
+      roomId: 'rom_00000000000000000000000001' as RoomId,
+      teacherId: null,
+      date: input.range.start,
+      start: '09:00' as TimeOfDay,
+      end: '10:00' as TimeOfDay,
+    },
+  ],
+};
+
 // Group stubs (SOU-120). Each echoes an envelope-complete Group so the handler
 // can prove it strips the envelope down to `groupViewSchema`. `archive` throws
 // GroupNotFoundError for the sentinel id to exercise the boundary's idempotent
@@ -304,6 +330,7 @@ const dispatch = createIpcDispatcher(
     createSubject: stubCreateSubject,
     createParent: stubCreateParent,
     listWeekSessions: stubListWeekSessions,
+    generateSessions: stubGenerateSessions,
     saveCenterHours: stubSaveCenterHours,
     getCenterHours: stubGetCenterHours,
     envelopeContext: () => context,
@@ -371,6 +398,48 @@ describe('createIpcDispatcher', () => {
         },
       ],
     });
+  });
+
+  it('runs session.generate and returns the envelope-stripped occurrences', async () => {
+    await expect(
+      dispatch('session.generate', {
+        recurringSessionId: 'wrs_00000000000000000000000001',
+        from: '2026-01-01',
+        to: '2026-01-31',
+      }),
+    ).resolves.toEqual({
+      sessions: [
+        {
+          id: 'ses_00000000000000000000000001',
+          recurringSessionId: 'wrs_00000000000000000000000001',
+          roomId: 'rom_00000000000000000000000001',
+          teacherId: null,
+          date: '2026-01-01',
+          start: '09:00',
+          end: '10:00',
+        },
+      ],
+    });
+  });
+
+  it('rejects session.generate with a backwards window (to before from)', async () => {
+    await expect(
+      dispatch('session.generate', {
+        recurringSessionId: 'wrs_00000000000000000000000001',
+        from: '2026-01-31',
+        to: '2026-01-01',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects session.generate with a non-wrs recurrence id', async () => {
+    await expect(
+      dispatch('session.generate', {
+        recurringSessionId: 'rom_00000000000000000000000001',
+        from: '2026-01-01',
+        to: '2026-01-31',
+      }),
+    ).rejects.toThrow();
   });
 
   it('runs centerHours.get and returns the week view', async () => {

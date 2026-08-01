@@ -6,6 +6,7 @@ import {
   roomInputSchema,
   groupInputSchema,
   enrollmentInputSchema,
+  generateSessionsSchema,
   teacherInputSchema,
   holidayInputSchema,
   studentSubscriptionInputSchema,
@@ -212,6 +213,22 @@ const weeklySessionViewSchema = z.object({
   roomId: z.string(),
   teacherId: z.string().nullable(),
   dayOfWeek: z.number().int().min(0).max(6),
+  start: z.string(),
+  end: z.string(),
+});
+
+// The presentation projection of a concrete, dated session occurrence across the
+// IPC boundary (SOU-129) — the sync envelope is stripped and the branded id /
+// `TimeOfDay` values widened to plain strings. `teacherId` is nullable (inherited
+// from the template, which may have no teacher). `date` is a `YYYY-MM-DD` civil
+// date; `start`/`end` are `'HH:mm'` wall-clock strings, not timestamps. Single
+// source of truth for the renderer's `SessionView` type.
+const sessionViewSchema = z.object({
+  id: z.string(),
+  recurringSessionId: z.string(),
+  roomId: z.string(),
+  teacherId: z.string().nullable(),
+  date: z.string(),
   start: z.string(),
   end: z.string(),
 });
@@ -520,6 +537,18 @@ export const ipcContract = {
     request: z.object({}),
     response: z.object({ sessions: z.array(weeklySessionViewSchema) }),
   },
+  // Materialize concrete dated sessions from a recurrence template (SOU-129;
+  // domain use case SOU-56 + this ticket's persistence seam). The request is the
+  // domain's own `generateSessionsSchema` (prefixed `wrs_` id, strict YYYY-MM-DD
+  // `from`/`to` with `to >= from`), validated once and reused by any future
+  // calendar "generate" action. centerCode/device/user are injected in main,
+  // never sent from the renderer. Gated by `core.calendar.week` in the use case;
+  // idempotent — re-running over the same window persists no duplicates. Returns
+  // the generated window as envelope-stripped `sessionViewSchema` rows.
+  'session.generate': {
+    request: generateSessionsSchema,
+    response: z.object({ sessions: z.array(sessionViewSchema) }),
+  },
   // Auth (SOU-26). `admin.exists` drives first-run detection; `admin.create`
   // reuses the domain credential schema (password policy enforced here too);
   // `admin.verify` is a bare presence check — login must not reject an existing
@@ -655,6 +684,9 @@ export type HolidayDto = z.infer<typeof holidayViewSchema>;
 
 /** The weekly-session boundary DTO — the renderer's `WeeklySessionView` aliases this. */
 export type WeeklySessionDto = z.infer<typeof weeklySessionViewSchema>;
+
+/** The concrete dated-session boundary DTO — the renderer's `SessionView` aliases this. */
+export type SessionDto = z.infer<typeof sessionViewSchema>;
 
 export type IpcContract = typeof ipcContract;
 export type IpcChannel = keyof IpcContract;

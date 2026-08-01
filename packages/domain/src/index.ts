@@ -148,6 +148,8 @@ export { groupInputSchema, GROUP_LEVEL_MAX, GROUP_CAPACITY_MIN } from './schemas
 export type { GroupInput } from './schemas/group';
 export { enrollmentInputSchema, MONTH_PATTERN } from './schemas/enrollment';
 export type { EnrollmentInput } from './schemas/enrollment';
+export { generateSessionsSchema } from './schemas/session';
+export type { GenerateSessionsRequest } from './schemas/session';
 export {
   invoiceLineSnapshotSchema,
   createInvoiceDraftSchema,
