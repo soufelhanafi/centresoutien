@@ -106,9 +106,10 @@ describe('GenerateAndPersistSessions', () => {
         '2026-01-22',
         '2026-01-29',
       ]);
-      // Persisted: the range read sees the same set.
-      const stored = await sessions.listForRange(CENTER, '2026-01-01', '2026-01-31');
-      expect(datesOf(stored)).toEqual(datesOf(result));
+      // The return is the persisted truth, not the generator output: it deep-equals
+      // a fresh range read (same ids, same envelopes), not merely the same dates.
+      const stored = await sessions.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' });
+      expect(result).toEqual(stored);
     });
 
     it('skips holiday dates (delegated to the pure generator)', async () => {
@@ -133,22 +134,45 @@ describe('GenerateAndPersistSessions', () => {
   describe('idempotent re-run', () => {
     it('re-running over the same window persists no duplicates and no changes to existing rows', async () => {
       await useCase.execute(input());
-      const afterFirst = await sessions.listForRange(CENTER, '2026-01-01', '2026-01-31');
+      const afterFirst = await sessions.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' });
 
       // Second run mints fresh ULIDs (different seed) — the natural-key upsert must discard them.
       await build(PLANS.essentiel, 500).execute(input());
-      const afterSecond = await sessions.listForRange(CENTER, '2026-01-01', '2026-01-31');
+      const afterSecond = await sessions.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' });
 
       expect(afterSecond).toEqual(afterFirst); // same ids, same envelopes — untouched
     });
 
     it('a widened window inserts only the newly-covered dates', async () => {
       await useCase.execute(input({ range: { start: '2026-01-01', end: '2026-01-15' } }));
-      expect((await sessions.listForRange(CENTER, '2026-01-01', '2026-01-31')).length).toBe(3);
+      expect((await sessions.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' })).length).toBe(3);
 
       await build(PLANS.essentiel, 500).execute(input()); // full month
-      const dates = datesOf(await sessions.listForRange(CENTER, '2026-01-01', '2026-01-31'));
+      const dates = datesOf(await sessions.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' }));
       expect(dates).toEqual(['2026-01-01', '2026-01-08', '2026-01-15', '2026-01-22', '2026-01-29']);
+    });
+
+    it('returns the persisted window on re-run: original ids, no cancelled occurrence', async () => {
+      const first = await useCase.execute(input());
+      // Cancel the first occurrence (2026-01-01) so the re-run must not report it,
+      // even though the pure generator would still emit that date.
+      const cancelled = first.find((s) => s.date === '2026-01-01');
+      expect(cancelled).toBeDefined();
+      if (!cancelled) return;
+      await sessions.softDelete(cancelled.id, new Date('2026-01-02T00:00:00Z'), USER);
+
+      // Second run mints fresh ULIDs for every date (different seed).
+      const second = await build(PLANS.essentiel, 500).execute(input());
+
+      // (a) A pre-existing live date carries its ORIGINAL stored id, not a fresh ULID.
+      const original = first.find((s) => s.date === '2026-01-08');
+      const returned = second.find((s) => s.date === '2026-01-08');
+      expect(original).toBeDefined();
+      expect(returned?.id).toBe(original?.id);
+
+      // (b) The cancelled date is absent from the returned window (persisted truth).
+      expect(datesOf(second)).not.toContain('2026-01-01');
+      expect(datesOf(second)).toEqual(['2026-01-08', '2026-01-15', '2026-01-22', '2026-01-29']);
     });
 
     it('never resurrects a cancelled (soft-deleted) occurrence', async () => {
@@ -159,7 +183,7 @@ describe('GenerateAndPersistSessions', () => {
 
       await build(PLANS.essentiel, 500).execute(input());
       // The cancelled date stays gone from live reads.
-      expect(datesOf(await sessions.listForRange(CENTER, '2026-01-01', '2026-01-31'))).not.toContain(
+      expect(datesOf(await sessions.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' }))).not.toContain(
         '2026-01-01',
       );
     });
@@ -184,7 +208,7 @@ describe('GenerateAndPersistSessions', () => {
         WeeklyRecurringSessionNotFoundError,
       );
       // Nothing was persisted under the foreign center.
-      expect(await sessions.listForRange(OTHER_CENTER, '2026-01-01', '2026-01-31')).toEqual([]);
+      expect(await sessions.listForRange(OTHER_CENTER, { start: '2026-01-01', end: '2026-01-31' })).toEqual([]);
     });
   });
 
@@ -199,7 +223,7 @@ describe('GenerateAndPersistSessions', () => {
         PlanFeatureUnavailableError,
       );
       // Gate is checked before any write.
-      expect(await sessions.listForRange(CENTER, '2026-01-01', '2026-01-31')).toEqual([]);
+      expect(await sessions.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' })).toEqual([]);
     });
   });
 });

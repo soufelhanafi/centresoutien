@@ -10,6 +10,7 @@ import type {
   EntityId,
   RoomId,
   TimeOfDay,
+  DateRange,
 } from '@centresoutien/domain';
 
 /** The `sessions` row shape as SQLite returns it. */
@@ -165,8 +166,7 @@ export class SqliteSessionRepository implements SessionRepository {
 
   async listForRange(
     centerCode: CenterCode,
-    from: string,
-    to: string,
+    range: DateRange,
   ): Promise<readonly Session[]> {
     const rows = this.db
       .prepare(
@@ -174,7 +174,7 @@ export class SqliteSessionRepository implements SessionRepository {
           WHERE center_code = ? AND deleted_at IS NULL AND date BETWEEN ? AND ?
           ORDER BY date, start_time`,
       )
-      .all(centerCode, from, to) as SessionRow[];
+      .all(centerCode, range.start, range.end) as SessionRow[];
     return rows.map(fromRow);
   }
 }

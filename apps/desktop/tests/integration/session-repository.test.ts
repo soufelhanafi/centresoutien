@@ -136,7 +136,7 @@ describe('SqliteSessionRepository', () => {
       // Second run: fresh ULIDs for the same (recurringSessionId, date) pairs.
       await repo.upsertMany(window());
 
-      const stored = await repo.listForRange(CENTER, '2026-01-01', '2026-01-31');
+      const stored = await repo.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' });
       expect(stored.map((s) => s.date)).toEqual(['2026-01-01', '2026-01-08', '2026-01-15']);
     });
 
@@ -149,7 +149,7 @@ describe('SqliteSessionRepository', () => {
         makeSession({ date: '2026-01-01', updatedAt: new Date('2026-09-01T00:00:00Z'), version: 9 }),
       ]);
 
-      const stored = await repo.listForRange(CENTER, '2026-01-01', '2026-01-31');
+      const stored = await repo.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' });
       expect(stored).toHaveLength(1);
       expect(stored[0]?.id).toBe(original.id); // original id preserved
       expect(stored[0]?.updatedAt).toEqual(AT); // NOT bumped → no phantom sync
@@ -160,7 +160,7 @@ describe('SqliteSessionRepository', () => {
       await repo.upsertMany([makeSession({ date: '2026-01-01' }), makeSession({ date: '2026-01-08' })]);
       await repo.upsertMany(window()); // adds 2026-01-15
 
-      const dates = (await repo.listForRange(CENTER, '2026-01-01', '2026-01-31')).map((s) => s.date);
+      const dates = (await repo.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' })).map((s) => s.date);
       expect(dates).toEqual(['2026-01-01', '2026-01-08', '2026-01-15']);
     });
 
@@ -172,7 +172,7 @@ describe('SqliteSessionRepository', () => {
       // Regenerate the same date — the tombstone still occupies the natural-key slot.
       await repo.upsertMany([makeSession({ date: '2026-01-01' })]);
 
-      expect(await repo.listForRange(CENTER, '2026-01-01', '2026-01-31')).toEqual([]);
+      expect(await repo.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' })).toEqual([]);
       // And no duplicate live row snuck in behind the tombstone.
       const forRecurrence = await repo.listForRecurrence(WRS_A);
       expect(forRecurrence).toEqual([]);
@@ -183,7 +183,7 @@ describe('SqliteSessionRepository', () => {
         makeSession({ recurringSessionId: WRS_A, date: '2026-01-01' }),
         makeSession({ recurringSessionId: WRS_B, date: '2026-01-01' }),
       ]);
-      expect(await repo.listForRange(CENTER, '2026-01-01', '2026-01-01')).toHaveLength(2);
+      expect(await repo.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-01' })).toHaveLength(2);
     });
   });
 
@@ -200,7 +200,7 @@ describe('SqliteSessionRepository', () => {
       await repo.softDelete(gone.id, AT, USER);
       await repo.save(makeSession({ date: '2026-01-09', centerCode: OTHER_CENTER, recurringSessionId: WRS_B }));
 
-      const inRange = await repo.listForRange(CENTER, '2026-01-01', '2026-01-31');
+      const inRange = await repo.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' });
       expect(inRange.map((s) => [s.date, s.start])).toEqual([
         ['2026-01-08', '08:00'],
         ['2026-01-08', '11:00'],
@@ -211,7 +211,7 @@ describe('SqliteSessionRepository', () => {
     it('boundaries are inclusive', async () => {
       await repo.save(makeSession({ date: '2026-01-01' }));
       await repo.save(makeSession({ date: '2026-01-31', recurringSessionId: WRS_B }));
-      expect((await repo.listForRange(CENTER, '2026-01-01', '2026-01-31')).map((s) => s.date)).toEqual([
+      expect((await repo.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' })).map((s) => s.date)).toEqual([
         '2026-01-01',
         '2026-01-31',
       ]);

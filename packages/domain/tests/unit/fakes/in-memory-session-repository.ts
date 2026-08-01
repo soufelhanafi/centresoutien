@@ -3,6 +3,7 @@ import type { Session, SessionId } from '../../../src/entities/session';
 import type { WeeklyRecurringSessionId } from '../../../src/entities/weekly-recurring-session';
 import type { SessionRepository } from '../../../src/ports/session-repository';
 import type { CenterCode } from '../../../src/value-objects/ids';
+import type { DateRange } from '../../../src/value-objects/date-range';
 
 /**
  * In-memory {@link SessionRepository} for unit tests. Reuses the shared
@@ -43,16 +44,15 @@ export class InMemorySessionRepository
 
   async listForRange(
     centerCode: CenterCode,
-    from: string,
-    to: string,
+    range: DateRange,
   ): Promise<readonly Session[]> {
     return [...this.rows.values()]
       .filter(
         (row) =>
           row.deletedAt === null &&
           row.centerCode === centerCode &&
-          from <= row.date &&
-          row.date <= to,
+          range.start <= row.date &&
+          row.date <= range.end,
       )
       .sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start))
       .map((row) => structuredClone(row));

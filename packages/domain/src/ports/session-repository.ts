@@ -2,6 +2,7 @@ import type { SoftDeletableRepository } from '../repositories/soft-deletable';
 import type { Session, SessionId } from '../entities/session';
 import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-session';
 import type { CenterCode } from '../value-objects/ids';
+import type { DateRange } from '../value-objects/date-range';
 
 /**
  * Persistence port for materialized {@link Session} occurrences. Extends the
@@ -48,14 +49,13 @@ export interface SessionRepository extends SoftDeletableRepository<SessionId, Se
 
   /**
    * Live (non-tombstoned) occurrences of a center whose `date` falls in the
-   * inclusive `[from, to]` civil-date window, ordered by `date` then `start` —
-   * the calendar/day read. `from` / `to` are strict `YYYY-MM-DD`, compared
-   * lexicographically (= chronologically). Scoped to one center; never crosses a
-   * tenant boundary.
+   * inclusive `[range.start, range.end]` civil-date window, ordered by `date`
+   * then `start` — the calendar/day read. The {@link DateRange} carries strict
+   * `YYYY-MM-DD` bounds, compared lexicographically (= chronologically). Scoped
+   * to one center; never crosses a tenant boundary.
    */
   listForRange(
     centerCode: CenterCode,
-    from: string,
-    to: string,
+    range: DateRange,
   ): Promise<readonly Session[]>;
 }

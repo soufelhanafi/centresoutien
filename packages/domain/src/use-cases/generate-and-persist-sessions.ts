@@ -34,8 +34,12 @@ export type GenerateAndPersistSessionsInput = {
  * `(recurringSessionId, date)`, so re-running over an overlapping window inserts
  * only newly-covered dates and writes nothing to rows that already exist — no
  * phantom sync churn, and a cancelled (soft-deleted) occurrence is never
- * resurrected. The use case returns the freshly generated set (the full window's
- * occurrences), while the ledger of what is actually stored stays the repo's.
+ * resurrected. The use case returns the **persisted truth** — a
+ * {@link SessionRepository.listForRange} read of the window after the upsert —
+ * not the generator output: `generated` carries fresh ULIDs for already-stored
+ * dates (which the natural-key upsert discards) and includes soft-deleted
+ * occurrences the generator can't see are cancelled. The read gives real stored
+ * ids with tombstones excluded.
  *
  * The template is loaded through `findById` (which hides tombstones) and its
  * `centerCode` is checked against the request, so an unknown, deleted, or
@@ -70,6 +74,6 @@ export class GenerateAndPersistSessions {
     });
 
     await this.sessions.upsertMany(generated);
-    return generated;
+    return this.sessions.listForRange(input.centerCode, input.range); // persisted truth: real ids, tombstones excluded
   }
 }
