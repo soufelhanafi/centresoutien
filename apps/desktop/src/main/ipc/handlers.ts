@@ -65,7 +65,7 @@ import type {
   Holiday,
   HolidayId,
   ListWeekSessions,
-  WeeklyRecurringSession,
+  WeeklySessionView,
   GenerateAndPersistSessions,
   Session,
   WeeklyRecurringSessionId,
@@ -319,16 +319,25 @@ function toHolidayView(holiday: Holiday) {
   };
 }
 
-/** Project a weekly recurring session to its boundary DTO: envelope stripped, the
- *  branded `TimeOfDay`/id values widened to plain strings for the wire. */
-function toWeeklySessionView(session: WeeklyRecurringSession) {
+/** Project an enriched weekly-session view to its boundary DTO: branded
+ *  `TimeOfDay`/id values widened to plain strings for the wire; the join-derived
+ *  fields (room/teacher names, subject, level, kind) pass through with their
+ *  neutral-fallback nulls already resolved in the domain read model. */
+function toWeeklySessionView(session: WeeklySessionView) {
   return {
     id: session.id,
-    roomId: session.roomId,
-    teacherId: session.teacherId,
     dayOfWeek: session.dayOfWeek,
     start: session.start,
     end: session.end,
+    roomId: session.roomId,
+    roomName: session.roomName,
+    teacherId: session.teacherId,
+    teacherName: session.teacherName === null ? null : { ...session.teacherName },
+    groupId: session.groupId,
+    subjectId: session.subjectId,
+    subjectName: session.subjectName === null ? null : { ...session.subjectName },
+    level: session.level,
+    kind: session.kind,
   };
 }
 

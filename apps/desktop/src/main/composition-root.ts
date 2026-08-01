@@ -201,7 +201,9 @@ export function buildContainer(options: ContainerOptions): Container {
   // The weekly-session repository (SOU-53) is the real backing for the ArchiveRoom
   // in-use guard: it owns the query over live sessions, so it also satisfies
   // RoomReferencePort. Passing the same instance replaces the SOU-33 "never
-  // referenced" stub with no change to ArchiveRoom or the port contract.
+  // referenced" stub with no change to ArchiveRoom or the port contract. The same
+  // instance also serves WeeklySessionViewReadPort — the planner grid's enriched
+  // week (SOU-118), whose join is anchored on this table.
   const sessionRepo = new SqliteWeeklyRecurringSessionRepository(db);
   const roomReference: RoomReferencePort = sessionRepo;
   const listWeekSessions = new ListWeekSessions(sessionRepo, plan);
