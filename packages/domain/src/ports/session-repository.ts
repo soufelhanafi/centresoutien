@@ -1,6 +1,8 @@
 import type { SoftDeletableRepository } from '../repositories/soft-deletable';
 import type { Session, SessionId } from '../entities/session';
 import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-session';
+import type { CenterCode } from '../value-objects/ids';
+import type { DateRange } from '../value-objects/date-range';
 
 /**
  * Persistence port for materialized {@link Session} occurrences. Extends the
@@ -22,11 +24,38 @@ import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-sess
 export interface SessionRepository extends SoftDeletableRepository<SessionId, Session> {
   /**
    * Live (non-tombstoned) occurrences of one recurrence, ordered by `date`.
-   * SOU-129's idempotent upsert reads this to skip dates it has already
-   * materialized, so re-running the generator over an overlapping window never
-   * duplicates a `(recurringSessionId, date)` pair.
+   * Backs the generator-reconciliation view of a recurrence: which dates are
+   * already materialized. The idempotency itself is enforced by {@link upsertMany}
+   * at the storage level (a conflict on `(recurringSessionId, date)`), so this
+   * read is a query surface, not a precondition of a safe re-run.
    */
   listForRecurrence(
     recurringSessionId: WeeklyRecurringSessionId,
+  ): Promise<readonly Session[]>;
+
+  /**
+   * Idempotently persist a batch of generated occurrences. The dedup is keyed on
+   * the natural identity `(recurringSessionId, date)`, **not** the ULID `id`: the
+   * pure generator mints a fresh ULID every run, so re-running it over an
+   * overlapping window produces rows that collide on the natural key. On that
+   * collision the **already-stored row wins untouched** — its `id`, `createdAt`,
+   * and (crucially) `updatedAt` / `version` are preserved, so a re-run writes no
+   * change to existing rows and therefore floods the sync feed with nothing. A
+   * date the recurrence has never materialized is inserted; a previously
+   * soft-deleted (cancelled) occurrence stays cancelled — regeneration never
+   * resurrects it. New dates only ever grow the set.
+   */
+  upsertMany(sessions: readonly Session[]): Promise<void>;
+
+  /**
+   * Live (non-tombstoned) occurrences of a center whose `date` falls in the
+   * inclusive `[range.start, range.end]` civil-date window, ordered by `date`
+   * then `start` — the calendar/day read. The {@link DateRange} carries strict
+   * `YYYY-MM-DD` bounds, compared lexicographically (= chronologically). Scoped
+   * to one center; never crosses a tenant boundary.
+   */
+  listForRange(
+    centerCode: CenterCode,
+    range: DateRange,
   ): Promise<readonly Session[]>;
 }
