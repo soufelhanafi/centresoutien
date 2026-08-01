@@ -106,6 +106,7 @@ import {
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import type { LocalePreference } from '../infra/locale-preference-store';
+import { createBackupHandlers, type BackupHandlerDeps } from './backup-handlers';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
@@ -416,7 +417,7 @@ function toWeekView(week: readonly CenterHours[]) {
  * cases) are injected so handlers stay pure and testable without Electron. Each
  * handler delegates to a pre-wired domain use case; it adds no business logic.
  */
-export type HandlerDeps = {
+export type HandlerDeps = BackupHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
   createSubject: CreateSubjectUseCase;
@@ -1009,5 +1010,6 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       deps.saveLocalePreference(request.locale);
       return { ok: true };
     },
+    ...createBackupHandlers(deps),
   };
 }
