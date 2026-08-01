@@ -36,10 +36,4 @@ export class InMemoryWeeklyRecurringSessionRepository
       .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
       .map(toScheduledSessionRef);
   }
-
-  async listForWeek(centerCode: CenterCode): Promise<readonly WeeklyRecurringSession[]> {
-    return this.live(centerCode)
-      .sort((a, b) => a.dayOfWeek - b.dayOfWeek || toMinutes(a.start) - toMinutes(b.start))
-      .map((row) => structuredClone(row));
-  }
 }

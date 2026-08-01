@@ -20,6 +20,7 @@ const base: WeeklyRecurringSession = {
   version: 0,
   roomId: 'rom_01JBX3ZK9P7Q8R5V6W7X8Y9Z0D' as RoomId,
   teacherId: 'tch_01JBX3ZK9P7Q8R5V6W7X8Y9Z0E' as EntityId,
+  groupId: null,
   dayOfWeek: 2 as WeekdayIndex,
   start: '09:00' as TimeOfDay,
   end: '10:30' as TimeOfDay,

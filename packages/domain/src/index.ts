@@ -239,6 +239,9 @@ export type {
 export { SESSION_ID_PREFIX } from './entities/session';
 export type { Session, SessionId } from './entities/session';
 
+// Read models (denormalized, envelope-free — never persisted)
+export type { WeeklySessionView } from './read-models/weekly-session-view';
+
 // Value objects & policies (login throttle — SOU-27)
 export { UNLOCKED_STATE } from './value-objects/lockout-state';
 export type { LockoutState } from './value-objects/lockout-state';
@@ -283,6 +286,9 @@ export type {
   ActiveSubscriptionCoverage,
 } from './ports/student-subscription-reference';
 export type { WeeklyRecurringSessionRepository } from './ports/weekly-recurring-session-repository';
+// Planner grid enriched week read (SOU-118) — cross-aggregate read model, served by
+// the same SQLite adapter that owns weekly_recurring_sessions.
+export type { WeeklySessionViewReadPort } from './ports/weekly-session-view-read-port';
 export type { SessionRepository } from './ports/session-repository';
 // Room in-use guard — its concrete adapter is the weekly-session repo (SOU-53).
 export type { RoomReferencePort } from './ports/room-reference';
