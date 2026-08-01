@@ -73,6 +73,9 @@ import type {
   ListWeekSessions,
   WeeklySessionView,
   GenerateAndPersistSessions,
+  CreateWeeklyRecurringSession,
+  UpdateWeeklyRecurringSession,
+  CancelWeeklyRecurringSession,
   Session,
   WeeklyRecurringSessionId,
   CreateAdminAccount,
@@ -153,6 +156,9 @@ export type ArchiveHolidayUseCase = Pick<ArchiveHoliday, 'execute'>;
 export type RestoreHolidayUseCase = Pick<RestoreHoliday, 'execute'>;
 export type ListWeekSessionsUseCase = Pick<ListWeekSessions, 'execute'>;
 export type GenerateAndPersistSessionsUseCase = Pick<GenerateAndPersistSessions, 'execute'>;
+export type CreateWeeklyRecurringSessionUseCase = Pick<CreateWeeklyRecurringSession, 'execute'>;
+export type UpdateWeeklyRecurringSessionUseCase = Pick<UpdateWeeklyRecurringSession, 'execute'>;
+export type CancelWeeklyRecurringSessionUseCase = Pick<CancelWeeklyRecurringSession, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
@@ -450,6 +456,9 @@ export type HandlerDeps = {
   restoreHoliday: RestoreHolidayUseCase;
   listWeekSessions: ListWeekSessionsUseCase;
   generateSessions: GenerateAndPersistSessionsUseCase;
+  createWeeklySession: CreateWeeklyRecurringSessionUseCase;
+  updateWeeklySession: UpdateWeeklyRecurringSessionUseCase;
+  cancelWeeklySession: CancelWeeklyRecurringSessionUseCase;
   saveCenterHours: SaveCenterHoursUseCase;
   getCenterHours: GetCenterHoursUseCase;
   envelopeContext: () => EnvelopeContext;
@@ -895,6 +904,37 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         updatedBy,
       });
       return { sessions: sessions.map(toSessionView) };
+    },
+    'weeklySession.create': async (request) => {
+      const session = await deps.createWeeklySession.execute({
+        ...request,
+        ...deps.envelopeContext(),
+      });
+      return { id: session.id };
+    },
+    'weeklySession.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const session = await deps.updateWeeklySession.execute({
+        ...fields,
+        centerCode,
+        id: id as WeeklyRecurringSessionId,
+        updatedBy,
+      });
+      return { id: session.id };
+    },
+    'weeklySession.delete': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      // Not swallowed like *.archive: the domain deliberately rejects an unknown,
+      // already-cancelled, or foreign-center id (WeeklyRecurringSessionNotFoundError)
+      // so a stale renderer id can never silently no-op as success. The renderer maps
+      // the stable `weekly-recurring-session-not-found` code.
+      await deps.cancelWeeklySession.execute({
+        centerCode,
+        id: request.id as WeeklyRecurringSessionId,
+        updatedBy,
+      });
+      return { ok: true };
     },
     'centerHours.get': async () => {
       const week = await deps.getCenterHours.execute({
