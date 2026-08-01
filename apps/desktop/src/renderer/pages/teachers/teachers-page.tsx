@@ -3,7 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import { useTeachers } from '../../hooks/teacher/use-teachers';
-import { TeacherListToolbar } from '../../components/teacher/teacher-list-toolbar';
+import {
+  TeacherListToolbar,
+  SUBJECT_FILTER_ALL,
+} from '../../components/teacher/teacher-list-toolbar';
 import { TeacherSeatsNotice } from '../../components/teacher/teacher-seats-notice';
 import { TeacherListPanel } from '../../components/teacher/teacher-list-panel';
 import { CreateTeacherSheet } from '../../components/teacher/create-teacher-sheet';
@@ -12,6 +15,7 @@ import { CreateTeacherSheet } from '../../components/teacher/create-teacher-shee
 export function TeachersPage() {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
+  const [subjectId, setSubjectId] = useState(SUBJECT_FILTER_ALL);
   const [createOpen, setCreateOpen] = useState(false);
   const openCreate = () => setCreateOpen(true);
 
@@ -35,7 +39,12 @@ export function TeachersPage() {
         </Button>
       </header>
 
-      <TeacherListToolbar search={search} onSearchChange={setSearch} />
+      <TeacherListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        subjectId={subjectId}
+        onSubjectChange={setSubjectId}
+      />
 
       <Tabs defaultValue="active">
         <TabsList>
@@ -43,10 +52,20 @@ export function TeachersPage() {
           <TabsTrigger value="archived">{t('teachers.tabs.archived')}</TabsTrigger>
         </TabsList>
         <TabsContent value="active" className="mt-4">
-          <TeacherListPanel variant="active" search={search} onCreate={openCreate} />
+          <TeacherListPanel
+            variant="active"
+            search={search}
+            subjectId={subjectId}
+            onCreate={openCreate}
+          />
         </TabsContent>
         <TabsContent value="archived" className="mt-4">
-          <TeacherListPanel variant="archived" search={search} onCreate={openCreate} />
+          <TeacherListPanel
+            variant="archived"
+            search={search}
+            subjectId={subjectId}
+            onCreate={openCreate}
+          />
         </TabsContent>
       </Tabs>
 

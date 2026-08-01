@@ -5,14 +5,15 @@ import type { z } from 'zod';
 import { teacherInputSchema, type TeacherInput } from '@centresoutien/domain';
 import { Form, FormControl, FormField, FormItem, FormLabel, Input } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
+import { TeacherSubjectsField } from './teacher-subjects-field';
 
 /** Pre-transform shape RHF holds (empty strings), vs the parsed `TeacherInput` output. */
 export type TeacherFormInput = z.input<typeof teacherInputSchema>;
 
 /**
- * Blank defaults for the create flow. `subjectIds` is carried but not edited here
- * — the subject picker lands with the `subject.list` channel (see the SOU-37
- * handoff), so for now it stays `[]` on create and is preserved as-is on edit.
+ * Blank defaults for the create flow. `subjectIds` starts empty and is edited via
+ * the {@link TeacherSubjectsField} multi-select (SOU-124); on edit the teacher's
+ * existing links are passed in and preserved.
  */
 export const EMPTY_TEACHER_INPUT: TeacherFormInput = {
   name: { fr: '', ar: '' },
@@ -128,6 +129,7 @@ export function TeacherForm({ formId, defaultValues, onSubmit }: TeacherFormProp
             </FormItem>
           )}
         />
+        <TeacherSubjectsField control={form.control} />
       </form>
     </Form>
   );

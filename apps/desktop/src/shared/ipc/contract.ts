@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   subjectInputSchema,
+  subjectUpdateInputSchema,
   studentInputSchema,
   parentInputSchema,
   roomInputSchema,
@@ -233,6 +234,31 @@ const sessionViewSchema = z.object({
   end: z.string(),
 });
 
+// The presentation projection of a Subject across the IPC boundary (SOU-124) — the
+// sync envelope (version, deviceOrigin, updatedBy…, and the Date timestamps) is
+// stripped, leaving only the fields name-resolution and the pickers need. `code` is
+// nullable (a subject may have none). `active` is the real domain flag (distinct
+// from the soft-delete tombstone, which is excluded from these reads entirely).
+// Single source of truth for the renderer's `SubjectView` type.
+const subjectViewSchema = z.object({
+  id: z.string(),
+  name: z.object({ fr: z.string(), ar: z.string() }),
+  code: z.string().nullable(),
+  active: z.boolean(),
+});
+
+// A subject paired with its in-use reference count across the boundary (SOU-124),
+// backing the SOU-47 CRUD table: the lean `subjectView` plus `inUseCount` and the
+// derived `canDelete` (`inUseCount === 0`) so a row can enable/disable its archive
+// action without a second round-trip. A sibling of `subjectViewSchema` rather than a
+// field on it, so the name channels stay lean and only the CRUD screen pays for the
+// counts. Single source of truth for the renderer's `SubjectUsageView` type.
+const subjectUsageViewSchema = z.object({
+  subject: subjectViewSchema,
+  inUseCount: z.number().int().nonnegative(),
+  canDelete: z.boolean(),
+});
+
 // The display shape of one weekday's hours returned to the renderer: the
 // user-visible fields only, envelope stripped. `open`/`close` are `'HH:mm'` or
 // null (closed). Reused by both centerHours responses.
@@ -270,6 +296,34 @@ export const ipcContract = {
   'subject.archive': {
     request: z.object({ id: z.string() }),
     response: z.object({ ok: z.literal(true) }),
+  },
+  // Subject read + update channels (SOU-124), the seam SOU-47/SOU-37 frontends
+  // consume. `list` selects the active picker set or every live subject via
+  // `scope` (both exclude tombstones — the axis is the `active` flag, not
+  // soft-delete); `get` resolves a single subject to its view or null for an
+  // unknown/archived/foreign-center id. `listWithUsage` returns each live subject
+  // with its in-use count + derived `canDelete` for the CRUD table, kept separate
+  // so the name channels stay lean. `update` takes the domain's own
+  // `subjectUpdateInputSchema` (bilingual name + `active` toggle; `code` is NOT
+  // editable — a sync natural key, SOU-122) plus the id and echoes the saved view.
+  // centerCode/user are injected in main, never sent from the renderer. All gated
+  // by `core.subjects` (every plan) in the use cases; reads strip the envelope to
+  // `subjectViewSchema`.
+  'subject.list': {
+    request: z.object({ scope: z.enum(['active', 'all']) }),
+    response: z.object({ subjects: z.array(subjectViewSchema) }),
+  },
+  'subject.get': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ subject: subjectViewSchema.nullable() }),
+  },
+  'subject.listWithUsage': {
+    request: z.object({}),
+    response: z.object({ subjects: z.array(subjectUsageViewSchema) }),
+  },
+  'subject.update': {
+    request: subjectUpdateInputSchema.extend({ id: z.string() }),
+    response: z.object({ subject: subjectViewSchema }),
   },
   // The request is the domain's own input schema — validated once, shared by the
   // form (zodResolver), the preload types, and this boundary. centerCode/device/
@@ -648,6 +702,12 @@ export const ipcContract = {
     }),
   },
 } as const;
+
+/** The Subject boundary DTO — the renderer's `SubjectView` is an alias of this. */
+export type SubjectDto = z.infer<typeof subjectViewSchema>;
+
+/** The subject-with-usage boundary DTO — the renderer's `SubjectUsageView` aliases this. */
+export type SubjectUsageDto = z.infer<typeof subjectUsageViewSchema>;
 
 /** The Student boundary DTO — the renderer's `StudentView` is an alias of this. */
 export type StudentDto = z.infer<typeof studentViewSchema>;

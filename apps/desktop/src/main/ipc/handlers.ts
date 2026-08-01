@@ -2,6 +2,12 @@ import type {
   PlanId,
   CreateSubject,
   ArchiveSubject,
+  ListSubjects,
+  GetSubject,
+  ListSubjectsWithUsage,
+  UpdateSubject,
+  Subject,
+  SubjectUsage,
   SubjectId,
   CreateStudent,
   ListStudents,
@@ -99,6 +105,10 @@ import type { IpcHandlers } from '../../shared/ipc/contract';
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
 export type ArchiveSubjectUseCase = Pick<ArchiveSubject, 'execute'>;
+export type ListSubjectsUseCase = Pick<ListSubjects, 'execute'>;
+export type GetSubjectUseCase = Pick<GetSubject, 'execute'>;
+export type ListSubjectsWithUsageUseCase = Pick<ListSubjectsWithUsage, 'execute'>;
+export type UpdateSubjectUseCase = Pick<UpdateSubject, 'execute'>;
 export type CreateStudentUseCase = Pick<CreateStudent, 'execute'>;
 export type ListStudentsUseCase = Pick<ListStudents, 'execute'>;
 export type GetStudentUseCase = Pick<GetStudent, 'execute'>;
@@ -208,6 +218,24 @@ function toParentView(parent: Parent) {
     archived: parent.deletedAt !== null,
     createdAt: parent.createdAt.toISOString(),
   };
+}
+
+/** Project a Subject to its boundary DTO (SOU-124): envelope stripped, leaving the
+ *  fields name-resolution and the pickers need. `active` is the real domain flag;
+ *  tombstones never reach these reads, so no `archived` is exposed. */
+function toSubjectView(subject: Subject) {
+  return {
+    id: subject.id,
+    name: { fr: subject.name.fr, ar: subject.name.ar },
+    code: subject.code,
+    active: subject.active,
+  };
+}
+
+/** Project a subject + its in-use count to the list-with-usage DTO: the lean
+ *  subject view plus `inUseCount` and the derived `canDelete` for the CRUD table. */
+function toSubjectUsageView(row: SubjectUsage) {
+  return { subject: toSubjectView(row.subject), inUseCount: row.inUseCount, canDelete: row.canDelete };
 }
 
 /** Project a Room to its boundary DTO: envelope stripped, dates serialized,
@@ -365,6 +393,10 @@ export type HandlerDeps = {
   activePlanId: () => PlanId;
   createSubject: CreateSubjectUseCase;
   archiveSubject: ArchiveSubjectUseCase;
+  listSubjects: ListSubjectsUseCase;
+  getSubject: GetSubjectUseCase;
+  listSubjectsWithUsage: ListSubjectsWithUsageUseCase;
+  updateSubject: UpdateSubjectUseCase;
   createStudent: CreateStudentUseCase;
   listStudents: ListStudentsUseCase;
   getStudent: GetStudentUseCase;
@@ -455,6 +487,37 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         if (!(error instanceof SubjectNotFoundError)) throw error;
       }
       return { ok: true };
+    },
+    'subject.list': async (request) => {
+      const subjects = await deps.listSubjects.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        scope: request.scope,
+      });
+      return { subjects: subjects.map(toSubjectView) };
+    },
+    'subject.get': async (request) => {
+      const subject = await deps.getSubject.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        id: request.id as SubjectId,
+      });
+      return { subject: subject ? toSubjectView(subject) : null };
+    },
+    'subject.listWithUsage': async () => {
+      const rows = await deps.listSubjectsWithUsage.execute({
+        centerCode: deps.envelopeContext().centerCode,
+      });
+      return { subjects: rows.map(toSubjectUsageView) };
+    },
+    'subject.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const subject = await deps.updateSubject.execute({
+        ...fields,
+        centerCode,
+        id: id as SubjectId,
+        updatedBy,
+      });
+      return { subject: toSubjectView(subject) };
     },
     'student.create': async (request) => {
       const student = await deps.createStudent.execute({ ...request, ...deps.envelopeContext() });
