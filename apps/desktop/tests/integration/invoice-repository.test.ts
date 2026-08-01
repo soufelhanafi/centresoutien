@@ -11,6 +11,7 @@ import type {
   InvoiceStatus,
   CenterCode,
   DeviceId,
+  FormulaId,
   StudentId,
   UserId,
 } from '@centresoutien/domain';
@@ -80,7 +81,7 @@ function makeLine(invoiceId: InvoiceId, over: Partial<InvoiceLine> = {}): Invoic
     deletedAt: null,
     version: 0,
     invoiceId,
-    formulaId: 'for_00000000000000000000000009',
+    formulaId: 'fml_00000000000000000000000009' as FormulaId,
     label: { fr: 'Math + Physique', ar: 'رياضيات وفيزياء' },
     kind: 'regular',
     amountMad: 35000,

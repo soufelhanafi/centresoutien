@@ -8,8 +8,8 @@ import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/id
 import type {
   StudentSubscription,
   StudentSubscriptionId,
-  FormulaId,
 } from '../../../src/entities/student-subscription';
+import type { FormulaId } from '../../../src/entities/formula';
 import type { StudentId } from '../../../src/entities/student';
 import type { SubjectId } from '../../../src/entities/subject';
 import { InMemoryStudentSubscriptionRepository } from '../fakes/in-memory-student-subscription-repository';

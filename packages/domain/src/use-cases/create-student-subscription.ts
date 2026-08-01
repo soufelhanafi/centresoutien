@@ -11,10 +11,10 @@ import {
 } from '../schemas/student-subscription';
 import {
   STUDENT_SUBSCRIPTION_ID_PREFIX,
-  type FormulaId,
   type StudentSubscription,
   type StudentSubscriptionId,
 } from '../entities/student-subscription';
+import type { FormulaId } from '../entities/formula';
 import type { StudentId } from '../entities/student';
 import type { SubjectId } from '../entities/subject';
 import { StudentNotFoundError } from '../errors/student-errors';

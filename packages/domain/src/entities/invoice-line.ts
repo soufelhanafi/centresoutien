@@ -2,6 +2,7 @@ import type { Brand } from '../value-objects/brand';
 import type { EntityEnvelope } from './envelope';
 import type { InvoiceId } from './invoice';
 import type { GroupKind } from './group';
+import type { FormulaId } from './formula';
 
 /** ULID id prefix for invoice lines: `invl_01HW…`. */
 export const INVOICE_LINE_ID_PREFIX = 'invl';
@@ -18,9 +19,9 @@ export type InvoiceLineId = Brand<string, 'InvoiceLineId'>;
  * time), `formulaId` (the reference it came from), `kind`, and `amountMad` are
  * copied onto the line and never re-read from the live Formula — a later price or
  * name change on the Formula can therefore never mutate an already-billed invoice.
- * `formulaId` is a soft string reference, not a branded `FormulaId`, on purpose: the
- * Formula entity (SOU-60) is not merged yet, and the KICKOFF locked this line to not
- * hard-depend on it. When SOU-60 lands, tighten the brand and the schema prefix.
+ * `formulaId` is branded `FormulaId` (tightened from a soft string ref now that the
+ * Formula entity exists, SOU-60/KICKOFF) — it is still only a provenance breadcrumb,
+ * never dereferenced by this entity or its policies.
  *
  * Lines are their own rows (not embedded JSON on the invoice) so dashboard KPIs and
  * teacher-fee attribution can filter/read them by `kind` at the query level. `kind`
@@ -43,7 +44,7 @@ export type InvoiceLineId = Brand<string, 'InvoiceLineId'>;
 export type InvoiceLine = EntityEnvelope & {
   readonly id: InvoiceLineId;
   readonly invoiceId: InvoiceId;
-  readonly formulaId: string; // formula ref snapshot (soft ref until SOU-60 brands it)
+  readonly formulaId: FormulaId; // formula ref snapshot — provenance only, never dereferenced
   readonly label: { fr: string; ar: string }; // formula name snapshot, bilingual
   readonly kind: GroupKind; // 'regular' | 'exam-prep' — the billed track
   readonly amountMad: number; // integer centimes, line total after discount
