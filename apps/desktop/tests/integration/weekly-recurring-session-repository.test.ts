@@ -63,6 +63,9 @@ function makeSession(over: Partial<WeeklyRecurringSession> = {}): WeeklyRecurrin
     dayOfWeek: 1 as WeekdayIndex,
     start: '09:00' as TimeOfDay,
     end: '10:00' as TimeOfDay,
+    active: true,
+    validFrom: null,
+    validTo: null,
     ...over,
   };
 }
@@ -132,6 +135,19 @@ describe('SqliteWeeklyRecurringSessionRepository', () => {
     const session = makeSession({ teacherId: null });
     await repo.save(session);
     expect((await repo.findById(session.id))?.teacherId).toBeNull();
+  });
+
+  it('round-trips active + a bounded validity window (SOU-52 columns)', async () => {
+    const session = makeSession({
+      active: false,
+      validFrom: '2026-09-01',
+      validTo: '2027-06-30',
+    });
+    await repo.save(session);
+    const found = await repo.findById(session.id);
+    expect(found?.active).toBe(false);
+    expect(found?.validFrom).toBe('2026-09-01');
+    expect(found?.validTo).toBe('2027-06-30');
   });
 
   it('findById returns null for an unknown id', async () => {

@@ -113,12 +113,33 @@ export class TeacherConflictError extends DomainError {
  * slot that still sits inside opening hours.
  */
 export class MalformedSessionTimeError extends DomainError {
+  readonly code = 'malformed-session-time';
+
   constructor(
     readonly dayOfWeek: WeekdayIndex,
     readonly start: TimeOfDay,
     readonly end: TimeOfDay,
   ) {
     super(`Session on weekday ${dayOfWeek} has a non-positive duration (${start}–${end}).`);
+  }
+}
+
+/**
+ * Thrown when a weekly recurring session's validity window is inverted — its
+ * `validTo` civil date falls strictly before `validFrom` (SOU-52). Both bounds
+ * are `YYYY-MM-DD` and carried as structured data so the renderer localizes the
+ * message via `t(\`errors.${code}\`)`. Only raised when both bounds are set: a
+ * `null` bound is unbounded and never inverts. {@link createWeeklyRecurringSession}
+ * is the sole thrower.
+ */
+export class InvalidSessionValidityRangeError extends DomainError {
+  readonly code = 'invalid-session-validity-range';
+
+  constructor(
+    readonly validFrom: string,
+    readonly validTo: string,
+  ) {
+    super(`Weekly recurring session validity range is inverted (${validFrom} … ${validTo}).`);
   }
 }
 

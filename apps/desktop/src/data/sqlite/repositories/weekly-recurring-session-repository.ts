@@ -35,6 +35,9 @@ type SessionRow = {
   day_of_week: number;
   start_time: string;
   end_time: string;
+  active: number;
+  valid_from: string | null;
+  valid_to: string | null;
 };
 
 /**
@@ -77,6 +80,9 @@ function fromRow(row: SessionRow): WeeklyRecurringSession {
     dayOfWeek: row.day_of_week as WeekdayIndex,
     start: row.start_time as TimeOfDay,
     end: row.end_time as TimeOfDay,
+    active: row.active !== 0,
+    validFrom: row.valid_from,
+    validTo: row.valid_to,
   };
 }
 
@@ -122,10 +128,12 @@ function toRef(row: SessionRow): ScheduledSessionRef {
 const SAVE_SQL = `
   INSERT INTO weekly_recurring_sessions
     (id, center_code, device_origin, created_at, updated_at, updated_by,
-     deleted_at, version, room_id, teacher_id, group_id, day_of_week, start_time, end_time)
+     deleted_at, version, room_id, teacher_id, group_id, day_of_week, start_time, end_time,
+     active, valid_from, valid_to)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
-     @deleted_at, @version, @room_id, @teacher_id, @group_id, @day_of_week, @start_time, @end_time)
+     @deleted_at, @version, @room_id, @teacher_id, @group_id, @day_of_week, @start_time, @end_time,
+     @active, @valid_from, @valid_to)
   ON CONFLICT(id) DO UPDATE SET
     updated_at  = excluded.updated_at,
     updated_by  = excluded.updated_by,
@@ -136,7 +144,10 @@ const SAVE_SQL = `
     group_id    = excluded.group_id,
     day_of_week = excluded.day_of_week,
     start_time  = excluded.start_time,
-    end_time    = excluded.end_time
+    end_time    = excluded.end_time,
+    active      = excluded.active,
+    valid_from  = excluded.valid_from,
+    valid_to    = excluded.valid_to
 `;
 
 /**
@@ -205,6 +216,9 @@ export class SqliteWeeklyRecurringSessionRepository
       day_of_week: session.dayOfWeek,
       start_time: session.start,
       end_time: session.end,
+      active: session.active ? 1 : 0,
+      valid_from: session.validFrom,
+      valid_to: session.validTo,
     });
   }
 
