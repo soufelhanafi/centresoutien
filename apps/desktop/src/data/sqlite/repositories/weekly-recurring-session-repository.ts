@@ -3,8 +3,13 @@ import type {
   WeeklyRecurringSession,
   WeeklyRecurringSessionId,
   WeeklyRecurringSessionRepository,
+  WeeklySessionViewReadPort,
+  WeeklySessionView,
   RoomReferencePort,
   RoomId,
+  GroupId,
+  SubjectId,
+  GroupKind,
   ScheduledSessionRef,
   CenterCode,
   DeviceId,
@@ -26,9 +31,34 @@ type SessionRow = {
   version: number;
   room_id: string;
   teacher_id: string | null;
+  group_id: string | null;
   day_of_week: number;
   start_time: string;
   end_time: string;
+};
+
+/**
+ * One enriched-week row: a session left-joined onto its room, teacher, group, and
+ * the group's subject. Join columns are NULL when the related row is missing or
+ * archived (`deleted_at IS NULL` is part of each join), so the mapper degrades them
+ * to the {@link WeeklySessionView} neutral fallback.
+ */
+type SessionViewRow = {
+  id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  room_id: string;
+  room_name: string | null;
+  teacher_id: string | null;
+  teacher_name_fr: string | null;
+  teacher_name_ar: string | null;
+  group_id: string | null;
+  subject_id: string | null;
+  subject_name_fr: string | null;
+  subject_name_ar: string | null;
+  level: string | null;
+  kind: string | null;
 };
 
 function fromRow(row: SessionRow): WeeklyRecurringSession {
@@ -43,9 +73,37 @@ function fromRow(row: SessionRow): WeeklyRecurringSession {
     version: row.version,
     roomId: row.room_id as RoomId,
     teacherId: row.teacher_id === null ? null : (row.teacher_id as EntityId),
+    groupId: row.group_id === null ? null : (row.group_id as GroupId),
     dayOfWeek: row.day_of_week as WeekdayIndex,
     start: row.start_time as TimeOfDay,
     end: row.end_time as TimeOfDay,
+  };
+}
+
+/** Enriched-week row → planner read model. Degrades missing/archived relations to
+ *  the neutral fallback: NULL names/subject/level pass through as `null`, and an
+ *  absent group `kind` falls back to `'regular'`. */
+function fromViewRow(row: SessionViewRow): WeeklySessionView {
+  return {
+    id: row.id as WeeklyRecurringSessionId,
+    dayOfWeek: row.day_of_week as WeekdayIndex,
+    start: row.start_time as TimeOfDay,
+    end: row.end_time as TimeOfDay,
+    roomId: row.room_id as RoomId,
+    roomName: row.room_name,
+    teacherId: row.teacher_id === null ? null : (row.teacher_id as EntityId),
+    teacherName:
+      row.teacher_name_fr === null || row.teacher_name_ar === null
+        ? null
+        : { fr: row.teacher_name_fr, ar: row.teacher_name_ar },
+    groupId: row.group_id === null ? null : (row.group_id as GroupId),
+    subjectId: row.subject_id === null ? null : (row.subject_id as SubjectId),
+    subjectName:
+      row.subject_name_fr === null || row.subject_name_ar === null
+        ? null
+        : { fr: row.subject_name_fr, ar: row.subject_name_ar },
+    level: row.level,
+    kind: (row.kind ?? 'regular') as GroupKind,
   };
 }
 
@@ -64,10 +122,10 @@ function toRef(row: SessionRow): ScheduledSessionRef {
 const SAVE_SQL = `
   INSERT INTO weekly_recurring_sessions
     (id, center_code, device_origin, created_at, updated_at, updated_by,
-     deleted_at, version, room_id, teacher_id, day_of_week, start_time, end_time)
+     deleted_at, version, room_id, teacher_id, group_id, day_of_week, start_time, end_time)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
-     @deleted_at, @version, @room_id, @teacher_id, @day_of_week, @start_time, @end_time)
+     @deleted_at, @version, @room_id, @teacher_id, @group_id, @day_of_week, @start_time, @end_time)
   ON CONFLICT(id) DO UPDATE SET
     updated_at  = excluded.updated_at,
     updated_by  = excluded.updated_by,
@@ -75,9 +133,43 @@ const SAVE_SQL = `
     version     = excluded.version,
     room_id     = excluded.room_id,
     teacher_id  = excluded.teacher_id,
+    group_id    = excluded.group_id,
     day_of_week = excluded.day_of_week,
     start_time  = excluded.start_time,
     end_time    = excluded.end_time
+`;
+
+/**
+ * Enriched-week read (SOU-118): every live session of the center joined onto its
+ * room, teacher, group, and the group's subject. LEFT JOINs so a session with no
+ * live group/room/teacher is kept (degraded), never dropped; each join filters
+ * `deleted_at IS NULL` so an archived relation reads as absent. Ordered by weekday
+ * then start time — the port's contract, served here without a re-sort.
+ */
+const LIST_WEEK_VIEW_SQL = `
+  SELECT
+    wrs.id            AS id,
+    wrs.day_of_week   AS day_of_week,
+    wrs.start_time    AS start_time,
+    wrs.end_time      AS end_time,
+    wrs.room_id       AS room_id,
+    r.name            AS room_name,
+    wrs.teacher_id    AS teacher_id,
+    t.name_fr         AS teacher_name_fr,
+    t.name_ar         AS teacher_name_ar,
+    wrs.group_id      AS group_id,
+    g.subject_id      AS subject_id,
+    s.name_fr         AS subject_name_fr,
+    s.name_ar         AS subject_name_ar,
+    g.level           AS level,
+    g.kind            AS kind
+  FROM weekly_recurring_sessions wrs
+  LEFT JOIN rooms    r ON r.id = wrs.room_id    AND r.deleted_at IS NULL
+  LEFT JOIN teachers t ON t.id = wrs.teacher_id AND t.deleted_at IS NULL
+  LEFT JOIN groups   g ON g.id = wrs.group_id   AND g.deleted_at IS NULL
+  LEFT JOIN subjects s ON s.id = g.subject_id   AND s.deleted_at IS NULL
+  WHERE wrs.center_code = ? AND wrs.deleted_at IS NULL
+  ORDER BY wrs.day_of_week, wrs.start_time
 `;
 
 /**
@@ -85,12 +177,15 @@ const SAVE_SQL = `
  * between the port and SQL — no business decisions. Reads hide tombstones;
  * `listChangedSince` (the sync feed) deliberately sees them. Identity columns
  * (`id`, `center_code`, `device_origin`, `created_at`) are never rewritten on
- * upsert. Also satisfies {@link RoomReferencePort}: it owns the query the
- * `ArchiveRoom` in-use guard needs, so the composition root passes this same
- * instance as the room-reference adapter.
+ * upsert.
+ *
+ * Implements two further read ports on the same instance (the join anchors on this
+ * table): {@link RoomReferencePort} — the query the `ArchiveRoom` in-use guard needs
+ * — and {@link WeeklySessionViewReadPort} — the planner grid's enriched week
+ * (SOU-118). The composition root passes this one instance for all three.
  */
 export class SqliteWeeklyRecurringSessionRepository
-  implements WeeklyRecurringSessionRepository, RoomReferencePort
+  implements WeeklyRecurringSessionRepository, RoomReferencePort, WeeklySessionViewReadPort
 {
   constructor(private readonly db: DB) {}
 
@@ -106,6 +201,7 @@ export class SqliteWeeklyRecurringSessionRepository
       version: session.version,
       room_id: session.roomId,
       teacher_id: session.teacherId,
+      group_id: session.groupId,
       day_of_week: session.dayOfWeek,
       start_time: session.start,
       end_time: session.end,
@@ -149,15 +245,10 @@ export class SqliteWeeklyRecurringSessionRepository
     return rows.map(toRef);
   }
 
-  async listForWeek(centerCode: CenterCode): Promise<readonly WeeklyRecurringSession[]> {
-    const rows = this.db
-      .prepare(
-        `SELECT * FROM weekly_recurring_sessions
-          WHERE center_code = ? AND deleted_at IS NULL
-          ORDER BY day_of_week, start_time`,
-      )
-      .all(centerCode) as SessionRow[];
-    return rows.map(fromRow);
+  /** {@link WeeklySessionViewReadPort}: the planner grid's enriched week. */
+  async listWeekView(centerCode: CenterCode): Promise<readonly WeeklySessionView[]> {
+    const rows = this.db.prepare(LIST_WEEK_VIEW_SQL).all(centerCode) as SessionViewRow[];
+    return rows.map(fromViewRow);
   }
 
   /** {@link RoomReferencePort}: true when any live session still books the room. */

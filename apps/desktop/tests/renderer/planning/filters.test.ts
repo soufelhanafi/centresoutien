@@ -1,24 +1,23 @@
 import { describe, it, expect } from 'vitest';
 import {
   applyFilters,
-  deriveFilterOptions,
+  deriveRoomLevelOptions,
   hasActiveFilters,
   NO_FILTERS,
   type PlannerFilters,
 } from '../../../src/renderer/lib/planning/filters';
 import { session } from './_fixtures';
 
-describe('deriveFilterOptions', () => {
-  it('collects distinct teacher/room/level options, sorted by label', () => {
-    const options = deriveFilterOptions([
-      session({ teacherId: 't2', teacherName: 'Zineb', roomId: 'r2', roomName: 'Salle B', level: '2BAC' }),
-      session({ teacherId: 't1', teacherName: 'Adil', roomId: 'r1', roomName: 'Salle A', level: '1BAC' }),
-      session({ teacherId: 't1', teacherName: 'Adil', roomId: 'r1', roomName: 'Salle A', level: '1BAC' }),
-    ]);
-    expect(options.teachers).toEqual([
-      { value: 't1', label: 'Adil' },
-      { value: 't2', label: 'Zineb' },
-    ]);
+describe('deriveRoomLevelOptions', () => {
+  it('collects distinct room/level options, sorted by label', () => {
+    const options = deriveRoomLevelOptions(
+      [
+        session({ roomId: 'r2', roomName: 'Salle B', level: '2BAC' }),
+        session({ roomId: 'r1', roomName: 'Salle A', level: '1BAC' }),
+        session({ roomId: 'r1', roomName: 'Salle A', level: '1BAC' }),
+      ],
+      'Salle inconnue',
+    );
     expect(options.rooms).toEqual([
       { value: 'r1', label: 'Salle A' },
       { value: 'r2', label: 'Salle B' },
@@ -26,9 +25,14 @@ describe('deriveFilterOptions', () => {
     expect(options.levels).toEqual(['1BAC', '2BAC']);
   });
 
-  it('omits a teacher option for unassigned sessions', () => {
-    const options = deriveFilterOptions([session({ teacherId: null, teacherName: null })]);
-    expect(options.teachers).toEqual([]);
+  it('labels an archived/not-yet-synced room (roomName null) with the fallback', () => {
+    const options = deriveRoomLevelOptions([session({ roomId: 'r9', roomName: null })], 'Salle inconnue');
+    expect(options.rooms).toEqual([{ value: 'r9', label: 'Salle inconnue' }]);
+  });
+
+  it('omits a level option for a session with no live group (level null)', () => {
+    const options = deriveRoomLevelOptions([session({ level: null })], 'Salle inconnue');
+    expect(options.levels).toEqual([]);
     expect(options.rooms).toHaveLength(1);
   });
 });

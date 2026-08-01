@@ -6,6 +6,7 @@ import type {
   CenterId,
   DeviceId,
   EnrollmentId,
+  EntityId,
   Group,
   GroupId,
   ParentId,
@@ -205,24 +206,24 @@ const stubSaveCenterHours: SaveCenterHoursUseCase = {
     })),
 };
 
-// Stub weekly-session read — returns one envelope-complete session so the handler
-// can prove it strips the envelope down to the boundary DTO (SOU-53 seam).
+// Stub weekly-session read — returns one enriched WeeklySessionView so the handler
+// can prove it serializes the read model to the boundary DTO (SOU-118 seam).
 const stubListWeekSessions: ListWeekSessionsUseCase = {
   execute: async () => [
     {
       id: 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId,
-      centerCode: context.centerCode,
-      deviceOrigin: context.deviceOrigin,
-      createdAt: new Date('2026-07-29T10:00:00Z'),
-      updatedAt: new Date('2026-07-29T10:00:00Z'),
-      updatedBy: context.updatedBy,
-      deletedAt: null,
-      version: 0,
-      roomId: 'rom_00000000000000000000000001' as RoomId,
-      teacherId: null,
       dayOfWeek: 1 as WeekdayIndex,
       start: '09:00' as TimeOfDay,
       end: '10:00' as TimeOfDay,
+      roomId: 'rom_00000000000000000000000001' as RoomId,
+      roomName: 'Salle A',
+      teacherId: 'tch_00000000000000000000000001' as EntityId,
+      teacherName: { fr: 'M. Alaoui', ar: 'السيد العلوي' },
+      groupId: 'grp_00000000000000000000000001' as GroupId,
+      subjectId: 'sub_00000000000000000000000001' as SubjectId,
+      subjectName: { fr: 'Mathématiques', ar: 'الرياضيات' },
+      level: '2 Bac SM',
+      kind: 'regular',
     },
   ],
 };
@@ -385,16 +386,23 @@ describe('createIpcDispatcher', () => {
     ).rejects.toThrow();
   });
 
-  it('runs session.week and returns the envelope-stripped session views', async () => {
+  it('runs session.week and returns the enriched session views', async () => {
     await expect(dispatch('session.week', {})).resolves.toEqual({
       sessions: [
         {
           id: 'wrs_00000000000000000000000001',
-          roomId: 'rom_00000000000000000000000001',
-          teacherId: null,
           dayOfWeek: 1,
           start: '09:00',
           end: '10:00',
+          roomId: 'rom_00000000000000000000000001',
+          roomName: 'Salle A',
+          teacherId: 'tch_00000000000000000000000001',
+          teacherName: { fr: 'M. Alaoui', ar: 'السيد العلوي' },
+          groupId: 'grp_00000000000000000000000001',
+          subjectId: 'sub_00000000000000000000000001',
+          subjectName: { fr: 'Mathématiques', ar: 'الرياضيات' },
+          level: '2 Bac SM',
+          kind: 'regular',
         },
       ],
     });

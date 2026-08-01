@@ -39,6 +39,7 @@ function recurring(over: Partial<WeeklyRecurringSession> = {}): WeeklyRecurringS
     ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
     roomId: ROOM,
     teacherId: TEACHER,
+    groupId: null,
     dayOfWeek: 4,
     start: '09:00' as TimeOfDay,
     end: '10:30' as TimeOfDay,

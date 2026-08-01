@@ -35,33 +35,48 @@ export function hasActiveFilters(filters: PlannerFilters): boolean {
 /** One selectable option: a stable id/value plus its display label. */
 export type FilterOption = { readonly value: string; readonly label: string };
 
-/** The distinct teacher / room / level options present in the week, sorted for display. */
+/** The distinct teacher / room / level options offered by the planner, sorted for display. */
 export type FilterOptions = {
   readonly teachers: readonly FilterOption[];
   readonly rooms: readonly FilterOption[];
   readonly levels: readonly string[];
 };
 
+/** Room and level options derived from the week's sessions (teachers come from the live roster). */
+export type RoomLevelOptions = {
+  readonly rooms: readonly FilterOption[];
+  readonly levels: readonly string[];
+};
+
+/** Alphabetical by display label, locale-aware. */
+export function byLabel(a: FilterOption, b: FilterOption): number {
+  return a.label.localeCompare(b.label);
+}
+
 /**
- * Derives the filter dropdown options from the week's own sessions — a filter
- * only ever offers values that exist, so it can never select an empty result by
- * construction. Unassigned-teacher sessions contribute no teacher option; they
- * simply fall outside any specific-teacher filter.
+ * Derives the room and level filter options from the week's own sessions — a
+ * filter only ever offers values that exist, so it can never select an empty
+ * result by construction. A session in an archived/not-yet-synced room (`roomName
+ * === null`) is still filterable, shown under `unknownRoomLabel`; a session with
+ * no level (`level === null`, no live group) contributes no level option.
+ *
+ * Teachers are intentionally **not** derived here: the teacher filter reads the
+ * live *active* roster (SOU-118 / SOU-37) so an archived teacher drops from the
+ * picker even while their past sessions still render.
  */
-export function deriveFilterOptions(sessions: readonly PlannerSessionView[]): FilterOptions {
-  const teachers = new Map<string, string>();
+export function deriveRoomLevelOptions(
+  sessions: readonly PlannerSessionView[],
+  unknownRoomLabel: string,
+): RoomLevelOptions {
   const rooms = new Map<string, string>();
   const levels = new Set<string>();
 
   for (const s of sessions) {
-    if (s.teacherId !== null && s.teacherName !== null) teachers.set(s.teacherId, s.teacherName);
-    rooms.set(s.roomId, s.roomName);
-    levels.add(s.level);
+    rooms.set(s.roomId, s.roomName ?? unknownRoomLabel);
+    if (s.level !== null) levels.add(s.level);
   }
 
-  const byLabel = (a: FilterOption, b: FilterOption) => a.label.localeCompare(b.label);
   return {
-    teachers: [...teachers].map(([value, label]) => ({ value, label })).sort(byLabel),
     rooms: [...rooms].map(([value, label]) => ({ value, label })).sort(byLabel),
     levels: [...levels].sort((a, b) => a.localeCompare(b)),
   };

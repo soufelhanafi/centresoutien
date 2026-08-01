@@ -204,18 +204,34 @@ const holidayViewSchema = z.object({
 });
 
 // The presentation projection of a weekly recurring session across the IPC
-// boundary (SOU-53 seam for the SOU-54 planner grid) — the sync envelope is
-// stripped, there are no Dates on the view (the times are wall-clock `'HH:mm'`
-// strings, not timestamps). `teacherId` is nullable: a slot may exist before a
-// teacher is assigned. Single source of truth for the renderer's
-// `WeeklySessionView` type.
+// boundary — the enriched planner read model (SOU-118), aligned field-for-field
+// with the domain `WeeklySessionView`. The sync envelope is stripped; there are no
+// Dates (times are wall-clock `'HH:mm'` strings). The join-derived fields degrade
+// to their neutral fallback rather than dropping the row:
+//   - roomName / teacherName: null when the room/teacher is unassigned, archived,
+//     or not-yet-synced. teacherName is bilingual so AR-RTL renders native Arabic.
+//   - groupId / subjectId / subjectName / level: null when the session has no group
+//     or the group is archived. subjectName is also null (while subjectId stays set)
+//     when the subject itself is archived — the grid can still colour by id.
+//   - kind: 'regular' fallback when there is no live group, so the badge/filter
+//     always has a value.
+// Single source of truth for the renderer's `WeeklySessionView` type.
+const bilingualTextSchema = z.object({ fr: z.string(), ar: z.string() });
+
 const weeklySessionViewSchema = z.object({
   id: z.string(),
-  roomId: z.string(),
-  teacherId: z.string().nullable(),
   dayOfWeek: z.number().int().min(0).max(6),
   start: z.string(),
   end: z.string(),
+  roomId: z.string(),
+  roomName: z.string().nullable(),
+  teacherId: z.string().nullable(),
+  teacherName: bilingualTextSchema.nullable(),
+  groupId: z.string().nullable(),
+  subjectId: z.string().nullable(),
+  subjectName: bilingualTextSchema.nullable(),
+  level: z.string().nullable(),
+  kind: z.enum(['regular', 'exam-prep']),
 });
 
 // The presentation projection of a concrete, dated session occurrence across the

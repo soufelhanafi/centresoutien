@@ -10,15 +10,18 @@ import type { WeekdayIndex } from '../value-objects/weekday';
 /**
  * Persistence port for weekly recurring sessions. Extends the soft-deletable
  * surface (`save` / `findById` / `softDelete` / `listChangedSince`; reads exclude
- * tombstones, no hard delete) with the two reads the scheduling features need:
+ * tombstones, no hard delete) with the scheduling read the conflict detector needs:
  *
  * - {@link listRefsForDay} feeds the composite conflict detector (SOU-55). It
  *   returns already-scoped {@link ScheduledSessionRef}s (same center, alive, that
  *   weekday) so the pure `SessionConflictPolicy` can consume them directly without
  *   re-scoping — the `(day_of_week, room_id)` / `(day_of_week, teacher_id)` indexes
  *   serve it in <10ms on the ~500-row datasets a center produces.
- * - {@link listForWeek} feeds the planner grid (SOU-54): every live session of the
- *   center, across all seven weekdays, as full entities to render.
+ *
+ * The planner grid's full-week read is **not** here: it needs the enriched
+ * cross-aggregate {@link WeeklySessionView} (session ⋈ group ⋈ subject, + room, +
+ * teacher), which lives behind its own `WeeklySessionViewReadPort` (SOU-118). The
+ * SQLite adapter implements both ports on one class.
  *
  * Sessions are identified by their relationships, not people-like matching, so
  * there is no `findByNaturalKey`. The SQLite adapter also satisfies the
@@ -34,9 +37,4 @@ export interface WeeklyRecurringSessionRepository
     centerCode: CenterCode,
     dayOfWeek: WeekdayIndex,
   ): Promise<readonly ScheduledSessionRef[]>;
-  /**
-   * Every active (non-tombstoned) session of the center, ordered by weekday then
-   * start time — the full week the planner grid renders.
-   */
-  listForWeek(centerCode: CenterCode): Promise<readonly WeeklyRecurringSession[]>;
 }

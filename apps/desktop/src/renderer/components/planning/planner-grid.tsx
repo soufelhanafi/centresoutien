@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { WEEKDAYS, type WeekdayIndex } from '@centresoutien/domain';
+import { WEEKDAYS } from '@centresoutien/domain';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 import type { TimeRange } from '../../lib/planning/time-range';
 import { PlannerDayColumn } from './planner-day-column';
@@ -23,8 +23,8 @@ function hourLabel(hour: number): string {
   return `${String(hour).padStart(2, '0')}:00`;
 }
 
-function groupByDay(sessions: readonly PlannerSessionView[]): Map<WeekdayIndex, PlannerSessionView[]> {
-  const byDay = new Map<WeekdayIndex, PlannerSessionView[]>();
+function groupByDay(sessions: readonly PlannerSessionView[]): Map<number, PlannerSessionView[]> {
+  const byDay = new Map<number, PlannerSessionView[]>();
   for (const s of sessions) {
     const bucket = byDay.get(s.dayOfWeek);
     if (bucket) bucket.push(s);

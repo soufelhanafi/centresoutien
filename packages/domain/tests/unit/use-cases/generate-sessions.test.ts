@@ -34,6 +34,7 @@ function recurring(over: Partial<WeeklyRecurringSession> = {}): WeeklyRecurringS
     version: 3,
     roomId: 'rom_00000000000000000000000001' as RoomId,
     teacherId: 'tch_00000000000000000000000001' as EntityId,
+    groupId: null,
     dayOfWeek: 4,
     start: '09:00' as TimeOfDay,
     end: '10:30' as TimeOfDay,

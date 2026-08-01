@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@centresoutien/ui';
 import { useWeekSessions } from '../../hooks/planning/use-week-sessions';
+import { useTeachers } from '../../hooks/teacher/use-teachers';
+import { localizedName } from '../../lib/teachers/localized-name';
 import { PlannerToolbar } from '../../components/planning/planner-toolbar';
 import { PlannerGrid } from '../../components/planning/planner-grid';
 import { PlannerGridSkeleton } from '../../components/planning/planner-grid-skeleton';
@@ -9,8 +11,10 @@ import { SessionTemplateDialog } from '../../components/planning/session-templat
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 import {
   applyFilters,
-  deriveFilterOptions,
+  byLabel,
+  deriveRoomLevelOptions,
   NO_FILTERS,
+  type FilterOptions,
   type PlannerFilters,
 } from '../../lib/planning/filters';
 import { deriveTimeRange } from '../../lib/planning/time-range';
@@ -22,15 +26,26 @@ import { deriveTimeRange } from '../../lib/planning/time-range';
  * against the mock gateway until the `session.week` read model is enriched.
  */
 export function PlannerPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const query = useWeekSessions();
+  // The teacher filter reads the live *active* roster (SOU-118 / SOU-37), so an
+  // archived teacher drops from the picker even while their past sessions render.
+  const teachersQuery = useTeachers('active', '');
   const [filters, setFilters] = useState<PlannerFilters>(NO_FILTERS);
   const [selected, setSelected] = useState<PlannerSessionView | null>(null);
 
   const week = useMemo(() => query.data ?? [], [query.data]);
   const range = useMemo(() => deriveTimeRange(week), [week]);
-  const options = useMemo(() => deriveFilterOptions(week), [week]);
   const filtered = useMemo(() => applyFilters(week, filters), [week, filters]);
+
+  const locale = i18n.language;
+  const options = useMemo<FilterOptions>(() => {
+    const { rooms, levels } = deriveRoomLevelOptions(week, t('planning.filters.unknownRoom'));
+    const teachers = (teachersQuery.data ?? [])
+      .map((teacher) => ({ value: teacher.id, label: localizedName(teacher, locale) }))
+      .sort(byLabel);
+    return { teachers, rooms, levels };
+  }, [week, teachersQuery.data, locale, t]);
 
   const patchFilters = (patch: Partial<PlannerFilters>) => setFilters((f) => ({ ...f, ...patch }));
 
