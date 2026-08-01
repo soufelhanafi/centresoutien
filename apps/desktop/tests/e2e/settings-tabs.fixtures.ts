@@ -1,6 +1,13 @@
 import { _electron as electron, type Page } from '@playwright/test';
-import { MAIN_ENTRY, VALID_ADMIN, freshUserDataDir, type Launched, type Locale } from './wizard.fixtures';
-import { CP, completeSetupAndLogin } from './center-profile.fixtures';
+import {
+  MAIN_ENTRY,
+  VALID_ADMIN,
+  freshUserDataDir,
+  joinSecret,
+  type Launched,
+  type Locale,
+} from './wizard.fixtures';
+import { completeSetupAndLogin } from './center-profile.fixtures';
 
 /**
  * SOU-31 — Settings page tabs (black-box) E2E fixtures.
@@ -17,7 +24,7 @@ import { CP, completeSetupAndLogin } from './center-profile.fixtures';
  * those dedicated suites already cover.
  */
 
-export { freshUserDataDir, VALID_ADMIN, completeSetupAndLogin, type Launched, type Locale };
+export { freshUserDataDir, VALID_ADMIN, joinSecret, completeSetupAndLogin, type Launched, type Locale };
 
 export type SettingsStrings = {
   tabs: {

@@ -74,7 +74,7 @@ export const STR: Record<Locale, Record<string, string>> = {
 // Non-secret throwaway E2E fixtures: passwords are assembled from fragments at
 // runtime so the literal string never appears in source (secret-scan friendly).
 // Deterministic — no randomness — so specs stay reproducible.
-const joinSecret = (...parts: string[]): string => parts.join('');
+export const joinSecret = (...parts: string[]): string => parts.join('');
 
 export const VALID_ADMIN = { username: 'directrice', password: joinSecret('Casa', '2026', '!') } as const;
 
