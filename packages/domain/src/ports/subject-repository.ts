@@ -1,6 +1,33 @@
 import type { SoftDeletableRepository } from '../repositories/soft-deletable';
 import type { Subject, SubjectId } from '../entities/subject';
-import type { CenterCode } from '../value-objects/ids';
+import type { CenterCode, EntityId } from '../value-objects/ids';
+
+/** The entity kinds that can reference a Subject. Only `'group'` has any live
+ *  data today; `'formula'` and `'session'` are named now so the read model and
+ *  the CRUD screen's kind switch don't need a breaking change when those
+ *  entities grow a `subjectId` (SOU-60 and friends). */
+export const SUBJECT_USAGE_REFERENCE_KINDS = ['group', 'formula', 'session'] as const;
+export type SubjectUsageReferenceKind = (typeof SUBJECT_USAGE_REFERENCE_KINDS)[number];
+
+/**
+ * One entity referencing a Subject, named for the delete-blocked modal (SOU-135):
+ * "impossible de supprimer : utilisé par le groupe 3ème A". `id` is `EntityId`
+ * rather than a specific branded id because it spans several entity kinds
+ * (mirrors `Group.teacherId`'s use of the generic brand for the same reason).
+ *
+ * `label` is bilingual so the FR/AR CRUD modal never needs a second lookup, but
+ * not every referencing entity actually has translated content: a Group has no
+ * name of its own, only a plain `level` string (like `Room.name`, never
+ * translated) — for a `'group'` reference the adapter duplicates that string
+ * into both `fr` and `ar`. A `'formula'` reference (once formulas carry
+ * `subjectIds`) can populate genuinely distinct `fr`/`ar` text from
+ * `Formula.name`.
+ */
+export type SubjectUsageReference = {
+  readonly kind: SubjectUsageReferenceKind;
+  readonly id: EntityId;
+  readonly label: { readonly fr: string; readonly ar: string };
+};
 
 /**
  * A subject paired with its in-use reference count — the read model that backs the
@@ -11,11 +38,17 @@ import type { CenterCode } from '../value-objects/ids';
  * (they carry no `subjectId` yet). The mirror invariant is the `ArchiveSubject`
  * guard: `canDelete === false` is exactly when `SubjectReferencePort.isSubjectInUse`
  * would report `true`.
+ *
+ * `references` (SOU-135) is the named breakdown of what's blocking a delete —
+ * `references.length === inUseCount` always, since both count exactly the same
+ * live rows. Kept on this same read model (not a separate detail channel) since
+ * both are derived from one query in one round-trip.
  */
 export type SubjectUsage = {
   readonly subject: Subject;
   readonly inUseCount: number;
   readonly canDelete: boolean;
+  readonly references: readonly SubjectUsageReference[];
 };
 
 /**

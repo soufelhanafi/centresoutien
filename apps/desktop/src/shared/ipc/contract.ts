@@ -266,16 +266,33 @@ const subjectViewSchema = z.object({
   active: z.boolean(),
 });
 
+// One entity referencing a subject, named for the delete-blocked modal (SOU-135):
+// "impossible de supprimer : utilisé par le groupe 3ème A" instead of a bare count.
+// `kind` is open to `'formula'`/`'session'` ahead of those entities actually
+// referencing subjects (only `'group'` has live data today — SOU-60 and friends
+// add the rest). `label` is bilingual; for a `'group'` reference the domain
+// duplicates the group's plain `level` string into both `fr` and `ar` since a
+// Group has no translated name of its own.
+const subjectUsageReferenceSchema = z.object({
+  kind: z.enum(['group', 'formula', 'session']),
+  id: z.string(),
+  label: z.object({ fr: z.string(), ar: z.string() }),
+});
+
 // A subject paired with its in-use reference count across the boundary (SOU-124),
 // backing the SOU-47 CRUD table: the lean `subjectView` plus `inUseCount` and the
 // derived `canDelete` (`inUseCount === 0`) so a row can enable/disable its archive
 // action without a second round-trip. A sibling of `subjectViewSchema` rather than a
 // field on it, so the name channels stay lean and only the CRUD screen pays for the
-// counts. Single source of truth for the renderer's `SubjectUsageView` type.
+// counts. `references` (SOU-135) is the named breakdown behind `inUseCount` — always
+// the same length — so the delete-blocked modal can list what's blocking a delete
+// instead of just disabling the button. Single source of truth for the renderer's
+// `SubjectUsageView` type.
 const subjectUsageViewSchema = z.object({
   subject: subjectViewSchema,
   inUseCount: z.number().int().nonnegative(),
   canDelete: z.boolean(),
+  references: z.array(subjectUsageReferenceSchema),
 });
 
 // The display shape of one weekday's hours returned to the renderer: the

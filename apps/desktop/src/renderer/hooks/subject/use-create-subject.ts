@@ -1,15 +1,17 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { SubjectInput } from '@centresoutien/domain';
+import type { SubjectInput } from '../../lib/subjects/subject-view';
+import { subjectsGateway } from '../../lib/subjects/subjects-gateway';
+import { subjectKeys } from './keys';
 
 /**
- * Creates a subject over the typed IPC bridge. On success it invalidates the
- * subjects query so any list refetches. All data access goes through
- * `window.api` — the renderer never touches the database directly.
+ * Creates a subject. On success it invalidates every subjects query so the
+ * name-resolution lists and the usage-with-count CRUD table refetch. Data access
+ * goes through the {@link subjectsGateway} seam, not `window.api` directly.
  */
 export function useCreateSubject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: SubjectInput) => window.api.invoke('subject.create', input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['subjects'] }),
+    mutationFn: (input: SubjectInput) => subjectsGateway.create(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: subjectKeys.all }),
   });
 }

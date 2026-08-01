@@ -269,7 +269,13 @@ export {
 } from './policies/login-throttle-policy';
 
 // Repository & service ports
-export type { SubjectRepository, SubjectUsage } from './ports/subject-repository';
+export type {
+  SubjectRepository,
+  SubjectUsage,
+  SubjectUsageReference,
+  SubjectUsageReferenceKind,
+} from './ports/subject-repository';
+export { SUBJECT_USAGE_REFERENCE_KINDS } from './ports/subject-repository';
 // Subject in-use guard — its concrete adapter (SOU-46) is the live-groups
 // reference query; sessions/formulas join the scope once they reference subjects.
 export type { SubjectReferencePort } from './ports/subject-reference';
