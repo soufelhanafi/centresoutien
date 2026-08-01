@@ -472,8 +472,7 @@
     "searchLabel": "Rechercher un enseignant",
     "filters": {
       "subjectLabel": "Matière",
-      "subjectAll": "Toutes les matières",
-      "subjectComingSoon": "Le filtre par matière arrive avec le module Matières."
+      "subjectAll": "Toutes les matières"
     },
     "new": "Nouvel enseignant",
     "seats": {
@@ -537,6 +536,10 @@
       "cinPlaceholder": "Carte nationale (facultatif)",
       "email": "E-mail",
       "emailPlaceholder": "Adresse e-mail (facultatif)",
+      "subjects": "Matières",
+      "subjectInactive": "(inactive)",
+      "subjectsEmpty": "Aucune matière configurée. Créez d'abord des matières.",
+      "subjectsError": "Impossible de charger les matières.",
       "create": "Créer l'enseignant",
       "save": "Enregistrer",
       "saving": "Enregistrement…",
@@ -565,6 +568,19 @@
         "subjects": "Matières",
         "groups": "Groupes",
         "payroll": "Rémunération"
+      },
+      "subjects": {
+        "empty": {
+          "title": "Aucune matière assignée",
+          "body": "Modifiez l'enseignant pour lui attribuer des matières."
+        },
+        "loadError": {
+          "title": "Impossible de charger les matières",
+          "body": "Le chargement des matières a échoué.",
+          "retry": "Réessayer"
+        },
+        "inactive": "(inactive)",
+        "unknown": "Matière inconnue"
       }
     },
     "info": {
@@ -576,10 +592,6 @@
       "none": "—"
     },
     "comingSoon": {
-      "subjects": {
-        "title": "Matières bientôt disponibles",
-        "body": "Les matières enseignées par cet enseignant apparaîtront ici."
-      },
       "groups": {
         "title": "Groupes bientôt disponibles",
         "body": "Les groupes animés par cet enseignant apparaîtront ici."
