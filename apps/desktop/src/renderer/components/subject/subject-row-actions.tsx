@@ -24,11 +24,12 @@ import { DeleteSubjectDialog } from './delete-subject-dialog';
  * no confirmation — mirrors `TeacherRowActions`'s restore). Active rows get a
  * menu: rename, an instant reversible "Désactiver", and "Supprimer" — the latter
  * always opens {@link DeleteSubjectDialog}, which itself shows the blocked view
- * when `canDelete` is false. In that case the item is visually muted and carries
- * `aria-disabled` (so assistive tech announces the disabled state, per the AC),
- * but keeps the native `disabled` attribute off so its tooltip stays reachable
- * and clicking still opens the informative modal instead of doing nothing —
- * friendlier for a low-tech-literacy user than a silently inert control.
+ * when `canDelete` is false. In that case the item is only visually muted; it is
+ * deliberately NOT marked disabled (neither native `disabled` nor `aria-disabled`)
+ * because it remains a working control — its tooltip explains why deletion is
+ * blocked and activating it opens the informative modal (which names the blockers
+ * and offers "Désactiver" instead). Marking it disabled would make that modal
+ * unreachable for keyboard/AT users and is friendlier to no one.
  */
 export function SubjectRowActions({ usage, variant }: { usage: SubjectUsageView; variant: SubjectStatus }) {
   const { t, i18n } = useTranslation();
@@ -58,7 +59,6 @@ export function SubjectRowActions({ usage, variant }: { usage: SubjectUsageView;
   const deleteItem = (
     <DropdownMenuItem
       variant="destructive"
-      aria-disabled={!usage.canDelete}
       className={usage.canDelete ? undefined : 'opacity-60'}
       onSelect={() => setDeleteOpen(true)}
     >
