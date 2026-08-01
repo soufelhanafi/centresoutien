@@ -764,11 +764,13 @@
       "5": "Vendredi",
       "6": "Samedi"
     },
+    "unknownSubject": "Matière inconnue",
     "filters": {
       "teacher": "Enseignant",
       "teacherAll": "Tous les enseignants",
       "room": "Salle",
       "roomAll": "Toutes les salles",
+      "unknownRoom": "Salle inconnue",
       "level": "Niveau",
       "levelAll": "Tous les niveaux",
       "kind": "Type",

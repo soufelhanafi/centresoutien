@@ -10,6 +10,7 @@ import {
   KindBadge,
 } from '@centresoutien/ui';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
+import { localizedText } from '../../lib/planning/localized-text';
 
 type SessionTemplateDialogProps = {
   /** The clicked session, or `null` when the dialog is closed. */
@@ -36,8 +37,12 @@ export function SessionTemplateDialog({ session, onOpenChange }: SessionTemplate
   const { t, i18n } = useTranslation();
   if (session === null) return null;
 
-  const subject = i18n.language === 'ar' ? session.subjectName.ar : session.subjectName.fr;
   const dash = t('planning.dialog.none');
+  const subject =
+    session.subjectName === null
+      ? t('planning.unknownSubject')
+      : localizedText(session.subjectName, i18n.language);
+  const teacher = session.teacherName === null ? dash : localizedText(session.teacherName, i18n.language);
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -56,9 +61,9 @@ export function SessionTemplateDialog({ session, onOpenChange }: SessionTemplate
         <dl className="mt-1">
           <Field label={t('planning.dialog.day')} value={t(`planning.weekdays.${session.dayOfWeek}`)} />
           <Field label={t('planning.dialog.time')} value={`${session.start} – ${session.end}`} />
-          <Field label={t('planning.dialog.teacher')} value={session.teacherName ?? dash} />
-          <Field label={t('planning.dialog.room')} value={session.roomName} />
-          <Field label={t('planning.dialog.level')} value={session.level} />
+          <Field label={t('planning.dialog.teacher')} value={teacher} />
+          <Field label={t('planning.dialog.room')} value={session.roomName ?? dash} />
+          <Field label={t('planning.dialog.level')} value={session.level ?? dash} />
         </dl>
 
         <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">

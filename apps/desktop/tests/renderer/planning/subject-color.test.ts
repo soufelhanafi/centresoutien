@@ -29,4 +29,12 @@ describe('subjectColor', () => {
       border: `var(--subject-${i}-border)`,
     });
   });
+
+  it('falls back to neutral muted colours for an unknown subject (null id)', () => {
+    expect(subjectColor(null)).toEqual({
+      background: 'var(--muted)',
+      foreground: 'var(--muted-foreground)',
+      border: 'var(--border)',
+    });
+  });
 });

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { KindBadge } from '@centresoutien/ui';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 import { subjectColor } from '../../lib/planning/subject-color';
+import { localizedText } from '../../lib/planning/localized-text';
 
 type SessionBlockProps = {
   session: PlannerSessionView;
@@ -20,8 +21,12 @@ type SessionBlockProps = {
 export function SessionBlock({ session, style, onSelect }: SessionBlockProps) {
   const { t, i18n } = useTranslation();
   const color = subjectColor(session.subjectId);
-  const subject = i18n.language === 'ar' ? session.subjectName.ar : session.subjectName.fr;
-  const meta = [session.teacherName, session.roomName].filter(Boolean).join(' · ');
+  const subject =
+    session.subjectName === null
+      ? t('planning.unknownSubject')
+      : localizedText(session.subjectName, i18n.language);
+  const teacher = session.teacherName === null ? null : localizedText(session.teacherName, i18n.language);
+  const meta = [teacher, session.roomName].filter(Boolean).join(' · ');
 
   return (
     <button
