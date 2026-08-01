@@ -12,6 +12,7 @@ import {
 import { createInvoiceDraftSchema } from '../schemas/invoice';
 import { DuplicateInvoiceError } from '../errors/invoice-errors';
 import type { StudentId } from '../entities/student';
+import type { FormulaId } from '../entities/formula';
 import type { GroupKind } from '../entities/group';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 
@@ -108,7 +109,7 @@ export class CreateInvoiceDraft {
         this.clock,
       ),
       invoiceId,
-      formulaId: snapshot.formulaId,
+      formulaId: snapshot.formulaId as FormulaId,
       label: snapshot.label,
       kind: snapshot.kind,
       amountMad: snapshot.amountMad,
