@@ -92,6 +92,7 @@ export {
   TooManyActiveSubscriptionsError,
   StudentSubscriptionNotFoundError,
 } from './errors/subscription-errors';
+export { FormulaImmutableError } from './errors/formula-errors';
 export {
   SessionOutsideCenterHoursError,
   RoomConflictError,
@@ -178,6 +179,8 @@ export {
   closeStudentSubscriptionMonthSchema,
 } from './schemas/student-subscription';
 export type { StudentSubscriptionInput } from './schemas/student-subscription';
+export { formulaInputSchema, FORMULA_NAME_MAX } from './schemas/formula';
+export type { FormulaInput } from './schemas/formula';
 export {
   teacherInputSchema,
   TEACHER_NAME_MAX,
@@ -234,15 +237,10 @@ export { INVOICE_LINE_ID_PREFIX } from './entities/invoice-line';
 export type { InvoiceLine, InvoiceLineId } from './entities/invoice-line';
 export { PAYMENT_ID_PREFIX, PAYMENT_KINDS, PAYMENT_METHODS } from './entities/payment';
 export type { Payment, PaymentId, PaymentKind, PaymentMethod } from './entities/payment';
-export {
-  STUDENT_SUBSCRIPTION_ID_PREFIX,
-  FORMULA_ID_PREFIX,
-} from './entities/student-subscription';
-export type {
-  StudentSubscription,
-  StudentSubscriptionId,
-  FormulaId,
-} from './entities/student-subscription';
+export { STUDENT_SUBSCRIPTION_ID_PREFIX } from './entities/student-subscription';
+export type { StudentSubscription, StudentSubscriptionId } from './entities/student-subscription';
+export { FORMULA_ID_PREFIX } from './entities/formula';
+export type { Formula, FormulaId } from './entities/formula';
 export {
   WEEKLY_RECURRING_SESSION_ID_PREFIX,
   toScheduledSessionRef,
@@ -361,6 +359,8 @@ export {
   subscriptionRangesOverlap,
   findActiveCoverage,
 } from './policies/student-subscription-policy';
+export { updateFormula } from './policies/formula-policy';
+export type { FormulaPatch } from './policies/formula-policy';
 
 // First-run wizard state machine (SOU-25) — a pure, portable sequencer.
 export type { WizardStepId } from './wizard/wizard-steps';
