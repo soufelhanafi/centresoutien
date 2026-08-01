@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Plus } from 'lucide-react';
 import { Button } from '@centresoutien/ui';
 import { useWeekSessions } from '../../hooks/planning/use-week-sessions';
 import { useTeachers } from '../../hooks/teacher/use-teachers';
@@ -8,6 +9,7 @@ import { PlannerToolbar } from '../../components/planning/planner-toolbar';
 import { PlannerGrid } from '../../components/planning/planner-grid';
 import { PlannerGridSkeleton } from '../../components/planning/planner-grid-skeleton';
 import { SessionTemplateDialog } from '../../components/planning/session-template-dialog';
+import { CreateSessionDialog } from '../../components/planning/create-session-dialog';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 import {
   applyFilters,
@@ -33,6 +35,7 @@ export function PlannerPage() {
   const teachersQuery = useTeachers('active', '');
   const [filters, setFilters] = useState<PlannerFilters>(NO_FILTERS);
   const [selected, setSelected] = useState<PlannerSessionView | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const week = useMemo(() => query.data ?? [], [query.data]);
   const range = useMemo(() => deriveTimeRange(week), [week]);
@@ -51,11 +54,17 @@ export function PlannerPage() {
 
   return (
     <section aria-labelledby="planning-title" className="mx-auto flex w-full max-w-6xl flex-col gap-5">
-      <header className="space-y-1">
-        <h1 id="planning-title" className="text-xl font-semibold text-foreground">
-          {t('planning.title')}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t('planning.subtitle')}</p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 id="planning-title" className="text-xl font-semibold text-foreground">
+            {t('planning.title')}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t('planning.subtitle')}</p>
+        </div>
+        <Button onClick={() => setCreating(true)}>
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          {t('planning.form.new')}
+        </Button>
       </header>
 
       {query.isPending ? (
@@ -86,6 +95,7 @@ export function PlannerPage() {
       )}
 
       <SessionTemplateDialog session={selected} onOpenChange={(open) => !open && setSelected(null)} />
+      <CreateSessionDialog open={creating} onOpenChange={setCreating} />
     </section>
   );
 }
