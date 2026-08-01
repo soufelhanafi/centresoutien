@@ -17,6 +17,7 @@ import {
   recordPaymentSchema,
   voidPaymentSchema,
   adminCredentialsSchema,
+  changeAdminPasswordSchema,
   weeklyHoursSchema,
   loginInputSchema,
   centerProfileSchema,
@@ -285,6 +286,10 @@ const centerHoursViewSchema = z.object({
   open: z.string().nullable(),
   close: z.string().nullable(),
 });
+
+// Kept in sync with the renderer's `LOCALES` (`renderer/i18n/direction.ts`) and
+// main's `LOCALE_PREFERENCES` (`main/infra/locale-preference-store.ts`).
+const localePreferenceSchema = z.enum(['fr', 'ar']);
 
 /**
  * The typed IPC contract (SOU-15). Every renderer↔main call is a named channel
@@ -665,6 +670,16 @@ export const ipcContract = {
     }),
     response: z.object({ valid: z.boolean() }),
   },
+  // Password change (SOU-31 settings page). Single-admin app: no username in
+  // the request. Reuses the domain's own `changeAdminPasswordSchema` so the
+  // strength rule lives in exactly one place. On failure the renderer matches
+  // the thrown error's class name (`InvalidCurrentPasswordError`) — see
+  // `session-write-error.ts` for the established pattern of mapping a domain
+  // error name that survives the IPC boundary to a `t('errors.<code>')` key.
+  'admin.changePassword': {
+    request: changeAdminPasswordSchema,
+    response: z.object({ ok: z.literal(true) }),
+  },
   // Center opening hours (SOU-29). `get` returns only persisted rows (empty on a
   // fresh center — the renderer seeds from the domain's DEFAULT_WEEKLY_HOURS).
   // `save` takes the whole 7-row week (the domain's own schema) and echoes back
@@ -741,6 +756,16 @@ export const ipcContract = {
     response: z.object({
       bytes: z.custom<Uint8Array>((v) => v instanceof Uint8Array).nullable(),
     }),
+  },
+  // Locale preference (SOU-31 language tab). Persists the choice to the
+  // unencrypted main-process preference file so it survives a restart — the
+  // renderer also calls `i18n.changeLanguage` itself for the immediate,
+  // no-reload switch. `get` doesn't exist: the initial locale already arrives
+  // via the `?locale=` query string the main process injects at window
+  // creation, read from the same store before the window opens.
+  'preferences.locale.set': {
+    request: z.object({ locale: localePreferenceSchema }),
+    response: z.object({ ok: z.literal(true) }),
   },
 } as const;
 

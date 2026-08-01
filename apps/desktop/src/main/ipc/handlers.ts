@@ -80,6 +80,7 @@ import type {
   WeeklyRecurringSessionId,
   CreateAdminAccount,
   VerifyAdminPassword,
+  ChangeAdminPassword,
   SaveCenterHours,
   GetCenterHours,
   CenterHours,
@@ -104,6 +105,7 @@ import {
   HolidayNotFoundError,
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
+import type { LocalePreference } from '../infra/locale-preference-store';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
@@ -161,6 +163,7 @@ export type UpdateWeeklyRecurringSessionUseCase = Pick<UpdateWeeklyRecurringSess
 export type CancelWeeklyRecurringSessionUseCase = Pick<CancelWeeklyRecurringSession, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
+export type ChangeAdminPasswordUseCase = Pick<ChangeAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
 export type GetCenterHoursUseCase = Pick<GetCenterHours, 'execute'>;
 export type AttemptLoginUseCase = Pick<AttemptLogin, 'execute'>;
@@ -465,6 +468,7 @@ export type HandlerDeps = {
   adminExists: AdminExists;
   createAdminAccount: CreateAdminAccountUseCase;
   verifyAdminPassword: VerifyAdminPasswordUseCase;
+  changeAdminPassword: ChangeAdminPasswordUseCase;
   attemptLogin: AttemptLoginUseCase;
   deviceSessions: DeviceSessions;
   getCenterProfile: GetCenterProfileUseCase;
@@ -472,6 +476,7 @@ export type HandlerDeps = {
   storeCenterLogo: StoreCenterLogoUseCase;
   readCenterLogo: ReadCenterLogoUseCase;
   centerContext: () => CenterContext;
+  saveLocalePreference: (locale: LocalePreference) => void;
 };
 
 export function createHandlers(deps: HandlerDeps): IpcHandlers {
@@ -954,6 +959,10 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'admin.verify': async (request) => ({
       valid: await deps.verifyAdminPassword.execute(request),
     }),
+    'admin.changePassword': async (request) => {
+      await deps.changeAdminPassword.execute(request);
+      return { ok: true };
+    },
     'auth.login': async (request) => {
       const result = await deps.attemptLogin.execute(request);
       switch (result.outcome) {
@@ -985,6 +994,10 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'center.logoBytes': async (request) => {
       const bytes = await deps.readCenterLogo.execute(request);
       return { bytes };
+    },
+    'preferences.locale.set': (request) => {
+      deps.saveLocalePreference(request.locale);
+      return { ok: true };
     },
   };
 }

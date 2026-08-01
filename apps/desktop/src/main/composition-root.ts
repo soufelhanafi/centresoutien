@@ -59,6 +59,7 @@ import {
   CancelWeeklyRecurringSession,
   CreateAdminAccount,
   VerifyAdminPassword,
+  ChangeAdminPassword,
   SaveCenterHours,
   GetCenterHours,
   AttemptLogin,
@@ -105,6 +106,7 @@ import { FsLogoStore } from '../data/fs/logo-store';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
+import { LocalePreferenceStore, type LocalePreference } from './infra/locale-preference-store';
 import {
   createHandlers,
   type HandlerDeps,
@@ -141,6 +143,8 @@ export type Container = {
    * persistence + IPC. Nothing consumes it yet on this branch.
    */
   subscriptionReference: StudentSubscriptionReferencePort;
+  /** Read once, synchronously, before the window opens — see `LocalePreferenceStore`. */
+  readLocalePreference: () => LocalePreference | null;
   dispose: () => void;
 };
 
@@ -357,6 +361,12 @@ export function buildContainer(options: ContainerOptions): Container {
   const adminRepo = new SqliteAdminAccountRepository(db);
   const createAdminAccount = new CreateAdminAccount(adminRepo, hasher, clock, ids);
   const verifyAdminPassword = new VerifyAdminPassword(adminRepo, hasher);
+  const changeAdminPassword = new ChangeAdminPassword(adminRepo, hasher, clock);
+
+  // Locale preference (SOU-31): a plain userData-file adapter, not a domain
+  // port — see LocalePreferenceStore's doc for why. `options.dir` is the same
+  // userData directory the center DB files and the logo store live under.
+  const localePreferences = new LocalePreferenceStore(options.dir);
 
   const deviceSessions = new DeviceSessionService(new SqliteDeviceSessionStore(db), clock, ids);
   const attemptLogin = new AttemptLogin(
@@ -436,6 +446,7 @@ export function buildContainer(options: ContainerOptions): Container {
     adminExists: () => adminRepo.exists(),
     createAdminAccount,
     verifyAdminPassword,
+    changeAdminPassword,
     attemptLogin,
     deviceSessions,
     getCenterProfile,
@@ -443,9 +454,15 @@ export function buildContainer(options: ContainerOptions): Container {
     storeCenterLogo,
     readCenterLogo,
     centerContext: () => centerContext,
+    saveLocalePreference: (locale) => localePreferences.write(locale),
   };
 
-  return { handlerDeps, subscriptionReference, dispose: () => db.close() };
+  return {
+    handlerDeps,
+    subscriptionReference,
+    readLocalePreference: () => localePreferences.read(),
+    dispose: () => db.close(),
+  };
 }
 
 /** Convenience: build the container and its IPC handler set together. */

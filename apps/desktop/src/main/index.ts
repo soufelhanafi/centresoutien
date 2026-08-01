@@ -20,9 +20,8 @@ let container: Container | null = null;
  * hardened window. The composition root — wiring domain use cases to the SQLite
  * adapters and exposing them as IPC handlers — grows from here.
  */
-function openWindow(): void {
+function openWindow(locale: string | undefined): void {
   const preload = join(import.meta.dirname, '../preload/index.js');
-  const locale = process.env['CS_LOCALE'];
   createMainWindow(preload, {
     devUrl: process.env['ELECTRON_RENDERER_URL'],
     indexHtml: join(import.meta.dirname, '../renderer/index.html'),
@@ -42,10 +41,14 @@ app.whenReady().then(() => {
     appVersion: () => app.getVersion(),
   });
   registerIpc(ipcMain, createHandlers(container.handlerDeps));
-  openWindow();
+  // `CS_LOCALE` (dev override) wins over the persisted preference (SOU-31); the
+  // language tab writes that preference via `preferences.locale.set`, read
+  // synchronously here so it survives a restart without waiting on the renderer.
+  const locale = process.env['CS_LOCALE'] ?? container.readLocalePreference() ?? undefined;
+  openWindow(locale);
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) openWindow();
+    if (BrowserWindow.getAllWindows().length === 0) openWindow(locale);
   });
 }, console.error);
 

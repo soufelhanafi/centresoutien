@@ -220,9 +220,16 @@ export async function realActiveHolidayCount(win: Page): Promise<number> {
   });
 }
 
-/** Open Paramètres and scroll the Holidays section into view. */
+/**
+ * Open Paramètres and switch to the Holidays tab.
+ * SOU-31 tabified Settings (Profile / Hours / Holidays / Password / Language /
+ * Plan); Center Profile is the default tab, so Holidays (Vacances / العطل) is
+ * no longer visible right after navigating in — it needs an explicit tab click.
+ */
 export async function gotoHolidays(win: Page, L: (typeof STR)[Locale]): Promise<void> {
   await win.getByRole('link', { name: L.settingsNav, exact: true }).click();
+  const holidaysTabName = L.settingsNav === 'الإعدادات' ? 'العطل' : 'Vacances';
+  await win.getByRole('tab', { name: holidaysTabName }).click();
   await win.getByRole('heading', { name: L.sectionTitle }).scrollIntoViewIfNeeded();
   await win.waitForTimeout(300);
 }

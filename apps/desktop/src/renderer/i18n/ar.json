@@ -58,6 +58,8 @@
     "password-needs-uppercase": "أضف حرفًا كبيرًا واحدًا على الأقل",
     "password-needs-digit": "أضف رقمًا واحدًا على الأقل",
     "password-mismatch": "كلمتا المرور غير متطابقتين",
+    "invalid-current-password": "كلمة المرور الحالية غير صحيحة",
+    "admin-account-not-found": "تعذّر العثور على حساب المسؤول. اتصل بالدعم.",
     "invalid-time": "وقت غير صالح",
     "close-before-open": "يجب أن يكون وقت الإغلاق بعد وقت الفتح",
     "closed-partial": "حدّد وقت الفتح والإغلاق، أو أغلق اليوم",
@@ -883,6 +885,14 @@
   },
   "settings": {
     "title": "الإعدادات",
+    "tabs": {
+      "profile": "الملف الشخصي",
+      "hours": "المواعيد",
+      "holidays": "العطل",
+      "password": "كلمة المرور",
+      "language": "اللغة",
+      "plan": "الباقة"
+    },
     "center": {
       "title": "ملف المركز",
       "subtitle": "تظهر هذه المعلومات على فواتيرك.",
@@ -907,6 +917,68 @@
       "loadErrorTitle": "تعذّر تحميل الملف",
       "loadErrorBody": "فشل تحميل ملف المركز.",
       "retry": "إعادة المحاولة"
+    },
+    "password": {
+      "title": "تغيير كلمة المرور",
+      "subtitle": "استخدم كلمة مرور لا يعرفها سواك.",
+      "currentLabel": "كلمة المرور الحالية",
+      "newLabel": "كلمة المرور الجديدة",
+      "confirmLabel": "تأكيد كلمة المرور الجديدة",
+      "hint": "8 أحرف على الأقل، مع حرف كبير وحرف صغير ورقم.",
+      "submit": "تحديث",
+      "saving": "جارٍ التحديث…",
+      "success": "تم تحديث كلمة المرور",
+      "error": "فشل التحديث. حاول مرة أخرى."
+    },
+    "language": {
+      "title": "اللغة",
+      "subtitle": "لغة التطبيق على هذا الجهاز.",
+      "fr": "Français",
+      "ar": "العربية",
+      "error": "فشل التحديث. حاول مرة أخرى."
+    },
+    "plan": {
+      "title": "باقتك",
+      "subtitle": "الباقة النشطة لهذا المركز.",
+      "idLabel": "الباقة",
+      "limitsTitle": "الحدود",
+      "maxStudents": "التلاميذ",
+      "maxTeachers": "الأساتذة",
+      "maxRooms": "القاعات",
+      "unlimited": "غير محدود",
+      "featuresTitle": "الميزات المتضمنة",
+      "features": {
+        "coreRooms": "إدارة القاعات",
+        "coreTeachers": "إدارة الأساتذة",
+        "coreStudents": "إدارة التلاميذ",
+        "coreGroups": "إدارة المجموعات",
+        "coreSubjects": "إدارة المواد",
+        "coreFormulas": "إدارة الصيغ",
+        "coreCalendarWeek": "الجدولة الأسبوعية",
+        "coreInvoicing": "الفوترة الشهرية",
+        "coreParents": "إدارة أولياء الأمور",
+        "settingsCenterHours": "مواعيد عمل المركز",
+        "settingsHolidays": "العطل",
+        "dashboardBasic": "لوحة القيادة",
+        "invoicingPartialPaid": "الدفعات الجزئية",
+        "invoiceTemplateCustomize": "تخصيص الفواتير",
+        "examPrep": "التحضير للامتحانات",
+        "payrollTeacher": "أجور الأساتذة",
+        "payrollTeacherFixed": "أجر ثابت",
+        "payrollTeacherPercentage": "أجر بالنسبة المئوية",
+        "excelExport": "تصدير Excel",
+        "excelImport": "استيراد Excel",
+        "excelSync": "مزامنة Excel",
+        "planningCustomGrid": "جدولة مخصصة",
+        "dashboardAdvanced": "لوحة قيادة متقدمة",
+        "planningRandomAuto": "جدولة تلقائية",
+        "syncMultiDevice": "مزامنة متعددة الأجهزة",
+        "syncCloud": "مزامنة سحابية",
+        "syncConflictResolution": "حل التعارضات",
+        "orgMultiCenter": "مراكز متعددة",
+        "limitsStudentsUnlimited": "تلاميذ غير محدودين",
+        "limitsTeachersUnlimited": "أساتذة غير محدودين"
+      }
     }
   },
   "centerHours": {

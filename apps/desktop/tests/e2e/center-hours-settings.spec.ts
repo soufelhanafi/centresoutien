@@ -33,9 +33,14 @@ test.afterEach(async () => {
  * Open the Paramètres screen and wait for the hours editor to be interactive
  * (past any load skeleton). SOU-99 moved the editor off the old smoke home into
  * the sidebar shell, so we navigate through the Paramètres nav entry first.
+ * SOU-31 tabified Settings (Profile / Hours / Holidays / Password / Language /
+ * Plan); Center Profile is the default tab, so we now switch to the Hours tab
+ * explicitly (Horaires / المواعيد) before the editor is reachable.
  */
 async function waitForHoursForm(win: Page, L: (typeof STR)[Locale]): Promise<void> {
   await win.getByRole('link', { name: L.settingsNav }).click();
+  const hoursTabName = L.dir === 'rtl' ? 'المواعيد' : 'Horaires';
+  await win.getByRole('tab', { name: hoursTabName }).click();
   await expect(win.getByRole('button', { name: L.save })).toBeVisible();
   await expect(win.getByRole('switch', { name: L.toggleAria(L.weekdays[0]!) })).toBeVisible();
 }
