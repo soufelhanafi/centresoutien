@@ -16,6 +16,8 @@ export type { TimeOfDay } from './value-objects/time-of-day';
 export { TIME_OF_DAY_REGEX, isTimeOfDay, toMinutes } from './value-objects/time-of-day';
 export type { WeekdayIndex } from './value-objects/weekday';
 export { WEEKDAYS, isWeekdayIndex } from './value-objects/weekday';
+export type { DateRange } from './value-objects/date-range';
+export { weekdayOf, eachDateInRange } from './value-objects/date-range';
 export type { GuardianRelation } from './value-objects/guardian-relation';
 export { GUARDIAN_RELATIONS, isGuardianRelation } from './value-objects/guardian-relation';
 
@@ -231,6 +233,8 @@ export type {
   WeeklyRecurringSession,
   WeeklyRecurringSessionId,
 } from './entities/weekly-recurring-session';
+export { SESSION_ID_PREFIX } from './entities/session';
+export type { Session, SessionId } from './entities/session';
 
 // Value objects & policies (login throttle — SOU-27)
 export { UNLOCKED_STATE } from './value-objects/lockout-state';
@@ -276,6 +280,7 @@ export type {
   ActiveSubscriptionCoverage,
 } from './ports/student-subscription-reference';
 export type { WeeklyRecurringSessionRepository } from './ports/weekly-recurring-session-repository';
+export type { SessionRepository } from './ports/session-repository';
 // Room in-use guard — its concrete adapter is the weekly-session repo (SOU-53).
 export type { RoomReferencePort } from './ports/room-reference';
 // Student↔parent link — DECLARED CONTRACT ONLY (implemented after SOU-38 merges).
