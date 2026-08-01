@@ -56,6 +56,12 @@ describe('SqliteAdminAccountRepository', () => {
     expect(await repo.exists()).toBe(true);
   });
 
+  it('findOnly resolves the sole account, or null before one is created', async () => {
+    expect(await repo.findOnly()).toBeNull();
+    await repo.save(makeAccount());
+    expect(await repo.findOnly()).toEqual(makeAccount());
+  });
+
   it('upsert updates the hash and updated_at but preserves created_at', async () => {
     await repo.save(makeAccount());
     await repo.save(

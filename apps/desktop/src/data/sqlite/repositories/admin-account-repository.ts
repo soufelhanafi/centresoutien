@@ -52,6 +52,13 @@ export class SqliteAdminAccountRepository implements AdminAccountRepository {
     return row ? fromRow(row) : null;
   }
 
+  async findOnly(): Promise<AdminAccount | null> {
+    const row = this.db.prepare('SELECT * FROM admin_accounts LIMIT 1').get() as
+      | AdminAccountRow
+      | undefined;
+    return row ? fromRow(row) : null;
+  }
+
   async save(account: AdminAccount): Promise<void> {
     this.db.prepare(SAVE_SQL).run({
       id: account.id,
