@@ -23,6 +23,10 @@ export function TeacherListPanel({
 }) {
   const query = useTeachers(variant, search);
   const loaded = query.data ?? [];
+  // NOTE: the subject filter is applied client-side, which assumes useTeachers
+  // returns the full set for the current scope/search. If teacher reads ever
+  // become server-paginated, push `subjectId` into the query instead — a
+  // client-side filter would otherwise silently narrow only the current page.
   const teachers =
     subjectId === SUBJECT_FILTER_ALL
       ? loaded

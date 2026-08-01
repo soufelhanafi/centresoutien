@@ -188,9 +188,18 @@ describe('SqliteSubjectRepository', () => {
           .prepare(
             `INSERT INTO subjects
                (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, name_fr, name_ar, active)
-             VALUES ('sub_00000000000000000000000005','CS-CASA-001','dev_1','${AT.toISOString()}','${AT.toISOString()}','usr_1',NULL,0,'M','م',2)`,
+             VALUES (?,?,?,?,?,?,NULL,0,?,?,2)`,
           )
-          .run(),
+          .run(
+            'sub_00000000000000000000000005',
+            'CS-CASA-001',
+            'dev_1',
+            AT.toISOString(),
+            AT.toISOString(),
+            'usr_1',
+            'M',
+            'م',
+          ),
       ).toThrow();
     });
   });
