@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import { hasIdPrefix, isUlid } from '../value-objects/ids';
+import { hasIdPrefix } from '../value-objects/ids';
 import { STUDENT_ID_PREFIX } from '../entities/student';
+import { FORMULA_ID_PREFIX } from '../entities/formula';
 import { GROUP_KINDS } from '../entities/group';
 import { MONTH_PATTERN } from './enrollment';
 
@@ -20,19 +21,9 @@ const studentRef = z
   .string()
   .refine((value) => hasIdPrefix(value, STUDENT_ID_PREFIX), { message: 'invalid-id' });
 
-/**
- * A formula reference is a `{prefix}_{ULID}` string. It is validated for that generic
- * shape but **not** pinned to the formula prefix — the Formula entity (SOU-60) is not
- * merged, so hard-coding its prefix here would be a guess. Tighten to the real
- * `FORMULA_ID_PREFIX` when SOU-60 lands.
- */
-const formulaRef = z.string().refine(
-  (value) => {
-    const underscore = value.indexOf('_');
-    return underscore > 0 && isUlid(value.slice(underscore + 1));
-  },
-  { message: 'invalid-id' },
-);
+const formulaRef = z
+  .string()
+  .refine((value) => hasIdPrefix(value, FORMULA_ID_PREFIX), { message: 'invalid-id' });
 
 const bilingualLabel = z.object({
   fr: z.string().trim().min(1, { message: 'required' }).max(INVOICE_LINE_LABEL_MAX),
