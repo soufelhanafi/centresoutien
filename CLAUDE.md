@@ -480,7 +480,37 @@ Everything visible to users must have a French and an Arabic translation, and th
 
 ## 10. Coding standards
 
-Governed in detail by the skills below. In one paragraph: SOLID, small files, small functions, no `any`, no comment-out-then-commit, no god components, no shared mutable state outside Zustand stores, no I/O in domain, no business logic in UI, no untranslated user-facing string, no direction-blind styling, and no plan check outside the domain policy layer.
+SOLID, small files, small functions, no `any`, no comment-out-then-commit, no god components, no shared mutable state outside Zustand stores, no I/O in domain, no business logic in UI, no untranslated user-facing string, no direction-blind styling, and no plan check outside the domain policy layer. Governed in detail by the skills in §11.
+
+### Self-documenting code — comments are the exception, not the norm
+
+The code must read clearly from names alone: function names, class names, variable names, and type names carry the meaning. A reader should follow *what* is happening without needing a comment, in every layer — Domain, Data, and Presentation alike.
+
+**Naming**
+
+- Use cases and functions: verb + noun stating the outcome — `calculateTeacherPayout()`, `resolveFieldConflict()`, not `process()` or `handle()`.
+- Booleans: `is/has/can/should` — `isWithinCenterHours`, `hasActiveSubscription`.
+- Domain types: nouns matching the ubiquitous language already used in this document — `TeacherFeeAttributionPolicy`, not `PayoutHelper`.
+- No abbreviations, no single-letter variables outside trivial loop indices.
+
+**Comments — default to none**
+
+- Never restate what the code already says. A comment above `withinCenterHours(session)` explaining "checks if session is within center hours" is forbidden — the name already says that.
+- Never add a comment to label a section of a function ("// build the query", "// now save it"). Extract a named function instead.
+- No commented-out code, ever. Git history is the archive.
+
+**The one place JSDoc belongs: `packages/domain/src/ports/`**
+
+Ports are the contracts other layers implement against, so a short JSDoc block on the interface (not the implementation) is worth it when the method's *contract* isn't obvious from its signature — e.g. what `SyncHubPort.pushChanges` does on a version conflict, or that `Clock.now()` must never be replaced with `new Date()` in callers. Keep it to the "why" / the contract, not a restatement of the method name. Adapters implementing the port need no comment of their own — the port's doc is the single source.
+
+**Comment only when the code truly cannot speak for itself**
+
+- A business-rule justification that isn't derivable from the code — e.g. "attribution splits equally across subjects, not by hours, per SOU-51" next to `TeacherFeeAttributionPolicy`.
+- A non-obvious workaround — an Electron IPC quirk, a SQLCipher pragma, a Playwright `_electron` flake.
+- `TODO` / `FIXME` with a Linear issue reference, never bare.
+- The explicit domain rules already called out in §5–§7 (e.g. why lunar holidays aren't computed) belong as short comments next to the code that enforces them, since the *reason* isn't inferable from the code itself.
+
+If you feel the pull to write a comment explaining what a block does, that's the signal to extract it into a well-named function instead — not to write the comment.
 
 ---
 
@@ -564,6 +594,7 @@ Read these before writing code. Claude Code loads them automatically when their 
 - Store a timestamp generated outside the `Clock` port, or in local time. UTC via the injected clock, everywhere.
 - Ship a DB file without SQLCipher encryption, or an Electron window without `contextIsolation` / with `nodeIntegration`.
 - Create a plan-specific or platform-specific branch. One monorepo, one codebase; plans and platforms are configuration + adapters.
+- Write a comment that restates what a well-named function or variable already says.
 
 ---
 
@@ -588,6 +619,7 @@ A change is done when:
 - [ ] If the change touches teacher payroll, only `fixed-monthly` and `percentage-of-monthly-fees` rule types exist; `paid` payouts remain immutable; reversals are separate entries.
 - [ ] If the change adds a report/dashboard KPI, it can be filtered by `kind` (regular vs exam-prep) at the query level.
 - [ ] `pnpm build && pnpm test:e2e` passes locally.
+- [ ] No comment restates what a well-named symbol already says (self-review from §10).
 - [ ] The self-review from the `code-review` skill has been completed and pasted in the PR description.
 
 If any box is unchecked, the PR is not ready.
