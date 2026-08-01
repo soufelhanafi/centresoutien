@@ -8,6 +8,8 @@ import {
   groupInputSchema,
   enrollmentInputSchema,
   generateSessionsSchema,
+  weeklyRecurringSessionInputSchema,
+  weeklyRecurringSessionUpdateSchema,
   teacherInputSchema,
   holidayInputSchema,
   studentSubscriptionInputSchema,
@@ -618,6 +620,29 @@ export const ipcContract = {
   'session.generate': {
     request: generateSessionsSchema,
     response: z.object({ sessions: z.array(sessionViewSchema) }),
+  },
+  // Weekly recurring session write channels (SOU-131 — populate the planner grid).
+  // The requests are the domain's own input schemas (`wrs_`/`rom_`/`tch_`/`grp_`
+  // prefixes, `HH:mm` times, `YYYY-MM-DD` validity bounds), validated once and
+  // shared by the form (zodResolver), the preload types, and this boundary.
+  // centerCode/device/user are injected in main, never sent from the renderer.
+  // Gated by `core.calendar.week` in the use cases, which also run the SOU-55
+  // composite conflict check (room + teacher + hours) and reject a clashing slot
+  // with a standard scheduling error. `teacherId`/`groupId` are optional; the
+  // validity window and `active` default (unbounded / true). create/update echo
+  // only the id — the grid refetches the enriched `session.week` after a mutation
+  // (mirrors `holiday.create`); delete is a soft delete (cancel).
+  'weeklySession.create': {
+    request: weeklyRecurringSessionInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'weeklySession.update': {
+    request: weeklyRecurringSessionUpdateSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'weeklySession.delete': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
   },
   // Auth (SOU-26). `admin.exists` drives first-run detection; `admin.create`
   // reuses the domain credential schema (password policy enforced here too);

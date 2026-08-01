@@ -70,7 +70,13 @@
     "end-before-start": "يجب أن يكون تاريخ النهاية بعد تاريخ البداية",
     "invalid-holiday-kind": "نوع العطلة غير صالح",
     "invalid-kind": "نوع المجموعة غير صالح",
-    "invalid-month": "شهر غير صالح (YYYY-MM)"
+    "invalid-month": "شهر غير صالح (YYYY-MM)",
+    "malformed-session-time": "يجب أن يكون وقت النهاية بعد وقت البداية",
+    "session-outside-center-hours": "الحصة خارج أوقات عمل المركز",
+    "room-conflict": "القاعة محجوزة بالفعل في هذا التوقيت",
+    "teacher-conflict": "لدى الأستاذ حصة بالفعل في هذا التوقيت",
+    "invalid-session-validity-range": "فترة صلاحية الحصة غير صالحة",
+    "weekly-recurring-session-not-found": "لم تعد هذه الحصة موجودة"
   },
   "groups": {
     "title": "المجموعات",
@@ -835,16 +841,44 @@
       "body": "فشل تحميل الحصص.",
       "retry": "أعد المحاولة"
     },
-    "dialog": {
-      "subtitle": "نموذج حصة متكررة",
+    "form": {
+      "new": "حصة جديدة",
+      "createTitle": "حصة جديدة",
+      "createDescription": "برمج حصة أسبوعية متكررة.",
+      "editTitle": "تعديل الحصة",
+      "editDescription": "عدّل التوقيت أو القاعة أو الأستاذ أو المجموعة.",
       "day": "اليوم",
-      "time": "التوقيت",
-      "teacher": "الأستاذ",
+      "dayPlaceholder": "اختر يومًا",
+      "start": "البداية",
+      "end": "النهاية",
       "room": "القاعة",
-      "level": "المستوى",
-      "none": "—",
-      "editComingSoon": "سيتوفر تعديل الحصص قريبًا.",
-      "close": "إغلاق"
+      "roomPlaceholder": "اختر قاعة",
+      "teacher": "الأستاذ",
+      "teacherPlaceholder": "اختر أستاذًا",
+      "teacherNone": "بدون أستاذ",
+      "group": "المجموعة",
+      "groupPlaceholder": "اختر مجموعة",
+      "groupNone": "بدون مجموعة",
+      "create": "إنشاء الحصة",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ…",
+      "cancel": "إلغاء",
+      "createSuccess": "تم إنشاء الحصة",
+      "editSuccess": "تم تحديث الحصة",
+      "error": "فشل حفظ الحصة."
+    },
+    "conflict": {
+      "title": "تعارض في الجدول"
+    },
+    "cancelSession": {
+      "trigger": "إلغاء الحصة",
+      "title": "إلغاء هذه الحصة؟",
+      "body": "ستُزال الحصة من الجدول. يمكن مزامنة هذا الإجراء.",
+      "confirm": "إلغاء الحصة",
+      "pending": "جارٍ الإلغاء…",
+      "dismiss": "رجوع",
+      "success": "تم إلغاء الحصة",
+      "error": "فشل إلغاء الحصة."
     }
   },
   "settings": {

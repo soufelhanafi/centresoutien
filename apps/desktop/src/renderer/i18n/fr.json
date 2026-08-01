@@ -70,7 +70,13 @@
     "end-before-start": "La date de fin doit être après la date de début",
     "invalid-holiday-kind": "Type de jour férié invalide",
     "invalid-kind": "Type de groupe invalide",
-    "invalid-month": "Mois invalide (AAAA-MM)"
+    "invalid-month": "Mois invalide (AAAA-MM)",
+    "malformed-session-time": "L'heure de fin doit être après l'heure de début",
+    "session-outside-center-hours": "La séance est en dehors des horaires d'ouverture du centre",
+    "room-conflict": "La salle est déjà occupée sur ce créneau",
+    "teacher-conflict": "L'enseignant a déjà une séance sur ce créneau",
+    "invalid-session-validity-range": "La période de validité de la séance est invalide",
+    "weekly-recurring-session-not-found": "Cette séance n'existe plus"
   },
   "groups": {
     "title": "Groupes",
@@ -803,16 +809,44 @@
       "body": "Le chargement des séances a échoué.",
       "retry": "Réessayer"
     },
-    "dialog": {
-      "subtitle": "Modèle de séance récurrente",
+    "form": {
+      "new": "Nouvelle séance",
+      "createTitle": "Nouvelle séance",
+      "createDescription": "Planifiez une séance hebdomadaire récurrente.",
+      "editTitle": "Modifier la séance",
+      "editDescription": "Ajustez le créneau, la salle, l'enseignant ou le groupe.",
       "day": "Jour",
-      "time": "Horaire",
-      "teacher": "Enseignant",
+      "dayPlaceholder": "Choisir un jour",
+      "start": "Début",
+      "end": "Fin",
       "room": "Salle",
-      "level": "Niveau",
-      "none": "—",
-      "editComingSoon": "La modification des séances arrivera prochainement.",
-      "close": "Fermer"
+      "roomPlaceholder": "Choisir une salle",
+      "teacher": "Enseignant",
+      "teacherPlaceholder": "Choisir un enseignant",
+      "teacherNone": "Sans enseignant",
+      "group": "Groupe",
+      "groupPlaceholder": "Choisir un groupe",
+      "groupNone": "Sans groupe",
+      "create": "Créer la séance",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Séance créée",
+      "editSuccess": "Séance mise à jour",
+      "error": "L'enregistrement de la séance a échoué."
+    },
+    "conflict": {
+      "title": "Conflit de planning"
+    },
+    "cancelSession": {
+      "trigger": "Annuler la séance",
+      "title": "Annuler cette séance ?",
+      "body": "La séance sera retirée du planning. Cette action peut être synchronisée.",
+      "confirm": "Annuler la séance",
+      "pending": "Annulation…",
+      "dismiss": "Retour",
+      "success": "Séance annulée",
+      "error": "L'annulation de la séance a échoué."
     }
   },
   "settings": {
