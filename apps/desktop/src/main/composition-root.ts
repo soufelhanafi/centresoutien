@@ -54,6 +54,9 @@ import {
   ListWeekSessions,
   GenerateSessions,
   GenerateAndPersistSessions,
+  CreateWeeklyRecurringSession,
+  UpdateWeeklyRecurringSession,
+  CancelWeeklyRecurringSession,
   CreateAdminAccount,
   VerifyAdminPassword,
   SaveCenterHours,
@@ -330,6 +333,26 @@ export function buildContainer(options: ContainerOptions): Container {
   const saveCenterHours = new SaveCenterHours(centerHoursRepo, clock, ids, plan);
   const getCenterHours = new GetCenterHours(centerHoursRepo, plan);
 
+  // Weekly recurring session write path (SOU-131): create/update run the SOU-55
+  // composite conflict check (room + teacher + hours) against the same
+  // `sessionRepo` that backs the planner read + the ArchiveRoom guard, reading the
+  // center's configured week from `centerHoursRepo`. Cancel is a soft delete. All
+  // three gate `core.calendar.week` in the domain.
+  const createWeeklySession = new CreateWeeklyRecurringSession(
+    sessionRepo,
+    centerHoursRepo,
+    clock,
+    ids,
+    plan,
+  );
+  const updateWeeklySession = new UpdateWeeklyRecurringSession(
+    sessionRepo,
+    centerHoursRepo,
+    clock,
+    plan,
+  );
+  const cancelWeeklySession = new CancelWeeklyRecurringSession(sessionRepo, clock, plan);
+
   const hasher = new Argon2PasswordHasher();
   const adminRepo = new SqliteAdminAccountRepository(db);
   const createAdminAccount = new CreateAdminAccount(adminRepo, hasher, clock, ids);
@@ -404,6 +427,9 @@ export function buildContainer(options: ContainerOptions): Container {
     restoreHoliday,
     listWeekSessions,
     generateSessions,
+    createWeeklySession,
+    updateWeeklySession,
+    cancelWeeklySession,
     saveCenterHours,
     getCenterHours,
     envelopeContext: () => context,

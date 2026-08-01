@@ -20,7 +20,7 @@ import type {
   WeeklyRecurringSessionId,
   SessionId,
 } from '@centresoutien/domain';
-import { GroupNotFoundError } from '@centresoutien/domain';
+import { GroupNotFoundError, WeeklyRecurringSessionNotFoundError } from '@centresoutien/domain';
 import { createIpcDispatcher } from '../../../src/main/ipc/dispatcher';
 import {
   createHandlers,
@@ -37,6 +37,9 @@ import {
   type RestoreGroupUseCase,
   type ListWeekSessionsUseCase,
   type GenerateAndPersistSessionsUseCase,
+  type CreateWeeklyRecurringSessionUseCase,
+  type UpdateWeeklyRecurringSessionUseCase,
+  type CancelWeeklyRecurringSessionUseCase,
   type SaveCenterHoursUseCase,
   type GetCenterHoursUseCase,
   type AttemptLoginUseCase,
@@ -252,6 +255,48 @@ const stubGenerateSessions: GenerateAndPersistSessionsUseCase = {
   ],
 };
 
+// Weekly recurring session write stubs (SOU-131). create/update echo an
+// envelope-complete template so the handler proves it returns only the id; delete
+// throws WeeklyRecurringSessionNotFoundError for the sentinel id to prove the
+// boundary does NOT swallow it (unlike *.archive) — a stale id must surface.
+const WRS_ID = 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId;
+const MISSING_WRS_ID = 'wrs_00000000000000000000000099' as WeeklyRecurringSessionId;
+
+function makeWeeklySession(over: Partial<{ id: WeeklyRecurringSessionId }> = {}) {
+  return {
+    id: WRS_ID,
+    centerCode: context.centerCode,
+    deviceOrigin: context.deviceOrigin,
+    createdAt: new Date('2026-07-29T10:00:00Z'),
+    updatedAt: new Date('2026-07-29T10:00:00Z'),
+    updatedBy: context.updatedBy,
+    deletedAt: null,
+    version: 0,
+    roomId: 'rom_00000000000000000000000001' as RoomId,
+    teacherId: null,
+    groupId: null,
+    dayOfWeek: 1 as WeekdayIndex,
+    start: '09:00' as TimeOfDay,
+    end: '10:30' as TimeOfDay,
+    active: true,
+    validFrom: null,
+    validTo: null,
+    ...over,
+  };
+}
+
+const stubCreateWeeklySession: CreateWeeklyRecurringSessionUseCase = {
+  execute: async () => makeWeeklySession(),
+};
+const stubUpdateWeeklySession: UpdateWeeklyRecurringSessionUseCase = {
+  execute: async (input) => makeWeeklySession({ id: input.id }),
+};
+const stubCancelWeeklySession: CancelWeeklyRecurringSessionUseCase = {
+  execute: async (input) => {
+    if (input.id === MISSING_WRS_ID) throw new WeeklyRecurringSessionNotFoundError(input.id);
+  },
+};
+
 // Group stubs (SOU-120). Each echoes an envelope-complete Group so the handler
 // can prove it strips the envelope down to `groupViewSchema`. `archive` throws
 // GroupNotFoundError for the sentinel id to exercise the boundary's idempotent
@@ -332,6 +377,9 @@ const dispatch = createIpcDispatcher(
     createParent: stubCreateParent,
     listWeekSessions: stubListWeekSessions,
     generateSessions: stubGenerateSessions,
+    createWeeklySession: stubCreateWeeklySession,
+    updateWeeklySession: stubUpdateWeeklySession,
+    cancelWeeklySession: stubCancelWeeklySession,
     saveCenterHours: stubSaveCenterHours,
     getCenterHours: stubGetCenterHours,
     envelopeContext: () => context,
@@ -448,6 +496,65 @@ describe('createIpcDispatcher', () => {
         to: '2026-01-31',
       }),
     ).rejects.toThrow();
+  });
+
+  it('runs weeklySession.create and returns only the new id', async () => {
+    await expect(
+      dispatch('weeklySession.create', {
+        roomId: 'rom_00000000000000000000000001',
+        teacherId: null,
+        groupId: null,
+        dayOfWeek: 1,
+        start: '09:00',
+        end: '10:30',
+        active: true,
+        validFrom: null,
+        validTo: null,
+      }),
+    ).resolves.toEqual({ id: WRS_ID });
+  });
+
+  it('defaults the optional teacher/group/validity/active fields on weeklySession.create', async () => {
+    // Renderer sends only the required fields; the shared schema fills the rest.
+    await expect(
+      dispatch('weeklySession.create', {
+        roomId: 'rom_00000000000000000000000001',
+        dayOfWeek: 1,
+        start: '09:00',
+        end: '10:30',
+      }),
+    ).resolves.toEqual({ id: WRS_ID });
+  });
+
+  it('rejects weeklySession.create whose roomId fails the shared schema', async () => {
+    await expect(
+      dispatch('weeklySession.create', {
+        roomId: 'nope',
+        dayOfWeek: 1,
+        start: '09:00',
+        end: '10:30',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('runs weeklySession.update and returns the edited id', async () => {
+    await expect(
+      dispatch('weeklySession.update', {
+        id: WRS_ID,
+        roomId: 'rom_00000000000000000000000001',
+        dayOfWeek: 1,
+        start: '09:30',
+        end: '11:00',
+      }),
+    ).resolves.toEqual({ id: WRS_ID });
+  });
+
+  it('runs weeklySession.delete and returns ok', async () => {
+    await expect(dispatch('weeklySession.delete', { id: WRS_ID })).resolves.toEqual({ ok: true });
+  });
+
+  it('does NOT swallow WeeklyRecurringSessionNotFoundError on weeklySession.delete', async () => {
+    await expect(dispatch('weeklySession.delete', { id: MISSING_WRS_ID })).rejects.toThrow();
   });
 
   it('runs centerHours.get and returns the week view', async () => {

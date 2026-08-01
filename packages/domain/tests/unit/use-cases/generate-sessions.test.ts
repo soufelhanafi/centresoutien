@@ -183,6 +183,43 @@ describe('GenerateSessions', () => {
     });
   });
 
+  describe('active toggle and validity window (SOU-52)', () => {
+    it('materializes nothing when the template is paused (active === false)', () => {
+      const sessions = useCase().execute(input({ recurring: recurring({ active: false }) }));
+      expect(sessions).toEqual([]);
+    });
+
+    it('skips occurrences before validFrom', () => {
+      // validFrom mid-month: the 01 and 08 Thursdays are dropped, 15/22/29 kept.
+      const sessions = useCase().execute(input({ recurring: recurring({ validFrom: '2026-01-15' }) }));
+      expect(datesOf(sessions)).toEqual(['2026-01-15', '2026-01-22', '2026-01-29']);
+    });
+
+    it('skips occurrences after validTo', () => {
+      const sessions = useCase().execute(input({ recurring: recurring({ validTo: '2026-01-15' }) }));
+      expect(datesOf(sessions)).toEqual(['2026-01-01', '2026-01-08', '2026-01-15']);
+    });
+
+    it('keeps only occurrences inside a bounded [validFrom, validTo] window', () => {
+      const sessions = useCase().execute(
+        input({ recurring: recurring({ validFrom: '2026-01-08', validTo: '2026-01-22' }) }),
+      );
+      expect(datesOf(sessions)).toEqual(['2026-01-08', '2026-01-15', '2026-01-22']);
+    });
+
+    it('includes boundary dates (window is inclusive on both ends)', () => {
+      const sessions = useCase().execute(
+        input({ recurring: recurring({ validFrom: '2026-01-15', validTo: '2026-01-15' }) }),
+      );
+      expect(datesOf(sessions)).toEqual(['2026-01-15']);
+    });
+
+    it('leaves an unbounded (null/null) window unaffected', () => {
+      const bounded = useCase().execute(input({ recurring: recurring({ validFrom: null, validTo: null }) }));
+      expect(datesOf(bounded)).toEqual(datesOf(useCase().execute(input())));
+    });
+  });
+
   describe('empty results', () => {
     it('returns nothing when no date in the range falls on the template weekday', () => {
       // 2026-01-02 (Fri) → 2026-01-04 (Sun): no Thursday.

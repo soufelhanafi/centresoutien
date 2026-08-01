@@ -25,7 +25,9 @@ export type GenerateSessionsInput = {
 /**
  * Materializes concrete dated {@link Session} rows from a
  * {@link WeeklyRecurringSession} template over a date range, skipping any date
- * that falls on a Holiday. Pure and deterministic: it reads no clock or id
+ * that falls on a Holiday, any date outside the template's `[validFrom, validTo]`
+ * validity window, and every date when the template is paused (`active === false`).
+ * Pure and deterministic: it reads no clock or id
  * source of its own — both are injected — and touches no repository, so given
  * the same inputs (and a deterministic `Clock` / `IdGenerator`) it returns the
  * same set every time.
@@ -56,8 +58,16 @@ export class GenerateSessions {
   execute(input: GenerateSessionsInput): readonly Session[] {
     const { recurring, holidays, range } = input;
     const sessions: Session[] = [];
+    // A paused template (SOU-52 `active` toggle) materializes nothing — the slot is
+    // still on the grid but produces no dated occurrences until it is resumed.
+    if (!recurring.active) return sessions;
     for (const date of eachDateInRange(range)) {
       if (weekdayOf(date) !== recurring.dayOfWeek) continue;
+      // Skip dates outside the recurrence's validity window (SOU-52). Both bounds
+      // are nullable = unbounded; `YYYY-MM-DD` compares lexicographically, so the
+      // string comparisons below are chronological.
+      if (recurring.validFrom !== null && date < recurring.validFrom) continue;
+      if (recurring.validTo !== null && date > recurring.validTo) continue;
       if (holidayOn(date, holidays) !== null) continue;
       sessions.push(this.materialize(recurring, date, input));
     }

@@ -153,6 +153,14 @@ export type { EnrollmentInput } from './schemas/enrollment';
 export { generateSessionsSchema } from './schemas/session';
 export type { GenerateSessionsRequest } from './schemas/session';
 export {
+  weeklyRecurringSessionInputSchema,
+  weeklyRecurringSessionUpdateSchema,
+} from './schemas/weekly-recurring-session';
+export type {
+  WeeklyRecurringSessionInput,
+  WeeklyRecurringSessionUpdateInput,
+} from './schemas/weekly-recurring-session';
+export {
   invoiceLineSnapshotSchema,
   createInvoiceDraftSchema,
   INVOICE_LINE_LABEL_MAX,
@@ -450,6 +458,12 @@ export { GenerateSessions } from './use-cases/generate-sessions';
 export type { GenerateSessionsInput } from './use-cases/generate-sessions';
 export { GenerateAndPersistSessions } from './use-cases/generate-and-persist-sessions';
 export type { GenerateAndPersistSessionsInput } from './use-cases/generate-and-persist-sessions';
+export { CreateWeeklyRecurringSession } from './use-cases/create-weekly-recurring-session';
+export type { CreateWeeklyRecurringSessionInput } from './use-cases/create-weekly-recurring-session';
+export { UpdateWeeklyRecurringSession } from './use-cases/update-weekly-recurring-session';
+export type { UpdateWeeklyRecurringSessionInput } from './use-cases/update-weekly-recurring-session';
+export { CancelWeeklyRecurringSession } from './use-cases/cancel-weekly-recurring-session';
+export type { CancelWeeklyRecurringSessionInput } from './use-cases/cancel-weekly-recurring-session';
 export { UpdateRoom } from './use-cases/update-room';
 export type { UpdateRoomInput } from './use-cases/update-room';
 export { RestoreRoom } from './use-cases/restore-room';
