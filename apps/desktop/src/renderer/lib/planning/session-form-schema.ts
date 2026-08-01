@@ -8,16 +8,17 @@ import { isTimeOfDay } from '@centresoutien/domain';
  * optional teacher/group. Validated by this schema so the form (via `zodResolver`)
  * enforces the shape before the write leaves the renderer.
  *
- * ## Interim schema — swapped for the domain's when the branch integrates
+ * ## Renderer form schema — bound by shape to the domain contract
  *
- * The SOU-131 backend published `weeklyRecurringSessionInputSchema` /
- * `WeeklyRecurringSessionInput` (in `@centresoutien/domain`), but on the separate
- * `feature/SOU-131-domain` branch not yet in this worktree, so it cannot be
- * imported here. This renderer schema binds to that contract **by shape**:
- * {@link SessionInput} equals `WeeklyRecurringSessionInput` (room required;
- * teacher/group optional, null default; `dayOfWeek` a **number**; no validity
- * window / active — the use case defaults them). {@link toSessionInput} bridges the
- * form's string `dayOfWeek` to the numeric contract value.
+ * The domain owns the wire contract (`weeklyRecurringSessionInputSchema` /
+ * `WeeklyRecurringSessionInput` in `@centresoutien/domain`). This renderer schema
+ * is deliberately kept separate — it validates the form's *pre-parse* shape (a
+ * string `dayOfWeek` from the Radix Select) — and binds to that contract **by
+ * shape**: {@link SessionInput} mirrors `WeeklyRecurringSessionInput`'s
+ * user-editable subset (room required; teacher/group optional, null default;
+ * `dayOfWeek` a **number**; no validity window / active — the IPC adapter fills
+ * those wire defaults). {@link toSessionInput} bridges the form's string
+ * `dayOfWeek` to the numeric contract value.
  *
  * Why a string `dayOfWeek` in the form: Radix Select values are strings, and
  * shadcn's `FormField` requires the schema's transformed output to stay assignable
@@ -39,7 +40,7 @@ const optionalRef = z.string().min(1, { message: 'invalid-id' }).nullable().defa
 
 export const sessionFormSchema = z
   .object({
-    dayOfWeek: z.enum(WEEKDAY_OPTIONS, { error: 'required' }),
+    dayOfWeek: z.enum(WEEKDAY_OPTIONS, { message: 'required' }),
     start: timeField,
     end: timeField,
     roomId: z.string().min(1, { message: 'required' }),
