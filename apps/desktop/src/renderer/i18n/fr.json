@@ -58,6 +58,7 @@
     "password-needs-uppercase": "Ajoutez au moins une majuscule",
     "password-needs-digit": "Ajoutez au moins un chiffre",
     "password-mismatch": "Les mots de passe ne correspondent pas",
+    "invalid-current-password": "Mot de passe actuel incorrect",
     "invalid-time": "Heure invalide",
     "close-before-open": "La fermeture doit être après l'ouverture",
     "closed-partial": "Indiquez l'ouverture et la fermeture, ou fermez le jour",
@@ -851,6 +852,14 @@
   },
   "settings": {
     "title": "Paramètres",
+    "tabs": {
+      "profile": "Profil",
+      "hours": "Horaires",
+      "holidays": "Vacances",
+      "password": "Mot de passe",
+      "language": "Langue",
+      "plan": "Formule"
+    },
     "center": {
       "title": "Profil du centre",
       "subtitle": "Ces informations apparaissent sur vos factures.",
@@ -875,6 +884,68 @@
       "loadErrorTitle": "Impossible de charger le profil",
       "loadErrorBody": "Le chargement du profil du centre a échoué.",
       "retry": "Réessayer"
+    },
+    "password": {
+      "title": "Changer le mot de passe",
+      "subtitle": "Utilisez un mot de passe que vous seul connaissez.",
+      "currentLabel": "Mot de passe actuel",
+      "newLabel": "Nouveau mot de passe",
+      "confirmLabel": "Confirmer le nouveau mot de passe",
+      "hint": "Au moins 8 caractères, avec une majuscule, une minuscule et un chiffre.",
+      "submit": "Mettre à jour",
+      "saving": "Mise à jour…",
+      "success": "Mot de passe mis à jour",
+      "error": "La mise à jour a échoué. Réessayez."
+    },
+    "language": {
+      "title": "Langue",
+      "subtitle": "La langue de l'application sur cet ordinateur.",
+      "fr": "Français",
+      "ar": "العربية",
+      "error": "La mise à jour a échoué. Réessayez."
+    },
+    "plan": {
+      "title": "Votre formule",
+      "subtitle": "Formule active pour ce centre.",
+      "idLabel": "Formule",
+      "limitsTitle": "Limites",
+      "maxStudents": "Élèves",
+      "maxTeachers": "Enseignants",
+      "maxRooms": "Salles",
+      "unlimited": "Illimité",
+      "featuresTitle": "Fonctionnalités incluses",
+      "features": {
+        "coreRooms": "Gestion des salles",
+        "coreTeachers": "Gestion des enseignants",
+        "coreStudents": "Gestion des élèves",
+        "coreGroups": "Gestion des groupes",
+        "coreSubjects": "Gestion des matières",
+        "coreFormulas": "Gestion des formules",
+        "coreCalendarWeek": "Planning hebdomadaire",
+        "coreInvoicing": "Facturation mensuelle",
+        "coreParents": "Gestion des parents",
+        "settingsCenterHours": "Horaires du centre",
+        "settingsHolidays": "Vacances",
+        "dashboardBasic": "Tableau de bord",
+        "invoicingPartialPaid": "Paiements partiels",
+        "invoiceTemplateCustomize": "Personnalisation des factures",
+        "examPrep": "Préparation aux examens",
+        "payrollTeacher": "Paie des enseignants",
+        "payrollTeacherFixed": "Paie fixe",
+        "payrollTeacherPercentage": "Paie au pourcentage",
+        "excelExport": "Export Excel",
+        "excelImport": "Import Excel",
+        "excelSync": "Synchronisation Excel",
+        "planningCustomGrid": "Planning personnalisé",
+        "dashboardAdvanced": "Tableau de bord avancé",
+        "planningRandomAuto": "Planning automatique",
+        "syncMultiDevice": "Synchronisation multi-appareils",
+        "syncCloud": "Synchronisation cloud",
+        "syncConflictResolution": "Résolution des conflits",
+        "orgMultiCenter": "Multi-centres",
+        "limitsStudentsUnlimited": "Élèves illimités",
+        "limitsTeachersUnlimited": "Enseignants illimités"
+      }
     }
   },
   "centerHours": {
