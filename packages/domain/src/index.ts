@@ -101,11 +101,12 @@ export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/sch
 // Input validation schemas (shared by forms via zodResolver and by use cases)
 export {
   subjectInputSchema,
+  subjectUpdateInputSchema,
   SUBJECT_NAME_MAX,
   SUBJECT_CODE_MAX,
   SUBJECT_CODE_PATTERN,
 } from './schemas/subject';
-export type { SubjectInput } from './schemas/subject';
+export type { SubjectInput, SubjectUpdateInput } from './schemas/subject';
 export {
   studentInputSchema,
   isCalendarDate,
@@ -355,6 +356,14 @@ export { CreateSubject } from './use-cases/create-subject';
 export type { CreateSubjectInput } from './use-cases/create-subject';
 export { ArchiveSubject } from './use-cases/archive-subject';
 export type { ArchiveSubjectInput } from './use-cases/archive-subject';
+export { ListSubjects } from './use-cases/list-subjects';
+export type { ListSubjectsInput, SubjectScope } from './use-cases/list-subjects';
+export { GetSubject } from './use-cases/get-subject';
+export type { GetSubjectInput } from './use-cases/get-subject';
+export { ListSubjectsWithUsage } from './use-cases/list-subjects-with-usage';
+export type { ListSubjectsWithUsageInput } from './use-cases/list-subjects-with-usage';
+export { UpdateSubject } from './use-cases/update-subject';
+export type { UpdateSubjectInput } from './use-cases/update-subject';
 export { CreateStudent } from './use-cases/create-student';
 export type { CreateStudentInput } from './use-cases/create-student';
 export { ListStudents } from './use-cases/list-students';

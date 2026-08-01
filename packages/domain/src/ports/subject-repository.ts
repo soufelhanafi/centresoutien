@@ -35,6 +35,22 @@ export interface SubjectRepository extends SoftDeletableRepository<SubjectId, Su
   findByCode(centerCode: CenterCode, code: string): Promise<Subject | null>;
 
   /**
+   * The center's currently **active** subjects — the picker set: live
+   * (non-tombstoned) rows whose `active` flag is true. Backs `subject.list`
+   * (scope `'active'`), e.g. the teacher subject filter and new-formula/group
+   * pickers, which must not offer a deactivated subject. Center-scoped.
+   */
+  listActive(centerCode: CenterCode): Promise<readonly Subject[]>;
+
+  /**
+   * **Every** live subject of the center — active and deactivated alike — with
+   * only tombstones excluded. Backs `subject.list` (scope `'all'`) for
+   * name-resolution and management screens that must still resolve a now-inactive
+   * subject a teacher or group historically references. Center-scoped.
+   */
+  listAll(centerCode: CenterCode): Promise<readonly Subject[]>;
+
+  /**
    * Every live subject of the center paired with its in-use reference count, in a
    * single round-trip. Excludes tombstoned subjects; the count excludes tombstoned
    * references. Center-scoped: never counts another tenant's references. Backs the

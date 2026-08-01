@@ -44,12 +44,31 @@ const subjectCode = z
       .optional(),
   );
 
+/** The bilingual name block, shared by the create and update schemas so both
+ *  enforce the exact same per-locale required + length rules. */
+const subjectName = z.object({
+  fr: localizedName,
+  ar: localizedName,
+});
+
 export const subjectInputSchema = z.object({
-  name: z.object({
-    fr: localizedName,
-    ar: localizedName,
-  }),
+  name: subjectName,
   code: subjectCode,
 });
 
 export type SubjectInput = z.infer<typeof subjectInputSchema>;
+
+/**
+ * Subject **update** input (SOU-124): the fields `UpdateSubject` may change — the
+ * bilingual name and the `active` flag (deactivate **and** reactivate). `code` is
+ * deliberately absent: it is a sync-relevant natural key (SOU-122) and is never
+ * editable here — a code change is out of scope, not a silent no-op. The envelope
+ * (timestamps, version, updatedBy…) is set by the use case, never by the form.
+ * Messages are stable error codes; the renderer resolves each via `t(\`errors.${code}\`)`.
+ */
+export const subjectUpdateInputSchema = z.object({
+  name: subjectName,
+  active: z.boolean(),
+});
+
+export type SubjectUpdateInput = z.infer<typeof subjectUpdateInputSchema>;

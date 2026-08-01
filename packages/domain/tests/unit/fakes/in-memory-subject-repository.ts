@@ -31,6 +31,18 @@ export class InMemorySubjectRepository
     return null;
   }
 
+  async listActive(centerCode: CenterCode): Promise<readonly Subject[]> {
+    return [...this.rows.values()]
+      .filter((row) => row.deletedAt === null && row.centerCode === centerCode && row.active)
+      .map((row) => structuredClone(row));
+  }
+
+  async listAll(centerCode: CenterCode): Promise<readonly Subject[]> {
+    return [...this.rows.values()]
+      .filter((row) => row.deletedAt === null && row.centerCode === centerCode)
+      .map((row) => structuredClone(row));
+  }
+
   async listWithUsage(centerCode: CenterCode): Promise<readonly SubjectUsage[]> {
     return [...this.rows.values()]
       .filter((row) => row.deletedAt === null && row.centerCode === centerCode)
