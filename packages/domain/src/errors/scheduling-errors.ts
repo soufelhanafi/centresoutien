@@ -113,6 +113,8 @@ export class TeacherConflictError extends DomainError {
  * slot that still sits inside opening hours.
  */
 export class MalformedSessionTimeError extends DomainError {
+  readonly code = 'malformed-session-time';
+
   constructor(
     readonly dayOfWeek: WeekdayIndex,
     readonly start: TimeOfDay,
