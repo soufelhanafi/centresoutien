@@ -4,8 +4,10 @@ import type {
   SubjectId,
   SubjectRepository,
   SubjectUsage,
+  SubjectUsageReference,
   CenterCode,
   DeviceId,
+  EntityId,
   UserId,
 } from '@centresoutien/domain';
 
@@ -81,6 +83,21 @@ const LIST_WITH_USAGE_SQL = `
     FROM subjects s
    WHERE s.center_code = ? AND s.deleted_at IS NULL
    ORDER BY s.name_fr COLLATE NOCASE, s.id
+`;
+
+// The named breakdown behind `in_use_count` above (SOU-135): every live group of
+// the center, so `listWithUsage` can group them by `subject_id` in JS and hand the
+// CRUD modal something to name ("utilisé par le groupe 3ème A") instead of a bare
+// number. A second query rather than a `json_group_array` in the first — simpler
+// to keep in sync with `LIST_WITH_USAGE_SQL`'s own extension point (add a query,
+// add a merge, no SQL-side JSON wrangling) when sessions/formulas join the scope.
+// Same tenant/tombstone filtering as the count subquery above, so the two never
+// disagree: `references.length` always equals `in_use_count`.
+const LIST_GROUP_REFERENCES_SQL = `
+  SELECT id, subject_id, level
+    FROM groups
+   WHERE center_code = ? AND deleted_at IS NULL
+   ORDER BY subject_id, level COLLATE NOCASE, id
 `;
 
 /**
@@ -164,9 +181,38 @@ export class SqliteSubjectRepository implements SubjectRepository {
     const rows = this.db
       .prepare(LIST_WITH_USAGE_SQL)
       .all(centerCode) as (SubjectRow & { in_use_count: number })[];
+    const groupRows = this.db.prepare(LIST_GROUP_REFERENCES_SQL).all(centerCode) as {
+      id: string;
+      subject_id: string;
+      level: string;
+    }[];
+
+    const referencesBySubject = new Map<string, SubjectUsageReference[]>();
+    for (const g of groupRows) {
+      // A Group has no name of its own — only `level` (a plain, untranslated
+      // string, like `Room.name`) — so the bilingual label duplicates it into
+      // both `fr` and `ar` rather than inventing translated text.
+      const reference: SubjectUsageReference = {
+        kind: 'group',
+        id: g.id as EntityId,
+        label: { fr: g.level, ar: g.level },
+      };
+      const existing = referencesBySubject.get(g.subject_id);
+      if (existing) {
+        existing.push(reference);
+      } else {
+        referencesBySubject.set(g.subject_id, [reference]);
+      }
+    }
+
     return rows.map((row) => {
       const inUseCount = row.in_use_count;
-      return { subject: fromRow(row), inUseCount, canDelete: inUseCount === 0 };
+      return {
+        subject: fromRow(row),
+        inUseCount,
+        canDelete: inUseCount === 0,
+        references: referencesBySubject.get(row.id) ?? [],
+      };
     });
   }
 }

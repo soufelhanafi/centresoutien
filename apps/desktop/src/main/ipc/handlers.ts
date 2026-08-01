@@ -239,9 +239,19 @@ function toSubjectView(subject: Subject) {
 }
 
 /** Project a subject + its in-use count to the list-with-usage DTO: the lean
- *  subject view plus `inUseCount` and the derived `canDelete` for the CRUD table. */
+ *  subject view plus `inUseCount`, the derived `canDelete`, and the named
+ *  breakdown (`references`, SOU-135) the delete-blocked modal lists. */
 function toSubjectUsageView(row: SubjectUsage) {
-  return { subject: toSubjectView(row.subject), inUseCount: row.inUseCount, canDelete: row.canDelete };
+  return {
+    subject: toSubjectView(row.subject),
+    inUseCount: row.inUseCount,
+    canDelete: row.canDelete,
+    references: row.references.map((ref) => ({
+      kind: ref.kind,
+      id: ref.id,
+      label: { fr: ref.label.fr, ar: ref.label.ar },
+    })),
+  };
 }
 
 /** Project a Room to its boundary DTO: envelope stripped, dates serialized,
