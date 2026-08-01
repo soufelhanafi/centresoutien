@@ -141,6 +141,32 @@ describe('SqliteSubjectRepository', () => {
     });
   });
 
+  describe('listActive / listAll', () => {
+    const CASA = 'CS-CASA-001' as CenterCode;
+
+    beforeEach(async () => {
+      await repo.save(makeSubject({ id: 'sub_00000000000000000000000001' as SubjectId, name: { fr: 'Physique', ar: 'فيزياء' }, active: true }));
+      await repo.save(makeSubject({ id: 'sub_00000000000000000000000002' as SubjectId, name: { fr: 'Arabe', ar: 'العربية' }, active: true }));
+      await repo.save(makeSubject({ id: 'sub_00000000000000000000000003' as SubjectId, name: { fr: 'Chimie', ar: 'كيمياء' }, active: false }));
+      // Tombstoned — excluded from both lists.
+      const gone = makeSubject({ id: 'sub_00000000000000000000000004' as SubjectId, name: { fr: 'Anglais', ar: 'إنجليزية' } });
+      await repo.save(gone);
+      await repo.softDelete(gone.id, new Date('2026-08-02T00:00:00Z'), 'usr_00000000000000000000000001' as UserId);
+      // Another center — never mixed in.
+      await repo.save(makeSubject({ id: 'sub_00000000000000000000000005' as SubjectId, centerCode: 'CS-RABAT-002' as CenterCode, name: { fr: 'Géographie', ar: 'جغرافيا' } }));
+    });
+
+    it('listActive returns only live, active subjects of the center, name-ordered', async () => {
+      const rows = await repo.listActive(CASA);
+      expect(rows.map((s) => s.name.fr)).toEqual(['Arabe', 'Physique']);
+    });
+
+    it('listAll returns every live subject (active + inactive), excluding tombstones and other centers', async () => {
+      const rows = await repo.listAll(CASA);
+      expect(rows.map((s) => s.name.fr)).toEqual(['Arabe', 'Chimie', 'Physique']);
+    });
+  });
+
   describe('listChangedSince', () => {
     it('returns rows updated strictly after the cursor, tombstones included', async () => {
       await repo.save(makeSubject({ id: 'sub_00000000000000000000000001' as SubjectId, updatedAt: new Date('2026-07-01T00:00:00Z') }));

@@ -5,6 +5,10 @@ import {
   PlanPolicy,
   CreateSubject,
   ArchiveSubject,
+  ListSubjects,
+  GetSubject,
+  ListSubjectsWithUsage,
+  UpdateSubject,
   CreateStudent,
   ListStudents,
   GetStudent,
@@ -181,6 +185,10 @@ export function buildContainer(options: ContainerOptions): Container {
 
   const subjectRepo = new SqliteSubjectRepository(db);
   const createSubject = new CreateSubject(subjectRepo, clock, ids, plan);
+  const listSubjects = new ListSubjects(subjectRepo, plan);
+  const getSubject = new GetSubject(subjectRepo, plan);
+  const listSubjectsWithUsage = new ListSubjectsWithUsage(subjectRepo, plan);
+  const updateSubject = new UpdateSubject(subjectRepo, clock, plan);
 
   const studentRepo = new SqliteStudentRepository(db);
   const createStudent = new CreateStudent(studentRepo, clock, ids, plan);
@@ -346,6 +354,10 @@ export function buildContainer(options: ContainerOptions): Container {
     activePlanId: () => activePlanId,
     createSubject,
     archiveSubject,
+    listSubjects,
+    getSubject,
+    listSubjectsWithUsage,
+    updateSubject,
     createStudent,
     listStudents,
     getStudent,

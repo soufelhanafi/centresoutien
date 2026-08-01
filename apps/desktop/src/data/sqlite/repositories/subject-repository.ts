@@ -138,6 +138,28 @@ export class SqliteSubjectRepository implements SubjectRepository {
     return rows.map(fromRow);
   }
 
+  async listActive(centerCode: CenterCode): Promise<readonly Subject[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM subjects
+          WHERE center_code = ? AND deleted_at IS NULL AND active = 1
+          ORDER BY name_fr COLLATE NOCASE, id`,
+      )
+      .all(centerCode) as SubjectRow[];
+    return rows.map(fromRow);
+  }
+
+  async listAll(centerCode: CenterCode): Promise<readonly Subject[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM subjects
+          WHERE center_code = ? AND deleted_at IS NULL
+          ORDER BY name_fr COLLATE NOCASE, id`,
+      )
+      .all(centerCode) as SubjectRow[];
+    return rows.map(fromRow);
+  }
+
   async listWithUsage(centerCode: CenterCode): Promise<readonly SubjectUsage[]> {
     const rows = this.db
       .prepare(LIST_WITH_USAGE_SQL)
