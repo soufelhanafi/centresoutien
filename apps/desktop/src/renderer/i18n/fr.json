@@ -359,8 +359,8 @@
       "deactivate": "Désactiver",
       "activate": "Réactiver",
       "delete": "Supprimer",
-      "deleteBlockedHint_one": "Utilisée par {{count}} élément — désactivez-la à la place.",
-      "deleteBlockedHint_other": "Utilisée par {{count}} éléments — désactivez-la à la place."
+      "deleteBlockedHint_one": "Utilisée par {{count, number}} élément — désactivez-la à la place.",
+      "deleteBlockedHint_other": "Utilisée par {{count, number}} éléments — désactivez-la à la place."
     },
     "empty": {
       "title": "Aucune matière pour l'instant",
@@ -410,8 +410,8 @@
       "success": "Matière supprimée",
       "error": "La suppression a échoué. Réessayez.",
       "blockedTitle": "Impossible de supprimer cette matière",
-      "blockedBody_one": "« {{name}} » est utilisée par {{count}} élément. Détachez-le d'abord, ou désactivez la matière à la place :",
-      "blockedBody_other": "« {{name}} » est utilisée par {{count}} éléments. Détachez-les d'abord, ou désactivez la matière à la place :",
+      "blockedBody_one": "« {{name}} » est utilisée par {{count, number}} élément. Détachez-le d'abord, ou désactivez la matière à la place :",
+      "blockedBody_other": "« {{name}} » est utilisée par {{count, number}} éléments. Détachez-les d'abord, ou désactivez la matière à la place :",
       "deactivateInstead": "Désactiver la matière"
     }
   },

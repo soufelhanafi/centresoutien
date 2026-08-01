@@ -37,7 +37,6 @@ test.afterEach(async () => {
 
 const MATH = { nameFr: 'Mathématiques', nameAr: 'الرياضيات', code: 'MATH' };
 const PHYS = { nameFr: 'Physique', nameAr: 'الفيزياء' }; // no code
-const SVT = { nameFr: 'SVT', nameAr: 'علوم الحياة والأرض', code: 'SVT' };
 
 async function assertMounted(win: Page, L: (typeof STR)[Locale]): Promise<void> {
   expect(await pageCrashed(win), 'Subjects page rendered without the error boundary').toBe(false);

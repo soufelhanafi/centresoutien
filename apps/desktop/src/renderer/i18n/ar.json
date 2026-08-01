@@ -368,9 +368,9 @@
       "delete": "حذف",
       "deleteBlockedHint_one": "مستخدمة في عنصر واحد — عطّلها بدلاً من ذلك.",
       "deleteBlockedHint_two": "مستخدمة في عنصرين — عطّلها بدلاً من ذلك.",
-      "deleteBlockedHint_few": "مستخدمة في {{count}} عناصر — عطّلها بدلاً من ذلك.",
-      "deleteBlockedHint_many": "مستخدمة في {{count}} عنصرًا — عطّلها بدلاً من ذلك.",
-      "deleteBlockedHint_other": "مستخدمة في {{count}} عنصر — عطّلها بدلاً من ذلك."
+      "deleteBlockedHint_few": "مستخدمة في {{count, number}} عناصر — عطّلها بدلاً من ذلك.",
+      "deleteBlockedHint_many": "مستخدمة في {{count, number}} عنصرًا — عطّلها بدلاً من ذلك.",
+      "deleteBlockedHint_other": "مستخدمة في {{count, number}} عنصر — عطّلها بدلاً من ذلك."
     },
     "empty": {
       "title": "لا توجد مواد بعد",
@@ -422,9 +422,9 @@
       "blockedTitle": "تعذّر حذف هذه المادة",
       "blockedBody_one": "« {{name}} » مستخدمة في عنصر واحد. افصله أولًا، أو عطّل المادة بدلاً من ذلك:",
       "blockedBody_two": "« {{name}} » مستخدمة في عنصرين. افصلهما أولًا، أو عطّل المادة بدلاً من ذلك:",
-      "blockedBody_few": "« {{name}} » مستخدمة في {{count}} عناصر. افصلها أولًا، أو عطّل المادة بدلاً من ذلك:",
-      "blockedBody_many": "« {{name}} » مستخدمة في {{count}} عنصرًا. افصلها أولًا، أو عطّل المادة بدلاً من ذلك:",
-      "blockedBody_other": "« {{name}} » مستخدمة في {{count}} عنصر. افصلها أولًا، أو عطّل المادة بدلاً من ذلك:",
+      "blockedBody_few": "« {{name}} » مستخدمة في {{count, number}} عناصر. افصلها أولًا، أو عطّل المادة بدلاً من ذلك:",
+      "blockedBody_many": "« {{name}} » مستخدمة في {{count, number}} عنصرًا. افصلها أولًا، أو عطّل المادة بدلاً من ذلك:",
+      "blockedBody_other": "« {{name}} » مستخدمة في {{count, number}} عنصر. افصلها أولًا، أو عطّل المادة بدلاً من ذلك:",
       "deactivateInstead": "تعطيل المادة"
     }
   },
