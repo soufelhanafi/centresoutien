@@ -45,6 +45,8 @@
     "too-long": "النص طويل جدًا",
     "not-an-integer": "أدخل عددًا صحيحًا",
     "capacity-too-small": "يجب أن تكون السعة 1 على الأقل",
+    "too-low": "هذه القيمة منخفضة جدًا",
+    "too-high": "هذه القيمة مرتفعة جدًا",
     "invalid-email": "عنوان بريد إلكتروني غير صالح",
     "invalid-phone": "رقم الهاتف غير صالح",
     "unsupported-logo-type": "صيغة الشعار غير مدعومة (PNG أو JPG أو WEBP أو SVG)",
@@ -980,7 +982,8 @@
       "holidays": "العطل",
       "password": "كلمة المرور",
       "language": "اللغة",
-      "plan": "الباقة"
+      "plan": "الباقة",
+      "backup": "النسخ الاحتياطي"
     },
     "center": {
       "title": "ملف المركز",
@@ -1068,6 +1071,37 @@
         "limitsStudentsUnlimited": "تلاميذ غير محدودين",
         "limitsTeachersUnlimited": "أساتذة غير محدودين"
       }
+    },
+    "backup": {
+      "configTitle": "النسخ الاحتياطي",
+      "configLoadError": "تعذّر تحميل إعدادات النسخ الاحتياطي.",
+      "destinationLabel": "مجلد الوجهة",
+      "destinationPlaceholder": "لم يتم اختيار مجلد",
+      "destinationPick": "اختيار مجلد",
+      "retentionLabel": "عدد النسخ المحتفظ بها",
+      "lastRunLabel": "آخر نسخة احتياطية تلقائية:",
+      "never": "أبدًا",
+      "configSubmit": "حفظ",
+      "configSaving": "جارٍ الحفظ…",
+      "configSaveSuccess": "تم حفظ إعدادات النسخ الاحتياطي",
+      "configSaveError": "فشل الحفظ. حاول مرة أخرى.",
+      "createButton": "إنشاء نسخة احتياطية الآن",
+      "creating": "جارٍ إنشاء النسخة الاحتياطية…",
+      "createSuccess": "تم إنشاء النسخة الاحتياطية: {{fileName}}",
+      "createError": "فشل إنشاء النسخة الاحتياطية. حاول مرة أخرى.",
+      "restoreTitle": "استعادة نسخة احتياطية",
+      "restoreSubtitle": "يستبدل البيانات الحالية للمركز ببيانات من ملف نسخة احتياطية.",
+      "restorePick": "اختيار ملف نسخة احتياطية",
+      "restoreButton": "استعادة",
+      "restoreNotFound": "ملف النسخة الاحتياطية هذا غير موجود.",
+      "restoreCorrupted": "ملف النسخة الاحتياطية هذا تالف ولا يمكن استعادته.",
+      "restoreWrongKey": "ملف النسخة الاحتياطية هذا لا يطابق هذا المركز.",
+      "restarting": "اكتملت الاستعادة. جارٍ إعادة تشغيل التطبيق…",
+      "confirmTitle": "تأكيد الاستعادة",
+      "confirmBody": "سيتم استبدال جميع البيانات الحالية للمركز ببيانات من ملف النسخة الاحتياطية هذا. هذا الإجراء لا رجعة فيه.",
+      "confirmDismiss": "إلغاء",
+      "confirmConfirm": "استعادة",
+      "confirmPending": "جارٍ الاستعادة…"
     }
   },
   "centerHours": {
