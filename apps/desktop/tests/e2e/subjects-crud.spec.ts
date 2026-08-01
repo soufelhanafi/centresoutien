@@ -44,9 +44,9 @@ async function assertMounted(win: Page, L: (typeof STR)[Locale]): Promise<void> 
 }
 
 function shot(name: string): string {
-  const dir =
-    '/private/tmp/claude-501/-Users-soufelhanafi-souf-projects-perso-soutien-scolaire-second-centresoutien/2dd2172a-5096-471c-b485-e2dfe30c4fca/scratchpad';
-  return `${dir}/sou47-${name}-${test.info().project.name}.png`;
+  // Per-test output dir so screenshots land with the run's artifacts on CI and
+  // any machine — never a hardcoded absolute path.
+  return test.info().outputPath(`sou47-${name}-${test.info().project.name}.png`);
 }
 
 test('AC1 list/read — table columns, bilingual name, state, in-use count, tabs', async () => {
