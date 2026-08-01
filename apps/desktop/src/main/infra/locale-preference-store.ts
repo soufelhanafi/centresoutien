@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** Kept in sync with the renderer's `LOCALES` (`apps/desktop/src/renderer/i18n/direction.ts`).
@@ -46,6 +46,10 @@ export class LocalePreferenceStore {
 
   write(locale: LocalePreference): void {
     mkdirSync(this.userDataDir, { recursive: true });
-    writeFileSync(this.filePath, JSON.stringify({ locale }));
+    // Write-then-rename: a crash mid-write can only strand the .tmp file, never
+    // truncate preferences.json itself — rename is atomic on the same filesystem.
+    const tmpPath = `${this.filePath}.tmp`;
+    writeFileSync(tmpPath, JSON.stringify({ locale }));
+    renameSync(tmpPath, this.filePath);
   }
 }

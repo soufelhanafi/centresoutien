@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -46,5 +46,11 @@ describe('LocalePreferenceStore', () => {
     const fresh = new LocalePreferenceStore(join(dir, 'nested', 'deeper'));
     fresh.write('fr');
     expect(fresh.read()).toBe('fr');
+  });
+
+  it('leaves no .tmp file behind after a successful write (atomic rename)', () => {
+    store.write('ar');
+    expect(existsSync(join(dir, 'preferences.json.tmp'))).toBe(false);
+    expect(readdirSync(dir)).toEqual(['preferences.json']);
   });
 });
