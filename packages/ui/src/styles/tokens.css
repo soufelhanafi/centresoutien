@@ -1,7 +1,9 @@
 /*
- * Centre Soutien design tokens — the single source shared by the desktop
- * renderer and (via SOU-22) the landing page. Transcribed from design screen 1a
- * (desktop-design.html). Import AFTER `@import "tailwindcss"`.
+ * Centre Soutien design tokens — the single source of truth for the desktop
+ * renderer, exported from this package so any future consumer (the landing
+ * page, once imported into apps/landing — see docs/design-tokens.md) can
+ * import it by package name instead of copying values. Transcribed from
+ * design screen 1a (desktop-design.html). Import AFTER `@import "tailwindcss"`.
  */
 :root {
   --background: #ffffff;
