@@ -568,11 +568,45 @@
       "unlinkError": "فشل حذف الرابط. حاول مجددًا.",
       "loadError": "فشل تحميل الأولياء."
     },
-    "comingSoon": {
-      "enrollment": {
-        "title": "التسجيلات قريبًا",
-        "body": "ستظهر هنا اشتراكات التلميذ في الصيغ."
+    "subscription": {
+      "loadError": "فشل تحميل الاشتراكات.",
+      "active": {
+        "changeCta": "تغيير الصيغة",
+        "subscribeCta": "الاشتراك",
+        "since": "منذ {{month}}",
+        "empty": "لا يوجد اشتراك نشط."
       },
+      "history": {
+        "heading": "السجل",
+        "empty": "لا يوجد سجل بعد.",
+        "since": "ابتداءً من {{month}}",
+        "table": {
+          "kind": "النوع",
+          "formula": "الصيغة",
+          "period": "الفترة"
+        }
+      },
+      "wizard": {
+        "changeTitle": "تغيير الصيغة",
+        "changeDescription": "أنهِ الاشتراك الحالي، ثم اختر الصيغة الجديدة.",
+        "subscribeTitle": "اشتراك جديد",
+        "subscribeDescription": "اختر صيغة لهذا التلميذ.",
+        "currentFormulaLabel": "الصيغة الحالية",
+        "endMonthLabel": "شهر الانتهاء",
+        "formulaLabel": "الصيغة الجديدة",
+        "formulaPlaceholder": "اختر صيغة",
+        "noFormulas": "لا توجد صيغة نشطة. أنشئ واحدة من الإعدادات.",
+        "startMonthLabel": "شهر البداية",
+        "cancel": "إلغاء",
+        "confirm": "تأكيد",
+        "confirming": "جارٍ الحفظ…",
+        "success": "تم تحديث الاشتراك",
+        "closeError": "فشل إنهاء الاشتراك. حاول مجددًا.",
+        "createError": "فشل الاشتراك. حاول مجددًا.",
+        "createAfterCloseError": "تم إنهاء الاشتراك السابق، لكن الاشتراك الجديد فشل. أعد المحاولة من هذا التبويب."
+      }
+    },
+    "comingSoon": {
       "invoices": {
         "title": "الفواتير قريبًا",
         "body": "سيظهر هنا سجلّ فوترة التلميذ."
