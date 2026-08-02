@@ -243,4 +243,11 @@ export class SqliteInvoiceRepository implements InvoiceRepository {
       .all(cursor.toISOString()) as InvoiceLineRow[];
     return rows.map(lineFromRow);
   }
+
+  async listByCenterMonth(centerCode: CenterCode, month: string): Promise<readonly Invoice[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM invoices WHERE center_code = ? AND month = ? AND deleted_at IS NULL')
+      .all(centerCode, month) as InvoiceRow[];
+    return rows.map(invoiceFromRow);
+  }
 }
