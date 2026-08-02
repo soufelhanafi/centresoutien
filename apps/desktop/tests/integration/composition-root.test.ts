@@ -370,4 +370,121 @@ describe('composition root', () => {
 
     container.dispose();
   });
+
+  // The full Formula read/write path through real SQLite (SOU-62) — create/list/
+  // get/update/clone/deactivate all reach their pre-wired use cases (not a mock),
+  // and the immutability trigger + the deactivate bypass both hold through the
+  // real adapter, not just the in-memory fakes the unit tests use.
+  it('wires the formula create/list/get/update/clone/deactivate channels end-to-end', async () => {
+    const container = build();
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+
+    const math = await dispatch('subject.create', { name: { fr: 'Mathématiques', ar: 'الرياضيات' } });
+    const phys = await dispatch('subject.create', { name: { fr: 'Physique', ar: 'الفيزياء' } });
+
+    const { id } = await dispatch('formula.create', {
+      name: { fr: 'Math seul', ar: 'رياضيات فقط' },
+      subjectIds: [math.id],
+      priceMad: 20000,
+      kind: 'regular',
+    });
+    expect(id).toMatch(/^fml_/);
+
+    // list — the freshly created formula is really there.
+    const listed = await dispatch('formula.list', { scope: 'active' });
+    expect(listed.formulas).toHaveLength(1);
+    expect(listed.formulas[0]).toMatchObject({ id, priceMad: 20000, isImmutable: false, active: true });
+
+    // get — same row by id.
+    const got = await dispatch('formula.get', { id });
+    expect(got.formula?.subjectIds).toEqual([math.id]);
+
+    // update — the change persists and reads back (still mutable, never used).
+    const updated = await dispatch('formula.update', {
+      id,
+      name: { fr: 'Math + Physique', ar: 'رياضيات وفيزياء' },
+      subjectIds: [math.id, phys.id],
+      priceMad: 35000,
+      kind: 'regular',
+    });
+    expect(updated.formula).toMatchObject({ priceMad: 35000, subjectIds: [math.id, phys.id] });
+
+    // clone — an independent, fresh, mutable, active copy.
+    const cloned = await dispatch('formula.clone', { id });
+    expect(cloned.id).not.toBe(id);
+    const cloneView = await dispatch('formula.get', { id: cloned.id });
+    expect(cloneView.formula).toMatchObject({ priceMad: 35000, isImmutable: false, active: true });
+
+    // deactivate — flips active off; the original formula is unaffected otherwise.
+    const deactivated = await dispatch('formula.deactivate', { id });
+    expect(deactivated.formula).toMatchObject({ id, active: false, priceMad: 35000 });
+    expect((await dispatch('formula.list', { scope: 'active' })).formulas.map((f) => f.id)).toEqual([cloned.id]);
+    expect((await dispatch('formula.list', { scope: 'all' })).formulas).toHaveLength(2);
+
+    container.dispose();
+  });
+
+  // The immutability barrier reached through real SQLite: once an invoice line
+  // references a formula, `formula.update` must reject even a no-op patch, but
+  // `formula.deactivate` must still succeed — the exact gap the SOU-60 review
+  // flagged and this ticket's KICKOFF fixes.
+  it('rejects formula.update but allows formula.deactivate once a formula is immutable', async () => {
+    const first = build();
+    const dispatch1 = createIpcDispatcher(createHandlers(first.handlerDeps));
+
+    const math = await dispatch1('subject.create', { name: { fr: 'Mathématiques', ar: 'الرياضيات' } });
+    const { id } = await dispatch1('formula.create', {
+      name: { fr: 'Math seul', ar: 'رياضيات فقط' },
+      subjectIds: [math.id],
+      priceMad: 20000,
+      kind: 'regular',
+    });
+    first.dispose();
+
+    // Flip is_immutable the same way an invoice line does (SOU-61's trigger) — open
+    // the same encrypted file directly and insert a bare invoice_lines row
+    // referencing the formula (no invoices header needed — invoice_lines carries
+    // no FK, sync-order safe per migration 0018).
+    const raw = openDatabase({ centreId: 'C1', key: KEY, dir });
+    raw
+      .prepare(
+        `INSERT INTO invoice_lines
+          (id, center_code, device_origin, created_at, updated_at, updated_by,
+           deleted_at, version, invoice_id, formula_id, label_fr, label_ar, kind, amount_mad)
+         VALUES (?,?,?,?,?,?,NULL,0,?,?,?,?,?,?)`,
+      )
+      .run(
+        'invl_00000000000000000000000001',
+        'CS-CASA-001',
+        'dev_00000000000000000000000001',
+        new Date().toISOString(),
+        new Date().toISOString(),
+        'usr_local-device',
+        'inv_00000000000000000000000001',
+        id,
+        'Math seul',
+        'رياضيات فقط',
+        'regular',
+        20000,
+      );
+    raw.close();
+
+    const second = build();
+    const dispatch2 = createIpcDispatcher(createHandlers(second.handlerDeps));
+
+    await expect(
+      dispatch2('formula.update', {
+        id,
+        name: { fr: 'Math seul', ar: 'رياضيات فقط' },
+        subjectIds: [math.id],
+        priceMad: 20000,
+        kind: 'regular',
+      }),
+    ).rejects.toThrow();
+
+    const deactivated = await dispatch2('formula.deactivate', { id });
+    expect(deactivated.formula).toMatchObject({ id, active: false, isImmutable: true });
+
+    second.dispose();
+  });
 });

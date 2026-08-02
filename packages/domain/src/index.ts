@@ -92,7 +92,8 @@ export {
   TooManyActiveSubscriptionsError,
   StudentSubscriptionNotFoundError,
 } from './errors/subscription-errors';
-export { FormulaImmutableError } from './errors/formula-errors';
+export { FormulaImmutableError, FormulaNotFoundError, FormulaSubjectUnavailableError } from './errors/formula-errors';
+export type { FormulaSubjectUnavailableReason } from './errors/formula-errors';
 export {
   TooManyActivePayrollRulesError,
   TeacherPayrollRuleNotFoundError,
@@ -399,8 +400,9 @@ export {
   isPayrollRuleActiveInMonth,
   payrollRuleRangesOverlap,
 } from './policies/teacher-payroll-rule-policy';
-export { updateFormula } from './policies/formula-policy';
+export { updateFormula, deactivateFormula } from './policies/formula-policy';
 export type { FormulaPatch } from './policies/formula-policy';
+export { validateFormulaSubjects } from './policies/validate-formula-subjects';
 
 // First-run wizard state machine (SOU-25) — a pure, portable sequencer.
 export type { WizardStepId } from './wizard/wizard-steps';
@@ -578,3 +580,17 @@ export { ChangeAdminPassword } from './use-cases/change-admin-password';
 export type { ChangeAdminPasswordInput } from './use-cases/change-admin-password';
 export { AttemptLogin } from './use-cases/attempt-login';
 export type { LoginResult, CredentialVerifier } from './use-cases/attempt-login';
+
+// Formula CRUD use cases (SOU-62).
+export { CreateFormula } from './use-cases/create-formula';
+export type { CreateFormulaInput } from './use-cases/create-formula';
+export { UpdateFormula } from './use-cases/update-formula';
+export type { UpdateFormulaInput } from './use-cases/update-formula';
+export { GetFormula } from './use-cases/get-formula';
+export type { GetFormulaInput } from './use-cases/get-formula';
+export { ListFormulas } from './use-cases/list-formulas';
+export type { ListFormulasInput, FormulaScope } from './use-cases/list-formulas';
+export { CloneFormula } from './use-cases/clone-formula';
+export type { CloneFormulaInput } from './use-cases/clone-formula';
+export { DeactivateFormula } from './use-cases/deactivate-formula';
+export type { DeactivateFormulaInput } from './use-cases/deactivate-formula';

@@ -4,6 +4,7 @@ import { dialogIpcContract } from './dialog-contract';
 import {
   subjectInputSchema,
   subjectUpdateInputSchema,
+  formulaInputSchema,
   studentInputSchema,
   parentInputSchema,
   roomInputSchema,
@@ -297,6 +298,23 @@ const subjectUsageViewSchema = z.object({
   references: z.array(subjectUsageReferenceSchema),
 });
 
+// The presentation projection of a Formula across the IPC boundary (SOU-62) — the
+// sync envelope (version, deviceOrigin, updatedBy…, and the Date timestamps) is
+// stripped, exactly like `subjectViewSchema`. `isImmutable` crosses the boundary
+// as-is — the CRUD table's locked badge and disabled-edit tooltip key off it
+// directly. No `archived` field: this ticket's CRUD UI has no soft-delete action,
+// only `active` (toggled one-way, off, via `formula.deactivate`). Single source of
+// truth for the renderer's `FormulaView` type.
+const formulaViewSchema = z.object({
+  id: z.string(),
+  name: z.object({ fr: z.string(), ar: z.string() }),
+  subjectIds: z.array(z.string()),
+  priceMad: z.number().int(),
+  kind: z.enum(['regular', 'exam-prep']),
+  isImmutable: z.boolean(),
+  active: z.boolean(),
+});
+
 // The display shape of one weekday's hours returned to the renderer: the
 // user-visible fields only, envelope stripped. `open`/`close` are `'HH:mm'` or
 // null (closed). Reused by both centerHours responses.
@@ -497,6 +515,44 @@ export const ipcContract = {
   'group.roster': {
     request: z.object({ groupId: z.string() }),
     response: z.object({ roster: z.array(groupRosterEntrySchema) }),
+  },
+  // Formula CRUD (SOU-62), mirroring `subject.*`. `create`/`update` share the
+  // domain's own `formulaInputSchema` (bilingual name, subjectIds, priceMad, kind)
+  // — `active` is NOT part of it; the only path that ever writes `active` is
+  // `formula.deactivate`. `list` selects the active picker set or every live
+  // formula via `scope`; `get` resolves a single formula to its view or null.
+  // `clone` ("dupliquer") copies an existing formula into a fresh, mutable,
+  // active one — the prescribed move for a price/subject change on an immutable
+  // (already-billed) formula. `deactivate` sets `active: false` even on an
+  // immutable formula, bypassing the update path's `FormulaImmutableError`
+  // guard — the CRUD UI wires its single "deactivate" action here regardless of
+  // lock state. centerCode/device/user are injected in main, never sent from the
+  // renderer. All gated by `core.formulas` (every plan); an exam-prep `kind`
+  // additionally needs `core.exam-prep` (Pro+). Reads strip the envelope to
+  // `formulaViewSchema`.
+  'formula.create': {
+    request: formulaInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'formula.list': {
+    request: z.object({ scope: z.enum(['active', 'all']) }),
+    response: z.object({ formulas: z.array(formulaViewSchema) }),
+  },
+  'formula.get': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ formula: formulaViewSchema.nullable() }),
+  },
+  'formula.update': {
+    request: formulaInputSchema.extend({ id: z.string() }),
+    response: z.object({ formula: formulaViewSchema }),
+  },
+  'formula.clone': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ id: z.string() }),
+  },
+  'formula.deactivate': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ formula: formulaViewSchema }),
   },
   // Student subscriptions (SOU-63) — the formula-billing surface. `create` takes the
   // domain's own `studentSubscriptionInputSchema` (prefixed student/formula/subject
@@ -828,6 +884,9 @@ export type TeacherDto = z.infer<typeof teacherViewSchema>;
 
 /** The Holiday boundary DTO — the renderer's `HolidayView` is an alias of this. */
 export type HolidayDto = z.infer<typeof holidayViewSchema>;
+
+/** The Formula boundary DTO — the renderer's `FormulaView` is an alias of this. */
+export type FormulaDto = z.infer<typeof formulaViewSchema>;
 
 /** The weekly-session boundary DTO — the renderer's `WeeklySessionView` aliases this. */
 export type WeeklySessionDto = z.infer<typeof weeklySessionViewSchema>;

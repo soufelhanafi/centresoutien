@@ -11,6 +11,7 @@
     "teachers": "Enseignants",
     "parents": "Parents",
     "subjects": "Matières",
+    "formulas": "Formules",
     "groups": "Groupes",
     "rooms": "Salles",
     "planning": "Planning",
@@ -85,7 +86,13 @@
     "invalid-code": "Code invalide (majuscules, chiffres, - et _ uniquement)",
     "subject-in-use": "Cette matière est utilisée par au moins un groupe et ne peut pas être supprimée",
     "subject-not-found": "Cette matière est introuvable",
-    "duplicate-subject-code": "Ce code est déjà utilisé par une autre matière"
+    "duplicate-subject-code": "Ce code est déjà utilisé par une autre matière",
+    "formula-immutable": "Cette formule a déjà été facturée et ne peut plus être modifiée. Dupliquez-la pour changer le prix, les matières ou le nom.",
+    "formula-not-found": "Cette formule est introuvable",
+    "formula-subject-not-found": "Une matière de cette formule est introuvable",
+    "formula-subject-inactive": "Une matière de cette formule a été désactivée",
+    "subjects-required": "Sélectionnez au moins une matière",
+    "invalid-price": "Le prix doit être un nombre entier positif"
   },
   "groups": {
     "title": "Groupes",
@@ -417,6 +424,88 @@
       "blockedBody_one": "« {{name}} » est utilisée par {{count, number}} élément. Détachez-le d'abord, ou désactivez la matière à la place :",
       "blockedBody_other": "« {{name}} » est utilisée par {{count, number}} éléments. Détachez-les d'abord, ou désactivez la matière à la place :",
       "deactivateInstead": "Désactiver la matière"
+    }
+  },
+  "formulas": {
+    "title": "Formules",
+    "subtitle": "Définissez les prix mensuels que vos élèves paieront (ex. Math seul, Math + Physique, Prépa Bac).",
+    "new": "Nouvelle formule",
+    "tabs": {
+      "active": "Actives",
+      "inactive": "Inactives"
+    },
+    "table": {
+      "name": "Nom",
+      "subjects": "Matières",
+      "price": "Prix / mois",
+      "kind": "Type",
+      "state": "État",
+      "actions": "Actions",
+      "locked": "Verrouillée",
+      "lockedHint": "Cette formule a été facturée : son prix, ses matières et son nom sont verrouillés. Dupliquez-la pour la modifier."
+    },
+    "state": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "kind": {
+      "regular": "Régulier",
+      "examPrep": "Prépa examen"
+    },
+    "row": {
+      "menu": "Actions de la formule « {{name}} »",
+      "edit": "Modifier",
+      "editLockedHint": "Formule verrouillée — dupliquez-la pour changer le prix, les matières ou le nom.",
+      "clone": "Dupliquer",
+      "deactivate": "Désactiver"
+    },
+    "empty": {
+      "title": "Aucune formule pour l'instant",
+      "body": "Créez votre première formule pour définir ce que vos élèves paieront chaque mois.",
+      "cta": "Créer une formule"
+    },
+    "inactiveEmpty": {
+      "title": "Aucune formule inactive",
+      "body": "Les formules que vous désactivez apparaîtront ici."
+    },
+    "loadError": {
+      "title": "Impossible de charger les formules",
+      "body": "Le chargement de la liste a échoué.",
+      "retry": "Réessayer"
+    },
+    "form": {
+      "createTitle": "Nouvelle formule",
+      "editTitle": "Modifier la formule",
+      "createDescription": "Définissez le nom, les matières incluses et le prix mensuel.",
+      "editDescription": "Mettez à jour le nom, les matières, le prix ou le type de la formule.",
+      "nameFr": "Nom (français)",
+      "nameAr": "Nom (arabe)",
+      "subjects": "Matières incluses",
+      "subjectInactive": "(inactive)",
+      "subjectsEmpty": "Ajoutez d'abord une matière pour pouvoir composer une formule.",
+      "subjectsError": "Le chargement des matières a échoué.",
+      "price": "Prix mensuel (MAD)",
+      "priceHint": "Prix total de la formule, facturé chaque mois.",
+      "kind": "Type",
+      "create": "Créer la formule",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Formule créée",
+      "editSuccess": "Modifications enregistrées",
+      "error": "L'enregistrement a échoué. Réessayez."
+    },
+    "clone": {
+      "success": "Formule dupliquée — modifiez le prix ou les matières si besoin.",
+      "error": "La duplication a échoué. Réessayez."
+    },
+    "deactivate": {
+      "title": "Désactiver cette formule ?",
+      "body": "« {{name}} » ne sera plus proposée pour un nouvel abonnement. Cette action ne peut pas être annulée directement — dupliquez la formule si vous devez la réactiver.",
+      "confirm": "Désactiver",
+      "cancel": "Annuler",
+      "success": "Formule désactivée",
+      "error": "La désactivation a échoué. Réessayez."
     }
   },
   "students": {
