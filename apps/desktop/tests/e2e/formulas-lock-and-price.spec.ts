@@ -152,7 +152,11 @@ test('invalid input — zero/negative price is rejected on edit of an existing f
 
   // The row must retain its original, valid price — the rejected edit must not
   // have been persisted.
-  await dialog.getByRole('button', { name: L.form.cancel }).click();
+  // The dialog's own close ("X") button shares the same accessible name as the
+  // footer Cancel button (both resolve to `L.form.cancel`); the footer one is
+  // first in DOM order (see packages/ui DialogContent — children render before
+  // the close control), so `.first()` disambiguates deterministically.
+  await dialog.getByRole('button', { name: L.form.cancel }).first().click();
   const row = live.win.getByRole('row', { name: new RegExp(name) });
   await expect(row).toContainText('200');
 });
