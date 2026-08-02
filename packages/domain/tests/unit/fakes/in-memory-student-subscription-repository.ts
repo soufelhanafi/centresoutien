@@ -6,6 +6,7 @@ import type {
 } from '../../../src/entities/student-subscription';
 import type { StudentId } from '../../../src/entities/student';
 import type { GroupKind } from '../../../src/entities/group';
+import type { CenterCode } from '../../../src/value-objects/ids';
 
 /**
  * In-memory {@link StudentSubscriptionRepository} for unit tests. Inherits the
@@ -30,5 +31,11 @@ export class InMemoryStudentSubscriptionRepository
     return this.all().filter(
       (s) => s.deletedAt === null && s.studentId === studentId && s.kind === kind,
     );
+  }
+
+  async listLiveByCenter(centerCode: CenterCode): Promise<readonly StudentSubscription[]> {
+    return this.all()
+      .filter((s) => s.deletedAt === null && s.centerCode === centerCode)
+      .sort((a, b) => b.startMonth.localeCompare(a.startMonth) || a.id.localeCompare(b.id));
   }
 }
