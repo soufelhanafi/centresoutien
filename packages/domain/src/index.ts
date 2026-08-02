@@ -288,6 +288,7 @@ export type { Session, SessionId } from './entities/session';
 
 // Read models (denormalized, envelope-free — never persisted)
 export type { WeeklySessionView } from './read-models/weekly-session-view';
+export type { InvoiceListRow, InvoiceListFilters } from './read-models/invoice-list-row';
 
 // Value objects & policies (login throttle — SOU-27)
 export { UNLOCKED_STATE } from './value-objects/lockout-state';
@@ -488,6 +489,8 @@ export type {
   GetInvoicePaymentSummaryInput,
   InvoicePaymentSummary,
 } from './use-cases/get-invoice-payment-summary';
+export { ListInvoices } from './use-cases/list-invoices';
+export type { ListInvoicesInput, InvoiceListItem } from './use-cases/list-invoices';
 export { CreateStudentSubscription } from './use-cases/create-student-subscription';
 export type { CreateStudentSubscriptionInput } from './use-cases/create-student-subscription';
 export { CloseStudentSubscription } from './use-cases/close-student-subscription';

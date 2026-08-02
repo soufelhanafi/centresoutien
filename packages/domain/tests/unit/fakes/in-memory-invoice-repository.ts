@@ -4,6 +4,8 @@ import type { Invoice, InvoiceId } from '../../../src/entities/invoice';
 import type { InvoiceLine } from '../../../src/entities/invoice-line';
 import type { StudentId } from '../../../src/entities/student';
 import type { CenterCode, UserId } from '../../../src/value-objects/ids';
+import type { InvoiceListRow, InvoiceListFilters } from '../../../src/read-models/invoice-list-row';
+import { invoiceTotalMad } from '../../../src/policies/invoice-total';
 
 /**
  * In-memory {@link InvoiceRepository} for unit tests. Inherits the soft-deletable
@@ -16,6 +18,7 @@ export class InMemoryInvoiceRepository
   implements InvoiceRepository
 {
   private readonly lines: InvoiceLine[] = [];
+  private readonly netPaidByInvoice = new Map<InvoiceId, number>();
 
   async createDraft(invoice: Invoice, lines: readonly InvoiceLine[]): Promise<void> {
     await this.save(invoice);
@@ -69,5 +72,39 @@ export class InMemoryInvoiceRepository
   /** test-only convenience */
   allLines(): readonly InvoiceLine[] {
     return this.lines.map((line) => structuredClone(line));
+  }
+
+  /** test-only convenience: seed the net-paid figure `listInvoices` reports for
+   *  an invoice — mirrors the SQLite adapter's payments-table join without
+   *  wiring a whole PaymentRepository into this fake. Defaults to 0 (unpaid). */
+  setNetPaid(invoiceId: InvoiceId, amountMad: number): void {
+    this.netPaidByInvoice.set(invoiceId, amountMad);
+  }
+
+  async listInvoices(
+    centerCode: CenterCode,
+    filters: InvoiceListFilters,
+  ): Promise<readonly InvoiceListRow[]> {
+    const rows = this.all()
+      .filter((invoice) => invoice.deletedAt === null && invoice.centerCode === centerCode)
+      .filter((invoice) => filters.month === undefined || invoice.month === filters.month)
+      .filter((invoice) => filters.studentId === undefined || invoice.studentId === filters.studentId)
+      .filter((invoice) => filters.invoiceId === undefined || invoice.id === filters.invoiceId)
+      .sort(
+        (a, b) => b.month.localeCompare(a.month) || b.createdAt.getTime() - a.createdAt.getTime(),
+      );
+
+    return rows.map((invoice) => {
+      const lines = this.lines
+        .filter((line) => line.deletedAt === null && line.invoiceId === invoice.id)
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map((line) => structuredClone(line));
+      return {
+        invoice,
+        lines,
+        totalMad: invoiceTotalMad(lines),
+        netPaidMad: this.netPaidByInvoice.get(invoice.id) ?? 0,
+      };
+    });
   }
 }
