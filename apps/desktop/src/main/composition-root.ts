@@ -90,6 +90,8 @@ import {
   ComputeMonthlyPayrolls,
   ConfirmTeacherPayout,
   ConfirmMonthlyPayrolls,
+  ListTeacherPayouts,
+  GetTeacherAttributionBreakdown,
   GeneratePayslipPdf,
 } from '@centresoutien/domain';
 import type {
@@ -408,13 +410,18 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
-  // Payroll dashboard confirm actions (SOU-76): the single-row and bulk
-  // halves of "Mark paid", both writing through the same `payoutRepo` the
-  // compute job above populates. Reuses `monthlyFeeAttribution` for the
-  // dashboard's per-teacher drill-down (`attributedAmountsByTeacherAndSubject`)
-  // rather than constructing a second attribution service.
+  // Payroll dashboard (SOU-76): confirmTeacherPayout/confirmMonthlyPayrolls are
+  // the single-row and bulk halves of "Mark paid", both writing through the
+  // same `payoutRepo` the compute job above populates. listTeacherPayouts and
+  // getTeacherAttributionBreakdown are thin `payroll.teacher`-gated wrappers
+  // around `payoutRepo.listLiveByCenterMonth` and `monthlyFeeAttribution`
+  // respectively — neither the repo method nor the attribution service carries
+  // its own plan check, so the dashboard's read channels need these wrappers
+  // for the same gate the write channels already have.
   const confirmTeacherPayout = new ConfirmTeacherPayout(payoutRepo, clock, plan);
   const confirmMonthlyPayrolls = new ConfirmMonthlyPayrolls(payoutRepo, clock, plan);
+  const listTeacherPayouts = new ListTeacherPayouts(payoutRepo, plan);
+  const getTeacherAttributionBreakdown = new GetTeacherAttributionBreakdown(monthlyFeeAttribution, plan);
 
   const holidayRepo = new SqliteHolidayRepository(db);
   const createHoliday = new CreateHoliday(holidayRepo, clock, ids, plan);
@@ -587,8 +594,8 @@ export function buildContainer(options: ContainerOptions): Container {
     computeMonthlyPayrolls,
     confirmTeacherPayout,
     confirmMonthlyPayrolls,
-    payoutRepo,
-    monthlyFeeAttribution,
+    listTeacherPayouts,
+    getTeacherAttributionBreakdown,
     currentUserId: () => context.updatedBy,
     generatePayslipPdf,
     createHoliday,

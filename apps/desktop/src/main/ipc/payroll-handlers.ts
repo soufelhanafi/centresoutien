@@ -1,8 +1,8 @@
 import type {
   ConfirmTeacherPayout,
   ConfirmMonthlyPayrolls,
-  MonthlyFeeAttributionService,
-  TeacherPayoutRepository,
+  ListTeacherPayouts,
+  GetTeacherAttributionBreakdown,
   TeacherPayout,
   TeacherPayoutId,
   CenterCode,
@@ -12,11 +12,8 @@ import type { IpcHandlers } from '../../shared/ipc/contract';
 
 export type ConfirmTeacherPayoutUseCase = Pick<ConfirmTeacherPayout, 'execute'>;
 export type ConfirmMonthlyPayrollsUseCase = Pick<ConfirmMonthlyPayrolls, 'execute'>;
-export type ListLivePayoutsByCenterMonth = Pick<TeacherPayoutRepository, 'listLiveByCenterMonth'>;
-export type AttributionBreakdownReader = Pick<
-  MonthlyFeeAttributionService,
-  'attributedAmountsByTeacherAndSubject'
->;
+export type ListTeacherPayoutsUseCase = Pick<ListTeacherPayouts, 'execute'>;
+export type GetTeacherAttributionBreakdownUseCase = Pick<GetTeacherAttributionBreakdown, 'execute'>;
 
 /**
  * Only the surface the payroll dashboard's list/confirm/drill-down channels
@@ -28,10 +25,10 @@ export type AttributionBreakdownReader = Pick<
  * every other handler in the same `HandlerDeps` intersection.
  */
 export type PayrollHandlerDeps = {
-  payoutRepo: ListLivePayoutsByCenterMonth;
+  listTeacherPayouts: ListTeacherPayoutsUseCase;
   confirmTeacherPayout: ConfirmTeacherPayoutUseCase;
   confirmMonthlyPayrolls: ConfirmMonthlyPayrollsUseCase;
-  monthlyFeeAttribution: AttributionBreakdownReader;
+  getTeacherAttributionBreakdown: GetTeacherAttributionBreakdownUseCase;
   centerCode: () => CenterCode;
   currentUserId: () => UserId;
 };
@@ -53,10 +50,10 @@ function toTeacherPayoutView(payout: TeacherPayout) {
 
 /**
  * Payroll dashboard IPC handlers (SOU-76), split out of `handlers.ts` like
- * `payslip-handlers.ts`. `listPayouts` wraps the same `listLiveByCenterMonth`
- * read `ComputeMonthlyPayrolls` already relies on for its idempotency check;
- * `confirmPayout`/`confirmMonthly` are the single-row and bulk halves of
- * "Mark paid"; `attributionBreakdown` powers the per-teacher drill-down. The
+ * `payslip-handlers.ts`. Every channel here delegates to a `payroll.teacher`-gated
+ * domain use case — `ListTeacherPayouts` and `GetTeacherAttributionBreakdown`
+ * exist solely to put that gate in front of the read paths, mirroring
+ * `confirmPayout`/`confirmMonthly`'s already-gated write paths. The
  * dashboard's "Generate payslips" bulk action needs no channel of its own —
  * the renderer calls the existing `payslip.export`/`payslip.print` once per
  * payout returned by `listPayouts`.
@@ -69,7 +66,10 @@ export function createPayrollHandlers(
 > {
   return {
     'payroll.listPayouts': async (request) => {
-      const payouts = await deps.payoutRepo.listLiveByCenterMonth(deps.centerCode(), request.month);
+      const payouts = await deps.listTeacherPayouts.execute({
+        centerCode: deps.centerCode(),
+        month: request.month,
+      });
       return { payouts: payouts.map(toTeacherPayoutView) };
     },
     'payroll.confirmPayout': async (request) => {
@@ -88,10 +88,10 @@ export function createPayrollHandlers(
       });
     },
     'payroll.attributionBreakdown': async (request) => {
-      const byTeacher = await deps.monthlyFeeAttribution.attributedAmountsByTeacherAndSubject(
-        deps.centerCode(),
-        request.month,
-      );
+      const byTeacher = await deps.getTeacherAttributionBreakdown.execute({
+        centerCode: deps.centerCode(),
+        month: request.month,
+      });
       const breakdown = Array.from(byTeacher, ([teacherId, bySubject]) =>
         Array.from(bySubject, ([subjectId, amountMad]) => ({ teacherId, subjectId, amountMad })),
       ).flat();

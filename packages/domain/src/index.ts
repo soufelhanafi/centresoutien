@@ -199,7 +199,11 @@ export {
   closeTeacherPayrollRuleMonthSchema,
 } from './schemas/teacher-payroll-rule';
 export type { TeacherPayrollRuleInput } from './schemas/teacher-payroll-rule';
-export { computeMonthlyPayrollsSchema, confirmMonthlyPayrollsSchema } from './schemas/teacher-payout';
+export {
+  computeMonthlyPayrollsSchema,
+  confirmMonthlyPayrollsSchema,
+  payrollMonthQuerySchema,
+} from './schemas/teacher-payout';
 export type { ComputeMonthlyPayrollsFields, ConfirmMonthlyPayrollsFields } from './schemas/teacher-payout';
 export {
   teacherInputSchema,
@@ -544,6 +548,10 @@ export type {
   ConfirmMonthlyPayrollsInput,
   ConfirmMonthlyPayrollsResult,
 } from './use-cases/confirm-monthly-payrolls';
+export { ListTeacherPayouts } from './use-cases/list-teacher-payouts';
+export type { ListTeacherPayoutsInput } from './use-cases/list-teacher-payouts';
+export { GetTeacherAttributionBreakdown } from './use-cases/get-teacher-attribution-breakdown';
+export type { GetTeacherAttributionBreakdownInput } from './use-cases/get-teacher-attribution-breakdown';
 export { ListGroups, orderGroupsForList } from './use-cases/list-groups';
 export type { ListGroupsInput, GroupScope } from './use-cases/list-groups';
 export { ListGroupsWithCounts } from './use-cases/list-groups-with-counts';

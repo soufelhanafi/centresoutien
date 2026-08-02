@@ -24,6 +24,7 @@ import {
   generateMonthlyInvoicesSchema,
   computeMonthlyPayrollsSchema,
   confirmMonthlyPayrollsSchema,
+  payrollMonthQuerySchema,
   adminCredentialsSchema,
   changeAdminPasswordSchema,
   weeklyHoursSchema,
@@ -861,10 +862,10 @@ export const ipcContract = {
   // teacher who has a live payout that month (a teacher with no rule active,
   // per `payroll.computeMonthly`'s own doc, has no row at all). centerCode is
   // injected in main, never sent from the renderer. Gated by `payroll.teacher`
-  // via `listLiveByCenterMonth` reads only — no separate use case, this wraps
-  // the same repository read `ComputeMonthlyPayrolls` already relies on.
+  // in `ListTeacherPayouts` — the repository's own `listLiveByCenterMonth`
+  // read carries no gate of its own.
   'payroll.listPayouts': {
-    request: z.object({ month: z.string() }),
+    request: payrollMonthQuerySchema,
     response: z.object({ payouts: z.array(teacherPayoutViewSchema) }),
   },
   // "Mark paid" on a single dashboard row (SOU-76): flips one `draft` payout
@@ -896,9 +897,11 @@ export const ipcContract = {
   // issuing one call per expanded row. Mirrors the same equal-split base
   // `payroll.computeMonthly`'s percentage-rule path already computes, just
   // not collapsed to a per-teacher total. centerCode is injected in main,
-  // never sent from the renderer. Gated by `payroll.teacher`.
+  // never sent from the renderer. Gated by `payroll.teacher` in
+  // `GetTeacherAttributionBreakdown` — `MonthlyFeeAttributionService` itself
+  // carries no gate of its own.
   'payroll.attributionBreakdown': {
-    request: z.object({ month: z.string() }),
+    request: payrollMonthQuerySchema,
     response: z.object({ breakdown: z.array(teacherAttributionBreakdownEntrySchema) }),
   },
   // Holidays (SOU-30). `list` selects the live holidays or the archive via `scope`;
