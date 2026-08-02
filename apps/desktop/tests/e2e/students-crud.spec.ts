@@ -8,8 +8,9 @@ import { STR, DIRECTION, boot, gotoStudents, pageCrashed, type Launched, type Lo
  *
  * Acceptance criteria under test:
  *   - Student list with search by name and level (group filter is a stub).
- *   - Detail page with 5 tabs (Info wired; Guardians/Enrollment/Invoices/
- *     Attendance are intentional stubs — verify placeholder shells only).
+ *   - Detail page with 5 tabs (Info, Guardians, and Enrollment are wired;
+ *     Invoices/Attendance are intentional stubs — verify placeholder shells
+ *     only). Enrollment shows the SOU-65 subscription panel, not a stub.
  *   - Admin can create / edit / archive students.
  *   - FR + AR/RTL, validation error paths, empty & no-result states.
  */
@@ -237,10 +238,11 @@ test('Scenario 8 — archive a student', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Scenario 9 — detail page: 5 tabs; Info shows real data; the four stub tabs
-// render coming-soon placeholders (per the agreed SOU-39 scope).
+// Scenario 9 — detail page: 5 tabs; Info shows real data; Enrollment renders
+// the live SOU-65 subscription panel; the two remaining stub tabs render
+// coming-soon placeholders (per the agreed SOU-39 scope).
 // ---------------------------------------------------------------------------
-test('Scenario 9 — detail page shows 5 tabs; Info + Guardians wired, rest are stubs', async () => {
+test('Scenario 9 — detail page shows 5 tabs; Info + Guardians + Enrollment wired, rest are stubs', async () => {
   const L = STR[locale()];
   live = await boot(locale());
   const win = live.win;
@@ -267,9 +269,14 @@ test('Scenario 9 — detail page shows 5 tabs; Info + Guardians wired, rest are 
   await expect(info.getByText('Collège Ibn Sina')).toBeVisible();
   await win.screenshot({ path: `test-results/students-detail-info-${locale()}.png` });
 
-  // Stub tabs → placeholder shells (no real data expected).
+  // Enrollment is the SOU-65 subscription panel, no longer a stub: a fresh
+  // student has no active subscription, so both kind cards show the empty
+  // state + a "Souscrire" CTA.
   await win.getByRole('tab', { name: L.detail.tabs.enrollment }).click();
-  await expect(win.getByText(L.comingSoon.enrollment)).toBeVisible();
+  await expect(win.getByText(L.subscription.empty).first()).toBeVisible();
+  await expect(win.getByRole('button', { name: L.subscription.subscribeCta }).first()).toBeVisible();
+
+  // Stub tabs → placeholder shells (no real data expected).
   await win.getByRole('tab', { name: L.detail.tabs.invoices }).click();
   await expect(win.getByText(L.comingSoon.invoices)).toBeVisible();
   await win.getByRole('tab', { name: L.detail.tabs.attendance }).click();

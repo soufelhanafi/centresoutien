@@ -14,17 +14,15 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
  * (`i18n/fr.json` / `ar.json`) — the user-facing localization contract, exactly
  * as the SOU-39 students / SOU-47 subjects fixtures do.
  *
- * IMPORTANT — no Formula-creation surface exists on this branch (neither a
- * Settings screen nor an IPC channel: `formula.create` / every plausible
- * naming variant returns "No handler registered"). Only `formula.list` is
- * wired. That means the wizard's formula picker can never be populated by a
- * real user, so several scenarios below seed `StudentSubscription` rows
- * directly through the public `subscription.*` IPC channels (the same
- * seeding-via-bridge pattern the other suites use for prerequisite entities,
- * e.g. `subject.create` / `room.create` / `group.create`) to still exercise
- * the read side (Active tab, History tab, kind isolation, the
- * at-most-one-active-per-kind domain guard). See the spec file header for the
- * full readout.
+ * `formula.create` (SOU-62, merged after this branch was cut) now backs a real
+ * Settings screen, so `seedFormula` below seeds real formulas through the
+ * public bridge — the same seeding-via-bridge pattern the other suites use for
+ * prerequisite entities (e.g. `subject.create` / `room.create`). Some
+ * scenarios still seed `StudentSubscription` rows directly via
+ * `subscription.create` with a syntactically-valid, non-existent `formulaId`
+ * (`fakeFormulaId`) to exercise the read side (Active tab, History tab, kind
+ * isolation, the at-most-one-active-per-kind domain guard) in isolation from
+ * formula resolution.
  *
  * Launch switches (documented, shared with the other suites):
  *   - CS_LOCALE       → renderer locale (fr | ar)
@@ -204,11 +202,12 @@ export function fakeFormulaId(): string {
 
 /**
  * Seed prerequisite reference data (subject + student) and a StudentSubscription
- * through the public `subscription.create` IPC channel — the only path available
- * on this branch, since there is no Formula-creation surface (UI or IPC) to
- * populate the wizard's own formula picker. `formulaId` is a syntactically valid
- * but non-existent id; the running app was observed NOT to validate its
- * existence (see spec file header note on this).
+ * through the public `subscription.create` IPC channel, bypassing the wizard's
+ * own formula picker entirely — used by scenarios that only need to exercise
+ * the read side (Active/History rendering, kind isolation, the
+ * at-most-one-active-per-kind guard). `formulaId` is a syntactically valid but
+ * non-existent id; the running app was observed NOT to validate its existence
+ * (carry-forward note, filed against SOU-63's backlog).
  */
 export async function seedStudentWithSubscription(
   win: Page,
@@ -251,4 +250,43 @@ export async function tryCreateSubscription(
       return String((e as { message?: string })?.message ?? e);
     }
   }, payload);
+}
+
+export type SeedFormula = { nameFr: string; nameAr: string; priceMad: number; kind?: 'regular' | 'exam-prep' };
+
+/**
+ * Seed one subject + one real Formula bundling it, through the public bridge
+ * (`subject.create` then `formula.create`, SOU-62). Backs the wizard's own
+ * formula picker, unlike {@link seedStudentWithSubscription}'s `fakeFormulaId`.
+ */
+export async function seedFormula(win: Page, f: SeedFormula): Promise<{ subjectId: string; formulaId: string }> {
+  return win.evaluate(async (payload) => {
+    const api = (window as unknown as { api: Bridge }).api;
+    const subject = (await api.invoke('subject.create', { name: { fr: 'Maths', ar: 'رياضيات' } })) as { id: string };
+    const formula = (await api.invoke('formula.create', {
+      name: { fr: payload.nameFr, ar: payload.nameAr },
+      subjectIds: [subject.id],
+      priceMad: Math.round(payload.priceMad * 100),
+      kind: payload.kind ?? 'regular',
+    })) as { id: string };
+    return { subjectId: subject.id, formulaId: formula.id };
+  }, f);
+}
+
+/** The localized name for a seeded formula, mirroring `formulas.fixtures.ts`. */
+export function formulaName(loc: Locale, f: { nameFr: string; nameAr: string }): string {
+  return loc === 'ar' ? f.nameAr : f.nameFr;
+}
+
+/** The current calendar month, `YYYY-MM` — mirrors the wizard's own default. */
+export function currentMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+/** The month right before `month` (`YYYY-MM`), rolling over the year boundary. */
+export function previousMonth(month: string): string {
+  const [yearPart, monthPart] = month.split('-');
+  const year = Number(yearPart);
+  const monthIndex = Number(monthPart);
+  return new Date(Date.UTC(year, monthIndex - 2, 1)).toISOString().slice(0, 7);
 }

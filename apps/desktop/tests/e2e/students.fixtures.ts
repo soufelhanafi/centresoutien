@@ -72,7 +72,8 @@ export const STR: Record<
       tabs: { info: string; guardians: string; enrollment: string; invoices: string; attendance: string };
       guardiansLink: string;
     };
-    comingSoon: { enrollment: string; invoices: string; attendance: string };
+    subscription: { empty: string; subscribeCta: string };
+    comingSoon: { invoices: string; attendance: string };
     errors: { required: string; invalidDate: string; tooLong: string };
   }
 > = {
@@ -115,8 +116,8 @@ export const STR: Record<
       tabs: { info: 'Informations', guardians: 'Responsables', enrollment: 'Inscriptions', invoices: 'Factures', attendance: 'Présence' },
       guardiansLink: 'Lier un responsable',
     },
+    subscription: { empty: 'Aucun abonnement actif.', subscribeCta: 'Souscrire' },
     comingSoon: {
-      enrollment: 'Inscriptions bientôt disponibles',
       invoices: 'Factures bientôt disponibles',
       attendance: 'Présence bientôt disponible',
     },
@@ -161,8 +162,8 @@ export const STR: Record<
       tabs: { info: 'المعلومات', guardians: 'الأولياء', enrollment: 'التسجيلات', invoices: 'الفواتير', attendance: 'الحضور' },
       guardiansLink: 'ربط وليّ',
     },
+    subscription: { empty: 'لا يوجد اشتراك نشط.', subscribeCta: 'الاشتراك' },
     comingSoon: {
-      enrollment: 'التسجيلات قريبًا',
       invoices: 'الفواتير قريبًا',
       attendance: 'الحضور قريبًا',
     },

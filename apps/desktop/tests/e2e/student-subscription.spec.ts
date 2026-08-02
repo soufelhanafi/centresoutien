@@ -7,6 +7,10 @@ import {
   createStudentAndOpenDetail,
   gotoSubscriptionTab,
   seedStudentWithSubscription,
+  seedFormula,
+  formulaName,
+  currentMonth,
+  previousMonth,
   tryCreateSubscription,
   fakeFormulaId,
   type Launched,
@@ -19,23 +23,12 @@ import {
  * through the running packaged app. Every spec runs under both the `fr` (LTR)
  * and `ar` (RTL) Playwright projects.
  *
- * *** BLOCKING GAP FOUND DURING EXPLORATION (see Scenario 2) ***
- * There is no way — through the UI or the public IPC bridge — to create a
- * `Formula` on this branch:
- *   - Settings has no "Formulas" screen (only a "Formule" = subscription-plan
- *     tab, a confusing homonym with the billing `Formula` entity).
- *   - `formula.list` is wired (returns `{ formulas: [] }`), but `formula.create`
- *     and every plausible naming variant tried (`formula.add/new/save/upsert/
- *     define/register/persist`, `formulas.create`, `core.formula.create`,
- *     `billing.formula.create`) return "No handler registered" from
- *     Electron's ipcMain — i.e. genuinely absent, not merely plan-gated.
- * Consequently the wizard's own formula picker can never be populated by a
- * real admin, so the acceptance criterion "admin can change a student's
- * formula mid-year" cannot be exercised end-to-end as a real user. Scenarios
- * 4-7 below seed `StudentSubscription` rows directly through the public
+ * Scenario 2 exercises the true happy path against real Formulas seeded via
+ * `formula.create` (SOU-62, merged after this branch was cut). Scenarios 4-7
+ * still seed `StudentSubscription` rows directly through the public
  * `subscription.create` / `subscription.close` IPC channels (the same
  * seeding-via-bridge convention every other suite uses for prerequisite
- * entities) to still validate everything downstream of formula selection:
+ * entities) to validate the read side in isolation from formula resolution:
  * Active/History rendering, kind isolation, and the at-most-one-active
  * domain guard.
  */
@@ -53,6 +46,12 @@ const YASSINE = { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', b
 async function assertMounted(win: Launched['win'], L: (typeof STR)[Locale]): Promise<void> {
   expect(await pageCrashed(win), 'page rendered without the "Something went wrong" error boundary').toBe(false);
   await expect(win.getByRole('tab', { name: L.detailTabs.enrollment })).toBeVisible();
+}
+
+/** Escapes regex metacharacters so a formula name (e.g. "Maths + Physique") can be
+ *  used as a literal substring match in `getByText`/`getByRole` name matchers. */
+function escapeRegExp(value: string): RegExp {
+  return new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 }
 
 // ---------------------------------------------------------------------------
@@ -79,35 +78,58 @@ test('Scenario 1 — empty state: no active subscription of either kind, empty h
 
 // ---------------------------------------------------------------------------
 // Scenario 2 — HAPPY PATH as described by the acceptance criteria: an admin
-// subscribes a student to a formula, then uses "Changer de formule" to move
-// them to a new one, and expects to see the transition reflected. This is
-// expected to FAIL on this branch — the formula picker has no options because
-// no Formula can be created anywhere in the shipped app. See file header.
+// subscribes a student to a real formula, then uses "Changer de formule" to
+// move them to a new one, and expects to see the transition reflected in the
+// Active card and History table.
 // ---------------------------------------------------------------------------
-test('Scenario 2 — HAPPY PATH: subscribe then change formula via the wizard (expected blocked)', async () => {
+test('Scenario 2 — HAPPY PATH: subscribe then change formula via the wizard', async () => {
   const L = STR[locale()];
   live = await boot(locale());
   const win = live.win;
+
+  const formulaA = { nameFr: 'Maths seul', nameAr: 'الرياضيات فقط', priceMad: 200 } as const;
+  const formulaB = { nameFr: 'Maths + Physique', nameAr: 'الرياضيات + الفيزياء', priceMad: 350 } as const;
+  await seedFormula(win, formulaA);
+  await seedFormula(win, formulaB);
+
   await createStudentAndOpenDetail(win, L, YASSINE);
   await gotoSubscriptionTab(win, L);
   await assertMounted(win, L);
 
+  // --- Subscribe: the regular-track card has no current subscription, so the
+  // wizard opens in "subscribe" mode and defaults the start month to now.
   await win.getByRole('button', { name: L.active.subscribeCta }).first().click();
   const dialog = win.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText(L.wizard.subscribeTitle)).toBeVisible();
 
   const combobox = dialog.getByRole('combobox', { name: L.wizard.formulaLabel }).or(dialog.getByRole('combobox').first());
-  await win.screenshot({ path: `test-results/subscription-happy-path-blocked-${locale()}.png` });
-
-  // A real admin needs at least one selectable, enabled formula picker to
-  // complete the wizard. On this branch the picker is permanently disabled
-  // (no formula-creation path exists anywhere — see file header), so this
-  // assertion is expected to FAIL — that failure IS the reportable defect.
-  await expect(combobox, 'formula picker must be enabled/selectable for the happy path to be reachable').toBeEnabled({ timeout: 3000 });
+  await expect(combobox, 'formula picker must be enabled/selectable now that real formulas exist').toBeEnabled({ timeout: 3000 });
   await combobox.click();
-  const options = win.getByRole('option');
-  await expect(options, 'formula picker must offer at least one formula').not.toHaveCount(0);
+  await win.getByRole('option', { name: escapeRegExp(formulaName(locale(), formulaA)) }).click();
+  await dialog.getByRole('button', { name: L.wizard.confirm }).click();
+  await expect(dialog).toBeHidden();
+
+  await expect(win.getByText(formulaName(locale(), formulaA)).first()).toBeVisible();
+
+  // --- Change: close the current subscription a month early so the new one
+  // takes effect immediately, keeping the assertions below deterministic
+  // instead of depending on which day of the month the suite runs.
+  await win.getByRole('button', { name: L.active.changeCta }).first().click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText(L.wizard.changeTitle)).toBeVisible();
+  await expect(dialog.getByText(formulaName(locale(), formulaA))).toBeVisible();
+
+  await dialog.locator('#subscription-end-month').fill(previousMonth(currentMonth()));
+  await combobox.click();
+  await win.getByRole('option', { name: escapeRegExp(formulaName(locale(), formulaB)) }).click();
+  await dialog.locator('#subscription-start-month').fill(currentMonth());
+  await dialog.getByRole('button', { name: L.wizard.confirm }).click();
+  await expect(dialog).toBeHidden();
+
+  await expect(win.getByText(formulaName(locale(), formulaB)).first()).toBeVisible();
+  await expect(win.getByRole('heading', { name: L.history.heading })).toBeVisible();
+  await expect(win.getByText(formulaName(locale(), formulaA))).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------
