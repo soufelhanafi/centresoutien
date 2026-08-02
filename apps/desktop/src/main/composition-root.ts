@@ -88,6 +88,7 @@ import {
   ListInvoices,
   MonthlyFeeAttributionService,
   ComputeMonthlyPayrolls,
+  GeneratePayslipPdf,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -128,6 +129,7 @@ import { FsLogoStore } from '../data/fs/logo-store';
 import { SqliteBackupAdapter } from '../data/sqlite/repositories/backup-adapter';
 import { SqliteBackupConfigStore } from '../data/sqlite/repositories/backup-config-store';
 import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
+import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
@@ -431,6 +433,20 @@ export function buildContainer(options: ContainerOptions): Container {
   const storeCenterLogo = new StoreCenterLogo(logoStore);
   const readCenterLogo = new ReadCenterLogo(logoStore);
 
+  // Payslip PDF (SOU-75): renders a confirmed TeacherPayout, reusing the
+  // invoice PDF adapter's font/layout setup. Resolves the teacher + center
+  // profile itself rather than through an IPC-level assembly step like
+  // invoice's, since there is no existing gated read for a single payout yet.
+  const payslipPdfRenderer = new PdfLibPayslipRenderer();
+  const generatePayslipPdf = new GeneratePayslipPdf(
+    payoutRepo,
+    teacherRepo,
+    getCenterProfile,
+    readCenterLogo,
+    payslipPdfRenderer,
+    plan,
+  );
+
   // Backup & restore (SOU-102). `options.key` is today's key-management
   // mechanism (CS_DB_KEY / dev fallback) — real per-center key derivation is a
   // separate future ticket; both the manual/scheduled snapshot path and the
@@ -559,6 +575,7 @@ export function buildContainer(options: ContainerOptions): Container {
     closeTeacherPayrollRule,
     listTeacherPayrollRulesByTeacher,
     computeMonthlyPayrolls,
+    generatePayslipPdf,
     createHoliday,
     listHolidays,
     updateHoliday,
