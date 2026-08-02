@@ -35,6 +35,13 @@ export type TeacherPayoutStatus = (typeof TEACHER_PAYOUT_STATUSES)[number];
  * payout creates a fresh payout entry, never an edit of this row; that reversal
  * flow is SOU-76's, not built here. Soft-delete only, mirroring every entity's
  * envelope, though no use case exposes discarding a payout yet.
+ *
+ * `baseAmountMad` / `percentSnapshot` (SOU-75) snapshot the attribution base and
+ * the rule's `percent` at compute time, for `percentage-of-monthly-fees` payouts
+ * only — `null` for `fixed-monthly` payouts and for any payout computed before
+ * this snapshot existed. The payslip PDF reads these instead of re-deriving the
+ * attribution live, so it always matches what was actually confirmed even if a
+ * later-edited invoice would attribute differently today.
  */
 export type TeacherPayout = EntityEnvelope & {
   readonly id: TeacherPayoutId;
@@ -42,6 +49,8 @@ export type TeacherPayout = EntityEnvelope & {
   readonly month: string; // 'YYYY-MM'
   ruleKind: TeacherPayrollRuleKind;
   amountMad: number; // integer MAD centimes
+  baseAmountMad: number | null; // integer MAD centimes, percentage-rule payouts only
+  percentSnapshot: number | null; // percentage-rule payouts only
   status: TeacherPayoutStatus;
   notes: string | null;
 };

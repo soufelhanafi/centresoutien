@@ -92,6 +92,8 @@ export class ComputeMonthlyPayrolls {
       }
 
       let amountMad: number;
+      let baseAmountMad: number | null = null;
+      let percentSnapshot: number | null = null;
       if (rule.kind === 'fixed-monthly') {
         amountMad = rule.amountMad;
       } else {
@@ -99,8 +101,9 @@ export class ComputeMonthlyPayrolls {
           input.centerCode,
           month,
         );
-        const attributedBaseMad = attributedByTeacher.get(teacher.id) ?? 0;
-        amountMad = Math.round((attributedBaseMad * rule.percent) / 100);
+        baseAmountMad = attributedByTeacher.get(teacher.id) ?? 0;
+        percentSnapshot = rule.percent;
+        amountMad = Math.round((baseAmountMad * rule.percent) / 100);
       }
 
       const existing = await this.payouts.findLiveByTeacherMonth(teacher.id, month);
@@ -114,6 +117,8 @@ export class ComputeMonthlyPayrolls {
           ...existing,
           ruleKind: rule.kind,
           amountMad,
+          baseAmountMad,
+          percentSnapshot,
           updatedAt: this.clock.now(),
           updatedBy: input.updatedBy,
         };
@@ -130,6 +135,8 @@ export class ComputeMonthlyPayrolls {
           month,
           ruleKind: rule.kind,
           amountMad,
+          baseAmountMad,
+          percentSnapshot,
           status: 'draft',
           notes: null,
         };

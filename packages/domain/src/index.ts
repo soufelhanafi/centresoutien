@@ -97,6 +97,7 @@ export type { FormulaSubjectUnavailableReason } from './errors/formula-errors';
 export {
   TooManyActivePayrollRulesError,
   TeacherPayrollRuleNotFoundError,
+  TeacherPayoutNotFoundError,
   EmptyAttributionLineError,
 } from './errors/payroll-errors';
 export {
@@ -341,6 +342,7 @@ export type { GroupRepository } from './ports/group-repository';
 export type { EnrollmentRepository } from './ports/enrollment-repository';
 export type { InvoiceRepository } from './ports/invoice-repository';
 export type { InvoicePdfRenderer, InvoicePdfInput, InvoicePdfLine } from './ports/invoice-pdf-renderer';
+export type { PayslipPdfRenderer, PayslipPdfInput } from './ports/payslip-pdf-renderer';
 // Formula repository (SOU-61) — save() never writes isImmutable; the SQLite
 // trigger is the sole writer, flipped when an InvoiceLine first references it.
 export type { FormulaRepository } from './ports/formula-repository';
@@ -531,6 +533,8 @@ export type {
   ComputeMonthlyPayrollsInput,
   ComputeMonthlyPayrollsResult,
 } from './use-cases/compute-monthly-payrolls';
+export { GeneratePayslipPdf } from './use-cases/generate-payslip-pdf';
+export type { GeneratePayslipPdfInput } from './use-cases/generate-payslip-pdf';
 export { ListGroups, orderGroupsForList } from './use-cases/list-groups';
 export type { ListGroupsInput, GroupScope } from './use-cases/list-groups';
 export { ListGroupsWithCounts } from './use-cases/list-groups-with-counts';

@@ -203,6 +203,8 @@ describe('ComputeMonthlyPayrolls', () => {
       expect(result).toEqual({ created: 1, updated: 0, skippedNoRule: 0, skippedAlreadyPaid: 0 });
       const payout = await payouts.findLiveByTeacherMonth(teacher.id, MONTH);
       expect(payout).toMatchObject({ amountMad: 500000, status: 'draft', ruleKind: 'fixed-monthly' });
+      expect(payout?.baseAmountMad).toBeNull();
+      expect(payout?.percentSnapshot).toBeNull();
     });
   });
 
@@ -218,6 +220,8 @@ describe('ComputeMonthlyPayrolls', () => {
       const payout = await payouts.findLiveByTeacherMonth(teacher.id, MONTH);
       expect(payout?.amountMad).toBe(30000); // 30% of 100000
       expect(payout?.ruleKind).toBe('percentage-of-monthly-fees');
+      expect(payout?.baseAmountMad).toBe(100000);
+      expect(payout?.percentSnapshot).toBe(30);
     });
 
     it('pays zero when the teacher has no attributable fees that month', async () => {
@@ -229,6 +233,8 @@ describe('ComputeMonthlyPayrolls', () => {
       expect(result.created).toBe(1);
       const payout = await payouts.findLiveByTeacherMonth(teacher.id, MONTH);
       expect(payout?.amountMad).toBe(0);
+      expect(payout?.baseAmountMad).toBe(0);
+      expect(payout?.percentSnapshot).toBe(30);
     });
   });
 
