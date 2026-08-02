@@ -35,6 +35,7 @@ import {
   CreateStudentSubscription,
   CloseStudentSubscription,
   ListStudentSubscriptions,
+  ListFormulas,
   RecordPayment,
   VoidPayment,
   GetInvoicePaymentSummary,
@@ -91,6 +92,7 @@ import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repos
 import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repository';
 import { SqliteGroupRepository } from '../data/sqlite/repositories/group-repository';
 import { SqliteStudentSubscriptionRepository } from '../data/sqlite/repositories/student-subscription-repository';
+import { SqliteFormulaRepository } from '../data/sqlite/repositories/formula-repository';
 import { SqliteStudentSubscriptionReference } from '../data/sqlite/repositories/student-subscription-reference';
 import { SqliteEnrollmentRepository } from '../data/sqlite/repositories/enrollment-repository';
 import { SqliteInvoiceRepository } from '../data/sqlite/repositories/invoice-repository';
@@ -273,6 +275,14 @@ export function buildContainer(options: ContainerOptions): Container {
   const subscriptionReference: StudentSubscriptionReferencePort =
     new SqliteStudentSubscriptionReference(subscriptionRepo);
 
+  // Formula picker (SOU-65): the entity/port/adapter shipped unwired with the
+  // immutability trigger (SOU-60/SOU-61); this constructs the real repo and the
+  // one read use case the subscription create/close-reopen wizard needs.
+  // `listActive` is the only read the port exposes — a deactivated formula must
+  // never be offered for a new subscription.
+  const formulaRepo = new SqliteFormulaRepository(db);
+  const listFormulas = new ListFormulas(formulaRepo, plan);
+
   const enrollmentRepo = new SqliteEnrollmentRepository(db);
   const enrollStudent = new EnrollStudent(
     enrollmentRepo,
@@ -446,6 +456,7 @@ export function buildContainer(options: ContainerOptions): Container {
     createStudentSubscription,
     closeStudentSubscription,
     listStudentSubscriptions,
+    listFormulas,
     recordPayment,
     voidPayment,
     getInvoicePaymentSummary,

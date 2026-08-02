@@ -47,6 +47,8 @@ import type {
   ListStudentSubscriptions,
   StudentSubscription,
   StudentSubscriptionId,
+  ListFormulas,
+  Formula,
   RecordPayment,
   VoidPayment,
   GetInvoicePaymentSummary,
@@ -140,6 +142,7 @@ export type RestoreGroupUseCase = Pick<RestoreGroup, 'execute'>;
 export type CreateStudentSubscriptionUseCase = Pick<CreateStudentSubscription, 'execute'>;
 export type CloseStudentSubscriptionUseCase = Pick<CloseStudentSubscription, 'execute'>;
 export type ListStudentSubscriptionsUseCase = Pick<ListStudentSubscriptions, 'execute'>;
+export type ListFormulasUseCase = Pick<ListFormulas, 'execute'>;
 export type RecordPaymentUseCase = Pick<RecordPayment, 'execute'>;
 export type VoidPaymentUseCase = Pick<VoidPayment, 'execute'>;
 export type GetInvoicePaymentSummaryUseCase = Pick<GetInvoicePaymentSummary, 'execute'>;
@@ -321,6 +324,20 @@ function toSubscriptionView(subscription: StudentSubscription) {
   };
 }
 
+/** Project a Formula to its boundary DTO: envelope and `isImmutable` stripped —
+ *  tombstones never reach this read, so no `archived` is exposed either, mirroring
+ *  `toSubjectView`. */
+function toFormulaView(formula: Formula) {
+  return {
+    id: formula.id,
+    name: { fr: formula.name.fr, ar: formula.name.ar },
+    subjectIds: [...formula.subjectIds],
+    priceMad: formula.priceMad,
+    kind: formula.kind,
+    active: formula.active,
+  };
+}
+
 /** Project a Payment to its boundary DTO: envelope stripped, dates serialized. A
  *  `reversal` carries `reversesPaymentId`; a `payment` has it null. */
 function toPaymentView(payment: Payment) {
@@ -451,6 +468,7 @@ export type HandlerDeps = {
   createStudentSubscription: CreateStudentSubscriptionUseCase;
   closeStudentSubscription: CloseStudentSubscriptionUseCase;
   listStudentSubscriptions: ListStudentSubscriptionsUseCase;
+  listFormulas: ListFormulasUseCase;
   recordPayment: RecordPaymentUseCase;
   voidPayment: VoidPaymentUseCase;
   getInvoicePaymentSummary: GetInvoicePaymentSummaryUseCase;
@@ -762,6 +780,12 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         studentId: request.studentId as StudentId,
       });
       return { subscriptions: subscriptions.map(toSubscriptionView) };
+    },
+    'formula.list': async () => {
+      const formulas = await deps.listFormulas.execute({
+        centerCode: deps.envelopeContext().centerCode,
+      });
+      return { formulas: formulas.map(toFormulaView) };
     },
     'payment.record': async (request) => {
       const { payment, status } = await deps.recordPayment.execute({

@@ -140,6 +140,23 @@ const subscriptionViewSchema = z.object({
   createdAt: z.string(),
 });
 
+// The presentation projection of a Formula across the IPC boundary (SOU-65) — the
+// sync envelope (version, deviceOrigin, updatedBy…) and `isImmutable` (a write-path
+// guard the picker doesn't need) are stripped, exactly like `subjectViewSchema`.
+// `active` is the real domain flag; tombstones never reach this read. Backs the
+// new-subscription formula picker — `kind` lets the renderer filter to `'regular'`
+// on Essentiel (`core.exam-prep` gating is a frontend concern, not a server-side
+// filter, since `FormulaRepository.listActive` returns both kinds). Single source
+// of truth for the renderer's `FormulaView` type.
+const formulaViewSchema = z.object({
+  id: z.string(),
+  name: z.object({ fr: z.string(), ar: z.string() }),
+  subjectIds: z.array(z.string()),
+  priceMad: z.number().int().nonnegative(),
+  kind: z.enum(['regular', 'exam-prep']),
+  active: z.boolean(),
+});
+
 // The presentation projection of a Payment across the IPC boundary (SOU-93) — the
 // sync envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized.
 // A `payment` row has `reversesPaymentId: null`; a `reversal` row references the payment
@@ -517,6 +534,18 @@ export const ipcContract = {
     request: z.object({ studentId: z.string() }),
     response: z.object({ subscriptions: z.array(subscriptionViewSchema) }),
   },
+  // Formulas (SOU-65) — the picker set for the subscription create/close-reopen
+  // wizard. Only the active picker set exists (mirrors `FormulaRepository`, which
+  // has no `listAll`): a deactivated formula must never be offered for a new
+  // subscription. centerCode is injected in main, never sent from the renderer.
+  // Gated by `core.formulas` (every plan) in the use case. `formula.get` was
+  // deliberately NOT added — the picker's `formula.list` already carries every
+  // field the close-and-reopen wizard needs, so a per-id round trip is unnecessary
+  // (KICKOFF SOU-65).
+  'formula.list': {
+    request: z.object({}),
+    response: z.object({ formulas: z.array(formulaViewSchema) }),
+  },
   // Payments (SOU-93) — the append-only money ledger; Payment capture UI is SOU-101,
   // the duplicates/conflict tab is SOU-91. `record` takes the domain's own
   // `recordPaymentSchema` (prefixed invoice id, positive integer amountMad, method
@@ -812,6 +841,9 @@ export type GroupRosterEntryDto = z.infer<typeof groupRosterEntrySchema>;
 
 /** The StudentSubscription boundary DTO — the renderer's `SubscriptionView` aliases this. */
 export type SubscriptionDto = z.infer<typeof subscriptionViewSchema>;
+
+/** The Formula boundary DTO — the renderer's `FormulaView` aliases this. */
+export type FormulaDto = z.infer<typeof formulaViewSchema>;
 
 /** The Payment boundary DTO — the renderer's `PaymentView` is an alias of this. */
 export type PaymentDto = z.infer<typeof paymentViewSchema>;
