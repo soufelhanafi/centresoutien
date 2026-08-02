@@ -881,6 +881,9 @@ export type TeacherDto = z.infer<typeof teacherViewSchema>;
 /** The Holiday boundary DTO — the renderer's `HolidayView` is an alias of this. */
 export type HolidayDto = z.infer<typeof holidayViewSchema>;
 
+/** The Formula boundary DTO — the renderer's `FormulaView` is an alias of this. */
+export type FormulaDto = z.infer<typeof formulaViewSchema>;
+
 /** The weekly-session boundary DTO — the renderer's `WeeklySessionView` aliases this. */
 export type WeeklySessionDto = z.infer<typeof weeklySessionViewSchema>;
 

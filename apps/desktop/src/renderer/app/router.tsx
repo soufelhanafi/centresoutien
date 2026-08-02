@@ -14,6 +14,7 @@ import { TeachersPage } from '../pages/teachers/teachers-page';
 import { TeacherDetailPage } from '../pages/teachers/teacher-detail-page';
 import { ParentsPage } from '../pages/parents/parents-page';
 import { SubjectsPage } from '../pages/subjects/subjects-page';
+import { FormulasPage } from '../pages/formulas/formulas-page';
 import { GroupsPage } from '../pages/groups/groups-page';
 import { GroupDetailPage } from '../pages/groups/group-detail-page';
 import { RoomsPage } from '../pages/rooms/rooms-page';
@@ -25,6 +26,7 @@ import {
   teachersModule,
   parentsModule,
   subjectsModule,
+  formulasModule,
   groupsModule,
   roomsModule,
   planningModule,
@@ -74,6 +76,11 @@ const subjectsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: subjectsModule.path,
   component: SubjectsPage,
+});
+const formulasRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: formulasModule.path,
+  component: FormulasPage,
 });
 const groupsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -139,6 +146,7 @@ const routeTree = rootRoute.addChildren([
   teacherDetailRoute,
   parentsRoute,
   subjectsRoute,
+  formulasRoute,
   groupsRoute,
   groupDetailRoute,
   roomsRoute,
