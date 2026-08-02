@@ -108,6 +108,7 @@ export {
   MalformedSessionTimeError,
   InvalidSessionValidityRangeError,
   WeeklyRecurringSessionNotFoundError,
+  SessionNotFoundError,
 } from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/scheduling-errors';
 
@@ -164,6 +165,8 @@ export type { GroupInput } from './schemas/group';
 export { enrollmentInputSchema, MONTH_PATTERN } from './schemas/enrollment';
 export type { EnrollmentInput } from './schemas/enrollment';
 export { generateSessionsSchema } from './schemas/session';
+export { recordSessionAttendanceSchema } from './schemas/attendance';
+export type { RecordSessionAttendanceRequest } from './schemas/attendance';
 export type { GenerateSessionsRequest } from './schemas/session';
 export {
   weeklyRecurringSessionInputSchema,
@@ -541,6 +544,8 @@ export { ListGroupsWithCounts } from './use-cases/list-groups-with-counts';
 export type { GroupWithCount } from './use-cases/list-groups-with-counts';
 export { GetGroupRoster } from './use-cases/get-group-roster';
 export type { GetGroupRosterInput, GroupRosterEntry } from './use-cases/get-group-roster';
+export { RecordSessionAttendance } from './use-cases/record-session-attendance';
+export type { RecordSessionAttendanceInput } from './use-cases/record-session-attendance';
 export { UpdateGroup } from './use-cases/update-group';
 export type { UpdateGroupInput } from './use-cases/update-group';
 export { ArchiveGroup } from './use-cases/archive-group';

@@ -15,10 +15,10 @@ export type AttendanceSummary = Readonly<Record<AttendanceStatus, number>>;
  * per-student summary (SOU-100's attendance-rate widget, SOU-108's absence
  * reporting).
  *
- * `save` is the only write — attendance is mutable (roll-call corrections),
- * not append-only, so there is no natural-key upsert here: the caller
- * (a future `RecordAttendance` use case) looks up the existing record for
- * `(sessionId, studentId)` via {@link listBySession} before deciding whether to
+ * `save` is the single-record write — attendance is mutable (roll-call
+ * corrections), not append-only, so there is no natural-key upsert here: the
+ * caller (`RecordSessionAttendance`, SOU-58) looks up the existing records for
+ * a session via {@link listBySession} before deciding, per student, whether to
  * create or edit in place. Attendance records are identified by their
  * relationships, not people-like matching, so there is no `findByNaturalKey`.
  */
@@ -26,6 +26,15 @@ export interface AttendanceRepository
   extends SoftDeletableRepository<AttendanceRecordId, AttendanceRecord> {
   /** Live records for one session, ordered by `studentId` — the roll-call roster. */
   listBySession(sessionId: SessionId): Promise<readonly AttendanceRecord[]>;
+
+  /**
+   * Upsert an entire session's roll-call in one transaction (SOU-58): the
+   * batched write behind `RecordSessionAttendance`, so marking a 20-student
+   * roster takes one round trip, not N. Each record is written as given — the
+   * use case has already resolved create-vs-edit-in-place per student, so this
+   * is a pure persistence batch, not a decision point.
+   */
+  saveMany(records: readonly AttendanceRecord[]): Promise<void>;
 
   /**
    * Count of each status a student accrued across sessions whose `date` falls

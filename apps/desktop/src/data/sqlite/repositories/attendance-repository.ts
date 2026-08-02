@@ -106,6 +106,17 @@ export class SqliteAttendanceRepository implements AttendanceRepository {
     this.db.prepare(SAVE_SQL).run(toParams(record));
   }
 
+  /** Upsert a session's whole roll-call in one transaction (SOU-58). */
+  async saveMany(records: readonly AttendanceRecord[]): Promise<void> {
+    const saveAll = this.db.transaction((rows: readonly AttendanceRecord[]) => {
+      const upsert = this.db.prepare(SAVE_SQL);
+      for (const row of rows) {
+        upsert.run(toParams(row));
+      }
+    });
+    saveAll(records);
+  }
+
   async findById(id: AttendanceRecordId): Promise<AttendanceRecord | null> {
     const row = this.db
       .prepare('SELECT * FROM attendance_records WHERE id = ? AND deleted_at IS NULL')

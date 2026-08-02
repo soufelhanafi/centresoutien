@@ -18,6 +18,7 @@ export type FeatureFlag =
   | 'core.calendar.week'
   | 'core.invoicing'
   | 'core.parents'
+  | 'core.attendance'
   | 'settings.center-hours'
   | 'settings.holidays'
   | 'dashboard.basic'
@@ -64,6 +65,7 @@ const essentielFeatures: readonly FeatureFlag[] = [
   'core.calendar.week',
   'core.invoicing',
   'core.parents',
+  'core.attendance',
   'settings.center-hours',
   'settings.holidays',
   'dashboard.basic',

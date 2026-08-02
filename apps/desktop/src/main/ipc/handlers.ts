@@ -91,6 +91,8 @@ import type {
   CreateWeeklyRecurringSession,
   UpdateWeeklyRecurringSession,
   CancelWeeklyRecurringSession,
+  RecordSessionAttendance,
+  AttendanceRecord,
   Session,
   WeeklyRecurringSessionId,
   CreateAdminAccount,
@@ -191,6 +193,7 @@ export type GenerateAndPersistSessionsUseCase = Pick<GenerateAndPersistSessions,
 export type CreateWeeklyRecurringSessionUseCase = Pick<CreateWeeklyRecurringSession, 'execute'>;
 export type UpdateWeeklyRecurringSessionUseCase = Pick<UpdateWeeklyRecurringSession, 'execute'>;
 export type CancelWeeklyRecurringSessionUseCase = Pick<CancelWeeklyRecurringSession, 'execute'>;
+export type RecordSessionAttendanceUseCase = Pick<RecordSessionAttendance, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
 export type ChangeAdminPasswordUseCase = Pick<ChangeAdminPassword, 'execute'>;
@@ -469,6 +472,17 @@ function toSessionView(session: Session) {
   };
 }
 
+/** Project one roll-call outcome to its boundary DTO: envelope stripped, `note`
+ *  omitted (out of scope this ticket — always `null` in the domain). */
+function toAttendanceRecordView(record: AttendanceRecord) {
+  return {
+    id: record.id,
+    sessionId: record.sessionId,
+    studentId: record.studentId,
+    status: record.status,
+  };
+}
+
 /** Strip the envelope: the renderer only needs the editable weekday fields. */
 function toWeekView(week: readonly CenterHours[]) {
   return week.map((hours) => ({
@@ -547,6 +561,7 @@ export type HandlerDeps = BackupHandlerDeps & InvoiceHandlerDeps & PayslipHandle
   restoreHoliday: RestoreHolidayUseCase;
   listWeekSessions: ListWeekSessionsUseCase;
   generateSessions: GenerateAndPersistSessionsUseCase;
+  recordSessionAttendance: RecordSessionAttendanceUseCase;
   createWeeklySession: CreateWeeklyRecurringSessionUseCase;
   updateWeeklySession: UpdateWeeklyRecurringSessionUseCase;
   cancelWeeklySession: CancelWeeklyRecurringSessionUseCase;
@@ -1081,6 +1096,17 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         updatedBy,
       });
       return { sessions: sessions.map(toSessionView) };
+    },
+    'attendance.record': async (request) => {
+      const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
+      const records = await deps.recordSessionAttendance.execute({
+        sessionId: request.sessionId,
+        records: request.records,
+        centerCode,
+        deviceOrigin,
+        updatedBy,
+      });
+      return { records: records.map(toAttendanceRecordView) };
     },
     'weeklySession.create': async (request) => {
       const session = await deps.createWeeklySession.execute({

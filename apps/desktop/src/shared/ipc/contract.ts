@@ -11,6 +11,7 @@ import {
   groupInputSchema,
   enrollmentInputSchema,
   generateSessionsSchema,
+  recordSessionAttendanceSchema,
   weeklyRecurringSessionInputSchema,
   weeklyRecurringSessionUpdateSchema,
   teacherInputSchema,
@@ -316,6 +317,19 @@ const sessionViewSchema = z.object({
   date: z.string(),
   start: z.string(),
   end: z.string(),
+});
+
+// The presentation projection of one roll-call outcome across the IPC boundary
+// (SOU-58) — the sync envelope is stripped. `note` is deliberately absent: it is
+// out of scope for the batched roll-call ticket (KICKOFF), so every record this
+// channel returns has `note: null` in the domain and the renderer has no field
+// to show yet. Single source of truth for the renderer's `AttendanceRecordView`
+// type.
+const attendanceRecordViewSchema = z.object({
+  id: z.string(),
+  sessionId: z.string(),
+  studentId: z.string(),
+  status: z.enum(['present', 'absent', 'excused', 'late']),
 });
 
 // The presentation projection of a Subject across the IPC boundary (SOU-124) — the
@@ -874,6 +888,22 @@ export const ipcContract = {
     request: generateSessionsSchema,
     response: z.object({ sessions: z.array(sessionViewSchema) }),
   },
+  // Per-session roll-call (SOU-58). One batched write for the whole roster — one
+  // transaction, one round trip, never one call per student — so marking a
+  // 20-student session takes seconds, not minutes. The request is the domain's
+  // own `recordSessionAttendanceSchema` (prefixed `ses_` id, a non-empty
+  // `records` array of prefixed `stu_` id + status, no duplicate studentId),
+  // validated once and reused by the roll-call screen. The roster itself is
+  // sourced from the existing `group.roster` channel — this ticket adds no new
+  // roster read. Each submitted student is either edited in place (a same-day
+  // correction) or created fresh; the response returns every resulting record.
+  // centerCode/device/user are injected in main, never sent from the renderer.
+  // Gated by `core.attendance` (every plan). `note` is out of scope this ticket
+  // (KICKOFF) — every record comes back with `note: null` in the domain.
+  'attendance.record': {
+    request: recordSessionAttendanceSchema,
+    response: z.object({ records: z.array(attendanceRecordViewSchema) }),
+  },
   // Weekly recurring session write channels (SOU-131 — populate the planner grid).
   // The requests are the domain's own input schemas (`wrs_`/`rom_`/`tch_`/`grp_`
   // prefixes, `HH:mm` times, `YYYY-MM-DD` validity bounds), validated once and
@@ -1072,6 +1102,9 @@ export type WeeklySessionDto = z.infer<typeof weeklySessionViewSchema>;
 
 /** The concrete dated-session boundary DTO — the renderer's `SessionView` aliases this. */
 export type SessionDto = z.infer<typeof sessionViewSchema>;
+
+/** The AttendanceRecord boundary DTO — the renderer's `AttendanceRecordView` aliases this. */
+export type AttendanceRecordDto = z.infer<typeof attendanceRecordViewSchema>;
 
 export type IpcContract = typeof ipcContract;
 export type IpcChannel = keyof IpcContract;

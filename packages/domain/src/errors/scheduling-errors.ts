@@ -5,6 +5,7 @@ import type { WeekdayIndex } from '../value-objects/weekday';
 import type { RoomId } from '../entities/room';
 import type { HolidayId } from '../entities/holiday';
 import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-session';
+import type { SessionId } from '../entities/session';
 
 /** Why a session falls outside the center's opening hours. */
 export type OutsideCenterHoursReason = 'closed' | 'before-open' | 'after-close';
@@ -157,5 +158,20 @@ export class WeeklyRecurringSessionNotFoundError extends DomainError {
 
   constructor(readonly recurringSessionId: WeeklyRecurringSessionId) {
     super(`No live weekly recurring session "${recurringSessionId}" in this center.`);
+  }
+}
+
+/**
+ * Thrown when `RecordSessionAttendance` is asked to record roll-call for a
+ * concrete dated session id with no live row in the current center — unknown,
+ * already tombstoned, or belonging to another center. The renderer resolves the
+ * stable `session-not-found` code via `t(\`errors.${code}\`)`; the domain stays
+ * i18n-agnostic. Mirrors {@link WeeklyRecurringSessionNotFoundError}.
+ */
+export class SessionNotFoundError extends DomainError {
+  readonly code = 'session-not-found';
+
+  constructor(readonly sessionId: SessionId) {
+    super(`No live session "${sessionId}" in this center.`);
   }
 }

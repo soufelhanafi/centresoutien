@@ -97,6 +97,7 @@
     "teacher-conflict": "L'enseignant a déjà une séance sur ce créneau",
     "invalid-session-validity-range": "La période de validité de la séance est invalide",
     "weekly-recurring-session-not-found": "Cette séance n'existe plus",
+    "session-not-found": "Cette séance est introuvable",
     "invalid-code": "Code invalide (majuscules, chiffres, - et _ uniquement)",
     "subject-in-use": "Cette matière est utilisée par au moins un groupe et ne peut pas être supprimée",
     "subject-not-found": "Cette matière est introuvable",
@@ -251,6 +252,34 @@
         "body": "Ajoutez un élève pour constituer ce groupe."
       },
       "loadError": "Le chargement des inscriptions a échoué."
+    },
+    "attendance": {
+      "action": "Prendre les présences",
+      "title": "Feuille de présence",
+      "description": "Choisissez une date, marquez chaque élève, puis enregistrez.",
+      "dateLabel": "Date de la séance",
+      "slotLabel": "Créneau",
+      "slotPlaceholder": "Choisir un créneau",
+      "noSlotForDay": "Aucune séance programmée ce jour pour ce groupe.",
+      "markAllPresent": "Tout marquer présent",
+      "summary": "{{present}}/{{total}} présents",
+      "shortcutsHint": "↑ / ↓ pour naviguer, P / A / L / E pour marquer, Entrée pour valider",
+      "status": {
+        "present": "Présent",
+        "absent": "Absent",
+        "late": "Retard",
+        "excused": "Excusé"
+      },
+      "cancel": "Annuler",
+      "submit": "Enregistrer",
+      "saving": "Enregistrement…",
+      "submitSuccess": "Présences enregistrées",
+      "submitError": "L'enregistrement des présences a échoué",
+      "empty": {
+        "title": "Aucun élève inscrit",
+        "body": "Ajoutez des élèves à ce groupe avant de prendre les présences."
+      },
+      "loadError": "Le chargement de la liste des élèves a échoué."
     }
   },
   "guardian": {
@@ -1197,6 +1226,7 @@
         "coreCalendarWeek": "Planning hebdomadaire",
         "coreInvoicing": "Facturation mensuelle",
         "coreParents": "Gestion des parents",
+        "coreAttendance": "Présence des élèves",
         "settingsCenterHours": "Horaires du centre",
         "settingsHolidays": "Vacances",
         "dashboardBasic": "Tableau de bord",

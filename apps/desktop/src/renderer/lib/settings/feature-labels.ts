@@ -16,6 +16,7 @@ export const FEATURE_LABEL_KEYS: Record<FeatureFlag, string> = {
   'core.calendar.week': 'coreCalendarWeek',
   'core.invoicing': 'coreInvoicing',
   'core.parents': 'coreParents',
+  'core.attendance': 'coreAttendance',
   'settings.center-hours': 'settingsCenterHours',
   'settings.holidays': 'settingsHolidays',
   'dashboard.basic': 'dashboardBasic',
