@@ -128,6 +128,7 @@ import { createDialogHandlers } from './dialog-handlers';
 import { createInvoiceHandlers, type InvoiceHandlerDeps } from './invoice-handlers';
 import { createPayslipHandlers, type PayslipHandlerDeps } from './payslip-handlers';
 import { createPayrollHandlers, type PayrollHandlerDeps } from './payroll-handlers';
+import { createPaymentReceiptHandlers, type PaymentReceiptHandlerDeps } from './payment-receipt-handlers';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
@@ -499,7 +500,11 @@ function toWeekView(week: readonly CenterHours[]) {
  * cases) are injected so handlers stay pure and testable without Electron. Each
  * handler delegates to a pre-wired domain use case; it adds no business logic.
  */
-export type HandlerDeps = BackupHandlerDeps & InvoiceHandlerDeps & PayslipHandlerDeps & PayrollHandlerDeps & {
+export type HandlerDeps = BackupHandlerDeps &
+  InvoiceHandlerDeps &
+  PayslipHandlerDeps &
+  PayrollHandlerDeps &
+  PaymentReceiptHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
   createSubject: CreateSubjectUseCase;
@@ -1204,5 +1209,6 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     ...createInvoiceHandlers(deps),
     ...createPayslipHandlers(deps),
     ...createPayrollHandlers(deps),
+    ...createPaymentReceiptHandlers(deps),
   };
 }

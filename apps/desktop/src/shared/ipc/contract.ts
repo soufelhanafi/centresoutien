@@ -707,6 +707,21 @@ export const ipcContract = {
     request: z.object({ invoiceId: z.string() }),
     response: invoicePaymentSummarySchema,
   },
+  // Payment receipt print/export (SOU-101). Renders a single ledger row (a
+  // `payment` or a `reversal`) to the same bilingual FR/AR `pdf-lib` layout
+  // family as the invoice and payslip PDFs. `print` opens it in the OS's
+  // default PDF viewer; `export` lets the user pick a save location. `locale`
+  // picks the PDF's language independent of the app's active UI locale,
+  // mirroring `invoice.print`/`invoice.export`. centerCode is injected in
+  // main, never sent from the renderer. Gated by `core.invoicing` (every plan).
+  'payment.receipt.print': {
+    request: z.object({ paymentId: z.string(), locale: z.enum(['fr', 'ar']) }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'payment.receipt.export': {
+    request: z.object({ paymentId: z.string(), locale: z.enum(['fr', 'ar']) }),
+    response: z.object({ savedPath: z.string().nullable() }),
+  },
   // Monthly invoice generation job (SOU-68) — the first wired caller of
   // `CreateInvoiceDraft` (SOU-67 shipped it unwired). For every student with a
   // live `StudentSubscription` active in `month`, creates one draft invoice with
