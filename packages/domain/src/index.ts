@@ -290,6 +290,8 @@ export type {
 } from './entities/weekly-recurring-session';
 export { SESSION_ID_PREFIX } from './entities/session';
 export type { Session, SessionId } from './entities/session';
+export { ATTENDANCE_RECORD_ID_PREFIX, ATTENDANCE_STATUSES } from './entities/attendance-record';
+export type { AttendanceRecord, AttendanceRecordId, AttendanceStatus } from './entities/attendance-record';
 
 // Read models (denormalized, envelope-free — never persisted)
 export type { WeeklySessionView } from './read-models/weekly-session-view';
@@ -361,6 +363,7 @@ export type { WeeklyRecurringSessionRepository } from './ports/weekly-recurring-
 // the same SQLite adapter that owns weekly_recurring_sessions.
 export type { WeeklySessionViewReadPort } from './ports/weekly-session-view-read-port';
 export type { SessionRepository } from './ports/session-repository';
+export type { AttendanceRepository, AttendanceSummary } from './ports/attendance-repository';
 // Room in-use guard — its concrete adapter is the weekly-session repo (SOU-53).
 export type { RoomReferencePort } from './ports/room-reference';
 // Student↔parent link — DECLARED CONTRACT ONLY (implemented after SOU-38 merges).
