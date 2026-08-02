@@ -503,6 +503,8 @@ export { CreateTeacherPayrollRule } from './use-cases/create-teacher-payroll-rul
 export type { CreateTeacherPayrollRuleInput } from './use-cases/create-teacher-payroll-rule';
 export { CloseTeacherPayrollRule } from './use-cases/close-teacher-payroll-rule';
 export type { CloseTeacherPayrollRuleInput } from './use-cases/close-teacher-payroll-rule';
+export { ListTeacherPayrollRulesByTeacher } from './use-cases/list-teacher-payroll-rules-by-teacher';
+export type { ListTeacherPayrollRulesByTeacherInput } from './use-cases/list-teacher-payroll-rules-by-teacher';
 export { ListGroups, orderGroupsForList } from './use-cases/list-groups';
 export type { ListGroupsInput, GroupScope } from './use-cases/list-groups';
 export { ListGroupsWithCounts } from './use-cases/list-groups-with-counts';
