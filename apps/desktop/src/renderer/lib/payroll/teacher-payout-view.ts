@@ -1,4 +1,5 @@
 import type { TeacherPayrollRuleKind, TeacherPayoutStatus } from '@centresoutien/domain';
+import type { TeacherAttributionBreakdownEntryDto, TeacherPayoutDto } from '../../../shared/ipc/contract';
 
 export type { TeacherPayrollRuleKind, TeacherPayoutStatus };
 
@@ -9,28 +10,11 @@ export type { TeacherPayrollRuleKind, TeacherPayoutStatus };
  * `percentage-of-monthly-fees` rule kind and are `null` for `fixed-monthly`
  * payouts.
  *
- * ## Contract status (SOU-76 frontend ↔ domain-backend)
- *
- * Not yet published on this branch: the `payroll.listPayouts` /
- * `payroll.confirmPayout` / `payroll.confirmMonthly` /
- * `payroll.attributionBreakdown` IPC channels (they exist on the sibling
- * `feature/SOU-76-domain` branch, not yet merged). This type is a hand-written
- * mirror of that branch's `teacherPayoutViewSchema` rather than an alias of a
- * generated IPC DTO — once the channels land, swap this to
- * `import type { TeacherPayoutDto } from '../../../shared/ipc/contract'` (see
- * `TeacherPayrollRuleView` for the target pattern) with no change to callers.
+ * A direct alias of the boundary's `teacherPayoutViewSchema` (the single
+ * source of truth in `shared/ipc/contract`), so the renderer shape can never
+ * drift from what the `payroll.listPayouts` channel actually returns.
  */
-export type TeacherPayoutView = {
-  readonly id: string;
-  readonly teacherId: string;
-  readonly month: string;
-  readonly ruleKind: TeacherPayrollRuleKind;
-  readonly amountMad: number;
-  readonly baseAmountMad: number | null;
-  readonly percentSnapshot: number | null;
-  readonly status: TeacherPayoutStatus;
-  readonly notes: string | null;
-};
+export type TeacherPayoutView = TeacherPayoutDto;
 
 /**
  * One teacher's attributed amount for one subject, for a given month — the
@@ -38,8 +22,4 @@ export type TeacherPayoutView = {
  * one call. The dashboard groups these client-side by `teacherId`, see
  * `groupBreakdownByTeacher`.
  */
-export type TeacherAttributionBreakdownEntryView = {
-  readonly teacherId: string;
-  readonly subjectId: string;
-  readonly amountMad: number;
-};
+export type TeacherAttributionBreakdownEntryView = TeacherAttributionBreakdownEntryDto;
