@@ -42,10 +42,14 @@ export class SqliteBackupAdapter implements BackupPort {
   async list({ destDir, centerCode }: { destDir: string; centerCode: CenterCode }): Promise<BackupFileInfo[]> {
     if (!existsSync(destDir)) return [];
     const prefix = backupPrefixFor(centerCode);
+    // Sort by filename (embeds a monotonic ULID), not filesystem mtime: two
+    // backups created back-to-back can land on the same mtime tick depending
+    // on the filesystem's timestamp resolution, which made retention pruning
+    // and `list()` ordering nondeterministic under fast, repeated calls.
     return readdirSync(destDir)
       .filter((name) => name.endsWith('.db') && hasIdPrefix(name.slice(0, -'.db'.length), prefix))
       .map((name) => toFileInfo(destDir, name))
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      .sort((a, b) => b.fileName.localeCompare(a.fileName));
   }
 
   async remove(path: string): Promise<void> {
