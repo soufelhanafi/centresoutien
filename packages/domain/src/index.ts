@@ -189,7 +189,7 @@ export type {
   CreateInvoiceDraftFields,
   GenerateMonthlyInvoicesFields,
 } from './schemas/invoice';
-export { recordPaymentSchema, voidPaymentSchema } from './schemas/payment';
+export { recordPaymentSchema, voidPaymentSchema, paymentRef } from './schemas/payment';
 export type { RecordPaymentFields, VoidPaymentFields } from './schemas/payment';
 export {
   studentSubscriptionInputSchema,

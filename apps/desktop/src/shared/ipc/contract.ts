@@ -22,6 +22,7 @@ import {
   closeStudentSubscriptionMonthSchema,
   recordPaymentSchema,
   voidPaymentSchema,
+  paymentRef,
   generateMonthlyInvoicesSchema,
   computeMonthlyPayrollsSchema,
   confirmMonthlyPayrollsSchema,
@@ -715,11 +716,11 @@ export const ipcContract = {
   // mirroring `invoice.print`/`invoice.export`. centerCode is injected in
   // main, never sent from the renderer. Gated by `core.invoicing` (every plan).
   'payment.receipt.print': {
-    request: z.object({ paymentId: z.string(), locale: z.enum(['fr', 'ar']) }),
+    request: z.object({ paymentId: paymentRef, locale: z.enum(['fr', 'ar']) }),
     response: z.object({ ok: z.literal(true) }),
   },
   'payment.receipt.export': {
-    request: z.object({ paymentId: z.string(), locale: z.enum(['fr', 'ar']) }),
+    request: z.object({ paymentId: paymentRef, locale: z.enum(['fr', 'ar']) }),
     response: z.object({ savedPath: z.string().nullable() }),
   },
   // Monthly invoice generation job (SOU-68) — the first wired caller of

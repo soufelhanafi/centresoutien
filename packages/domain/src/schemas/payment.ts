@@ -18,7 +18,10 @@ const invoiceRef = z
   .string()
   .refine((value) => hasIdPrefix(value, INVOICE_ID_PREFIX), { message: 'invalid-id' });
 
-const paymentRef = z
+/** A payment id's shape at any IPC/domain boundary — exported so callers outside this
+ * file (e.g. the receipt print/export IPC contract) validate the same way voiding does,
+ * instead of falling back to a bare `z.string()`. */
+export const paymentRef = z
   .string()
   .refine((value) => hasIdPrefix(value, PAYMENT_ID_PREFIX), { message: 'invalid-id' });
 
