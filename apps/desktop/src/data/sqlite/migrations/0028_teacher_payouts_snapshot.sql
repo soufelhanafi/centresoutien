@@ -1,4 +1,4 @@
--- 0027_teacher_payouts_snapshot.sql
+-- 0028_teacher_payouts_snapshot.sql
 -- What: adds base_amount_mad + percent_snapshot to teacher_payouts (SOU-75).
 -- Why:  the payslip PDF must always match what ComputeMonthlyPayrolls (SOU-74)
 --       actually confirmed for a percentage-of-monthly-fees payout, never a live
