@@ -380,6 +380,7 @@ function toPaymentView(payment: Payment) {
     method: payment.method,
     paidOn: payment.paidOn,
     reversesPaymentId: payment.reversesPaymentId,
+    note: payment.note,
     createdAt: payment.createdAt.toISOString(),
   };
 }

@@ -166,6 +166,7 @@ const paymentViewSchema = z.object({
   method: z.enum(['cash', 'cheque', 'transfer', 'other']),
   paidOn: z.string(),
   reversesPaymentId: z.string().nullable(),
+  note: z.string().nullable(),
   createdAt: z.string(),
 });
 
