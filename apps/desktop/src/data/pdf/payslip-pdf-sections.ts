@@ -2,6 +2,7 @@ import type { PayslipPdfInput } from '@centresoutien/domain';
 import type { InvoicePdfWriter } from './invoice-pdf-writer';
 import { bilingualLabel } from './invoice-pdf-context';
 import { formatMad } from './format-mad';
+import { formatPercent } from './format-percent';
 import { formatMonthLabel } from './format-month';
 import { BRAND_TEAL } from './invoice-pdf-writer';
 import type { PayslipPdfLabels } from './payslip-pdf-labels';
@@ -33,7 +34,7 @@ export function drawPayslipBreakdown(ctx: PayslipRenderContext, input: PayslipPd
   writer.text(labels.ruleLabel[input.ruleKind], { size: 12, bold: true, color: BRAND_TEAL });
   if (input.ruleKind === 'percentage-of-monthly-fees' && input.baseAmountMad !== null && input.percentSnapshot !== null) {
     writer.row(labels.baseAmount, formatMad(input.baseAmountMad, locale));
-    writer.row(labels.percent, `${input.percentSnapshot}%`);
+    writer.row(labels.percent, formatPercent(input.percentSnapshot, locale));
   }
   writer.moveDown(6);
 }
