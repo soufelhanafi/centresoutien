@@ -97,6 +97,7 @@ export type { FormulaSubjectUnavailableReason } from './errors/formula-errors';
 export {
   TooManyActivePayrollRulesError,
   TeacherPayrollRuleNotFoundError,
+  EmptyAttributionLineError,
 } from './errors/payroll-errors';
 export {
   SessionOutsideCenterHoursError,
@@ -405,6 +406,12 @@ export {
   isPayrollRuleActiveInMonth,
   payrollRuleRangesOverlap,
 } from './policies/teacher-payroll-rule-policy';
+export { TeacherFeeAttributionPolicy } from './policies/teacher-fee-attribution-policy';
+export type {
+  SubjectTeacherAssignment,
+  StudentLineAttributionInput,
+  TeacherAttributedAmount,
+} from './policies/teacher-fee-attribution-policy';
 export { updateFormula, deactivateFormula } from './policies/formula-policy';
 export type { FormulaPatch } from './policies/formula-policy';
 export { validateFormulaSubjects } from './policies/validate-formula-subjects';

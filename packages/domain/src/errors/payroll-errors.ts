@@ -1,6 +1,7 @@
 import { DomainError } from './plan-errors';
 import type { TeacherPayrollRuleId } from '../entities/teacher-payroll-rule';
 import type { TeacherId } from '../entities/teacher';
+import type { StudentId } from '../entities/student';
 
 /**
  * Thrown when a teacher would hold two overlapping active payroll rules — the
@@ -37,5 +38,38 @@ export class TeacherPayrollRuleNotFoundError extends DomainError {
 
   constructor(readonly id: TeacherPayrollRuleId) {
     super(`No live teacher payroll rule with id "${id}".`);
+  }
+}
+
+/**
+ * Thrown when a `TeacherFeeAttributionPolicy` input line names zero subjects —
+ * equal-split attribution has no denominator to divide by. A Formula always
+ * carries at least one subject (CLAUDE.md §7), so an empty line signals a
+ * caller bug upstream (SOU-74's compute job), not a real business state.
+ */
+export class EmptyAttributionLineError extends DomainError {
+  readonly code = 'empty-attribution-line';
+
+  constructor(readonly studentId: StudentId) {
+    super(`Attribution line for student "${studentId}" names zero subjects.`);
+  }
+}
+
+/**
+ * Thrown when a `TeacherFeeAttributionPolicy` input line carries a
+ * `lineAmountMad` that isn't a non-negative integer — the largest-remainder
+ * split only guarantees shares sum back to the original amount for integer
+ * MAD centimes. Collected fees are always non-negative integers by
+ * construction (CLAUDE.md §6), so this signals a caller bug upstream
+ * (SOU-74's compute job), not a real business state.
+ */
+export class InvalidAttributionAmountError extends DomainError {
+  readonly code = 'invalid-attribution-amount';
+
+  constructor(
+    readonly studentId: StudentId,
+    readonly lineAmountMad: number,
+  ) {
+    super(`Attribution line for student "${studentId}" has a non-integer or negative amount: ${lineAmountMad}.`);
   }
 }
