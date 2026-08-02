@@ -84,6 +84,7 @@ import {
   CloseTeacherPayrollRule,
   CreateInvoiceDraft,
   GenerateMonthlyInvoices,
+  ListInvoices,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -122,6 +123,7 @@ import { SqliteCenterRepository } from '../data/sqlite/repositories/center-repos
 import { FsLogoStore } from '../data/fs/logo-store';
 import { SqliteBackupAdapter } from '../data/sqlite/repositories/backup-adapter';
 import { SqliteBackupConfigStore } from '../data/sqlite/repositories/backup-config-store';
+import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
@@ -338,6 +340,13 @@ export function buildContainer(options: ContainerOptions): Container {
     createInvoiceDraft,
     plan,
   );
+  // Invoice list/detail/print/export (SOU-69): the read model (SOU-69 domain)
+  // reused for both the filterable list screen and single-invoice detail
+  // fetches, plus the pdf-lib adapter the print/export IPC handlers assemble
+  // into an InvoicePdfInput (student name + center profile + this invoice's
+  // own already-derived totals).
+  const listInvoices = new ListInvoices(invoiceRepo, plan);
+  const invoicePdfRenderer = new PdfLibInvoiceRenderer();
 
   const teacherRepo = new SqliteTeacherRepository(db);
   // The teacher in-use guard's real backing (a query over live groups / sessions /
@@ -512,6 +521,8 @@ export function buildContainer(options: ContainerOptions): Container {
     voidPayment,
     getInvoicePaymentSummary,
     generateMonthlyInvoices,
+    listInvoices,
+    invoicePdfRenderer,
     enrollStudent,
     unenrollStudent,
     createTeacher,
@@ -550,6 +561,7 @@ export function buildContainer(options: ContainerOptions): Container {
     saveBackupConfig,
     restoreBackup,
     activeCenterCode: () => options.centerCode,
+    centerCode: () => options.centerCode,
     dbKey: () => options.key,
     scheduleRestart: options.scheduleRestart,
   };
