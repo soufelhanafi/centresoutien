@@ -333,6 +333,7 @@ export type { GroupRepository } from './ports/group-repository';
 // Enrollment repository — port declared here; SQLite adapter + migration are a follow-up.
 export type { EnrollmentRepository } from './ports/enrollment-repository';
 export type { InvoiceRepository } from './ports/invoice-repository';
+export type { InvoicePdfRenderer, InvoicePdfInput, InvoicePdfLine } from './ports/invoice-pdf-renderer';
 // Formula repository (SOU-61) — save() never writes isImmutable; the SQLite
 // trigger is the sole writer, flipped when an InvoiceLine first references it.
 export type { FormulaRepository } from './ports/formula-repository';
