@@ -144,4 +144,13 @@ export class SqliteStudentSubscriptionRepository implements StudentSubscriptionR
       .all(studentId, kind) as StudentSubscriptionRow[];
     return rows.map(fromRow);
   }
+
+  async listLiveByCenter(centerCode: CenterCode): Promise<readonly StudentSubscription[]> {
+    const rows = this.db
+      .prepare(
+        'SELECT * FROM student_subscriptions WHERE center_code = ? AND deleted_at IS NULL ORDER BY start_month DESC, id',
+      )
+      .all(centerCode) as StudentSubscriptionRow[];
+    return rows.map(fromRow);
+  }
 }

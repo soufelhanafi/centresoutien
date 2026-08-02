@@ -5,6 +5,7 @@ import type {
 } from '../entities/student-subscription';
 import type { StudentId } from '../entities/student';
 import type { GroupKind } from '../entities/group';
+import type { CenterCode } from '../value-objects/ids';
 
 /**
  * Persistence port for StudentSubscriptions. Inherits the soft-deletable surface
@@ -13,11 +14,13 @@ import type { GroupKind } from '../entities/group';
  * relationships, not people-like matching, so there is no `findByNaturalKey`, and
  * there is no editable `status` column — status is derived from the month range.
  *
- * The extra reads back the three needs of SOU-63: `listLiveByStudent` feeds both the
- * coverage adapter (`activeCoverage`) and the student's subscription list;
- * `listLiveByStudentAndKind` feeds the at-most-one-active overlap guard in
- * `CreateStudentSubscription`. "Live" here means a non-tombstoned row — a
- * soft-deleted subscription counts for neither.
+ * The extra reads back the needs of SOU-63 and SOU-68: `listLiveByStudent` feeds
+ * both the coverage adapter (`activeCoverage`) and the student's subscription
+ * list; `listLiveByStudentAndKind` feeds the at-most-one-active overlap guard in
+ * `CreateStudentSubscription`; `listLiveByCenter` feeds `GenerateMonthlyInvoices`,
+ * which decides "active in month" itself via `isSubscriptionActiveInMonth` — the
+ * adapter never filters by month. "Live" here means a non-tombstoned row — a
+ * soft-deleted subscription counts for none of the three.
  */
 export interface StudentSubscriptionRepository
   extends SoftDeletableRepository<StudentSubscriptionId, StudentSubscription> {
@@ -34,4 +37,10 @@ export interface StudentSubscriptionRepository
     studentId: StudentId,
     kind: GroupKind,
   ): Promise<readonly StudentSubscription[]>;
+  /**
+   * Every **live** subscription across the center, both tracks — the center-wide
+   * read `GenerateMonthlyInvoices` needs to find every billable student for a month
+   * without a per-student round trip.
+   */
+  listLiveByCenter(centerCode: CenterCode): Promise<readonly StudentSubscription[]>;
 }

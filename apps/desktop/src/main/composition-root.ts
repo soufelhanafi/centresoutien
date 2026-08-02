@@ -82,6 +82,8 @@ import {
   RunScheduledBackup,
   CreateTeacherPayrollRule,
   CloseTeacherPayrollRule,
+  CreateInvoiceDraft,
+  GenerateMonthlyInvoices,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -326,6 +328,16 @@ export function buildContainer(options: ContainerOptions): Container {
   const recordPayment = new RecordPayment(paymentRepo, invoiceRepo, clock, ids, plan);
   const voidPayment = new VoidPayment(paymentRepo, clock, ids, plan);
   const getInvoicePaymentSummary = new GetInvoicePaymentSummary(paymentRepo, invoiceRepo, plan);
+  // The monthly generation job (SOU-68): first caller of CreateInvoiceDraft, which
+  // shipped unwired in SOU-67. Idempotent re-runs are CreateInvoiceDraft's own
+  // one-invoice-per-student-per-month guard, not a separate check here.
+  const createInvoiceDraft = new CreateInvoiceDraft(invoiceRepo, clock, ids, plan);
+  const generateMonthlyInvoices = new GenerateMonthlyInvoices(
+    subscriptionRepo,
+    formulaRepo,
+    createInvoiceDraft,
+    plan,
+  );
 
   const teacherRepo = new SqliteTeacherRepository(db);
   // The teacher in-use guard's real backing (a query over live groups / sessions /
@@ -499,6 +511,7 @@ export function buildContainer(options: ContainerOptions): Container {
     recordPayment,
     voidPayment,
     getInvoicePaymentSummary,
+    generateMonthlyInvoices,
     enrollStudent,
     unenrollStudent,
     createTeacher,

@@ -58,6 +58,7 @@ import type {
   RecordPayment,
   VoidPayment,
   GetInvoicePaymentSummary,
+  GenerateMonthlyInvoices,
   Payment,
   InvoiceId,
   EnrollStudent,
@@ -159,6 +160,7 @@ export type ListStudentSubscriptionsUseCase = Pick<ListStudentSubscriptions, 'ex
 export type RecordPaymentUseCase = Pick<RecordPayment, 'execute'>;
 export type VoidPaymentUseCase = Pick<VoidPayment, 'execute'>;
 export type GetInvoicePaymentSummaryUseCase = Pick<GetInvoicePaymentSummary, 'execute'>;
+export type GenerateMonthlyInvoicesUseCase = Pick<GenerateMonthlyInvoices, 'execute'>;
 export type EnrollStudentUseCase = Pick<EnrollStudent, 'execute'>;
 export type UnenrollStudentUseCase = Pick<UnenrollStudent, 'execute'>;
 export type CreateTeacherUseCase = Pick<CreateTeacher, 'execute'>;
@@ -490,6 +492,7 @@ export type HandlerDeps = BackupHandlerDeps & {
   recordPayment: RecordPaymentUseCase;
   voidPayment: VoidPaymentUseCase;
   getInvoicePaymentSummary: GetInvoicePaymentSummaryUseCase;
+  generateMonthlyInvoices: GenerateMonthlyInvoicesUseCase;
   enrollStudent: EnrollStudentUseCase;
   unenrollStudent: UnenrollStudentUseCase;
   createTeacher: CreateTeacherUseCase;
@@ -871,6 +874,12 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         status: summary.status,
         payments: summary.payments.map(toPaymentView),
       };
+    },
+    'invoice.generateMonthly': async (request) => {
+      return deps.generateMonthlyInvoices.execute({
+        month: request.month,
+        ...deps.envelopeContext(),
+      });
     },
     'enrollment.create': async (request) => {
       const enrollment = await deps.enrollStudent.execute({ ...request, ...deps.envelopeContext() });

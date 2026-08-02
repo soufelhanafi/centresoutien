@@ -174,9 +174,14 @@ export type {
 export {
   invoiceLineSnapshotSchema,
   createInvoiceDraftSchema,
+  generateMonthlyInvoicesSchema,
   INVOICE_LINE_LABEL_MAX,
 } from './schemas/invoice';
-export type { InvoiceLineSnapshot, CreateInvoiceDraftFields } from './schemas/invoice';
+export type {
+  InvoiceLineSnapshot,
+  CreateInvoiceDraftFields,
+  GenerateMonthlyInvoicesFields,
+} from './schemas/invoice';
 export { recordPaymentSchema, voidPaymentSchema } from './schemas/payment';
 export type { RecordPaymentFields, VoidPaymentFields } from './schemas/payment';
 export {
@@ -489,6 +494,11 @@ export { CloseStudentSubscription } from './use-cases/close-student-subscription
 export type { CloseStudentSubscriptionInput } from './use-cases/close-student-subscription';
 export { ListStudentSubscriptions } from './use-cases/list-student-subscriptions';
 export type { ListStudentSubscriptionsInput } from './use-cases/list-student-subscriptions';
+export { GenerateMonthlyInvoices } from './use-cases/generate-monthly-invoices';
+export type {
+  GenerateMonthlyInvoicesInput,
+  GenerateMonthlyInvoicesResult,
+} from './use-cases/generate-monthly-invoices';
 export { CreateTeacherPayrollRule } from './use-cases/create-teacher-payroll-rule';
 export type { CreateTeacherPayrollRuleInput } from './use-cases/create-teacher-payroll-rule';
 export { CloseTeacherPayrollRule } from './use-cases/close-teacher-payroll-rule';
