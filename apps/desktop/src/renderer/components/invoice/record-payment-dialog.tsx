@@ -1,0 +1,156 @@
+import { useId } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslation } from 'react-i18next';
+import { recordPaymentSchema, PAYMENT_METHODS, type RecordPaymentFields } from '@centresoutien/domain';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  toast,
+} from '@centresoutien/ui';
+import { FieldMessage } from '../form/field-message';
+import { useFeature } from '../../hooks/use-feature';
+import { useRecordPayment } from '../../hooks/invoice/use-record-payment';
+import { centimesToMad, madToCentimes } from '../../lib/formulas/price-mad';
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+type RecordPaymentDialogProps = {
+  invoiceId: string;
+  outstandingMad: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+/** "Mark paid" flow: records a payment against the invoice's outstanding balance. */
+export function RecordPaymentDialog({ invoiceId, outstandingMad, open, onOpenChange }: RecordPaymentDialogProps) {
+  const { t } = useTranslation();
+  const formId = useId();
+  const canPartialPay = useFeature('core.invoicing.partial-paid');
+  const record = useRecordPayment();
+
+  const form = useForm<RecordPaymentFields>({
+    resolver: zodResolver(recordPaymentSchema),
+    values: { invoiceId, amountMad: outstandingMad, method: 'cash', paidOn: today() },
+  });
+
+  const submit = form.handleSubmit(async (values) => {
+    try {
+      await record.mutateAsync(canPartialPay ? values : { ...values, amountMad: outstandingMad });
+      toast.success(t('invoices.detail.payment.success'));
+      onOpenChange(false);
+    } catch {
+      toast.error(t('invoices.detail.payment.error'));
+    }
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent closeLabel={t('invoices.detail.payment.cancel')}>
+        <DialogHeader>
+          <DialogTitle>{t('invoices.detail.payment.title')}</DialogTitle>
+          <DialogDescription>{t('invoices.detail.payment.description')}</DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
+            <FormField
+              control={form.control}
+              name="amountMad"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('invoices.detail.payment.amount')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      min={0.01}
+                      step={0.01}
+                      dir="ltr"
+                      disabled={!canPartialPay}
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={Number.isNaN(field.value) ? '' : centimesToMad(field.value)}
+                      onChange={(event) =>
+                        field.onChange(
+                          event.target.value === '' ? Number.NaN : madToCentimes(event.target.valueAsNumber),
+                        )
+                      }
+                    />
+                  </FormControl>
+                  {!canPartialPay && (
+                    <p className="text-xs text-muted-foreground">{t('invoices.detail.payment.partialLocked')}</p>
+                  )}
+                  <FieldMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="method"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('invoices.detail.payment.method')}</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {PAYMENT_METHODS.map((method) => (
+                        <SelectItem key={method} value={method}>
+                          {t(`invoices.detail.payment.methods.${method}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="paidOn"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('invoices.detail.payment.paidOn')}</FormLabel>
+                  <FormControl>
+                    <Input type="date" dir="ltr" {...field} />
+                  </FormControl>
+                  <FieldMessage />
+                </FormItem>
+              )}
+            />
+          </form>
+        </Form>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            {t('invoices.detail.payment.cancel')}
+          </Button>
+          <Button type="submit" form={formId} disabled={record.isPending}>
+            {record.isPending ? t('invoices.detail.payment.saving') : t('invoices.detail.payment.submit')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
