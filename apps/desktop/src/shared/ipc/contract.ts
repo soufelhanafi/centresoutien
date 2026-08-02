@@ -606,12 +606,19 @@ export const ipcContract = {
   // for an already-generated month produces zero new drafts — `created` is the
   // count of newly-drafted invoices, `skipped` the count of already-billed
   // students, both derived from `CreateInvoiceDraft`'s own duplicate guard, not a
-  // separate check. Invoice list/detail/print (SOU-69) and `issue`/`cancel`
-  // channels are out of scope here. centerCode/device/user are injected in main,
-  // never sent from the renderer. Gated by `core.invoicing` (every plan).
+  // separate check; `unresolved` counts students whose subscription(s) pointed at
+  // a formula that couldn't be resolved (defensive — not reachable through any
+  // shipped use case today) and so got no invoice at all. Invoice list/detail/print
+  // (SOU-69) and `issue`/`cancel` channels are out of scope here. centerCode/device/
+  // user are injected in main, never sent from the renderer. Gated by
+  // `core.invoicing` (every plan).
   'invoice.generateMonthly': {
     request: generateMonthlyInvoicesSchema,
-    response: z.object({ created: z.number().int(), skipped: z.number().int() }),
+    response: z.object({
+      created: z.number().int(),
+      skipped: z.number().int(),
+      unresolved: z.number().int(),
+    }),
   },
   // Enrollments (SOU-121/123 domain; SQLite adapter + wiring is SOU-126). `create`
   // takes the domain's own `enrollmentInputSchema` (prefixed student/group ids,

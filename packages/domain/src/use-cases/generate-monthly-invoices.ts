@@ -20,6 +20,8 @@ export type GenerateMonthlyInvoicesInput = {
 export type GenerateMonthlyInvoicesResult = {
   created: number;
   skipped: number;
+  /** Students billable this month whose subscription(s) resolved to zero lines — see below. */
+  unresolved: number;
 };
 
 /**
@@ -37,10 +39,13 @@ export type GenerateMonthlyInvoicesResult = {
  * **N+1 avoidance for the 500-student/<2s target.** `Formula.listAll` is fetched
  * once and indexed into a map; every line's `label`/`amountMad` snapshot is
  * resolved from that map, never a per-student or per-line query. A subscription
- * whose formula can't be resolved (should not happen — formulas are soft-delete
- * only) contributes no line rather than aborting the whole run; a student left
- * with zero resolvable lines is skipped, matching `CreateInvoiceDraft`'s own
- * refusal of an empty-lines draft.
+ * whose `formulaId` misses that map — a tombstoned formula the subscription still
+ * points at; no use case can tombstone an in-use formula today, so this is a
+ * defensive branch, not a reachable one — contributes no line rather than
+ * aborting the whole run. A student left with zero resolvable lines is counted in
+ * `unresolved`, distinct from `skipped` (already billed) — an unresolved student
+ * got no invoice at all and no signal otherwise, so the count exists to surface
+ * that rather than let it disappear silently.
  */
 export class GenerateMonthlyInvoices {
   constructor(
@@ -59,7 +64,7 @@ export class GenerateMonthlyInvoices {
       isSubscriptionActiveInMonth(subscription, month),
     );
     if (activeSubscriptions.length === 0) {
-      return { created: 0, skipped: 0 };
+      return { created: 0, skipped: 0, unresolved: 0 };
     }
 
     const formulaById = new Map<FormulaId, Formula>(
@@ -70,6 +75,7 @@ export class GenerateMonthlyInvoices {
 
     let created = 0;
     let skipped = 0;
+    let unresolved = 0;
     for (const [studentId, studentSubscriptions] of subscriptionsByStudent) {
       const lines = studentSubscriptions.flatMap((subscription) => {
         const formula = formulaById.get(subscription.formulaId);
@@ -83,7 +89,10 @@ export class GenerateMonthlyInvoices {
           },
         ];
       });
-      if (lines.length === 0) continue;
+      if (lines.length === 0) {
+        unresolved += 1;
+        continue;
+      }
 
       try {
         await this.createInvoiceDraft.execute({
@@ -104,7 +113,7 @@ export class GenerateMonthlyInvoices {
       }
     }
 
-    return { created, skipped };
+    return { created, skipped, unresolved };
   }
 }
 

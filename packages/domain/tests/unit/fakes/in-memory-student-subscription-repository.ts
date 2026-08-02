@@ -36,6 +36,6 @@ export class InMemoryStudentSubscriptionRepository
   async listLiveByCenter(centerCode: CenterCode): Promise<readonly StudentSubscription[]> {
     return this.all()
       .filter((s) => s.deletedAt === null && s.centerCode === centerCode)
-      .sort((a, b) => b.startMonth.localeCompare(a.startMonth));
+      .sort((a, b) => b.startMonth.localeCompare(a.startMonth) || a.id.localeCompare(b.id));
   }
 }

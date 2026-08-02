@@ -110,7 +110,7 @@ describe('GenerateMonthlyInvoices', () => {
 
       const result = await build(PLANS.essentiel).execute(validInput());
 
-      expect(result).toEqual({ created: 2, skipped: 0 });
+      expect(result).toEqual({ created: 2, skipped: 0, unresolved: 0 });
       expect(await invoices.findByStudentMonth(CENTER, studentA, '2026-09')).not.toBeNull();
       expect(await invoices.findByStudentMonth(CENTER, studentB, '2026-09')).not.toBeNull();
     });
@@ -145,7 +145,7 @@ describe('GenerateMonthlyInvoices', () => {
 
       const result = await build(PLANS.essentiel).execute(validInput({ month: '2026-09' }));
 
-      expect(result).toEqual({ created: 0, skipped: 0 });
+      expect(result).toEqual({ created: 0, skipped: 0, unresolved: 0 });
     });
 
     it('is center-scoped: a foreign center’s subscriptions never produce an invoice', async () => {
@@ -159,7 +159,7 @@ describe('GenerateMonthlyInvoices', () => {
 
       const result = await build(PLANS.essentiel).execute(validInput({ centerCode: CENTER }));
 
-      expect(result).toEqual({ created: 0, skipped: 0 });
+      expect(result).toEqual({ created: 0, skipped: 0, unresolved: 0 });
     });
   });
 
@@ -189,7 +189,7 @@ describe('GenerateMonthlyInvoices', () => {
 
       const result = await build(PLANS.essentiel).execute(validInput());
 
-      expect(result).toEqual({ created: 1, skipped: 0 });
+      expect(result).toEqual({ created: 1, skipped: 0, unresolved: 0 });
       const invoice = await invoices.findByStudentMonth(CENTER, student, '2026-09');
       const lines = await invoices.listLines(invoice!.id);
       expect(lines).toHaveLength(2);
@@ -209,10 +209,10 @@ describe('GenerateMonthlyInvoices', () => {
       // generator, the way two separate app launches would each mint fresh ids.
       const job = build(PLANS.essentiel);
       const first = await job.execute(validInput());
-      expect(first).toEqual({ created: 2, skipped: 0 });
+      expect(first).toEqual({ created: 2, skipped: 0, unresolved: 0 });
 
       const second = await job.execute(validInput());
-      expect(second).toEqual({ created: 0, skipped: 2 });
+      expect(second).toEqual({ created: 0, skipped: 2, unresolved: 0 });
 
       expect(invoices.all().filter((i) => i.month === '2026-09')).toHaveLength(2);
     });
@@ -228,15 +228,31 @@ describe('GenerateMonthlyInvoices', () => {
       seedSubscription(subscriptions, { studentId: studentB, formulaId: formula.id });
 
       const result = await job.execute(validInput());
-      expect(result).toEqual({ created: 1, skipped: 1 });
+      expect(result).toEqual({ created: 1, skipped: 1, unresolved: 0 });
     });
   });
 
   describe('zero eligible students', () => {
-    it('returns { created: 0, skipped: 0 } when no subscription is active that month', async () => {
+    it('returns { created: 0, skipped: 0, unresolved: 0 } when no subscription is active that month', async () => {
       const result = await build(PLANS.essentiel).execute(validInput());
-      expect(result).toEqual({ created: 0, skipped: 0 });
+      expect(result).toEqual({ created: 0, skipped: 0, unresolved: 0 });
       expect(invoices.all()).toHaveLength(0);
+    });
+  });
+
+  describe('a subscription pointing at an unresolvable formula', () => {
+    it('counts the student as unresolved instead of creating or skipping an invoice', async () => {
+      const resolvableFormula = seedFormula(formulas);
+      const missingFormulaId = seedIds.next('fml') as FormulaId; // never saved to the repo
+      const resolvedStudent = 'stu_00000000000000000000000001' as StudentId;
+      const unresolvedStudent = 'stu_00000000000000000000000002' as StudentId;
+      seedSubscription(subscriptions, { studentId: resolvedStudent, formulaId: resolvableFormula.id });
+      seedSubscription(subscriptions, { studentId: unresolvedStudent, formulaId: missingFormulaId });
+
+      const result = await build(PLANS.essentiel).execute(validInput());
+
+      expect(result).toEqual({ created: 1, skipped: 0, unresolved: 1 });
+      expect(await invoices.findByStudentMonth(CENTER, unresolvedStudent, '2026-09')).toBeNull();
     });
   });
 
