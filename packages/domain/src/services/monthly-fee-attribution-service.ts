@@ -29,11 +29,14 @@ import { collectedLineAmounts } from '../policies/collected-fees';
  * session data, which this reads path never touches, keeping payroll
  * independent of whether a session actually happened. A subject with no
  * resolvable teacher (no matching live enrollment, or a group with no teacher
- * assigned yet) is dropped from that line's `subjectAssignments` — its share is
- * redistributed across the line's other resolved subjects rather than blocking
- * the whole line, since a center mid-way through staffing its groups must not
- * lose payroll for every other teacher. A line with zero resolvable subjects
- * is skipped entirely (never passed to the policy as an empty line).
+ * assigned yet) still gets an entry in that line's `subjectAssignments`, with
+ * `teacherId: null` — CLAUDE.md §6 step 2 splits equally across the formula's
+ * subjects, full stop, so an unstaffed subject's share stays unattributed
+ * rather than being redistributed onto whichever subjects happen to be
+ * staffed (SOU-74 M1: redistribution would silently inflate a staffed
+ * teacher's payout on a partially-staffed formula). A line with zero subjects
+ * at all (a formula with an empty `subjectIds`, which should never happen) is
+ * skipped entirely rather than passed to the policy as an empty line.
  */
 export class MonthlyFeeAttributionService {
   constructor(
@@ -97,7 +100,10 @@ export class MonthlyFeeAttributionService {
     const assignments: SubjectTeacherAssignment[] = [];
     for (const subjectId of subjectIds) {
       const group = enrolledGroups.find((g) => g !== null && g.subjectId === subjectId);
-      if (!group || group.teacherId === null) continue;
+      if (!group || group.teacherId === null) {
+        assignments.push({ subjectId, teacherId: null });
+        continue;
+      }
       // Group.teacherId is still the generic EntityId (SOU-48 predates the Teacher
       // entity, see entities/group.ts) — narrow it now that TeacherId exists.
       assignments.push({ subjectId, teacherId: group.teacherId as unknown as TeacherId });

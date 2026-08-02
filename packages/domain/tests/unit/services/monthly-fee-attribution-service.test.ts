@@ -225,7 +225,7 @@ describe('MonthlyFeeAttributionService', () => {
     expect(result.size).toBe(0);
   });
 
-  it('drops an unresolvable subject (no enrollment) and redistributes to the resolved one', async () => {
+  it('leaves an unresolvable subject unattributed rather than redistributing its share (SOU-74 M1)', async () => {
     // Student subscribes to Math + Physics but is only enrolled in the Math group.
     const mathGroup = seedGroup({ subjectId: MATH, teacherId: TEACHER_MATH as unknown as EntityId });
     seedEnrollment(STUDENT, mathGroup.id);
@@ -234,7 +234,7 @@ describe('MonthlyFeeAttributionService', () => {
 
     const result = await service.attributedAmountsByTeacher(CENTER, MONTH);
 
-    expect(result.get(TEACHER_MATH)).toBe(30000);
+    expect(result.get(TEACHER_MATH)).toBe(15000);
     expect(result.get(TEACHER_PHYSICS)).toBeUndefined();
   });
 
