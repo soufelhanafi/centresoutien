@@ -47,6 +47,14 @@ export function TeacherPayrollRuleForm({
   });
   const kind = useWatch({ control: form.control, name: 'kind' });
   const submit = form.handleSubmit(async (values) => {
+    // `minStartMonth` is a cross-field constraint (depends on the rule being
+    // replaced, not on `values` alone) that the schema can't express — the
+    // native `<input type="month" min>` is a UI hint only and does not block
+    // a typed-in or programmatically-set value, so it's re-checked here.
+    if (minStartMonth !== undefined && values.startMonth < minStartMonth) {
+      form.setError('startMonth', { message: 'start-month-too-early' });
+      return;
+    }
     // The resolver has already parsed `values` into the schema's output shape
     // (`endMonth` defaulted to `null`) by the time this callback runs — RHF's
     // typing doesn't distinguish a resolver's input/output generics, hence the cast.

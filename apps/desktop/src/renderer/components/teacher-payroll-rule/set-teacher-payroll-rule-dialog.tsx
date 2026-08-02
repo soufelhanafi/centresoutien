@@ -51,20 +51,26 @@ export function SetTeacherPayrollRuleDialog({
   // correct if that ever splits (mirrors the kind field's own per-flag gate).
   const defaultKind = activeRule?.kind ?? (fixedEnabled ? 'fixed-monthly' : 'percentage-of-monthly-fees');
 
+  // A replacement's earliest valid effective month is the month after the
+  // rule it replaces started (mirrors `minStartMonth` below) — defaulting to
+  // today's month here would pre-fill a value the close-and-reopen math can
+  // reject outright (a rule replaced the same month it started).
+  const defaultStartMonth = activeRule ? nextMonth(activeRule.startMonth) : currentMonth();
+
   const defaultValues: TeacherPayrollRuleInput =
     defaultKind === 'percentage-of-monthly-fees'
       ? {
           kind: 'percentage-of-monthly-fees',
           teacherId,
           percent: activeRule?.kind === 'percentage-of-monthly-fees' ? activeRule.percent : Number.NaN,
-          startMonth: currentMonth(),
+          startMonth: defaultStartMonth,
           endMonth: null,
         }
       : {
           kind: 'fixed-monthly',
           teacherId,
           amountMad: activeRule?.kind === 'fixed-monthly' ? activeRule.amountMad : Number.NaN,
-          startMonth: currentMonth(),
+          startMonth: defaultStartMonth,
           endMonth: null,
         };
 

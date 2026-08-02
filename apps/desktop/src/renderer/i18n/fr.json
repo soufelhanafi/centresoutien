@@ -95,6 +95,7 @@
     "invalid-price": "Le prix doit être un nombre entier positif",
     "invalid-amount": "Montant invalide.",
     "invalid-percent": "Pourcentage invalide (entre 0 et 100).",
+    "start-month-too-early": "Le mois d'effet doit être postérieur au début de la règle actuelle.",
     "too-many-active-payroll-rules": "Cet enseignant a déjà une règle de paie active sur cette période.",
     "teacher-payroll-rule-not-found": "Cette règle de paie est introuvable.",
     "teacher-not-found": "Cet enseignant est introuvable."

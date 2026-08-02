@@ -95,6 +95,7 @@
     "invalid-price": "يجب أن يكون السعر رقمًا صحيحًا موجبًا",
     "invalid-amount": "مبلغ غير صالح.",
     "invalid-percent": "نسبة غير صالحة (بين 0 و100).",
+    "start-month-too-early": "يجب أن يكون شهر السريان بعد بداية القاعدة الحالية.",
     "too-many-active-payroll-rules": "يملك هذا الأستاذ بالفعل قاعدة أجر نشطة خلال هذه الفترة.",
     "teacher-payroll-rule-not-found": "قاعدة الأجر هذه غير موجودة.",
     "teacher-not-found": "هذا الأستاذ غير موجود."

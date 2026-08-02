@@ -1,20 +1,28 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isPayrollRuleActiveInMonth } from '@centresoutien/domain';
 import { Button, EmptyState, LockOverlay, Skeleton } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
 import { useTeacherPayrollRules } from '../../hooks/teacher-payroll-rule/use-teacher-payroll-rules';
 import type { TeacherView } from '../../lib/teachers/teacher-view';
-import { currentMonth } from '../../lib/teacher-payroll-rules/month';
 import { TeacherPayrollRuleActiveCard } from './teacher-payroll-rule-active-card';
 import { TeacherPayrollRuleHistoryTable } from './teacher-payroll-rule-history-table';
 import { SetTeacherPayrollRuleDialog } from './set-teacher-payroll-rule-dialog';
 
 /**
  * The teacher detail Rule tab (SOU-72): Active section + History, split
- * client-side via `isPayrollRuleActiveInMonth` from one `teacherPayrollRule.list`
- * read — mirrors `FormulaListPanel`'s single-query, client-split pattern.
- * Locked with the standard overlay treatment on plans without `payroll.teacher`.
+ * client-side from one `teacherPayrollRule.list` read — mirrors
+ * `FormulaListPanel`'s single-query, client-split pattern. Locked with the
+ * standard overlay treatment on plans without `payroll.teacher`.
+ *
+ * "Active" is the rule with `endMonth === null` — the open-ended one, whether
+ * its `startMonth` is already past or still upcoming. The at-most-one-live
+ * overlap invariant (`payrollRuleRangesOverlap`) guarantees at most one
+ * open-ended rule exists at a time: creating a replacement always closes the
+ * prior one first (`SetTeacherPayrollRuleDialog`), so a currently-active rule
+ * and a not-yet-started replacement can never coexist as two "open" rows.
+ * Checking against the calendar month instead (`isPayrollRuleActiveInMonth`)
+ * would misfile a future-dated replacement into History, since it isn't
+ * active *this* month yet.
  */
 export function TeacherPayrollRuleTab({ teacher }: { teacher: TeacherView }) {
   const { t } = useTranslation();
@@ -61,9 +69,8 @@ export function TeacherPayrollRuleTab({ teacher }: { teacher: TeacherView }) {
     );
   }
 
-  const month = currentMonth();
-  const activeRule = query.data.find((rule) => isPayrollRuleActiveInMonth(rule, month)) ?? null;
-  const history = query.data.filter((rule) => rule.id !== activeRule?.id);
+  const activeRule = query.data.find((rule) => rule.endMonth === null) ?? null;
+  const history = query.data.filter((rule) => rule.endMonth !== null);
 
   return (
     <div className="mt-4 flex flex-col gap-6">
