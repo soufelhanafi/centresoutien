@@ -350,7 +350,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // restore verify/swap path use it unchanged until then.
   const backupConfigStore = new SqliteBackupConfigStore(db);
   const backupAdapter = new SqliteBackupAdapter(db, options.key, ids);
-  const createBackup = new CreateBackup(backupAdapter);
+  const createBackup = new CreateBackup(backupAdapter, backupConfigStore);
   const getBackupConfig = new GetBackupConfig(backupConfigStore);
   const saveBackupConfig = new SaveBackupConfig(backupConfigStore);
   const restoreBackup = new RestoreBackup(backupAdapter);

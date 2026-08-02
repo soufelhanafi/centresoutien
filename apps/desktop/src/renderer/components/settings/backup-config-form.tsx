@@ -52,7 +52,10 @@ export function BackupConfigForm({ config }: BackupConfigFormProps) {
     const destDir = form.getValues('destinationDir');
     try {
       const { file } = await createBackup.mutateAsync({ destDir });
-      toast.success(t('settings.backup.createSuccess', { fileName: file.fileName }));
+      const createdAt = new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }).format(
+        new Date(file.createdAt),
+      );
+      toast.success(t('settings.backup.createSuccess', { date: createdAt }));
     } catch {
       toast.error(t('settings.backup.createError'));
     }
@@ -76,7 +79,12 @@ export function BackupConfigForm({ config }: BackupConfigFormProps) {
               <FormLabel>{t('settings.backup.destinationLabel')}</FormLabel>
               <div className="flex items-center gap-2">
                 <FormControl>
-                  <Input readOnly value={field.value} placeholder={t('settings.backup.destinationPlaceholder')} />
+                  <Input
+                    readOnly
+                    dir="ltr"
+                    value={field.value}
+                    placeholder={t('settings.backup.destinationPlaceholder')}
+                  />
                 </FormControl>
                 <Button type="button" variant="outline" onClick={onPickFolder}>
                   <FolderOpen className="size-4" aria-hidden="true" />
@@ -109,9 +117,7 @@ export function BackupConfigForm({ config }: BackupConfigFormProps) {
           )}
         />
 
-        <p className="text-xs text-muted-foreground">
-          {t('settings.backup.lastRunLabel')} {lastBackupAt}
-        </p>
+        <p className="text-xs text-muted-foreground">{t('settings.backup.lastRunLabel', { date: lastBackupAt })}</p>
 
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={saveConfig.isPending}>

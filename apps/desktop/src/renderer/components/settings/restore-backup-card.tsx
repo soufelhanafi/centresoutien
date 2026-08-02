@@ -72,7 +72,11 @@ export function RestoreBackupCard() {
           {t('settings.backup.restorePick')}
         </Button>
 
-        {selectedPath && <p className="break-all text-sm text-muted-foreground">{selectedPath}</p>}
+        {selectedPath && (
+          <p dir="ltr" className="break-all text-sm text-muted-foreground">
+            {selectedPath}
+          </p>
+        )}
 
         <Button
           type="button"

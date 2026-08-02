@@ -2,6 +2,7 @@ import type { BackupPort } from '../ports/backup-port';
 import type { BackupConfigStore } from '../ports/backup-config-store';
 import type { Clock } from '../ports/clock';
 import type { CenterCode } from '../value-objects/ids';
+import { pruneBackupsToRetention } from './prune-backups-to-retention';
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -37,12 +38,7 @@ export class RunScheduledBackup {
 
     const destDir = cfg.destinationDir;
     await this.backups.create({ destDir, centerCode: input.centerCode });
-
-    const files = await this.backups.list({ destDir, centerCode: input.centerCode });
-    for (const stale of files.slice(cfg.retentionCount)) {
-      await this.backups.remove(stale.path);
-    }
-
+    await pruneBackupsToRetention(this.backups, destDir, input.centerCode, cfg.retentionCount);
     await this.config.recordBackupRun(this.clock.now());
   }
 }
