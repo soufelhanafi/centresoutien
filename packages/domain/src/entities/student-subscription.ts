@@ -3,6 +3,7 @@ import type { EntityEnvelope } from './envelope';
 import type { StudentId } from './student';
 import type { SubjectId } from './subject';
 import type { GroupKind } from './group';
+import type { FormulaId } from './formula';
 
 /**
  * ULID id prefix for student subscriptions: `sbs_01HW…`.
@@ -16,28 +17,17 @@ export const STUDENT_SUBSCRIPTION_ID_PREFIX = 'sbs';
 
 export type StudentSubscriptionId = Brand<string, 'StudentSubscriptionId'>;
 
-/** ULID id prefix for formulas: `fml_01HW…`. */
-export const FORMULA_ID_PREFIX = 'fml';
-
-/**
- * An **opaque** reference to a Formula. The `Formula` entity does not exist in the
- * codebase yet (SOU-63 must not create one). A subscription only ever holds the id
- * as a provenance breadcrumb — every question the domain asks ("is this student
- * covered for subject X in month M, and on which track?") is answered from the
- * subscription's own frozen snapshot, never by dereferencing this id.
- */
-export type FormulaId = Brand<string, 'FormulaId'>;
-
 /**
  * A student's subscription to a Formula — the priced bundle they pay for monthly
  * (CLAUDE.md §7). Invoicing is per active subscription, never per group/session.
  *
- * **Frozen formula snapshot.** The subscription stores `formulaId` (an opaque ref)
- * PLUS a snapshot of the formula's `kind` and `subjectIds`, captured at creation.
- * Formulas are immutable-after-use and a price/subject change spawns a *new*
- * formula; freezing the snapshot here means coverage is answerable from the
- * subscription alone and old subscriptions keep their historical bundle forever —
- * no join to a mutable formula, deterministic under sync.
+ * **Frozen formula snapshot.** The subscription stores `formulaId` (a provenance
+ * reference — {@link FormulaId}, `entities/formula.ts`) PLUS a snapshot of the
+ * formula's `kind` and `subjectIds`, captured at creation. Formulas are
+ * immutable-after-use and a price/subject change spawns a *new* formula; freezing
+ * the snapshot here means coverage is answerable from the subscription alone and
+ * old subscriptions keep their historical bundle forever — no join to a mutable
+ * formula, deterministic under sync.
  *
  * **Derived status, never stored.** There is no `status` field. A subscription is
  * "active for month M" iff `startMonth <= M AND (endMonth === null OR M <= endMonth)`

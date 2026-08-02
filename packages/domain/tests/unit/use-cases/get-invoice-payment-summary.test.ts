@@ -9,6 +9,7 @@ import { InvoiceNotFoundError } from '../../../src/errors/invoice-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Invoice, InvoiceId } from '../../../src/entities/invoice';
 import type { InvoiceLine, InvoiceLineId } from '../../../src/entities/invoice-line';
+import type { FormulaId } from '../../../src/entities/formula';
 import type { StudentId } from '../../../src/entities/student';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryInvoiceRepository } from '../fakes/in-memory-invoice-repository';
@@ -45,7 +46,7 @@ function makeLine(amountMad: number): InvoiceLine {
     id: `invl_${String(lineSeq).padStart(26, '0')}` as InvoiceLineId,
     ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, seedClock),
     invoiceId: INVOICE,
-    formulaId: 'for_00000000000000000000000009',
+    formulaId: 'fml_00000000000000000000000009' as FormulaId,
     label: { fr: 'Math', ar: 'رياضيات' },
     kind: 'regular',
     amountMad,
