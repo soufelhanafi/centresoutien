@@ -873,6 +873,9 @@ export type GroupRosterEntryDto = z.infer<typeof groupRosterEntrySchema>;
 /** The StudentSubscription boundary DTO — the renderer's `SubscriptionView` aliases this. */
 export type SubscriptionDto = z.infer<typeof subscriptionViewSchema>;
 
+/** The Formula boundary DTO — the renderer's `FormulaView` aliases this. */
+export type FormulaDto = z.infer<typeof formulaViewSchema>;
+
 /** The Payment boundary DTO — the renderer's `PaymentView` is an alias of this. */
 export type PaymentDto = z.infer<typeof paymentViewSchema>;
 
@@ -884,9 +887,6 @@ export type TeacherDto = z.infer<typeof teacherViewSchema>;
 
 /** The Holiday boundary DTO — the renderer's `HolidayView` is an alias of this. */
 export type HolidayDto = z.infer<typeof holidayViewSchema>;
-
-/** The Formula boundary DTO — the renderer's `FormulaView` is an alias of this. */
-export type FormulaDto = z.infer<typeof formulaViewSchema>;
 
 /** The weekly-session boundary DTO — the renderer's `WeeklySessionView` aliases this. */
 export type WeeklySessionDto = z.infer<typeof weeklySessionViewSchema>;

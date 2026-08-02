@@ -632,11 +632,45 @@
       "unlinkError": "La suppression du lien a échoué. Réessayez.",
       "loadError": "Le chargement des responsables a échoué."
     },
-    "comingSoon": {
-      "enrollment": {
-        "title": "Inscriptions bientôt disponibles",
-        "body": "Les abonnements de l'élève aux formules apparaîtront ici."
+    "subscription": {
+      "loadError": "Le chargement des abonnements a échoué.",
+      "active": {
+        "changeCta": "Changer de formule",
+        "subscribeCta": "Souscrire",
+        "since": "Depuis {{month}}",
+        "empty": "Aucun abonnement actif."
       },
+      "history": {
+        "heading": "Historique",
+        "empty": "Aucun historique pour l'instant.",
+        "since": "À partir de {{month}}",
+        "table": {
+          "kind": "Type",
+          "formula": "Formule",
+          "period": "Période"
+        }
+      },
+      "wizard": {
+        "changeTitle": "Changer de formule",
+        "changeDescription": "Clôturez l'abonnement actuel, puis choisissez la nouvelle formule.",
+        "subscribeTitle": "Nouvel abonnement",
+        "subscribeDescription": "Choisissez une formule pour cet élève.",
+        "currentFormulaLabel": "Formule actuelle",
+        "endMonthLabel": "Mois de fin",
+        "formulaLabel": "Nouvelle formule",
+        "formulaPlaceholder": "Choisir une formule",
+        "noFormulas": "Aucune formule active. Créez-en une dans les paramètres.",
+        "startMonthLabel": "Mois de début",
+        "cancel": "Annuler",
+        "confirm": "Confirmer",
+        "confirming": "Enregistrement…",
+        "success": "Abonnement mis à jour",
+        "closeError": "La clôture de l'abonnement a échoué. Réessayez.",
+        "createError": "La souscription a échoué. Réessayez.",
+        "createAfterCloseError": "L'abonnement précédent a été clôturé, mais la nouvelle souscription a échoué. Réessayez depuis cet onglet."
+      }
+    },
+    "comingSoon": {
       "invoices": {
         "title": "Factures bientôt disponibles",
         "body": "L'historique de facturation de l'élève apparaîtra ici."
