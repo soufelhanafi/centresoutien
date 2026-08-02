@@ -6,6 +6,8 @@ import type {
   InvoiceLineId,
   InvoiceRepository,
   InvoiceStatus,
+  InvoiceListRow,
+  InvoiceListFilters,
   CenterCode,
   DeviceId,
   FormulaId,
@@ -242,6 +244,77 @@ export class SqliteInvoiceRepository implements InvoiceRepository {
       .prepare('SELECT * FROM invoice_lines WHERE updated_at > ? ORDER BY updated_at')
       .all(cursor.toISOString()) as InvoiceLineRow[];
     return rows.map(lineFromRow);
+  }
+
+  // Two queries total, never one per invoice: the header query joins two grouped
+  // subqueries (line total, net paid) so totalMad/netPaidMad ride along with each
+  // header row; a second batched IN(...) query then fetches every matched
+  // invoice's lines in one round trip. Mirrors the anti-N+1 shape of
+  // `ListGroupsWithCounts`'s batch count read.
+  async listInvoices(
+    centerCode: CenterCode,
+    filters: InvoiceListFilters,
+  ): Promise<readonly InvoiceListRow[]> {
+    const conditions = ['i.center_code = @center_code', 'i.deleted_at IS NULL'];
+    const params: Record<string, string> = { center_code: centerCode };
+    if (filters.month !== undefined) {
+      conditions.push('i.month = @month');
+      params['month'] = filters.month;
+    }
+    if (filters.studentId !== undefined) {
+      conditions.push('i.student_id = @student_id');
+      params['student_id'] = filters.studentId;
+    }
+    if (filters.invoiceId !== undefined) {
+      conditions.push('i.id = @invoice_id');
+      params['invoice_id'] = filters.invoiceId;
+    }
+
+    const headerRows = this.db
+      .prepare(
+        `SELECT i.*, COALESCE(lt.total_mad, 0) AS total_mad, COALESCE(pt.net_paid_mad, 0) AS net_paid_mad
+         FROM invoices i
+         LEFT JOIN (
+           SELECT invoice_id, SUM(amount_mad) AS total_mad
+           FROM invoice_lines
+           WHERE deleted_at IS NULL
+           GROUP BY invoice_id
+         ) lt ON lt.invoice_id = i.id
+         LEFT JOIN (
+           SELECT invoice_id,
+                  SUM(CASE WHEN kind = 'reversal' THEN -amount_mad ELSE amount_mad END) AS net_paid_mad
+           FROM payments
+           WHERE deleted_at IS NULL
+           GROUP BY invoice_id
+         ) pt ON pt.invoice_id = i.id
+         WHERE ${conditions.join(' AND ')}
+         ORDER BY i.month DESC, i.created_at DESC`,
+      )
+      .all(params) as (InvoiceRow & { total_mad: number; net_paid_mad: number })[];
+
+    if (headerRows.length === 0) return [];
+
+    const placeholders = headerRows.map(() => '?').join(', ');
+    const lineRows = this.db
+      .prepare(
+        `SELECT * FROM invoice_lines WHERE invoice_id IN (${placeholders}) AND deleted_at IS NULL ORDER BY invoice_id, id`,
+      )
+      .all(...headerRows.map((row) => row.id)) as InvoiceLineRow[];
+
+    const linesByInvoice = new Map<string, InvoiceLine[]>();
+    for (const lineRow of lineRows) {
+      const line = lineFromRow(lineRow);
+      const forInvoice = linesByInvoice.get(lineRow.invoice_id);
+      if (forInvoice) forInvoice.push(line);
+      else linesByInvoice.set(lineRow.invoice_id, [line]);
+    }
+
+    return headerRows.map((row) => ({
+      invoice: invoiceFromRow(row),
+      lines: linesByInvoice.get(row.id) ?? [],
+      totalMad: row.total_mad,
+      netPaidMad: row.net_paid_mad,
+    }));
   }
 
   async listByCenterMonth(centerCode: CenterCode, month: string): Promise<readonly Invoice[]> {

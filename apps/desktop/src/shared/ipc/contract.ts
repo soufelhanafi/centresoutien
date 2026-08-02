@@ -254,6 +254,38 @@ const holidayViewSchema = z.object({
 // Single source of truth for the renderer's `WeeklySessionView` type.
 const bilingualTextSchema = z.object({ fr: z.string(), ar: z.string() });
 
+// One line of the invoice list/detail read model (SOU-69) — the frozen billed
+// snapshot (bilingual label, kind, amount), envelope stripped like every other
+// view. Mirrors `invoiceLineSnapshotSchema`'s shape but is a read DTO, not an
+// input schema (no formula-id-prefix `.refine`).
+const invoiceLineViewSchema = z.object({
+  id: z.string(),
+  formulaId: z.string(),
+  label: bilingualTextSchema,
+  kind: z.enum(['regular', 'exam-prep']),
+  amountMad: z.number().int().nonnegative(),
+});
+
+// The invoice list/detail read model across the IPC boundary (SOU-69): the
+// header (envelope stripped, dates serialized), its lines, and the same
+// total/netPaid/outstanding/derived-status shape as `invoicePaymentSummarySchema`
+// — one call backs both the filterable list screen and a single-invoice detail
+// fetch (`invoice.list` with `invoiceId` set). Cancelled invoices are included,
+// never hidden; the renderer badges them by `status`. Single source of truth
+// for the renderer's `InvoiceListItemView` type.
+const invoiceListItemViewSchema = z.object({
+  id: z.string(),
+  studentId: z.string(),
+  month: z.string(),
+  status: z.enum(['draft', 'issued', 'cancelled']),
+  issuedAt: z.string().nullable(),
+  lines: z.array(invoiceLineViewSchema),
+  totalMad: z.number().int(),
+  netPaidMad: z.number().int(),
+  outstandingMad: z.number().int().nonnegative(),
+  paymentStatus: paymentStatusSchema,
+});
+
 const weeklySessionViewSchema = z.object({
   id: z.string(),
   dayOfWeek: z.number().int().min(0).max(6),
@@ -637,8 +669,8 @@ export const ipcContract = {
   // students, both derived from `CreateInvoiceDraft`'s own duplicate guard, not a
   // separate check; `unresolved` counts students whose subscription(s) pointed at
   // a formula that couldn't be resolved (defensive — not reachable through any
-  // shipped use case today) and so got no invoice at all. Invoice list/detail/print
-  // (SOU-69) and `issue`/`cancel` channels are out of scope here. centerCode/device/
+  // shipped use case today) and so got no invoice at all. `issue`/`cancel`
+  // channels remain out of scope (KICKOFF, SOU-69). centerCode/device/
   // user are injected in main, never sent from the renderer. Gated by
   // `core.invoicing` (every plan).
   'invoice.generateMonthly': {
@@ -648,6 +680,36 @@ export const ipcContract = {
       skipped: z.number().int(),
       unresolved: z.number().int(),
     }),
+  },
+  // Invoice list/detail/print/export (SOU-69). `list` returns every live invoice
+  // matching the optional structural filters (`month` / `studentId`) plus the
+  // derived `paymentStatus` filter (unpaid/partially-paid/paid — NOT the
+  // lifecycle `status`, which is never filtered, only badged); passing
+  // `invoiceId` alone resolves the single-invoice detail fetch. Cancelled
+  // invoices are included, never hidden. `print` renders the same `pdf-lib`
+  // document as `export` (KICKOFF: never `printToPDF`) and opens it in the
+  // OS's default PDF viewer; `export` lets the user pick a save location and
+  // returns the chosen path, or null if the save dialog was cancelled.
+  // `locale` picks the PDF's language/direction — independent of the app's
+  // active UI locale, since a center may want to print a French copy while
+  // running the app in Arabic (or vice versa). centerCode is injected in
+  // main, never sent from the renderer. Gated by `core.invoicing`.
+  'invoice.list': {
+    request: z.object({
+      month: z.string().optional(),
+      studentId: z.string().optional(),
+      invoiceId: z.string().optional(),
+      paymentStatus: paymentStatusSchema.optional(),
+    }),
+    response: z.object({ invoices: z.array(invoiceListItemViewSchema) }),
+  },
+  'invoice.print': {
+    request: z.object({ invoiceId: z.string(), locale: z.enum(['fr', 'ar']) }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'invoice.export': {
+    request: z.object({ invoiceId: z.string(), locale: z.enum(['fr', 'ar']) }),
+    response: z.object({ savedPath: z.string().nullable() }),
   },
   // Enrollments (SOU-121/123 domain; SQLite adapter + wiring is SOU-126). `create`
   // takes the domain's own `enrollmentInputSchema` (prefixed student/group ids,
@@ -976,6 +1038,9 @@ export type PaymentDto = z.infer<typeof paymentViewSchema>;
 
 /** The invoice payment summary DTO — the renderer's `InvoicePaymentSummaryView` aliases this. */
 export type InvoicePaymentSummaryDto = z.infer<typeof invoicePaymentSummarySchema>;
+
+/** The invoice list/detail DTO — the renderer's `InvoiceListItemView` aliases this. */
+export type InvoiceListItemDto = z.infer<typeof invoiceListItemViewSchema>;
 
 /** The Teacher boundary DTO — the renderer's `TeacherView` is an alias of this. */
 export type TeacherDto = z.infer<typeof teacherViewSchema>;
