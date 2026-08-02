@@ -96,7 +96,13 @@
     "formula-subject-not-found": "Une matière de cette formule est introuvable",
     "formula-subject-inactive": "Une matière de cette formule a été désactivée",
     "subjects-required": "Sélectionnez au moins une matière",
-    "invalid-price": "Le prix doit être un nombre entier positif"
+    "invalid-price": "Le prix doit être un nombre entier positif",
+    "invalid-amount": "Montant invalide.",
+    "invalid-percent": "Pourcentage invalide (entre 0 et 100).",
+    "start-month-too-early": "Le mois d'effet doit être postérieur au début de la règle actuelle.",
+    "too-many-active-payroll-rules": "Cet enseignant a déjà une règle de paie active sur cette période.",
+    "teacher-payroll-rule-not-found": "Cette règle de paie est introuvable.",
+    "teacher-not-found": "Cet enseignant est introuvable."
   },
   "groups": {
     "title": "Groupes",
@@ -800,6 +806,54 @@
         },
         "inactive": "(inactive)",
         "unknown": "Matière inconnue"
+      },
+      "payroll": {
+        "lockedBody": "Définissez comment cet enseignant est payé chaque mois : montant fixe ou pourcentage des frais qui lui sont attribués.",
+        "loadError": {
+          "title": "Impossible de charger les règles de paie",
+          "body": "Le chargement a échoué.",
+          "retry": "Réessayer"
+        },
+        "active": {
+          "title": "Règle active",
+          "since": "En vigueur depuis {{month}}",
+          "change": "Modifier la règle",
+          "fixedAmount": "Montant fixe mensuel",
+          "percentageAmount": "Pourcentage des frais attribués",
+          "empty": {
+            "title": "Aucune règle de paie",
+            "body": "Définissez une règle pour que cet enseignant apparaisse dans les versements mensuels.",
+            "cta": "Définir une règle"
+          }
+        },
+        "history": {
+          "title": "Historique",
+          "empty": "Aucune règle antérieure.",
+          "period": "Période",
+          "amount": "Montant",
+          "kind": "Type"
+        },
+        "kind": {
+          "fixedMonthly": "Montant fixe",
+          "percentageOfMonthlyFees": "Pourcentage des frais"
+        },
+        "form": {
+          "createTitle": "Définir une règle de paie",
+          "createDescription": "Choisissez comment cet enseignant sera payé chaque mois.",
+          "changeTitle": "Modifier la règle de paie",
+          "changeDescription": "La règle actuelle sera close et la nouvelle prendra effet au mois choisi.",
+          "kind": "Type de règle",
+          "amount": "Montant mensuel (MAD)",
+          "percent": "Pourcentage (%)",
+          "startMonth": "Mois d'effet",
+          "cancel": "Annuler",
+          "create": "Définir la règle",
+          "save": "Enregistrer",
+          "saving": "Enregistrement…",
+          "createSuccess": "Règle enregistrée",
+          "changeSuccess": "Règle mise à jour",
+          "error": "L'enregistrement a échoué. Réessayez."
+        }
       }
     },
     "info": {
@@ -814,10 +868,6 @@
       "groups": {
         "title": "Groupes bientôt disponibles",
         "body": "Les groupes animés par cet enseignant apparaîtront ici."
-      },
-      "payroll": {
-        "title": "Rémunération bientôt disponible",
-        "body": "Les règles de paie et les versements de cet enseignant apparaîtront ici."
       }
     }
   },

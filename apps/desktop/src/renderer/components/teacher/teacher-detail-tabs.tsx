@@ -1,15 +1,16 @@
 import { useTranslation } from 'react-i18next';
-import { Boxes, HandCoins } from 'lucide-react';
+import { Boxes } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import type { TeacherView } from '../../lib/teachers/teacher-view';
 import { TeacherInfoTab } from './teacher-info-tab';
 import { TeacherSubjectsTab } from './teacher-subjects-tab';
 import { ComingSoonTab } from './coming-soon-tab';
+import { TeacherPayrollRuleTab } from '../teacher-payroll-rule/teacher-payroll-rule-tab';
 
 /**
- * The four-tab teacher detail surface. Info and Subjects are live (Subjects via
- * `subject.list`, SOU-124); Groups and Payroll are shells until their domains are
- * wired to the renderer (Groups is SOU-48; Payroll is the Pro+ payroll module).
+ * The four-tab teacher detail surface. Info, Subjects (via `subject.list`,
+ * SOU-124), and Rule (via `teacherPayrollRule.*`, SOU-72) are live. Groups is a
+ * shell until its domain is wired to the renderer (SOU-48).
  */
 export function TeacherDetailTabs({ teacher }: { teacher: TeacherView }) {
   const { t } = useTranslation();
@@ -38,11 +39,7 @@ export function TeacherDetailTabs({ teacher }: { teacher: TeacherView }) {
         />
       </TabsContent>
       <TabsContent value="payroll">
-        <ComingSoonTab
-          icon={<HandCoins className={iconClass} aria-hidden="true" />}
-          title={t('teachers.comingSoon.payroll.title')}
-          body={t('teachers.comingSoon.payroll.body')}
-        />
+        <TeacherPayrollRuleTab teacher={teacher} />
       </TabsContent>
     </Tabs>
   );

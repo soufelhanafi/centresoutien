@@ -82,6 +82,7 @@ import {
   RunScheduledBackup,
   CreateTeacherPayrollRule,
   CloseTeacherPayrollRule,
+  ListTeacherPayrollRulesByTeacher,
   CreateInvoiceDraft,
   GenerateMonthlyInvoices,
 } from '@centresoutien/domain';
@@ -166,14 +167,6 @@ export type Container = {
    * persistence + IPC. Nothing consumes it yet on this branch.
    */
   subscriptionReference: StudentSubscriptionReferencePort;
-  /**
-   * The two payroll-rule use cases (SOU-70), wired here for the first time
-   * (SOU-71) so the CRUD UI ticket (SOU-72) can register their IPC routes
-   * without touching this file. Not yet exposed through `HandlerDeps` /
-   * `createHandlers` — no route consumes them on this branch.
-   */
-  createTeacherPayrollRule: CreateTeacherPayrollRule;
-  closeTeacherPayrollRule: CloseTeacherPayrollRule;
   /** Read once, synchronously, before the window opens — see `LocalePreferenceStore`. */
   readLocalePreference: () => LocalePreference | null;
   dispose: () => void;
@@ -355,12 +348,12 @@ export function buildContainer(options: ContainerOptions): Container {
   const archiveTeacher = new ArchiveTeacher(teacherRepo, teacherReference, clock, plan);
   const restoreTeacher = new RestoreTeacher(teacherRepo, clock, plan);
 
-  // Payroll rule persistence (SOU-71): the domain (SOU-70) and its port shipped
-  // first, unwired. This constructs the real SQLite-backed repo and the two
-  // use cases against it — createTeacherPayrollRule enforces
-  // TooManyActivePayrollRulesError via payrollRuleRepo.listLiveByTeacher;
-  // closeTeacherPayrollRule caps a live rule's endMonth. IPC wiring lands with
-  // the CRUD UI (SOU-72).
+  // Payroll rule persistence (SOU-71) + the Rule tab's IPC surface (SOU-72):
+  // createTeacherPayrollRule enforces TooManyActivePayrollRulesError via
+  // payrollRuleRepo.listLiveByTeacher; closeTeacherPayrollRule caps a live
+  // rule's endMonth; listTeacherPayrollRulesByTeacher backs the Active/History
+  // split, resolving the teacher first so a foreign-center id can never
+  // enumerate another tenant's rules.
   const payrollRuleRepo = new SqliteTeacherPayrollRuleRepository(db);
   const createTeacherPayrollRule = new CreateTeacherPayrollRule(
     payrollRuleRepo,
@@ -370,6 +363,11 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
   const closeTeacherPayrollRule = new CloseTeacherPayrollRule(payrollRuleRepo, clock, plan);
+  const listTeacherPayrollRulesByTeacher = new ListTeacherPayrollRulesByTeacher(
+    payrollRuleRepo,
+    teacherRepo,
+    plan,
+  );
 
   const holidayRepo = new SqliteHolidayRepository(db);
   const createHoliday = new CreateHoliday(holidayRepo, clock, ids, plan);
@@ -520,6 +518,9 @@ export function buildContainer(options: ContainerOptions): Container {
     updateTeacher,
     archiveTeacher,
     restoreTeacher,
+    createTeacherPayrollRule,
+    closeTeacherPayrollRule,
+    listTeacherPayrollRulesByTeacher,
     createHoliday,
     listHolidays,
     updateHoliday,
@@ -557,8 +558,6 @@ export function buildContainer(options: ContainerOptions): Container {
   return {
     handlerDeps,
     subscriptionReference,
-    createTeacherPayrollRule,
-    closeTeacherPayrollRule,
     readLocalePreference: () => localePreferences.read(),
     // `db.open` guards against a double-close: a successful restore (SOU-102)
     // already closed this handle as part of its file swap, and `will-quit`

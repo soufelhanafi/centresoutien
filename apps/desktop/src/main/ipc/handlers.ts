@@ -72,6 +72,11 @@ import type {
   RestoreTeacher,
   Teacher,
   TeacherId,
+  CreateTeacherPayrollRule,
+  CloseTeacherPayrollRule,
+  ListTeacherPayrollRulesByTeacher,
+  TeacherPayrollRule,
+  TeacherPayrollRuleId,
   CreateHoliday,
   ListHolidays,
   UpdateHoliday,
@@ -169,6 +174,9 @@ export type GetTeacherUseCase = Pick<GetTeacher, 'execute'>;
 export type UpdateTeacherUseCase = Pick<UpdateTeacher, 'execute'>;
 export type ArchiveTeacherUseCase = Pick<ArchiveTeacher, 'execute'>;
 export type RestoreTeacherUseCase = Pick<RestoreTeacher, 'execute'>;
+export type CreateTeacherPayrollRuleUseCase = Pick<CreateTeacherPayrollRule, 'execute'>;
+export type CloseTeacherPayrollRuleUseCase = Pick<CloseTeacherPayrollRule, 'execute'>;
+export type ListTeacherPayrollRulesByTeacherUseCase = Pick<ListTeacherPayrollRulesByTeacher, 'execute'>;
 export type CreateHolidayUseCase = Pick<CreateHoliday, 'execute'>;
 export type ListHolidaysUseCase = Pick<ListHolidays, 'execute'>;
 export type UpdateHolidayUseCase = Pick<UpdateHoliday, 'execute'>;
@@ -383,6 +391,29 @@ function toTeacherView(teacher: Teacher) {
   };
 }
 
+/** Project a TeacherPayrollRule to its boundary DTO: envelope stripped. No
+ *  `archived` field — `listLiveByTeacher` only ever returns live rows, and the
+ *  renderer derives active/history from `startMonth`/`endMonth`, not a tombstone. */
+function toTeacherPayrollRuleView(rule: TeacherPayrollRule) {
+  return rule.kind === 'fixed-monthly'
+    ? {
+        id: rule.id,
+        teacherId: rule.teacherId,
+        kind: rule.kind,
+        amountMad: rule.amountMad,
+        startMonth: rule.startMonth,
+        endMonth: rule.endMonth,
+      }
+    : {
+        id: rule.id,
+        teacherId: rule.teacherId,
+        kind: rule.kind,
+        percent: rule.percent,
+        startMonth: rule.startMonth,
+        endMonth: rule.endMonth,
+      };
+}
+
 /** Project a Holiday to its boundary DTO: envelope stripped, dates serialized,
  *  `archived` derived from the soft-delete tombstone. `affectsInvoicing` (an
  *  always-false invariant) never crosses the boundary. */
@@ -501,6 +532,9 @@ export type HandlerDeps = BackupHandlerDeps & {
   updateTeacher: UpdateTeacherUseCase;
   archiveTeacher: ArchiveTeacherUseCase;
   restoreTeacher: RestoreTeacherUseCase;
+  createTeacherPayrollRule: CreateTeacherPayrollRuleUseCase;
+  closeTeacherPayrollRule: CloseTeacherPayrollRuleUseCase;
+  listTeacherPayrollRulesByTeacher: ListTeacherPayrollRulesByTeacherUseCase;
   createHoliday: CreateHolidayUseCase;
   listHolidays: ListHolidaysUseCase;
   updateHoliday: UpdateHolidayUseCase;
@@ -951,6 +985,30 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         updatedBy,
       });
       return { teacher: toTeacherView(teacher) };
+    },
+    'teacherPayrollRule.create': async (request) => {
+      const rule = await deps.createTeacherPayrollRule.execute({
+        ...request,
+        ...deps.envelopeContext(),
+      });
+      return { id: rule.id };
+    },
+    'teacherPayrollRule.close': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const rule = await deps.closeTeacherPayrollRule.execute({
+        centerCode,
+        ruleId: request.ruleId as TeacherPayrollRuleId,
+        endMonth: request.endMonth,
+        updatedBy,
+      });
+      return { rule: toTeacherPayrollRuleView(rule) };
+    },
+    'teacherPayrollRule.list': async (request) => {
+      const rules = await deps.listTeacherPayrollRulesByTeacher.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        teacherId: request.teacherId as TeacherId,
+      });
+      return { rules: rules.map(toTeacherPayrollRuleView) };
     },
     'holiday.create': async (request) => {
       const holiday = await deps.createHoliday.execute({ ...request, ...deps.envelopeContext() });
