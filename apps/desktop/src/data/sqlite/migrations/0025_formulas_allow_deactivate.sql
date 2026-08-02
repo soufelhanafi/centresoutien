@@ -1,4 +1,4 @@
--- 0024_formulas_allow_deactivate.sql
+-- 0025_formulas_allow_deactivate.sql
 -- What: narrows trg_formulas_immutable_guard (0023) so it allows exactly one
 --       write against an immutable formula — flipping `active` from 1 to 0 with
 --       every other column unchanged — instead of rejecting every UPDATE.

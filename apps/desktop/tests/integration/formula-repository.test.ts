@@ -233,7 +233,7 @@ describe('SqliteFormulaRepository', () => {
       ).rejects.toThrow();
     });
 
-    it('(0024) allows repository save() to flip active 1 -> 0 on an immutable formula and nothing else', async () => {
+    it('(0025) allows repository save() to flip active 1 -> 0 on an immutable formula and nothing else', async () => {
       await repo.save(makeFormula({ active: true }));
       insertInvoiceLine(db, 'invl_00000000000000000000000001', 'fml_00000000000000000000000001');
 
@@ -248,7 +248,7 @@ describe('SqliteFormulaRepository', () => {
       expect(found?.version).toBe(1);
     });
 
-    it('(0024) still rejects a save() that bundles a content change with the active flip', async () => {
+    it('(0025) still rejects a save() that bundles a content change with the active flip', async () => {
       await repo.save(makeFormula({ active: true }));
       insertInvoiceLine(db, 'invl_00000000000000000000000001', 'fml_00000000000000000000000001');
 
@@ -257,7 +257,7 @@ describe('SqliteFormulaRepository', () => {
       ).rejects.toThrow();
     });
 
-    it('(0024) still rejects reactivating an immutable formula (0 -> 1)', async () => {
+    it('(0025) still rejects reactivating an immutable formula (0 -> 1)', async () => {
       await repo.save(makeFormula({ active: false }));
       insertInvoiceLine(db, 'invl_00000000000000000000000001', 'fml_00000000000000000000000001');
 
@@ -266,7 +266,7 @@ describe('SqliteFormulaRepository', () => {
       ).rejects.toThrow();
     });
 
-    it('(0024) still rejects a save() that is a no-op replay of an already-active immutable row', async () => {
+    it('(0025) still rejects a save() that is a no-op replay of an already-active immutable row', async () => {
       await repo.save(makeFormula({ active: true }));
       insertInvoiceLine(db, 'invl_00000000000000000000000001', 'fml_00000000000000000000000001');
 
@@ -378,8 +378,8 @@ describe('SqliteFormulaRepository', () => {
       }
     });
 
-    it('applies 0024 cleanly on a DB already migrated to 0023, and the redefined guard still allows only the deactivate write', async () => {
-      const fresh = mkdtempSync(join(tmpdir(), 'cs-fml-replay24-'));
+    it('applies 0025 cleanly on a DB already migrated to 0023, and the redefined guard still allows only the deactivate write', async () => {
+      const fresh = mkdtempSync(join(tmpdir(), 'cs-fml-replay25-'));
       const stale = openDatabase({ centreId: 'C3', key: KEY, dir: fresh });
       try {
         const all = loadMigrations(REAL_MIGRATIONS);
@@ -387,7 +387,7 @@ describe('SqliteFormulaRepository', () => {
         applyMigrations(stale, upTo23);
 
         const applied = applyMigrations(stale, all);
-        expect(applied).toContain(24);
+        expect(applied).toContain(25);
 
         const staleRepo = new SqliteFormulaRepository(stale);
         await staleRepo.save(makeFormula({ active: true }));
