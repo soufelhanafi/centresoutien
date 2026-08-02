@@ -12,6 +12,7 @@ import type {
   UserId,
   EntityId,
   RoomId,
+  GroupId,
   TimeOfDay,
 } from '@centresoutien/domain';
 import { openDatabase } from '../../src/data/sqlite/db';
@@ -27,6 +28,8 @@ const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
 const ROOM_A = 'rom_00000000000000000000000001' as RoomId;
 const ROOM_B = 'rom_00000000000000000000000002' as RoomId;
 const TEACHER_A = 'tch_00000000000000000000000001' as EntityId;
+const GROUP_A = 'grp_00000000000000000000000001' as GroupId;
+const GROUP_B = 'grp_00000000000000000000000002' as GroupId;
 const WRS_A = 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId;
 const WRS_B = 'wrs_00000000000000000000000002' as WeeklyRecurringSessionId;
 
@@ -62,6 +65,7 @@ function makeSession(over: Partial<Session> = {}): Session {
     recurringSessionId: WRS_A,
     roomId: ROOM_A,
     teacherId: TEACHER_A,
+    groupId: GROUP_A,
     date: '2026-01-08',
     start: '09:00' as TimeOfDay,
     end: '10:30' as TimeOfDay,
@@ -83,6 +87,12 @@ describe('SqliteSessionRepository', () => {
       expect((await repo.findById(session.id))?.teacherId).toBeNull();
     });
 
+    it('preserves a null group (SOU-130)', async () => {
+      const session = makeSession({ groupId: null });
+      await repo.save(session);
+      expect((await repo.findById(session.id))?.groupId).toBeNull();
+    });
+
     it('findById returns null for an unknown id', async () => {
       expect(await repo.findById('ses_00000000000000000000000099' as SessionId)).toBeNull();
     });
@@ -95,6 +105,7 @@ describe('SqliteSessionRepository', () => {
           id: session.id,
           roomId: ROOM_B,
           teacherId: null,
+          groupId: GROUP_B,
           start: '11:00' as TimeOfDay,
           end: '12:30' as TimeOfDay,
           version: 3,
@@ -104,6 +115,7 @@ describe('SqliteSessionRepository', () => {
       const found = await repo.findById(session.id);
       expect(found?.roomId).toBe(ROOM_B);
       expect(found?.teacherId).toBeNull();
+      expect(found?.groupId).toBe(GROUP_B);
       expect(found?.version).toBe(3);
       expect(found?.createdAt).toEqual(AT);
       expect(found?.deviceOrigin).toBe(DEVICE);

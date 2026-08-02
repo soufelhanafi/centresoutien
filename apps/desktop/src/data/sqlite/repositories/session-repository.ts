@@ -9,6 +9,7 @@ import type {
   UserId,
   EntityId,
   RoomId,
+  GroupId,
   TimeOfDay,
   DateRange,
 } from '@centresoutien/domain';
@@ -26,6 +27,7 @@ type SessionRow = {
   recurring_session_id: string;
   room_id: string;
   teacher_id: string | null;
+  group_id: string | null;
   date: string;
   start_time: string;
   end_time: string;
@@ -44,6 +46,7 @@ function fromRow(row: SessionRow): Session {
     recurringSessionId: row.recurring_session_id as WeeklyRecurringSessionId,
     roomId: row.room_id as RoomId,
     teacherId: row.teacher_id === null ? null : (row.teacher_id as EntityId),
+    groupId: row.group_id === null ? null : (row.group_id as GroupId),
     date: row.date,
     start: row.start_time as TimeOfDay,
     end: row.end_time as TimeOfDay,
@@ -64,6 +67,7 @@ function toParams(session: Session): Record<string, string | number | null> {
     recurring_session_id: session.recurringSessionId,
     room_id: session.roomId,
     teacher_id: session.teacherId,
+    group_id: session.groupId,
     date: session.date,
     start_time: session.start,
     end_time: session.end,
@@ -72,13 +76,13 @@ function toParams(session: Session): Record<string, string | number | null> {
 
 const COLUMNS = `
   (id, center_code, device_origin, created_at, updated_at, updated_by,
-   deleted_at, version, recurring_session_id, room_id, teacher_id, date,
-   start_time, end_time)`;
+   deleted_at, version, recurring_session_id, room_id, teacher_id, group_id,
+   date, start_time, end_time)`;
 
 const VALUES = `
   (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
-   @deleted_at, @version, @recurring_session_id, @room_id, @teacher_id, @date,
-   @start_time, @end_time)`;
+   @deleted_at, @version, @recurring_session_id, @room_id, @teacher_id,
+   @group_id, @date, @start_time, @end_time)`;
 
 // Single-occurrence save (edit one materialized session — move room, reassign,
 // re-time, or cancel via softDelete). Upsert on the ULID `id`: identity columns
@@ -93,6 +97,7 @@ const SAVE_SQL = `
     version    = excluded.version,
     room_id    = excluded.room_id,
     teacher_id = excluded.teacher_id,
+    group_id   = excluded.group_id,
     start_time = excluded.start_time,
     end_time   = excluded.end_time
 `;
