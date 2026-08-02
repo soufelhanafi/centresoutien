@@ -64,21 +64,4 @@ test('picking a logo persists a relative filename and shows a preview after relo
   await expect(win.locator('form img').first()).toBeVisible({ timeout: 5000 });
 });
 
-test('removing a logo clears the stored reference', async () => {
-  const loc = locale();
-  const t = CP[loc];
-  live = await launch({ locale: loc, plan: 'pro', userDataDir: freshUserDataDir() });
-  const win = live.win;
-  await completeSetupAndLogin(win, loc);
-
-  await fillValidProfile(win, loc);
-  const f = centerForm(win, loc);
-  await f.logo().setInputFiles(makeLogoFile());
-  await f.submit().click();
-  await expect(win.getByText(t.saveSuccess).first()).toBeVisible();
-  await expect.poll(async () => (await getCenter(win))?.logoPath).toBeTruthy();
-
-  await win.getByRole('button', { name: t.logoRemove }).click();
-  await f.submit().click();
-  await expect.poll(async () => (await getCenter(win))?.logoPath).toBeNull();
-});
+// Removing a logo (symmetric, low-risk case) trimmed per SOU-142 — critical-only E2E.

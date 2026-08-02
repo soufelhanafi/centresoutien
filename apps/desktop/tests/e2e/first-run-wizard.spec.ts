@@ -3,7 +3,6 @@ import {
   STR,
   VALID_ADMIN,
   adminExists,
-  activePlan,
   freshUserDataDir,
   launch,
   passAuthGate,
@@ -15,13 +14,16 @@ import {
 /**
  * SOU-25 — First-run wizard flow (state machine), black-box.
  *
- * Step sequence: Language → Center Profile → Admin Account → Hours → Holidays → Done.
- * Holidays is present on every plan (`settings.holidays`, Essentiel since SOU-30) and
- * is skippable; every other step is mandatory. The admin account is created exactly
- * once (the completion signal).
+ * Critical-only per SOU-142: kept scenarios are the full happy path (proves
+ * the admin is created exactly once and the whole step chain hands off to the
+ * app) and the first-run gate surviving a relaunch — genuine cross-process
+ * territory. Mandatory-data guard, Pro-plan holiday skip variant, the
+ * quit-before-admin restart case, and back-navigation retention are lower
+ * risk and better covered as unit tests of the wizard state machine.
  *
- * Each `test` launches its own packaged Electron app against a fresh userData dir,
- * so first-run state is guaranteed. Runs under both the `fr` and `ar` projects.
+ * Each `test` launches its own packaged Electron app against a fresh userData
+ * dir, so first-run state is guaranteed. Runs under both the `fr` and `ar`
+ * projects.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -36,9 +38,6 @@ test.afterEach(async () => {
 
 function next(win: Page, L: Record<string, string>) {
   return win.getByRole('button', { name: L.next });
-}
-function back(win: Page, L: Record<string, string>) {
-  return win.getByRole('button', { name: L.back });
 }
 function skip(win: Page, L: Record<string, string>) {
   return win.getByRole('button', { name: L.skip });
@@ -119,69 +118,6 @@ test('happy path: walks every mandatory step to Done and creates the admin exact
   await expect(win.getByText(L.appMarker).first()).toBeVisible();
 });
 
-test('cannot advance the Admin step without valid data (mandatory-data guard)', async () => {
-  const loc = locale();
-  const L = STR[loc];
-  live = await launch({ locale: loc, plan: 'essentiel', userDataDir: freshUserDataDir() });
-  const win = live.win;
-
-  // Walk to the Admin step through the two stub steps.
-  await languageRadio(win, L, loc).check();
-  await next(win, L).click();
-  await expectStep(win, L.centerStepTitle);
-  // Mandatory steps expose no Skip control.
-  await expect(skip(win, L)).toHaveCount(0);
-  await fillCenter(win, L);
-  await next(win, L).click();
-  await expectStep(win, L.adminStepTitle);
-  await expect(skip(win, L)).toHaveCount(0);
-
-  // Attempt to advance with an empty form — must not proceed.
-  await next(win, L).click();
-  await expect(win.getByText(L.hoursStepTitle)).toHaveCount(0);
-  await expect(win.getByText(L.adminStepTitle).first()).toBeVisible();
-  expect(await adminExists(win)).toBe(false);
-
-  // Providing valid data releases the guard.
-  await fillAdmin(win, L);
-  await next(win, L).click();
-  await expectStep(win, L.hoursStepTitle);
-  await expect.poll(() => adminExists(win)).toBe(true);
-});
-
-test('Pro: Holidays step is present, skippable, and finishing with zero holidays reaches Done', async () => {
-  const loc = locale();
-  const L = STR[loc];
-  live = await launch({ locale: loc, plan: 'pro', userDataDir: freshUserDataDir() });
-  const win = live.win;
-
-  expect(await activePlan(win)).toBe('pro');
-  // Holidays label present in the stepper for Pro.
-  await expect(win.getByText(L.stepHolidaysLabel).first()).toBeVisible();
-
-  // Walk mandatory steps.
-  await languageRadio(win, L, loc).check();
-  await next(win, L).click();
-  await expectStep(win, L.centerStepTitle);
-  await fillCenter(win, L);
-  await next(win, L).click();
-  await expectStep(win, L.adminStepTitle);
-  await fillAdmin(win, L);
-  await next(win, L).click();
-  await expectStep(win, L.hoursStepTitle);
-  // No Skip on the mandatory Hours step.
-  await expect(skip(win, L)).toHaveCount(0);
-  await next(win, L).click();
-
-  // Holidays: present, optional (Skip exists).
-  await expectStep(win, L.holidaysStepTitle);
-  await expect(skip(win, L)).toBeVisible();
-  await skip(win, L).click();
-
-  // Zero holidays still reaches Done.
-  await expect(win.getByText(L.doneTitle).first()).toBeVisible();
-});
-
 test('first-run gate: fresh state shows the wizard; after completion a relaunch does NOT', async () => {
   const loc = locale();
   const L = STR[loc];
@@ -216,60 +152,4 @@ test('first-run gate: fresh state shows the wizard; after completion a relaunch 
   await expect.poll(() => adminExists(win)).toBe(true);
   await expect(win.getByText(L.appMarker).first()).toBeVisible();
   await expect(win.getByText(L.wizardTitle)).toHaveCount(0);
-});
-
-test('first-run gate: quitting before the admin is created restarts the wizard (in-memory progress)', async () => {
-  const loc = locale();
-  const L = STR[loc];
-  const dir = freshUserDataDir();
-
-  live = await launch({ locale: loc, plan: 'essentiel', userDataDir: dir });
-  let win = live.win;
-  // Advance past Language onto Center Profile — but never reach the admin step.
-  await languageRadio(win, L, loc).check();
-  await next(win, L).click();
-  await expectStep(win, L.centerStepTitle);
-  expect(await adminExists(win)).toBe(false);
-  await live.app.close();
-
-  // Relaunch same dir → still first-run, wizard restarts at the first step.
-  live = await launch({ locale: loc, plan: 'essentiel', userDataDir: dir });
-  win = live.win;
-  await expect(win.getByText(L.wizardTitle).first()).toBeVisible();
-  await expectStep(win, L.languageStepTitle);
-  expect(await adminExists(win)).toBe(false);
-});
-
-test('back navigation preserves the Language step choice', async () => {
-  const loc = locale();
-  const L = STR[loc];
-  live = await launch({ locale: loc, plan: 'essentiel', userDataDir: freshUserDataDir() });
-  const win = live.win;
-
-  await languageRadio(win, L, loc).check();
-  await next(win, L).click();
-  await expectStep(win, L.centerStepTitle);
-  await back(win, L).click();
-  await expectStep(win, L.languageStepTitle);
-  await expect(languageRadio(win, L, loc)).toBeChecked();
-});
-
-test('back navigation preserves the Admin step input', async () => {
-  const loc = locale();
-  const L = STR[loc];
-  live = await launch({ locale: loc, plan: 'essentiel', userDataDir: freshUserDataDir() });
-  const win = live.win;
-
-  await languageRadio(win, L, loc).check();
-  await next(win, L).click(); // language → center
-  await fillCenter(win, L);
-  await next(win, L).click(); // center → admin
-  await expectStep(win, L.adminStepTitle);
-  await win.getByLabel(L.username, { exact: true }).fill(VALID_ADMIN.username);
-  await back(win, L).click(); // admin → center
-  await expectStep(win, L.centerStepTitle);
-  // The saved center row re-hydrates the fields, so Continue advances again.
-  await next(win, L).click(); // center → admin
-  await win.screenshot({ path: `test-results/wizard-admin-retention-${loc}.png` });
-  await expect(win.getByLabel(L.username, { exact: true })).toHaveValue(VALID_ADMIN.username);
 });
