@@ -112,7 +112,9 @@
     "start-month-too-early": "يجب أن يكون شهر السريان بعد بداية القاعدة الحالية.",
     "too-many-active-payroll-rules": "يملك هذا الأستاذ بالفعل قاعدة أجر نشطة خلال هذه الفترة.",
     "teacher-payroll-rule-not-found": "قاعدة الأجر هذه غير موجودة.",
-    "teacher-not-found": "هذا الأستاذ غير موجود."
+    "teacher-not-found": "هذا الأستاذ غير موجود.",
+    "teacher-payout-not-found": "هذا الاستحقاق غير موجود.",
+    "teacher-payout-already-paid": "تم تعليم هذا الاستحقاق كمدفوع بالفعل."
   },
   "groups": {
     "title": "المجموعات",
@@ -1484,6 +1486,56 @@
         "success": "تم تسجيل الدفعة.",
         "error": "فشل تسجيل الدفعة."
       }
+    }
+  },
+  "payroll": {
+    "title": "أجور الأساتذة",
+    "subtitle": "أكّد استحقاقات الشهر وأنشئ كشوف الأجور.",
+    "monthLabel": "التصفية حسب الشهر",
+    "actions": {
+      "generatePayslips": "إنشاء كشوف الأجور",
+      "generatingPayslips": "جارٍ الإنشاء…",
+      "markAllPaid": "تعليم الكل كمدفوع",
+      "markingAllPaid": "جارٍ التأكيد…",
+      "markPaid": "تعليم كمدفوع"
+    },
+    "table": {
+      "teacher": "الأستاذ",
+      "ruleKind": "نوع القاعدة",
+      "baseAmount": "الأساس",
+      "total": "المجموع",
+      "status": "الحالة",
+      "actions": "إجراءات",
+      "notApplicable": "—",
+      "expand": "إظهار التفاصيل",
+      "collapse": "إخفاء التفاصيل"
+    },
+    "status": {
+      "draft": "مسودة",
+      "paid": "مدفوع"
+    },
+    "breakdown": {
+      "title": "التوزيع حسب المادة",
+      "empty": "لا يوجد توزيع لهذا الشهر."
+    },
+    "loadError": {
+      "title": "تعذّر التحميل",
+      "body": "فشل تحميل الاستحقاقات.",
+      "retry": "إعادة المحاولة"
+    },
+    "empty": {
+      "title": "لا توجد استحقاقات",
+      "body": "لا يوجد أستاذ لديه قاعدة أجر نشطة لهذا الشهر."
+    },
+    "unknownTeacher": "أستاذ غير معروف",
+    "unknownSubject": "مادة غير معروفة",
+    "toasts": {
+      "confirmSuccess": "تم تعليم الاستحقاق كمدفوع.",
+      "confirmError": "فشل التأكيد. أعد المحاولة.",
+      "bulkConfirmSuccess": "تم تأكيد {{confirmed}} استحقاق(ات)، {{skipped}} مدفوع(ة) مسبقًا.",
+      "bulkConfirmError": "فشل التأكيد الجماعي. أعد المحاولة.",
+      "payslipsGenerated": "تم إنشاء {{count}} كشف أجر.",
+      "payslipsPartial": "تم إنشاء {{succeeded}} كشف أجر، وفشل {{failed}}."
     }
   }
 }
