@@ -19,6 +19,8 @@ import { GroupsPage } from '../pages/groups/groups-page';
 import { GroupDetailPage } from '../pages/groups/group-detail-page';
 import { RoomsPage } from '../pages/rooms/rooms-page';
 import { PlannerPage } from '../pages/planning/planner-page';
+import { InvoicesPage } from '../pages/invoices/invoices-page';
+import { InvoiceDetailPage } from '../pages/invoices/invoice-detail-page';
 import {
   DEFAULT_ROUTE,
   dashboardModule,
@@ -105,7 +107,12 @@ const planningRoute = createRoute({
 const invoicingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: invoicingModule.path,
-  component: () => <ModulePlaceholder module={invoicingModule} />,
+  component: InvoicesPage,
+});
+const invoiceDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/invoicing/$invoiceId',
+  component: InvoiceDetailPage,
 });
 const paymentsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -152,6 +159,7 @@ const routeTree = rootRoute.addChildren([
   roomsRoute,
   planningRoute,
   invoicingRoute,
+  invoiceDetailRoute,
   paymentsRoute,
   payrollRoute,
   syncRoute,

@@ -77,6 +77,8 @@
     "invalid-holiday-kind": "Type de jour férié invalide",
     "invalid-kind": "Type de groupe invalide",
     "invalid-month": "Mois invalide (AAAA-MM)",
+    "invalid-amount": "Montant invalide",
+    "invalid-method": "Moyen de paiement invalide",
     "malformed-session-time": "L'heure de fin doit être après l'heure de début",
     "session-outside-center-hours": "La séance est en dehors des horaires d'ouverture du centre",
     "room-conflict": "La salle est déjà occupée sur ce créneau",
@@ -1301,6 +1303,84 @@
       "errorTitle": "Impossible de démarrer",
       "errorBody": "La vérification de la configuration a échoué.",
       "retry": "Réessayer"
+    }
+  },
+  "invoices": {
+    "title": "Factures",
+    "subtitle": "Consultez, imprimez et exportez les factures mensuelles de vos élèves.",
+    "search": "Rechercher un élève…",
+    "searchLabel": "Rechercher une facture par nom d'élève",
+    "unknownStudent": "Élève inconnu",
+    "filters": {
+      "monthLabel": "Filtrer par mois",
+      "statusLabel": "Filtrer par statut de paiement",
+      "statusAll": "Tous les statuts"
+    },
+    "status": {
+      "draft": "Brouillon",
+      "unpaid": "Non payée",
+      "partially-paid": "Payée partiellement",
+      "paid": "Payée",
+      "cancelled": "Annulée"
+    },
+    "table": {
+      "month": "Mois",
+      "student": "Élève",
+      "total": "Total",
+      "status": "Statut"
+    },
+    "loadError": {
+      "title": "Chargement impossible",
+      "body": "Le chargement des factures a échoué.",
+      "retry": "Réessayer"
+    },
+    "empty": {
+      "title": "Aucune facture",
+      "body": "Les factures apparaîtront ici une fois générées."
+    },
+    "noResults": {
+      "title": "Aucun résultat",
+      "body": "Aucune facture ne correspond à ces filtres."
+    },
+    "detail": {
+      "back": "Retour aux factures",
+      "notFoundTitle": "Facture introuvable",
+      "notFoundBody": "Cette facture n'existe pas ou a été supprimée.",
+      "print": "Imprimer",
+      "export": "Exporter en PDF",
+      "printError": "L'impression a échoué. Réessayez.",
+      "exportSuccess": "Facture exportée avec succès.",
+      "exportError": "L'export a échoué. Réessayez.",
+      "kind": {
+        "regular": "Régulier",
+        "examPrep": "Prépa examen"
+      },
+      "subtotal": "Sous-total : {{amount}}",
+      "total": "Total",
+      "payment": {
+        "panelTitle": "Paiement",
+        "total": "Total facturé",
+        "netPaid": "Payé",
+        "outstanding": "Reste à payer",
+        "markPaid": "Marquer payée",
+        "title": "Enregistrer un paiement",
+        "description": "Ce paiement s'ajoute au solde de la facture ; il ne peut pas être modifié après coup, seulement annulé.",
+        "amount": "Montant (MAD)",
+        "partialLocked": "Le paiement partiel est réservé aux plans Pro et Premium — le montant total est requis.",
+        "method": "Moyen de paiement",
+        "methods": {
+          "cash": "Espèces",
+          "cheque": "Chèque",
+          "transfer": "Virement",
+          "other": "Autre"
+        },
+        "paidOn": "Date du paiement",
+        "cancel": "Annuler",
+        "saving": "Enregistrement…",
+        "submit": "Enregistrer",
+        "success": "Paiement enregistré.",
+        "error": "L'enregistrement du paiement a échoué."
+      }
     }
   }
 }
