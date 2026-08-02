@@ -88,7 +88,9 @@
     "formula-immutable": "Cette formule a déjà été facturée et ne peut plus être modifiée. Dupliquez-la pour changer le prix, les matières ou le nom.",
     "formula-not-found": "Cette formule est introuvable",
     "formula-subject-not-found": "Une matière de cette formule est introuvable",
-    "formula-subject-inactive": "Une matière de cette formule a été désactivée"
+    "formula-subject-inactive": "Une matière de cette formule a été désactivée",
+    "subjects-required": "Sélectionnez au moins une matière",
+    "invalid-price": "Le prix doit être un nombre entier positif"
   },
   "groups": {
     "title": "Groupes",
