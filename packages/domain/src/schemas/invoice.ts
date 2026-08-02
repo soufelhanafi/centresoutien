@@ -54,3 +54,9 @@ export const createInvoiceDraftSchema = z.object({
   lines: z.array(invoiceLineSnapshotSchema).min(1, { message: 'invoice-no-lines' }),
 });
 export type CreateInvoiceDraftFields = z.infer<typeof createInvoiceDraftSchema>;
+
+/** The one user-derivable field of the monthly generation job (SOU-68): which month to bill. */
+export const generateMonthlyInvoicesSchema = z.object({
+  month: z.string().regex(MONTH_PATTERN, { message: 'invalid-month' }),
+});
+export type GenerateMonthlyInvoicesFields = z.infer<typeof generateMonthlyInvoicesSchema>;
