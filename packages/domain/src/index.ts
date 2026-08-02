@@ -87,6 +87,7 @@ export {
   PaymentNotFoundError,
   CannotReverseReversalError,
   PaymentAlreadyReversedError,
+  PaymentExceedsBalanceError,
 } from './errors/payment-errors';
 export {
   TooManyActiveSubscriptionsError,
