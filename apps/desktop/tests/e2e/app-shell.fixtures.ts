@@ -41,6 +41,7 @@ export const STR: Record<
       | 'teachers'
       | 'parents'
       | 'subjects'
+      | 'formulas'
       | 'groups'
       | 'rooms'
       | 'planning'
@@ -68,6 +69,7 @@ export const STR: Record<
       teachers: 'Enseignants',
       parents: 'Parents',
       subjects: 'Matières',
+      formulas: 'Formules',
       groups: 'Groupes',
       rooms: 'Salles',
       planning: 'Planning',
@@ -93,6 +95,7 @@ export const STR: Record<
       teachers: 'الأساتذة',
       parents: 'أولياء الأمور',
       subjects: 'المواد',
+      formulas: 'الصيغ',
       groups: 'المجموعات',
       rooms: 'القاعات',
       planning: 'الجدولة',
@@ -120,6 +123,7 @@ export const ALWAYS_ON = [
   'teachers',
   'parents',
   'subjects',
+  'formulas',
   'groups',
   'rooms',
   'planning',
