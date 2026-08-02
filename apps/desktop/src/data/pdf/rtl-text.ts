@@ -1,5 +1,13 @@
-import { ArabicShaper } from 'arabic-persian-reshaper';
+import arabicPersianReshaper from 'arabic-persian-reshaper';
 import bidiFactory from 'bidi-js';
+
+// `arabic-persian-reshaper` is CommonJS with no static-analyzable named
+// exports (`module.exports = { ArabicShaper, ... }`), so Node's ESM loader
+// can't synthesize a named import for it — the main process build fails at
+// runtime with "Named export 'ArabicShaper' not found" even though it
+// typechecks. Importing the CJS default and destructuring is the fix Node
+// itself suggests for this exact case.
+const { ArabicShaper } = arabicPersianReshaper;
 
 const bidi = bidiFactory();
 

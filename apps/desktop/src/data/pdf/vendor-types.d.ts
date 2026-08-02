@@ -2,11 +2,14 @@
 // by the invoice PDF renderer — neither ships its own TypeScript definitions.
 
 declare module 'arabic-persian-reshaper' {
-  export const ArabicShaper: {
+  type ArabicShaperApi = {
     /** Reshapes each Arabic letter to its contextual (isolated/initial/medial/final)
      *  presentation form. Non-Arabic characters pass through unchanged, in place. */
     convertArabic(input: string): string;
   };
+
+  const reshaper: { ArabicShaper: ArabicShaperApi };
+  export default reshaper;
 }
 
 declare module 'bidi-js' {
