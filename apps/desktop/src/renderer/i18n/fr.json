@@ -87,6 +87,7 @@
     "invalid-month": "Mois invalide (AAAA-MM)",
     "invalid-amount": "Montant invalide",
     "invalid-method": "Moyen de paiement invalide",
+    "payment-exceeds-balance": "Ce montant dépasse le solde restant de la facture.",
     "group-full": "Ce groupe est complet : toutes les places sont occupées.",
     "duplicate-enrollment": "Cet élève est déjà inscrit dans ce groupe.",
     "cross-kind-enrollment": "L'abonnement de l'élève ne correspond pas au type du groupe (régulier / prépa examen).",
@@ -1468,11 +1469,26 @@
           "other": "Autre"
         },
         "paidOn": "Date du paiement",
+        "note": "Note (facultatif)",
         "cancel": "Annuler",
         "saving": "Enregistrement…",
         "submit": "Enregistrer",
         "success": "Paiement enregistré.",
-        "error": "L'enregistrement du paiement a échoué."
+        "error": "L'enregistrement du paiement a échoué.",
+        "history": {
+          "title": "Historique des paiements",
+          "loadError": "Le chargement de l'historique des paiements a échoué.",
+          "emptyTitle": "Aucun paiement",
+          "emptyBody": "Les paiements enregistrés apparaîtront ici.",
+          "kind": {
+            "reversal": "Annulation"
+          },
+          "print": "Imprimer le reçu",
+          "export": "Exporter le reçu en PDF",
+          "printError": "L'impression du reçu a échoué. Réessayez.",
+          "exportSuccess": "Reçu exporté avec succès.",
+          "exportError": "L'export du reçu a échoué. Réessayez."
+        }
       }
     }
   },

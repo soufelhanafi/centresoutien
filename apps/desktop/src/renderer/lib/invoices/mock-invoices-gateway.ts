@@ -1,5 +1,6 @@
 import { paymentStatusOf } from '@centresoutien/domain';
 import type { InvoiceListFilters, InvoiceListItemView } from './invoice-view';
+import type { InvoicePaymentSummaryView, PaymentView } from './payment-view';
 import type { InvoicesGateway, RecordPaymentInput } from './invoices-gateway';
 import { INVOICE_SEED } from './mock-invoices-seed';
 
@@ -13,6 +14,8 @@ function matches(invoice: InvoiceListItemView, filters: InvoiceListFilters): boo
 /** In-memory stand-in for the not-yet-published invoice channels (see `invoices-gateway.ts`). */
 export class MockInvoicesGateway implements InvoicesGateway {
   private readonly invoices = new Map<string, InvoiceListItemView>(INVOICE_SEED.map((i) => [i.id, i]));
+  private readonly ledger = new Map<string, PaymentView[]>();
+  private paymentSeq = 0;
 
   async list(filters: InvoiceListFilters): Promise<readonly InvoiceListItemView[]> {
     return [...this.invoices.values()]
@@ -36,6 +39,22 @@ export class MockInvoicesGateway implements InvoicesGateway {
       paymentStatus: paymentStatusOf(current.totalMad, netPaidMad),
     };
     this.invoices.set(updated.id, updated);
+
+    this.paymentSeq += 1;
+    const rows = this.ledger.get(input.invoiceId) ?? [];
+    rows.push({
+      id: `mock-pay-${this.paymentSeq}`,
+      invoiceId: input.invoiceId,
+      kind: 'payment',
+      amountMad: input.amountMad,
+      method: input.method,
+      paidOn: input.paidOn,
+      reversesPaymentId: null,
+      note: input.note ?? null,
+      createdAt: new Date().toISOString(),
+    });
+    this.ledger.set(input.invoiceId, rows);
+
     return updated;
   }
 
@@ -46,6 +65,28 @@ export class MockInvoicesGateway implements InvoicesGateway {
   async export(): Promise<{ savedPath: string | null }> {
     await new Promise((resolve) => setTimeout(resolve, 300));
     return { savedPath: '/tmp/facture.pdf' };
+  }
+
+  async paymentSummary(invoiceId: string): Promise<InvoicePaymentSummaryView> {
+    const invoice = this.invoices.get(invoiceId);
+    if (!invoice) throw new Error(`unknown invoice ${invoiceId}`);
+    return {
+      invoiceId,
+      totalMad: invoice.totalMad,
+      netPaidMad: invoice.netPaidMad,
+      outstandingMad: invoice.outstandingMad,
+      status: invoice.paymentStatus,
+      payments: this.ledger.get(invoiceId) ?? [],
+    };
+  }
+
+  async printReceipt(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+
+  async exportReceipt(): Promise<{ savedPath: string | null }> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return { savedPath: '/tmp/recu-paiement.pdf' };
   }
 }
 
