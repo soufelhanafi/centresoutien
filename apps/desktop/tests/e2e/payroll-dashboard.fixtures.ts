@@ -226,3 +226,10 @@ export async function invokeBridgeExpectingError(
     { channel, request },
   );
 }
+
+/** Stubs `shell.openPath` so "Générer les bulletins" doesn't hang waiting on a real OS PDF viewer under CI/Xvfb (mirrors `invoices.fixtures.ts`). */
+export async function stubOpenPath(app: ElectronApplication): Promise<void> {
+  await app.evaluate(async ({ shell }) => {
+    shell.openPath = (async () => '') as never;
+  });
+}

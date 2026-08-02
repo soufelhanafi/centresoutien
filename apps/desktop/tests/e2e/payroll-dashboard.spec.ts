@@ -6,6 +6,7 @@ import {
   pageCrashed,
   invokeBridge,
   invokeBridgeExpectingError,
+  stubOpenPath,
   type Launched,
   type Locale,
 } from './payroll-dashboard.fixtures';
@@ -180,6 +181,7 @@ test('Scenario 5 — generating payslips does not mutate payout status', async (
   const L = STR[locale()];
   live = await boot(locale(), { month: MONTH, teachers: [KARIM] });
   const win = live.win;
+  await stubOpenPath(live.app);
   await gotoPayroll(win, L);
   await assertMounted(win, L);
 
