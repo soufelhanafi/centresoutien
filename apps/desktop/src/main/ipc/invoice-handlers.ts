@@ -84,6 +84,7 @@ export function createInvoiceHandlers(
         centerCode: deps.centerCode(),
         ...(request.month !== undefined && { month: request.month }),
         ...(request.studentId !== undefined && { studentId: request.studentId as StudentId }),
+        ...(request.invoiceId !== undefined && { invoiceId: request.invoiceId as InvoiceId }),
         ...(request.paymentStatus !== undefined && { paymentStatus: request.paymentStatus }),
       });
       return { invoices: items.map(toInvoiceListItemView) };

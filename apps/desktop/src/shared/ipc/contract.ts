@@ -669,6 +669,7 @@ export const ipcContract = {
     request: z.object({
       month: z.string().optional(),
       studentId: z.string().optional(),
+      invoiceId: z.string().optional(),
       paymentStatus: paymentStatusSchema.optional(),
     }),
     response: z.object({ invoices: z.array(invoiceListItemViewSchema) }),
