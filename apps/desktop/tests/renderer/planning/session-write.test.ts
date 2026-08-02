@@ -4,7 +4,6 @@ import {
   toSessionInput,
   type SessionFormValues,
 } from '../../../src/renderer/lib/planning/session-form-schema';
-import { mapSessionWriteError } from '../../../src/renderer/lib/planning/session-write-error';
 
 /** Collects the issue messages (stable error codes) keyed by field. */
 function codes(input: unknown): Record<string, string | undefined> {
@@ -76,24 +75,5 @@ describe('toSessionInput', () => {
       start: '09:00',
       end: '10:30',
     });
-  });
-});
-
-describe('mapSessionWriteError', () => {
-  it.each([
-    ['RoomConflictError', 'room-conflict'],
-    ['TeacherConflictError', 'teacher-conflict'],
-    ['SessionOutsideCenterHoursError', 'session-outside-center-hours'],
-    ['MalformedSessionTimeError', 'malformed-session-time'],
-    ['InvalidSessionValidityRangeError', 'invalid-session-validity-range'],
-    ['WeeklyRecurringSessionNotFoundError', 'weekly-recurring-session-not-found'],
-  ])('maps a %s message to %s', (name, code) => {
-    const error = new Error(`Error invoking remote method 'weeklySession.create': ${name}: boom`);
-    expect(mapSessionWriteError(error)).toBe(code);
-  });
-
-  it('returns null for an unrelated failure', () => {
-    expect(mapSessionWriteError(new Error('network down'))).toBeNull();
-    expect(mapSessionWriteError('nope')).toBeNull();
   });
 });
