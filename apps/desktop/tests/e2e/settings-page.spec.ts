@@ -17,11 +17,11 @@ import {
 
 /**
  * SOU-31 — Settings page (tabbed): profile / hours / holidays / password /
- * language / plan, black-box.
+ * language / plan / backup, black-box.
  *
- * Acceptance: tabbed Settings surface, six tabs (Center Profile, Center
- * Hours, Holidays, Password, Language, Plan-read-only). Every setting
- * persists and is reflected across the app on next screen visit.
+ * Acceptance: tabbed Settings surface, seven tabs (Center Profile, Center
+ * Hours, Holidays, Password, Language, Plan-read-only, Backup — SOU-102).
+ * Every setting persists and is reflected across the app on next screen visit.
  *
  * Every scenario runs under both the `fr` (LTR) and `ar` (RTL) Playwright
  * projects.
@@ -41,10 +41,10 @@ test.afterEach(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Scenario 1 — tabbed layout, all six tabs reachable
+// Scenario 1 — tabbed layout, all seven tabs reachable
 // ---------------------------------------------------------------------------
 
-test('Scenario 1 — Settings renders as a tabbed layout with all six tabs reachable', async () => {
+test('Scenario 1 — Settings renders as a tabbed layout with all seven tabs reachable', async () => {
   const loc = locale();
   const t = S[loc];
   live = await launch({ locale: loc, plan: 'pro', userDataDir: freshUserDataDir() });
@@ -54,14 +54,22 @@ test('Scenario 1 — Settings renders as a tabbed layout with all six tabs reach
   const tablist = win.getByRole('tablist');
   await expect(tablist).toBeVisible();
 
-  const expectedTabs = [t.tabs.profile, t.tabs.hours, t.tabs.holidays, t.tabs.password, t.tabs.language, t.tabs.plan];
+  const expectedTabs = [
+    t.tabs.profile,
+    t.tabs.hours,
+    t.tabs.holidays,
+    t.tabs.password,
+    t.tabs.language,
+    t.tabs.plan,
+    t.tabs.backup,
+  ];
   for (const name of expectedTabs) {
     await expect(win.getByRole('tab', { name })).toBeVisible();
   }
-  await expect(win.getByRole('tab')).toHaveCount(6);
+  await expect(win.getByRole('tab')).toHaveCount(7);
 
   // Only one panel's distinctive content is visible at a time — this is a
-  // tabbed surface, not six stacked sections. Profile is the default tab.
+  // tabbed surface, not seven stacked sections. Profile is the default tab.
   // (Scope to the active tabpanel: the tab triggers themselves render text
   // like "Langue" regardless of which panel is active.)
   const panel = win.getByRole('tabpanel');
