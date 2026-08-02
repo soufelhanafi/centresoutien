@@ -3,6 +3,7 @@ import type { EntityEnvelope } from './envelope';
 import type { EntityId } from '../value-objects/ids';
 import type { TimeOfDay } from '../value-objects/time-of-day';
 import type { RoomId } from './room';
+import type { GroupId } from './group';
 import type { WeeklyRecurringSessionId } from './weekly-recurring-session';
 
 /** ULID id prefix for materialized sessions: `ses_01HW…`. */
@@ -17,10 +18,12 @@ export type SessionId = Brand<string, 'SessionId'>;
  * and what attendance and (later) reports hang off — the template is the rule,
  * the Session is the fact.
  *
- * **Bare on purpose.** It mirrors the template's fields plus the date and a link
- * back to its recurrence. Group / subject / kind are **deferred** — the
- * `WeeklyRecurringSession → Group` link doesn't exist yet — and land with that
- * link, not here.
+ * It mirrors the template's fields plus the date and a link back to its
+ * recurrence. `groupId` (SOU-130) is copied from the template's own `groupId`
+ * at materialization by the SOU-56 generator — a concrete session never carries
+ * a group the template lacks — so subject/level/kind still derive by joining
+ * Group, exactly like the template's read model; this entity has no opinion on
+ * them beyond the id.
  *
  * `teacherId` is nullable and typed the generic `EntityId` (not a `TeacherId`)
  * for the same reason the template's is: the Teacher entity isn't built yet. A
@@ -44,6 +47,7 @@ export type Session = EntityEnvelope & {
   readonly recurringSessionId: WeeklyRecurringSessionId;
   roomId: RoomId;
   teacherId: EntityId | null;
+  groupId: GroupId | null;
   readonly date: string; // materialized occurrence, strict 'YYYY-MM-DD'
   start: TimeOfDay;
   end: TimeOfDay;

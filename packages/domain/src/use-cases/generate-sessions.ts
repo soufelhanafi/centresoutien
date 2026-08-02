@@ -92,6 +92,7 @@ export class GenerateSessions {
       recurringSessionId: recurring.id,
       roomId: recurring.roomId,
       teacherId: recurring.teacherId,
+      groupId: recurring.groupId,
       date,
       start: recurring.start,
       end: recurring.end,

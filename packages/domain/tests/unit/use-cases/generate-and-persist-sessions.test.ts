@@ -15,6 +15,7 @@ import type {
 } from '../../../src/entities/weekly-recurring-session';
 import type { Holiday, HolidayId } from '../../../src/entities/holiday';
 import type { RoomId } from '../../../src/entities/room';
+import type { GroupId } from '../../../src/entities/group';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import { InMemorySessionRepository } from '../fakes/in-memory-session-repository';
@@ -120,6 +121,16 @@ describe('GenerateAndPersistSessions', () => {
       await holidays.save(holiday({ startDate: '2026-01-15', endDate: '2026-01-15' }));
       const result = await useCase.execute(input());
       expect(datesOf(result)).toEqual(['2026-01-01', '2026-01-08', '2026-01-22', '2026-01-29']);
+    });
+
+    it('persists occurrences inheriting the template\'s groupId (SOU-130)', async () => {
+      const groupId = 'grp_00000000000000000000000001' as GroupId;
+      await recurrences.save(recurring({ groupId }));
+      const result = await useCase.execute(input());
+      expect(result.length).toBeGreaterThan(0);
+      for (const session of result) {
+        expect(session.groupId).toBe(groupId);
+      }
     });
 
     it('scopes holidays to the request center — another center\'s holiday does not skip', async () => {

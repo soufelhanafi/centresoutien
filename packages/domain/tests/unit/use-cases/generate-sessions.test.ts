@@ -10,6 +10,7 @@ import type {
 import type { HolidayOccurrence } from '../../../src/policies/holiday-policy';
 import type { HolidayId } from '../../../src/entities/holiday';
 import type { RoomId } from '../../../src/entities/room';
+import type { GroupId } from '../../../src/entities/group';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import { weekdayOf } from '../../../src/value-objects/date-range';
@@ -95,6 +96,7 @@ describe('GenerateSessions', () => {
       expect(first.recurringSessionId).toBe('wrs_00000000000000000000000001');
       expect(first.roomId).toBe('rom_00000000000000000000000001');
       expect(first.teacherId).toBe('tch_00000000000000000000000001');
+      expect(first.groupId).toBeNull();
       expect(first.date).toBe('2026-01-01');
       expect(first.start).toBe('09:00');
       expect(first.end).toBe('10:30');
@@ -121,6 +123,23 @@ describe('GenerateSessions', () => {
       expect(sessions.length).toBeGreaterThan(0);
       for (const session of sessions) {
         expect(session.teacherId).toBeNull();
+      }
+    });
+
+    it('inherits the template groupId onto every occurrence (SOU-130)', () => {
+      const groupId = 'grp_00000000000000000000000001' as GroupId;
+      const sessions = useCase().execute(input({ recurring: recurring({ groupId }) }));
+      expect(sessions.length).toBeGreaterThan(0);
+      for (const session of sessions) {
+        expect(session.groupId).toBe(groupId);
+      }
+    });
+
+    it('never invents a group the template lacks — a null template groupId stays null', () => {
+      const sessions = useCase().execute(input({ recurring: recurring({ groupId: null }) }));
+      expect(sessions.length).toBeGreaterThan(0);
+      for (const session of sessions) {
+        expect(session.groupId).toBeNull();
       }
     });
   });
