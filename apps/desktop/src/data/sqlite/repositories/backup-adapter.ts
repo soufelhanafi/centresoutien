@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, renameSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname, basename } from 'node:path';
 import Database from 'better-sqlite3-multiple-ciphers';
 import type { Database as DB } from 'better-sqlite3';
 import type { IdGenerator, BackupPort, BackupFileInfo, BackupVerification, CenterCode } from '@centresoutien/domain';
@@ -95,6 +95,11 @@ export class SqliteBackupAdapter implements BackupPort {
 
   async restore(path: string): Promise<void> {
     const currentPath = this.db.name;
+    // Reclaim safety copies from *previous* restores before creating this
+    // one's — at most one `.pre-restore-*` (a full encrypted DB) sits on disk
+    // at a time instead of growing forever. Unrelated to this restore's own
+    // rollback net below, so it's safe even if this restore then fails.
+    this.pruneSafetyCopies(currentPath);
     const safetyPath = `${currentPath}.pre-restore-${Date.now()}`;
     // Release the live handle before touching the file — required on Windows
     // (an open file can't be renamed) and harmless on macOS. Any repository
@@ -114,6 +119,23 @@ export class SqliteBackupAdapter implements BackupPort {
       throw error;
     } finally {
       handle?.close();
+    }
+  }
+
+  /** Best-effort removal of `.pre-restore-*` copies left by earlier restores —
+   *  they contain full, encrypted personal data (loi 09-08), so they must not
+   *  accumulate forever. */
+  private pruneSafetyCopies(currentPath: string): void {
+    const dir = dirname(currentPath);
+    if (!existsSync(dir)) return;
+    const prefix = `${basename(currentPath)}.pre-restore-`;
+    for (const name of readdirSync(dir)) {
+      if (!name.startsWith(prefix)) continue;
+      try {
+        unlinkSync(join(dir, name));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
     }
   }
 }

@@ -10,11 +10,22 @@ export const BACKUP_DESTINATION_DIR_MAX = 1024;
 export const BACKUP_RETENTION_MIN = 1;
 export const BACKUP_RETENTION_MAX = 30;
 
+/** Strips a trailing path separator (`/` or `\`) so the same folder typed or
+ *  picked two different ways (`/x/Backups` vs `/x/Backups/`) compares equal —
+ *  `CreateBackup` relies on this to detect "this is the configured retention
+ *  destination". A bare root (`/`, `C:\`) is left alone. No `node:path`
+ *  import: domain must stay platform-agnostic. */
+function stripTrailingSeparator(path: string): string {
+  const stripped = path.replace(/[/\\]+$/, '');
+  return stripped.length > 0 ? stripped : path;
+}
+
 const backupDestinationDirSchema = z
   .string()
   .trim()
   .min(1, { message: 'required' })
-  .max(BACKUP_DESTINATION_DIR_MAX, { message: 'too-long' });
+  .max(BACKUP_DESTINATION_DIR_MAX, { message: 'too-long' })
+  .transform(stripTrailingSeparator);
 
 const backupRetentionCountSchema = z
   .number()

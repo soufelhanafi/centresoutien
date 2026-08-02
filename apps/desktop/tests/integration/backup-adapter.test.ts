@@ -147,6 +147,26 @@ describe('SqliteBackupAdapter.restore', () => {
     safety.close();
   });
 
+  it('reclaims a safety copy left by an earlier restore, keeping at most one', async () => {
+    const currentPath = db.name;
+    const firstBackup = await adapter.create({ destDir, centerCode: CENTER });
+
+    await adapter.restore(firstBackup.path);
+    expect(readdirSync(dir).filter((f) => f.includes('.pre-restore-'))).toHaveLength(1);
+
+    // Simulate the app relaunch a real restore requires: a fresh connection,
+    // a fresh adapter, against the just-restored file.
+    const reopened = openDatabaseAt(currentPath, KEY);
+    const secondAdapter = new SqliteBackupAdapter(reopened, KEY, new UlidIdGenerator());
+    const secondBackup = await secondAdapter.create({ destDir, centerCode: CENTER });
+
+    await secondAdapter.restore(secondBackup.path);
+
+    // Exactly one remains — the first restore's safety copy was reclaimed
+    // before the second restore created its own.
+    expect(readdirSync(dir).filter((f) => f.includes('.pre-restore-'))).toHaveLength(1);
+  });
+
   it('never destroys the live database when the swap fails', async () => {
     const currentPath = db.name;
     const brokenPath = join(dir, 'a-directory-not-a-file');

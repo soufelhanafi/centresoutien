@@ -69,5 +69,16 @@ describe('CreateBackup', () => {
       const remaining = await backups.list({ destDir: '/Volumes/USB', centerCode: CENTER });
       expect(remaining).toHaveLength(2);
     });
+
+    it('still matches the configured destination when the caller passes a trailing slash', async () => {
+      const DEST = '/Users/admin/CentreSoutienBackups';
+      config.seed({ destinationDir: DEST, retentionCount: 1 });
+
+      await useCase.execute({ destDir: `${DEST}/`, centerCode: CENTER });
+      await useCase.execute({ destDir: `${DEST}/`, centerCode: CENTER });
+
+      const remaining = await backups.list({ destDir: DEST, centerCode: CENTER });
+      expect(remaining).toHaveLength(1);
+    });
   });
 });
