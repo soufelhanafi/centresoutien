@@ -1,5 +1,6 @@
 import type { InvoicePdfInput, InvoicePdfLine } from '@centresoutien/domain';
 import { formatMad } from './format-mad';
+import { formatMonthLabel } from './format-month';
 import { BRAND_TEAL } from './invoice-pdf-writer';
 import { bilingualLabel, type PdfRenderContext } from './invoice-pdf-context';
 
@@ -8,7 +9,7 @@ export function drawInvoiceMeta(ctx: PdfRenderContext, input: InvoicePdfInput): 
   writer.text(labels.invoiceTitle, { size: 20, bold: true, color: BRAND_TEAL });
   writer.moveDown(4);
   writer.row(labels.invoiceNumber, input.invoiceId);
-  writer.row(labels.month, input.month);
+  writer.row(labels.month, formatMonthLabel(input.month, locale));
   writer.row(labels.statusLabel, labels.lifecycleStatus[input.status]);
   writer.row(labels.student, bilingualLabel(input.student, locale));
   writer.moveDown(10);

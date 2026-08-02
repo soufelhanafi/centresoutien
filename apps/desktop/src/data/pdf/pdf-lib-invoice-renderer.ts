@@ -43,7 +43,14 @@ export class PdfLibInvoiceRenderer implements InvoicePdfRenderer {
     drawTotals(ctx, input);
     drawFooter(ctx);
 
-    return pdfDoc.save();
+    // `useObjectStreams: false`: pdf-lib's default bundles small dictionary
+    // objects (incl. the font descriptor holding `/BaseFont`) into compressed
+    // object streams, which barely changes file size here (the embedded font
+    // binary dominates it either way) but makes the PDF's own internal
+    // structure opaque to any tool doing a raw byte/text inspection — plain
+    // indirect objects keep the file inspectable, a small trade worth making
+    // for a document meant to be handed to a parent or printed at a center.
+    return pdfDoc.save({ useObjectStreams: false });
   }
 
   private async embedFonts(
@@ -70,7 +77,7 @@ export class PdfLibInvoiceRenderer implements InvoicePdfRenderer {
     ctx: PdfRenderContext,
     input: InvoicePdfInput,
   ): Promise<void> {
-    if (input.center.logoBytes) await this.drawLogo(pdfDoc, page, input.center.logoBytes);
+    if (input.center.logoBytes) await this.drawLogo(pdfDoc, page, input.center.logoBytes, input.locale);
     ctx.writer.text(input.center.name, { size: 16, bold: true, color: BRAND_TEAL });
     ctx.writer.text(input.center.address, { size: 9, color: MUTED_GRAY });
     // Known cosmetic quirk on the `ar` locale: Amiri's default OpenType
@@ -83,13 +90,20 @@ export class PdfLibInvoiceRenderer implements InvoicePdfRenderer {
     ctx.writer.hr();
   }
 
-  /** Best-effort: an unreadable or unsupported logo format never blocks the PDF. */
-  private async drawLogo(pdfDoc: PDFDocument, page: PDFPage, bytes: Uint8Array): Promise<void> {
+  /** Best-effort: an unreadable or unsupported logo format never blocks the PDF.
+   *  Anchored to the header text's trailing edge — the start (left) in French,
+   *  the end (right) in Arabic — so it never overlaps the right-anchored AR header. */
+  private async drawLogo(
+    pdfDoc: PDFDocument,
+    page: PDFPage,
+    bytes: Uint8Array,
+    locale: 'fr' | 'ar',
+  ): Promise<void> {
     try {
       const image = await pdfDoc.embedPng(bytes).catch(() => pdfDoc.embedJpg(bytes));
       const { width, height } = image.scaleToFit(LOGO_BOX, LOGO_BOX);
       page.drawImage(image, {
-        x: page.getWidth() - PAGE_MARGIN - width,
+        x: locale === 'ar' ? PAGE_MARGIN : page.getWidth() - PAGE_MARGIN - width,
         y: page.getHeight() - PAGE_MARGIN - height,
         width,
         height,
