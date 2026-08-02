@@ -1,9 +1,13 @@
+import { resolveDomainErrorCode } from '../ipc/resolve-domain-error-code';
+
 /**
  * The errors the formula write channels raise (SOU-62), as the renderer must
- * handle them. The domain throws these; their **structured fields do not
- * survive the Electron IPC boundary**, so the renderer matches on the error's
- * class name (carried in the serialized message) and localizes a fixed line via
- * `t(\`errors.${code}\`)` — never by reading a field off the error. Mirrors
+ * handle them. The domain throws these with a stable `code` — including the two
+ * `FormulaSubjectUnavailableError` reasons, which the domain already encodes as
+ * distinct codes (`formula-subject-not-found` / `formula-subject-inactive`)
+ * rather than one class the renderer must further disambiguate. The renderer
+ * decodes the code from the IPC rejection (see `resolveDomainErrorCode`) and
+ * localizes a fixed line via `t(\`errors.${code}\`)`. Mirrors
  * `mapSubjectWriteError`.
  */
 export type FormulaWriteErrorCode =
@@ -12,26 +16,18 @@ export type FormulaWriteErrorCode =
   | 'formula-subject-not-found'
   | 'formula-subject-inactive';
 
-const ERROR_NAME_TO_CODE: Readonly<Record<string, FormulaWriteErrorCode>> = {
-  FormulaImmutableError: 'formula-immutable',
-  FormulaNotFoundError: 'formula-not-found',
-};
+const CODES = new Set<string>([
+  'formula-immutable',
+  'formula-not-found',
+  'formula-subject-not-found',
+  'formula-subject-inactive',
+] satisfies FormulaWriteErrorCode[]);
 
 /**
  * Narrows a caught formula write rejection to a {@link FormulaWriteErrorCode},
- * or `null` for an unrelated failure that should toast generically. Only
- * `.name` and `.message` survive the Electron IPC boundary — never custom
- * fields like `.code` — so `FormulaSubjectUnavailableError` (one class, two
- * reasons) is disambiguated by the `(not-found)` / `(inactive)` suffix its own
- * message text carries, not by its `.code` property.
+ * or `null` for an unrelated failure that should toast generically.
  */
 export function mapFormulaWriteError(error: unknown): FormulaWriteErrorCode | null {
-  const message = error instanceof Error ? error.message : String(error);
-  if (message.includes('FormulaSubjectUnavailableError')) {
-    return message.includes('(inactive)') ? 'formula-subject-inactive' : 'formula-subject-not-found';
-  }
-  for (const name of Object.keys(ERROR_NAME_TO_CODE)) {
-    if (message.includes(name)) return ERROR_NAME_TO_CODE[name] ?? null;
-  }
-  return null;
+  const code = resolveDomainErrorCode(error);
+  return code !== null && CODES.has(code) ? (code as FormulaWriteErrorCode) : null;
 }
