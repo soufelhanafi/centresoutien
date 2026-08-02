@@ -475,6 +475,8 @@ export { CloseStudentSubscription } from './use-cases/close-student-subscription
 export type { CloseStudentSubscriptionInput } from './use-cases/close-student-subscription';
 export { ListStudentSubscriptions } from './use-cases/list-student-subscriptions';
 export type { ListStudentSubscriptionsInput } from './use-cases/list-student-subscriptions';
+export { ListFormulas } from './use-cases/list-formulas';
+export type { ListFormulasInput } from './use-cases/list-formulas';
 export { CreateTeacherPayrollRule } from './use-cases/create-teacher-payroll-rule';
 export type { CreateTeacherPayrollRuleInput } from './use-cases/create-teacher-payroll-rule';
 export { CloseTeacherPayrollRule } from './use-cases/close-teacher-payroll-rule';
