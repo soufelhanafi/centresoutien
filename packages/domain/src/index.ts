@@ -210,6 +210,14 @@ export {
   CENTER_LOGO_PATH_MAX,
 } from './schemas/center';
 export type { CenterProfileInput, LogoExtension } from './schemas/center';
+export {
+  createBackupInputSchema,
+  backupConfigInputSchema,
+  BACKUP_DESTINATION_DIR_MAX,
+  BACKUP_RETENTION_MIN,
+  BACKUP_RETENTION_MAX,
+} from './schemas/backup';
+export type { CreateBackupInputSchema, BackupConfigInput } from './schemas/backup';
 
 // Entities
 export { SUBJECT_ID_PREFIX } from './entities/subject';
@@ -303,6 +311,10 @@ export type { LoginThrottleStore } from './ports/login-throttle-store';
 export type { DeviceSessionStore } from './ports/device-session-store';
 export type { CenterRepository } from './ports/center-repository';
 export type { LogoStore } from './ports/logo-store';
+// Backup & restore (SOU-102) — mirrors the Clock/IdGenerator port pattern.
+export type { BackupPort, BackupFileInfo, BackupVerification } from './ports/backup-port';
+export type { BackupConfigStore, BackupConfig } from './ports/backup-config-store';
+export { DEFAULT_BACKUP_RETENTION_COUNT } from './ports/backup-config-store';
 export type { ParentRepository } from './ports/parent-repository';
 export type { RoomRepository } from './ports/room-repository';
 export type { TeacherRepository } from './ports/teacher-repository';
@@ -540,6 +552,20 @@ export { StoreCenterLogo } from './use-cases/store-center-logo';
 export type { StoreCenterLogoInput } from './use-cases/store-center-logo';
 export { ReadCenterLogo } from './use-cases/read-center-logo';
 export type { ReadCenterLogoInput } from './use-cases/read-center-logo';
+// Backup & restore (SOU-102)
+export { CreateBackup } from './use-cases/create-backup';
+export type { CreateBackupInput } from './use-cases/create-backup';
+export { GetBackupConfig } from './use-cases/get-backup-config';
+export { SaveBackupConfig } from './use-cases/save-backup-config';
+export type { SaveBackupConfigInput } from './use-cases/save-backup-config';
+export { RestoreBackup } from './use-cases/restore-backup';
+export type {
+  RestoreBackupInput,
+  RestoreBackupOutcome,
+  RestoreBackupResult,
+} from './use-cases/restore-backup';
+export { RunScheduledBackup } from './use-cases/run-scheduled-backup';
+export type { RunScheduledBackupInput } from './use-cases/run-scheduled-backup';
 export { SaveCenterHours } from './use-cases/save-center-hours';
 export type { SaveCenterHoursInput } from './use-cases/save-center-hours';
 export { GetCenterHours } from './use-cases/get-center-hours';

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { backupIpcContract } from './backup-contract';
+import { dialogIpcContract } from './dialog-contract';
 import {
   subjectInputSchema,
   subjectUpdateInputSchema,
@@ -784,6 +786,8 @@ export const ipcContract = {
     request: z.object({ locale: localePreferenceSchema }),
     response: z.object({ ok: z.literal(true) }),
   },
+  ...backupIpcContract,
+  ...dialogIpcContract,
 } as const;
 
 /** The Subject boundary DTO — the renderer's `SubjectView` is an alias of this. */

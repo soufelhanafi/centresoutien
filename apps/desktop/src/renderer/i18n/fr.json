@@ -45,6 +45,8 @@
     "too-long": "Texte trop long",
     "not-an-integer": "Saisissez un nombre entier",
     "capacity-too-small": "La capacité doit être d'au moins 1",
+    "too-low": "Cette valeur est trop basse",
+    "too-high": "Cette valeur est trop élevée",
     "invalid-email": "Adresse e-mail invalide",
     "invalid-phone": "Numéro de téléphone invalide",
     "unsupported-logo-type": "Format de logo non pris en charge (PNG, JPG, WEBP ou SVG)",
@@ -942,7 +944,8 @@
       "holidays": "Vacances",
       "password": "Mot de passe",
       "language": "Langue",
-      "plan": "Formule"
+      "plan": "Formule",
+      "backup": "Sauvegarde"
     },
     "center": {
       "title": "Profil du centre",
@@ -1030,6 +1033,37 @@
         "limitsStudentsUnlimited": "Élèves illimités",
         "limitsTeachersUnlimited": "Enseignants illimités"
       }
+    },
+    "backup": {
+      "configTitle": "Sauvegarde",
+      "configLoadError": "Impossible de charger la configuration de sauvegarde.",
+      "destinationLabel": "Dossier de destination",
+      "destinationPlaceholder": "Aucun dossier choisi",
+      "destinationPick": "Choisir un dossier",
+      "retentionLabel": "Nombre de copies conservées",
+      "lastRunLabel": "Dernière sauvegarde automatique : {{date}}",
+      "never": "Jamais",
+      "configSubmit": "Enregistrer",
+      "configSaving": "Enregistrement…",
+      "configSaveSuccess": "Configuration de sauvegarde enregistrée",
+      "configSaveError": "L'enregistrement a échoué. Réessayez.",
+      "createButton": "Sauvegarder maintenant",
+      "creating": "Sauvegarde en cours…",
+      "createSuccess": "Sauvegarde créée le {{date}}",
+      "createError": "La sauvegarde a échoué. Réessayez.",
+      "restoreTitle": "Restaurer une sauvegarde",
+      "restoreSubtitle": "Remplace les données actuelles du centre par celles d'un fichier de sauvegarde.",
+      "restorePick": "Choisir un fichier de sauvegarde",
+      "restoreButton": "Restaurer",
+      "restoreNotFound": "Ce fichier de sauvegarde est introuvable.",
+      "restoreCorrupted": "Ce fichier de sauvegarde est corrompu et ne peut pas être restauré.",
+      "restoreWrongKey": "Ce fichier de sauvegarde ne correspond pas à ce centre.",
+      "restarting": "Restauration terminée. Redémarrage de l'application…",
+      "confirmTitle": "Confirmer la restauration",
+      "confirmBody": "Toutes les données actuelles du centre seront remplacées par celles de ce fichier de sauvegarde. Cette action est irréversible.",
+      "confirmDismiss": "Annuler",
+      "confirmConfirm": "Restaurer",
+      "confirmPending": "Restauration…"
     }
   },
   "centerHours": {
