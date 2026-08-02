@@ -75,6 +75,13 @@ import {
   SaveCenterProfile,
   StoreCenterLogo,
   ReadCenterLogo,
+  CreateBackup,
+  GetBackupConfig,
+  SaveBackupConfig,
+  RestoreBackup,
+  RunScheduledBackup,
+  CreateTeacherPayrollRule,
+  CloseTeacherPayrollRule,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -101,6 +108,7 @@ import { SqliteEnrollmentRepository } from '../data/sqlite/repositories/enrollme
 import { SqliteInvoiceRepository } from '../data/sqlite/repositories/invoice-repository';
 import { SqlitePaymentRepository } from '../data/sqlite/repositories/payment-repository';
 import { SqliteTeacherRepository } from '../data/sqlite/repositories/teacher-repository';
+import { SqliteTeacherPayrollRuleRepository } from '../data/sqlite/repositories/teacher-payroll-rule-repository';
 import { SqliteHolidayRepository } from '../data/sqlite/repositories/holiday-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
 import { SqliteSessionRepository } from '../data/sqlite/repositories/session-repository';
@@ -110,6 +118,8 @@ import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-thro
 import { SqliteDeviceSessionStore } from '../data/sqlite/repositories/device-session-store';
 import { SqliteCenterRepository } from '../data/sqlite/repositories/center-repository';
 import { FsLogoStore } from '../data/fs/logo-store';
+import { SqliteBackupAdapter } from '../data/sqlite/repositories/backup-adapter';
+import { SqliteBackupConfigStore } from '../data/sqlite/repositories/backup-config-store';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
@@ -140,6 +150,10 @@ export type ContainerOptions = {
   dir: string; // directory holding the center DB files
   planId: PlanId;
   appVersion: () => string;
+  /** Backup restore (SOU-102) swaps the live DB file and closes its handle —
+   *  the app must relaunch to reopen it. Kept out of composition-root/handlers
+   *  so they stay Electron-free, mirroring `appVersion`. */
+  scheduleRestart: () => void;
 };
 
 export type Container = {
@@ -150,6 +164,14 @@ export type Container = {
    * persistence + IPC. Nothing consumes it yet on this branch.
    */
   subscriptionReference: StudentSubscriptionReferencePort;
+  /**
+   * The two payroll-rule use cases (SOU-70), wired here for the first time
+   * (SOU-71) so the CRUD UI ticket (SOU-72) can register their IPC routes
+   * without touching this file. Not yet exposed through `HandlerDeps` /
+   * `createHandlers` — no route consumes them on this branch.
+   */
+  createTeacherPayrollRule: CreateTeacherPayrollRule;
+  closeTeacherPayrollRule: CloseTeacherPayrollRule;
   /** Read once, synchronously, before the window opens — see `LocalePreferenceStore`. */
   readLocalePreference: () => LocalePreference | null;
   dispose: () => void;
@@ -321,6 +343,22 @@ export function buildContainer(options: ContainerOptions): Container {
   const archiveTeacher = new ArchiveTeacher(teacherRepo, teacherReference, clock, plan);
   const restoreTeacher = new RestoreTeacher(teacherRepo, clock, plan);
 
+  // Payroll rule persistence (SOU-71): the domain (SOU-70) and its port shipped
+  // first, unwired. This constructs the real SQLite-backed repo and the two
+  // use cases against it — createTeacherPayrollRule enforces
+  // TooManyActivePayrollRulesError via payrollRuleRepo.listLiveByTeacher;
+  // closeTeacherPayrollRule caps a live rule's endMonth. IPC wiring lands with
+  // the CRUD UI (SOU-72).
+  const payrollRuleRepo = new SqliteTeacherPayrollRuleRepository(db);
+  const createTeacherPayrollRule = new CreateTeacherPayrollRule(
+    payrollRuleRepo,
+    teacherRepo,
+    clock,
+    ids,
+    plan,
+  );
+  const closeTeacherPayrollRule = new CloseTeacherPayrollRule(payrollRuleRepo, clock, plan);
+
   const holidayRepo = new SqliteHolidayRepository(db);
   const createHoliday = new CreateHoliday(holidayRepo, clock, ids, plan);
   const listHolidays = new ListHolidays(holidayRepo, plan);
@@ -347,6 +385,24 @@ export function buildContainer(options: ContainerOptions): Container {
   const logoStore = new FsLogoStore(options.dir, ids);
   const storeCenterLogo = new StoreCenterLogo(logoStore);
   const readCenterLogo = new ReadCenterLogo(logoStore);
+
+  // Backup & restore (SOU-102). `options.key` is today's key-management
+  // mechanism (CS_DB_KEY / dev fallback) — real per-center key derivation is a
+  // separate future ticket; both the manual/scheduled snapshot path and the
+  // restore verify/swap path use it unchanged until then.
+  const backupConfigStore = new SqliteBackupConfigStore(db);
+  const backupAdapter = new SqliteBackupAdapter(db, options.key, ids);
+  const createBackup = new CreateBackup(backupAdapter, backupConfigStore);
+  const getBackupConfig = new GetBackupConfig(backupConfigStore);
+  const saveBackupConfig = new SaveBackupConfig(backupConfigStore);
+  const restoreBackup = new RestoreBackup(backupAdapter);
+  // Launch-time schedule check (KICKOFF: no OS-level cron — runs at most once
+  // per launch, no-ops until a destination folder is configured). Fire-and-
+  // forget: a backup failure (unmounted USB, full disk…) must never block the
+  // window from opening.
+  void new RunScheduledBackup(backupAdapter, backupConfigStore, clock)
+    .execute({ centerCode: options.centerCode })
+    .catch((error: unknown) => console.error('[backup] scheduled run failed', error));
 
   const centerHoursRepo = new SqliteCenterHoursRepository(db);
   const saveCenterHours = new SaveCenterHours(centerHoursRepo, clock, ids, plan);
@@ -476,13 +532,27 @@ export function buildContainer(options: ContainerOptions): Container {
     readCenterLogo,
     centerContext: () => centerContext,
     saveLocalePreference: (locale) => localePreferences.write(locale),
+    createBackup,
+    getBackupConfig,
+    saveBackupConfig,
+    restoreBackup,
+    activeCenterCode: () => options.centerCode,
+    dbKey: () => options.key,
+    scheduleRestart: options.scheduleRestart,
   };
 
   return {
     handlerDeps,
     subscriptionReference,
+    createTeacherPayrollRule,
+    closeTeacherPayrollRule,
     readLocalePreference: () => localePreferences.read(),
-    dispose: () => db.close(),
+    // `db.open` guards against a double-close: a successful restore (SOU-102)
+    // already closed this handle as part of its file swap, and `will-quit`
+    // still calls `dispose()` during the scheduled relaunch.
+    dispose: () => {
+      if (db.open) db.close();
+    },
   };
 }
 

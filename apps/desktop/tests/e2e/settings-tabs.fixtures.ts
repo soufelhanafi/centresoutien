@@ -15,10 +15,10 @@ import { completeSetupAndLogin } from './center-profile.fixtures';
  * Drives the running app only through the UI and the public preload bridge
  * (`window.api.invoke`). No renderer/domain implementation is imported.
  *
- * The Settings surface is a tabbed layout with six tabs: Center Profile,
- * Center Hours, Holidays, Password, Language, Plan. This file adds copy and
- * helpers for the three NEW tabs (Password, Language, Plan) plus a tab-nav
- * helper shared across all six. Profile/Hours/Holidays copy is reused from
+ * The Settings surface is a tabbed layout with seven tabs: Center Profile,
+ * Center Hours, Holidays, Password, Language, Plan, Backup (SOU-102). This
+ * file adds copy and helpers for the NEW tabs (Password, Language, Plan,
+ * Backup) plus a tab-nav helper shared across all seven. Profile/Hours/Holidays copy is reused from
  * their existing fixtures (`center-profile.fixtures`, `center-hours.fixtures`,
  * `holidays.fixtures`) so the regression checks assert the exact same strings
  * those dedicated suites already cover.
@@ -34,6 +34,7 @@ export type SettingsStrings = {
     password: string;
     language: string;
     plan: string;
+    backup: string;
   };
   password: {
     heading: string;
@@ -74,6 +75,7 @@ export const S: Record<Locale, SettingsStrings> = {
       password: 'Mot de passe',
       language: 'Langue',
       plan: 'Formule',
+      backup: 'Sauvegarde',
     },
     password: {
       heading: 'Changer le mot de passe',
@@ -112,6 +114,7 @@ export const S: Record<Locale, SettingsStrings> = {
       password: 'كلمة المرور',
       language: 'اللغة',
       plan: 'الباقة',
+      backup: 'النسخ الاحتياطي',
     },
     password: {
       heading: 'تغيير كلمة المرور',

@@ -32,6 +32,7 @@ function build(planId: PlanId = 'essentiel') {
     dir,
     planId,
     appVersion: () => '2.0.0',
+    scheduleRestart: () => {},
   });
 }
 
