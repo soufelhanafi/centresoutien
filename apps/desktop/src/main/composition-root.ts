@@ -88,6 +88,8 @@ import {
   ListInvoices,
   MonthlyFeeAttributionService,
   ComputeMonthlyPayrolls,
+  ConfirmTeacherPayout,
+  ConfirmMonthlyPayrolls,
   GeneratePayslipPdf,
 } from '@centresoutien/domain';
 import type {
@@ -406,6 +408,14 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
+  // Payroll dashboard confirm actions (SOU-76): the single-row and bulk
+  // halves of "Mark paid", both writing through the same `payoutRepo` the
+  // compute job above populates. Reuses `monthlyFeeAttribution` for the
+  // dashboard's per-teacher drill-down (`attributedAmountsByTeacherAndSubject`)
+  // rather than constructing a second attribution service.
+  const confirmTeacherPayout = new ConfirmTeacherPayout(payoutRepo, clock, plan);
+  const confirmMonthlyPayrolls = new ConfirmMonthlyPayrolls(payoutRepo, clock, plan);
+
   const holidayRepo = new SqliteHolidayRepository(db);
   const createHoliday = new CreateHoliday(holidayRepo, clock, ids, plan);
   const listHolidays = new ListHolidays(holidayRepo, plan);
@@ -575,6 +585,11 @@ export function buildContainer(options: ContainerOptions): Container {
     closeTeacherPayrollRule,
     listTeacherPayrollRulesByTeacher,
     computeMonthlyPayrolls,
+    confirmTeacherPayout,
+    confirmMonthlyPayrolls,
+    payoutRepo,
+    monthlyFeeAttribution,
+    currentUserId: () => context.updatedBy,
     generatePayslipPdf,
     createHoliday,
     listHolidays,

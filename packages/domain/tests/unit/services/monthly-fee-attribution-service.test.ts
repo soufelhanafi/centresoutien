@@ -266,3 +266,151 @@ describe('MonthlyFeeAttributionService', () => {
     expect(result.get(TEACHER_MATH)).toBe(35000);
   });
 });
+
+describe('MonthlyFeeAttributionService.attributedAmountsByTeacherAndSubject', () => {
+  let invoices: InMemoryInvoiceRepository;
+  let payments: InMemoryPaymentRepository;
+  let formulas: InMemoryFormulaRepository;
+  let enrollments: InMemoryEnrollmentRepository;
+  let groups: InMemoryGroupRepository;
+  let service: MonthlyFeeAttributionService;
+
+  beforeEach(() => {
+    invoices = new InMemoryInvoiceRepository();
+    payments = new InMemoryPaymentRepository();
+    formulas = new InMemoryFormulaRepository();
+    enrollments = new InMemoryEnrollmentRepository();
+    groups = new InMemoryGroupRepository();
+    service = new MonthlyFeeAttributionService(invoices, payments, formulas, enrollments, groups);
+  });
+
+  function seedGroup(overrides: Partial<Group> & { subjectId: SubjectId }): Group {
+    const group: Group = {
+      id: (overrides.id ?? (ids.next('grp') as GroupId)) as GroupId,
+      ...envelope(),
+      roomId: ROOM,
+      level: 'college',
+      capacity: 20,
+      kind: 'regular',
+      active: true,
+      teacherId: null,
+      ...overrides,
+    };
+    void groups.save(group);
+    return group;
+  }
+
+  function seedEnrollment(studentId: StudentId, groupId: GroupId): Enrollment {
+    const enrollment: Enrollment = {
+      id: ids.next('enr') as EnrollmentId,
+      ...envelope(),
+      studentId,
+      groupId,
+      startMonth: '2026-01',
+      endMonth: null,
+    };
+    void enrollments.save(enrollment);
+    return enrollment;
+  }
+
+  function seedFormula(overrides: Partial<Formula> & { subjectIds: readonly SubjectId[] }): Formula {
+    const formula: Formula = {
+      id: (overrides.id ?? (ids.next('fml') as FormulaId)) as FormulaId,
+      ...envelope(),
+      name: { fr: 'Math', ar: 'رياضيات' },
+      priceMad: 20000,
+      kind: 'regular',
+      isImmutable: false,
+      active: true,
+      ...overrides,
+    };
+    void formulas.save(formula);
+    return formula;
+  }
+
+  async function seedIssuedInvoice(
+    studentId: StudentId,
+    formulaId: FormulaId,
+    amountMad: number,
+    netPaidMad: number,
+  ): Promise<Invoice> {
+    const invoice: Invoice = {
+      id: ids.next('inv') as InvoiceId,
+      ...envelope(),
+      studentId,
+      month: MONTH,
+      status: 'issued',
+      issuedAt: clock().now(),
+      cancelledAt: null,
+    };
+    const line: InvoiceLine = {
+      id: ids.next('invl') as InvoiceLineId,
+      ...envelope(),
+      invoiceId: invoice.id,
+      formulaId,
+      label: { fr: 'Math', ar: 'رياضيات' },
+      kind: 'regular',
+      amountMad,
+    };
+    await invoices.createDraft(invoice, [line]);
+    if (netPaidMad > 0) {
+      const payment: Payment = {
+        id: ids.next('pmt') as PaymentId,
+        ...envelope(),
+        invoiceId: invoice.id,
+        kind: 'payment',
+        amountMad: netPaidMad,
+        method: 'cash',
+        paidOn: '2026-08-05',
+        reversesPaymentId: null,
+      };
+      await payments.append(payment);
+    }
+    return invoice;
+  }
+
+  it('breaks a single-subject line down to one teacher/subject pair', async () => {
+    const group = seedGroup({ subjectId: MATH, teacherId: TEACHER_MATH as unknown as EntityId });
+    seedEnrollment(STUDENT, group.id);
+    const formula = seedFormula({ subjectIds: [MATH] });
+    await seedIssuedInvoice(STUDENT, formula.id, 20000, 20000);
+
+    const result = await service.attributedAmountsByTeacherAndSubject(CENTER, MONTH);
+
+    expect(result.get(TEACHER_MATH)?.get(MATH)).toBe(20000);
+  });
+
+  it('keeps a two-subject formula as two separate subject entries under the same teacher', async () => {
+    const group = seedGroup({ subjectId: MATH, teacherId: TEACHER_MATH as unknown as EntityId });
+    const physicsGroup = seedGroup({ subjectId: PHYSICS, teacherId: TEACHER_MATH as unknown as EntityId });
+    seedEnrollment(STUDENT, group.id);
+    seedEnrollment(STUDENT, physicsGroup.id);
+    const formula = seedFormula({ subjectIds: [MATH, PHYSICS] });
+    await seedIssuedInvoice(STUDENT, formula.id, 30000, 30000);
+
+    const result = await service.attributedAmountsByTeacherAndSubject(CENTER, MONTH);
+
+    expect(result.get(TEACHER_MATH)?.get(MATH)).toBe(15000);
+    expect(result.get(TEACHER_MATH)?.get(PHYSICS)).toBe(15000);
+  });
+
+  it('splits a two-subject line across two different teachers, one subject each', async () => {
+    const mathGroup = seedGroup({ subjectId: MATH, teacherId: TEACHER_MATH as unknown as EntityId });
+    const physicsGroup = seedGroup({ subjectId: PHYSICS, teacherId: TEACHER_PHYSICS as unknown as EntityId });
+    seedEnrollment(STUDENT, mathGroup.id);
+    seedEnrollment(STUDENT, physicsGroup.id);
+    const formula = seedFormula({ subjectIds: [MATH, PHYSICS] });
+    await seedIssuedInvoice(STUDENT, formula.id, 30000, 30000);
+
+    const result = await service.attributedAmountsByTeacherAndSubject(CENTER, MONTH);
+
+    expect(result.get(TEACHER_MATH)?.get(MATH)).toBe(15000);
+    expect(result.get(TEACHER_MATH)?.has(PHYSICS)).toBe(false);
+    expect(result.get(TEACHER_PHYSICS)?.get(PHYSICS)).toBe(15000);
+  });
+
+  it('returns an empty map when there are no issued invoices that month', async () => {
+    const result = await service.attributedAmountsByTeacherAndSubject(CENTER, MONTH);
+    expect(result.size).toBe(0);
+  });
+});

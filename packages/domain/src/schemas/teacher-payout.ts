@@ -11,3 +11,15 @@ export const computeMonthlyPayrollsSchema = z.object({
   month: z.string().regex(MONTH_PATTERN, { message: 'invalid-month' }),
 });
 export type ComputeMonthlyPayrollsFields = z.infer<typeof computeMonthlyPayrollsSchema>;
+
+/**
+ * `ConfirmMonthlyPayrolls` (SOU-76) input schema — same shape as
+ * {@link computeMonthlyPayrollsSchema}, kept as its own named export since the
+ * two use cases validate independently and a future divergence (e.g. a
+ * confirm-specific constraint) shouldn't force the compute job's schema to
+ * grow an unrelated branch.
+ */
+export const confirmMonthlyPayrollsSchema = z.object({
+  month: z.string().regex(MONTH_PATTERN, { message: 'invalid-month' }),
+});
+export type ConfirmMonthlyPayrollsFields = z.infer<typeof confirmMonthlyPayrollsSchema>;
