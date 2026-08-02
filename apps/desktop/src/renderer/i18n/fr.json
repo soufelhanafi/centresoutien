@@ -41,6 +41,14 @@
   "language": {
     "switch": "العربية"
   },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "subtitle": "Vue d'ensemble de l'activité de votre centre.",
+    "tabs": {
+      "basic": "Basique",
+      "advanced": "Avancé"
+    }
+  },
   "errors": {
     "required": "Ce champ est requis",
     "too-long": "Texte trop long",

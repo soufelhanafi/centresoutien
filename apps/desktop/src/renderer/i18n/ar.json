@@ -41,6 +41,14 @@
   "language": {
     "switch": "Français"
   },
+  "dashboard": {
+    "title": "لوحة القيادة",
+    "subtitle": "نظرة عامة على نشاط مركزكم.",
+    "tabs": {
+      "basic": "أساسي",
+      "advanced": "متقدم"
+    }
+  },
   "errors": {
     "required": "هذا الحقل مطلوب",
     "too-long": "النص طويل جدًا",
