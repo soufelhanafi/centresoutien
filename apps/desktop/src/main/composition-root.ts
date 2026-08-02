@@ -9,6 +9,12 @@ import {
   GetSubject,
   ListSubjectsWithUsage,
   UpdateSubject,
+  CreateFormula,
+  UpdateFormula,
+  GetFormula,
+  ListFormulas,
+  CloneFormula,
+  DeactivateFormula,
   CreateStudent,
   ListStudents,
   GetStudent,
@@ -35,7 +41,6 @@ import {
   CreateStudentSubscription,
   CloseStudentSubscription,
   ListStudentSubscriptions,
-  ListFormulas,
   RecordPayment,
   VoidPayment,
   GetInvoicePaymentSummary,
@@ -70,6 +75,11 @@ import {
   SaveCenterProfile,
   StoreCenterLogo,
   ReadCenterLogo,
+  CreateBackup,
+  GetBackupConfig,
+  SaveBackupConfig,
+  RestoreBackup,
+  RunScheduledBackup,
   CreateTeacherPayrollRule,
   CloseTeacherPayrollRule,
 } from '@centresoutien/domain';
@@ -87,12 +97,12 @@ import type {
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
+import { SqliteFormulaRepository } from '../data/sqlite/repositories/formula-repository';
 import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
 import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repository';
 import { SqliteGroupRepository } from '../data/sqlite/repositories/group-repository';
 import { SqliteStudentSubscriptionRepository } from '../data/sqlite/repositories/student-subscription-repository';
-import { SqliteFormulaRepository } from '../data/sqlite/repositories/formula-repository';
 import { SqliteStudentSubscriptionReference } from '../data/sqlite/repositories/student-subscription-reference';
 import { SqliteEnrollmentRepository } from '../data/sqlite/repositories/enrollment-repository';
 import { SqliteInvoiceRepository } from '../data/sqlite/repositories/invoice-repository';
@@ -108,6 +118,8 @@ import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-thro
 import { SqliteDeviceSessionStore } from '../data/sqlite/repositories/device-session-store';
 import { SqliteCenterRepository } from '../data/sqlite/repositories/center-repository';
 import { FsLogoStore } from '../data/fs/logo-store';
+import { SqliteBackupAdapter } from '../data/sqlite/repositories/backup-adapter';
+import { SqliteBackupConfigStore } from '../data/sqlite/repositories/backup-config-store';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
@@ -138,6 +150,10 @@ export type ContainerOptions = {
   dir: string; // directory holding the center DB files
   planId: PlanId;
   appVersion: () => string;
+  /** Backup restore (SOU-102) swaps the live DB file and closes its handle —
+   *  the app must relaunch to reopen it. Kept out of composition-root/handlers
+   *  so they stay Electron-free, mirroring `appVersion`. */
+  scheduleRestart: () => void;
 };
 
 export type Container = {
@@ -210,6 +226,14 @@ export function buildContainer(options: ContainerOptions): Container {
   const listSubjectsWithUsage = new ListSubjectsWithUsage(subjectRepo, plan);
   const updateSubject = new UpdateSubject(subjectRepo, clock, plan);
 
+  const formulaRepo = new SqliteFormulaRepository(db);
+  const createFormula = new CreateFormula(formulaRepo, subjectRepo, clock, ids, plan);
+  const updateFormula = new UpdateFormula(formulaRepo, subjectRepo, clock, plan);
+  const getFormula = new GetFormula(formulaRepo, plan);
+  const listFormulas = new ListFormulas(formulaRepo, plan);
+  const cloneFormula = new CloneFormula(formulaRepo, subjectRepo, clock, ids, plan);
+  const deactivateFormula = new DeactivateFormula(formulaRepo, clock, plan);
+
   const studentRepo = new SqliteStudentRepository(db);
   const createStudent = new CreateStudent(studentRepo, clock, ids, plan);
   const listStudents = new ListStudents(studentRepo, plan);
@@ -274,14 +298,6 @@ export function buildContainer(options: ContainerOptions): Container {
   // query, with no change to the port contract or the use-case body.
   const subscriptionReference: StudentSubscriptionReferencePort =
     new SqliteStudentSubscriptionReference(subscriptionRepo);
-
-  // Formula picker (SOU-65): the entity/port/adapter shipped unwired with the
-  // immutability trigger (SOU-60/SOU-61); this constructs the real repo and the
-  // one read use case the subscription create/close-reopen wizard needs.
-  // `listActive` is the only read the port exposes — a deactivated formula must
-  // never be offered for a new subscription.
-  const formulaRepo = new SqliteFormulaRepository(db);
-  const listFormulas = new ListFormulas(formulaRepo, plan);
 
   const enrollmentRepo = new SqliteEnrollmentRepository(db);
   const enrollStudent = new EnrollStudent(
@@ -370,6 +386,24 @@ export function buildContainer(options: ContainerOptions): Container {
   const storeCenterLogo = new StoreCenterLogo(logoStore);
   const readCenterLogo = new ReadCenterLogo(logoStore);
 
+  // Backup & restore (SOU-102). `options.key` is today's key-management
+  // mechanism (CS_DB_KEY / dev fallback) — real per-center key derivation is a
+  // separate future ticket; both the manual/scheduled snapshot path and the
+  // restore verify/swap path use it unchanged until then.
+  const backupConfigStore = new SqliteBackupConfigStore(db);
+  const backupAdapter = new SqliteBackupAdapter(db, options.key, ids);
+  const createBackup = new CreateBackup(backupAdapter, backupConfigStore);
+  const getBackupConfig = new GetBackupConfig(backupConfigStore);
+  const saveBackupConfig = new SaveBackupConfig(backupConfigStore);
+  const restoreBackup = new RestoreBackup(backupAdapter);
+  // Launch-time schedule check (KICKOFF: no OS-level cron — runs at most once
+  // per launch, no-ops until a destination folder is configured). Fire-and-
+  // forget: a backup failure (unmounted USB, full disk…) must never block the
+  // window from opening.
+  void new RunScheduledBackup(backupAdapter, backupConfigStore, clock)
+    .execute({ centerCode: options.centerCode })
+    .catch((error: unknown) => console.error('[backup] scheduled run failed', error));
+
   const centerHoursRepo = new SqliteCenterHoursRepository(db);
   const saveCenterHours = new SaveCenterHours(centerHoursRepo, clock, ids, plan);
   const getCenterHours = new GetCenterHours(centerHoursRepo, plan);
@@ -430,6 +464,12 @@ export function buildContainer(options: ContainerOptions): Container {
     getSubject,
     listSubjectsWithUsage,
     updateSubject,
+    createFormula,
+    updateFormula,
+    getFormula,
+    listFormulas,
+    cloneFormula,
+    deactivateFormula,
     createStudent,
     listStudents,
     getStudent,
@@ -456,7 +496,6 @@ export function buildContainer(options: ContainerOptions): Container {
     createStudentSubscription,
     closeStudentSubscription,
     listStudentSubscriptions,
-    listFormulas,
     recordPayment,
     voidPayment,
     getInvoicePaymentSummary,
@@ -493,6 +532,13 @@ export function buildContainer(options: ContainerOptions): Container {
     readCenterLogo,
     centerContext: () => centerContext,
     saveLocalePreference: (locale) => localePreferences.write(locale),
+    createBackup,
+    getBackupConfig,
+    saveBackupConfig,
+    restoreBackup,
+    activeCenterCode: () => options.centerCode,
+    dbKey: () => options.key,
+    scheduleRestart: options.scheduleRestart,
   };
 
   return {
@@ -501,7 +547,12 @@ export function buildContainer(options: ContainerOptions): Container {
     createTeacherPayrollRule,
     closeTeacherPayrollRule,
     readLocalePreference: () => localePreferences.read(),
-    dispose: () => db.close(),
+    // `db.open` guards against a double-close: a successful restore (SOU-102)
+    // already closed this handle as part of its file swap, and `will-quit`
+    // still calls `dispose()` during the scheduled relaunch.
+    dispose: () => {
+      if (db.open) db.close();
+    },
   };
 }
 

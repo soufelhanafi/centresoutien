@@ -23,7 +23,7 @@ export type WizardTarget = { kind: GroupKind; current: SubscriptionView | null }
  */
 export function useSubscriptionTab(studentId: string) {
   const subscriptionsQuery = useSubscriptions(studentId);
-  const formulasQuery = useFormulas();
+  const formulasQuery = useFormulas('active');
   const subjectsQuery = useSubjects('all');
   const examPrepEnabled = useFeature('core.exam-prep');
   const [wizardTarget, setWizardTarget] = useState<WizardTarget | null>(null);

@@ -257,6 +257,26 @@ describe('EnrollStudent', () => {
       );
       expect(await enrollments.countActiveByGroup(GROUP_ID)).toBe(0);
     });
+
+    it('throws CrossKindEnrollmentError in the reverse direction: an exam-prep-only subscription cannot join a regular group', async () => {
+      // Group stays the default kind: 'regular'. Student holds only an exam-prep
+      // subscription → cannot join it.
+      await expect(
+        build(PLANS.essentiel, [{ ...regularCoverage, kind: 'exam-prep' }]).execute(validInput()),
+      ).rejects.toBeInstanceOf(CrossKindEnrollmentError);
+      expect(await enrollments.countActiveByGroup(GROUP_ID)).toBe(0);
+    });
+
+    it('enrolls into a regular group when the student also holds an active exam-prep subscription (dual coverage resolves via prefer-kind, not spuriously blocked)', async () => {
+      // Both tracks cover the same subject. The port's prefer-kind resolution must
+      // hand back the regular entry for a regular group, so the guard never fires.
+      const enrollment = await build(PLANS.essentiel, [
+        regularCoverage,
+        { ...regularCoverage, kind: 'exam-prep' },
+      ]).execute(validInput());
+      expect(await enrollments.findById(enrollment.id)).not.toBeNull();
+      expect(await enrollments.countActiveByGroup(GROUP_ID)).toBe(1);
+    });
   });
 
   describe('subscription coverage guard', () => {

@@ -163,6 +163,11 @@ describe('SqliteFormulaRepository', () => {
       const rows = await repo.listActive(RABAT);
       expect(rows.map((f) => f.name.fr)).toEqual(['Géographie']);
     });
+
+    it('listAll returns every live formula (active + inactive), excluding tombstones and other centers', async () => {
+      const rows = await repo.listAll(CENTER);
+      expect(rows.map((f) => f.name.fr)).toEqual(['Arabe', 'Chimie', 'Physique']);
+    });
   });
 
   describe('listChangedSince', () => {
@@ -225,6 +230,48 @@ describe('SqliteFormulaRepository', () => {
 
       await expect(
         repo.softDelete('fml_00000000000000000000000001' as FormulaId, new Date('2026-08-03T00:00:00Z'), 'usr_00000000000000000000000001' as UserId),
+      ).rejects.toThrow();
+    });
+
+    it('(0025) allows repository save() to flip active 1 -> 0 on an immutable formula and nothing else', async () => {
+      await repo.save(makeFormula({ active: true }));
+      insertInvoiceLine(db, 'invl_00000000000000000000000001', 'fml_00000000000000000000000001');
+
+      await expect(
+        repo.save(makeFormula({ active: false, version: 1, updatedAt: new Date('2026-08-02T00:00:00Z') })),
+      ).resolves.toBeUndefined();
+
+      const found = await repo.findById('fml_00000000000000000000000001' as FormulaId);
+      expect(found?.active).toBe(false);
+      expect(found?.isImmutable).toBe(true);
+      expect(found?.priceMad).toBe(35000); // untouched
+      expect(found?.version).toBe(1);
+    });
+
+    it('(0025) still rejects a save() that bundles a content change with the active flip', async () => {
+      await repo.save(makeFormula({ active: true }));
+      insertInvoiceLine(db, 'invl_00000000000000000000000001', 'fml_00000000000000000000000001');
+
+      await expect(
+        repo.save(makeFormula({ active: false, priceMad: 99999, version: 1, updatedAt: new Date('2026-08-02T00:00:00Z') })),
+      ).rejects.toThrow();
+    });
+
+    it('(0025) still rejects reactivating an immutable formula (0 -> 1)', async () => {
+      await repo.save(makeFormula({ active: false }));
+      insertInvoiceLine(db, 'invl_00000000000000000000000001', 'fml_00000000000000000000000001');
+
+      await expect(
+        repo.save(makeFormula({ active: true, version: 1, updatedAt: new Date('2026-08-02T00:00:00Z') })),
+      ).rejects.toThrow();
+    });
+
+    it('(0025) still rejects a save() that is a no-op replay of an already-active immutable row', async () => {
+      await repo.save(makeFormula({ active: true }));
+      insertInvoiceLine(db, 'invl_00000000000000000000000001', 'fml_00000000000000000000000001');
+
+      await expect(
+        repo.save(makeFormula({ active: true, version: 1, updatedAt: new Date('2026-08-02T00:00:00Z') })),
       ).rejects.toThrow();
     });
 
@@ -325,6 +372,31 @@ describe('SqliteFormulaRepository', () => {
         const applied = applyMigrations(stale, all);
         expect(applied).toContain(23);
         expect(stale.prepare('SELECT COUNT(*) AS n FROM formulas').get()).toEqual({ n: 0 });
+      } finally {
+        stale.close();
+        rmSync(fresh, { recursive: true, force: true });
+      }
+    });
+
+    it('applies 0025 cleanly on a DB already migrated to 0023, and the redefined guard still allows only the deactivate write', async () => {
+      const fresh = mkdtempSync(join(tmpdir(), 'cs-fml-replay25-'));
+      const stale = openDatabase({ centreId: 'C3', key: KEY, dir: fresh });
+      try {
+        const all = loadMigrations(REAL_MIGRATIONS);
+        const upTo23 = all.filter((m) => m.version <= 23);
+        applyMigrations(stale, upTo23);
+
+        const applied = applyMigrations(stale, all);
+        expect(applied).toContain(25);
+
+        const staleRepo = new SqliteFormulaRepository(stale);
+        await staleRepo.save(makeFormula({ active: true }));
+        insertInvoiceLine(stale, 'invl_00000000000000000000000001', 'fml_00000000000000000000000001');
+
+        await expect(
+          staleRepo.save(makeFormula({ active: false, version: 1, updatedAt: new Date('2026-08-02T00:00:00Z') })),
+        ).resolves.toBeUndefined();
+        expect((await staleRepo.findById(makeFormula().id))?.active).toBe(false);
       } finally {
         stale.close();
         rmSync(fresh, { recursive: true, force: true });

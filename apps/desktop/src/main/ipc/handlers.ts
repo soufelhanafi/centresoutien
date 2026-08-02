@@ -9,6 +9,14 @@ import type {
   Subject,
   SubjectUsage,
   SubjectId,
+  CreateFormula,
+  UpdateFormula,
+  GetFormula,
+  ListFormulas,
+  CloneFormula,
+  DeactivateFormula,
+  Formula,
+  FormulaId,
   CreateStudent,
   ListStudents,
   GetStudent,
@@ -47,8 +55,6 @@ import type {
   ListStudentSubscriptions,
   StudentSubscription,
   StudentSubscriptionId,
-  ListFormulas,
-  Formula,
   RecordPayment,
   VoidPayment,
   GetInvoicePaymentSummary,
@@ -108,6 +114,8 @@ import {
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import type { LocalePreference } from '../infra/locale-preference-store';
+import { createBackupHandlers, type BackupHandlerDeps } from './backup-handlers';
+import { createDialogHandlers } from './dialog-handlers';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
@@ -116,6 +124,12 @@ export type ListSubjectsUseCase = Pick<ListSubjects, 'execute'>;
 export type GetSubjectUseCase = Pick<GetSubject, 'execute'>;
 export type ListSubjectsWithUsageUseCase = Pick<ListSubjectsWithUsage, 'execute'>;
 export type UpdateSubjectUseCase = Pick<UpdateSubject, 'execute'>;
+export type CreateFormulaUseCase = Pick<CreateFormula, 'execute'>;
+export type UpdateFormulaUseCase = Pick<UpdateFormula, 'execute'>;
+export type GetFormulaUseCase = Pick<GetFormula, 'execute'>;
+export type ListFormulasUseCase = Pick<ListFormulas, 'execute'>;
+export type CloneFormulaUseCase = Pick<CloneFormula, 'execute'>;
+export type DeactivateFormulaUseCase = Pick<DeactivateFormula, 'execute'>;
 export type CreateStudentUseCase = Pick<CreateStudent, 'execute'>;
 export type ListStudentsUseCase = Pick<ListStudents, 'execute'>;
 export type GetStudentUseCase = Pick<GetStudent, 'execute'>;
@@ -142,7 +156,6 @@ export type RestoreGroupUseCase = Pick<RestoreGroup, 'execute'>;
 export type CreateStudentSubscriptionUseCase = Pick<CreateStudentSubscription, 'execute'>;
 export type CloseStudentSubscriptionUseCase = Pick<CloseStudentSubscription, 'execute'>;
 export type ListStudentSubscriptionsUseCase = Pick<ListStudentSubscriptions, 'execute'>;
-export type ListFormulasUseCase = Pick<ListFormulas, 'execute'>;
 export type RecordPaymentUseCase = Pick<RecordPayment, 'execute'>;
 export type VoidPaymentUseCase = Pick<VoidPayment, 'execute'>;
 export type GetInvoicePaymentSummaryUseCase = Pick<GetInvoicePaymentSummary, 'execute'>;
@@ -260,6 +273,20 @@ function toSubjectUsageView(row: SubjectUsage) {
   };
 }
 
+/** Project a Formula to its boundary DTO (SOU-62): envelope stripped. No `archived`
+ *  field — this CRUD UI has no soft-delete action, only the one-way `active` flag. */
+function toFormulaView(formula: Formula) {
+  return {
+    id: formula.id,
+    name: { fr: formula.name.fr, ar: formula.name.ar },
+    subjectIds: [...formula.subjectIds],
+    priceMad: formula.priceMad,
+    kind: formula.kind,
+    isImmutable: formula.isImmutable,
+    active: formula.active,
+  };
+}
+
 /** Project a Room to its boundary DTO: envelope stripped, dates serialized,
  *  `archived` derived from the soft-delete tombstone. */
 function toRoomView(room: Room) {
@@ -321,20 +348,6 @@ function toSubscriptionView(subscription: StudentSubscription) {
     endMonth: subscription.endMonth,
     archived: subscription.deletedAt !== null,
     createdAt: subscription.createdAt.toISOString(),
-  };
-}
-
-/** Project a Formula to its boundary DTO: envelope and `isImmutable` stripped —
- *  tombstones never reach this read, so no `archived` is exposed either, mirroring
- *  `toSubjectView`. */
-function toFormulaView(formula: Formula) {
-  return {
-    id: formula.id,
-    name: { fr: formula.name.fr, ar: formula.name.ar },
-    subjectIds: [...formula.subjectIds],
-    priceMad: formula.priceMad,
-    kind: formula.kind,
-    active: formula.active,
   };
 }
 
@@ -433,7 +446,7 @@ function toWeekView(week: readonly CenterHours[]) {
  * cases) are injected so handlers stay pure and testable without Electron. Each
  * handler delegates to a pre-wired domain use case; it adds no business logic.
  */
-export type HandlerDeps = {
+export type HandlerDeps = BackupHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
   createSubject: CreateSubjectUseCase;
@@ -442,6 +455,12 @@ export type HandlerDeps = {
   getSubject: GetSubjectUseCase;
   listSubjectsWithUsage: ListSubjectsWithUsageUseCase;
   updateSubject: UpdateSubjectUseCase;
+  createFormula: CreateFormulaUseCase;
+  updateFormula: UpdateFormulaUseCase;
+  getFormula: GetFormulaUseCase;
+  listFormulas: ListFormulasUseCase;
+  cloneFormula: CloneFormulaUseCase;
+  deactivateFormula: DeactivateFormulaUseCase;
   createStudent: CreateStudentUseCase;
   listStudents: ListStudentsUseCase;
   getStudent: GetStudentUseCase;
@@ -468,7 +487,6 @@ export type HandlerDeps = {
   createStudentSubscription: CreateStudentSubscriptionUseCase;
   closeStudentSubscription: CloseStudentSubscriptionUseCase;
   listStudentSubscriptions: ListStudentSubscriptionsUseCase;
-  listFormulas: ListFormulasUseCase;
   recordPayment: RecordPaymentUseCase;
   voidPayment: VoidPaymentUseCase;
   getInvoicePaymentSummary: GetInvoicePaymentSummaryUseCase;
@@ -569,6 +587,54 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         updatedBy,
       });
       return { subject: toSubjectView(subject) };
+    },
+    'formula.create': async (request) => {
+      const formula = await deps.createFormula.execute({ ...request, ...deps.envelopeContext() });
+      return { id: formula.id };
+    },
+    'formula.list': async (request) => {
+      const formulas = await deps.listFormulas.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        scope: request.scope,
+      });
+      return { formulas: formulas.map(toFormulaView) };
+    },
+    'formula.get': async (request) => {
+      const formula = await deps.getFormula.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        id: request.id as FormulaId,
+      });
+      return { formula: formula ? toFormulaView(formula) : null };
+    },
+    'formula.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const formula = await deps.updateFormula.execute({
+        ...fields,
+        centerCode,
+        id: id as FormulaId,
+        updatedBy,
+      });
+      return { formula: toFormulaView(formula) };
+    },
+    'formula.clone': async (request) => {
+      const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
+      const clone = await deps.cloneFormula.execute({
+        centerCode,
+        sourceId: request.id as FormulaId,
+        deviceOrigin,
+        updatedBy,
+      });
+      return { id: clone.id };
+    },
+    'formula.deactivate': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const formula = await deps.deactivateFormula.execute({
+        centerCode,
+        id: request.id as FormulaId,
+        updatedBy,
+      });
+      return { formula: toFormulaView(formula) };
     },
     'student.create': async (request) => {
       const student = await deps.createStudent.execute({ ...request, ...deps.envelopeContext() });
@@ -780,12 +846,6 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         studentId: request.studentId as StudentId,
       });
       return { subscriptions: subscriptions.map(toSubscriptionView) };
-    },
-    'formula.list': async () => {
-      const formulas = await deps.listFormulas.execute({
-        centerCode: deps.envelopeContext().centerCode,
-      });
-      return { formulas: formulas.map(toFormulaView) };
     },
     'payment.record': async (request) => {
       const { payment, status } = await deps.recordPayment.execute({
@@ -1033,5 +1093,7 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       deps.saveLocalePreference(request.locale);
       return { ok: true };
     },
+    ...createBackupHandlers(deps),
+    ...createDialogHandlers(),
   };
 }

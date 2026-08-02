@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { updateFormula } from '../../../src/policies/formula-policy';
+import { updateFormula, deactivateFormula } from '../../../src/policies/formula-policy';
 import { FormulaImmutableError } from '../../../src/errors/formula-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Formula, FormulaId } from '../../../src/entities/formula';
@@ -149,5 +149,51 @@ describe('updateFormula', () => {
         expect((error as FormulaImmutableError).code).toBe('formula-immutable');
       }
     });
+  });
+});
+
+describe('deactivateFormula', () => {
+  it('sets active to false on a mutable formula, bumping updatedAt/updatedBy', () => {
+    const prev = makeFormula({ isImmutable: false, active: true });
+    const clock = fakeClock('2026-08-02T09:00:00Z');
+
+    const { next, changedFields } = deactivateFormula(prev, { clock, updatedBy: EDITOR });
+
+    expect(next.active).toBe(false);
+    expect(next.updatedAt).toEqual(new Date('2026-08-02T09:00:00Z'));
+    expect(next.updatedBy).toBe(EDITOR);
+    expect(changedFields).toEqual(['active']);
+  });
+
+  it('sets active to false on an immutable formula — the whole point is to bypass the barrier', () => {
+    const prev = makeFormula({ isImmutable: true, active: true });
+    const { next } = deactivateFormula(prev, { clock: fakeClock(), updatedBy: EDITOR });
+    expect(next.active).toBe(false);
+    expect(next.isImmutable).toBe(true);
+  });
+
+  it('touches only active — every other field is preserved', () => {
+    const prev = makeFormula({ isImmutable: true });
+    const { next } = deactivateFormula(prev, { clock: fakeClock(), updatedBy: EDITOR });
+    expect(next.name).toEqual(prev.name);
+    expect(next.subjectIds).toEqual(prev.subjectIds);
+    expect(next.priceMad).toBe(prev.priceMad);
+    expect(next.kind).toBe(prev.kind);
+  });
+
+  it('is idempotent: deactivating an already-inactive formula changes nothing', () => {
+    const prev = makeFormula({ active: false });
+    const { next, changedFields } = deactivateFormula(prev, {
+      clock: fakeClock('2027-01-01T00:00:00Z'),
+      updatedBy: EDITOR,
+    });
+    expect(changedFields).toEqual([]);
+    expect(next).toBe(prev);
+  });
+
+  it('never touches version — that is the hub-assigned counter', () => {
+    const prev = makeFormula({ version: 5 });
+    const { next } = deactivateFormula(prev, { clock: fakeClock(), updatedBy: EDITOR });
+    expect(next.version).toBe(prev.version);
   });
 });

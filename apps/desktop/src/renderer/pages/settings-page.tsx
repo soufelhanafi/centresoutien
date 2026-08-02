@@ -6,11 +6,12 @@ import { HolidaysSettings } from '../components/holiday/holidays-settings';
 import { PasswordSettings } from '../components/settings/password-settings';
 import { LanguageSettings } from '../components/settings/language-settings';
 import { PlanSettings } from '../components/settings/plan-settings';
+import { BackupSettings } from '../components/settings/backup-settings';
 
 /**
- * Paramètres screen (SOU-31). Six tabs: the center-profile editor (SOU-28),
+ * Paramètres screen (SOU-31). Seven tabs: the center-profile editor (SOU-28),
  * the center opening-hours editor (SOU-29), the holidays manager (SOU-30),
- * password change, language, and read-only plan info.
+ * password change, language, read-only plan info, and backup/restore (SOU-102).
  */
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -28,6 +29,7 @@ export function SettingsPage() {
           <TabsTrigger value="password">{t('settings.tabs.password')}</TabsTrigger>
           <TabsTrigger value="language">{t('settings.tabs.language')}</TabsTrigger>
           <TabsTrigger value="plan">{t('settings.tabs.plan')}</TabsTrigger>
+          <TabsTrigger value="backup">{t('settings.tabs.backup')}</TabsTrigger>
         </TabsList>
         <TabsContent value="profile">
           <CenterProfileSettings />
@@ -46,6 +48,9 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="plan">
           <PlanSettings />
+        </TabsContent>
+        <TabsContent value="backup">
+          <BackupSettings />
         </TabsContent>
       </Tabs>
     </section>

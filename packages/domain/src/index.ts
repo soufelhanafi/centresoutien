@@ -92,7 +92,8 @@ export {
   TooManyActiveSubscriptionsError,
   StudentSubscriptionNotFoundError,
 } from './errors/subscription-errors';
-export { FormulaImmutableError } from './errors/formula-errors';
+export { FormulaImmutableError, FormulaNotFoundError, FormulaSubjectUnavailableError } from './errors/formula-errors';
+export type { FormulaSubjectUnavailableReason } from './errors/formula-errors';
 export {
   TooManyActivePayrollRulesError,
   TeacherPayrollRuleNotFoundError,
@@ -210,6 +211,14 @@ export {
   CENTER_LOGO_PATH_MAX,
 } from './schemas/center';
 export type { CenterProfileInput, LogoExtension } from './schemas/center';
+export {
+  createBackupInputSchema,
+  backupConfigInputSchema,
+  BACKUP_DESTINATION_DIR_MAX,
+  BACKUP_RETENTION_MIN,
+  BACKUP_RETENTION_MAX,
+} from './schemas/backup';
+export type { CreateBackupInputSchema, BackupConfigInput } from './schemas/backup';
 
 // Entities
 export { SUBJECT_ID_PREFIX } from './entities/subject';
@@ -303,6 +312,10 @@ export type { LoginThrottleStore } from './ports/login-throttle-store';
 export type { DeviceSessionStore } from './ports/device-session-store';
 export type { CenterRepository } from './ports/center-repository';
 export type { LogoStore } from './ports/logo-store';
+// Backup & restore (SOU-102) — mirrors the Clock/IdGenerator port pattern.
+export type { BackupPort, BackupFileInfo, BackupVerification } from './ports/backup-port';
+export type { BackupConfigStore, BackupConfig } from './ports/backup-config-store';
+export { DEFAULT_BACKUP_RETENTION_COUNT } from './ports/backup-config-store';
 export type { ParentRepository } from './ports/parent-repository';
 export type { RoomRepository } from './ports/room-repository';
 export type { TeacherRepository } from './ports/teacher-repository';
@@ -387,8 +400,9 @@ export {
   isPayrollRuleActiveInMonth,
   payrollRuleRangesOverlap,
 } from './policies/teacher-payroll-rule-policy';
-export { updateFormula } from './policies/formula-policy';
+export { updateFormula, deactivateFormula } from './policies/formula-policy';
 export type { FormulaPatch } from './policies/formula-policy';
+export { validateFormulaSubjects } from './policies/validate-formula-subjects';
 
 // First-run wizard state machine (SOU-25) — a pure, portable sequencer.
 export type { WizardStepId } from './wizard/wizard-steps';
@@ -475,8 +489,6 @@ export { CloseStudentSubscription } from './use-cases/close-student-subscription
 export type { CloseStudentSubscriptionInput } from './use-cases/close-student-subscription';
 export { ListStudentSubscriptions } from './use-cases/list-student-subscriptions';
 export type { ListStudentSubscriptionsInput } from './use-cases/list-student-subscriptions';
-export { ListFormulas } from './use-cases/list-formulas';
-export type { ListFormulasInput } from './use-cases/list-formulas';
 export { CreateTeacherPayrollRule } from './use-cases/create-teacher-payroll-rule';
 export type { CreateTeacherPayrollRuleInput } from './use-cases/create-teacher-payroll-rule';
 export { CloseTeacherPayrollRule } from './use-cases/close-teacher-payroll-rule';
@@ -542,6 +554,20 @@ export { StoreCenterLogo } from './use-cases/store-center-logo';
 export type { StoreCenterLogoInput } from './use-cases/store-center-logo';
 export { ReadCenterLogo } from './use-cases/read-center-logo';
 export type { ReadCenterLogoInput } from './use-cases/read-center-logo';
+// Backup & restore (SOU-102)
+export { CreateBackup } from './use-cases/create-backup';
+export type { CreateBackupInput } from './use-cases/create-backup';
+export { GetBackupConfig } from './use-cases/get-backup-config';
+export { SaveBackupConfig } from './use-cases/save-backup-config';
+export type { SaveBackupConfigInput } from './use-cases/save-backup-config';
+export { RestoreBackup } from './use-cases/restore-backup';
+export type {
+  RestoreBackupInput,
+  RestoreBackupOutcome,
+  RestoreBackupResult,
+} from './use-cases/restore-backup';
+export { RunScheduledBackup } from './use-cases/run-scheduled-backup';
+export type { RunScheduledBackupInput } from './use-cases/run-scheduled-backup';
 export { SaveCenterHours } from './use-cases/save-center-hours';
 export type { SaveCenterHoursInput } from './use-cases/save-center-hours';
 export { GetCenterHours } from './use-cases/get-center-hours';
@@ -554,3 +580,17 @@ export { ChangeAdminPassword } from './use-cases/change-admin-password';
 export type { ChangeAdminPasswordInput } from './use-cases/change-admin-password';
 export { AttemptLogin } from './use-cases/attempt-login';
 export type { LoginResult, CredentialVerifier } from './use-cases/attempt-login';
+
+// Formula CRUD use cases (SOU-62).
+export { CreateFormula } from './use-cases/create-formula';
+export type { CreateFormulaInput } from './use-cases/create-formula';
+export { UpdateFormula } from './use-cases/update-formula';
+export type { UpdateFormulaInput } from './use-cases/update-formula';
+export { GetFormula } from './use-cases/get-formula';
+export type { GetFormulaInput } from './use-cases/get-formula';
+export { ListFormulas } from './use-cases/list-formulas';
+export type { ListFormulasInput, FormulaScope } from './use-cases/list-formulas';
+export { CloneFormula } from './use-cases/clone-formula';
+export type { CloneFormulaInput } from './use-cases/clone-formula';
+export { DeactivateFormula } from './use-cases/deactivate-formula';
+export type { DeactivateFormulaInput } from './use-cases/deactivate-formula';

@@ -133,4 +133,15 @@ export class SqliteFormulaRepository implements FormulaRepository {
       .all(centerCode) as FormulaRow[];
     return rows.map(fromRow);
   }
+
+  async listAll(centerCode: CenterCode): Promise<readonly Formula[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM formulas
+          WHERE center_code = ? AND deleted_at IS NULL
+          ORDER BY name_fr COLLATE NOCASE, id`,
+      )
+      .all(centerCode) as FormulaRow[];
+    return rows.map(fromRow);
+  }
 }
