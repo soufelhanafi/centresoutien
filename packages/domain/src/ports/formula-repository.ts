@@ -22,4 +22,12 @@ export interface FormulaRepository extends SoftDeletableRepository<FormulaId, Fo
    * pickers, which must not offer a deactivated formula. Center-scoped.
    */
   listActive(centerCode: CenterCode): Promise<readonly Formula[]>;
+
+  /**
+   * **Every** live formula of the center — active and deactivated alike — with
+   * only tombstones excluded. Backs the SOU-62 CRUD table, which must still show
+   * (and resolve) a now-deactivated formula for history. Center-scoped. Mirrors
+   * `SubjectRepository.listAll`.
+   */
+  listAll(centerCode: CenterCode): Promise<readonly Formula[]>;
 }
