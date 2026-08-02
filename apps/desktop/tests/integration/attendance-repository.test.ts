@@ -149,6 +149,39 @@ describe('SqliteAttendanceRepository', () => {
     });
   });
 
+  describe('saveMany', () => {
+    it('upserts a whole batch in one transaction', async () => {
+      const sessionId = await makeSession('2026-01-08');
+      const batch = [
+        makeAttendance({ sessionId, studentId: STUDENT_A, status: 'present' }),
+        makeAttendance({ sessionId, studentId: STUDENT_B, status: 'absent' }),
+      ];
+
+      await repo.saveMany(batch);
+
+      const roster = await repo.listBySession(sessionId);
+      expect(roster.map((r) => [r.studentId, r.status])).toEqual([
+        [STUDENT_A, 'present'],
+        [STUDENT_B, 'absent'],
+      ]);
+    });
+
+    it('rolls back the whole batch when one row violates a CHECK constraint', async () => {
+      const sessionId = await makeSession('2026-01-08');
+      const batch = [
+        makeAttendance({ sessionId, studentId: STUDENT_A, status: 'present' }),
+        makeAttendance({
+          sessionId,
+          studentId: STUDENT_B,
+          status: 'tardy' as unknown as AttendanceRecord['status'],
+        }),
+      ];
+
+      await expect(repo.saveMany(batch)).rejects.toThrow();
+      expect(await repo.listBySession(sessionId)).toEqual([]);
+    });
+  });
+
   describe('listBySession', () => {
     it('returns live records for the session, ordered by studentId, excluding tombstones', async () => {
       const sessionId = await makeSession('2026-01-08');

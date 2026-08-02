@@ -89,6 +89,7 @@ import {
   MonthlyFeeAttributionService,
   ComputeMonthlyPayrolls,
   GeneratePayslipPdf,
+  RecordSessionAttendance,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -120,6 +121,7 @@ import { SqliteTeacherPayoutRepository } from '../data/sqlite/repositories/teach
 import { SqliteHolidayRepository } from '../data/sqlite/repositories/holiday-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
 import { SqliteSessionRepository } from '../data/sqlite/repositories/session-repository';
+import { SqliteAttendanceRepository } from '../data/sqlite/repositories/attendance-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-throttle-store';
@@ -426,6 +428,18 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
+  // Per-session roll-call (SOU-58). The roster itself comes from the existing
+  // group-roster IPC (SOU-126/127) — this use case only records the outcome
+  // against the concrete session and the SOU-57 attendance store.
+  const attendanceRepo = new SqliteAttendanceRepository(db);
+  const recordSessionAttendance = new RecordSessionAttendance(
+    attendanceRepo,
+    concreteSessionRepo,
+    clock,
+    ids,
+    plan,
+  );
+
   const centerRepo = new SqliteCenterRepository(db);
   const getCenterProfile = new GetCenterProfile(centerRepo);
   const saveCenterProfile = new SaveCenterProfile(centerRepo, clock, ids);
@@ -583,6 +597,7 @@ export function buildContainer(options: ContainerOptions): Container {
     restoreHoliday,
     listWeekSessions,
     generateSessions,
+    recordSessionAttendance,
     createWeeklySession,
     updateWeeklySession,
     cancelWeeklySession,

@@ -97,6 +97,7 @@
     "teacher-conflict": "لدى الأستاذ حصة بالفعل في هذا التوقيت",
     "invalid-session-validity-range": "فترة صلاحية الحصة غير صالحة",
     "weekly-recurring-session-not-found": "لم تعد هذه الحصة موجودة",
+    "session-not-found": "هذه الحصة غير موجودة",
     "invalid-code": "رمز غير صالح (أحرف كبيرة وأرقام و- و_ فقط)",
     "subject-in-use": "هذه المادة مستخدمة في مجموعة واحدة على الأقل ولا يمكن حذفها",
     "subject-not-found": "لم يتم العثور على هذه المادة",
@@ -255,6 +256,34 @@
         "body": "أضف طالبًا لتكوين هذه المجموعة."
       },
       "loadError": "فشل تحميل التسجيلات."
+    },
+    "attendance": {
+      "action": "تسجيل الحضور",
+      "title": "ورقة الحضور",
+      "description": "اختر تاريخًا، حدّد حالة كل طالب، ثم احفظ.",
+      "dateLabel": "تاريخ الحصة",
+      "slotLabel": "الحصة",
+      "slotPlaceholder": "اختر حصة",
+      "noSlotForDay": "لا توجد حصة مبرمجة لهذه المجموعة في هذا اليوم.",
+      "markAllPresent": "تعليم الجميع كحاضرين",
+      "summary": "{{present}}/{{total}} حاضرون",
+      "shortcutsHint": "↑ / ↓ للتنقل، P / A / L / E للتعليم، Entrée للتأكيد",
+      "status": {
+        "present": "حاضر",
+        "absent": "غائب",
+        "late": "متأخر",
+        "excused": "معذور"
+      },
+      "cancel": "إلغاء",
+      "submit": "حفظ",
+      "saving": "جارٍ الحفظ…",
+      "submitSuccess": "تم حفظ الحضور",
+      "submitError": "فشل حفظ الحضور",
+      "empty": {
+        "title": "لا يوجد طلبة مسجّلون",
+        "body": "أضف طلبة إلى هذه المجموعة قبل تسجيل الحضور."
+      },
+      "loadError": "فشل تحميل قائمة الطلبة."
     }
   },
   "guardian": {
@@ -1235,6 +1264,7 @@
         "coreCalendarWeek": "الجدولة الأسبوعية",
         "coreInvoicing": "الفوترة الشهرية",
         "coreParents": "إدارة أولياء الأمور",
+        "coreAttendance": "حضور الطلاب",
         "settingsCenterHours": "مواعيد عمل المركز",
         "settingsHolidays": "العطل",
         "dashboardBasic": "لوحة القيادة",
