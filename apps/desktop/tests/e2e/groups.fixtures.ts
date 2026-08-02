@@ -9,16 +9,16 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
  * archive-restore / detail roster + quick add-student).
  *
  * Driven exclusively through the running packaged app and the public preload
- * bridge (`window.api.invoke`). No renderer implementation is imported. The only
- * string values referenced here mirror the localization catalog
- * (`i18n/fr.json` / `ar.json`) — the user-facing localization contract, exactly
- * as the SOU-34 rooms fixtures do.
+ * bridge (`window.api.invoke`). No renderer implementation is imported. Every
+ * string the specs assert on mirrors the localization catalog (`i18n/fr.json` /
+ * `ar.json`), exactly as the SOU-34 rooms fixtures do.
  *
- * NOTE ON THE MOCK BOUNDARY: per the SOU-50 frontend handoff the Groups screen is
- * wired to a gateway seam backed by a **mock read model** until SOU-127 lands
- * (roster contents + fill-%). These fixtures therefore verify UI surface and
- * behavior; they do not assume persistence to the real SQLite `group.*` gateway.
- * Each test boots a fresh app with a throwaway user-data dir for isolation.
+ * Reference data (subjects, rooms, teachers, groups, and — where a fill count is
+ * asserted — students with a covering subscription + enrollment) is seeded through
+ * the same public `subject.*` / `room.*` / `teacher.*` / `group.*` /
+ * `subscription.*` / `enrollment.*` channels the UI itself uses, mirroring
+ * `formulas.fixtures.ts` and `enrollment.fixtures.ts`. Each test boots a fresh app
+ * with a throwaway user-data dir for isolation.
  */
 
 const dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -26,11 +26,16 @@ export const MAIN_ENTRY = join(dirname, '../../out/main/index.js');
 
 export type Locale = 'fr' | 'ar';
 export type PlanId = 'essentiel' | 'pro' | 'premium';
+export type GroupKind = 'regular' | 'exam-prep';
 
 export const DIRECTION: Record<Locale, 'ltr' | 'rtl'> = { fr: 'ltr', ar: 'rtl' };
 
 // Non-secret throwaway admin (assembled at runtime; secret-scan friendly).
 export const VALID_ADMIN = { username: 'directrice', password: ['Casa', '2026', '!'].join('') } as const;
+
+/** Enrollment month used whenever a seed group needs a fill count; subscriptions start earlier. */
+export const ENROLL_MONTH = '2026-08';
+export const SUB_START = '2025-09';
 
 /** All copy the specs assert on, mirrored from i18n fr/ar.json (`groups.*`, `nav.*`). */
 export const STR: Record<
@@ -86,7 +91,6 @@ export const STR: Record<
       addSuccess: string;
       remove: string;
       emptyTitle: string;
-      pending: string;
     };
   }
 > = {
@@ -157,7 +161,6 @@ export const STR: Record<
       addSuccess: 'Élève inscrit',
       remove: 'Retirer',
       emptyTitle: 'Aucun élève inscrit',
-      pending: 'Read-model provisoire — les inscriptions réelles arrivent avec SOU-127.',
     },
   },
   ar: {
@@ -227,7 +230,6 @@ export const STR: Record<
       addSuccess: 'تم تسجيل الطالب',
       remove: 'إزالة',
       emptyTitle: 'لا يوجد طلبة مسجّلون',
-      pending: 'نموذج قراءة مؤقت — التسجيلات الفعلية ستصل مع SOU-127.',
     },
   },
 };
@@ -237,6 +239,8 @@ export function freshUserDataDir(): string {
 }
 
 export type Launched = { app: ElectronApplication; win: Page };
+
+type Bridge = { invoke: (channel: string, req: unknown) => Promise<unknown> };
 
 export async function launch(locale: Locale, plan: PlanId, userDataDir: string): Promise<Launched> {
   const app = await electron.launch({
@@ -248,21 +252,158 @@ export async function launch(locale: Locale, plan: PlanId, userDataDir: string):
   return { app, win };
 }
 
+export type SeedSubject = { nameFr: string; nameAr: string; code?: string };
+export type SeedRoom = { name: string; capacity: number };
+export type SeedTeacher = { nameFr: string; nameAr: string; phone: string };
+
+/** One group to seed. `subjectIdx`/`roomIdx`/`teacherIdx` index into the seeded lists. */
+export type SeedGroup = {
+  subjectIdx: number;
+  roomIdx: number;
+  teacherIdx?: number;
+  level: string;
+  capacity: number;
+  kind?: GroupKind;
+  archived?: boolean;
+  /** Number of students to enroll (each gets a covering subscription first). */
+  enrolledCount?: number;
+};
+
+export type CreatedGroup = { id: string; level: string };
+
 /**
- * Launch, get past first-run + auth into the shell, and seed the real reference
- * data the Group create form needs (subjects, rooms, one teacher) through the
- * public bridge so the selects are populated. Same recipe the rooms suite uses.
+ * Launch, clear the first-run + auth gates, and seed reference data through the
+ * public bridge: the admin, then subjects, rooms, teachers, and groups (in that
+ * dependency order — a group needs a live subject/room to exist first). A group
+ * with `enrolledCount` gets that many students created with a covering
+ * subscription and enrolled, so fill % assertions have real data behind them.
+ * Returns the created ids/levels so specs can target rows deterministically.
  */
-export async function boot(locale: Locale, plan: PlanId = 'premium'): Promise<Launched> {
+export async function boot(
+  locale: Locale,
+  opts: {
+    plan?: PlanId;
+    subjects?: readonly SeedSubject[];
+    rooms?: readonly SeedRoom[];
+    teachers?: readonly SeedTeacher[];
+    groups?: readonly SeedGroup[];
+  } = {},
+): Promise<
+  Launched & {
+    subjects: { id: string; nameFr: string; nameAr: string }[];
+    rooms: { id: string; name: string }[];
+    teachers: { id: string; nameFr: string; nameAr: string }[];
+    groups: CreatedGroup[];
+  }
+> {
+  const plan = opts.plan ?? 'premium';
   const live = await launch(locale, plan, freshUserDataDir());
+
   await live.win.evaluate(async (admin) => {
-    const api = (window as unknown as { api: { invoke: (c: string, r: unknown) => Promise<unknown> } }).api;
+    const api = (window as unknown as { api: Bridge }).api;
     await api.invoke('admin.create', admin);
     await api.invoke('auth.login', { ...admin, rememberDevice: true });
   }, VALID_ADMIN);
+
+  const subjects = await live.win.evaluate(async (seed) => {
+    const api = (window as unknown as { api: Bridge }).api;
+    const out: { id: string; nameFr: string; nameAr: string }[] = [];
+    for (const s of seed) {
+      const res = (await api.invoke('subject.create', {
+        name: { fr: s.nameFr, ar: s.nameAr },
+        ...(s.code ? { code: s.code } : {}),
+      })) as { id: string };
+      out.push({ id: res.id, nameFr: s.nameFr, nameAr: s.nameAr });
+    }
+    return out;
+  }, opts.subjects ?? []);
+
+  const rooms = await live.win.evaluate(async (seed) => {
+    const api = (window as unknown as { api: Bridge }).api;
+    const out: { id: string; name: string }[] = [];
+    for (const r of seed) {
+      const res = (await api.invoke('room.create', { name: r.name, capacity: r.capacity })) as {
+        id: string;
+      };
+      out.push({ id: res.id, name: r.name });
+    }
+    return out;
+  }, opts.rooms ?? []);
+
+  const teachers = await live.win.evaluate(async (seed) => {
+    const api = (window as unknown as { api: Bridge }).api;
+    const out: { id: string; nameFr: string; nameAr: string }[] = [];
+    for (const tch of seed) {
+      const res = (await api.invoke('teacher.create', {
+        name: { fr: tch.nameFr, ar: tch.nameAr },
+        phone: tch.phone,
+        subjectIds: [],
+      })) as { id: string };
+      out.push({ id: res.id, nameFr: tch.nameFr, nameAr: tch.nameAr });
+    }
+    return out;
+  }, opts.teachers ?? []);
+
+  const groups = await live.win.evaluate(
+    async ({ seed, subjects, rooms, teachers, subStart, enrollMonth }) => {
+      const api = (window as unknown as { api: Bridge }).api;
+      const formulaId = (n: number): string => `fml_01HW${String(n).padStart(22, '0')}`;
+      const out: { id: string; level: string }[] = [];
+      let f = 1;
+      let s = 1;
+      for (const g of seed) {
+        const subject = subjects[g.subjectIdx]!;
+        const kind = g.kind ?? 'regular';
+        const created = (await api.invoke('group.create', {
+          subjectId: subject.id,
+          teacherId: g.teacherIdx === undefined ? null : teachers[g.teacherIdx]!.id,
+          roomId: rooms[g.roomIdx]!.id,
+          level: g.level,
+          capacity: g.capacity,
+          kind,
+        })) as { id: string };
+
+        for (let i = 0; i < (g.enrolledCount ?? 0); i++) {
+          const student = (await api.invoke('student.create', {
+            name: { fr: `Élève ${s}`, ar: `طالب ${s}` },
+            birthDate: '2010-05-05',
+            level: g.level,
+            school: null,
+            notes: null,
+            guardianIds: [],
+          })) as { id: string };
+          await api.invoke('subscription.create', {
+            studentId: student.id,
+            formulaId: formulaId(f++),
+            kind,
+            subjectIds: [subject.id],
+            startMonth: subStart,
+            endMonth: null,
+          });
+          await api.invoke('enrollment.create', {
+            studentId: student.id,
+            groupId: created.id,
+            startMonth: enrollMonth,
+            endMonth: null,
+          });
+          s++;
+        }
+
+        if (g.archived) {
+          await api.invoke('group.archive', { id: created.id });
+        }
+
+        out.push({ id: created.id, level: g.level });
+      }
+      return out;
+    },
+    { seed: opts.groups ?? [], subjects, rooms, teachers, subStart: SUB_START, enrollMonth: ENROLL_MONTH },
+  );
+
   await live.win.reload();
   await live.win.waitForLoadState('domcontentloaded');
-  return live;
+
+  return { ...live, subjects, rooms, teachers, groups };
 }
 
 /** Navigate to the Groups list via the sidebar. */

@@ -13,22 +13,17 @@ import { ipcGroupsGateway } from './ipc-groups-gateway';
  * interface, never `window.api` directly, so the concrete adapter is swappable
  * in one place with no change to any component.
  *
- * ## Contract status (SOU-50 frontend ↔ SOU-120 / SOU-126 / SOU-127)
+ * ## Contract status (SOU-50 / SOU-51)
  *
- * ## Contract status (SOU-51)
- *
- * The **enrollment slice** now runs on real channels via {@link ipcGroupsGateway}:
- * `roster` → `group.roster` (SOU-127 read model), `enrollableStudents` →
- * `student.list` minus the roster, `addStudent` → `enrollment.create`,
- * `removeStudent` → `enrollment.unenroll`. The domain enforces the capacity,
- * duplicate, cross-kind, and subscription-coverage guards; the renderer surfaces
- * each as its own localized message (see {@link enrollmentErrorCode}).
- *
- * The group **definition** surface (`list`/`get`/`formOptions` and
- * `create`/`update`/`archive`/`restore`) still delegates to the mock inside
- * {@link ipcGroupsGateway}, because the enriched list read model and the subject
- * picker both need `subject.list` (**SOU-124**), which has not landed. When it
- * does, point those methods at the real channels — no component changes.
+ * Every method runs on real channels via {@link ipcGroupsGateway}: group
+ * definition (`list`/`get`/`formOptions`/`create`/`update`/`archive`/`restore`)
+ * maps onto `group.*`, resolving subject/room/teacher names through `subject.list`
+ * (SOU-124) now that it has landed. The enrollment slice maps `roster` →
+ * `group.roster` (SOU-127 read model), `enrollableStudents` → `student.list` minus
+ * the roster, `addStudent` → `enrollment.create`, `removeStudent` →
+ * `enrollment.unenroll`. The domain enforces the capacity, duplicate, cross-kind,
+ * and subscription-coverage guards; the renderer surfaces each as its own
+ * localized message (see {@link enrollmentErrorCode}).
  */
 export interface GroupsGateway {
   list(status: GroupStatus): Promise<readonly GroupRow[]>;

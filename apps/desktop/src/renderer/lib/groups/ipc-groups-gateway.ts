@@ -9,62 +9,76 @@ import type {
   StudentOption,
 } from './group-view';
 import type { GroupWithCountDto } from '../../../shared/ipc/contract';
-import { mockGroupsGateway } from './mock-groups-gateway';
-
-/** Subject names need `subject.list` (SOU-124); until it lands the list/detail show a placeholder. */
-const SUBJECT_NAME_PLACEHOLDER: LocalizedName = { fr: '—', ar: '—' };
 
 /**
- * The real {@link GroupsGateway} for the **read + enrollment** surface (SOU-51):
- * the group list, the group detail, the roster, the add-student picker, enroll,
- * and unenroll all map onto their typed IPC channels, so the roster operates on
- * real group ids and the domain enforces the capacity / duplicate / cross-kind /
- * subscription-coverage guards. This adapter only translates shapes — no business
- * logic.
+ * The real {@link GroupsGateway}: every method maps onto its typed IPC channel, so
+ * the full group CRUD + enrollment surface (SOU-50/51) operates on real group ids
+ * and the domain enforces the capacity / duplicate / cross-kind / subscription-
+ * coverage guards. This adapter only translates shapes — no business logic.
  *
- * `group.listWithCounts` carries ids only, so room and teacher names are resolved
- * through the real `room.list` / `teacher.list` channels; **subject** names have
- * no channel yet (`subject.list` is SOU-124), so they render as
- * {@link SUBJECT_NAME_PLACEHOLDER} until it lands.
- *
- * Group **authoring** — `formOptions` / `create` / `update` — still delegates to
- * {@link mockGroupsGateway}, because the create/edit form's subject picker needs
- * `subject.list` (SOU-124). When it lands, point those at the real channels and
- * drop the placeholder — no component changes.
+ * `group.listWithCounts` and `group.update` carry ids only, so room, teacher, and
+ * subject names are resolved through the real `room.list` / `teacher.list` /
+ * `subject.list` channels (SOU-124). Name resolution reads subjects with scope
+ * `'all'` so a group can still display the name of a subject that was deactivated
+ * after the group was created; the create/edit form's subject picker reads scope
+ * `'active'` only, matching the domain's `GroupSubjectUnavailableError` invariant
+ * (a group can only be pointed at a live, active subject).
  */
 class IpcGroupsGateway implements GroupsGateway {
-  // --- Reads (real group read model; subject name placeholdered until SOU-124) ---
   async list(status: GroupStatus): Promise<readonly GroupRow[]> {
-    const [{ groups }, rooms, teachers] = await Promise.all([
+    const [{ groups }, rooms, teachers, subjects] = await Promise.all([
       window.api.invoke('group.listWithCounts', { scope: status }),
       this.roomNames(),
       this.teacherNames(),
+      this.subjectNames(),
     ]);
-    return groups.map((group) => toRow(group, rooms, teachers));
+    return groups.map((group) => toRow(group, rooms, teachers, subjects));
   }
 
   async get(id: string): Promise<GroupRow | null> {
-    const [rooms, teachers] = await Promise.all([this.roomNames(), this.teacherNames()]);
+    const [rooms, teachers, subjects] = await Promise.all([
+      this.roomNames(),
+      this.teacherNames(),
+      this.subjectNames(),
+    ]);
     // No `group.get` channel; a group may be active or archived, so scan both scopes.
     for (const scope of ['active', 'archived'] as const) {
       const { groups } = await window.api.invoke('group.listWithCounts', { scope });
       const found = groups.find((group) => group.id === id);
-      if (found) return toRow(found, rooms, teachers);
+      if (found) return toRow(found, rooms, teachers, subjects);
     }
     return null;
   }
 
-  // --- Group authoring (mocked until SOU-124 subject.list lands) ---
-  formOptions(): Promise<GroupFormOptions> {
-    return mockGroupsGateway.formOptions();
+  async formOptions(): Promise<GroupFormOptions> {
+    const [{ subjects }, { rooms }, { teachers }] = await Promise.all([
+      window.api.invoke('subject.list', { scope: 'active' }),
+      window.api.invoke('room.list', { scope: 'active' }),
+      window.api.invoke('teacher.list', { scope: 'active', search: '' }),
+    ]);
+    return {
+      subjects: subjects.map((subject) => ({ id: subject.id, name: subject.name })),
+      rooms: rooms.map((room) => ({ id: room.id, name: room.name })),
+      teachers: teachers.map((teacher) => ({ id: teacher.id, name: teacher.name })),
+    };
   }
 
-  create(input: GroupInput): Promise<GroupRow> {
-    return mockGroupsGateway.create(input);
+  async create(input: GroupInput): Promise<GroupRow> {
+    const { id } = await window.api.invoke('group.create', input);
+    const created = await this.get(id);
+    if (created === null) {
+      throw new Error(`group ${id} was created but could not be read back`);
+    }
+    return created;
   }
 
-  update(id: string, input: GroupInput): Promise<GroupRow> {
-    return mockGroupsGateway.update(id, input);
+  async update(id: string, input: GroupInput): Promise<GroupRow> {
+    await window.api.invoke('group.update', { ...input, id });
+    const updated = await this.get(id);
+    if (updated === null) {
+      throw new Error(`group ${id} was updated but could not be read back`);
+    }
+    return updated;
   }
 
   async archive(id: string): Promise<void> {
@@ -132,18 +146,25 @@ class IpcGroupsGateway implements GroupsGateway {
       [...active.teachers, ...archived.teachers].map((teacher) => [teacher.id, teacher.name]),
     );
   }
+
+  /** subjectId → name, scope `'all'` so a group keeps showing a since-deactivated subject's name. */
+  private async subjectNames(): Promise<ReadonlyMap<string, LocalizedName>> {
+    const { subjects } = await window.api.invoke('subject.list', { scope: 'all' });
+    return new Map(subjects.map((subject) => [subject.id, subject.name]));
+  }
 }
 
-/** Enrich a raw group view with resolved room/teacher names + the placeholder subject name. */
+/** Enrich a raw group view with resolved room/teacher/subject names. */
 function toRow(
   group: GroupWithCountDto,
   rooms: ReadonlyMap<string, string>,
   teachers: ReadonlyMap<string, LocalizedName>,
+  subjects: ReadonlyMap<string, LocalizedName>,
 ): GroupRow {
   return {
     id: group.id,
     subjectId: group.subjectId,
-    subjectName: SUBJECT_NAME_PLACEHOLDER,
+    subjectName: subjects.get(group.subjectId) ?? { fr: group.subjectId, ar: group.subjectId },
     roomId: group.roomId,
     roomName: rooms.get(group.roomId) ?? group.roomId,
     teacherId: group.teacherId,

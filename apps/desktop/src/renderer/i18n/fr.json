@@ -234,8 +234,7 @@
         "title": "Aucun élève inscrit",
         "body": "Ajoutez un élève pour constituer ce groupe."
       },
-      "loadError": "Le chargement des inscriptions a échoué.",
-      "pending": "Read-model provisoire — les inscriptions réelles arrivent avec SOU-127."
+      "loadError": "Le chargement des inscriptions a échoué."
     }
   },
   "guardian": {

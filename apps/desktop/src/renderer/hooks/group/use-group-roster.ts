@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { groupsGateway } from '../../lib/groups/groups-gateway';
 import { groupKeys } from './keys';
 
-/** Loads a group's roster (enrolled students). Mocked until SOU-127. */
+/** Loads a group's roster (enrolled students). */
 export function useGroupRoster(groupId: string) {
   return useQuery({
     queryKey: groupKeys.roster(groupId),
