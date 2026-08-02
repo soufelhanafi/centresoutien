@@ -6,7 +6,6 @@ import type { StudentView } from '../../lib/students/student-view';
 import type { InvoiceListItemView } from '../../lib/invoices/invoice-view';
 import { invoiceStatusLabelKey, invoiceStatusTone } from '../../lib/invoices/invoice-status-view';
 import { formatMonth } from '../../lib/format';
-import { selectFolder } from '../../lib/settings/dialog';
 import { usePrintInvoice } from '../../hooks/invoice/use-print-invoice';
 import { useExportInvoice } from '../../hooks/invoice/use-export-invoice';
 
@@ -22,21 +21,20 @@ export function InvoiceDetailHeader({
   const tone = invoiceStatusTone(invoice);
   const print = usePrintInvoice();
   const exportPdf = useExportInvoice();
+  const locale = i18n.language === 'ar' ? 'ar' : 'fr';
 
   const onPrint = async () => {
     try {
-      await print.mutateAsync(invoice.id);
+      await print.mutateAsync({ invoiceId: invoice.id, locale });
     } catch {
       toast.error(t('invoices.detail.printError'));
     }
   };
 
   const onExport = async () => {
-    const destinationDir = await selectFolder();
-    if (!destinationDir) return;
     try {
-      await exportPdf.mutateAsync({ invoiceId: invoice.id, destinationDir });
-      toast.success(t('invoices.detail.exportSuccess'));
+      const { savedPath } = await exportPdf.mutateAsync({ invoiceId: invoice.id, locale });
+      if (savedPath !== null) toast.success(t('invoices.detail.exportSuccess'));
     } catch {
       toast.error(t('invoices.detail.exportError'));
     }

@@ -24,7 +24,6 @@ export type InvoiceListItemView = {
   readonly month: string;
   readonly status: InvoiceStatus;
   readonly issuedAt: string | null;
-  readonly cancelledAt: string | null;
   readonly lines: readonly InvoiceLineView[];
   readonly totalMad: number;
   readonly netPaidMad: number;

@@ -1,10 +1,10 @@
 import { useMutation } from '@tanstack/react-query';
 import { invoicesGateway } from '../../lib/invoices/invoices-gateway';
 
-/** Saves the invoice PDF under a native-picked destination folder. */
+/** Renders the invoice PDF in `locale` and saves it to a user-picked location. */
 export function useExportInvoice() {
   return useMutation({
-    mutationFn: ({ invoiceId, destinationDir }: { invoiceId: string; destinationDir: string }) =>
-      invoicesGateway.export(invoiceId, destinationDir),
+    mutationFn: ({ invoiceId, locale }: { invoiceId: string; locale: 'fr' | 'ar' }) =>
+      invoicesGateway.export(invoiceId, locale),
   });
 }

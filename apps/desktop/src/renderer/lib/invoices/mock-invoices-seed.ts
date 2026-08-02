@@ -13,7 +13,6 @@ export const INVOICE_SEED: readonly InvoiceListItemView[] = [
     month: '2026-07',
     status: 'draft',
     issuedAt: null,
-    cancelledAt: null,
     lines: [
       {
         id: 'invl_01HW0SEED00000000000000001',
@@ -34,7 +33,6 @@ export const INVOICE_SEED: readonly InvoiceListItemView[] = [
     month: '2026-07',
     status: 'issued',
     issuedAt: '2026-07-01T08:00:00.000Z',
-    cancelledAt: null,
     lines: [
       {
         id: 'invl_01HW0SEED00000000000000002',
@@ -55,7 +53,6 @@ export const INVOICE_SEED: readonly InvoiceListItemView[] = [
     month: '2026-07',
     status: 'issued',
     issuedAt: '2026-07-01T08:00:00.000Z',
-    cancelledAt: null,
     lines: [
       {
         id: 'invl_01HW0SEED00000000000000003',
@@ -76,7 +73,6 @@ export const INVOICE_SEED: readonly InvoiceListItemView[] = [
     month: '2026-06',
     status: 'issued',
     issuedAt: '2026-06-01T08:00:00.000Z',
-    cancelledAt: null,
     lines: [
       {
         id: 'invl_01HW0SEED00000000000000004',
@@ -104,7 +100,6 @@ export const INVOICE_SEED: readonly InvoiceListItemView[] = [
     month: '2026-06',
     status: 'cancelled',
     issuedAt: '2026-06-01T08:00:00.000Z',
-    cancelledAt: '2026-06-04T10:15:00.000Z',
     lines: [
       {
         id: 'invl_01HW0SEED00000000000000006',

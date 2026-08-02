@@ -43,9 +43,9 @@ export class MockInvoicesGateway implements InvoicesGateway {
     await new Promise((resolve) => setTimeout(resolve, 300));
   }
 
-  async export(_id: string, destinationDir: string): Promise<{ filePath: string }> {
+  async export(): Promise<{ savedPath: string | null }> {
     await new Promise((resolve) => setTimeout(resolve, 300));
-    return { filePath: `${destinationDir}/facture.pdf` };
+    return { savedPath: '/tmp/facture.pdf' };
   }
 }
 
