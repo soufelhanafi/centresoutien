@@ -199,12 +199,11 @@ const teacherViewSchema = z.object({
 
 // The presentation projection of a TeacherPayrollRule across the IPC boundary
 // (SOU-72) — the sync envelope is stripped, exactly like `teacherViewSchema`.
-// There is NO stored status: the renderer derives active/history the same way
-// the domain does, via `isPayrollRuleActiveInMonth` against `startMonth`/
-// `endMonth`. A discriminated union on `kind` mirrors the domain entity, so
-// `amountMad` and `percent` are mutually exclusive at the type level on the
-// renderer side too. Single source of truth for the renderer's
-// `TeacherPayrollRuleView` type.
+// There is NO stored status: the renderer derives active/history from
+// `endMonth` (`null` = the one live open-ended rule = Active; set = History).
+// A discriminated union on `kind` mirrors the domain entity, so `amountMad`
+// and `percent` are mutually exclusive at the type level on the renderer side
+// too. Single source of truth for the renderer's `TeacherPayrollRuleView` type.
 const teacherPayrollRuleViewSchema = z.discriminatedUnion('kind', [
   z.object({
     id: z.string(),

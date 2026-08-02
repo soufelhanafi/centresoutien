@@ -9,7 +9,12 @@ const COLUMNS = ['1fr', '1fr', '1.4fr'] as const;
 const kindLabelKey = (kind: TeacherPayrollRuleView['kind']) =>
   kind === 'fixed-monthly' ? 'fixedMonthly' : 'percentageOfMonthlyFees';
 
-/** Past (closed) payroll rules for one teacher, oldest actions surfaced via `rules` order from the caller. */
+/**
+ * Past (closed) payroll rules for one teacher, oldest actions surfaced via
+ * `rules` order from the caller. Every row here has a non-null `endMonth`
+ * (the caller filters out the one open-ended/Active rule before passing
+ * `rules`), so the period is always a closed range.
+ */
 export function TeacherPayrollRuleHistoryTable({ rules }: { rules: readonly TeacherPayrollRuleView[] }) {
   const { t, i18n } = useTranslation();
 
@@ -43,7 +48,7 @@ export function TeacherPayrollRuleHistoryTable({ rules }: { rules: readonly Teac
               <DataTableCell>
                 {formatMonth(rule.startMonth, i18n.language)}
                 {' – '}
-                {rule.endMonth ? formatMonth(rule.endMonth, i18n.language) : t('teachers.detail.payroll.active.title')}
+                {formatMonth(rule.endMonth!, i18n.language)}
               </DataTableCell>
             </DataTableRow>
           ))}

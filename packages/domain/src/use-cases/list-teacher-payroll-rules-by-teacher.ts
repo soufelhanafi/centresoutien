@@ -13,7 +13,8 @@ export type ListTeacherPayrollRulesByTeacherInput = {
 
 /**
  * Lists every live payroll rule for one teacher — the Rule tab's Active +
- * History sections (SOU-72), split client-side via `isPayrollRuleActiveInMonth`.
+ * History sections (SOU-72), split client-side by `endMonth` (`null` = the
+ * one open-ended rule = Active; set = History).
  * Gated by `payroll.teacher`, the same base gate `CreateTeacherPayrollRule` and
  * `CloseTeacherPayrollRule` already require.
  *
