@@ -53,4 +53,13 @@ export interface InvoiceRepository extends SoftDeletableRepository<InvoiceId, In
    * feed is the inherited `listChangedSince`).
    */
   listLinesChangedSince(cursor: Date): Promise<readonly InvoiceLine[]>;
+
+  /**
+   * Every **live** header for `(centerCode, month)`, any status — the center-wide read
+   * `MonthlyFeeAttributionService` (SOU-74) needs to assemble teacher-fee attribution for
+   * a month without a per-student round trip. Filtering to `issued` (the only status that
+   * can be collected) is the caller's job, not this adapter's, mirroring
+   * `StudentSubscriptionRepository.listLiveByCenter`.
+   */
+  listByCenterMonth(centerCode: CenterCode, month: string): Promise<readonly Invoice[]>;
 }
