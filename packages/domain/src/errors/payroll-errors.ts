@@ -1,5 +1,6 @@
 import { DomainError } from './plan-errors';
 import type { TeacherPayrollRuleId } from '../entities/teacher-payroll-rule';
+import type { TeacherPayoutId } from '../entities/teacher-payout';
 import type { TeacherId } from '../entities/teacher';
 import type { StudentId } from '../entities/student';
 
@@ -38,6 +39,22 @@ export class TeacherPayrollRuleNotFoundError extends DomainError {
 
   constructor(readonly id: TeacherPayrollRuleId) {
     super(`No live teacher payroll rule with id "${id}".`);
+  }
+}
+
+/**
+ * Thrown when {@link GeneratePayslipPdf} (SOU-75) is asked for a payout id with
+ * no live row in the current center — unknown, already soft-deleted, or
+ * belonging to another center. Mirrors `TeacherPayrollRuleNotFoundError` so a
+ * leaked or guessed id from another center can never render that center's
+ * payslip. The renderer resolves the stable `teacher-payout-not-found` code;
+ * the domain stays i18n-agnostic.
+ */
+export class TeacherPayoutNotFoundError extends DomainError {
+  readonly code = 'teacher-payout-not-found';
+
+  constructor(readonly id: TeacherPayoutId) {
+    super(`No live teacher payout with id "${id}".`);
   }
 }
 

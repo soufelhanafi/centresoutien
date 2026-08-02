@@ -711,6 +711,22 @@ export const ipcContract = {
     request: z.object({ invoiceId: z.string(), locale: z.enum(['fr', 'ar']) }),
     response: z.object({ savedPath: z.string().nullable() }),
   },
+  // Payslip PDF print/export (SOU-75). Renders the confirmed `TeacherPayout`
+  // (draft or paid — stateless, printing never mutates the payout) to the same
+  // bilingual FR/AR `pdf-lib` layout family as the invoice PDF. `print` opens it
+  // in the OS's default PDF viewer; `export` lets the user pick a save
+  // location. `locale` picks the PDF's language independent of the app's active
+  // UI locale, mirroring `invoice.print`/`invoice.export`. centerCode is
+  // injected in main, never sent from the renderer. Gated by `payroll.teacher`
+  // (Pro+) in `GeneratePayslipPdf`.
+  'payslip.print': {
+    request: z.object({ teacherPayoutId: z.string(), locale: z.enum(['fr', 'ar']) }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'payslip.export': {
+    request: z.object({ teacherPayoutId: z.string(), locale: z.enum(['fr', 'ar']) }),
+    response: z.object({ savedPath: z.string().nullable() }),
+  },
   // Enrollments (SOU-121/123 domain; SQLite adapter + wiring is SOU-126). `create`
   // takes the domain's own `enrollmentInputSchema` (prefixed student/group ids,
   // `YYYY-MM` startMonth, optional endMonth ≥ startMonth), validated once and reused
