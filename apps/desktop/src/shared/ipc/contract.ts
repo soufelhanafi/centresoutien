@@ -22,6 +22,7 @@ import {
   recordPaymentSchema,
   voidPaymentSchema,
   generateMonthlyInvoicesSchema,
+  computeMonthlyPayrollsSchema,
   adminCredentialsSchema,
   changeAdminPasswordSchema,
   weeklyHoursSchema,
@@ -787,6 +788,26 @@ export const ipcContract = {
   'teacherPayrollRule.list': {
     request: z.object({ teacherId: z.string() }),
     response: z.object({ rules: z.array(teacherPayrollRuleViewSchema) }),
+  },
+  // Monthly payroll compute job (SOU-74): for every active teacher with a live
+  // `TeacherPayrollRule` covering `month`, upserts a `draft` `TeacherPayout` — the
+  // flat amount for `fixed-monthly`, or the equal-split attribution base (SOU-73)
+  // × percent for `percentage-of-monthly-fees`. Idempotent by `(teacherId, month)`:
+  // `updated` counts a re-run replacing an existing draft's amount in place,
+  // `created` a first-time row; `skippedNoRule` is a teacher with no rule active
+  // that month (never a zero-amount payout); `skippedAlreadyPaid` is a payout
+  // already confirmed `paid`, left untouched (paid payouts are immutable).
+  // Independent of attendance — never reads session data. centerCode/device/user
+  // are injected in main, never sent from the renderer. Gated by `payroll.teacher`
+  // (Pro+). Confirming a draft to `paid` is SOU-76, not this channel.
+  'payroll.computeMonthly': {
+    request: computeMonthlyPayrollsSchema,
+    response: z.object({
+      created: z.number().int(),
+      updated: z.number().int(),
+      skippedNoRule: z.number().int(),
+      skippedAlreadyPaid: z.number().int(),
+    }),
   },
   // Holidays (SOU-30). `list` selects the live holidays or the archive via `scope`;
   // `create` and `update` take the domain's own `holidayInputSchema` (bilingual

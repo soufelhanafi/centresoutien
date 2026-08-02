@@ -197,6 +197,8 @@ export {
   closeTeacherPayrollRuleMonthSchema,
 } from './schemas/teacher-payroll-rule';
 export type { TeacherPayrollRuleInput } from './schemas/teacher-payroll-rule';
+export { computeMonthlyPayrollsSchema } from './schemas/teacher-payout';
+export type { ComputeMonthlyPayrollsFields } from './schemas/teacher-payout';
 export {
   teacherInputSchema,
   TEACHER_NAME_MAX,
@@ -274,6 +276,8 @@ export type {
   TeacherPayrollRuleId,
   TeacherPayrollRuleKind,
 } from './entities/teacher-payroll-rule';
+export { TEACHER_PAYOUT_ID_PREFIX, TEACHER_PAYOUT_STATUSES } from './entities/teacher-payout';
+export type { TeacherPayout, TeacherPayoutId, TeacherPayoutStatus } from './entities/teacher-payout';
 export {
   WEEKLY_RECURRING_SESSION_ID_PREFIX,
   toScheduledSessionRef,
@@ -345,6 +349,7 @@ export type { StudentSubscriptionRepository } from './ports/student-subscription
 // TeacherPayrollRule repository (SOU-70) — port declared here; SQLite adapter +
 // migration are SOU-71's scope.
 export type { TeacherPayrollRuleRepository } from './ports/teacher-payroll-rule-repository';
+export type { TeacherPayoutRepository } from './ports/teacher-payout-repository';
 // Student-subscription coverage — DECLARED CONTRACT ONLY; real adapter lands with
 // StudentSubscription (SOU-63). Drives the EnrollStudent coverage + cross-kind guards.
 export type {
@@ -368,6 +373,7 @@ export type {
 
 // Domain services
 export { DeviceSessionService } from './services/device-session-service';
+export { MonthlyFeeAttributionService } from './services/monthly-fee-attribution-service';
 
 // Policies
 export { SessionConflictPolicy } from './policies/session-conflict-policy';
@@ -414,6 +420,7 @@ export type {
   StudentLineAttributionInput,
   TeacherAttributedAmount,
 } from './policies/teacher-fee-attribution-policy';
+export { collectedLineAmounts } from './policies/collected-fees';
 export { updateFormula, deactivateFormula } from './policies/formula-policy';
 export type { FormulaPatch } from './policies/formula-policy';
 export { validateFormulaSubjects } from './policies/validate-formula-subjects';
@@ -516,6 +523,11 @@ export { CloseTeacherPayrollRule } from './use-cases/close-teacher-payroll-rule'
 export type { CloseTeacherPayrollRuleInput } from './use-cases/close-teacher-payroll-rule';
 export { ListTeacherPayrollRulesByTeacher } from './use-cases/list-teacher-payroll-rules-by-teacher';
 export type { ListTeacherPayrollRulesByTeacherInput } from './use-cases/list-teacher-payroll-rules-by-teacher';
+export { ComputeMonthlyPayrolls } from './use-cases/compute-monthly-payrolls';
+export type {
+  ComputeMonthlyPayrollsInput,
+  ComputeMonthlyPayrollsResult,
+} from './use-cases/compute-monthly-payrolls';
 export { ListGroups, orderGroupsForList } from './use-cases/list-groups';
 export type { ListGroupsInput, GroupScope } from './use-cases/list-groups';
 export { ListGroupsWithCounts } from './use-cases/list-groups-with-counts';

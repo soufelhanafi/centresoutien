@@ -86,6 +86,8 @@ import {
   CreateInvoiceDraft,
   GenerateMonthlyInvoices,
   ListInvoices,
+  MonthlyFeeAttributionService,
+  ComputeMonthlyPayrolls,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -113,6 +115,7 @@ import { SqliteInvoiceRepository } from '../data/sqlite/repositories/invoice-rep
 import { SqlitePaymentRepository } from '../data/sqlite/repositories/payment-repository';
 import { SqliteTeacherRepository } from '../data/sqlite/repositories/teacher-repository';
 import { SqliteTeacherPayrollRuleRepository } from '../data/sqlite/repositories/teacher-payroll-rule-repository';
+import { SqliteTeacherPayoutRepository } from '../data/sqlite/repositories/teacher-payout-repository';
 import { SqliteHolidayRepository } from '../data/sqlite/repositories/holiday-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
 import { SqliteSessionRepository } from '../data/sqlite/repositories/session-repository';
@@ -378,6 +381,29 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
+  // The monthly payroll compute job (SOU-74): reuses the invoice/payment/formula/
+  // enrollment/group repos already constructed above to assemble each teacher's
+  // attribution base (MonthlyFeeAttributionService wraps the SOU-73 policy), then
+  // upserts a `draft` TeacherPayout per (teacherId, month) — idempotent like
+  // generateMonthlyInvoices, never auto-paid.
+  const payoutRepo = new SqliteTeacherPayoutRepository(db);
+  const monthlyFeeAttribution = new MonthlyFeeAttributionService(
+    invoiceRepo,
+    paymentRepo,
+    formulaRepo,
+    enrollmentRepo,
+    groupRepo,
+  );
+  const computeMonthlyPayrolls = new ComputeMonthlyPayrolls(
+    teacherRepo,
+    payrollRuleRepo,
+    payoutRepo,
+    monthlyFeeAttribution,
+    clock,
+    ids,
+    plan,
+  );
+
   const holidayRepo = new SqliteHolidayRepository(db);
   const createHoliday = new CreateHoliday(holidayRepo, clock, ids, plan);
   const listHolidays = new ListHolidays(holidayRepo, plan);
@@ -532,6 +558,7 @@ export function buildContainer(options: ContainerOptions): Container {
     createTeacherPayrollRule,
     closeTeacherPayrollRule,
     listTeacherPayrollRulesByTeacher,
+    computeMonthlyPayrolls,
     createHoliday,
     listHolidays,
     updateHoliday,

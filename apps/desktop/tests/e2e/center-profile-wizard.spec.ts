@@ -19,30 +19,9 @@ test.afterEach(async () => {
   live = null;
 });
 
-test('the Center Profile step captures required data and blocks advancing while empty', async () => {
-  const loc = locale();
-  const t = CP[loc];
-  live = await launch({ locale: loc, plan: 'pro', userDataDir: freshUserDataDir() });
-  const win = live.win;
-
-  // Reach the Center Profile step.
-  await win.getByRole('radio', { name: t.langRadio }).check();
-  await win.getByRole('button', { name: t.next }).click();
-  await expect(win.getByText(t.wizardCenterTitle).first()).toBeVisible();
-
-  // It must be non-skippable...
-  await expect(win.getByRole('button', { name: t.skip })).toHaveCount(0);
-
-  // ...and it must actually collect the center identity here.
-  const nameField = win.getByLabel(t.nameLabel, { exact: true });
-  await expect(nameField).toBeVisible({ timeout: 5000 });
-
-  // Attempting to advance with the name empty must NOT leave the step.
-  await win.getByRole('button', { name: t.next }).click();
-  await expect(win.getByText(t.wizardCenterTitle).first()).toBeVisible();
-
-  await win.screenshot({ path: `test-results/wizard-center-step-${loc}.png` });
-});
+// Blocks-advancing-while-empty (mandatory-field guard) trimmed per SOU-142 —
+// unit-test the wizard step schema instead; critical-only E2E keeps the
+// persistence proof below.
 
 test('data entered in the wizard Center Profile step persists as a center row', async () => {
   const loc = locale();

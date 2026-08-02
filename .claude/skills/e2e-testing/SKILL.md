@@ -11,21 +11,27 @@ E2E tests exist to prove that the whole system — Electron main, preload, rende
 
 ## Step 1 — Decide whether the change deserves an E2E test
 
+E2E is the most expensive layer we have — each test boots a full Electron app. Write **only critical scenarios**: the happy path, plus edge cases that carry real business risk. Do not attempt exhaustive coverage at this layer — that belongs at unit/integration.
+
 Ship an E2E test if the change:
 
-- Adds or modifies a top-level flow the user actually performs (create a student, schedule a session, generate invoices, mark paid, export PDF, import Excel, sync).
-- Adds a gated feature (must prove the lock overlay appears on lower plans and the feature works on higher plans).
-- Changes first-run setup, login, or the DB migration path.
+- Adds or modifies a top-level flow the user actually performs, and no E2E for that flow's happy path exists yet (create a student, schedule a session, generate invoices, mark paid, export PDF, import Excel, sync).
+- Touches a hard domain invariant where a regression would be a money, data-loss, or security incident — e.g. `SubjectInUseError`, immutable-formula-after-invoice, `TooManyActiveSubscriptionsError`, `CrossKindEnrollmentError`, no-hard-delete, backup/restore never touching the live DB, account lockout.
+- Changes first-run setup, login, or the DB migration path (these cross Electron main/preload/renderer/IPC/SQLite boundaries — nothing lower can catch a break here).
 - Fixes a bug that a unit test could not have caught (crossed layer boundaries or involved real IPC).
 
 Do **not** add an E2E test for:
 
 - A domain math change — that's a unit test.
+- Form field validation, empty states, list rendering, search/filter behavior — unit or component test.
 - A CSS-only change — visual regression (Chromatic, if adopted) or Playwright screenshot at most.
-- A form field validation rule — unit test the schema.
+- RTL/LTR mirroring per screen — one dedicated `i18n-rtl-arabic.spec.ts` happy-path run covers the mechanism; do not repeat a direction check in every CRUD spec.
+- Plan-gating per feature — one canonical lock-verification E2E (proving the lock mechanism itself works end-to-end) is enough; per-feature gating correctness is a domain unit test (`PlanPolicy.require` throws) plus a component test (`useFeature` hides UI).
 - A refactor with no behavior change.
 
-The E2E suite must stay under ~20 flows. Adding a 21st means removing or merging an existing one.
+**Current stage (MVP, pre-launch): critical-only.** The E2E suite targets roughly one happy-path spec per top-level flow plus a small number of high-risk invariant checks — not one spec per screen action. This is a deliberate trade-off while the product surface is still moving fast, not a permanent ceiling. Once the app is feature-complete, broaden back toward one E2E per top-level flow (see CLAUDE.md §9) — that expansion is a conscious future decision, not a default to drift back into today.
+
+If you're unsure whether a scenario is "critical enough" for E2E, default to unit/integration and only escalate if it's genuinely cross-layer or high blast-radius.
 
 ---
 
@@ -169,9 +175,11 @@ test('creates a student, enrolls them in a group, generates an invoice, marks it
 
 ---
 
-## Step 5 — Test plan gating end-to-end
+## Step 5 — Test plan gating end-to-end (once, canonically)
 
-Plan-locked flows need two specs (or one parameterized spec):
+Do not add a lock-verification E2E per gated feature. One canonical spec proves the lock mechanism works (inert nav entry, disabled control, upgrade affordance) — that's enough to catch a broken gate across the whole app. Per-feature entitlement correctness is a domain unit test on `PlanPolicy`, not an E2E concern.
+
+Parameterized form, if you do need to check the mechanism across plans:
 
 ```ts
 for (const plan of ['essentiel', 'pro', 'premium'] as const) {
@@ -192,7 +200,7 @@ for (const plan of ['essentiel', 'pro', 'premium'] as const) {
 }
 ```
 
-Every gated feature must have at least one lock-verification E2E.
+One lock-verification E2E covers the mechanism for the whole app — not one per gated feature.
 
 ---
 

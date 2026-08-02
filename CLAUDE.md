@@ -472,7 +472,7 @@ Everything visible to users must have a French and an Arabic translation, and th
 
 - **Unit tests** live under `tests/unit/` and mirror `packages/domain/src/` one-to-one. Every use case has at least one unit test per business path (happy, plan-locked, limit-exceeded, conflict, validation error). See the `unit-testing` skill.
 - **Integration tests** cover the SQLite adapter (in-memory DB) and Excel round-trip.
-- **E2E tests** live under `tests/e2e/` and run against the packaged Electron app via Playwright's `_electron` API. There must be one E2E per top-level user flow: first-run setup, login, create student, create group, schedule session, generate invoice, mark paid, Excel round-trip, plan-locked feature attempt. See the `e2e-testing` skill.
+- **E2E tests** live under `tests/e2e/` and run against the packaged Electron app via Playwright's `_electron` API. E2E is reserved for **critical scenarios only** — happy path plus edge cases with real business risk (money, data loss, security, hard domain invariants like immutable formulas or no-hard-delete). Exhaustive per-screen coverage (validation, filters, empty states, RTL-per-screen, tab wiring) belongs at the unit/integration level, not E2E. Full per-flow E2E parity (one spec per top-level flow) is deferred until the app is feature-complete — this is a deliberate MVP-stage trade-off, not a permanent ceiling. See the `e2e-testing` skill.
 - **CI runs**: `pnpm typecheck && pnpm typecheck:domain && pnpm lint && pnpm test && pnpm test:integration && pnpm build && pnpm test:e2e`. In that order. A failure at any step aborts the rest.
 - **Coverage floor**: 90% lines and branches on the `packages/domain/src/` folder. Presentation and data have no floor but must not regress against the previous main.
 

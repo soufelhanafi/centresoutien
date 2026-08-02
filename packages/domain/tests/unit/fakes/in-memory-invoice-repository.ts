@@ -69,6 +69,13 @@ export class InMemoryInvoiceRepository
       .map((line) => structuredClone(line));
   }
 
+  async listByCenterMonth(centerCode: CenterCode, month: string): Promise<readonly Invoice[]> {
+    return this.all().filter(
+      (invoice) =>
+        invoice.deletedAt === null && invoice.centerCode === centerCode && invoice.month === month,
+    );
+  }
+
   /** test-only convenience */
   allLines(): readonly InvoiceLine[] {
     return this.lines.map((line) => structuredClone(line));

@@ -167,6 +167,62 @@ describe('TeacherFeeAttributionPolicy.attribute', () => {
     });
   });
 
+  describe('unstaffed subject (teacherId: null)', () => {
+    it('leaves the unstaffed subject’s share unattributed instead of redistributing it', () => {
+      const lines: StudentLineAttributionInput[] = [
+        {
+          studentId: STUDENT_A,
+          lineAmountMad: 30000,
+          subjectAssignments: [
+            { subjectId: MATH, teacherId: TEACHER_1 },
+            { subjectId: PHYSICS, teacherId: null },
+          ],
+        },
+      ];
+
+      const result = TeacherFeeAttributionPolicy.attribute(lines);
+
+      expect(result).toEqual([{ teacherId: TEACHER_1, attributedAmountMad: 15000 }]);
+      expect(sumMad(result)).toBe(15000);
+    });
+
+    it('produces an empty result when every subject on a line is unstaffed', () => {
+      const lines: StudentLineAttributionInput[] = [
+        {
+          studentId: STUDENT_A,
+          lineAmountMad: 20000,
+          subjectAssignments: [
+            { subjectId: MATH, teacherId: null },
+            { subjectId: PHYSICS, teacherId: null },
+          ],
+        },
+      ];
+
+      const result = TeacherFeeAttributionPolicy.attribute(lines);
+
+      expect(result).toEqual([]);
+    });
+
+    it('still divides by the full subject count, including unstaffed ones, not just the staffed count', () => {
+      const lines: StudentLineAttributionInput[] = [
+        {
+          studentId: STUDENT_A,
+          lineAmountMad: 30000,
+          subjectAssignments: [
+            { subjectId: MATH, teacherId: TEACHER_1 },
+            { subjectId: PHYSICS, teacherId: null },
+            { subjectId: CHEMISTRY, teacherId: null },
+          ],
+        },
+      ];
+
+      const result = TeacherFeeAttributionPolicy.attribute(lines);
+
+      // 30000 / 3 subjects = 10000 per subject, not 30000 / 1 staffed subject.
+      expect(result).toEqual([{ teacherId: TEACHER_1, attributedAmountMad: 10000 }]);
+    });
+  });
+
   describe('rounding invariant', () => {
     it.each([
       { name: 'divides exactly by 2', amount: 40000, count: 2 },

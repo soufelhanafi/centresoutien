@@ -3,10 +3,13 @@ import { STR, DIRECTION, boot, gotoPlanning, readWeek, pageCrashed, type Launche
 
 /**
  * SOU-131 — AC1 (create renders in the grid without a DB seed) + AC3 (create →
- * grid in both FR-LTR and AR-RTL) + the agreed sanity behaviors: teacher and
- * group are optional (a session with neither saves and renders), and the form is
- * defaults-only (no validity-window / active-paused controls). Runs under both
- * the `fr` and `ar` Playwright projects.
+ * grid in both FR-LTR and AR-RTL). Runs under both the `fr` and `ar`
+ * Playwright projects.
+ *
+ * Critical-only per SOU-142: this is the canonical top-level "schedule a
+ * session" flow. Teacher/group-optional and defaults-only-form sanity checks
+ * dropped here are lower-risk UI assertions — unit/component test the form
+ * instead.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -68,54 +71,4 @@ test('creates a weekly session from the planner and it renders in the grid (no D
   expect(wk).toHaveLength(1);
   expect(wk[0]).toMatchObject({ dayOfWeek: 1, start: '09:30', end: '10:30', teacherId: null, groupId: null });
   expect(await pageCrashed(win)).toBe(false);
-});
-
-// ---------------------------------------------------------------------------
-// Sanity — teacher + group are OPTIONAL. This is the same happy path above with
-// neither assigned, asserted explicitly through the persisted read model.
-// (Assigning a teacher/group is exercised in the conflict + edit specs.)
-// ---------------------------------------------------------------------------
-test('a session with neither teacher nor group still saves and renders', async () => {
-  const L = STR[locale()];
-  live = await boot(locale(), { rooms: [{ name: 'Salle Unique' }] });
-  const win = live.win;
-  await gotoPlanning(win, L);
-
-  const dialog = await openCreate(win, L);
-  await pickRoom(win, dialog, L, 'Salle Unique');
-  await win.getByLabel(L.form.start, { exact: false }).fill('11:00');
-  await win.getByLabel(L.form.end, { exact: false }).fill('12:00');
-  // The defaults for teacher ("Sans enseignant") and group ("Sans groupe") are left as-is.
-  await dialog.getByRole('button', { name: L.form.create }).click();
-
-  await expect(win.getByText(L.form.createSuccess)).toBeVisible();
-  await expect(win.getByText('Salle Unique')).toBeVisible();
-  const wk = await readWeek(win);
-  expect(wk).toHaveLength(1);
-  expect(wk[0]).toMatchObject({ teacherId: null, groupId: null });
-});
-
-// ---------------------------------------------------------------------------
-// Sanity — the create form is DEFAULTS-ONLY: no validity-window date pickers and
-// no active/paused toggle. Only day / start / end / room / teacher / group.
-// ---------------------------------------------------------------------------
-test('the create form has no validity-window or active/paused controls', async () => {
-  const L = STR[locale()];
-  live = await boot(locale(), { rooms: [{ name: 'Salle A' }] });
-  const win = live.win;
-  await gotoPlanning(win, L);
-  const dialog = await openCreate(win, L);
-
-  // No date inputs (validity window) and no switch/checkbox (active/paused).
-  await expect(dialog.locator('input[type="date"]')).toHaveCount(0);
-  await expect(dialog.getByRole('switch')).toHaveCount(0);
-  await expect(dialog.getByRole('checkbox')).toHaveCount(0);
-
-  // Exactly the expected editable controls are present.
-  await expect(dialog.getByRole('combobox', { name: L.form.day })).toBeVisible();
-  await expect(dialog.getByRole('combobox', { name: L.form.room })).toBeVisible();
-  await expect(dialog.getByRole('combobox', { name: L.form.teacher })).toBeVisible();
-  await expect(dialog.getByRole('combobox', { name: L.form.group })).toBeVisible();
-  await expect(win.getByLabel(L.form.start, { exact: false })).toBeVisible();
-  await expect(win.getByLabel(L.form.end, { exact: false })).toBeVisible();
 });
