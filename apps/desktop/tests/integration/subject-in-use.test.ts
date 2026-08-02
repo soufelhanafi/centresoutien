@@ -87,10 +87,12 @@ function makeGroup(over: Partial<Group> = {}): Group {
 }
 
 describe('SqliteSubjectRepository.listWithUsage', () => {
-  it('reports inUseCount 0 and canDelete true for a subject with no groups', async () => {
+  it('reports inUseCount 0, canDelete true, and no references for a subject with no groups', async () => {
     await subjects.save(makeSubject());
     const rows = await subjects.listWithUsage(CENTER);
-    expect(rows).toEqual([{ subject: makeSubject(), inUseCount: 0, canDelete: true }]);
+    expect(rows).toEqual([
+      { subject: makeSubject(), inUseCount: 0, canDelete: true, references: [] },
+    ]);
   });
 
   it('counts N active groups and marks the subject non-deletable', async () => {
@@ -161,6 +163,64 @@ describe('SqliteSubjectRepository.listWithUsage', () => {
     await subjects.save(makeSubject({ id: PHYSICS, centerCode: OTHER_CENTER }));
     const ids = (await subjects.listWithUsage(CENTER)).map((r) => r.subject.id);
     expect(ids).toEqual([MATH]);
+  });
+
+  describe('references (SOU-135 named breakdown)', () => {
+    it('names each referencing group by kind, id, and its level duplicated into fr/ar', async () => {
+      await subjects.save(makeSubject());
+      const group = makeGroup({ subjectId: MATH, level: '3ème Bac' });
+      await groups.save(group);
+
+      const [row] = await subjects.listWithUsage(CENTER);
+      expect(row?.references).toEqual([
+        { kind: 'group', id: group.id, label: { fr: '3ème Bac', ar: '3ème Bac' } },
+      ]);
+    });
+
+    it('lists every referencing group, one entry per row, matching inUseCount', async () => {
+      await subjects.save(makeSubject());
+      const a = makeGroup({ subjectId: MATH, level: '1ère A' });
+      const b = makeGroup({ subjectId: MATH, level: '2ème B' });
+      await groups.save(a);
+      await groups.save(b);
+
+      const [row] = await subjects.listWithUsage(CENTER);
+      expect(row?.references).toHaveLength(row?.inUseCount ?? -1);
+      expect(row?.references.map((r) => r.id).sort()).toEqual([a.id, b.id].sort());
+    });
+
+    it('excludes a soft-deleted (tombstoned) group from the breakdown', async () => {
+      await subjects.save(makeSubject());
+      const gone = makeGroup({ subjectId: MATH });
+      await groups.save(gone);
+      await groups.softDelete(gone.id, new Date('2026-08-02T00:00:00Z'), USER);
+
+      const [row] = await subjects.listWithUsage(CENTER);
+      expect(row?.references).toEqual([]);
+    });
+
+    it('is center-scoped: another center’s group never appears in the breakdown', async () => {
+      await subjects.save(makeSubject());
+      await groups.save(makeGroup({ subjectId: MATH, centerCode: OTHER_CENTER }));
+
+      const [row] = await subjects.listWithUsage(CENTER);
+      expect(row?.references).toEqual([]);
+    });
+
+    it('keeps each subject’s breakdown separate from another subject’s', async () => {
+      await subjects.save(makeSubject({ id: MATH, name: { fr: 'Mathématiques', ar: 'الرياضيات' } }));
+      await subjects.save(makeSubject({ id: PHYSICS, name: { fr: 'Physique', ar: 'الفيزياء' } }));
+      const mathGroup = makeGroup({ subjectId: MATH, level: '1ère A' });
+      const physGroup = makeGroup({ subjectId: PHYSICS, level: '2ème B' });
+      await groups.save(mathGroup);
+      await groups.save(physGroup);
+
+      const rows = await subjects.listWithUsage(CENTER);
+      const math = rows.find((r) => r.subject.id === MATH);
+      const phys = rows.find((r) => r.subject.id === PHYSICS);
+      expect(math?.references.map((r) => r.id)).toEqual([mathGroup.id]);
+      expect(phys?.references.map((r) => r.id)).toEqual([physGroup.id]);
+    });
   });
 });
 

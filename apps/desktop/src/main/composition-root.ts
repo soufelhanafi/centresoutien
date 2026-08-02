@@ -5,6 +5,16 @@ import {
   PlanPolicy,
   CreateSubject,
   ArchiveSubject,
+  ListSubjects,
+  GetSubject,
+  ListSubjectsWithUsage,
+  UpdateSubject,
+  CreateFormula,
+  UpdateFormula,
+  GetFormula,
+  ListFormulas,
+  CloneFormula,
+  DeactivateFormula,
   CreateStudent,
   ListStudents,
   GetStudent,
@@ -48,8 +58,14 @@ import {
   ArchiveHoliday,
   RestoreHoliday,
   ListWeekSessions,
+  GenerateSessions,
+  GenerateAndPersistSessions,
+  CreateWeeklyRecurringSession,
+  UpdateWeeklyRecurringSession,
+  CancelWeeklyRecurringSession,
   CreateAdminAccount,
   VerifyAdminPassword,
+  ChangeAdminPassword,
   SaveCenterHours,
   GetCenterHours,
   AttemptLogin,
@@ -59,6 +75,13 @@ import {
   SaveCenterProfile,
   StoreCenterLogo,
   ReadCenterLogo,
+  CreateBackup,
+  GetBackupConfig,
+  SaveBackupConfig,
+  RestoreBackup,
+  RunScheduledBackup,
+  CreateTeacherPayrollRule,
+  CloseTeacherPayrollRule,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -74,6 +97,7 @@ import type {
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
+import { SqliteFormulaRepository } from '../data/sqlite/repositories/formula-repository';
 import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
 import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repository';
@@ -84,17 +108,22 @@ import { SqliteEnrollmentRepository } from '../data/sqlite/repositories/enrollme
 import { SqliteInvoiceRepository } from '../data/sqlite/repositories/invoice-repository';
 import { SqlitePaymentRepository } from '../data/sqlite/repositories/payment-repository';
 import { SqliteTeacherRepository } from '../data/sqlite/repositories/teacher-repository';
+import { SqliteTeacherPayrollRuleRepository } from '../data/sqlite/repositories/teacher-payroll-rule-repository';
 import { SqliteHolidayRepository } from '../data/sqlite/repositories/holiday-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositories/weekly-recurring-session-repository';
+import { SqliteSessionRepository } from '../data/sqlite/repositories/session-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-throttle-store';
 import { SqliteDeviceSessionStore } from '../data/sqlite/repositories/device-session-store';
 import { SqliteCenterRepository } from '../data/sqlite/repositories/center-repository';
 import { FsLogoStore } from '../data/fs/logo-store';
+import { SqliteBackupAdapter } from '../data/sqlite/repositories/backup-adapter';
+import { SqliteBackupConfigStore } from '../data/sqlite/repositories/backup-config-store';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
+import { LocalePreferenceStore, type LocalePreference } from './infra/locale-preference-store';
 import {
   createHandlers,
   type HandlerDeps,
@@ -121,6 +150,10 @@ export type ContainerOptions = {
   dir: string; // directory holding the center DB files
   planId: PlanId;
   appVersion: () => string;
+  /** Backup restore (SOU-102) swaps the live DB file and closes its handle —
+   *  the app must relaunch to reopen it. Kept out of composition-root/handlers
+   *  so they stay Electron-free, mirroring `appVersion`. */
+  scheduleRestart: () => void;
 };
 
 export type Container = {
@@ -131,6 +164,16 @@ export type Container = {
    * persistence + IPC. Nothing consumes it yet on this branch.
    */
   subscriptionReference: StudentSubscriptionReferencePort;
+  /**
+   * The two payroll-rule use cases (SOU-70), wired here for the first time
+   * (SOU-71) so the CRUD UI ticket (SOU-72) can register their IPC routes
+   * without touching this file. Not yet exposed through `HandlerDeps` /
+   * `createHandlers` — no route consumes them on this branch.
+   */
+  createTeacherPayrollRule: CreateTeacherPayrollRule;
+  closeTeacherPayrollRule: CloseTeacherPayrollRule;
+  /** Read once, synchronously, before the window opens — see `LocalePreferenceStore`. */
+  readLocalePreference: () => LocalePreference | null;
   dispose: () => void;
 };
 
@@ -178,6 +221,18 @@ export function buildContainer(options: ContainerOptions): Container {
 
   const subjectRepo = new SqliteSubjectRepository(db);
   const createSubject = new CreateSubject(subjectRepo, clock, ids, plan);
+  const listSubjects = new ListSubjects(subjectRepo, plan);
+  const getSubject = new GetSubject(subjectRepo, plan);
+  const listSubjectsWithUsage = new ListSubjectsWithUsage(subjectRepo, plan);
+  const updateSubject = new UpdateSubject(subjectRepo, clock, plan);
+
+  const formulaRepo = new SqliteFormulaRepository(db);
+  const createFormula = new CreateFormula(formulaRepo, subjectRepo, clock, ids, plan);
+  const updateFormula = new UpdateFormula(formulaRepo, subjectRepo, clock, plan);
+  const getFormula = new GetFormula(formulaRepo, plan);
+  const listFormulas = new ListFormulas(formulaRepo, plan);
+  const cloneFormula = new CloneFormula(formulaRepo, subjectRepo, clock, ids, plan);
+  const deactivateFormula = new DeactivateFormula(formulaRepo, clock, plan);
 
   const studentRepo = new SqliteStudentRepository(db);
   const createStudent = new CreateStudent(studentRepo, clock, ids, plan);
@@ -198,7 +253,9 @@ export function buildContainer(options: ContainerOptions): Container {
   // The weekly-session repository (SOU-53) is the real backing for the ArchiveRoom
   // in-use guard: it owns the query over live sessions, so it also satisfies
   // RoomReferencePort. Passing the same instance replaces the SOU-33 "never
-  // referenced" stub with no change to ArchiveRoom or the port contract.
+  // referenced" stub with no change to ArchiveRoom or the port contract. The same
+  // instance also serves WeeklySessionViewReadPort — the planner grid's enriched
+  // week (SOU-118), whose join is anchored on this table.
   const sessionRepo = new SqliteWeeklyRecurringSessionRepository(db);
   const roomReference: RoomReferencePort = sessionRepo;
   const listWeekSessions = new ListWeekSessions(sessionRepo, plan);
@@ -286,12 +343,41 @@ export function buildContainer(options: ContainerOptions): Container {
   const archiveTeacher = new ArchiveTeacher(teacherRepo, teacherReference, clock, plan);
   const restoreTeacher = new RestoreTeacher(teacherRepo, clock, plan);
 
+  // Payroll rule persistence (SOU-71): the domain (SOU-70) and its port shipped
+  // first, unwired. This constructs the real SQLite-backed repo and the two
+  // use cases against it — createTeacherPayrollRule enforces
+  // TooManyActivePayrollRulesError via payrollRuleRepo.listLiveByTeacher;
+  // closeTeacherPayrollRule caps a live rule's endMonth. IPC wiring lands with
+  // the CRUD UI (SOU-72).
+  const payrollRuleRepo = new SqliteTeacherPayrollRuleRepository(db);
+  const createTeacherPayrollRule = new CreateTeacherPayrollRule(
+    payrollRuleRepo,
+    teacherRepo,
+    clock,
+    ids,
+    plan,
+  );
+  const closeTeacherPayrollRule = new CloseTeacherPayrollRule(payrollRuleRepo, clock, plan);
+
   const holidayRepo = new SqliteHolidayRepository(db);
   const createHoliday = new CreateHoliday(holidayRepo, clock, ids, plan);
   const listHolidays = new ListHolidays(holidayRepo, plan);
   const updateHoliday = new UpdateHoliday(holidayRepo, clock, plan);
   const archiveHoliday = new ArchiveHoliday(holidayRepo, clock, plan);
   const restoreHoliday = new RestoreHoliday(holidayRepo, clock, plan);
+
+  // Concrete dated sessions (SOU-129): the SOU-56 generator is pure, so the plan
+  // gate + persistence live here. GenerateAndPersistSessions resolves the
+  // recurrence template (the WRS repo above) and the center's holidays, runs the
+  // pure generator, and upserts idempotently on (recurringSessionId, date).
+  const concreteSessionRepo = new SqliteSessionRepository(db);
+  const generateSessions = new GenerateAndPersistSessions(
+    concreteSessionRepo,
+    sessionRepo,
+    holidayRepo,
+    new GenerateSessions(clock, ids),
+    plan,
+  );
 
   const centerRepo = new SqliteCenterRepository(db);
   const getCenterProfile = new GetCenterProfile(centerRepo);
@@ -300,14 +386,58 @@ export function buildContainer(options: ContainerOptions): Container {
   const storeCenterLogo = new StoreCenterLogo(logoStore);
   const readCenterLogo = new ReadCenterLogo(logoStore);
 
+  // Backup & restore (SOU-102). `options.key` is today's key-management
+  // mechanism (CS_DB_KEY / dev fallback) — real per-center key derivation is a
+  // separate future ticket; both the manual/scheduled snapshot path and the
+  // restore verify/swap path use it unchanged until then.
+  const backupConfigStore = new SqliteBackupConfigStore(db);
+  const backupAdapter = new SqliteBackupAdapter(db, options.key, ids);
+  const createBackup = new CreateBackup(backupAdapter, backupConfigStore);
+  const getBackupConfig = new GetBackupConfig(backupConfigStore);
+  const saveBackupConfig = new SaveBackupConfig(backupConfigStore);
+  const restoreBackup = new RestoreBackup(backupAdapter);
+  // Launch-time schedule check (KICKOFF: no OS-level cron — runs at most once
+  // per launch, no-ops until a destination folder is configured). Fire-and-
+  // forget: a backup failure (unmounted USB, full disk…) must never block the
+  // window from opening.
+  void new RunScheduledBackup(backupAdapter, backupConfigStore, clock)
+    .execute({ centerCode: options.centerCode })
+    .catch((error: unknown) => console.error('[backup] scheduled run failed', error));
+
   const centerHoursRepo = new SqliteCenterHoursRepository(db);
   const saveCenterHours = new SaveCenterHours(centerHoursRepo, clock, ids, plan);
   const getCenterHours = new GetCenterHours(centerHoursRepo, plan);
+
+  // Weekly recurring session write path (SOU-131): create/update run the SOU-55
+  // composite conflict check (room + teacher + hours) against the same
+  // `sessionRepo` that backs the planner read + the ArchiveRoom guard, reading the
+  // center's configured week from `centerHoursRepo`. Cancel is a soft delete. All
+  // three gate `core.calendar.week` in the domain.
+  const createWeeklySession = new CreateWeeklyRecurringSession(
+    sessionRepo,
+    centerHoursRepo,
+    clock,
+    ids,
+    plan,
+  );
+  const updateWeeklySession = new UpdateWeeklyRecurringSession(
+    sessionRepo,
+    centerHoursRepo,
+    clock,
+    plan,
+  );
+  const cancelWeeklySession = new CancelWeeklyRecurringSession(sessionRepo, clock, plan);
 
   const hasher = new Argon2PasswordHasher();
   const adminRepo = new SqliteAdminAccountRepository(db);
   const createAdminAccount = new CreateAdminAccount(adminRepo, hasher, clock, ids);
   const verifyAdminPassword = new VerifyAdminPassword(adminRepo, hasher);
+  const changeAdminPassword = new ChangeAdminPassword(adminRepo, hasher, clock);
+
+  // Locale preference (SOU-31): a plain userData-file adapter, not a domain
+  // port — see LocalePreferenceStore's doc for why. `options.dir` is the same
+  // userData directory the center DB files and the logo store live under.
+  const localePreferences = new LocalePreferenceStore(options.dir);
 
   const deviceSessions = new DeviceSessionService(new SqliteDeviceSessionStore(db), clock, ids);
   const attemptLogin = new AttemptLogin(
@@ -330,6 +460,16 @@ export function buildContainer(options: ContainerOptions): Container {
     activePlanId: () => activePlanId,
     createSubject,
     archiveSubject,
+    listSubjects,
+    getSubject,
+    listSubjectsWithUsage,
+    updateSubject,
+    createFormula,
+    updateFormula,
+    getFormula,
+    listFormulas,
+    cloneFormula,
+    deactivateFormula,
     createStudent,
     listStudents,
     getStudent,
@@ -373,12 +513,17 @@ export function buildContainer(options: ContainerOptions): Container {
     archiveHoliday,
     restoreHoliday,
     listWeekSessions,
+    generateSessions,
+    createWeeklySession,
+    updateWeeklySession,
+    cancelWeeklySession,
     saveCenterHours,
     getCenterHours,
     envelopeContext: () => context,
     adminExists: () => adminRepo.exists(),
     createAdminAccount,
     verifyAdminPassword,
+    changeAdminPassword,
     attemptLogin,
     deviceSessions,
     getCenterProfile,
@@ -386,9 +531,29 @@ export function buildContainer(options: ContainerOptions): Container {
     storeCenterLogo,
     readCenterLogo,
     centerContext: () => centerContext,
+    saveLocalePreference: (locale) => localePreferences.write(locale),
+    createBackup,
+    getBackupConfig,
+    saveBackupConfig,
+    restoreBackup,
+    activeCenterCode: () => options.centerCode,
+    dbKey: () => options.key,
+    scheduleRestart: options.scheduleRestart,
   };
 
-  return { handlerDeps, subscriptionReference, dispose: () => db.close() };
+  return {
+    handlerDeps,
+    subscriptionReference,
+    createTeacherPayrollRule,
+    closeTeacherPayrollRule,
+    readLocalePreference: () => localePreferences.read(),
+    // `db.open` guards against a double-close: a successful restore (SOU-102)
+    // already closed this handle as part of its file swap, and `will-quit`
+    // still calls `dispose()` during the scheduled relaunch.
+    dispose: () => {
+      if (db.open) db.close();
+    },
+  };
 }
 
 /** Convenience: build the container and its IPC handler set together. */

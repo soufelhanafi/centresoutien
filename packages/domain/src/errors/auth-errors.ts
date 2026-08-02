@@ -10,3 +10,21 @@ export class AdminAccountAlreadyExistsError extends DomainError {
     super('An admin account already exists.');
   }
 }
+
+/**
+ * Thrown when a password change is attempted but no admin account exists yet.
+ * Defensive only — the settings screen that calls this sits behind login, so
+ * this guards a corrupted or wiped local database, not a normal path.
+ */
+export class AdminAccountNotFoundError extends DomainError {
+  constructor() {
+    super('No admin account exists.');
+  }
+}
+
+/** Thrown when a password change supplies a `currentPassword` that doesn't verify. */
+export class InvalidCurrentPasswordError extends DomainError {
+  constructor() {
+    super('The current password is incorrect.');
+  }
+}

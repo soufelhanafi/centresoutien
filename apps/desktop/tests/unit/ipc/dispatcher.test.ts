@@ -6,6 +6,7 @@ import type {
   CenterId,
   DeviceId,
   EnrollmentId,
+  EntityId,
   Group,
   GroupId,
   ParentId,
@@ -17,8 +18,13 @@ import type {
   UserId,
   WeekdayIndex,
   WeeklyRecurringSessionId,
+  SessionId,
 } from '@centresoutien/domain';
-import { GroupFullError, GroupNotFoundError } from '@centresoutien/domain';
+import {
+  GroupFullError,
+  GroupNotFoundError,
+  WeeklyRecurringSessionNotFoundError,
+} from '@centresoutien/domain';
 import { createIpcDispatcher } from '../../../src/main/ipc/dispatcher';
 import { decodeDomainError } from '../../../src/shared/ipc/domain-error';
 import {
@@ -35,6 +41,10 @@ import {
   type ArchiveGroupUseCase,
   type RestoreGroupUseCase,
   type ListWeekSessionsUseCase,
+  type GenerateAndPersistSessionsUseCase,
+  type CreateWeeklyRecurringSessionUseCase,
+  type UpdateWeeklyRecurringSessionUseCase,
+  type CancelWeeklyRecurringSessionUseCase,
   type SaveCenterHoursUseCase,
   type GetCenterHoursUseCase,
   type AttemptLoginUseCase,
@@ -204,26 +214,92 @@ const stubSaveCenterHours: SaveCenterHoursUseCase = {
     })),
 };
 
-// Stub weekly-session read — returns one envelope-complete session so the handler
-// can prove it strips the envelope down to the boundary DTO (SOU-53 seam).
+// Stub weekly-session read — returns one enriched WeeklySessionView so the handler
+// can prove it serializes the read model to the boundary DTO (SOU-118 seam).
 const stubListWeekSessions: ListWeekSessionsUseCase = {
   execute: async () => [
     {
       id: 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId,
-      centerCode: context.centerCode,
-      deviceOrigin: context.deviceOrigin,
+      dayOfWeek: 1 as WeekdayIndex,
+      start: '09:00' as TimeOfDay,
+      end: '10:00' as TimeOfDay,
+      roomId: 'rom_00000000000000000000000001' as RoomId,
+      roomName: 'Salle A',
+      teacherId: 'tch_00000000000000000000000001' as EntityId,
+      teacherName: { fr: 'M. Alaoui', ar: 'السيد العلوي' },
+      groupId: 'grp_00000000000000000000000001' as GroupId,
+      subjectId: 'sub_00000000000000000000000001' as SubjectId,
+      subjectName: { fr: 'Mathématiques', ar: 'الرياضيات' },
+      level: '2 Bac SM',
+      kind: 'regular',
+    },
+  ],
+};
+
+// Stub concrete-session generator (SOU-129) — echoes the injected envelope
+// context and one materialized occurrence so the handler can prove it maps the
+// request (from/to → range) and strips the envelope to `sessionViewSchema`.
+const stubGenerateSessions: GenerateAndPersistSessionsUseCase = {
+  execute: async (input) => [
+    {
+      id: 'ses_00000000000000000000000001' as SessionId,
+      centerCode: input.centerCode,
+      deviceOrigin: input.deviceOrigin,
       createdAt: new Date('2026-07-29T10:00:00Z'),
       updatedAt: new Date('2026-07-29T10:00:00Z'),
-      updatedBy: context.updatedBy,
+      updatedBy: input.updatedBy,
       deletedAt: null,
       version: 0,
+      recurringSessionId: input.recurringSessionId,
       roomId: 'rom_00000000000000000000000001' as RoomId,
       teacherId: null,
-      dayOfWeek: 1 as WeekdayIndex,
+      date: input.range.start,
       start: '09:00' as TimeOfDay,
       end: '10:00' as TimeOfDay,
     },
   ],
+};
+
+// Weekly recurring session write stubs (SOU-131). create/update echo an
+// envelope-complete template so the handler proves it returns only the id; delete
+// throws WeeklyRecurringSessionNotFoundError for the sentinel id to prove the
+// boundary does NOT swallow it (unlike *.archive) — a stale id must surface.
+const WRS_ID = 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId;
+const MISSING_WRS_ID = 'wrs_00000000000000000000000099' as WeeklyRecurringSessionId;
+
+function makeWeeklySession(over: Partial<{ id: WeeklyRecurringSessionId }> = {}) {
+  return {
+    id: WRS_ID,
+    centerCode: context.centerCode,
+    deviceOrigin: context.deviceOrigin,
+    createdAt: new Date('2026-07-29T10:00:00Z'),
+    updatedAt: new Date('2026-07-29T10:00:00Z'),
+    updatedBy: context.updatedBy,
+    deletedAt: null,
+    version: 0,
+    roomId: 'rom_00000000000000000000000001' as RoomId,
+    teacherId: null,
+    groupId: null,
+    dayOfWeek: 1 as WeekdayIndex,
+    start: '09:00' as TimeOfDay,
+    end: '10:30' as TimeOfDay,
+    active: true,
+    validFrom: null,
+    validTo: null,
+    ...over,
+  };
+}
+
+const stubCreateWeeklySession: CreateWeeklyRecurringSessionUseCase = {
+  execute: async () => makeWeeklySession(),
+};
+const stubUpdateWeeklySession: UpdateWeeklyRecurringSessionUseCase = {
+  execute: async (input) => makeWeeklySession({ id: input.id }),
+};
+const stubCancelWeeklySession: CancelWeeklyRecurringSessionUseCase = {
+  execute: async (input) => {
+    if (input.id === MISSING_WRS_ID) throw new WeeklyRecurringSessionNotFoundError(input.id);
+  },
 };
 
 // Group stubs (SOU-120). Each echoes an envelope-complete Group so the handler
@@ -305,6 +381,10 @@ const dispatch = createIpcDispatcher(
     createSubject: stubCreateSubject,
     createParent: stubCreateParent,
     listWeekSessions: stubListWeekSessions,
+    generateSessions: stubGenerateSessions,
+    createWeeklySession: stubCreateWeeklySession,
+    updateWeeklySession: stubUpdateWeeklySession,
+    cancelWeeklySession: stubCancelWeeklySession,
     saveCenterHours: stubSaveCenterHours,
     getCenterHours: stubGetCenterHours,
     envelopeContext: () => context,
@@ -359,19 +439,127 @@ describe('createIpcDispatcher', () => {
     ).rejects.toThrow();
   });
 
-  it('runs session.week and returns the envelope-stripped session views', async () => {
+  it('runs session.week and returns the enriched session views', async () => {
     await expect(dispatch('session.week', {})).resolves.toEqual({
       sessions: [
         {
           id: 'wrs_00000000000000000000000001',
+          dayOfWeek: 1,
+          start: '09:00',
+          end: '10:00',
+          roomId: 'rom_00000000000000000000000001',
+          roomName: 'Salle A',
+          teacherId: 'tch_00000000000000000000000001',
+          teacherName: { fr: 'M. Alaoui', ar: 'السيد العلوي' },
+          groupId: 'grp_00000000000000000000000001',
+          subjectId: 'sub_00000000000000000000000001',
+          subjectName: { fr: 'Mathématiques', ar: 'الرياضيات' },
+          level: '2 Bac SM',
+          kind: 'regular',
+        },
+      ],
+    });
+  });
+
+  it('runs session.generate and returns the envelope-stripped occurrences', async () => {
+    await expect(
+      dispatch('session.generate', {
+        recurringSessionId: 'wrs_00000000000000000000000001',
+        from: '2026-01-01',
+        to: '2026-01-31',
+      }),
+    ).resolves.toEqual({
+      sessions: [
+        {
+          id: 'ses_00000000000000000000000001',
+          recurringSessionId: 'wrs_00000000000000000000000001',
           roomId: 'rom_00000000000000000000000001',
           teacherId: null,
-          dayOfWeek: 1,
+          date: '2026-01-01',
           start: '09:00',
           end: '10:00',
         },
       ],
     });
+  });
+
+  it('rejects session.generate with a backwards window (to before from)', async () => {
+    await expect(
+      dispatch('session.generate', {
+        recurringSessionId: 'wrs_00000000000000000000000001',
+        from: '2026-01-31',
+        to: '2026-01-01',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects session.generate with a non-wrs recurrence id', async () => {
+    await expect(
+      dispatch('session.generate', {
+        recurringSessionId: 'rom_00000000000000000000000001',
+        from: '2026-01-01',
+        to: '2026-01-31',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('runs weeklySession.create and returns only the new id', async () => {
+    await expect(
+      dispatch('weeklySession.create', {
+        roomId: 'rom_00000000000000000000000001',
+        teacherId: null,
+        groupId: null,
+        dayOfWeek: 1,
+        start: '09:00',
+        end: '10:30',
+        active: true,
+        validFrom: null,
+        validTo: null,
+      }),
+    ).resolves.toEqual({ id: WRS_ID });
+  });
+
+  it('defaults the optional teacher/group/validity/active fields on weeklySession.create', async () => {
+    // Renderer sends only the required fields; the shared schema fills the rest.
+    await expect(
+      dispatch('weeklySession.create', {
+        roomId: 'rom_00000000000000000000000001',
+        dayOfWeek: 1,
+        start: '09:00',
+        end: '10:30',
+      }),
+    ).resolves.toEqual({ id: WRS_ID });
+  });
+
+  it('rejects weeklySession.create whose roomId fails the shared schema', async () => {
+    await expect(
+      dispatch('weeklySession.create', {
+        roomId: 'nope',
+        dayOfWeek: 1,
+        start: '09:00',
+        end: '10:30',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('runs weeklySession.update and returns the edited id', async () => {
+    await expect(
+      dispatch('weeklySession.update', {
+        id: WRS_ID,
+        roomId: 'rom_00000000000000000000000001',
+        dayOfWeek: 1,
+        start: '09:30',
+        end: '11:00',
+      }),
+    ).resolves.toEqual({ id: WRS_ID });
+  });
+
+  it('runs weeklySession.delete and returns ok', async () => {
+    await expect(dispatch('weeklySession.delete', { id: WRS_ID })).resolves.toEqual({ ok: true });
+  });
+
+  it('does NOT swallow WeeklyRecurringSessionNotFoundError on weeklySession.delete', async () => {
+    await expect(dispatch('weeklySession.delete', { id: MISSING_WRS_ID })).rejects.toThrow();
   });
 
   it('runs centerHours.get and returns the week view', async () => {

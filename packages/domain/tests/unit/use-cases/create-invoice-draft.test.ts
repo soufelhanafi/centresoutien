@@ -20,7 +20,7 @@ const OTHER_CENTER = 'CS-RABAT-002' as CenterCode;
 const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
 const USER = 'usr_00000000000000000000000001' as UserId;
 const STUDENT_ID = 'stu_00000000000000000000000001' as StudentId;
-const FORMULA_ID = 'for_00000000000000000000000002';
+const FORMULA_ID = 'fml_00000000000000000000000002';
 const CLOCK_ISO = '2026-07-31T10:00:00Z';
 
 function validInput(overrides: Partial<CreateInvoiceDraftInput> = {}): CreateInvoiceDraftInput {
@@ -80,7 +80,7 @@ describe('CreateInvoiceDraft', () => {
           lines: [
             { formulaId: FORMULA_ID, label: { fr: 'Math', ar: 'رياضيات' }, kind: 'regular', amountMad: 20000 },
             {
-              formulaId: 'for_00000000000000000000000003',
+              formulaId: 'fml_00000000000000000000000003',
               label: { fr: 'Préparation Bac', ar: 'تحضير الباك' },
               kind: 'exam-prep',
               amountMad: 80000,
@@ -107,7 +107,7 @@ describe('CreateInvoiceDraft', () => {
         validInput({
           lines: [
             { formulaId: FORMULA_ID, label: { fr: 'Math', ar: 'رياضيات' }, kind: 'regular', amountMad: 20000 },
-            { formulaId: 'for_00000000000000000000000003', label: { fr: 'SVT', ar: 'علوم' }, kind: 'regular', amountMad: 15000 },
+            { formulaId: 'fml_00000000000000000000000003', label: { fr: 'SVT', ar: 'علوم' }, kind: 'regular', amountMad: 15000 },
           ],
         }),
       );

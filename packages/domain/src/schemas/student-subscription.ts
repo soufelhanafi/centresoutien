@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { hasIdPrefix } from '../value-objects/ids';
 import { STUDENT_ID_PREFIX } from '../entities/student';
 import { SUBJECT_ID_PREFIX } from '../entities/subject';
-import { FORMULA_ID_PREFIX } from '../entities/student-subscription';
+import { FORMULA_ID_PREFIX } from '../entities/formula';
 import { GROUP_KINDS } from '../entities/group';
 import { MONTH_PATTERN } from './enrollment';
 

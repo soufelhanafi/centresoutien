@@ -10,6 +10,8 @@
     "students": "التلاميذ",
     "teachers": "الأساتذة",
     "parents": "أولياء الأمور",
+    "subjects": "المواد",
+    "formulas": "الصيغ",
     "groups": "المجموعات",
     "rooms": "القاعات",
     "planning": "الجدولة",
@@ -44,6 +46,8 @@
     "too-long": "النص طويل جدًا",
     "not-an-integer": "أدخل عددًا صحيحًا",
     "capacity-too-small": "يجب أن تكون السعة 1 على الأقل",
+    "too-low": "هذه القيمة منخفضة جدًا",
+    "too-high": "هذه القيمة مرتفعة جدًا",
     "invalid-email": "عنوان بريد إلكتروني غير صالح",
     "invalid-phone": "رقم الهاتف غير صالح",
     "unsupported-logo-type": "صيغة الشعار غير مدعومة (PNG أو JPG أو WEBP أو SVG)",
@@ -58,6 +62,8 @@
     "password-needs-uppercase": "أضف حرفًا كبيرًا واحدًا على الأقل",
     "password-needs-digit": "أضف رقمًا واحدًا على الأقل",
     "password-mismatch": "كلمتا المرور غير متطابقتين",
+    "invalid-current-password": "كلمة المرور الحالية غير صحيحة",
+    "admin-account-not-found": "تعذّر العثور على حساب المسؤول. اتصل بالدعم.",
     "invalid-time": "وقت غير صالح",
     "close-before-open": "يجب أن يكون وقت الإغلاق بعد وقت الفتح",
     "closed-partial": "حدّد وقت الفتح والإغلاق، أو أغلق اليوم",
@@ -74,7 +80,23 @@
     "group-full": "هذه المجموعة مكتملة: جميع المقاعد مشغولة.",
     "duplicate-enrollment": "هذا الطالب مسجّل بالفعل في هذه المجموعة.",
     "cross-kind-enrollment": "اشتراك الطالب لا يطابق نوع المجموعة (عادي / تحضير الامتحان).",
-    "enrollment-subscription-missing": "لا يملك الطالب أي اشتراك نشط يغطي مادة هذه المجموعة."
+    "enrollment-subscription-missing": "لا يملك الطالب أي اشتراك نشط يغطي مادة هذه المجموعة.",
+    "malformed-session-time": "يجب أن يكون وقت النهاية بعد وقت البداية",
+    "session-outside-center-hours": "الحصة خارج أوقات عمل المركز",
+    "room-conflict": "القاعة محجوزة بالفعل في هذا التوقيت",
+    "teacher-conflict": "لدى الأستاذ حصة بالفعل في هذا التوقيت",
+    "invalid-session-validity-range": "فترة صلاحية الحصة غير صالحة",
+    "weekly-recurring-session-not-found": "لم تعد هذه الحصة موجودة",
+    "invalid-code": "رمز غير صالح (أحرف كبيرة وأرقام و- و_ فقط)",
+    "subject-in-use": "هذه المادة مستخدمة في مجموعة واحدة على الأقل ولا يمكن حذفها",
+    "subject-not-found": "لم يتم العثور على هذه المادة",
+    "duplicate-subject-code": "هذا الرمز مستخدم بالفعل من طرف مادة أخرى",
+    "formula-immutable": "تمت فوترة هذه الصيغة بالفعل ولم يعد بالإمكان تعديلها. كرّرها لتغيير السعر أو المواد أو الاسم.",
+    "formula-not-found": "لم يتم العثور على هذه الصيغة",
+    "formula-subject-not-found": "لم يتم العثور على إحدى مواد هذه الصيغة",
+    "formula-subject-inactive": "تم تعطيل إحدى مواد هذه الصيغة",
+    "subjects-required": "اختر مادة واحدة على الأقل",
+    "invalid-price": "يجب أن يكون السعر رقمًا صحيحًا موجبًا"
   },
   "groups": {
     "title": "المجموعات",
@@ -329,12 +351,178 @@
     }
   },
   "subjects": {
+    "title": "المواد",
+    "subtitle": "أعدّ المواد التي يقدّمها مركزك.",
+    "new": "مادة جديدة",
+    "tabs": {
+      "active": "نشطة",
+      "inactive": "غير نشطة"
+    },
+    "table": {
+      "code": "الرمز",
+      "name": "الاسم",
+      "state": "الحالة",
+      "inUse": "الاستخدام",
+      "actions": "إجراءات",
+      "noCode": "—"
+    },
+    "state": {
+      "active": "نشطة",
+      "inactive": "غير نشطة"
+    },
+    "referenceKind": {
+      "group": "مجموعة",
+      "formula": "صيغة",
+      "session": "حصة"
+    },
+    "row": {
+      "menu": "إجراءات المادة « {{name}} »",
+      "edit": "تعديل",
+      "deactivate": "تعطيل",
+      "activate": "إعادة التفعيل",
+      "delete": "حذف",
+      "deleteBlockedHint_one": "مستخدمة في عنصر واحد — عطّلها بدلاً من ذلك.",
+      "deleteBlockedHint_two": "مستخدمة في عنصرين — عطّلها بدلاً من ذلك.",
+      "deleteBlockedHint_few": "مستخدمة في {{count, number}} عناصر — عطّلها بدلاً من ذلك.",
+      "deleteBlockedHint_many": "مستخدمة في {{count, number}} عنصرًا — عطّلها بدلاً من ذلك.",
+      "deleteBlockedHint_other": "مستخدمة في {{count, number}} عنصر — عطّلها بدلاً من ذلك."
+    },
+    "empty": {
+      "title": "لا توجد مواد بعد",
+      "body": "أضف أول مادة لبدء تكوين الصيغ.",
+      "cta": "إضافة مادة"
+    },
+    "inactiveEmpty": {
+      "title": "لا توجد مواد غير نشطة",
+      "body": "المواد التي تعطّلها ستظهر هنا."
+    },
+    "loadError": {
+      "title": "تعذّر تحميل المواد",
+      "body": "فشل تحميل القائمة.",
+      "retry": "إعادة المحاولة"
+    },
     "form": {
-      "title": "مادة جديدة",
+      "createTitle": "مادة جديدة",
+      "editTitle": "تعديل المادة",
+      "createDescription": "أدخل الاسم الثنائي اللغة، ورمزًا قصيرًا إن أردت.",
+      "editDescription": "حدّث الاسم الثنائي اللغة للمادة.",
       "nameFr": "الاسم (بالفرنسية)",
       "nameAr": "الاسم (بالعربية)",
-      "submit": "إنشاء المادة",
-      "success": "تم إنشاء المادة"
+      "code": "الرمز (اختياري)",
+      "codePlaceholder": "مثال: MATH",
+      "codeHint": "أحرف كبيرة وأرقام و- و_ فقط. اتركه فارغًا إذا لم يكن ضروريًا.",
+      "create": "إنشاء المادة",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ…",
+      "cancel": "إلغاء",
+      "createSuccess": "تم إنشاء المادة",
+      "editSuccess": "تم حفظ التعديلات",
+      "error": "فشل الحفظ. حاول مرة أخرى."
+    },
+    "activate": {
+      "success": "تمت إعادة تفعيل المادة",
+      "error": "فشلت إعادة التفعيل. حاول مرة أخرى."
+    },
+    "deactivate": {
+      "success": "تم تعطيل المادة",
+      "error": "فشل التعطيل. حاول مرة أخرى."
+    },
+    "delete": {
+      "title": "حذف هذه المادة؟",
+      "body": "سيتم حذف المادة « {{name}} » نهائيًا. لا يمكن التراجع عن هذا الإجراء.",
+      "confirm": "حذف",
+      "cancel": "إلغاء",
+      "success": "تم حذف المادة",
+      "error": "فشل الحذف. حاول مرة أخرى.",
+      "blockedTitle": "تعذّر حذف هذه المادة",
+      "blockedBody_one": "« {{name}} » مستخدمة في عنصر واحد. افصله أولًا، أو عطّل المادة بدلاً من ذلك:",
+      "blockedBody_two": "« {{name}} » مستخدمة في عنصرين. افصلهما أولًا، أو عطّل المادة بدلاً من ذلك:",
+      "blockedBody_few": "« {{name}} » مستخدمة في {{count, number}} عناصر. افصلها أولًا، أو عطّل المادة بدلاً من ذلك:",
+      "blockedBody_many": "« {{name}} » مستخدمة في {{count, number}} عنصرًا. افصلها أولًا، أو عطّل المادة بدلاً من ذلك:",
+      "blockedBody_other": "« {{name}} » مستخدمة في {{count, number}} عنصر. افصلها أولًا، أو عطّل المادة بدلاً من ذلك:",
+      "deactivateInstead": "تعطيل المادة"
+    }
+  },
+  "formulas": {
+    "title": "الصيغ",
+    "subtitle": "حدّد الأسعار الشهرية التي سيدفعها تلاميذك (مثال: رياضيات فقط، رياضيات + فيزياء، تحضير الباكالوريا).",
+    "new": "صيغة جديدة",
+    "tabs": {
+      "active": "نشطة",
+      "inactive": "غير نشطة"
+    },
+    "table": {
+      "name": "الاسم",
+      "subjects": "المواد",
+      "price": "السعر / شهريًا",
+      "kind": "النوع",
+      "state": "الحالة",
+      "actions": "إجراءات",
+      "locked": "مقفلة",
+      "lockedHint": "تمت فوترة هذه الصيغة: سعرها ومَوادّها واسمها مقفلة. كرّرها لتعديلها."
+    },
+    "state": {
+      "active": "نشطة",
+      "inactive": "غير نشطة"
+    },
+    "kind": {
+      "regular": "عادي",
+      "examPrep": "تحضير الامتحان"
+    },
+    "row": {
+      "menu": "إجراءات الصيغة « {{name}} »",
+      "edit": "تعديل",
+      "editLockedHint": "صيغة مقفلة — كرّرها لتغيير السعر أو المواد أو الاسم.",
+      "clone": "تكرار",
+      "deactivate": "تعطيل"
+    },
+    "empty": {
+      "title": "لا توجد صيغة بعد",
+      "body": "أنشئ أول صيغة لتحديد ما سيدفعه تلاميذك كل شهر.",
+      "cta": "إنشاء صيغة"
+    },
+    "inactiveEmpty": {
+      "title": "لا توجد صيغ غير نشطة",
+      "body": "الصيغ التي تعطّلها ستظهر هنا."
+    },
+    "loadError": {
+      "title": "تعذّر تحميل الصيغ",
+      "body": "فشل تحميل القائمة.",
+      "retry": "إعادة المحاولة"
+    },
+    "form": {
+      "createTitle": "صيغة جديدة",
+      "editTitle": "تعديل الصيغة",
+      "createDescription": "حدّد الاسم والمواد المضمّنة والسعر الشهري.",
+      "editDescription": "حدّث الاسم أو المواد أو السعر أو نوع الصيغة.",
+      "nameFr": "الاسم (بالفرنسية)",
+      "nameAr": "الاسم (بالعربية)",
+      "subjects": "المواد المضمّنة",
+      "subjectInactive": "(غير نشطة)",
+      "subjectsEmpty": "أضف مادة أولاً حتى تتمكن من تكوين صيغة.",
+      "subjectsError": "فشل تحميل المواد.",
+      "price": "السعر الشهري (درهم)",
+      "priceHint": "السعر الإجمالي للصيغة، يُفوتر كل شهر.",
+      "kind": "النوع",
+      "create": "إنشاء الصيغة",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ…",
+      "cancel": "إلغاء",
+      "createSuccess": "تم إنشاء الصيغة",
+      "editSuccess": "تم حفظ التعديلات",
+      "error": "فشل الحفظ. حاول مرة أخرى."
+    },
+    "clone": {
+      "success": "تم تكرار الصيغة — عدّل السعر أو المواد إذا لزم الأمر.",
+      "error": "فشل التكرار. حاول مرة أخرى."
+    },
+    "deactivate": {
+      "title": "تعطيل هذه الصيغة؟",
+      "body": "لن تُقترح « {{name}} » بعد الآن لأي اشتراك جديد. لا يمكن التراجع عن هذا الإجراء مباشرة — كرّر الصيغة إذا احتجت إلى إعادة تفعيلها.",
+      "confirm": "تعطيل",
+      "cancel": "إلغاء",
+      "success": "تم تعطيل الصيغة",
+      "error": "فشل التعطيل. حاول مرة أخرى."
     }
   },
   "students": {
@@ -475,11 +663,45 @@
       "unlinkError": "فشل حذف الرابط. حاول مجددًا.",
       "loadError": "فشل تحميل الأولياء."
     },
-    "comingSoon": {
-      "enrollment": {
-        "title": "التسجيلات قريبًا",
-        "body": "ستظهر هنا اشتراكات التلميذ في الصيغ."
+    "subscription": {
+      "loadError": "فشل تحميل الاشتراكات.",
+      "active": {
+        "changeCta": "تغيير الصيغة",
+        "subscribeCta": "الاشتراك",
+        "since": "منذ {{month}}",
+        "empty": "لا يوجد اشتراك نشط."
       },
+      "history": {
+        "heading": "السجل",
+        "empty": "لا يوجد سجل بعد.",
+        "since": "ابتداءً من {{month}}",
+        "table": {
+          "kind": "النوع",
+          "formula": "الصيغة",
+          "period": "الفترة"
+        }
+      },
+      "wizard": {
+        "changeTitle": "تغيير الصيغة",
+        "changeDescription": "أنهِ الاشتراك الحالي، ثم اختر الصيغة الجديدة.",
+        "subscribeTitle": "اشتراك جديد",
+        "subscribeDescription": "اختر صيغة لهذا التلميذ.",
+        "currentFormulaLabel": "الصيغة الحالية",
+        "endMonthLabel": "شهر الانتهاء",
+        "formulaLabel": "الصيغة الجديدة",
+        "formulaPlaceholder": "اختر صيغة",
+        "noFormulas": "لا توجد صيغة نشطة. أنشئ واحدة من الإعدادات.",
+        "startMonthLabel": "شهر البداية",
+        "cancel": "إلغاء",
+        "confirm": "تأكيد",
+        "confirming": "جارٍ الحفظ…",
+        "success": "تم تحديث الاشتراك",
+        "closeError": "فشل إنهاء الاشتراك. حاول مجددًا.",
+        "createError": "فشل الاشتراك. حاول مجددًا.",
+        "createAfterCloseError": "تم إنهاء الاشتراك السابق، لكن الاشتراك الجديد فشل. أعد المحاولة من هذا التبويب."
+      }
+    },
+    "comingSoon": {
       "invoices": {
         "title": "الفواتير قريبًا",
         "body": "سيظهر هنا سجلّ فوترة التلميذ."
@@ -497,8 +719,7 @@
     "searchLabel": "البحث عن أستاذ",
     "filters": {
       "subjectLabel": "المادة",
-      "subjectAll": "كل المواد",
-      "subjectComingSoon": "تصفية حسب المادة ستتوفر مع قسم المواد."
+      "subjectAll": "كل المواد"
     },
     "new": "أستاذ جديد",
     "seats": {
@@ -569,6 +790,10 @@
       "cinPlaceholder": "البطاقة الوطنية (اختياري)",
       "email": "البريد الإلكتروني",
       "emailPlaceholder": "البريد الإلكتروني (اختياري)",
+      "subjects": "المواد",
+      "subjectInactive": "(غير نشطة)",
+      "subjectsEmpty": "لا توجد مواد مُعدّة. أنشئ المواد أولًا.",
+      "subjectsError": "تعذّر تحميل المواد.",
       "create": "إنشاء الأستاذ",
       "save": "حفظ",
       "saving": "جارٍ الحفظ…",
@@ -597,6 +822,19 @@
         "subjects": "المواد",
         "groups": "المجموعات",
         "payroll": "الأجر"
+      },
+      "subjects": {
+        "empty": {
+          "title": "لا مواد مُسندة",
+          "body": "عدّل الأستاذ لإسناد مواد إليه."
+        },
+        "loadError": {
+          "title": "تعذّر تحميل المواد",
+          "body": "فشل تحميل المواد.",
+          "retry": "إعادة المحاولة"
+        },
+        "inactive": "(غير نشطة)",
+        "unknown": "مادة غير معروفة"
       }
     },
     "info": {
@@ -608,10 +846,6 @@
       "none": "—"
     },
     "comingSoon": {
-      "subjects": {
-        "title": "المواد قريبًا",
-        "body": "ستظهر هنا المواد التي يدرّسها هذا الأستاذ."
-      },
       "groups": {
         "title": "المجموعات قريبًا",
         "body": "ستظهر هنا المجموعات التي يؤطّرها هذا الأستاذ."
@@ -800,11 +1034,13 @@
       "5": "الجمعة",
       "6": "السبت"
     },
+    "unknownSubject": "مادة غير معروفة",
     "filters": {
       "teacher": "الأستاذ",
       "teacherAll": "كل الأساتذة",
       "room": "القاعة",
       "roomAll": "كل القاعات",
+      "unknownRoom": "قاعة غير معروفة",
       "level": "المستوى",
       "levelAll": "كل المستويات",
       "kind": "النوع",
@@ -825,20 +1061,57 @@
       "body": "فشل تحميل الحصص.",
       "retry": "أعد المحاولة"
     },
-    "dialog": {
-      "subtitle": "نموذج حصة متكررة",
+    "form": {
+      "new": "حصة جديدة",
+      "createTitle": "حصة جديدة",
+      "createDescription": "برمج حصة أسبوعية متكررة.",
+      "editTitle": "تعديل الحصة",
+      "editDescription": "عدّل التوقيت أو القاعة أو الأستاذ أو المجموعة.",
       "day": "اليوم",
-      "time": "التوقيت",
-      "teacher": "الأستاذ",
+      "dayPlaceholder": "اختر يومًا",
+      "start": "البداية",
+      "end": "النهاية",
       "room": "القاعة",
-      "level": "المستوى",
-      "none": "—",
-      "editComingSoon": "سيتوفر تعديل الحصص قريبًا.",
-      "close": "إغلاق"
+      "roomPlaceholder": "اختر قاعة",
+      "teacher": "الأستاذ",
+      "teacherPlaceholder": "اختر أستاذًا",
+      "teacherNone": "بدون أستاذ",
+      "group": "المجموعة",
+      "groupPlaceholder": "اختر مجموعة",
+      "groupNone": "بدون مجموعة",
+      "create": "إنشاء الحصة",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ…",
+      "cancel": "إلغاء",
+      "createSuccess": "تم إنشاء الحصة",
+      "editSuccess": "تم تحديث الحصة",
+      "error": "فشل حفظ الحصة."
+    },
+    "conflict": {
+      "title": "تعارض في الجدول"
+    },
+    "cancelSession": {
+      "trigger": "إلغاء الحصة",
+      "title": "إلغاء هذه الحصة؟",
+      "body": "ستُزال الحصة من الجدول. يمكن مزامنة هذا الإجراء.",
+      "confirm": "إلغاء الحصة",
+      "pending": "جارٍ الإلغاء…",
+      "dismiss": "رجوع",
+      "success": "تم إلغاء الحصة",
+      "error": "فشل إلغاء الحصة."
     }
   },
   "settings": {
     "title": "الإعدادات",
+    "tabs": {
+      "profile": "الملف الشخصي",
+      "hours": "المواعيد",
+      "holidays": "العطل",
+      "password": "كلمة المرور",
+      "language": "اللغة",
+      "plan": "الباقة",
+      "backup": "النسخ الاحتياطي"
+    },
     "center": {
       "title": "ملف المركز",
       "subtitle": "تظهر هذه المعلومات على فواتيرك.",
@@ -863,6 +1136,99 @@
       "loadErrorTitle": "تعذّر تحميل الملف",
       "loadErrorBody": "فشل تحميل ملف المركز.",
       "retry": "إعادة المحاولة"
+    },
+    "password": {
+      "title": "تغيير كلمة المرور",
+      "subtitle": "استخدم كلمة مرور لا يعرفها سواك.",
+      "currentLabel": "كلمة المرور الحالية",
+      "newLabel": "كلمة المرور الجديدة",
+      "confirmLabel": "تأكيد كلمة المرور الجديدة",
+      "hint": "8 أحرف على الأقل، مع حرف كبير وحرف صغير ورقم.",
+      "submit": "تحديث",
+      "saving": "جارٍ التحديث…",
+      "success": "تم تحديث كلمة المرور",
+      "error": "فشل التحديث. حاول مرة أخرى."
+    },
+    "language": {
+      "title": "اللغة",
+      "subtitle": "لغة التطبيق على هذا الجهاز.",
+      "fr": "Français",
+      "ar": "العربية",
+      "error": "فشل التحديث. حاول مرة أخرى."
+    },
+    "plan": {
+      "title": "باقتك",
+      "subtitle": "الباقة النشطة لهذا المركز.",
+      "idLabel": "الباقة",
+      "limitsTitle": "الحدود",
+      "maxStudents": "التلاميذ",
+      "maxTeachers": "الأساتذة",
+      "maxRooms": "القاعات",
+      "unlimited": "غير محدود",
+      "featuresTitle": "الميزات المتضمنة",
+      "features": {
+        "coreRooms": "إدارة القاعات",
+        "coreTeachers": "إدارة الأساتذة",
+        "coreStudents": "إدارة التلاميذ",
+        "coreGroups": "إدارة المجموعات",
+        "coreSubjects": "إدارة المواد",
+        "coreFormulas": "إدارة الصيغ",
+        "coreCalendarWeek": "الجدولة الأسبوعية",
+        "coreInvoicing": "الفوترة الشهرية",
+        "coreParents": "إدارة أولياء الأمور",
+        "settingsCenterHours": "مواعيد عمل المركز",
+        "settingsHolidays": "العطل",
+        "dashboardBasic": "لوحة القيادة",
+        "invoicingPartialPaid": "الدفعات الجزئية",
+        "invoiceTemplateCustomize": "تخصيص الفواتير",
+        "examPrep": "التحضير للامتحانات",
+        "payrollTeacher": "أجور الأساتذة",
+        "payrollTeacherFixed": "أجر ثابت",
+        "payrollTeacherPercentage": "أجر بالنسبة المئوية",
+        "excelExport": "تصدير Excel",
+        "excelImport": "استيراد Excel",
+        "excelSync": "مزامنة Excel",
+        "planningCustomGrid": "جدولة مخصصة",
+        "dashboardAdvanced": "لوحة قيادة متقدمة",
+        "planningRandomAuto": "جدولة تلقائية",
+        "syncMultiDevice": "مزامنة متعددة الأجهزة",
+        "syncCloud": "مزامنة سحابية",
+        "syncConflictResolution": "حل التعارضات",
+        "orgMultiCenter": "مراكز متعددة",
+        "limitsStudentsUnlimited": "تلاميذ غير محدودين",
+        "limitsTeachersUnlimited": "أساتذة غير محدودين"
+      }
+    },
+    "backup": {
+      "configTitle": "النسخ الاحتياطي",
+      "configLoadError": "تعذّر تحميل إعدادات النسخ الاحتياطي.",
+      "destinationLabel": "مجلد الوجهة",
+      "destinationPlaceholder": "لم يتم اختيار مجلد",
+      "destinationPick": "اختيار مجلد",
+      "retentionLabel": "عدد النسخ المحتفظ بها",
+      "lastRunLabel": "آخر نسخة احتياطية تلقائية: {{date}}",
+      "never": "أبدًا",
+      "configSubmit": "حفظ",
+      "configSaving": "جارٍ الحفظ…",
+      "configSaveSuccess": "تم حفظ إعدادات النسخ الاحتياطي",
+      "configSaveError": "فشل الحفظ. حاول مرة أخرى.",
+      "createButton": "إنشاء نسخة احتياطية الآن",
+      "creating": "جارٍ إنشاء النسخة الاحتياطية…",
+      "createSuccess": "تم إنشاء النسخة الاحتياطية بتاريخ {{date}}",
+      "createError": "فشل إنشاء النسخة الاحتياطية. حاول مرة أخرى.",
+      "restoreTitle": "استعادة نسخة احتياطية",
+      "restoreSubtitle": "يستبدل البيانات الحالية للمركز ببيانات من ملف نسخة احتياطية.",
+      "restorePick": "اختيار ملف نسخة احتياطية",
+      "restoreButton": "استعادة",
+      "restoreNotFound": "ملف النسخة الاحتياطية هذا غير موجود.",
+      "restoreCorrupted": "ملف النسخة الاحتياطية هذا تالف ولا يمكن استعادته.",
+      "restoreWrongKey": "ملف النسخة الاحتياطية هذا لا يطابق هذا المركز.",
+      "restarting": "اكتملت الاستعادة. جارٍ إعادة تشغيل التطبيق…",
+      "confirmTitle": "تأكيد الاستعادة",
+      "confirmBody": "سيتم استبدال جميع البيانات الحالية للمركز ببيانات من ملف النسخة الاحتياطية هذا. هذا الإجراء لا رجعة فيه.",
+      "confirmDismiss": "إلغاء",
+      "confirmConfirm": "استعادة",
+      "confirmPending": "جارٍ الاستعادة…"
     }
   },
   "centerHours": {

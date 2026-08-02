@@ -11,6 +11,7 @@ import type {
   UserId,
   EntityId,
   RoomId,
+  GroupId,
   TimeOfDay,
   WeekdayIndex,
 } from '@centresoutien/domain';
@@ -58,12 +59,70 @@ function makeSession(over: Partial<WeeklyRecurringSession> = {}): WeeklyRecurrin
     version: 0,
     roomId: ROOM_A,
     teacherId: TEACHER_A,
+    groupId: null,
     dayOfWeek: 1 as WeekdayIndex,
     start: '09:00' as TimeOfDay,
     end: '10:00' as TimeOfDay,
+    active: true,
+    validFrom: null,
+    validTo: null,
     ...over,
   };
 }
+
+// Raw seed helpers for the listWeekView join — the read model reaches across rooms,
+// teachers, groups, and subjects, so the integration test inserts those directly
+// (full control over envelope + soft-delete, no coupling to their repos). `del`
+// sets deleted_at to mark a row archived.
+const ISO = AT.toISOString();
+const env = (del: string | null = null) =>
+  [CENTER, 'dev_00000000000000000000000001', ISO, ISO, USER, del, 0] as const;
+
+function seedRoom(id: string, name: string, del: string | null = null): void {
+  db.prepare(
+    `INSERT INTO rooms (id, center_code, device_origin, created_at, updated_at, updated_by,
+       deleted_at, version, name, capacity, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 30, 1)`,
+  ).run(id, ...env(del), name);
+}
+
+function seedSubject(id: string, fr: string, ar: string, del: string | null = null): void {
+  db.prepare(
+    `INSERT INTO subjects (id, center_code, device_origin, created_at, updated_at, updated_by,
+       deleted_at, version, name_fr, name_ar, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+  ).run(id, ...env(del), fr, ar);
+}
+
+function seedTeacher(id: string, fr: string, ar: string, del: string | null = null): void {
+  db.prepare(
+    `INSERT INTO teachers (id, center_code, device_origin, created_at, updated_at, updated_by,
+       deleted_at, version, natural_key, name_fr, name_ar, cin, phone, email, subject_ids, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, '+212600000000', NULL, '[]', 1)`,
+  ).run(id, ...env(del), `${CENTER}::${id}`, fr, ar);
+}
+
+function seedGroup(
+  id: string,
+  over: { subjectId: string; teacherId?: string | null; kind?: string; level?: string; del?: string | null },
+): void {
+  db.prepare(
+    `INSERT INTO groups (id, center_code, device_origin, created_at, updated_at, updated_by,
+       deleted_at, version, subject_id, teacher_id, room_id, level, capacity, kind, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 20, ?, 1)`,
+  ).run(
+    id,
+    ...env(over.del ?? null),
+    over.subjectId,
+    over.teacherId ?? null,
+    ROOM_A,
+    over.level ?? '2 Bac SM',
+    over.kind ?? 'regular',
+  );
+}
+
+const SUB_MATH = 'sub_00000000000000000000000001';
+const GROUP_MATH = 'grp_00000000000000000000000001' as GroupId;
 
 describe('SqliteWeeklyRecurringSessionRepository', () => {
   it('round-trips a session through save + findById with all fields intact', async () => {
@@ -76,6 +135,19 @@ describe('SqliteWeeklyRecurringSessionRepository', () => {
     const session = makeSession({ teacherId: null });
     await repo.save(session);
     expect((await repo.findById(session.id))?.teacherId).toBeNull();
+  });
+
+  it('round-trips active + a bounded validity window (SOU-52 columns)', async () => {
+    const session = makeSession({
+      active: false,
+      validFrom: '2026-09-01',
+      validTo: '2027-06-30',
+    });
+    await repo.save(session);
+    const found = await repo.findById(session.id);
+    expect(found?.active).toBe(false);
+    expect(found?.validFrom).toBe('2026-09-01');
+    expect(found?.validTo).toBe('2027-06-30');
   });
 
   it('findById returns null for an unknown id', async () => {
@@ -129,8 +201,8 @@ describe('SqliteWeeklyRecurringSessionRepository', () => {
     });
   });
 
-  describe('listForWeek', () => {
-    it('returns live sessions of the center ordered by weekday then start, excluding tombstones + other centers', async () => {
+  describe('listWeekView', () => {
+    it('orders by weekday then start, excluding tombstones + other centers', async () => {
       await repo.save(makeSession({ dayOfWeek: 3 as WeekdayIndex, start: '09:00' as TimeOfDay, end: '10:00' as TimeOfDay }));
       await repo.save(makeSession({ dayOfWeek: 1 as WeekdayIndex, start: '11:00' as TimeOfDay, end: '12:00' as TimeOfDay }));
       await repo.save(makeSession({ dayOfWeek: 1 as WeekdayIndex, start: '08:00' as TimeOfDay, end: '09:00' as TimeOfDay }));
@@ -139,12 +211,85 @@ describe('SqliteWeeklyRecurringSessionRepository', () => {
       await repo.softDelete(gone.id, AT, USER);
       await repo.save(makeSession({ centerCode: OTHER_CENTER, dayOfWeek: 1 as WeekdayIndex }));
 
-      const week = await repo.listForWeek(CENTER);
+      const week = await repo.listWeekView(CENTER);
       expect(week.map((s) => [s.dayOfWeek, s.start])).toEqual([
         [1, '08:00'],
         [1, '11:00'],
         [3, '09:00'],
       ]);
+    });
+
+    it('enriches a linked session with room + teacher names, subject, level, and kind', async () => {
+      seedRoom(ROOM_A, 'Salle A');
+      seedTeacher(TEACHER_A, 'M. Alaoui', 'السيد العلوي');
+      seedSubject(SUB_MATH, 'Mathématiques', 'الرياضيات');
+      seedGroup(GROUP_MATH, { subjectId: SUB_MATH, teacherId: TEACHER_A, kind: 'exam-prep', level: '2 Bac SM' });
+      await repo.save(makeSession({ groupId: GROUP_MATH, teacherId: TEACHER_A }));
+
+      const [only] = await repo.listWeekView(CENTER);
+      expect(only).toMatchObject({
+        roomId: ROOM_A,
+        roomName: 'Salle A',
+        teacherId: TEACHER_A,
+        teacherName: { fr: 'M. Alaoui', ar: 'السيد العلوي' },
+        groupId: GROUP_MATH,
+        subjectId: SUB_MATH,
+        subjectName: { fr: 'Mathématiques', ar: 'الرياضيات' },
+        level: '2 Bac SM',
+        kind: 'exam-prep',
+      });
+    });
+
+    it('degrades to the neutral fallback when the session has no group', async () => {
+      seedRoom(ROOM_A, 'Salle A');
+      seedTeacher(TEACHER_A, 'M. Alaoui', 'السيد العلوي');
+      await repo.save(makeSession({ groupId: null, teacherId: TEACHER_A }));
+
+      const [only] = await repo.listWeekView(CENTER);
+      expect(only).toMatchObject({
+        roomName: 'Salle A',
+        teacherName: { fr: 'M. Alaoui', ar: 'السيد العلوي' },
+        groupId: null,
+        subjectId: null,
+        subjectName: null,
+        level: null,
+        kind: 'regular',
+      });
+    });
+
+    it('treats an archived group as absent (neutral fallback)', async () => {
+      seedSubject(SUB_MATH, 'Mathématiques', 'الرياضيات');
+      seedGroup(GROUP_MATH, { subjectId: SUB_MATH, kind: 'exam-prep', del: ISO });
+      await repo.save(makeSession({ groupId: GROUP_MATH, teacherId: null }));
+
+      const [only] = await repo.listWeekView(CENTER);
+      expect(only).toMatchObject({ subjectId: null, subjectName: null, level: null, kind: 'regular' });
+    });
+
+    it('keeps subjectId but nulls subjectName when the subject is archived', async () => {
+      seedSubject(SUB_MATH, 'Mathématiques', 'الرياضيات', ISO); // archived subject
+      seedGroup(GROUP_MATH, { subjectId: SUB_MATH });
+      await repo.save(makeSession({ groupId: GROUP_MATH, teacherId: null }));
+
+      const [only] = await repo.listWeekView(CENTER);
+      expect(only.subjectId).toBe(SUB_MATH);
+      expect(only.subjectName).toBeNull();
+    });
+
+    it('nulls teacherName for an unassigned or archived teacher, and roomName for an archived room', async () => {
+      seedRoom(ROOM_A, 'Salle A', ISO); // archived room
+      seedTeacher(TEACHER_A, 'M. Alaoui', 'السيد العلوي', ISO); // archived teacher
+      await repo.save(makeSession({ groupId: null, teacherId: TEACHER_A })); // assigned but archived
+      await repo.save(
+        makeSession({ groupId: null, teacherId: null, dayOfWeek: 4 as WeekdayIndex }), // unassigned
+      );
+
+      const week = await repo.listWeekView(CENTER);
+      expect(week).toHaveLength(2);
+      for (const v of week) {
+        expect(v.roomName).toBeNull();
+        expect(v.teacherName).toBeNull();
+      }
     });
   });
 

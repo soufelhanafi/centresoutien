@@ -16,13 +16,25 @@ function activePlanId(): PlanId {
 let container: Container | null = null;
 
 /**
+ * Restore (SOU-102) closes the live DB handle as part of its file swap — the
+ * only way to reopen it is a fresh process. The short delay lets the IPC
+ * response reach the renderer (so it can show "restarting…") before the app
+ * exits.
+ */
+function scheduleRestart(): void {
+  setTimeout(() => {
+    app.relaunch();
+    app.exit(0);
+  }, 300);
+}
+
+/**
  * Electron main entry (SOU-15). Registers the typed IPC handlers, then opens the
  * hardened window. The composition root — wiring domain use cases to the SQLite
  * adapters and exposing them as IPC handlers — grows from here.
  */
-function openWindow(): void {
+function openWindow(locale: string | undefined): void {
   const preload = join(import.meta.dirname, '../preload/index.js');
-  const locale = process.env['CS_LOCALE'];
   createMainWindow(preload, {
     devUrl: process.env['ELECTRON_RENDERER_URL'],
     indexHtml: join(import.meta.dirname, '../renderer/index.html'),
@@ -40,12 +52,17 @@ app.whenReady().then(() => {
     dir: app.getPath('userData'),
     planId: activePlanId(),
     appVersion: () => app.getVersion(),
+    scheduleRestart,
   });
   registerIpc(ipcMain, createHandlers(container.handlerDeps));
-  openWindow();
+  // `CS_LOCALE` (dev override) wins over the persisted preference (SOU-31); the
+  // language tab writes that preference via `preferences.locale.set`, read
+  // synchronously here so it survives a restart without waiting on the renderer.
+  const locale = process.env['CS_LOCALE'] ?? container.readLocalePreference() ?? undefined;
+  openWindow(locale);
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) openWindow();
+    if (BrowserWindow.getAllWindows().length === 0) openWindow(locale);
   });
 }, console.error);
 

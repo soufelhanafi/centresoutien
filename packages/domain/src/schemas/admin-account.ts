@@ -36,3 +36,17 @@ export const adminCredentialsSchema = z.object({
 });
 
 export type AdminCredentials = z.infer<typeof adminCredentialsSchema>;
+
+/**
+ * Password-change input (SOU-31). Single-admin app: no username re-entry.
+ * `currentPassword` is only bounded (never re-validated against the strength
+ * rules — an older, weaker password must still verify); `newPassword` reuses
+ * the same strength schema as account creation. No "must differ from current"
+ * rule (KICKOFF: minimal scope).
+ */
+export const changeAdminPasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(PASSWORD_MAX),
+  newPassword: password,
+});
+
+export type ChangeAdminPasswordCredentials = z.infer<typeof changeAdminPasswordSchema>;

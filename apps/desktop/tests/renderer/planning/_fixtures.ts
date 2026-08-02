@@ -1,4 +1,3 @@
-import type { WeekdayIndex } from '@centresoutien/domain';
 import type { PlannerSessionView } from '../../../src/renderer/lib/planning/planner-view';
 
 let seq = 0;
@@ -8,13 +7,14 @@ export function session(overrides: Partial<PlannerSessionView> = {}): PlannerSes
   seq += 1;
   return {
     id: `s${seq}`,
-    dayOfWeek: 1 as WeekdayIndex,
+    dayOfWeek: 1,
     start: '09:00',
     end: '10:00',
     roomId: 'r1',
     roomName: 'Salle 1',
     teacherId: 't1',
-    teacherName: 'Prof A',
+    teacherName: { fr: 'Prof A', ar: 'أستاذ أ' },
+    groupId: 'g1',
     subjectId: 'math',
     subjectName: { fr: 'Maths', ar: 'رياضيات' },
     level: '1BAC',

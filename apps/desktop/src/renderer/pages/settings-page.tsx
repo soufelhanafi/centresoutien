@@ -1,12 +1,17 @@
 import { useTranslation } from 'react-i18next';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import { CenterProfileSettings } from '../components/settings/settings-page';
 import { CenterHoursSettings } from '../components/center-hours/center-hours-settings';
 import { HolidaysSettings } from '../components/holiday/holidays-settings';
+import { PasswordSettings } from '../components/settings/password-settings';
+import { LanguageSettings } from '../components/settings/language-settings';
+import { PlanSettings } from '../components/settings/plan-settings';
+import { BackupSettings } from '../components/settings/backup-settings';
 
 /**
- * Paramètres screen. Hosts the center-profile editor (SOU-28), the center
- * opening-hours editor (SOU-29), and the holidays manager (SOU-30); further
- * settings sections mount alongside them here as they land.
+ * Paramètres screen (SOU-31). Seven tabs: the center-profile editor (SOU-28),
+ * the center opening-hours editor (SOU-29), the holidays manager (SOU-30),
+ * password change, language, read-only plan info, and backup/restore (SOU-102).
  */
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -16,11 +21,38 @@ export function SettingsPage() {
       <h1 id="settings-title" className="text-xl font-semibold text-foreground">
         {t('nav.settings')}
       </h1>
-      <div className="mt-6 flex flex-col gap-10">
-        <CenterProfileSettings />
-        <CenterHoursSettings />
-        <HolidaysSettings />
-      </div>
+      <Tabs defaultValue="profile" className="mt-6 flex flex-col gap-6">
+        <TabsList>
+          <TabsTrigger value="profile">{t('settings.tabs.profile')}</TabsTrigger>
+          <TabsTrigger value="hours">{t('settings.tabs.hours')}</TabsTrigger>
+          <TabsTrigger value="holidays">{t('settings.tabs.holidays')}</TabsTrigger>
+          <TabsTrigger value="password">{t('settings.tabs.password')}</TabsTrigger>
+          <TabsTrigger value="language">{t('settings.tabs.language')}</TabsTrigger>
+          <TabsTrigger value="plan">{t('settings.tabs.plan')}</TabsTrigger>
+          <TabsTrigger value="backup">{t('settings.tabs.backup')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="profile">
+          <CenterProfileSettings />
+        </TabsContent>
+        <TabsContent value="hours">
+          <CenterHoursSettings />
+        </TabsContent>
+        <TabsContent value="holidays">
+          <HolidaysSettings />
+        </TabsContent>
+        <TabsContent value="password">
+          <PasswordSettings />
+        </TabsContent>
+        <TabsContent value="language">
+          <LanguageSettings />
+        </TabsContent>
+        <TabsContent value="plan">
+          <PlanSettings />
+        </TabsContent>
+        <TabsContent value="backup">
+          <BackupSettings />
+        </TabsContent>
+      </Tabs>
     </section>
   );
 }

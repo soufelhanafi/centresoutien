@@ -23,3 +23,17 @@ export function formatDate(value: string, locale: string): string {
     day: 'numeric',
   }).format(date);
 }
+
+/** Formats a `YYYY-MM` month for display ("septembre 2025"). Falls back to the raw string. */
+export function formatMonth(value: string, locale: string): string {
+  const date = new Date(`${value}-01T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(bcp47(locale), { year: 'numeric', month: 'long' }).format(date);
+}
+
+/** Formats an integer MAD centimes amount as currency (CLAUDE.md §8: never hand-formatted). */
+export function formatMoneyMad(amountCentimes: number, locale: string): string {
+  return new Intl.NumberFormat(bcp47(locale), { style: 'currency', currency: 'MAD' }).format(
+    amountCentimes / 100,
+  );
+}

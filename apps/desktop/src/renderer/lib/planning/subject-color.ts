@@ -25,8 +25,24 @@ export type SubjectColor = {
   readonly border: string;
 };
 
-/** Resolves a subject id to its theme-aware block colours (CSS var references). */
-export function subjectColor(subjectId: string): SubjectColor {
+/**
+ * Neutral, theme-aware block colours for a session whose subject is unknown — no
+ * live group, or the group's subject is archived (`subjectId === null`). It reads
+ * as muted so a colourless block is visibly "unclassified" rather than borrowing a
+ * real subject's slot.
+ */
+const NEUTRAL_COLOR: SubjectColor = {
+  background: 'var(--muted)',
+  foreground: 'var(--muted-foreground)',
+  border: 'var(--border)',
+};
+
+/**
+ * Resolves a subject id to its theme-aware block colours (CSS var references).
+ * A `null` id (session with no live/known subject) maps to the neutral colours.
+ */
+export function subjectColor(subjectId: string | null): SubjectColor {
+  if (subjectId === null) return NEUTRAL_COLOR;
   const i = subjectColorIndex(subjectId);
   return {
     background: `var(--subject-${i}-bg)`,

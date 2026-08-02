@@ -4,6 +4,7 @@ import type { TimeOfDay } from '../value-objects/time-of-day';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import type { RoomId } from '../entities/room';
 import type { HolidayId } from '../entities/holiday';
+import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-session';
 
 /** Why a session falls outside the center's opening hours. */
 export type OutsideCenterHoursReason = 'closed' | 'before-open' | 'after-close';
@@ -112,11 +113,49 @@ export class TeacherConflictError extends DomainError {
  * slot that still sits inside opening hours.
  */
 export class MalformedSessionTimeError extends DomainError {
+  readonly code = 'malformed-session-time';
+
   constructor(
     readonly dayOfWeek: WeekdayIndex,
     readonly start: TimeOfDay,
     readonly end: TimeOfDay,
   ) {
     super(`Session on weekday ${dayOfWeek} has a non-positive duration (${start}–${end}).`);
+  }
+}
+
+/**
+ * Thrown when a weekly recurring session's validity window is inverted — its
+ * `validTo` civil date falls strictly before `validFrom` (SOU-52). Both bounds
+ * are `YYYY-MM-DD` and carried as structured data so the renderer localizes the
+ * message via `t(\`errors.${code}\`)`. Only raised when both bounds are set: a
+ * `null` bound is unbounded and never inverts. {@link createWeeklyRecurringSession}
+ * is the sole thrower.
+ */
+export class InvalidSessionValidityRangeError extends DomainError {
+  readonly code = 'invalid-session-validity-range';
+
+  constructor(
+    readonly validFrom: string,
+    readonly validTo: string,
+  ) {
+    super(`Weekly recurring session validity range is inverted (${validFrom} … ${validTo}).`);
+  }
+}
+
+/**
+ * Thrown when `GenerateAndPersistSessions` is asked to materialize a recurrence
+ * whose id has no live row in the current center — unknown, already tombstoned,
+ * or belonging to another center (the use case checks the loaded template's
+ * `centerCode` against the request so one center can never generate off another's
+ * template). The renderer resolves the stable `weekly-recurring-session-not-found`
+ * code via `t(\`errors.${code}\`)`; the domain stays i18n-agnostic. Mirrors
+ * {@link RoomNotFoundError} so a stale/foreign id never silently no-ops.
+ */
+export class WeeklyRecurringSessionNotFoundError extends DomainError {
+  readonly code = 'weekly-recurring-session-not-found';
+
+  constructor(readonly recurringSessionId: WeeklyRecurringSessionId) {
+    super(`No live weekly recurring session "${recurringSessionId}" in this center.`);
   }
 }

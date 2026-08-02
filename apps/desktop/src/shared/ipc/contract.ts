@@ -1,11 +1,18 @@
 import { z } from 'zod';
+import { backupIpcContract } from './backup-contract';
+import { dialogIpcContract } from './dialog-contract';
 import {
   subjectInputSchema,
+  subjectUpdateInputSchema,
+  formulaInputSchema,
   studentInputSchema,
   parentInputSchema,
   roomInputSchema,
   groupInputSchema,
   enrollmentInputSchema,
+  generateSessionsSchema,
+  weeklyRecurringSessionInputSchema,
+  weeklyRecurringSessionUpdateSchema,
   teacherInputSchema,
   holidayInputSchema,
   studentSubscriptionInputSchema,
@@ -13,6 +20,7 @@ import {
   recordPaymentSchema,
   voidPaymentSchema,
   adminCredentialsSchema,
+  changeAdminPasswordSchema,
   weeklyHoursSchema,
   loginInputSchema,
   centerProfileSchema,
@@ -202,18 +210,109 @@ const holidayViewSchema = z.object({
 });
 
 // The presentation projection of a weekly recurring session across the IPC
-// boundary (SOU-53 seam for the SOU-54 planner grid) — the sync envelope is
-// stripped, there are no Dates on the view (the times are wall-clock `'HH:mm'`
-// strings, not timestamps). `teacherId` is nullable: a slot may exist before a
-// teacher is assigned. Single source of truth for the renderer's
-// `WeeklySessionView` type.
+// boundary — the enriched planner read model (SOU-118), aligned field-for-field
+// with the domain `WeeklySessionView`. The sync envelope is stripped; there are no
+// Dates (times are wall-clock `'HH:mm'` strings). The join-derived fields degrade
+// to their neutral fallback rather than dropping the row:
+//   - roomName / teacherName: null when the room/teacher is unassigned, archived,
+//     or not-yet-synced. teacherName is bilingual so AR-RTL renders native Arabic.
+//   - groupId / subjectId / subjectName / level: null when the session has no group
+//     or the group is archived. subjectName is also null (while subjectId stays set)
+//     when the subject itself is archived — the grid can still colour by id.
+//   - kind: 'regular' fallback when there is no live group, so the badge/filter
+//     always has a value.
+// Single source of truth for the renderer's `WeeklySessionView` type.
+const bilingualTextSchema = z.object({ fr: z.string(), ar: z.string() });
+
 const weeklySessionViewSchema = z.object({
   id: z.string(),
-  roomId: z.string(),
-  teacherId: z.string().nullable(),
   dayOfWeek: z.number().int().min(0).max(6),
   start: z.string(),
   end: z.string(),
+  roomId: z.string(),
+  roomName: z.string().nullable(),
+  teacherId: z.string().nullable(),
+  teacherName: bilingualTextSchema.nullable(),
+  groupId: z.string().nullable(),
+  subjectId: z.string().nullable(),
+  subjectName: bilingualTextSchema.nullable(),
+  level: z.string().nullable(),
+  kind: z.enum(['regular', 'exam-prep']),
+});
+
+// The presentation projection of a concrete, dated session occurrence across the
+// IPC boundary (SOU-129) — the sync envelope is stripped and the branded id /
+// `TimeOfDay` values widened to plain strings. `teacherId` is nullable (inherited
+// from the template, which may have no teacher). `date` is a `YYYY-MM-DD` civil
+// date; `start`/`end` are `'HH:mm'` wall-clock strings, not timestamps. Single
+// source of truth for the renderer's `SessionView` type.
+const sessionViewSchema = z.object({
+  id: z.string(),
+  recurringSessionId: z.string(),
+  roomId: z.string(),
+  teacherId: z.string().nullable(),
+  date: z.string(),
+  start: z.string(),
+  end: z.string(),
+});
+
+// The presentation projection of a Subject across the IPC boundary (SOU-124) — the
+// sync envelope (version, deviceOrigin, updatedBy…, and the Date timestamps) is
+// stripped, leaving only the fields name-resolution and the pickers need. `code` is
+// nullable (a subject may have none). `active` is the real domain flag (distinct
+// from the soft-delete tombstone, which is excluded from these reads entirely).
+// Single source of truth for the renderer's `SubjectView` type.
+const subjectViewSchema = z.object({
+  id: z.string(),
+  name: z.object({ fr: z.string(), ar: z.string() }),
+  code: z.string().nullable(),
+  active: z.boolean(),
+});
+
+// One entity referencing a subject, named for the delete-blocked modal (SOU-135):
+// "impossible de supprimer : utilisé par le groupe 3ème A" instead of a bare count.
+// `kind` is open to `'formula'`/`'session'` ahead of those entities actually
+// referencing subjects (only `'group'` has live data today — SOU-60 and friends
+// add the rest). `label` is bilingual; for a `'group'` reference the domain
+// duplicates the group's plain `level` string into both `fr` and `ar` since a
+// Group has no translated name of its own.
+const subjectUsageReferenceSchema = z.object({
+  kind: z.enum(['group', 'formula', 'session']),
+  id: z.string(),
+  label: z.object({ fr: z.string(), ar: z.string() }),
+});
+
+// A subject paired with its in-use reference count across the boundary (SOU-124),
+// backing the SOU-47 CRUD table: the lean `subjectView` plus `inUseCount` and the
+// derived `canDelete` (`inUseCount === 0`) so a row can enable/disable its archive
+// action without a second round-trip. A sibling of `subjectViewSchema` rather than a
+// field on it, so the name channels stay lean and only the CRUD screen pays for the
+// counts. `references` (SOU-135) is the named breakdown behind `inUseCount` — always
+// the same length — so the delete-blocked modal can list what's blocking a delete
+// instead of just disabling the button. Single source of truth for the renderer's
+// `SubjectUsageView` type.
+const subjectUsageViewSchema = z.object({
+  subject: subjectViewSchema,
+  inUseCount: z.number().int().nonnegative(),
+  canDelete: z.boolean(),
+  references: z.array(subjectUsageReferenceSchema),
+});
+
+// The presentation projection of a Formula across the IPC boundary (SOU-62) — the
+// sync envelope (version, deviceOrigin, updatedBy…, and the Date timestamps) is
+// stripped, exactly like `subjectViewSchema`. `isImmutable` crosses the boundary
+// as-is — the CRUD table's locked badge and disabled-edit tooltip key off it
+// directly. No `archived` field: this ticket's CRUD UI has no soft-delete action,
+// only `active` (toggled one-way, off, via `formula.deactivate`). Single source of
+// truth for the renderer's `FormulaView` type.
+const formulaViewSchema = z.object({
+  id: z.string(),
+  name: z.object({ fr: z.string(), ar: z.string() }),
+  subjectIds: z.array(z.string()),
+  priceMad: z.number().int(),
+  kind: z.enum(['regular', 'exam-prep']),
+  isImmutable: z.boolean(),
+  active: z.boolean(),
 });
 
 // The display shape of one weekday's hours returned to the renderer: the
@@ -224,6 +323,10 @@ const centerHoursViewSchema = z.object({
   open: z.string().nullable(),
   close: z.string().nullable(),
 });
+
+// Kept in sync with the renderer's `LOCALES` (`renderer/i18n/direction.ts`) and
+// main's `LOCALE_PREFERENCES` (`main/infra/locale-preference-store.ts`).
+const localePreferenceSchema = z.enum(['fr', 'ar']);
 
 /**
  * The typed IPC contract (SOU-15). Every renderer↔main call is a named channel
@@ -253,6 +356,34 @@ export const ipcContract = {
   'subject.archive': {
     request: z.object({ id: z.string() }),
     response: z.object({ ok: z.literal(true) }),
+  },
+  // Subject read + update channels (SOU-124), the seam SOU-47/SOU-37 frontends
+  // consume. `list` selects the active picker set or every live subject via
+  // `scope` (both exclude tombstones — the axis is the `active` flag, not
+  // soft-delete); `get` resolves a single subject to its view or null for an
+  // unknown/archived/foreign-center id. `listWithUsage` returns each live subject
+  // with its in-use count + derived `canDelete` for the CRUD table, kept separate
+  // so the name channels stay lean. `update` takes the domain's own
+  // `subjectUpdateInputSchema` (bilingual name + `active` toggle; `code` is NOT
+  // editable — a sync natural key, SOU-122) plus the id and echoes the saved view.
+  // centerCode/user are injected in main, never sent from the renderer. All gated
+  // by `core.subjects` (every plan) in the use cases; reads strip the envelope to
+  // `subjectViewSchema`.
+  'subject.list': {
+    request: z.object({ scope: z.enum(['active', 'all']) }),
+    response: z.object({ subjects: z.array(subjectViewSchema) }),
+  },
+  'subject.get': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ subject: subjectViewSchema.nullable() }),
+  },
+  'subject.listWithUsage': {
+    request: z.object({}),
+    response: z.object({ subjects: z.array(subjectUsageViewSchema) }),
+  },
+  'subject.update': {
+    request: subjectUpdateInputSchema.extend({ id: z.string() }),
+    response: z.object({ subject: subjectViewSchema }),
   },
   // The request is the domain's own input schema — validated once, shared by the
   // form (zodResolver), the preload types, and this boundary. centerCode/device/
@@ -384,6 +515,44 @@ export const ipcContract = {
   'group.roster': {
     request: z.object({ groupId: z.string() }),
     response: z.object({ roster: z.array(groupRosterEntrySchema) }),
+  },
+  // Formula CRUD (SOU-62), mirroring `subject.*`. `create`/`update` share the
+  // domain's own `formulaInputSchema` (bilingual name, subjectIds, priceMad, kind)
+  // — `active` is NOT part of it; the only path that ever writes `active` is
+  // `formula.deactivate`. `list` selects the active picker set or every live
+  // formula via `scope`; `get` resolves a single formula to its view or null.
+  // `clone` ("dupliquer") copies an existing formula into a fresh, mutable,
+  // active one — the prescribed move for a price/subject change on an immutable
+  // (already-billed) formula. `deactivate` sets `active: false` even on an
+  // immutable formula, bypassing the update path's `FormulaImmutableError`
+  // guard — the CRUD UI wires its single "deactivate" action here regardless of
+  // lock state. centerCode/device/user are injected in main, never sent from the
+  // renderer. All gated by `core.formulas` (every plan); an exam-prep `kind`
+  // additionally needs `core.exam-prep` (Pro+). Reads strip the envelope to
+  // `formulaViewSchema`.
+  'formula.create': {
+    request: formulaInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'formula.list': {
+    request: z.object({ scope: z.enum(['active', 'all']) }),
+    response: z.object({ formulas: z.array(formulaViewSchema) }),
+  },
+  'formula.get': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ formula: formulaViewSchema.nullable() }),
+  },
+  'formula.update': {
+    request: formulaInputSchema.extend({ id: z.string() }),
+    response: z.object({ formula: formulaViewSchema }),
+  },
+  'formula.clone': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ id: z.string() }),
+  },
+  'formula.deactivate': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ formula: formulaViewSchema }),
   },
   // Student subscriptions (SOU-63) — the formula-billing surface. `create` takes the
   // domain's own `studentSubscriptionInputSchema` (prefixed student/formula/subject
@@ -520,6 +689,41 @@ export const ipcContract = {
     request: z.object({}),
     response: z.object({ sessions: z.array(weeklySessionViewSchema) }),
   },
+  // Materialize concrete dated sessions from a recurrence template (SOU-129;
+  // domain use case SOU-56 + this ticket's persistence seam). The request is the
+  // domain's own `generateSessionsSchema` (prefixed `wrs_` id, strict YYYY-MM-DD
+  // `from`/`to` with `to >= from`), validated once and reused by any future
+  // calendar "generate" action. centerCode/device/user are injected in main,
+  // never sent from the renderer. Gated by `core.calendar.week` in the use case;
+  // idempotent — re-running over the same window persists no duplicates. Returns
+  // the generated window as envelope-stripped `sessionViewSchema` rows.
+  'session.generate': {
+    request: generateSessionsSchema,
+    response: z.object({ sessions: z.array(sessionViewSchema) }),
+  },
+  // Weekly recurring session write channels (SOU-131 — populate the planner grid).
+  // The requests are the domain's own input schemas (`wrs_`/`rom_`/`tch_`/`grp_`
+  // prefixes, `HH:mm` times, `YYYY-MM-DD` validity bounds), validated once and
+  // shared by the form (zodResolver), the preload types, and this boundary.
+  // centerCode/device/user are injected in main, never sent from the renderer.
+  // Gated by `core.calendar.week` in the use cases, which also run the SOU-55
+  // composite conflict check (room + teacher + hours) and reject a clashing slot
+  // with a standard scheduling error. `teacherId`/`groupId` are optional; the
+  // validity window and `active` default (unbounded / true). create/update echo
+  // only the id — the grid refetches the enriched `session.week` after a mutation
+  // (mirrors `holiday.create`); delete is a soft delete (cancel).
+  'weeklySession.create': {
+    request: weeklyRecurringSessionInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'weeklySession.update': {
+    request: weeklyRecurringSessionUpdateSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'weeklySession.delete': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
+  },
   // Auth (SOU-26). `admin.exists` drives first-run detection; `admin.create`
   // reuses the domain credential schema (password policy enforced here too);
   // `admin.verify` is a bare presence check — login must not reject an existing
@@ -540,6 +744,16 @@ export const ipcContract = {
       password: z.string().min(1).max(PASSWORD_MAX),
     }),
     response: z.object({ valid: z.boolean() }),
+  },
+  // Password change (SOU-31 settings page). Single-admin app: no username in
+  // the request. Reuses the domain's own `changeAdminPasswordSchema` so the
+  // strength rule lives in exactly one place. On failure the renderer matches
+  // the thrown error's class name (`InvalidCurrentPasswordError`) — see
+  // `session-write-error.ts` for the established pattern of mapping a domain
+  // error name that survives the IPC boundary to a `t('errors.<code>')` key.
+  'admin.changePassword': {
+    request: changeAdminPasswordSchema,
+    response: z.object({ ok: z.literal(true) }),
   },
   // Center opening hours (SOU-29). `get` returns only persisted rows (empty on a
   // fresh center — the renderer seeds from the domain's DEFAULT_WEEKLY_HOURS).
@@ -618,7 +832,25 @@ export const ipcContract = {
       bytes: z.custom<Uint8Array>((v) => v instanceof Uint8Array).nullable(),
     }),
   },
+  // Locale preference (SOU-31 language tab). Persists the choice to the
+  // unencrypted main-process preference file so it survives a restart — the
+  // renderer also calls `i18n.changeLanguage` itself for the immediate,
+  // no-reload switch. `get` doesn't exist: the initial locale already arrives
+  // via the `?locale=` query string the main process injects at window
+  // creation, read from the same store before the window opens.
+  'preferences.locale.set': {
+    request: z.object({ locale: localePreferenceSchema }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  ...backupIpcContract,
+  ...dialogIpcContract,
 } as const;
+
+/** The Subject boundary DTO — the renderer's `SubjectView` is an alias of this. */
+export type SubjectDto = z.infer<typeof subjectViewSchema>;
+
+/** The subject-with-usage boundary DTO — the renderer's `SubjectUsageView` aliases this. */
+export type SubjectUsageDto = z.infer<typeof subjectUsageViewSchema>;
 
 /** The Student boundary DTO — the renderer's `StudentView` is an alias of this. */
 export type StudentDto = z.infer<typeof studentViewSchema>;
@@ -641,6 +873,9 @@ export type GroupRosterEntryDto = z.infer<typeof groupRosterEntrySchema>;
 /** The StudentSubscription boundary DTO — the renderer's `SubscriptionView` aliases this. */
 export type SubscriptionDto = z.infer<typeof subscriptionViewSchema>;
 
+/** The Formula boundary DTO — the renderer's `FormulaView` aliases this. */
+export type FormulaDto = z.infer<typeof formulaViewSchema>;
+
 /** The Payment boundary DTO — the renderer's `PaymentView` is an alias of this. */
 export type PaymentDto = z.infer<typeof paymentViewSchema>;
 
@@ -655,6 +890,9 @@ export type HolidayDto = z.infer<typeof holidayViewSchema>;
 
 /** The weekly-session boundary DTO — the renderer's `WeeklySessionView` aliases this. */
 export type WeeklySessionDto = z.infer<typeof weeklySessionViewSchema>;
+
+/** The concrete dated-session boundary DTO — the renderer's `SessionView` aliases this. */
+export type SessionDto = z.infer<typeof sessionViewSchema>;
 
 export type IpcContract = typeof ipcContract;
 export type IpcChannel = keyof IpcContract;

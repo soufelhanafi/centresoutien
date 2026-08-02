@@ -10,6 +10,8 @@
     "students": "Élèves",
     "teachers": "Enseignants",
     "parents": "Parents",
+    "subjects": "Matières",
+    "formulas": "Formules",
     "groups": "Groupes",
     "rooms": "Salles",
     "planning": "Planning",
@@ -44,6 +46,8 @@
     "too-long": "Texte trop long",
     "not-an-integer": "Saisissez un nombre entier",
     "capacity-too-small": "La capacité doit être d'au moins 1",
+    "too-low": "Cette valeur est trop basse",
+    "too-high": "Cette valeur est trop élevée",
     "invalid-email": "Adresse e-mail invalide",
     "invalid-phone": "Numéro de téléphone invalide",
     "unsupported-logo-type": "Format de logo non pris en charge (PNG, JPG, WEBP ou SVG)",
@@ -58,6 +62,8 @@
     "password-needs-uppercase": "Ajoutez au moins une majuscule",
     "password-needs-digit": "Ajoutez au moins un chiffre",
     "password-mismatch": "Les mots de passe ne correspondent pas",
+    "invalid-current-password": "Mot de passe actuel incorrect",
+    "admin-account-not-found": "Ce compte administrateur est introuvable. Contactez le support.",
     "invalid-time": "Heure invalide",
     "close-before-open": "La fermeture doit être après l'ouverture",
     "closed-partial": "Indiquez l'ouverture et la fermeture, ou fermez le jour",
@@ -74,7 +80,23 @@
     "group-full": "Ce groupe est complet : toutes les places sont occupées.",
     "duplicate-enrollment": "Cet élève est déjà inscrit dans ce groupe.",
     "cross-kind-enrollment": "L'abonnement de l'élève ne correspond pas au type du groupe (régulier / prépa examen).",
-    "enrollment-subscription-missing": "L'élève n'a aucun abonnement actif couvrant la matière de ce groupe."
+    "enrollment-subscription-missing": "L'élève n'a aucun abonnement actif couvrant la matière de ce groupe.",
+    "malformed-session-time": "L'heure de fin doit être après l'heure de début",
+    "session-outside-center-hours": "La séance est en dehors des horaires d'ouverture du centre",
+    "room-conflict": "La salle est déjà occupée sur ce créneau",
+    "teacher-conflict": "L'enseignant a déjà une séance sur ce créneau",
+    "invalid-session-validity-range": "La période de validité de la séance est invalide",
+    "weekly-recurring-session-not-found": "Cette séance n'existe plus",
+    "invalid-code": "Code invalide (majuscules, chiffres, - et _ uniquement)",
+    "subject-in-use": "Cette matière est utilisée par au moins un groupe et ne peut pas être supprimée",
+    "subject-not-found": "Cette matière est introuvable",
+    "duplicate-subject-code": "Ce code est déjà utilisé par une autre matière",
+    "formula-immutable": "Cette formule a déjà été facturée et ne peut plus être modifiée. Dupliquez-la pour changer le prix, les matières ou le nom.",
+    "formula-not-found": "Cette formule est introuvable",
+    "formula-subject-not-found": "Une matière de cette formule est introuvable",
+    "formula-subject-inactive": "Une matière de cette formule a été désactivée",
+    "subjects-required": "Sélectionnez au moins une matière",
+    "invalid-price": "Le prix doit être un nombre entier positif"
   },
   "groups": {
     "title": "Groupes",
@@ -322,12 +344,172 @@
     }
   },
   "subjects": {
+    "title": "Matières",
+    "subtitle": "Configurez les matières proposées par votre centre.",
+    "new": "Nouvelle matière",
+    "tabs": {
+      "active": "Actives",
+      "inactive": "Inactives"
+    },
+    "table": {
+      "code": "Code",
+      "name": "Nom",
+      "state": "État",
+      "inUse": "Utilisation",
+      "actions": "Actions",
+      "noCode": "—"
+    },
+    "state": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "referenceKind": {
+      "group": "Groupe",
+      "formula": "Formule",
+      "session": "Séance"
+    },
+    "row": {
+      "menu": "Actions de la matière « {{name}} »",
+      "edit": "Modifier",
+      "deactivate": "Désactiver",
+      "activate": "Réactiver",
+      "delete": "Supprimer",
+      "deleteBlockedHint_one": "Utilisée par {{count, number}} élément — désactivez-la à la place.",
+      "deleteBlockedHint_other": "Utilisée par {{count, number}} éléments — désactivez-la à la place."
+    },
+    "empty": {
+      "title": "Aucune matière pour l'instant",
+      "body": "Ajoutez votre première matière pour commencer à composer des formules.",
+      "cta": "Ajouter une matière"
+    },
+    "inactiveEmpty": {
+      "title": "Aucune matière inactive",
+      "body": "Les matières que vous désactivez apparaîtront ici."
+    },
+    "loadError": {
+      "title": "Impossible de charger les matières",
+      "body": "Le chargement de la liste a échoué.",
+      "retry": "Réessayer"
+    },
     "form": {
-      "title": "Nouvelle matière",
+      "createTitle": "Nouvelle matière",
+      "editTitle": "Modifier la matière",
+      "createDescription": "Renseignez le nom bilingue et, si besoin, un code court.",
+      "editDescription": "Mettez à jour le nom bilingue de la matière.",
       "nameFr": "Nom (français)",
       "nameAr": "Nom (arabe)",
-      "submit": "Créer la matière",
-      "success": "Matière créée"
+      "code": "Code (optionnel)",
+      "codePlaceholder": "ex. MATH",
+      "codeHint": "Majuscules, chiffres, - et _ uniquement. Laissez vide si inutile.",
+      "create": "Créer la matière",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Matière créée",
+      "editSuccess": "Modifications enregistrées",
+      "error": "L'enregistrement a échoué. Réessayez."
+    },
+    "activate": {
+      "success": "Matière réactivée",
+      "error": "La réactivation a échoué. Réessayez."
+    },
+    "deactivate": {
+      "success": "Matière désactivée",
+      "error": "La désactivation a échoué. Réessayez."
+    },
+    "delete": {
+      "title": "Supprimer cette matière ?",
+      "body": "La matière « {{name}} » sera définitivement supprimée. Cette action est irréversible.",
+      "confirm": "Supprimer",
+      "cancel": "Annuler",
+      "success": "Matière supprimée",
+      "error": "La suppression a échoué. Réessayez.",
+      "blockedTitle": "Impossible de supprimer cette matière",
+      "blockedBody_one": "« {{name}} » est utilisée par {{count, number}} élément. Détachez-le d'abord, ou désactivez la matière à la place :",
+      "blockedBody_other": "« {{name}} » est utilisée par {{count, number}} éléments. Détachez-les d'abord, ou désactivez la matière à la place :",
+      "deactivateInstead": "Désactiver la matière"
+    }
+  },
+  "formulas": {
+    "title": "Formules",
+    "subtitle": "Définissez les prix mensuels que vos élèves paieront (ex. Math seul, Math + Physique, Prépa Bac).",
+    "new": "Nouvelle formule",
+    "tabs": {
+      "active": "Actives",
+      "inactive": "Inactives"
+    },
+    "table": {
+      "name": "Nom",
+      "subjects": "Matières",
+      "price": "Prix / mois",
+      "kind": "Type",
+      "state": "État",
+      "actions": "Actions",
+      "locked": "Verrouillée",
+      "lockedHint": "Cette formule a été facturée : son prix, ses matières et son nom sont verrouillés. Dupliquez-la pour la modifier."
+    },
+    "state": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "kind": {
+      "regular": "Régulier",
+      "examPrep": "Prépa examen"
+    },
+    "row": {
+      "menu": "Actions de la formule « {{name}} »",
+      "edit": "Modifier",
+      "editLockedHint": "Formule verrouillée — dupliquez-la pour changer le prix, les matières ou le nom.",
+      "clone": "Dupliquer",
+      "deactivate": "Désactiver"
+    },
+    "empty": {
+      "title": "Aucune formule pour l'instant",
+      "body": "Créez votre première formule pour définir ce que vos élèves paieront chaque mois.",
+      "cta": "Créer une formule"
+    },
+    "inactiveEmpty": {
+      "title": "Aucune formule inactive",
+      "body": "Les formules que vous désactivez apparaîtront ici."
+    },
+    "loadError": {
+      "title": "Impossible de charger les formules",
+      "body": "Le chargement de la liste a échoué.",
+      "retry": "Réessayer"
+    },
+    "form": {
+      "createTitle": "Nouvelle formule",
+      "editTitle": "Modifier la formule",
+      "createDescription": "Définissez le nom, les matières incluses et le prix mensuel.",
+      "editDescription": "Mettez à jour le nom, les matières, le prix ou le type de la formule.",
+      "nameFr": "Nom (français)",
+      "nameAr": "Nom (arabe)",
+      "subjects": "Matières incluses",
+      "subjectInactive": "(inactive)",
+      "subjectsEmpty": "Ajoutez d'abord une matière pour pouvoir composer une formule.",
+      "subjectsError": "Le chargement des matières a échoué.",
+      "price": "Prix mensuel (MAD)",
+      "priceHint": "Prix total de la formule, facturé chaque mois.",
+      "kind": "Type",
+      "create": "Créer la formule",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Formule créée",
+      "editSuccess": "Modifications enregistrées",
+      "error": "L'enregistrement a échoué. Réessayez."
+    },
+    "clone": {
+      "success": "Formule dupliquée — modifiez le prix ou les matières si besoin.",
+      "error": "La duplication a échoué. Réessayez."
+    },
+    "deactivate": {
+      "title": "Désactiver cette formule ?",
+      "body": "« {{name}} » ne sera plus proposée pour un nouvel abonnement. Cette action ne peut pas être annulée directement — dupliquez la formule si vous devez la réactiver.",
+      "confirm": "Désactiver",
+      "cancel": "Annuler",
+      "success": "Formule désactivée",
+      "error": "La désactivation a échoué. Réessayez."
     }
   },
   "students": {
@@ -454,11 +636,45 @@
       "unlinkError": "La suppression du lien a échoué. Réessayez.",
       "loadError": "Le chargement des responsables a échoué."
     },
-    "comingSoon": {
-      "enrollment": {
-        "title": "Inscriptions bientôt disponibles",
-        "body": "Les abonnements de l'élève aux formules apparaîtront ici."
+    "subscription": {
+      "loadError": "Le chargement des abonnements a échoué.",
+      "active": {
+        "changeCta": "Changer de formule",
+        "subscribeCta": "Souscrire",
+        "since": "Depuis {{month}}",
+        "empty": "Aucun abonnement actif."
       },
+      "history": {
+        "heading": "Historique",
+        "empty": "Aucun historique pour l'instant.",
+        "since": "À partir de {{month}}",
+        "table": {
+          "kind": "Type",
+          "formula": "Formule",
+          "period": "Période"
+        }
+      },
+      "wizard": {
+        "changeTitle": "Changer de formule",
+        "changeDescription": "Clôturez l'abonnement actuel, puis choisissez la nouvelle formule.",
+        "subscribeTitle": "Nouvel abonnement",
+        "subscribeDescription": "Choisissez une formule pour cet élève.",
+        "currentFormulaLabel": "Formule actuelle",
+        "endMonthLabel": "Mois de fin",
+        "formulaLabel": "Nouvelle formule",
+        "formulaPlaceholder": "Choisir une formule",
+        "noFormulas": "Aucune formule active. Créez-en une dans les paramètres.",
+        "startMonthLabel": "Mois de début",
+        "cancel": "Annuler",
+        "confirm": "Confirmer",
+        "confirming": "Enregistrement…",
+        "success": "Abonnement mis à jour",
+        "closeError": "La clôture de l'abonnement a échoué. Réessayez.",
+        "createError": "La souscription a échoué. Réessayez.",
+        "createAfterCloseError": "L'abonnement précédent a été clôturé, mais la nouvelle souscription a échoué. Réessayez depuis cet onglet."
+      }
+    },
+    "comingSoon": {
       "invoices": {
         "title": "Factures bientôt disponibles",
         "body": "L'historique de facturation de l'élève apparaîtra ici."
@@ -476,8 +692,7 @@
     "searchLabel": "Rechercher un enseignant",
     "filters": {
       "subjectLabel": "Matière",
-      "subjectAll": "Toutes les matières",
-      "subjectComingSoon": "Le filtre par matière arrive avec le module Matières."
+      "subjectAll": "Toutes les matières"
     },
     "new": "Nouvel enseignant",
     "seats": {
@@ -541,6 +756,10 @@
       "cinPlaceholder": "Carte nationale (facultatif)",
       "email": "E-mail",
       "emailPlaceholder": "Adresse e-mail (facultatif)",
+      "subjects": "Matières",
+      "subjectInactive": "(inactive)",
+      "subjectsEmpty": "Aucune matière configurée. Créez d'abord des matières.",
+      "subjectsError": "Impossible de charger les matières.",
       "create": "Créer l'enseignant",
       "save": "Enregistrer",
       "saving": "Enregistrement…",
@@ -569,6 +788,19 @@
         "subjects": "Matières",
         "groups": "Groupes",
         "payroll": "Rémunération"
+      },
+      "subjects": {
+        "empty": {
+          "title": "Aucune matière assignée",
+          "body": "Modifiez l'enseignant pour lui attribuer des matières."
+        },
+        "loadError": {
+          "title": "Impossible de charger les matières",
+          "body": "Le chargement des matières a échoué.",
+          "retry": "Réessayer"
+        },
+        "inactive": "(inactive)",
+        "unknown": "Matière inconnue"
       }
     },
     "info": {
@@ -580,10 +812,6 @@
       "none": "—"
     },
     "comingSoon": {
-      "subjects": {
-        "title": "Matières bientôt disponibles",
-        "body": "Les matières enseignées par cet enseignant apparaîtront ici."
-      },
       "groups": {
         "title": "Groupes bientôt disponibles",
         "body": "Les groupes animés par cet enseignant apparaîtront ici."
@@ -768,11 +996,13 @@
       "5": "Vendredi",
       "6": "Samedi"
     },
+    "unknownSubject": "Matière inconnue",
     "filters": {
       "teacher": "Enseignant",
       "teacherAll": "Tous les enseignants",
       "room": "Salle",
       "roomAll": "Toutes les salles",
+      "unknownRoom": "Salle inconnue",
       "level": "Niveau",
       "levelAll": "Tous les niveaux",
       "kind": "Type",
@@ -793,20 +1023,57 @@
       "body": "Le chargement des séances a échoué.",
       "retry": "Réessayer"
     },
-    "dialog": {
-      "subtitle": "Modèle de séance récurrente",
+    "form": {
+      "new": "Nouvelle séance",
+      "createTitle": "Nouvelle séance",
+      "createDescription": "Planifiez une séance hebdomadaire récurrente.",
+      "editTitle": "Modifier la séance",
+      "editDescription": "Ajustez le créneau, la salle, l'enseignant ou le groupe.",
       "day": "Jour",
-      "time": "Horaire",
-      "teacher": "Enseignant",
+      "dayPlaceholder": "Choisir un jour",
+      "start": "Début",
+      "end": "Fin",
       "room": "Salle",
-      "level": "Niveau",
-      "none": "—",
-      "editComingSoon": "La modification des séances arrivera prochainement.",
-      "close": "Fermer"
+      "roomPlaceholder": "Choisir une salle",
+      "teacher": "Enseignant",
+      "teacherPlaceholder": "Choisir un enseignant",
+      "teacherNone": "Sans enseignant",
+      "group": "Groupe",
+      "groupPlaceholder": "Choisir un groupe",
+      "groupNone": "Sans groupe",
+      "create": "Créer la séance",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Séance créée",
+      "editSuccess": "Séance mise à jour",
+      "error": "L'enregistrement de la séance a échoué."
+    },
+    "conflict": {
+      "title": "Conflit de planning"
+    },
+    "cancelSession": {
+      "trigger": "Annuler la séance",
+      "title": "Annuler cette séance ?",
+      "body": "La séance sera retirée du planning. Cette action peut être synchronisée.",
+      "confirm": "Annuler la séance",
+      "pending": "Annulation…",
+      "dismiss": "Retour",
+      "success": "Séance annulée",
+      "error": "L'annulation de la séance a échoué."
     }
   },
   "settings": {
     "title": "Paramètres",
+    "tabs": {
+      "profile": "Profil",
+      "hours": "Horaires",
+      "holidays": "Vacances",
+      "password": "Mot de passe",
+      "language": "Langue",
+      "plan": "Formule",
+      "backup": "Sauvegarde"
+    },
     "center": {
       "title": "Profil du centre",
       "subtitle": "Ces informations apparaissent sur vos factures.",
@@ -831,6 +1098,99 @@
       "loadErrorTitle": "Impossible de charger le profil",
       "loadErrorBody": "Le chargement du profil du centre a échoué.",
       "retry": "Réessayer"
+    },
+    "password": {
+      "title": "Changer le mot de passe",
+      "subtitle": "Utilisez un mot de passe que vous seul connaissez.",
+      "currentLabel": "Mot de passe actuel",
+      "newLabel": "Nouveau mot de passe",
+      "confirmLabel": "Confirmer le nouveau mot de passe",
+      "hint": "Au moins 8 caractères, avec une majuscule, une minuscule et un chiffre.",
+      "submit": "Mettre à jour",
+      "saving": "Mise à jour…",
+      "success": "Mot de passe mis à jour",
+      "error": "La mise à jour a échoué. Réessayez."
+    },
+    "language": {
+      "title": "Langue",
+      "subtitle": "La langue de l'application sur cet ordinateur.",
+      "fr": "Français",
+      "ar": "العربية",
+      "error": "La mise à jour a échoué. Réessayez."
+    },
+    "plan": {
+      "title": "Votre formule",
+      "subtitle": "Formule active pour ce centre.",
+      "idLabel": "Formule",
+      "limitsTitle": "Limites",
+      "maxStudents": "Élèves",
+      "maxTeachers": "Enseignants",
+      "maxRooms": "Salles",
+      "unlimited": "Illimité",
+      "featuresTitle": "Fonctionnalités incluses",
+      "features": {
+        "coreRooms": "Gestion des salles",
+        "coreTeachers": "Gestion des enseignants",
+        "coreStudents": "Gestion des élèves",
+        "coreGroups": "Gestion des groupes",
+        "coreSubjects": "Gestion des matières",
+        "coreFormulas": "Gestion des formules",
+        "coreCalendarWeek": "Planning hebdomadaire",
+        "coreInvoicing": "Facturation mensuelle",
+        "coreParents": "Gestion des parents",
+        "settingsCenterHours": "Horaires du centre",
+        "settingsHolidays": "Vacances",
+        "dashboardBasic": "Tableau de bord",
+        "invoicingPartialPaid": "Paiements partiels",
+        "invoiceTemplateCustomize": "Personnalisation des factures",
+        "examPrep": "Préparation aux examens",
+        "payrollTeacher": "Paie des enseignants",
+        "payrollTeacherFixed": "Paie fixe",
+        "payrollTeacherPercentage": "Paie au pourcentage",
+        "excelExport": "Export Excel",
+        "excelImport": "Import Excel",
+        "excelSync": "Synchronisation Excel",
+        "planningCustomGrid": "Planning personnalisé",
+        "dashboardAdvanced": "Tableau de bord avancé",
+        "planningRandomAuto": "Planning automatique",
+        "syncMultiDevice": "Synchronisation multi-appareils",
+        "syncCloud": "Synchronisation cloud",
+        "syncConflictResolution": "Résolution des conflits",
+        "orgMultiCenter": "Multi-centres",
+        "limitsStudentsUnlimited": "Élèves illimités",
+        "limitsTeachersUnlimited": "Enseignants illimités"
+      }
+    },
+    "backup": {
+      "configTitle": "Sauvegarde",
+      "configLoadError": "Impossible de charger la configuration de sauvegarde.",
+      "destinationLabel": "Dossier de destination",
+      "destinationPlaceholder": "Aucun dossier choisi",
+      "destinationPick": "Choisir un dossier",
+      "retentionLabel": "Nombre de copies conservées",
+      "lastRunLabel": "Dernière sauvegarde automatique : {{date}}",
+      "never": "Jamais",
+      "configSubmit": "Enregistrer",
+      "configSaving": "Enregistrement…",
+      "configSaveSuccess": "Configuration de sauvegarde enregistrée",
+      "configSaveError": "L'enregistrement a échoué. Réessayez.",
+      "createButton": "Sauvegarder maintenant",
+      "creating": "Sauvegarde en cours…",
+      "createSuccess": "Sauvegarde créée le {{date}}",
+      "createError": "La sauvegarde a échoué. Réessayez.",
+      "restoreTitle": "Restaurer une sauvegarde",
+      "restoreSubtitle": "Remplace les données actuelles du centre par celles d'un fichier de sauvegarde.",
+      "restorePick": "Choisir un fichier de sauvegarde",
+      "restoreButton": "Restaurer",
+      "restoreNotFound": "Ce fichier de sauvegarde est introuvable.",
+      "restoreCorrupted": "Ce fichier de sauvegarde est corrompu et ne peut pas être restauré.",
+      "restoreWrongKey": "Ce fichier de sauvegarde ne correspond pas à ce centre.",
+      "restarting": "Restauration terminée. Redémarrage de l'application…",
+      "confirmTitle": "Confirmer la restauration",
+      "confirmBody": "Toutes les données actuelles du centre seront remplacées par celles de ce fichier de sauvegarde. Cette action est irréversible.",
+      "confirmDismiss": "Annuler",
+      "confirmConfirm": "Restaurer",
+      "confirmPending": "Restauration…"
     }
   },
   "centerHours": {

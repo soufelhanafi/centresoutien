@@ -2,7 +2,21 @@ import type {
   PlanId,
   CreateSubject,
   ArchiveSubject,
+  ListSubjects,
+  GetSubject,
+  ListSubjectsWithUsage,
+  UpdateSubject,
+  Subject,
+  SubjectUsage,
   SubjectId,
+  CreateFormula,
+  UpdateFormula,
+  GetFormula,
+  ListFormulas,
+  CloneFormula,
+  DeactivateFormula,
+  Formula,
+  FormulaId,
   CreateStudent,
   ListStudents,
   GetStudent,
@@ -65,9 +79,16 @@ import type {
   Holiday,
   HolidayId,
   ListWeekSessions,
-  WeeklyRecurringSession,
+  WeeklySessionView,
+  GenerateAndPersistSessions,
+  CreateWeeklyRecurringSession,
+  UpdateWeeklyRecurringSession,
+  CancelWeeklyRecurringSession,
+  Session,
+  WeeklyRecurringSessionId,
   CreateAdminAccount,
   VerifyAdminPassword,
+  ChangeAdminPassword,
   SaveCenterHours,
   GetCenterHours,
   CenterHours,
@@ -92,10 +113,23 @@ import {
   HolidayNotFoundError,
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
+import type { LocalePreference } from '../infra/locale-preference-store';
+import { createBackupHandlers, type BackupHandlerDeps } from './backup-handlers';
+import { createDialogHandlers } from './dialog-handlers';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
 export type ArchiveSubjectUseCase = Pick<ArchiveSubject, 'execute'>;
+export type ListSubjectsUseCase = Pick<ListSubjects, 'execute'>;
+export type GetSubjectUseCase = Pick<GetSubject, 'execute'>;
+export type ListSubjectsWithUsageUseCase = Pick<ListSubjectsWithUsage, 'execute'>;
+export type UpdateSubjectUseCase = Pick<UpdateSubject, 'execute'>;
+export type CreateFormulaUseCase = Pick<CreateFormula, 'execute'>;
+export type UpdateFormulaUseCase = Pick<UpdateFormula, 'execute'>;
+export type GetFormulaUseCase = Pick<GetFormula, 'execute'>;
+export type ListFormulasUseCase = Pick<ListFormulas, 'execute'>;
+export type CloneFormulaUseCase = Pick<CloneFormula, 'execute'>;
+export type DeactivateFormulaUseCase = Pick<DeactivateFormula, 'execute'>;
 export type CreateStudentUseCase = Pick<CreateStudent, 'execute'>;
 export type ListStudentsUseCase = Pick<ListStudents, 'execute'>;
 export type GetStudentUseCase = Pick<GetStudent, 'execute'>;
@@ -139,8 +173,13 @@ export type UpdateHolidayUseCase = Pick<UpdateHoliday, 'execute'>;
 export type ArchiveHolidayUseCase = Pick<ArchiveHoliday, 'execute'>;
 export type RestoreHolidayUseCase = Pick<RestoreHoliday, 'execute'>;
 export type ListWeekSessionsUseCase = Pick<ListWeekSessions, 'execute'>;
+export type GenerateAndPersistSessionsUseCase = Pick<GenerateAndPersistSessions, 'execute'>;
+export type CreateWeeklyRecurringSessionUseCase = Pick<CreateWeeklyRecurringSession, 'execute'>;
+export type UpdateWeeklyRecurringSessionUseCase = Pick<UpdateWeeklyRecurringSession, 'execute'>;
+export type CancelWeeklyRecurringSessionUseCase = Pick<CancelWeeklyRecurringSession, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
+export type ChangeAdminPasswordUseCase = Pick<ChangeAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
 export type GetCenterHoursUseCase = Pick<GetCenterHours, 'execute'>;
 export type AttemptLoginUseCase = Pick<AttemptLogin, 'execute'>;
@@ -203,6 +242,48 @@ function toParentView(parent: Parent) {
     whatsappOptIn: parent.whatsappOptIn,
     archived: parent.deletedAt !== null,
     createdAt: parent.createdAt.toISOString(),
+  };
+}
+
+/** Project a Subject to its boundary DTO (SOU-124): envelope stripped, leaving the
+ *  fields name-resolution and the pickers need. `active` is the real domain flag;
+ *  tombstones never reach these reads, so no `archived` is exposed. */
+function toSubjectView(subject: Subject) {
+  return {
+    id: subject.id,
+    name: { fr: subject.name.fr, ar: subject.name.ar },
+    code: subject.code,
+    active: subject.active,
+  };
+}
+
+/** Project a subject + its in-use count to the list-with-usage DTO: the lean
+ *  subject view plus `inUseCount`, the derived `canDelete`, and the named
+ *  breakdown (`references`, SOU-135) the delete-blocked modal lists. */
+function toSubjectUsageView(row: SubjectUsage) {
+  return {
+    subject: toSubjectView(row.subject),
+    inUseCount: row.inUseCount,
+    canDelete: row.canDelete,
+    references: row.references.map((ref) => ({
+      kind: ref.kind,
+      id: ref.id,
+      label: { fr: ref.label.fr, ar: ref.label.ar },
+    })),
+  };
+}
+
+/** Project a Formula to its boundary DTO (SOU-62): envelope stripped. No `archived`
+ *  field — this CRUD UI has no soft-delete action, only the one-way `active` flag. */
+function toFormulaView(formula: Formula) {
+  return {
+    id: formula.id,
+    name: { fr: formula.name.fr, ar: formula.name.ar },
+    subjectIds: [...formula.subjectIds],
+    priceMad: formula.priceMad,
+    kind: formula.kind,
+    isImmutable: formula.isImmutable,
+    active: formula.active,
   };
 }
 
@@ -315,14 +396,37 @@ function toHolidayView(holiday: Holiday) {
   };
 }
 
-/** Project a weekly recurring session to its boundary DTO: envelope stripped, the
- *  branded `TimeOfDay`/id values widened to plain strings for the wire. */
-function toWeeklySessionView(session: WeeklyRecurringSession) {
+/** Project an enriched weekly-session view to its boundary DTO: branded
+ *  `TimeOfDay`/id values widened to plain strings for the wire; the join-derived
+ *  fields (room/teacher names, subject, level, kind) pass through with their
+ *  neutral-fallback nulls already resolved in the domain read model. */
+function toWeeklySessionView(session: WeeklySessionView) {
   return {
     id: session.id,
+    dayOfWeek: session.dayOfWeek,
+    start: session.start,
+    end: session.end,
+    roomId: session.roomId,
+    roomName: session.roomName,
+    teacherId: session.teacherId,
+    teacherName: session.teacherName === null ? null : { ...session.teacherName },
+    groupId: session.groupId,
+    subjectId: session.subjectId,
+    subjectName: session.subjectName === null ? null : { ...session.subjectName },
+    level: session.level,
+    kind: session.kind,
+  };
+}
+
+/** Project a concrete dated session to its boundary DTO: envelope stripped, the
+ *  branded id / `TimeOfDay` values widened to plain strings for the wire. */
+function toSessionView(session: Session) {
+  return {
+    id: session.id,
+    recurringSessionId: session.recurringSessionId,
     roomId: session.roomId,
     teacherId: session.teacherId,
-    dayOfWeek: session.dayOfWeek,
+    date: session.date,
     start: session.start,
     end: session.end,
   };
@@ -342,11 +446,21 @@ function toWeekView(week: readonly CenterHours[]) {
  * cases) are injected so handlers stay pure and testable without Electron. Each
  * handler delegates to a pre-wired domain use case; it adds no business logic.
  */
-export type HandlerDeps = {
+export type HandlerDeps = BackupHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
   createSubject: CreateSubjectUseCase;
   archiveSubject: ArchiveSubjectUseCase;
+  listSubjects: ListSubjectsUseCase;
+  getSubject: GetSubjectUseCase;
+  listSubjectsWithUsage: ListSubjectsWithUsageUseCase;
+  updateSubject: UpdateSubjectUseCase;
+  createFormula: CreateFormulaUseCase;
+  updateFormula: UpdateFormulaUseCase;
+  getFormula: GetFormulaUseCase;
+  listFormulas: ListFormulasUseCase;
+  cloneFormula: CloneFormulaUseCase;
+  deactivateFormula: DeactivateFormulaUseCase;
   createStudent: CreateStudentUseCase;
   listStudents: ListStudentsUseCase;
   getStudent: GetStudentUseCase;
@@ -390,12 +504,17 @@ export type HandlerDeps = {
   archiveHoliday: ArchiveHolidayUseCase;
   restoreHoliday: RestoreHolidayUseCase;
   listWeekSessions: ListWeekSessionsUseCase;
+  generateSessions: GenerateAndPersistSessionsUseCase;
+  createWeeklySession: CreateWeeklyRecurringSessionUseCase;
+  updateWeeklySession: UpdateWeeklyRecurringSessionUseCase;
+  cancelWeeklySession: CancelWeeklyRecurringSessionUseCase;
   saveCenterHours: SaveCenterHoursUseCase;
   getCenterHours: GetCenterHoursUseCase;
   envelopeContext: () => EnvelopeContext;
   adminExists: AdminExists;
   createAdminAccount: CreateAdminAccountUseCase;
   verifyAdminPassword: VerifyAdminPasswordUseCase;
+  changeAdminPassword: ChangeAdminPasswordUseCase;
   attemptLogin: AttemptLoginUseCase;
   deviceSessions: DeviceSessions;
   getCenterProfile: GetCenterProfileUseCase;
@@ -403,6 +522,7 @@ export type HandlerDeps = {
   storeCenterLogo: StoreCenterLogoUseCase;
   readCenterLogo: ReadCenterLogoUseCase;
   centerContext: () => CenterContext;
+  saveLocalePreference: (locale: LocalePreference) => void;
 };
 
 export function createHandlers(deps: HandlerDeps): IpcHandlers {
@@ -436,6 +556,85 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         if (!(error instanceof SubjectNotFoundError)) throw error;
       }
       return { ok: true };
+    },
+    'subject.list': async (request) => {
+      const subjects = await deps.listSubjects.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        scope: request.scope,
+      });
+      return { subjects: subjects.map(toSubjectView) };
+    },
+    'subject.get': async (request) => {
+      const subject = await deps.getSubject.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        id: request.id as SubjectId,
+      });
+      return { subject: subject ? toSubjectView(subject) : null };
+    },
+    'subject.listWithUsage': async () => {
+      const rows = await deps.listSubjectsWithUsage.execute({
+        centerCode: deps.envelopeContext().centerCode,
+      });
+      return { subjects: rows.map(toSubjectUsageView) };
+    },
+    'subject.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const subject = await deps.updateSubject.execute({
+        ...fields,
+        centerCode,
+        id: id as SubjectId,
+        updatedBy,
+      });
+      return { subject: toSubjectView(subject) };
+    },
+    'formula.create': async (request) => {
+      const formula = await deps.createFormula.execute({ ...request, ...deps.envelopeContext() });
+      return { id: formula.id };
+    },
+    'formula.list': async (request) => {
+      const formulas = await deps.listFormulas.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        scope: request.scope,
+      });
+      return { formulas: formulas.map(toFormulaView) };
+    },
+    'formula.get': async (request) => {
+      const formula = await deps.getFormula.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        id: request.id as FormulaId,
+      });
+      return { formula: formula ? toFormulaView(formula) : null };
+    },
+    'formula.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const formula = await deps.updateFormula.execute({
+        ...fields,
+        centerCode,
+        id: id as FormulaId,
+        updatedBy,
+      });
+      return { formula: toFormulaView(formula) };
+    },
+    'formula.clone': async (request) => {
+      const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
+      const clone = await deps.cloneFormula.execute({
+        centerCode,
+        sourceId: request.id as FormulaId,
+        deviceOrigin,
+        updatedBy,
+      });
+      return { id: clone.id };
+    },
+    'formula.deactivate': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const formula = await deps.deactivateFormula.execute({
+        centerCode,
+        id: request.id as FormulaId,
+        updatedBy,
+      });
+      return { formula: toFormulaView(formula) };
     },
     'student.create': async (request) => {
       const student = await deps.createStudent.execute({ ...request, ...deps.envelopeContext() });
@@ -794,6 +993,48 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       });
       return { sessions: sessions.map(toWeeklySessionView) };
     },
+    'session.generate': async (request) => {
+      const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
+      const sessions = await deps.generateSessions.execute({
+        centerCode,
+        recurringSessionId: request.recurringSessionId as WeeklyRecurringSessionId,
+        range: { start: request.from, end: request.to },
+        deviceOrigin,
+        updatedBy,
+      });
+      return { sessions: sessions.map(toSessionView) };
+    },
+    'weeklySession.create': async (request) => {
+      const session = await deps.createWeeklySession.execute({
+        ...request,
+        ...deps.envelopeContext(),
+      });
+      return { id: session.id };
+    },
+    'weeklySession.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const session = await deps.updateWeeklySession.execute({
+        ...fields,
+        centerCode,
+        id: id as WeeklyRecurringSessionId,
+        updatedBy,
+      });
+      return { id: session.id };
+    },
+    'weeklySession.delete': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      // Not swallowed like *.archive: the domain deliberately rejects an unknown,
+      // already-cancelled, or foreign-center id (WeeklyRecurringSessionNotFoundError)
+      // so a stale renderer id can never silently no-op as success. The renderer maps
+      // the stable `weekly-recurring-session-not-found` code.
+      await deps.cancelWeeklySession.execute({
+        centerCode,
+        id: request.id as WeeklyRecurringSessionId,
+        updatedBy,
+      });
+      return { ok: true };
+    },
     'centerHours.get': async () => {
       const week = await deps.getCenterHours.execute({
         centerCode: deps.envelopeContext().centerCode,
@@ -812,6 +1053,10 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'admin.verify': async (request) => ({
       valid: await deps.verifyAdminPassword.execute(request),
     }),
+    'admin.changePassword': async (request) => {
+      await deps.changeAdminPassword.execute(request);
+      return { ok: true };
+    },
     'auth.login': async (request) => {
       const result = await deps.attemptLogin.execute(request);
       switch (result.outcome) {
@@ -844,5 +1089,11 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       const bytes = await deps.readCenterLogo.execute(request);
       return { bytes };
     },
+    'preferences.locale.set': (request) => {
+      deps.saveLocalePreference(request.locale);
+      return { ok: true };
+    },
+    ...createBackupHandlers(deps),
+    ...createDialogHandlers(),
   };
 }

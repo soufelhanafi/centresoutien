@@ -1,5 +1,9 @@
 import { InMemorySoftDeletableRepository } from './in-memory-soft-deletable';
-import type { SubjectRepository, SubjectUsage } from '../../../src/ports/subject-repository';
+import type {
+  SubjectRepository,
+  SubjectUsage,
+  SubjectUsageReference,
+} from '../../../src/ports/subject-repository';
 import type { Subject, SubjectId } from '../../../src/entities/subject';
 import type { CenterCode } from '../../../src/value-objects/ids';
 
@@ -9,17 +13,25 @@ import type { CenterCode } from '../../../src/value-objects/ids';
  * adds the code-uniqueness lookup and the in-use read model. Reference counts are
  * arranged with {@link setUsageCount} (the fake owns no groups table), matching the
  * SQLite adapter's semantics: live subjects only, tombstoned references excluded,
- * `canDelete === (inUseCount === 0)`.
+ * `canDelete === (inUseCount === 0)`. The named breakdown defaults to `[]` and is
+ * arranged with {@link setReferences} only by tests that need it — callers that
+ * only care about the count keep `setUsageCount` alone.
  */
 export class InMemorySubjectRepository
   extends InMemorySoftDeletableRepository<SubjectId, Subject>
   implements SubjectRepository
 {
   private readonly usage = new Map<SubjectId, number>();
+  private readonly references = new Map<SubjectId, readonly SubjectUsageReference[]>();
 
   /** Arrange the active-reference count a `listWithUsage` row should report. */
   setUsageCount(id: SubjectId, count: number): void {
     this.usage.set(id, count);
+  }
+
+  /** Arrange the named-reference breakdown a `listWithUsage` row should report. */
+  setReferences(id: SubjectId, refs: readonly SubjectUsageReference[]): void {
+    this.references.set(id, refs);
   }
 
   async findByCode(centerCode: CenterCode, code: string): Promise<Subject | null> {
@@ -31,6 +43,18 @@ export class InMemorySubjectRepository
     return null;
   }
 
+  async listActive(centerCode: CenterCode): Promise<readonly Subject[]> {
+    return [...this.rows.values()]
+      .filter((row) => row.deletedAt === null && row.centerCode === centerCode && row.active)
+      .map((row) => structuredClone(row));
+  }
+
+  async listAll(centerCode: CenterCode): Promise<readonly Subject[]> {
+    return [...this.rows.values()]
+      .filter((row) => row.deletedAt === null && row.centerCode === centerCode)
+      .map((row) => structuredClone(row));
+  }
+
   async listWithUsage(centerCode: CenterCode): Promise<readonly SubjectUsage[]> {
     return [...this.rows.values()]
       .filter((row) => row.deletedAt === null && row.centerCode === centerCode)
@@ -39,7 +63,12 @@ export class InMemorySubjectRepository
       .sort((a, b) => a.name.fr.localeCompare(b.name.fr) || a.id.localeCompare(b.id))
       .map((row) => {
         const inUseCount = this.usage.get(row.id) ?? 0;
-        return { subject: structuredClone(row), inUseCount, canDelete: inUseCount === 0 };
+        return {
+          subject: structuredClone(row),
+          inUseCount,
+          canDelete: inUseCount === 0,
+          references: this.references.get(row.id) ?? [],
+        };
       });
   }
 }

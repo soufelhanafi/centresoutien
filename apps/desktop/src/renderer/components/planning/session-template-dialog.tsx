@@ -1,15 +1,21 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  Button,
-  KindBadge,
-} from '@centresoutien/ui';
+import { toast } from '@centresoutien/ui';
+import { useUpdateSession } from '../../hooks/planning/use-update-session';
+import { useCancelSession } from '../../hooks/planning/use-cancel-session';
+import { useSessionFormOptions } from '../../hooks/planning/use-session-form-options';
+import { SessionFormSheet } from './session-form-sheet';
+import { CancelSessionDialog } from './cancel-session-dialog';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
+import {
+  toSessionInput,
+  type SessionFormInput,
+  type SessionFormValues,
+} from '../../lib/planning/session-form-schema';
+import {
+  mapSessionWriteError,
+  type SessionWriteErrorCode,
+} from '../../lib/planning/session-write-error';
 
 type SessionTemplateDialogProps = {
   /** The clicked session, or `null` when the dialog is closed. */
@@ -17,57 +23,77 @@ type SessionTemplateDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-/** One labelled read-only field row in the template summary. */
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-4 border-b border-border py-2 last:border-0">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="text-end text-sm font-medium text-foreground">{value}</dd>
-    </div>
-  );
+/** Weekday index → the select's string value, keyed by the DTO's numeric day (no cast). */
+const DAY_FIELD_VALUES = ['0', '1', '2', '3', '4', '5', '6'] as const;
+
+/** Maps the enriched planner read row back to the editable form shape. */
+function toFormInput(session: PlannerSessionView): SessionFormInput {
+  return {
+    dayOfWeek: DAY_FIELD_VALUES[session.dayOfWeek] ?? '0',
+    start: session.start,
+    end: session.end,
+    roomId: session.roomId,
+    teacherId: session.teacherId,
+    groupId: session.groupId,
+  };
 }
 
 /**
- * Session template details opened from a grid block. Read-only for now — editing
- * and creation land with the scheduling use cases (SOU-53 published the entity +
- * port but no write channel yet), so the primary action is disabled with a hint.
+ * Edit-session flow opened from a grid block (SOU-131): edits the weekly slot,
+ * surfaces scheduling conflicts inline, and offers a cancel (soft-delete) action
+ * behind a confirmation. Owns the mutations; the sheet is presentational.
  */
 export function SessionTemplateDialog({ session, onOpenChange }: SessionTemplateDialogProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const update = useUpdateSession(session?.id ?? '');
+  const cancel = useCancelSession(session?.id ?? '');
+  const options = useSessionFormOptions();
+  const [errorCodes, setErrorCodes] = useState<readonly SessionWriteErrorCode[]>([]);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+
   if (session === null) return null;
 
-  const subject = i18n.language === 'ar' ? session.subjectName.ar : session.subjectName.fr;
-  const dash = t('planning.dialog.none');
+  const handleSubmit = async (values: SessionFormValues) => {
+    setErrorCodes([]);
+    try {
+      await update.mutateAsync(toSessionInput(values));
+      toast.success(t('planning.form.editSuccess'));
+      onOpenChange(false);
+    } catch (error) {
+      const code = mapSessionWriteError(error);
+      if (code) setErrorCodes([code]);
+      else toast.error(t('planning.form.error'));
+    }
+  };
+
+  const handleCancelSession = async () => {
+    try {
+      await cancel.mutateAsync();
+      toast.success(t('planning.cancelSession.success'));
+      setConfirmingCancel(false);
+      onOpenChange(false);
+    } catch {
+      toast.error(t('planning.cancelSession.error'));
+    }
+  };
 
   return (
-    <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {subject}
-            <KindBadge
-              kind={session.kind}
-              label={t(session.kind === 'exam-prep' ? 'planning.kind.examPrep' : 'planning.kind.regular')}
-            />
-          </DialogTitle>
-          <DialogDescription>{t('planning.dialog.subtitle')}</DialogDescription>
-        </DialogHeader>
-
-        <dl className="mt-1">
-          <Field label={t('planning.dialog.day')} value={t(`planning.weekdays.${session.dayOfWeek}`)} />
-          <Field label={t('planning.dialog.time')} value={`${session.start} – ${session.end}`} />
-          <Field label={t('planning.dialog.teacher')} value={session.teacherName ?? dash} />
-          <Field label={t('planning.dialog.room')} value={session.roomName} />
-          <Field label={t('planning.dialog.level')} value={session.level} />
-        </dl>
-
-        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-muted-foreground">{t('planning.dialog.editComingSoon')}</p>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            {t('planning.dialog.close')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <>
+      <SessionFormSheet
+        mode="edit"
+        open
+        onOpenChange={onOpenChange}
+        defaultValues={toFormInput(session)}
+        options={options.data}
+        submission={{ pending: update.isPending, errorCodes, onSubmit: handleSubmit }}
+        onCancelSession={() => setConfirmingCancel(true)}
+      />
+      <CancelSessionDialog
+        open={confirmingCancel}
+        onOpenChange={setConfirmingCancel}
+        onConfirm={handleCancelSession}
+        pending={cancel.isPending}
+      />
+    </>
   );
 }
