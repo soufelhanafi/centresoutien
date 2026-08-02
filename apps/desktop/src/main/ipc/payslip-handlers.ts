@@ -24,12 +24,12 @@ export function createPayslipHandlers(
 ): Pick<IpcHandlers, 'payslip.print' | 'payslip.export'> {
   return {
     'payslip.print': async (request) => {
-      const bytes = await deps.generatePayslipPdf.execute({
+      const { payoutId, bytes } = await deps.generatePayslipPdf.execute({
         centerCode: deps.centerCode(),
         teacherPayoutId: request.teacherPayoutId as TeacherPayoutId,
         locale: request.locale,
       });
-      const tempPath = join(app.getPath('temp'), `bulletin-paie-${request.teacherPayoutId}-${Date.now()}.pdf`);
+      const tempPath = join(app.getPath('temp'), `bulletin-paie-${payoutId}-${Date.now()}.pdf`);
       writeFileSync(tempPath, bytes);
       await shell.openPath(tempPath);
       return { ok: true };
@@ -42,7 +42,7 @@ export function createPayslipHandlers(
         ? await dialog.showSaveDialog(win, options)
         : await dialog.showSaveDialog(options);
       if (result.canceled || !result.filePath) return { savedPath: null };
-      const bytes = await deps.generatePayslipPdf.execute({
+      const { bytes } = await deps.generatePayslipPdf.execute({
         centerCode: deps.centerCode(),
         teacherPayoutId: request.teacherPayoutId as TeacherPayoutId,
         locale: request.locale,

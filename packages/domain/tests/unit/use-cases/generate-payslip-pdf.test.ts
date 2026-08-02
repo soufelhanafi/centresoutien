@@ -108,9 +108,9 @@ describe('GeneratePayslipPdf', () => {
 
   describe('happy path', () => {
     it('renders the PDF from the payout snapshot and the teacher/center profile', async () => {
-      const bytes = await build(PLANS.pro).execute(input());
+      const result = await build(PLANS.pro).execute(input());
 
-      expect(bytes).toEqual(new Uint8Array([1, 2, 3]));
+      expect(result).toEqual({ payoutId: PAYOUT_ID, bytes: new Uint8Array([1, 2, 3]) });
       expect(renderer.lastInput).toMatchObject({
         locale: 'fr',
         payoutId: PAYOUT_ID,
@@ -188,8 +188,18 @@ describe('GeneratePayslipPdf', () => {
   });
 
   describe('teacher resolution / tenant scoping', () => {
-    it('throws TeacherNotFoundError when the payout points at an archived teacher', async () => {
+    it('still renders when the payout points at an archived teacher (historical payslips stay reprintable)', async () => {
       await teachers.softDelete(TEACHER_ID, new Date('2026-07-30T00:00:00Z'), USER);
+
+      await build(PLANS.pro).execute(input());
+
+      expect(renderer.lastInput).toMatchObject({
+        teacher: { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' },
+      });
+    });
+
+    it('throws TeacherNotFoundError when the payout points at an unknown teacher (neither live nor archived)', async () => {
+      await payouts.save(makePayout({ teacherId: 'tch_00000000000000000000000099' as TeacherId }));
 
       await expect(build(PLANS.pro).execute(input())).rejects.toBeInstanceOf(TeacherNotFoundError);
     });
