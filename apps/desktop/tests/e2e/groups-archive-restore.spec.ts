@@ -3,8 +3,8 @@ import { STR, boot, gotoGroups, type Launched, type Locale } from './groups.fixt
 
 /**
  * SOU-50 — Group CRUD UI · ARCHIVE / RESTORE (soft delete lifecycle).
- * Runs under both `fr` (LTR) and `ar` (RTL) projects. Mock-backed but the full
- * lifecycle is exercised within the session.
+ * Runs under both `fr` (LTR) and `ar` (RTL) projects, on real IPC channels — the
+ * full lifecycle is exercised within the session.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -15,14 +15,23 @@ test.afterEach(async () => {
   live = null;
 });
 
+const SUBJECTS = [
+  { nameFr: 'Physique-Chimie', nameAr: 'الفيزياء والكيمياء', code: 'PHYS' },
+  { nameFr: 'SVT', nameAr: 'علوم الحياة والأرض', code: 'SVT' },
+];
+const ROOMS = [{ name: 'Salle 1', capacity: 30 }];
+const GROUPS = [
+  { subjectIdx: 0, roomIdx: 0, level: '1 Bac SE', capacity: 10, kind: 'regular' as const },
+  { subjectIdx: 1, roomIdx: 0, level: '3AC', capacity: 10, kind: 'regular' as const },
+];
+
 test('Archive a group then restore it', async () => {
   const L = STR[locale()];
-  live = await boot(locale());
+  live = await boot(locale(), { subjects: SUBJECTS, rooms: ROOMS, groups: GROUPS });
   const win = live.win;
   await gotoGroups(win, L);
 
-  // Physique-Chimie — unique subject in the active list. (Level "1 Bac SE" is NOT
-  // unique: the mock also seeds an archived Français group at that level.)
+  // Physique-Chimie — unique subject in the active list.
   const row = win.getByRole('row', { name: /Physique-Chimie/ });
   await row.getByRole('button', { name: L.row.menu }).click();
   await win.getByRole('menuitem', { name: L.row.archive }).click();

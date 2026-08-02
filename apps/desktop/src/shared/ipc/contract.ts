@@ -14,6 +14,8 @@ import {
   weeklyRecurringSessionInputSchema,
   weeklyRecurringSessionUpdateSchema,
   teacherInputSchema,
+  teacherPayrollRuleInputSchema,
+  closeTeacherPayrollRuleMonthSchema,
   holidayInputSchema,
   studentSubscriptionInputSchema,
   closeStudentSubscriptionMonthSchema,
@@ -194,6 +196,32 @@ const teacherViewSchema = z.object({
   archived: z.boolean(),
   createdAt: z.string(),
 });
+
+// The presentation projection of a TeacherPayrollRule across the IPC boundary
+// (SOU-72) — the sync envelope is stripped, exactly like `teacherViewSchema`.
+// There is NO stored status: the renderer derives active/history from
+// `endMonth` (`null` = the one live open-ended rule = Active; set = History).
+// A discriminated union on `kind` mirrors the domain entity, so `amountMad`
+// and `percent` are mutually exclusive at the type level on the renderer side
+// too. Single source of truth for the renderer's `TeacherPayrollRuleView` type.
+const teacherPayrollRuleViewSchema = z.discriminatedUnion('kind', [
+  z.object({
+    id: z.string(),
+    teacherId: z.string(),
+    kind: z.literal('fixed-monthly'),
+    amountMad: z.number().int(),
+    startMonth: z.string(),
+    endMonth: z.string().nullable(),
+  }),
+  z.object({
+    id: z.string(),
+    teacherId: z.string(),
+    kind: z.literal('percentage-of-monthly-fees'),
+    percent: z.number(),
+    startMonth: z.string(),
+    endMonth: z.string().nullable(),
+  }),
+]);
 
 // The presentation projection of a Holiday across the IPC boundary — the sync
 // envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized,
@@ -737,6 +765,29 @@ export const ipcContract = {
     request: z.object({ id: z.string() }),
     response: z.object({ teacher: teacherViewSchema }),
   },
+  // Teacher payroll rules (SOU-72), the Rule tab's CRUD surface — `CreateTeacherPayrollRule`
+  // / `CloseTeacherPayrollRule` shipped in SOU-70/71, wired to IPC here for the first
+  // time. `create` takes the domain's own discriminated `teacherPayrollRuleInputSchema`
+  // (fixed-monthly xor percentage-of-monthly-fees), validated once and reused by the
+  // form (zodResolver); `close` caps a live rule's `endMonth` (the close half of
+  // close-and-reopen — a rule change combines this with a fresh `create`); `list`
+  // returns one teacher's live rules, newest start first, for the Active/History split.
+  // centerCode/device/user are injected in main, never sent from the renderer. Gated by
+  // `payroll.teacher` (+ `payroll.teacher.fixed`/`.percentage` on create) in the use
+  // cases. All reads strip the envelope to `teacherPayrollRuleViewSchema`; status is
+  // derived, never stored.
+  'teacherPayrollRule.create': {
+    request: teacherPayrollRuleInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'teacherPayrollRule.close': {
+    request: z.object({ ruleId: z.string(), endMonth: closeTeacherPayrollRuleMonthSchema }),
+    response: z.object({ rule: teacherPayrollRuleViewSchema }),
+  },
+  'teacherPayrollRule.list': {
+    request: z.object({ teacherId: z.string() }),
+    response: z.object({ rules: z.array(teacherPayrollRuleViewSchema) }),
+  },
   // Holidays (SOU-30). `list` selects the live holidays or the archive via `scope`;
   // `create` and `update` take the domain's own `holidayInputSchema` (bilingual
   // name, kind fixed|lunar, calendar-date range with end >= start), validated once
@@ -972,6 +1023,9 @@ export type InvoiceListItemDto = z.infer<typeof invoiceListItemViewSchema>;
 
 /** The Teacher boundary DTO — the renderer's `TeacherView` is an alias of this. */
 export type TeacherDto = z.infer<typeof teacherViewSchema>;
+
+/** The TeacherPayrollRule boundary DTO — the renderer's `TeacherPayrollRuleView` aliases this. */
+export type TeacherPayrollRuleDto = z.infer<typeof teacherPayrollRuleViewSchema>;
 
 /** The Holiday boundary DTO — the renderer's `HolidayView` is an alias of this. */
 export type HolidayDto = z.infer<typeof holidayViewSchema>;

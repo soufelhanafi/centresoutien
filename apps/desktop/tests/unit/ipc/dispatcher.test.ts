@@ -20,8 +20,13 @@ import type {
   WeeklyRecurringSessionId,
   SessionId,
 } from '@centresoutien/domain';
-import { GroupNotFoundError, WeeklyRecurringSessionNotFoundError } from '@centresoutien/domain';
+import {
+  GroupFullError,
+  GroupNotFoundError,
+  WeeklyRecurringSessionNotFoundError,
+} from '@centresoutien/domain';
 import { createIpcDispatcher } from '../../../src/main/ipc/dispatcher';
+import { decodeDomainError } from '../../../src/shared/ipc/domain-error';
 import {
   createHandlers,
   type CreateSubjectUseCase,
@@ -804,6 +809,30 @@ describe('createIpcDispatcher', () => {
   it('rejects an unknown channel', async () => {
     // @ts-expect-error — deliberately off-contract to prove the runtime guard
     await expect(dispatch('nope.channel', {})).rejects.toThrow(/unknown ipc channel/i);
+  });
+
+  it('encodes a thrown DomainError code into the rejection message (survives IPC)', async () => {
+    const throwing = createIpcDispatcher({
+      'app.ping': () => {
+        throw new GroupFullError(GROUP_ID, 15);
+      },
+    } as unknown as IpcHandlers);
+    const error = await throwing('app.ping', { message: 'hi' }).catch((e: unknown) => e as Error);
+    expect(decodeDomainError(error.message)).toEqual({
+      code: 'group-full',
+      message: expect.stringContaining('full'),
+    });
+  });
+
+  it('lets a non-domain error through unwrapped', async () => {
+    const throwing = createIpcDispatcher({
+      'app.ping': () => {
+        throw new TypeError('boom');
+      },
+    } as unknown as IpcHandlers);
+    const error = await throwing('app.ping', { message: 'hi' }).catch((e: unknown) => e as Error);
+    expect(decodeDomainError(error.message)).toBeNull();
+    expect(error.message).toContain('boom');
   });
 
   it('rejects when a handler returns an off-contract response', async () => {

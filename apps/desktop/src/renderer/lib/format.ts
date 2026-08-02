@@ -37,3 +37,10 @@ export function formatMoneyMad(amountCentimes: number, locale: string): string {
     amountCentimes / 100,
   );
 }
+
+/** Formats percentage points (e.g. `30` for 30%) via `Intl.NumberFormat`, not a 0..1 fraction. */
+export function formatPercent(percent: number, locale: string): string {
+  return new Intl.NumberFormat(bcp47(locale), { style: 'percent', maximumFractionDigits: 2 }).format(
+    percent / 100,
+  );
+}

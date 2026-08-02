@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-router';
 import { AppShell } from '../components/shell/app-shell';
 import { ModulePlaceholder } from '../pages/module-placeholder';
+import { DashboardPage } from '../pages/dashboard/dashboard-page';
 import { SettingsPage } from '../pages/settings-page';
 import { StudentsPage } from '../pages/students/students-page';
 import { StudentDetailPage } from '../pages/students/student-detail-page';
@@ -47,7 +48,7 @@ const rootRoute = createRootRoute({ component: AppShell });
 const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: dashboardModule.path,
-  component: () => <ModulePlaceholder module={dashboardModule} />,
+  component: DashboardPage,
 });
 const studentsRoute = createRoute({
   getParentRoute: () => rootRoute,
