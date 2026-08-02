@@ -77,6 +77,7 @@ import type {
   ListTeacherPayrollRulesByTeacher,
   TeacherPayrollRule,
   TeacherPayrollRuleId,
+  ComputeMonthlyPayrolls,
   CreateHoliday,
   ListHolidays,
   UpdateHoliday,
@@ -177,6 +178,7 @@ export type RestoreTeacherUseCase = Pick<RestoreTeacher, 'execute'>;
 export type CreateTeacherPayrollRuleUseCase = Pick<CreateTeacherPayrollRule, 'execute'>;
 export type CloseTeacherPayrollRuleUseCase = Pick<CloseTeacherPayrollRule, 'execute'>;
 export type ListTeacherPayrollRulesByTeacherUseCase = Pick<ListTeacherPayrollRulesByTeacher, 'execute'>;
+export type ComputeMonthlyPayrollsUseCase = Pick<ComputeMonthlyPayrolls, 'execute'>;
 export type CreateHolidayUseCase = Pick<CreateHoliday, 'execute'>;
 export type ListHolidaysUseCase = Pick<ListHolidays, 'execute'>;
 export type UpdateHolidayUseCase = Pick<UpdateHoliday, 'execute'>;
@@ -535,6 +537,7 @@ export type HandlerDeps = BackupHandlerDeps & {
   createTeacherPayrollRule: CreateTeacherPayrollRuleUseCase;
   closeTeacherPayrollRule: CloseTeacherPayrollRuleUseCase;
   listTeacherPayrollRulesByTeacher: ListTeacherPayrollRulesByTeacherUseCase;
+  computeMonthlyPayrolls: ComputeMonthlyPayrollsUseCase;
   createHoliday: CreateHolidayUseCase;
   listHolidays: ListHolidaysUseCase;
   updateHoliday: UpdateHolidayUseCase;
@@ -1009,6 +1012,12 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         teacherId: request.teacherId as TeacherId,
       });
       return { rules: rules.map(toTeacherPayrollRuleView) };
+    },
+    'payroll.computeMonthly': async (request) => {
+      return deps.computeMonthlyPayrolls.execute({
+        month: request.month,
+        ...deps.envelopeContext(),
+      });
     },
     'holiday.create': async (request) => {
       const holiday = await deps.createHoliday.execute({ ...request, ...deps.envelopeContext() });
