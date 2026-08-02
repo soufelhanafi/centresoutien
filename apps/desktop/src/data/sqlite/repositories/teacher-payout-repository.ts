@@ -25,6 +25,8 @@ type TeacherPayoutRow = {
   month: string;
   rule_kind: string;
   amount_mad: number;
+  base_amount_mad: number | null;
+  percent_snapshot: number | null;
   status: string;
   notes: string | null;
 };
@@ -43,6 +45,8 @@ function fromRow(row: TeacherPayoutRow): TeacherPayout {
     month: row.month,
     ruleKind: row.rule_kind as TeacherPayrollRuleKind,
     amountMad: row.amount_mad,
+    baseAmountMad: row.base_amount_mad,
+    percentSnapshot: row.percent_snapshot,
     status: row.status as TeacherPayoutStatus,
     notes: row.notes,
   };
@@ -51,19 +55,23 @@ function fromRow(row: TeacherPayoutRow): TeacherPayout {
 const SAVE_SQL = `
   INSERT INTO teacher_payouts
     (id, center_code, device_origin, created_at, updated_at, updated_by,
-     deleted_at, version, teacher_id, month, rule_kind, amount_mad, status, notes)
+     deleted_at, version, teacher_id, month, rule_kind, amount_mad,
+     base_amount_mad, percent_snapshot, status, notes)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
-     @deleted_at, @version, @teacher_id, @month, @rule_kind, @amount_mad, @status, @notes)
+     @deleted_at, @version, @teacher_id, @month, @rule_kind, @amount_mad,
+     @base_amount_mad, @percent_snapshot, @status, @notes)
   ON CONFLICT(id) DO UPDATE SET
-    updated_at  = excluded.updated_at,
-    updated_by  = excluded.updated_by,
-    deleted_at  = excluded.deleted_at,
-    version     = excluded.version,
-    rule_kind   = excluded.rule_kind,
-    amount_mad  = excluded.amount_mad,
-    status      = excluded.status,
-    notes       = excluded.notes
+    updated_at        = excluded.updated_at,
+    updated_by        = excluded.updated_by,
+    deleted_at        = excluded.deleted_at,
+    version           = excluded.version,
+    rule_kind         = excluded.rule_kind,
+    amount_mad        = excluded.amount_mad,
+    base_amount_mad   = excluded.base_amount_mad,
+    percent_snapshot  = excluded.percent_snapshot,
+    status            = excluded.status,
+    notes             = excluded.notes
 `;
 
 /**
@@ -91,6 +99,8 @@ export class SqliteTeacherPayoutRepository implements TeacherPayoutRepository {
       month: payout.month,
       rule_kind: payout.ruleKind,
       amount_mad: payout.amountMad,
+      base_amount_mad: payout.baseAmountMad,
+      percent_snapshot: payout.percentSnapshot,
       status: payout.status,
       notes: payout.notes,
     });
