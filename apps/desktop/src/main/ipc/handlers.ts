@@ -9,6 +9,14 @@ import type {
   Subject,
   SubjectUsage,
   SubjectId,
+  CreateFormula,
+  UpdateFormula,
+  GetFormula,
+  ListFormulas,
+  CloneFormula,
+  DeactivateFormula,
+  Formula,
+  FormulaId,
   CreateStudent,
   ListStudents,
   GetStudent,
@@ -114,6 +122,12 @@ export type ListSubjectsUseCase = Pick<ListSubjects, 'execute'>;
 export type GetSubjectUseCase = Pick<GetSubject, 'execute'>;
 export type ListSubjectsWithUsageUseCase = Pick<ListSubjectsWithUsage, 'execute'>;
 export type UpdateSubjectUseCase = Pick<UpdateSubject, 'execute'>;
+export type CreateFormulaUseCase = Pick<CreateFormula, 'execute'>;
+export type UpdateFormulaUseCase = Pick<UpdateFormula, 'execute'>;
+export type GetFormulaUseCase = Pick<GetFormula, 'execute'>;
+export type ListFormulasUseCase = Pick<ListFormulas, 'execute'>;
+export type CloneFormulaUseCase = Pick<CloneFormula, 'execute'>;
+export type DeactivateFormulaUseCase = Pick<DeactivateFormula, 'execute'>;
 export type CreateStudentUseCase = Pick<CreateStudent, 'execute'>;
 export type ListStudentsUseCase = Pick<ListStudents, 'execute'>;
 export type GetStudentUseCase = Pick<GetStudent, 'execute'>;
@@ -254,6 +268,20 @@ function toSubjectUsageView(row: SubjectUsage) {
       id: ref.id,
       label: { fr: ref.label.fr, ar: ref.label.ar },
     })),
+  };
+}
+
+/** Project a Formula to its boundary DTO (SOU-62): envelope stripped. No `archived`
+ *  field — this CRUD UI has no soft-delete action, only the one-way `active` flag. */
+function toFormulaView(formula: Formula) {
+  return {
+    id: formula.id,
+    name: { fr: formula.name.fr, ar: formula.name.ar },
+    subjectIds: [...formula.subjectIds],
+    priceMad: formula.priceMad,
+    kind: formula.kind,
+    isImmutable: formula.isImmutable,
+    active: formula.active,
   };
 }
 
@@ -425,6 +453,12 @@ export type HandlerDeps = {
   getSubject: GetSubjectUseCase;
   listSubjectsWithUsage: ListSubjectsWithUsageUseCase;
   updateSubject: UpdateSubjectUseCase;
+  createFormula: CreateFormulaUseCase;
+  updateFormula: UpdateFormulaUseCase;
+  getFormula: GetFormulaUseCase;
+  listFormulas: ListFormulasUseCase;
+  cloneFormula: CloneFormulaUseCase;
+  deactivateFormula: DeactivateFormulaUseCase;
   createStudent: CreateStudentUseCase;
   listStudents: ListStudentsUseCase;
   getStudent: GetStudentUseCase;
@@ -551,6 +585,54 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         updatedBy,
       });
       return { subject: toSubjectView(subject) };
+    },
+    'formula.create': async (request) => {
+      const formula = await deps.createFormula.execute({ ...request, ...deps.envelopeContext() });
+      return { id: formula.id };
+    },
+    'formula.list': async (request) => {
+      const formulas = await deps.listFormulas.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        scope: request.scope,
+      });
+      return { formulas: formulas.map(toFormulaView) };
+    },
+    'formula.get': async (request) => {
+      const formula = await deps.getFormula.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        id: request.id as FormulaId,
+      });
+      return { formula: formula ? toFormulaView(formula) : null };
+    },
+    'formula.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const formula = await deps.updateFormula.execute({
+        ...fields,
+        centerCode,
+        id: id as FormulaId,
+        updatedBy,
+      });
+      return { formula: toFormulaView(formula) };
+    },
+    'formula.clone': async (request) => {
+      const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
+      const clone = await deps.cloneFormula.execute({
+        centerCode,
+        sourceId: request.id as FormulaId,
+        deviceOrigin,
+        updatedBy,
+      });
+      return { id: clone.id };
+    },
+    'formula.deactivate': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const formula = await deps.deactivateFormula.execute({
+        centerCode,
+        id: request.id as FormulaId,
+        updatedBy,
+      });
+      return { formula: toFormulaView(formula) };
     },
     'student.create': async (request) => {
       const student = await deps.createStudent.execute({ ...request, ...deps.envelopeContext() });

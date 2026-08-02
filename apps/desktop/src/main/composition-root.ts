@@ -9,6 +9,12 @@ import {
   GetSubject,
   ListSubjectsWithUsage,
   UpdateSubject,
+  CreateFormula,
+  UpdateFormula,
+  GetFormula,
+  ListFormulas,
+  CloneFormula,
+  DeactivateFormula,
   CreateStudent,
   ListStudents,
   GetStudent,
@@ -84,6 +90,7 @@ import type {
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
+import { SqliteFormulaRepository } from '../data/sqlite/repositories/formula-repository';
 import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
 import { SqliteRoomRepository } from '../data/sqlite/repositories/room-repository';
@@ -196,6 +203,14 @@ export function buildContainer(options: ContainerOptions): Container {
   const getSubject = new GetSubject(subjectRepo, plan);
   const listSubjectsWithUsage = new ListSubjectsWithUsage(subjectRepo, plan);
   const updateSubject = new UpdateSubject(subjectRepo, clock, plan);
+
+  const formulaRepo = new SqliteFormulaRepository(db);
+  const createFormula = new CreateFormula(formulaRepo, subjectRepo, clock, ids, plan);
+  const updateFormula = new UpdateFormula(formulaRepo, subjectRepo, clock, plan);
+  const getFormula = new GetFormula(formulaRepo, plan);
+  const listFormulas = new ListFormulas(formulaRepo, plan);
+  const cloneFormula = new CloneFormula(formulaRepo, subjectRepo, clock, ids, plan);
+  const deactivateFormula = new DeactivateFormula(formulaRepo, clock, plan);
 
   const studentRepo = new SqliteStudentRepository(db);
   const createStudent = new CreateStudent(studentRepo, clock, ids, plan);
@@ -393,6 +408,12 @@ export function buildContainer(options: ContainerOptions): Container {
     getSubject,
     listSubjectsWithUsage,
     updateSubject,
+    createFormula,
+    updateFormula,
+    getFormula,
+    listFormulas,
+    cloneFormula,
+    deactivateFormula,
     createStudent,
     listStudents,
     getStudent,
