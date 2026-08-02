@@ -3,7 +3,7 @@ import {
   TeacherFeeAttributionPolicy,
   type StudentLineAttributionInput,
 } from '../../../src/policies/teacher-fee-attribution-policy';
-import { EmptyAttributionLineError } from '../../../src/errors/payroll-errors';
+import { EmptyAttributionLineError, InvalidAttributionAmountError } from '../../../src/errors/payroll-errors';
 import type { StudentId } from '../../../src/entities/student';
 import type { SubjectId } from '../../../src/entities/subject';
 import type { TeacherId } from '../../../src/entities/teacher';
@@ -175,6 +175,7 @@ describe('TeacherFeeAttributionPolicy.attribute', () => {
       { name: 'leaves a 2-centime remainder over 3', amount: 10001, count: 3 },
       { name: 'a single centime split across many subjects', amount: 1, count: 7 },
       { name: 'a zero-amount line', amount: 0, count: 5 },
+      { name: 'a large realistic monthly total', amount: 987_654_321, count: 11 },
     ])('sum of attributed parts equals the original line — $name', ({ amount, count }) => {
       const subjectAssignments = Array.from({ length: count }, (_, index) => ({
         subjectId: `sub_${String(index).padStart(26, '0')}` as SubjectId,
@@ -197,6 +198,30 @@ describe('TeacherFeeAttributionPolicy.attribute', () => {
       ];
 
       expect(() => TeacherFeeAttributionPolicy.attribute(lines)).toThrow(EmptyAttributionLineError);
+    });
+
+    it('throws InvalidAttributionAmountError for a negative amount', () => {
+      const lines: StudentLineAttributionInput[] = [
+        {
+          studentId: STUDENT_A,
+          lineAmountMad: -100,
+          subjectAssignments: [{ subjectId: MATH, teacherId: TEACHER_1 }],
+        },
+      ];
+
+      expect(() => TeacherFeeAttributionPolicy.attribute(lines)).toThrow(InvalidAttributionAmountError);
+    });
+
+    it('throws InvalidAttributionAmountError for a non-integer amount', () => {
+      const lines: StudentLineAttributionInput[] = [
+        {
+          studentId: STUDENT_A,
+          lineAmountMad: 100.5,
+          subjectAssignments: [{ subjectId: MATH, teacherId: TEACHER_1 }],
+        },
+      ];
+
+      expect(() => TeacherFeeAttributionPolicy.attribute(lines)).toThrow(InvalidAttributionAmountError);
     });
   });
 

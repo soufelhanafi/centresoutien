@@ -1,7 +1,7 @@
 import type { SubjectId } from '../entities/subject';
 import type { TeacherId } from '../entities/teacher';
 import type { StudentId } from '../entities/student';
-import { EmptyAttributionLineError } from '../errors/payroll-errors';
+import { EmptyAttributionLineError, InvalidAttributionAmountError } from '../errors/payroll-errors';
 
 /** One subject on a billed line, paired with the teacher who taught it to this student that month. */
 export type SubjectTeacherAssignment = {
@@ -20,6 +20,7 @@ export type SubjectTeacherAssignment = {
  */
 export type StudentLineAttributionInput = {
   readonly studentId: StudentId;
+  /** Non-negative integer MAD centimes — the largest-remainder split only guarantees an exact sum for this shape. */
   readonly lineAmountMad: number;
   readonly subjectAssignments: readonly SubjectTeacherAssignment[];
 };
@@ -65,6 +66,9 @@ export const TeacherFeeAttributionPolicy = {
     for (const line of lines) {
       if (line.subjectAssignments.length === 0) {
         throw new EmptyAttributionLineError(line.studentId);
+      }
+      if (!Number.isInteger(line.lineAmountMad) || line.lineAmountMad < 0) {
+        throw new InvalidAttributionAmountError(line.studentId, line.lineAmountMad);
       }
       for (const share of splitLineAmount(line)) {
         totals.set(share.teacherId, (totals.get(share.teacherId) ?? 0) + share.shareMad);

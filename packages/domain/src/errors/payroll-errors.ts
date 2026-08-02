@@ -54,3 +54,22 @@ export class EmptyAttributionLineError extends DomainError {
     super(`Attribution line for student "${studentId}" names zero subjects.`);
   }
 }
+
+/**
+ * Thrown when a `TeacherFeeAttributionPolicy` input line carries a
+ * `lineAmountMad` that isn't a non-negative integer — the largest-remainder
+ * split only guarantees shares sum back to the original amount for integer
+ * MAD centimes. Collected fees are always non-negative integers by
+ * construction (CLAUDE.md §6), so this signals a caller bug upstream
+ * (SOU-74's compute job), not a real business state.
+ */
+export class InvalidAttributionAmountError extends DomainError {
+  readonly code = 'invalid-attribution-amount';
+
+  constructor(
+    readonly studentId: StudentId,
+    readonly lineAmountMad: number,
+  ) {
+    super(`Attribution line for student "${studentId}" has a non-integer or negative amount: ${lineAmountMad}.`);
+  }
+}
