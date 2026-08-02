@@ -284,6 +284,20 @@ export async function stubSaveDialog(app: ElectronApplication, path: string | nu
   }, path);
 }
 
+/**
+ * Stub the main-process `shell.openPath` that Print hands the rendered PDF
+ * to — under CI's headless Xvfb runner there is no PDF viewer registered, so
+ * the real call spawns `xdg-open` against an unhandled mime type, which can
+ * hang past the Electron app's teardown. Print only needs to prove it *asked*
+ * the OS to open the file; actually opening a viewer is out of scope for a
+ * black-box assertion anyway.
+ */
+export async function stubOpenPath(app: ElectronApplication): Promise<void> {
+  await app.evaluate(async ({ shell }) => {
+    shell.openPath = (async () => '') as never;
+  });
+}
+
 /** True when the file at `path` exists and starts with the `%PDF-` magic bytes. */
 export function isRealPdfFile(path: string): boolean {
   if (!existsSync(path)) return false;

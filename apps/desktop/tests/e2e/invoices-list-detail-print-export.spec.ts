@@ -11,6 +11,7 @@ import {
   seedInvoice,
   tryInvoke,
   stubSaveDialog,
+  stubOpenPath,
   isRealPdfFile,
   pdfContainsAsciiText,
   pdfExportPath,
@@ -180,6 +181,7 @@ test('Scenario 5 — Print and Export are two distinct buttons, and Print succee
   live = await boot(locale());
   const win = live.win;
 
+  await stubOpenPath(live.app);
   const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200 });
   await gotoInvoices(win, L);
   const studentName = locale() === 'ar' ? seeded.studentNameAr : seeded.studentNameFr;
