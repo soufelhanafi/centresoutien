@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { encodeDomainError } from '../../../src/shared/ipc/domain-error';
 import { mapChangePasswordError } from '../../../src/renderer/lib/settings/change-password-error';
 
 describe('mapChangePasswordError', () => {
@@ -6,7 +7,8 @@ describe('mapChangePasswordError', () => {
     ['InvalidCurrentPasswordError', 'invalid-current-password'],
     ['AdminAccountNotFoundError', 'admin-account-not-found'],
   ] as const)('maps %s to %s', (name, code) => {
-    const error = new Error(`Error invoking remote method 'admin.changePassword': ${name}: boom`);
+    const encoded = encodeDomainError({ code: name, message: 'boom' });
+    const error = new Error(`Error invoking remote method 'admin.changePassword': Error: ${encoded}`);
     expect(mapChangePasswordError(error)).toBe(code);
   });
 

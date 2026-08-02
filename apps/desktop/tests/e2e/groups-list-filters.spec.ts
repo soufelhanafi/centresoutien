@@ -7,14 +7,9 @@ import { STR, DIRECTION, boot, gotoGroups, pageCrashed, type Launched, type Loca
  * Black-box, driven only through the running packaged app. Runs under both the
  * `fr` (LTR) and `ar` (RTL) Playwright projects.
  *
- * MOCK BOUNDARY: the Groups screen reads from a mock read model (frontend gateway
- * seam) until SOU-127 lands. A fresh app therefore shows four deterministic seed
- * groups, NOT an empty list — so the active-empty state is not reachable here and
- * is intentionally not asserted. The archived-empty and no-results states ARE
- * reachable and are covered.
- *
- * Seed groups (mock): Math·Régulier·2 Bac SM (3/20), Physique-Chimie·Régulier·
- * 1 Bac SE (3/3), SVT·Régulier·3AC (0/12), Math·Prépa examen·2 Bac SM (1/10).
+ * Seed groups (real IPC, via `boot()`): Math·Régulier·2 Bac SM (3/20), Physique-
+ * Chimie·Régulier·1 Bac SE, SVT·Régulier·3AC (0/12), Math·Prépa examen·2 Bac SM,
+ * Français·Régulier·1 Bac SE (archived).
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -25,6 +20,38 @@ test.afterEach(async () => {
   live = null;
 });
 
+const SUBJECTS = [
+  { nameFr: 'Mathématiques', nameAr: 'الرياضيات', code: 'MATH' },
+  { nameFr: 'Physique-Chimie', nameAr: 'الفيزياء والكيمياء', code: 'PHYS' },
+  { nameFr: 'SVT', nameAr: 'علوم الحياة والأرض', code: 'SVT' },
+  { nameFr: 'Français', nameAr: 'الفرنسية', code: 'FR' },
+];
+const ROOMS = [
+  { name: 'Salle 1', capacity: 30 },
+  { name: 'Salle 2', capacity: 30 },
+  { name: 'Salle 3', capacity: 30 },
+];
+const TEACHERS = [
+  { nameFr: 'M. Alaoui', nameAr: 'الأستاذ العلوي', phone: '+212600100001' },
+  { nameFr: 'Mme Bennani', nameAr: 'الأستاذة بنّاني', phone: '+212600100002' },
+];
+const GROUPS = [
+  { subjectIdx: 0, roomIdx: 0, teacherIdx: 0, level: '2 Bac SM', capacity: 20, kind: 'regular' as const, enrolledCount: 3 },
+  { subjectIdx: 1, roomIdx: 1, teacherIdx: 1, level: '1 Bac SE', capacity: 3, kind: 'regular' as const },
+  { subjectIdx: 2, roomIdx: 2, level: '3AC', capacity: 12, kind: 'regular' as const },
+  { subjectIdx: 0, roomIdx: 0, teacherIdx: 0, level: '2 Bac SM', capacity: 10, kind: 'exam-prep' as const },
+  { subjectIdx: 3, roomIdx: 1, teacherIdx: 1, level: '1 Bac SE', capacity: 18, kind: 'regular' as const, archived: true },
+  // Every seeded subject needs at least one ACTIVE group so the subject filter's
+  // dynamically-picked option (alphabetically first, by `subject.list` ordering)
+  // always has a non-empty result — Français would otherwise only exist on the
+  // archived group above.
+  { subjectIdx: 3, roomIdx: 2, level: 'Terminale', capacity: 10, kind: 'regular' as const },
+];
+
+async function bootSeeded(locale: Locale) {
+  return boot(locale, { subjects: SUBJECTS, rooms: ROOMS, teachers: TEACHERS, groups: GROUPS });
+}
+
 /** Data rows (role=row) excluding the header row. */
 function dataRow(win: Page, level: RegExp) {
   return win.getByRole('row', { name: level });
@@ -32,7 +59,7 @@ function dataRow(win: Page, level: RegExp) {
 
 test('List renders header, tabs, filters and the seeded groups', async () => {
   const L = STR[locale()];
-  live = await boot(locale());
+  live = await bootSeeded(locale());
   const win = live.win;
   await gotoGroups(win, L);
   await win.screenshot({ path: `test-results/groups-list-${locale()}.png` });
@@ -60,7 +87,7 @@ test('List renders header, tabs, filters and the seeded groups', async () => {
 
 test('Kind filter narrows the list to exam-prep only', async () => {
   const L = STR[locale()];
-  live = await boot(locale());
+  live = await bootSeeded(locale());
   const win = live.win;
   await gotoGroups(win, L);
 
@@ -76,7 +103,7 @@ test('Kind filter narrows the list to exam-prep only', async () => {
 
 test('Subject filter keeps only rows of the chosen subject', async () => {
   const L = STR[locale()];
-  live = await boot(locale());
+  live = await bootSeeded(locale());
   const win = live.win;
   await gotoGroups(win, L);
 
@@ -100,7 +127,7 @@ test('Subject filter keeps only rows of the chosen subject', async () => {
 
 test('Level search filters by level and shows the no-results state', async () => {
   const L = STR[locale()];
-  live = await boot(locale());
+  live = await bootSeeded(locale());
   const win = live.win;
   await gotoGroups(win, L);
 
@@ -116,13 +143,9 @@ test('Level search filters by level and shows the no-results state', async () =>
   await win.screenshot({ path: `test-results/groups-no-results-${locale()}.png` });
 });
 
-test('Archived tab renders archived groups with a restore action (mock boundary)', async () => {
-  // NOTE: the mock read model seeds one archived group ("Français · 1 Bac SE"),
-  // so the archived-EMPTY state is not reachable under the mock and is not
-  // asserted here. This verifies the archived tab surface + restore affordance;
-  // re-verify the empty state after SOU-127.
+test('Archived tab renders archived groups with a restore action', async () => {
   const L = STR[locale()];
-  live = await boot(locale());
+  live = await bootSeeded(locale());
   const win = live.win;
   await gotoGroups(win, L);
 
@@ -135,7 +158,7 @@ test('Archived tab renders archived groups with a restore action (mock boundary)
 
 test('Locale direction and RTL header mirroring', async () => {
   const L = STR[locale()];
-  live = await boot(locale());
+  live = await bootSeeded(locale());
   const win = live.win;
   await gotoGroups(win, L);
 

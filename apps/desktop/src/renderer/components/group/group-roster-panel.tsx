@@ -81,8 +81,6 @@ export function GroupRosterPanel({ group }: { group: GroupRow }) {
         </ul>
       )}
 
-      <p className="text-xs text-muted-foreground">{t('groups.roster.pending')}</p>
-
       <AddStudentDialog groupId={group.id} open={addOpen} onOpenChange={setAddOpen} />
     </section>
   );

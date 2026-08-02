@@ -20,6 +20,7 @@ import {
 import { useEnrollableStudents } from '../../hooks/group/use-enrollable-students';
 import { useAddStudent } from '../../hooks/group/use-add-student';
 import { localizedName } from '../../lib/groups/localized-name';
+import { enrollmentErrorCode } from '../../lib/groups/enrollment-error';
 
 /** The current calendar month, `YYYY-MM` — the default enrollment start. */
 function currentMonth(): string {
@@ -62,8 +63,13 @@ export function AddStudentDialog({
       await add.mutateAsync({ groupId, studentId, startMonth });
       toast.success(t('groups.roster.addSuccess'));
       onOpenChange(false);
-    } catch {
-      toast.error(t('groups.roster.addError'));
+    } catch (error) {
+      // Surface each domain guard (full / duplicate / cross-kind / no
+      // subscription) with its own message; fall back to the generic one for a
+      // validation or transport failure. The modal stays open so the user can fix
+      // the pick.
+      const code = enrollmentErrorCode(error);
+      toast.error(code ? t(`errors.${code}`) : t('groups.roster.addError'));
     }
   };
 

@@ -5,15 +5,12 @@ import { STR, boot, gotoGroups, type Launched, type Locale } from './groups.fixt
  * SOU-50 — Group CRUD UI · CREATE + EDIT metadata.
  *
  * Runs under both `fr` (LTR) and `ar` (RTL) projects. The create/edit form's
- * subject/room dropdowns are populated by the mock read model.
+ * subject/room dropdowns are populated by the real `subject.list` / `room.list`
+ * channels (SOU-124), seeded through the public bridge in `boot()`.
  *
  * REGRESSION GUARD (see "create succeeds" / "edit saves"): with a subject and a
  * room selected from the form's OWN dropdowns, submit must be accepted — the
- * dialog closes, success feedback appears, and the row is created/updated. This
- * previously failed because the mock dropdown option IDs were human-readable
- * slugs (`sub_math`) that the domain `groupInputSchema` rejects as `invalid-id`
- * (it requires `{prefix}_{ULID}`); the mock seed now supplies valid prefixed
- * ULIDs. Re-verify once SOU-127 wires the real subject/room read model.
+ * dialog closes, success feedback appears, and the row is created/updated.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -23,6 +20,15 @@ test.afterEach(async () => {
   await live?.app.close();
   live = null;
 });
+
+const SUBJECTS = [
+  { nameFr: 'Mathématiques', nameAr: 'الرياضيات', code: 'MATH' },
+  { nameFr: 'Physique-Chimie', nameAr: 'الفيزياء والكيمياء', code: 'PHYS' },
+];
+const ROOMS = [
+  { name: 'Salle 1', capacity: 30 },
+  { name: 'Salle 2', capacity: 30 },
+];
 
 async function openCreate(win: Page, L: (typeof STR)[Locale]) {
   await win.getByRole('button', { name: L.newBtn }).first().click();
@@ -34,9 +40,9 @@ async function openCreate(win: Page, L: (typeof STR)[Locale]) {
 /** Fill the create form with a subject + room chosen from the form's own lists. */
 async function fillValidGroup(win: Page, dialog: ReturnType<Page['getByRole']>, L: (typeof STR)[Locale], level: string) {
   await dialog.getByRole('combobox', { name: L.form.subject }).click();
-  await win.getByRole('option').nth(1).click(); // first real subject
+  await win.getByRole('option').first().click();
   await dialog.getByRole('combobox', { name: L.form.room }).click();
-  await win.getByRole('option').nth(1).click(); // first real room
+  await win.getByRole('option').first().click();
   await dialog.getByLabel(L.form.level, { exact: false }).fill(level);
   await dialog.getByLabel(L.form.capacity, { exact: false }).fill('15');
 }
@@ -47,7 +53,7 @@ async function fillValidGroup(win: Page, dialog: ReturnType<Page['getByRole']>, 
 // ---------------------------------------------------------------------------
 test('Create form rejects an empty submit with inline errors', async () => {
   const L = STR[locale()];
-  live = await boot(locale());
+  live = await boot(locale(), { subjects: SUBJECTS, rooms: ROOMS });
   const win = live.win;
   await gotoGroups(win, L);
 
@@ -66,7 +72,7 @@ test('Create form rejects an empty submit with inline errors', async () => {
 // ---------------------------------------------------------------------------
 test('Create form rejects capacity below 1', async () => {
   const L = STR[locale()];
-  live = await boot(locale());
+  live = await boot(locale(), { subjects: SUBJECTS, rooms: ROOMS });
   const win = live.win;
   await gotoGroups(win, L);
 
@@ -81,11 +87,12 @@ test('Create form rejects capacity below 1', async () => {
 
 // ---------------------------------------------------------------------------
 // Happy path — a fully valid group can be created. The subject/room IDs from the
-// form's own dropdowns must be accepted (valid {prefix}_{ULID}, not slugs).
+// form's own dropdowns must be accepted (real ULIDs from `subject.create` /
+// `room.create`).
 // ---------------------------------------------------------------------------
 test('Create succeeds with a valid group (success feedback + row appears)', async () => {
   const L = STR[locale()];
-  live = await boot(locale());
+  live = await boot(locale(), { subjects: SUBJECTS, rooms: ROOMS });
   const win = live.win;
   await gotoGroups(win, L);
 
@@ -93,7 +100,6 @@ test('Create succeeds with a valid group (success feedback + row appears)', asyn
   await fillValidGroup(win, dialog, L, 'ZZ-CREATED');
   await dialog.getByRole('button', { name: L.form.create }).click();
 
-  // The subject/room IDs supplied by the mock dropdowns must be accepted.
   await expect(
     dialog.getByText(L.errors.invalidId),
     'subject/room selected from the form must not be rejected as "Identifiant invalide"',
@@ -105,15 +111,18 @@ test('Create succeeds with a valid group (success feedback + row appears)', asyn
 
 // ---------------------------------------------------------------------------
 // Edit metadata — change level/capacity on an existing group and save. Save must
-// be accepted: the seeded group's subject/room IDs are valid {prefix}_{ULID}.
+// be accepted: the seeded group's subject/room ids are real ULIDs.
 // ---------------------------------------------------------------------------
 test('Edit metadata saves and re-renders', async () => {
   const L = STR[locale()];
-  live = await boot(locale());
+  live = await boot(locale(), {
+    subjects: SUBJECTS,
+    rooms: ROOMS,
+    groups: [{ subjectIdx: 0, roomIdx: 0, level: '1 Bac SE', capacity: 15 }],
+  });
   const win = live.win;
   await gotoGroups(win, L);
 
-  // Physique-Chimie has the unique level "1 Bac SE".
   const row = win.getByRole('row', { name: /1 Bac SE/ });
   await row.getByRole('button', { name: L.row.menu }).click();
   await win.getByRole('menuitem', { name: L.row.edit }).click();

@@ -77,6 +77,10 @@
     "invalid-holiday-kind": "Type de jour férié invalide",
     "invalid-kind": "Type de groupe invalide",
     "invalid-month": "Mois invalide (AAAA-MM)",
+    "group-full": "Ce groupe est complet : toutes les places sont occupées.",
+    "duplicate-enrollment": "Cet élève est déjà inscrit dans ce groupe.",
+    "cross-kind-enrollment": "L'abonnement de l'élève ne correspond pas au type du groupe (régulier / prépa examen).",
+    "enrollment-subscription-missing": "L'élève n'a aucun abonnement actif couvrant la matière de ce groupe.",
     "malformed-session-time": "L'heure de fin doit être après l'heure de début",
     "session-outside-center-hours": "La séance est en dehors des horaires d'ouverture du centre",
     "room-conflict": "La salle est déjà occupée sur ce créneau",
@@ -230,8 +234,7 @@
         "title": "Aucun élève inscrit",
         "body": "Ajoutez un élève pour constituer ce groupe."
       },
-      "loadError": "Le chargement des inscriptions a échoué.",
-      "pending": "Read-model provisoire — les inscriptions réelles arrivent avec SOU-127."
+      "loadError": "Le chargement des inscriptions a échoué."
     }
   },
   "guardian": {

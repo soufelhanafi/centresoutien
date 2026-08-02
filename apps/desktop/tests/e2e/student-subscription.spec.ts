@@ -208,7 +208,7 @@ test('Scenario 5 — TooManyActiveSubscriptionsError blocks a second overlapping
   });
 
   expect(err, 'a second overlapping active "regular" subscription must be rejected').not.toBeNull();
-  expect(err).toContain('TooManyActiveSubscriptionsError');
+  expect(err).toContain('too-many-active-subscriptions');
 });
 
 // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PasswordSettings } from '../../../src/renderer/components/settings/password-settings';
 import i18n from '../../../src/renderer/i18n/config';
+import { encodeDomainError } from '../../../src/shared/ipc/domain-error';
 
 function renderForm() {
   const client = new QueryClient({
@@ -61,9 +62,8 @@ describe('Password settings — French', () => {
 
   it('shows the wrong-current-password error inline on the current-password field', async () => {
     window.api.invoke = vi.fn(async () => {
-      throw new Error(
-        "Error invoking remote method 'admin.changePassword': InvalidCurrentPasswordError: boom",
-      );
+      const encoded = encodeDomainError({ code: 'InvalidCurrentPasswordError', message: 'boom' });
+      throw new Error(`Error invoking remote method 'admin.changePassword': Error: ${encoded}`);
     });
     const user = userEvent.setup();
     renderForm();
