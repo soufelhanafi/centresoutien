@@ -7,7 +7,13 @@ import type { WeeklyRecurringSession } from '../entities/weekly-recurring-sessio
 import { newEnvelope } from '../entities/envelope';
 import { eachDateInRange, weekdayOf } from '../value-objects/date-range';
 import { holidayOn } from '../policies/holiday-policy';
-import { SESSION_ID_PREFIX, type Session, type SessionId } from '../entities/session';
+import {
+  GENERATION_BATCH_ID_PREFIX,
+  SESSION_ID_PREFIX,
+  type GenerationBatchId,
+  type Session,
+  type SessionId,
+} from '../entities/session';
 
 export type GenerateSessionsInput = {
   /** The template to materialize; supplies room, teacher, weekday, time range, and `centerCode`. */
@@ -41,6 +47,13 @@ export type GenerateSessionsInput = {
  *   yields the same pairs; the persistence-level upsert (SOU-129) uses that key to
  *   discard the duplicate rows a re-run's fresh ULIDs would otherwise create.
  *
+ * Every occurrence a single `execute()` call materializes shares one fresh
+ * {@link GenerationBatchId} (SOU-160), minted once via the injected `ids` before
+ * the loop — the tag `UndoGenerationBatch` bulk-cancels by. A natural-key
+ * collision at the persistence upsert leaves the stored row's original batch id
+ * untouched, so re-running a generator never re-tags already-materialized dates
+ * into the new run's batch — only the newly-covered dates carry it.
+ *
  * Invoicing is untouched — billing is monthly per subscription, never per
  * session — so a month with a holiday materializes fewer sessions but charges
  * the same.
@@ -61,6 +74,7 @@ export class GenerateSessions {
     // A paused template (SOU-52 `active` toggle) materializes nothing — the slot is
     // still on the grid but produces no dated occurrences until it is resumed.
     if (!recurring.active) return sessions;
+    const generationBatchId = this.ids.next(GENERATION_BATCH_ID_PREFIX) as GenerationBatchId;
     for (const date of eachDateInRange(range)) {
       if (weekdayOf(date) !== recurring.dayOfWeek) continue;
       // Skip dates outside the recurrence's validity window (SOU-52). Both bounds
@@ -69,7 +83,7 @@ export class GenerateSessions {
       if (recurring.validFrom !== null && date < recurring.validFrom) continue;
       if (recurring.validTo !== null && date > recurring.validTo) continue;
       if (holidayOn(date, holidays) !== null) continue;
-      sessions.push(this.materialize(recurring, date, input));
+      sessions.push(this.materialize(recurring, date, input, generationBatchId));
     }
     return sessions;
   }
@@ -78,6 +92,7 @@ export class GenerateSessions {
     recurring: WeeklyRecurringSession,
     date: string,
     input: GenerateSessionsInput,
+    generationBatchId: GenerationBatchId,
   ): Session {
     return {
       id: this.ids.next(SESSION_ID_PREFIX) as SessionId,
@@ -90,6 +105,7 @@ export class GenerateSessions {
         this.clock,
       ),
       recurringSessionId: recurring.id,
+      generationBatchId,
       roomId: recurring.roomId,
       teacherId: recurring.teacherId,
       groupId: recurring.groupId,

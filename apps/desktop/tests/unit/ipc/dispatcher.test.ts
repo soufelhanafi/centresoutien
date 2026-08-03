@@ -19,11 +19,13 @@ import type {
   WeekdayIndex,
   WeeklyRecurringSessionId,
   SessionId,
+  GenerationBatchId,
 } from '@centresoutien/domain';
 import {
   GroupFullError,
   GroupNotFoundError,
   WeeklyRecurringSessionNotFoundError,
+  GenerationBatchNotFoundError,
 } from '@centresoutien/domain';
 import { createIpcDispatcher } from '../../../src/main/ipc/dispatcher';
 import { decodeDomainError } from '../../../src/shared/ipc/domain-error';
@@ -42,6 +44,7 @@ import {
   type RestoreGroupUseCase,
   type ListWeekSessionsUseCase,
   type GenerateAndPersistSessionsUseCase,
+  type UndoGenerationBatchUseCase,
   type CreateWeeklyRecurringSessionUseCase,
   type UpdateWeeklyRecurringSessionUseCase,
   type CancelWeeklyRecurringSessionUseCase,
@@ -240,24 +243,40 @@ const stubListWeekSessions: ListWeekSessionsUseCase = {
 // context and one materialized occurrence so the handler can prove it maps the
 // request (from/to → range) and strips the envelope to `sessionViewSchema`.
 const stubGenerateSessions: GenerateAndPersistSessionsUseCase = {
-  execute: async (input) => [
-    {
-      id: 'ses_00000000000000000000000001' as SessionId,
-      centerCode: input.centerCode,
-      deviceOrigin: input.deviceOrigin,
-      createdAt: new Date('2026-07-29T10:00:00Z'),
-      updatedAt: new Date('2026-07-29T10:00:00Z'),
-      updatedBy: input.updatedBy,
-      deletedAt: null,
-      version: 0,
-      recurringSessionId: input.recurringSessionId,
-      roomId: 'rom_00000000000000000000000001' as RoomId,
-      teacherId: null,
-      date: input.range.start,
-      start: '09:00' as TimeOfDay,
-      end: '10:00' as TimeOfDay,
-    },
-  ],
+  execute: async (input) => ({
+    generationBatchId: 'gen_00000000000000000000000001' as GenerationBatchId,
+    sessions: [
+      {
+        id: 'ses_00000000000000000000000001' as SessionId,
+        centerCode: input.centerCode,
+        deviceOrigin: input.deviceOrigin,
+        createdAt: new Date('2026-07-29T10:00:00Z'),
+        updatedAt: new Date('2026-07-29T10:00:00Z'),
+        updatedBy: input.updatedBy,
+        deletedAt: null,
+        version: 0,
+        recurringSessionId: input.recurringSessionId,
+        generationBatchId: 'gen_00000000000000000000000001' as GenerationBatchId,
+        roomId: 'rom_00000000000000000000000001' as RoomId,
+        teacherId: null,
+        date: input.range.start,
+        start: '09:00' as TimeOfDay,
+        end: '10:00' as TimeOfDay,
+      },
+    ],
+  }),
+};
+
+// Stub bulk-undo (SOU-160) — the sentinel batch id throws
+// GenerationBatchNotFoundError to prove the boundary does NOT swallow it.
+const MISSING_BATCH_ID = 'gen_00000000000000000000000099' as GenerationBatchId;
+const stubUndoGenerationBatch: UndoGenerationBatchUseCase = {
+  execute: async (input) => {
+    if (input.generationBatchId === MISSING_BATCH_ID) {
+      throw new GenerationBatchNotFoundError(input.generationBatchId);
+    }
+    return { cancelledCount: 2, skippedOccurredCount: 1 };
+  },
 };
 
 // Weekly recurring session write stubs (SOU-131). create/update echo an
@@ -382,6 +401,7 @@ const dispatch = createIpcDispatcher(
     createParent: stubCreateParent,
     listWeekSessions: stubListWeekSessions,
     generateSessions: stubGenerateSessions,
+    undoGenerationBatch: stubUndoGenerationBatch,
     createWeeklySession: stubCreateWeeklySession,
     updateWeeklySession: stubUpdateWeeklySession,
     cancelWeeklySession: stubCancelWeeklySession,
@@ -469,10 +489,12 @@ describe('createIpcDispatcher', () => {
         to: '2026-01-31',
       }),
     ).resolves.toEqual({
+      generationBatchId: 'gen_00000000000000000000000001',
       sessions: [
         {
           id: 'ses_00000000000000000000000001',
           recurringSessionId: 'wrs_00000000000000000000000001',
+          generationBatchId: 'gen_00000000000000000000000001',
           roomId: 'rom_00000000000000000000000001',
           teacherId: null,
           date: '2026-01-01',
@@ -481,6 +503,26 @@ describe('createIpcDispatcher', () => {
         },
       ],
     });
+  });
+
+  it('runs session.undoGenerationBatch and returns the cancelled/skipped counts', async () => {
+    await expect(
+      dispatch('session.undoGenerationBatch', {
+        generationBatchId: 'gen_00000000000000000000000001',
+      }),
+    ).resolves.toEqual({ cancelledCount: 2, skippedOccurredCount: 1 });
+  });
+
+  it('does NOT swallow GenerationBatchNotFoundError on session.undoGenerationBatch', async () => {
+    await expect(
+      dispatch('session.undoGenerationBatch', { generationBatchId: MISSING_BATCH_ID }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects session.undoGenerationBatch with a non-gen batch id', async () => {
+    await expect(
+      dispatch('session.undoGenerationBatch', { generationBatchId: 'rom_00000000000000000000000001' }),
+    ).rejects.toThrow();
   });
 
   it('rejects session.generate with a backwards window (to before from)', async () => {

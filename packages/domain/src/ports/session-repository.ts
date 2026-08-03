@@ -1,5 +1,5 @@
 import type { SoftDeletableRepository } from '../repositories/soft-deletable';
-import type { Session, SessionId } from '../entities/session';
+import type { Session, SessionId, GenerationBatchId } from '../entities/session';
 import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-session';
 import type { CenterCode } from '../value-objects/ids';
 import type { DateRange } from '../value-objects/date-range';
@@ -57,5 +57,16 @@ export interface SessionRepository extends SoftDeletableRepository<SessionId, Se
   listForRange(
     centerCode: CenterCode,
     range: DateRange,
+  ): Promise<readonly Session[]>;
+
+  /**
+   * Live (non-tombstoned) occurrences stamped with `batchId` — the read
+   * `UndoGenerationBatch` (SOU-160) uses to find every row one generator run
+   * produced. Scoped to `centerCode` so a batch id can never resolve rows
+   * belonging to another tenant.
+   */
+  listByGenerationBatch(
+    centerCode: CenterCode,
+    batchId: GenerationBatchId,
   ): Promise<readonly Session[]>;
 }

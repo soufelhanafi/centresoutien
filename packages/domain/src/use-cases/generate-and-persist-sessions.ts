@@ -5,7 +5,7 @@ import type { PlanPolicy } from '../plans/plan-policy';
 import type { GenerateSessions } from './generate-sessions';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import type { DateRange } from '../value-objects/date-range';
-import type { Session } from '../entities/session';
+import type { GenerationBatchId, Session } from '../entities/session';
 import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-session';
 import { WeeklyRecurringSessionNotFoundError } from '../errors/scheduling-errors';
 
@@ -22,6 +22,20 @@ export type GenerateAndPersistSessionsInput = {
   updatedBy: UserId;
 };
 
+export type GenerateAndPersistSessionsResult = {
+  /**
+   * The id this call's own run minted (SOU-160), or `null` if the run
+   * materialized nothing (paused template / empty range). `sessions` below is
+   * the **persisted window read**, which mixes this id with any older batch
+   * ids already stored on pre-existing dates — `generationBatchId` is the only
+   * reliable way for a caller to know what THIS call itself just tagged, e.g.
+   * to offer "undo this run" right after generating.
+   */
+  generationBatchId: GenerationBatchId | null;
+  /** Persisted truth for the requested window: real stored ids, tombstones excluded. */
+  sessions: readonly Session[];
+};
+
 /**
  * The persistence/IPC seam over the pure {@link GenerateSessions} generator: it
  * resolves the recurrence template and the center's holidays, runs the pure
@@ -34,12 +48,16 @@ export type GenerateAndPersistSessionsInput = {
  * `(recurringSessionId, date)`, so re-running over an overlapping window inserts
  * only newly-covered dates and writes nothing to rows that already exist — no
  * phantom sync churn, and a cancelled (soft-deleted) occurrence is never
- * resurrected. The use case returns the **persisted truth** — a
+ * resurrected. `sessions` on the result is the **persisted truth** — a
  * {@link SessionRepository.listForRange} read of the window after the upsert —
  * not the generator output: `generated` carries fresh ULIDs for already-stored
  * dates (which the natural-key upsert discards) and includes soft-deleted
  * occurrences the generator can't see are cancelled. The read gives real stored
- * ids with tombstones excluded.
+ * ids with tombstones excluded, but on a re-run it mixes this call's batch id
+ * with older ones already on pre-existing dates — that's exactly why
+ * `generationBatchId` is returned separately (SOU-160): it is unambiguously
+ * *this* call's own tag, straight from the generator, for a caller that wants
+ * to offer "undo what I just generated".
  *
  * The template is loaded through `findById` (which hides tombstones) and its
  * `centerCode` is checked against the request, so an unknown, deleted, or
@@ -56,7 +74,7 @@ export class GenerateAndPersistSessions {
     private readonly plan: PlanPolicy,
   ) {}
 
-  async execute(input: GenerateAndPersistSessionsInput): Promise<readonly Session[]> {
+  async execute(input: GenerateAndPersistSessionsInput): Promise<GenerateAndPersistSessionsResult> {
     this.plan.require('core.calendar.week');
 
     const recurring = await this.recurrences.findById(input.recurringSessionId);
@@ -74,6 +92,11 @@ export class GenerateAndPersistSessions {
     });
 
     await this.sessions.upsertMany(generated);
-    return this.sessions.listForRange(input.centerCode, input.range); // persisted truth: real ids, tombstones excluded
+    // Every element `generated` produces shares one batch id (minted once by
+    // the generator before its loop), so the first entry speaks for the run —
+    // `null` only when the run made zero occurrences.
+    const generationBatchId = generated[0]?.generationBatchId ?? null;
+    const sessions = await this.sessions.listForRange(input.centerCode, input.range);
+    return { generationBatchId, sessions };
   }
 }

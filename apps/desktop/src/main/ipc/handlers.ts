@@ -92,6 +92,7 @@ import type {
   ListWeekSessions,
   WeeklySessionView,
   GenerateAndPersistSessions,
+  UndoGenerationBatch,
   CreateWeeklyRecurringSession,
   UpdateWeeklyRecurringSession,
   CancelWeeklyRecurringSession,
@@ -99,6 +100,7 @@ import type {
   AttendanceRecord,
   Session,
   WeeklyRecurringSessionId,
+  GenerationBatchId,
   CreateAdminAccount,
   VerifyAdminPassword,
   ChangeAdminPassword,
@@ -216,6 +218,7 @@ export type ArchiveHolidayUseCase = Pick<ArchiveHoliday, 'execute'>;
 export type RestoreHolidayUseCase = Pick<RestoreHoliday, 'execute'>;
 export type ListWeekSessionsUseCase = Pick<ListWeekSessions, 'execute'>;
 export type GenerateAndPersistSessionsUseCase = Pick<GenerateAndPersistSessions, 'execute'>;
+export type UndoGenerationBatchUseCase = Pick<UndoGenerationBatch, 'execute'>;
 export type CreateWeeklyRecurringSessionUseCase = Pick<CreateWeeklyRecurringSession, 'execute'>;
 export type UpdateWeeklyRecurringSessionUseCase = Pick<UpdateWeeklyRecurringSession, 'execute'>;
 export type CancelWeeklyRecurringSessionUseCase = Pick<CancelWeeklyRecurringSession, 'execute'>;
@@ -499,6 +502,7 @@ function toSessionView(session: Session) {
   return {
     id: session.id,
     recurringSessionId: session.recurringSessionId,
+    generationBatchId: session.generationBatchId,
     roomId: session.roomId,
     teacherId: session.teacherId,
     date: session.date,
@@ -609,6 +613,7 @@ export type HandlerDeps = BackupHandlerDeps &
   restoreHoliday: RestoreHolidayUseCase;
   listWeekSessions: ListWeekSessionsUseCase;
   generateSessions: GenerateAndPersistSessionsUseCase;
+  undoGenerationBatch: UndoGenerationBatchUseCase;
   recordSessionAttendance: RecordSessionAttendanceUseCase;
   getStudentAttendanceReport: GetStudentAttendanceReportUseCase;
   getGroupAttendanceSheet: GetGroupAttendanceSheetUseCase;
@@ -1199,14 +1204,26 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     },
     'session.generate': async (request) => {
       const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
-      const sessions = await deps.generateSessions.execute({
+      const { generationBatchId, sessions } = await deps.generateSessions.execute({
         centerCode,
         recurringSessionId: request.recurringSessionId as WeeklyRecurringSessionId,
         range: { start: request.from, end: request.to },
         deviceOrigin,
         updatedBy,
       });
-      return { sessions: sessions.map(toSessionView) };
+      return { generationBatchId, sessions: sessions.map(toSessionView) };
+    },
+    'session.undoGenerationBatch': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      // Not swallowed like *.archive: an unknown, foreign-center, or
+      // already-fully-cancelled batch id (GenerationBatchNotFoundError) is
+      // rejected rather than silently no-op'ing, so a stale renderer id can
+      // never masquerade as success.
+      return deps.undoGenerationBatch.execute({
+        centerCode,
+        generationBatchId: request.generationBatchId as GenerationBatchId,
+        updatedBy,
+      });
     },
     'attendance.record': async (request) => {
       const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();

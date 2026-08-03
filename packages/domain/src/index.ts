@@ -118,6 +118,7 @@ export {
   InvalidSessionValidityRangeError,
   WeeklyRecurringSessionNotFoundError,
   SessionNotFoundError,
+  GenerationBatchNotFoundError,
 } from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/scheduling-errors';
 export { InfeasibleGeneratorConfigError, NoRoomsConfiguredError } from './errors/session-generator-errors';
@@ -182,10 +183,10 @@ export { groupInputSchema, GROUP_LEVEL_MAX, GROUP_CAPACITY_MIN } from './schemas
 export type { GroupInput } from './schemas/group';
 export { enrollmentInputSchema, MONTH_PATTERN } from './schemas/enrollment';
 export type { EnrollmentInput } from './schemas/enrollment';
-export { generateSessionsSchema } from './schemas/session';
+export { generateSessionsSchema, undoGenerationBatchSchema } from './schemas/session';
 export { recordSessionAttendanceSchema } from './schemas/attendance';
 export type { RecordSessionAttendanceRequest } from './schemas/attendance';
-export type { GenerateSessionsRequest } from './schemas/session';
+export type { GenerateSessionsRequest, UndoGenerationBatchRequest } from './schemas/session';
 export {
   weeklyRecurringSessionInputSchema,
   weeklyRecurringSessionUpdateSchema,
@@ -318,8 +319,8 @@ export type {
   WeeklyRecurringSessionId,
   WeeklyRecurringSessionDraft,
 } from './entities/weekly-recurring-session';
-export { SESSION_ID_PREFIX } from './entities/session';
-export type { Session, SessionId } from './entities/session';
+export { SESSION_ID_PREFIX, GENERATION_BATCH_ID_PREFIX } from './entities/session';
+export type { Session, SessionId, GenerationBatchId } from './entities/session';
 export { ATTENDANCE_RECORD_ID_PREFIX, ATTENDANCE_STATUSES } from './entities/attendance-record';
 export type { AttendanceRecord, AttendanceRecordId, AttendanceStatus } from './entities/attendance-record';
 
@@ -695,6 +696,11 @@ export { GenerateSessions } from './use-cases/generate-sessions';
 export type { GenerateSessionsInput } from './use-cases/generate-sessions';
 export { GenerateAndPersistSessions } from './use-cases/generate-and-persist-sessions';
 export type { GenerateAndPersistSessionsInput } from './use-cases/generate-and-persist-sessions';
+export { UndoGenerationBatch } from './use-cases/undo-generation-batch';
+export type {
+  UndoGenerationBatchInput,
+  UndoGenerationBatchResult,
+} from './use-cases/undo-generation-batch';
 export { CreateWeeklyRecurringSession } from './use-cases/create-weekly-recurring-session';
 export type { CreateWeeklyRecurringSessionInput } from './use-cases/create-weekly-recurring-session';
 export { UpdateWeeklyRecurringSession } from './use-cases/update-weekly-recurring-session';

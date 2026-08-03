@@ -1,5 +1,5 @@
 import { InMemorySoftDeletableRepository } from './in-memory-soft-deletable';
-import type { Session, SessionId } from '../../../src/entities/session';
+import type { Session, SessionId, GenerationBatchId } from '../../../src/entities/session';
 import type { WeeklyRecurringSessionId } from '../../../src/entities/weekly-recurring-session';
 import type { SessionRepository } from '../../../src/ports/session-repository';
 import type { CenterCode } from '../../../src/value-objects/ids';
@@ -53,6 +53,21 @@ export class InMemorySessionRepository
           row.centerCode === centerCode &&
           range.start <= row.date &&
           row.date <= range.end,
+      )
+      .sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start))
+      .map((row) => structuredClone(row));
+  }
+
+  async listByGenerationBatch(
+    centerCode: CenterCode,
+    batchId: GenerationBatchId,
+  ): Promise<readonly Session[]> {
+    return [...this.rows.values()]
+      .filter(
+        (row) =>
+          row.deletedAt === null &&
+          row.centerCode === centerCode &&
+          row.generationBatchId === batchId,
       )
       .sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start))
       .map((row) => structuredClone(row));
