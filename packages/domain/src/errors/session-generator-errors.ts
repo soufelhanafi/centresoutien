@@ -34,3 +34,18 @@ export class InfeasibleGeneratorConfigError extends DomainError {
     );
   }
 }
+
+/**
+ * Thrown by the session generator (SOU-158) when it needs to assign a room to
+ * at least one generated block but was given an empty room pool. Every
+ * `WeeklyRecurringSession` requires a `roomId`, so a center with zero rooms
+ * configured cannot receive a generated plan until at least one room exists.
+ * Carries the stable `no-rooms-configured` code for `t(\`errors.${code}\`)`.
+ */
+export class NoRoomsConfiguredError extends DomainError {
+  readonly code = 'no-rooms-configured';
+
+  constructor() {
+    super('Cannot assign rooms to the generated plan: no rooms are configured for this center.');
+  }
+}

@@ -1,12 +1,14 @@
 import type { RandomPort } from '../ports/random-port';
 import type { WeekdayIndex } from '../value-objects/weekday';
-import type { TimeOfDay } from '../value-objects/time-of-day';
+import { toMinutes, type TimeOfDay } from '../value-objects/time-of-day';
+import type { EntityId } from '../value-objects/ids';
 import type { GroupId, GroupKind } from '../entities/group';
 import type { TeacherId } from '../entities/teacher';
+import type { RoomId } from '../entities/room';
 import type { DayHours } from '../policies/session-conflict-policy';
 import { weeklyBlockFromOpen, type WeeklyBlock } from '../value-objects/weekly-block';
 import { gapViolations, satisfiesMinGap, type WeekdayGap } from '../policies/weekday-gap';
-import { InfeasibleGeneratorConfigError } from '../errors/session-generator-errors';
+import { InfeasibleGeneratorConfigError, NoRoomsConfiguredError } from '../errors/session-generator-errors';
 
 /** Which groups and teachers the run targets; the caller resolves `'all'` to concrete ids. */
 export type SessionGeneratorScope = {
@@ -50,10 +52,21 @@ export type SessionGeneratorConfig =
       readonly pickedWeekdays: readonly WeekdayIndex[];
     });
 
+/**
+ * One generated block paired with the room it was assigned (SOU-158). Every
+ * persisted `WeeklyRecurringSession` needs a `roomId`, so the engine never
+ * returns a bare `WeeklyBlock` — {@link SessionGenerator} picks the room as
+ * part of the same run.
+ */
+export type ScheduledBlockProposal = {
+  readonly block: WeeklyBlock;
+  readonly roomId: RoomId;
+};
+
 /** One group's proposed weekly pattern plus any gap breaches (always empty in auto mode). */
 export type GroupScheduleProposal = {
   readonly groupId: GroupId;
-  readonly blocks: readonly WeeklyBlock[];
+  readonly blocks: readonly ScheduledBlockProposal[];
   readonly gapViolations: readonly WeekdayGap[];
 };
 
@@ -64,46 +77,158 @@ export type SessionGeneratorResult = {
 /**
  * The scope-resolved inputs a run needs: the config, the concrete `groups` the
  * caller expanded from `config.scope` (resolving `'all'` needs a repository —
- * out of this pure engine), and the center's opening hours per weekday.
+ * out of this pure engine), the teacher staffing each group (nullable and typed
+ * `EntityId` rather than `TeacherId`, mirroring `Group.teacherId` — the Teacher
+ * entity's brand isn't wired through here yet), the pool of rooms the run may
+ * assign from, and the center's opening hours per weekday.
  */
 export type SessionGenerationInput = {
   readonly config: SessionGeneratorConfig;
   readonly groups: readonly GroupId[];
+  readonly teacherByGroup: ReadonlyMap<GroupId, EntityId | null>;
+  readonly rooms: readonly RoomId[];
   readonly centerHours: readonly DayHours[];
 };
 
+/** A block awaiting a room, still tagged with the group and teacher it belongs to. */
+type UnroomedProposal = {
+  readonly groupId: GroupId;
+  readonly blocks: readonly WeeklyBlock[];
+  readonly gapViolations: readonly WeekdayGap[];
+};
+
+/**
+ * One flattened block across every group in a run — the atomic unit
+ * {@link assignRoomsToBlocks} reasons about. Kept as its own exported shape (not
+ * folded back into `GroupScheduleProposal`) so the room-assignment step is a
+ * small, independently testable pure function: callers can hand it hand-built
+ * blocks with exact times, without going through weekday placement, to exercise
+ * the teacher room-continuity rule directly.
+ */
+export type UnroomedBlock = {
+  readonly groupId: GroupId;
+  readonly teacherId: EntityId | null;
+  readonly block: WeeklyBlock;
+};
+
+/**
+ * Assigns a room to every entry in `blocks`, in list order, drawing from
+ * `rooms` via `random` — except when the same teacher already has another
+ * entry in this same list back-to-back on the same weekday (one block's `end`
+ * equals another's `start`), in which case the later block reuses the earlier
+ * one's room rather than drawing a fresh one. Chains longer than two blocks
+ * propagate the same room through every link. This reasoning is intra-batch
+ * only: `blocks` is the full set generated in one run, nothing outside it is
+ * consulted. Throws {@link NoRoomsConfiguredError} when `blocks` is non-empty
+ * and `rooms` is empty — every generated block needs a room.
+ */
+export function assignRoomsToBlocks(
+  blocks: readonly UnroomedBlock[],
+  rooms: readonly RoomId[],
+  random: RandomPort,
+): ReadonlyMap<WeeklyBlock, RoomId> {
+  if (blocks.length === 0) return new Map();
+  if (rooms.length === 0) throw new NoRoomsConfiguredError();
+
+  const predecessorOf = linkBackToBackChains(blocks);
+  const roomByEntry = new Map<UnroomedBlock, RoomId>();
+  const resolveRoom = (entry: UnroomedBlock): RoomId => {
+    const cached = roomByEntry.get(entry);
+    if (cached !== undefined) return cached;
+    const predecessor = predecessorOf.get(entry) ?? null;
+    const roomId = predecessor !== null ? resolveRoom(predecessor) : rooms[random.nextInt(rooms.length)]!;
+    roomByEntry.set(entry, roomId);
+    return roomId;
+  };
+
+  const roomByBlock = new Map<WeeklyBlock, RoomId>();
+  for (const entry of blocks) {
+    roomByBlock.set(entry.block, resolveRoom(entry));
+  }
+  return roomByBlock;
+}
+
+/**
+ * Finds, for each block, the immediately preceding block that makes it a
+ * back-to-back continuation for room-continuity purposes: same teacher, same
+ * weekday, and the predecessor's `end` equals this block's `start`. Blocks
+ * with no teacher, or that stand alone on their weekday, never link.
+ */
+function linkBackToBackChains(entries: readonly UnroomedBlock[]): ReadonlyMap<UnroomedBlock, UnroomedBlock> {
+  const byTeacherAndDay = new Map<string, UnroomedBlock[]>();
+  for (const entry of entries) {
+    if (entry.teacherId === null) continue;
+    const key = `${entry.teacherId}|${entry.block.dayOfWeek}`;
+    const group = byTeacherAndDay.get(key);
+    if (group === undefined) byTeacherAndDay.set(key, [entry]);
+    else group.push(entry);
+  }
+
+  const predecessorOf = new Map<UnroomedBlock, UnroomedBlock>();
+  for (const group of byTeacherAndDay.values()) {
+    const sorted = [...group].sort((a, b) => toMinutes(a.block.start) - toMinutes(b.block.start));
+    for (let i = 1; i < sorted.length; i += 1) {
+      const previous = sorted[i - 1]!;
+      const current = sorted[i]!;
+      if (previous.block.end === current.block.start) {
+        predecessorOf.set(current, previous);
+      }
+    }
+  }
+  return predecessorOf;
+}
+
 /**
  * The pure auto-session-generator engine (SOU-158). It turns a
- * {@link SessionGeneratorConfig} into one {@link WeeklyBlock} pattern per group,
- * honoring a **minimum-gap constraint over an eligible weekday pool** — not a
- * rigid "every N days" interval. The gap is measured circularly around the week
- * (see {@link circularWeekdayGaps}), so a Monday session forces the next no
- * earlier than `minGapDays` later.
+ * {@link SessionGeneratorConfig} into one weekly pattern per group, each block
+ * paired with an assigned room, honoring a **minimum-gap constraint over an
+ * eligible weekday pool** — not a rigid "every N days" interval. The gap is
+ * measured circularly around the week (see {@link circularWeekdayGaps}), so a
+ * Monday session forces the next no earlier than `minGapDays` later.
+ *
+ * Room assignment (SOU-158, not SOU-161) picks a room at random from
+ * `input.rooms` via the injected {@link RandomPort} for every generated block,
+ * with one exception: when the same teacher has two blocks back-to-back on the
+ * same weekday within this same run (one block's `end` equals another's
+ * `start`), the later block reuses the earlier block's room instead of
+ * drawing a fresh one, so the teacher never has to switch rooms between
+ * consecutive classes. This reasoning is **intra-batch only** — it never reads
+ * the real, already-committed schedule; checking a generated room against
+ * sessions that exist outside this run is SOU-161.
  *
  * Randomization runs through the injected {@link RandomPort}, never
- * `Math.random()`, so a seeded fake makes every test deterministic. Each group
- * is selected independently, spreading groups across different days rather than
- * stacking them all on the same pattern.
+ * `Math.random()`, so a seeded fake makes every test deterministic. Each
+ * group's weekday pattern is selected independently, spreading groups across
+ * different days rather than stacking them all on the same pattern.
  *
- * Scope is deliberately narrow (KICKOFF): no persistence, no ids, no writes, and
- * **no room-conflict or holiday checks** — those are SOU-161. It reads center
- * hours only to place each block's start at the day's opening time and to drop
- * weekdays the center is closed on; a block that would overrun closing time is
- * SOU-161's concern, not this engine's.
+ * Scope is deliberately narrow: no persistence, no ids, no writes, and **no
+ * center-hours-overrun or holiday checks** — those are SOU-161. It reads
+ * center hours only to place each block's start at the day's opening time and
+ * to drop weekdays the center is closed on.
  */
 export class SessionGenerator {
   constructor(private readonly random: RandomPort) {}
 
   generate(input: SessionGenerationInput): SessionGeneratorResult {
-    const { config, groups, centerHours } = input;
+    const { config, groups, teacherByGroup, rooms, centerHours } = input;
     const openByWeekday = this.openTimeByWeekday(centerHours);
     const eligiblePool = [...new Set(config.weekdayPool)].filter((day) => openByWeekday.has(day));
 
-    const proposals = groups.map((groupId) =>
+    const unroomed = groups.map((groupId) =>
       config.mode === 'auto'
         ? this.autoProposal(groupId, config, eligiblePool, openByWeekday)
         : this.customProposal(groupId, config, openByWeekday),
     );
+
+    const roomByBlock = this.assignRooms(unroomed, teacherByGroup, rooms);
+    const proposals = unroomed.map((proposal) => ({
+      groupId: proposal.groupId,
+      blocks: proposal.blocks.map((block) => ({
+        block,
+        roomId: roomByBlock.get(block)!,
+      })),
+      gapViolations: proposal.gapViolations,
+    }));
     return { proposals };
   }
 
@@ -112,7 +237,7 @@ export class SessionGenerator {
     config: SessionGeneratorConfigBase,
     eligiblePool: readonly WeekdayIndex[],
     openByWeekday: ReadonlyMap<WeekdayIndex, TimeOfDay>,
-  ): GroupScheduleProposal {
+  ): UnroomedProposal {
     const weekdays = this.selectWeekdays(eligiblePool, config.sessionsPerWeek, config.minGapDays);
     return {
       groupId,
@@ -125,12 +250,32 @@ export class SessionGenerator {
     groupId: GroupId,
     config: SessionGeneratorConfigBase & { readonly pickedWeekdays: readonly WeekdayIndex[] },
     openByWeekday: ReadonlyMap<WeekdayIndex, TimeOfDay>,
-  ): GroupScheduleProposal {
+  ): UnroomedProposal {
     return {
       groupId,
       blocks: this.buildBlocks(config.pickedWeekdays, openByWeekday, config.sessionDurationMinutes),
       gapViolations: gapViolations(config.pickedWeekdays, config.minGapDays),
     };
+  }
+
+  /**
+   * Flattens every proposal's blocks into {@link UnroomedBlock} entries (each
+   * tagged with its group's teacher) and hands them to
+   * {@link assignRoomsToBlocks}, keyed back by block identity (a `WeeklyBlock`
+   * object is unique per generated occurrence, so it doubles as the map key).
+   */
+  private assignRooms(
+    proposals: readonly UnroomedProposal[],
+    teacherByGroup: ReadonlyMap<GroupId, EntityId | null>,
+    rooms: readonly RoomId[],
+  ): ReadonlyMap<WeeklyBlock, RoomId> {
+    const entries: UnroomedBlock[] = [];
+    for (const proposal of proposals) {
+      for (const block of proposal.blocks) {
+        entries.push({ groupId: proposal.groupId, teacherId: teacherByGroup.get(proposal.groupId) ?? null, block });
+      }
+    }
+    return assignRoomsToBlocks(entries, rooms, this.random);
   }
 
   private selectWeekdays(

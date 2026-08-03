@@ -117,7 +117,7 @@ export {
   SessionNotFoundError,
 } from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/scheduling-errors';
-export { InfeasibleGeneratorConfigError } from './errors/session-generator-errors';
+export { InfeasibleGeneratorConfigError, NoRoomsConfiguredError } from './errors/session-generator-errors';
 export type { InfeasibleGeneratorReason } from './errors/session-generator-errors';
 
 // Input validation schemas (shared by forms via zodResolver and by use cases)
@@ -411,7 +411,7 @@ export type {
 // Domain services
 export { DeviceSessionService } from './services/device-session-service';
 export { MonthlyFeeAttributionService } from './services/monthly-fee-attribution-service';
-export { SessionGenerator } from './services/session-generator';
+export { SessionGenerator, assignRoomsToBlocks } from './services/session-generator';
 export type {
   SessionGeneratorConfig,
   SessionGeneratorScope,
@@ -419,6 +419,8 @@ export type {
   SessionGenerationInput,
   SessionGeneratorResult,
   GroupScheduleProposal,
+  ScheduledBlockProposal,
+  UnroomedBlock,
 } from './services/session-generator';
 
 // Policies

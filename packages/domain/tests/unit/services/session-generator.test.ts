@@ -1,16 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import {
   SessionGenerator,
+  assignRoomsToBlocks,
   type SessionGeneratorConfig,
   type SessionGenerationInput,
+  type UnroomedBlock,
 } from '../../../src/services/session-generator';
-import { InfeasibleGeneratorConfigError } from '../../../src/errors/session-generator-errors';
+import { InfeasibleGeneratorConfigError, NoRoomsConfiguredError } from '../../../src/errors/session-generator-errors';
 import { satisfiesMinGap } from '../../../src/policies/weekday-gap';
 import type { DayHours } from '../../../src/policies/session-conflict-policy';
 import type { GroupId, GroupKind } from '../../../src/entities/group';
+import type { RoomId } from '../../../src/entities/room';
+import type { EntityId } from '../../../src/value-objects/ids';
 import type { WeekdayIndex } from '../../../src/value-objects/weekday';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
-import { fakeRandom, seededRandom } from '../fakes/random';
+import type { WeeklyBlock } from '../../../src/value-objects/weekly-block';
+import { fakeRandom, seededRandom, sequenceRandom } from '../fakes/random';
 
 const SUN = 0 as WeekdayIndex;
 const MON = 1 as WeekdayIndex;
@@ -22,6 +27,13 @@ const SAT = 6 as WeekdayIndex;
 
 const G1 = 'grp_00000000000000000000000001' as GroupId;
 const G2 = 'grp_00000000000000000000000002' as GroupId;
+
+const ROOM_A = 'rom_00000000000000000000000001' as RoomId;
+const ROOM_B = 'rom_00000000000000000000000002' as RoomId;
+const ROOM_C = 'rom_00000000000000000000000003' as RoomId;
+
+const TEACHER_1 = 'tch_00000000000000000000000001' as EntityId;
+const TEACHER_2 = 'tch_00000000000000000000000002' as EntityId;
 
 /** Center open 09:00–18:00 Mon–Sat; Sunday closed. Override any day via `over`. */
 function centerHours(over: Partial<Record<WeekdayIndex, DayHours>> = {}): readonly DayHours[] {
@@ -51,8 +63,26 @@ function autoConfig(over: Partial<SessionGeneratorConfig> = {}): SessionGenerato
   } as SessionGeneratorConfig;
 }
 
-function input(config: SessionGeneratorConfig, groups: readonly GroupId[], hours = centerHours()): SessionGenerationInput {
-  return { config, groups, centerHours: hours };
+function input(
+  config: SessionGeneratorConfig,
+  groups: readonly GroupId[],
+  options: {
+    hours?: readonly DayHours[];
+    teacherByGroup?: ReadonlyMap<GroupId, EntityId | null>;
+    rooms?: readonly RoomId[];
+  } = {},
+): SessionGenerationInput {
+  return {
+    config,
+    groups,
+    teacherByGroup: options.teacherByGroup ?? new Map(),
+    rooms: options.rooms ?? [ROOM_A],
+    centerHours: options.hours ?? centerHours(),
+  };
+}
+
+function blockDays(proposal: { blocks: readonly { block: WeeklyBlock; roomId: RoomId }[] }): readonly WeekdayIndex[] {
+  return proposal.blocks.map((scheduled) => scheduled.block.dayOfWeek);
 }
 
 describe('SessionGenerator — auto mode', () => {
@@ -67,19 +97,19 @@ describe('SessionGenerator — auto mode', () => {
     expect(proposal.gapViolations).toEqual([]);
     // Identity shuffle scans the pool in order: {Mon,Tue} fails the 2-day gap, {Mon,Wed} is first to pass.
     expect(proposal.blocks).toEqual([
-      { dayOfWeek: MON, start: '09:00', end: '10:30' },
-      { dayOfWeek: WED, start: '09:00', end: '10:30' },
+      { block: { dayOfWeek: MON, start: '09:00', end: '10:30' }, roomId: ROOM_A },
+      { block: { dayOfWeek: WED, start: '09:00', end: '10:30' }, roomId: ROOM_A },
     ]);
-    expect(satisfiesMinGap(proposal.blocks.map((b) => b.dayOfWeek), 2)).toBe(true);
+    expect(satisfiesMinGap(blockDays(proposal), 2)).toBe(true);
   });
 
   it('places each block at that weekday’s own opening time', () => {
     const generator = new SessionGenerator(fakeRandom());
     const hours = centerHours({ [WED]: { dayOfWeek: WED, open: '14:00' as TimeOfDay, close: '20:00' as TimeOfDay } });
 
-    const { proposals } = generator.generate(input(autoConfig(), [G1], hours));
+    const { proposals } = generator.generate(input(autoConfig(), [G1], { hours }));
 
-    expect(proposals[0]!.blocks).toEqual([
+    expect(proposals[0]!.blocks.map((b) => b.block)).toEqual([
       { dayOfWeek: MON, start: '09:00', end: '10:30' },
       { dayOfWeek: WED, start: '14:00', end: '15:30' },
     ]);
@@ -93,7 +123,7 @@ describe('SessionGenerator — auto mode', () => {
     expect(proposals.map((p) => p.groupId)).toEqual([G1, G2]);
     for (const proposal of proposals) {
       expect(proposal.blocks).toHaveLength(2);
-      expect(satisfiesMinGap(proposal.blocks.map((b) => b.dayOfWeek), 2)).toBe(true);
+      expect(satisfiesMinGap(blockDays(proposal), 2)).toBe(true);
     }
   });
 
@@ -103,7 +133,7 @@ describe('SessionGenerator — auto mode', () => {
 
     for (const kind of kinds) {
       const { proposals } = generator.generate(input(autoConfig({ kind }), [G1]));
-      expect(satisfiesMinGap(proposals[0]!.blocks.map((b) => b.dayOfWeek), 2)).toBe(true);
+      expect(satisfiesMinGap(blockDays(proposals[0]!), 2)).toBe(true);
     }
   });
 
@@ -172,7 +202,7 @@ describe('SessionGenerator — custom mode', () => {
 
     const { proposals } = generator.generate(input(customConfig([MON, WED, FRI], { minGapDays: 2 }), [G1]));
 
-    expect(proposals[0]!.blocks.map((b) => b.dayOfWeek)).toEqual([MON, WED, FRI]);
+    expect(blockDays(proposals[0]!)).toEqual([MON, WED, FRI]);
     expect(proposals[0]!.gapViolations).toEqual([]);
   });
 
@@ -182,7 +212,7 @@ describe('SessionGenerator — custom mode', () => {
     const { proposals } = generator.generate(input(customConfig([MON, TUE], { minGapDays: 2 }), [G1]));
 
     // Not blocked: both blocks are still produced.
-    expect(proposals[0]!.blocks.map((b) => b.dayOfWeek)).toEqual([MON, TUE]);
+    expect(blockDays(proposals[0]!)).toEqual([MON, TUE]);
     // But flagged: Mon→Tue is a 1-day gap under a 2-day minimum.
     expect(proposals[0]!.gapViolations).toContainEqual({ fromDay: MON, toDay: TUE, gapDays: 1 });
   });
@@ -193,8 +223,112 @@ describe('SessionGenerator — custom mode', () => {
     const { proposals } = generator.generate(input(customConfig([SUN, MON], { minGapDays: 2 }), [G1]));
 
     // Sunday is closed → no block; only Monday is placed.
-    expect(proposals[0]!.blocks.map((b) => b.dayOfWeek)).toEqual([MON]);
+    expect(blockDays(proposals[0]!)).toEqual([MON]);
     // The gap is still measured over what the admin picked.
     expect(proposals[0]!.gapViolations).toContainEqual({ fromDay: SUN, toDay: MON, gapDays: 1 });
+  });
+});
+
+describe('SessionGenerator — room assignment (SOU-158)', () => {
+  it('assigns a room from the pool to every generated block', () => {
+    const generator = new SessionGenerator(fakeRandom());
+
+    const { proposals } = generator.generate(input(autoConfig(), [G1, G2], { rooms: [ROOM_A, ROOM_B, ROOM_C] }));
+
+    for (const proposal of proposals) {
+      for (const scheduled of proposal.blocks) {
+        expect([ROOM_A, ROOM_B, ROOM_C]).toContain(scheduled.roomId);
+      }
+    }
+  });
+
+  it('throws NoRoomsConfiguredError when generating blocks with an empty room pool', () => {
+    const generator = new SessionGenerator(fakeRandom());
+
+    expect(() => generator.generate(input(autoConfig(), [G1], { rooms: [] }))).toThrow(NoRoomsConfiguredError);
+  });
+
+  it('does not throw when the room pool is empty but no blocks are generated', () => {
+    const generator = new SessionGenerator(fakeRandom());
+
+    expect(() => generator.generate(input(autoConfig(), [], { rooms: [] }))).not.toThrow();
+  });
+});
+
+describe('assignRoomsToBlocks', () => {
+  function unroomed(groupId: GroupId, teacherId: EntityId | null, block: WeeklyBlock): UnroomedBlock {
+    return { groupId, teacherId, block };
+  }
+
+  it('randomizes the room draw for unrelated blocks via the injected RandomPort', () => {
+    const first = unroomed(G1, null, { dayOfWeek: MON, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
+    const second = unroomed(G2, null, { dayOfWeek: TUE, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
+
+    const roomByBlock = assignRoomsToBlocks([first, second], [ROOM_A, ROOM_B, ROOM_C], sequenceRandom([0, 2]));
+
+    expect(roomByBlock.get(first.block)).toBe(ROOM_A);
+    expect(roomByBlock.get(second.block)).toBe(ROOM_C);
+  });
+
+  it('reuses the same room for two back-to-back blocks of the same teacher on the same weekday', () => {
+    const earlier = unroomed(G1, TEACHER_1, { dayOfWeek: MON, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
+    const later = unroomed(G2, TEACHER_1, { dayOfWeek: MON, start: '10:30' as TimeOfDay, end: '12:00' as TimeOfDay });
+
+    const roomByBlock = assignRoomsToBlocks([earlier, later], [ROOM_A, ROOM_B, ROOM_C], sequenceRandom([1]));
+
+    expect(roomByBlock.get(earlier.block)).toBe(ROOM_B);
+    expect(roomByBlock.get(later.block)).toBe(ROOM_B);
+  });
+
+  it('propagates the same room across a chain of three consecutive back-to-back blocks', () => {
+    const first = unroomed(G1, TEACHER_1, { dayOfWeek: MON, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
+    const second = unroomed(G2, TEACHER_1, { dayOfWeek: MON, start: '10:30' as TimeOfDay, end: '12:00' as TimeOfDay });
+    const third = unroomed(G1, TEACHER_1, { dayOfWeek: MON, start: '12:00' as TimeOfDay, end: '13:30' as TimeOfDay });
+
+    const roomByBlock = assignRoomsToBlocks([first, second, third], [ROOM_A, ROOM_B, ROOM_C], sequenceRandom([2]));
+
+    expect(roomByBlock.get(first.block)).toBe(ROOM_C);
+    expect(roomByBlock.get(second.block)).toBe(ROOM_C);
+    expect(roomByBlock.get(third.block)).toBe(ROOM_C);
+  });
+
+  it('does not link two blocks of the same teacher and day that are not literally back-to-back', () => {
+    const morning = unroomed(G1, TEACHER_1, { dayOfWeek: MON, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
+    const afternoon = unroomed(G2, TEACHER_1, { dayOfWeek: MON, start: '14:00' as TimeOfDay, end: '15:30' as TimeOfDay });
+
+    const roomByBlock = assignRoomsToBlocks([morning, afternoon], [ROOM_A, ROOM_B, ROOM_C], sequenceRandom([0, 2]));
+
+    expect(roomByBlock.get(morning.block)).toBe(ROOM_A);
+    expect(roomByBlock.get(afternoon.block)).toBe(ROOM_C);
+  });
+
+  it('does not link back-to-back blocks belonging to different teachers', () => {
+    const earlier = unroomed(G1, TEACHER_1, { dayOfWeek: MON, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
+    const later = unroomed(G2, TEACHER_2, { dayOfWeek: MON, start: '10:30' as TimeOfDay, end: '12:00' as TimeOfDay });
+
+    const roomByBlock = assignRoomsToBlocks([earlier, later], [ROOM_A, ROOM_B, ROOM_C], sequenceRandom([0, 2]));
+
+    expect(roomByBlock.get(earlier.block)).toBe(ROOM_A);
+    expect(roomByBlock.get(later.block)).toBe(ROOM_C);
+  });
+
+  it('does not link back-to-back blocks with no teacher assigned', () => {
+    const earlier = unroomed(G1, null, { dayOfWeek: MON, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
+    const later = unroomed(G2, null, { dayOfWeek: MON, start: '10:30' as TimeOfDay, end: '12:00' as TimeOfDay });
+
+    const roomByBlock = assignRoomsToBlocks([earlier, later], [ROOM_A, ROOM_B, ROOM_C], sequenceRandom([0, 2]));
+
+    expect(roomByBlock.get(earlier.block)).toBe(ROOM_A);
+    expect(roomByBlock.get(later.block)).toBe(ROOM_C);
+  });
+
+  it('throws NoRoomsConfiguredError when there are blocks to assign but no rooms', () => {
+    const block = unroomed(G1, null, { dayOfWeek: MON, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
+
+    expect(() => assignRoomsToBlocks([block], [], fakeRandom())).toThrow(NoRoomsConfiguredError);
+  });
+
+  it('returns an empty map without throwing when there are no blocks, even with no rooms', () => {
+    expect(assignRoomsToBlocks([], [], fakeRandom())).toEqual(new Map());
   });
 });

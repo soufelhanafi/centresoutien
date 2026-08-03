@@ -22,3 +22,20 @@ export function seededRandom(seed: number): RandomPort {
     },
   };
 }
+
+/**
+ * Replays a fixed sequence of `nextInt` results, one per call (looping back to
+ * `0` past the end of `values`), each reduced modulo the requested bound so it
+ * always returns a valid index. Lets a test assert exactly which draw produced
+ * which outcome, unlike `seededRandom`'s opaque LCG.
+ */
+export function sequenceRandom(values: readonly number[]): RandomPort {
+  let index = 0;
+  return {
+    nextInt(boundExclusive: number): number {
+      const value = values.length === 0 ? 0 : (values[index % values.length] ?? 0);
+      index += 1;
+      return value % boundExclusive;
+    },
+  };
+}
