@@ -275,20 +275,26 @@ test('Scenario 7 — AR locale renders RTL on screen and the exported PDF embeds
 });
 
 // ---------------------------------------------------------------------------
-// Scenario 8 — coverage gap check: there is no `invoice.issue` / `invoice.cancel`
-// IPC channel wired on this branch, so a cancelled invoice can never be
-// produced through the shipped UI/bridge. This scenario documents that gap
-// rather than silently skipping the "cancelled invoices are badged, not
-// hidden" acceptance bullet.
+// Scenario 8 — SOU-143 closed the coverage gap this scenario used to
+// document: `invoice.issue` / `invoice.cancel` are now wired IPC channels, so
+// a cancelled invoice is reachable through the shipped bridge and the list
+// badges it correctly instead of hiding it. Full UI coverage of the
+// issue/cancel actions (confirmation dialog, payment warning, FR/AR) lives in
+// `invoice-issue-cancel.spec.ts`; this scenario only re-confirms the "cancelled
+// invoices are badged, not hidden" acceptance bullet at the list level.
 // ---------------------------------------------------------------------------
-test('Scenario 8 — no reachable path exists to produce a cancelled invoice for the list to badge', async () => {
+test('Scenario 8 — a cancelled invoice is reachable through the bridge and the list badges it, not hides it', async () => {
+  const L = STR[locale()];
   live = await boot(locale());
   const win = live.win;
   const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200 });
 
   const cancelErr = await tryInvoke(win, 'invoice.cancel', { invoiceId: seeded.invoiceId });
-  const issueErr = await tryInvoke(win, 'invoice.issue', { invoiceId: seeded.invoiceId });
+  expect(cancelErr, 'invoice.cancel is a wired IPC channel as of SOU-143').toBeNull();
 
-  expect(cancelErr, 'invoice.cancel is not a wired IPC channel on this branch').not.toBeNull();
-  expect(issueErr, 'invoice.issue is not a wired IPC channel on this branch').not.toBeNull();
+  await gotoInvoices(win, L);
+  const studentName = locale() === 'ar' ? seeded.studentNameAr : seeded.studentNameFr;
+  const row = win.getByRole('row', { name: escapeRegExp(studentName) });
+  await expect(row).toBeVisible();
+  await expect(row.getByText(L.status.cancelled)).toBeVisible();
 });
