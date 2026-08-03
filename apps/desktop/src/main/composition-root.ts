@@ -69,6 +69,9 @@ import {
   CreateAdminAccount,
   VerifyAdminPassword,
   ChangeAdminPassword,
+  GenerateRecoveryCodes,
+  VerifyRecoveryCode,
+  ResetPasswordWithRecoveryCode,
   SaveCenterHours,
   GetCenterHours,
   AttemptLogin,
@@ -140,6 +143,8 @@ import { SqliteSessionRepository } from '../data/sqlite/repositories/session-rep
 import { SqliteAttendanceRepository } from '../data/sqlite/repositories/attendance-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
+import { SqliteRecoveryCodeRepository } from '../data/sqlite/repositories/recovery-code-repository';
+import { SqliteAuthAuditLogRepository } from '../data/sqlite/repositories/auth-audit-log-repository';
 import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-throttle-store';
 import { SqliteDeviceSessionStore } from '../data/sqlite/repositories/device-session-store';
 import { SqliteCenterRepository } from '../data/sqlite/repositories/center-repository';
@@ -153,6 +158,7 @@ import { PdfLibScheduleRenderer } from '../data/pdf/pdf-lib-schedule-renderer';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
+import { NodeSecureRandom } from './infra/node-secure-random';
 import { LocalePreferenceStore, type LocalePreference } from './infra/locale-preference-store';
 import {
   createHandlers,
@@ -613,6 +619,33 @@ export function buildContainer(options: ContainerOptions): Container {
   const verifyAdminPassword = new VerifyAdminPassword(adminRepo, hasher);
   const changeAdminPassword = new ChangeAdminPassword(adminRepo, hasher, clock);
 
+  const random = new NodeSecureRandom();
+  const recoveryCodeRepo = new SqliteRecoveryCodeRepository(db);
+  const auditLogRepo = new SqliteAuthAuditLogRepository(db);
+  const generateRecoveryCodes = new GenerateRecoveryCodes(
+    recoveryCodeRepo,
+    auditLogRepo,
+    hasher,
+    random,
+    clock,
+    ids,
+  );
+  const verifyRecoveryCode = new VerifyRecoveryCode(
+    recoveryCodeRepo,
+    auditLogRepo,
+    hasher,
+    clock,
+    ids,
+  );
+  const resetPasswordWithRecoveryCode = new ResetPasswordWithRecoveryCode(
+    verifyRecoveryCode,
+    adminRepo,
+    auditLogRepo,
+    hasher,
+    clock,
+    ids,
+  );
+
   // Locale preference (SOU-31): a plain userData-file adapter, not a domain
   // port — see LocalePreferenceStore's doc for why. `options.dir` is the same
   // userData directory the center DB files and the logo store live under.
@@ -728,11 +761,19 @@ export function buildContainer(options: ContainerOptions): Container {
     getCenterHours,
     envelopeContext: () => context,
     adminExists: () => adminRepo.exists(),
+    adminUsername: async () => {
+      const account = await adminRepo.findOnly();
+      return account?.username ?? '';
+    },
     createAdminAccount,
     verifyAdminPassword,
     changeAdminPassword,
     attemptLogin,
     deviceSessions,
+    generateRecoveryCodes,
+    verifyRecoveryCode,
+    resetPasswordWithRecoveryCode,
+    countRemainingRecoveryCodes: () => recoveryCodeRepo.countUnconsumed(),
     getCenterProfile,
     saveCenterProfile,
     storeCenterLogo,
