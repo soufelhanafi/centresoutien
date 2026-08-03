@@ -2,10 +2,12 @@ import type { StudentInput } from '@centresoutien/domain';
 import type { StudentDto } from '../../../shared/ipc/contract';
 
 /**
- * Presentation projection of a `Student` as it crosses the IPC boundary — the
- * sync envelope (version, deviceOrigin, updatedBy…) is stripped and `Date`s are
- * serialized to strings, exactly like `centerDto` (SOU-28). The renderer never
- * handles the raw domain entity.
+ * Presentation projection of a `Student` as it crosses the IPC boundary — most
+ * of the sync envelope (deviceOrigin, updatedBy…) is stripped and `Date`s are
+ * serialized to strings, exactly like `centerDto` (SOU-28). `version` is
+ * deliberately kept: it is the optimistic-concurrency token the
+ * `student.setGuardians` channel round-trips as `expectedVersion` (SOU-116).
+ * The renderer never handles the raw domain entity.
  *
  * This is a direct alias of the boundary's `studentViewSchema` (the single
  * source of truth in `shared/ipc/contract`), so the renderer shape can never

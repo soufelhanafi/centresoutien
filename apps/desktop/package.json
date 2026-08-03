@@ -11,7 +11,8 @@
     "build": "electron-vite build",
     "rebuild:native": "electron-rebuild -f -w better-sqlite3-multiple-ciphers",
     "rebuild:node": "node ./scripts/native-abi.mjs node",
-    "test:e2e": "node ./scripts/native-abi.mjs electron && playwright test",
+    "test:e2e": "node ./scripts/native-abi.mjs electron && CS_E2E_HIDDEN=1 playwright test",
+    "test:e2e:visible": "node ./scripts/native-abi.mjs electron && playwright test",
     "test:visual": "playwright test -c tests/visual/playwright.config.ts"
   },
   "dependencies": {

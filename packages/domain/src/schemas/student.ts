@@ -76,3 +76,16 @@ export const studentInputSchema = z.object({
 });
 
 export type StudentInput = z.infer<typeof studentInputSchema>;
+
+/**
+ * Input for the `SetStudentGuardians` partial-update channel: only the
+ * `guardianIds` link plus the caller's last-seen `version`, never the rest of
+ * `studentInputSchema`. Keeping this schema narrow is the point — it is what
+ * stops a stale full-`StudentInput` replay from reverting unrelated fields.
+ */
+export const setStudentGuardiansInputSchema = z.object({
+  guardianIds: z.array(guardianId),
+  expectedVersion: z.number().int().nonnegative(),
+});
+
+export type SetStudentGuardiansFields = z.infer<typeof setStudentGuardiansInputSchema>;
