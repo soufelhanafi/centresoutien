@@ -330,6 +330,22 @@
       "loadError": "فشل تحميل قائمة الطلبة."
     }
   },
+  "attendance": {
+    "groupSheet": {
+      "title": "ورقة الحضور — {{name}}",
+      "monthLabel": "الشهر",
+      "print": "طباعة",
+      "student": "التلميذ",
+      "presentCount": "الحاضرون",
+      "count": "{{present}}/{{total}}",
+      "locked": "وحدة الحضور غير متاحة في خطتك.",
+      "loadError": "فشل تحميل ورقة الحضور.",
+      "empty": {
+        "title": "لا توجد حصص هذا الشهر",
+        "body": "لا توجد حصص مبرمجة لهذه المجموعة هذا الشهر."
+      }
+    }
+  },
   "guardian": {
     "relation": {
       "pere": "الأب",
@@ -797,6 +813,27 @@
       "attendance": {
         "title": "الحضور قريبًا",
         "body": "ستظهر هنا متابعة حضور التلميذ."
+      }
+    },
+    "attendance": {
+      "locked": "وحدة الحضور غير متاحة في خطتك.",
+      "monthLabel": "الشهر",
+      "groupLabel": "المجموعة",
+      "allGroups": "جميع المجموعات",
+      "rate": "نسبة الحضور",
+      "consecutiveAbsences": "الغيابات المتتالية",
+      "consecutiveValue": "{{n}}",
+      "streakWarning": "هذا التلميذ لديه سلسلة غيابات. اتصل بالوالدين.",
+      "noNote": "—",
+      "empty": {
+        "title": "لا توجد حصص حضور",
+        "body": "ستظهر الحضور هنا بعد أول حصة."
+      },
+      "loadError": "فشل تحميل الحضور.",
+      "table": {
+        "date": "التاريخ",
+        "status": "الحالة",
+        "note": "ملاحظة"
       }
     }
   },

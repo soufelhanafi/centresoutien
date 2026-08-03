@@ -101,6 +101,8 @@ import {
   RecordSessionAttendance,
   GetDashboardBasicSummary,
   GetDashboardAdvancedSummary,
+  GetStudentAttendanceReport,
+  GetGroupAttendanceSheet,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -532,6 +534,14 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
+  // Attendance reporting reads (SOU-108) — per-student history + absence summary
+  // and printable per-group attendance sheet, both read-model reads over the
+  // existing attendanceRepo (no new repository, no new adapter). Gated by
+  // `core.attendance` (base tier) in the use case; IPC handler passes the throw
+  // through the shared error mapping.
+  const getStudentAttendanceReport = new GetStudentAttendanceReport(attendanceRepo, plan);
+  const getGroupAttendanceSheet = new GetGroupAttendanceSheet(attendanceRepo, plan);
+
   // Backup & restore (SOU-102). `options.key` is today's key-management
   // mechanism (CS_DB_KEY / dev fallback) — real per-center key derivation is a
   // separate future ticket; both the manual/scheduled snapshot path and the
@@ -678,6 +688,8 @@ export function buildContainer(options: ContainerOptions): Container {
     restoreHoliday,
     getDashboardBasicSummary,
     getDashboardAdvancedSummary,
+    getStudentAttendanceReport,
+    getGroupAttendanceSheet,
     listWeekSessions,
     generateSessions,
     recordSessionAttendance,

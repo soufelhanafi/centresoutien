@@ -5,9 +5,10 @@ import type {
   AttendanceRecordId,
   AttendanceStatus,
 } from '../../../src/entities/attendance-record';
-import type { AttendanceRepository, AttendanceSummary } from '../../../src/ports/attendance-repository';
+import type { AttendanceRepository, AttendanceSummary, StudentAttendanceReading, GroupSheetData } from '../../../src/ports/attendance-repository';
 import type { SessionId } from '../../../src/entities/session';
 import type { StudentId } from '../../../src/entities/student';
+import type { GroupId } from '../../../src/entities/group';
 import type { CenterCode } from '../../../src/value-objects/ids';
 import type { DateRange } from '../../../src/value-objects/date-range';
 
@@ -61,5 +62,29 @@ export class InMemoryAttendanceRepository
     void centerCode;
     void range;
     return this.centerSummary ?? emptySummary();
+  }
+
+  private studentReadings = new Map<StudentId, readonly StudentAttendanceReading[]>();
+
+  /** test-only seeding for `listForStudent` — range-filtering/joins are the SQLite adapter's concern. */
+  setStudentReadings(studentId: StudentId, readings: readonly StudentAttendanceReading[]): void {
+    this.studentReadings.set(studentId, readings);
+  }
+
+  async listForStudent(studentId: StudentId, range: DateRange): Promise<readonly StudentAttendanceReading[]> {
+    void range;
+    return this.studentReadings.get(studentId) ?? [];
+  }
+
+  private groupSheets = new Map<GroupId, GroupSheetData>();
+
+  /** test-only seeding for `sheetForGroup` — range-filtering/joins are the SQLite adapter's concern. */
+  setGroupSheet(groupId: GroupId, data: GroupSheetData): void {
+    this.groupSheets.set(groupId, data);
+  }
+
+  async sheetForGroup(groupId: GroupId, range: DateRange): Promise<GroupSheetData> {
+    void range;
+    return this.groupSheets.get(groupId) ?? { sessions: [], cells: [] };
   }
 }

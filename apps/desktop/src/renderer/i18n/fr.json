@@ -326,6 +326,22 @@
       "loadError": "Le chargement de la liste des élèves a échoué."
     }
   },
+  "attendance": {
+    "groupSheet": {
+      "title": "Feuille de présence — {{name}}",
+      "monthLabel": "Mois",
+      "print": "Imprimer",
+      "student": "Élève",
+      "presentCount": "Présents",
+      "count": "{{present}}/{{total}}",
+      "locked": "Module de présence non disponible dans votre plan.",
+      "loadError": "Le chargement de la feuille de présence a échoué.",
+      "empty": {
+        "title": "Aucune séance ce mois",
+        "body": "Aucune séance n'est programmée pour ce groupe ce mois-ci."
+      }
+    }
+  },
   "guardian": {
     "relation": {
       "pere": "Père",
@@ -770,6 +786,27 @@
       "attendance": {
         "title": "Présence bientôt disponible",
         "body": "Le suivi de présence de l'élève apparaîtra ici."
+      }
+    },
+    "attendance": {
+      "locked": "Module de présence non disponible dans votre plan.",
+      "monthLabel": "Mois",
+      "groupLabel": "Groupe",
+      "allGroups": "Tous les groupes",
+      "rate": "Taux de présence",
+      "consecutiveAbsences": "Absences consécutives",
+      "consecutiveValue": "{{n}}",
+      "streakWarning": "Cet élève a une série d'absences. Contactez les parents.",
+      "noNote": "—",
+      "empty": {
+        "title": "Aucune séance de présence",
+        "body": "Les présences apparaîtront ici après la première séance."
+      },
+      "loadError": "Le chargement des présences a échoué.",
+      "table": {
+        "date": "Date",
+        "status": "Statut",
+        "note": "Note"
       }
     }
   },
