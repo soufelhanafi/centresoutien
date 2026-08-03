@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { monthsEndingAt, monthDateRange } from '../../../src/value-objects/month';
+import { monthsEndingAt, monthDateRange, monthsBetween } from '../../../src/value-objects/month';
 
 describe('monthsEndingAt', () => {
   it('returns a single-element window equal to endMonth when count is 1', () => {
@@ -34,5 +34,20 @@ describe('monthDateRange', () => {
     { month: '2024-02', start: '2024-02-01', end: '2024-02-29' }, // 2024 is a leap year
   ])('resolves $month to [$start, $end]', ({ month, start, end }) => {
     expect(monthDateRange(month)).toEqual({ start, end });
+  });
+});
+
+describe('monthsBetween', () => {
+  it('is 0 for the same month', () => {
+    expect(monthsBetween('2026-08', '2026-08')).toBe(0);
+  });
+
+  it('is positive when `to` is later, negative when earlier', () => {
+    expect(monthsBetween('2026-05', '2026-08')).toBe(3);
+    expect(monthsBetween('2026-08', '2026-05')).toBe(-3);
+  });
+
+  it('rolls over a year boundary', () => {
+    expect(monthsBetween('2025-11', '2026-02')).toBe(3);
   });
 });
