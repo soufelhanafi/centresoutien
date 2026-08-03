@@ -17,17 +17,15 @@ import type { SubscriptionInput } from '../../lib/subscriptions/subscription-vie
 import type { WizardTarget } from '../../hooks/subscription/use-subscription-tab';
 import { useCreateSubscription } from '../../hooks/subscription/use-create-subscription';
 import { useReplaceSubscription } from '../../hooks/subscription/use-replace-subscription';
+import { mapSubscriptionWriteError } from '../../lib/subscriptions/subscription-write-error';
 import { SubscriptionCloseFields } from './subscription-close-fields';
 import { SubscriptionFormulaFields } from './subscription-formula-fields';
 
 /**
- * The close-and-reopen wizard (SOU-65): closes the target's current subscription
- * (if any) at `endMonth`, then creates a fresh one from `startMonth` onward for
- * the same kind — never edits a subscription in place (CLAUDE.md §7). With no
- * current subscription it is a plain subscribe (create only). The two writes are
- * NOT atomic (the domain models this as two independent use cases), so a create
- * failure after a successful close gets its own message rather than a generic
- * one, since the student is left with no active subscription for that kind.
+ * The close-and-reopen wizard (SOU-65): replaces the target's current
+ * subscription (if any) with a fresh one in a single atomic operation
+ * (SOU-141) — never edits a subscription in place (CLAUDE.md §7).
+ * With no current subscription it is a plain subscribe (create only).
  */
 export function ChangeSubscriptionDialog({
   studentId,
@@ -45,16 +43,14 @@ export function ChangeSubscriptionDialog({
   const { t } = useTranslation();
   const create = useCreateSubscription(studentId);
   const replace = useReplaceSubscription(studentId);
-  const [endMonth, setEndMonth] = useState(currentMonth);
   const [formulaId, setFormulaId] = useState('');
   const [startMonth, setStartMonth] = useState(currentMonth);
 
   useEffect(() => {
     if (target) {
-      const defaultEnd = currentMonth();
-      setEndMonth(defaultEnd);
+      const defaultMonth = currentMonth();
       setFormulaId('');
-      setStartMonth(target.current ? nextMonth(defaultEnd) : defaultEnd);
+      setStartMonth(target.current ? nextMonth(defaultMonth) : defaultMonth);
     }
   }, [target]);
 
@@ -78,15 +74,17 @@ export function ChangeSubscriptionDialog({
     if (target.current) {
       try {
         await replace.mutateAsync({ ...input, activeSubscriptionId: target.current.id });
-      } catch {
-        toast.error(t('students.subscription.wizard.replaceError'));
+      } catch (error) {
+        const code = mapSubscriptionWriteError(error);
+        toast.error(t(code ? `errors.${code}` : 'students.subscription.wizard.replaceError'));
         return;
       }
     } else {
       try {
         await create.mutateAsync(input);
-      } catch {
-        toast.error(t('students.subscription.wizard.createError'));
+      } catch (error) {
+        const code = mapSubscriptionWriteError(error);
+        toast.error(t(code ? `errors.${code}` : 'students.subscription.wizard.createError'));
         return;
       }
     }
@@ -113,8 +111,7 @@ export function ChangeSubscriptionDialog({
                 current={target.current}
                 formulas={formulas}
                 subjects={subjects}
-                endMonth={endMonth}
-                onEndMonthChange={setEndMonth}
+                startMonth={startMonth}
               />
             )}
             <SubscriptionFormulaFields
