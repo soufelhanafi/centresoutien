@@ -571,11 +571,6 @@ export type {
 } from './use-cases/replace-student-subscription';
 export { ListStudentSubscriptions } from './use-cases/list-student-subscriptions';
 export type { ListStudentSubscriptionsInput } from './use-cases/list-student-subscriptions';
-export { ReplaceStudentSubscription } from './use-cases/replace-student-subscription';
-export type {
-  ReplaceStudentSubscriptionInput,
-  ReplaceStudentSubscriptionResult,
-} from './use-cases/replace-student-subscription';
 export { GenerateMonthlyInvoices } from './use-cases/generate-monthly-invoices';
 export type {
   GenerateMonthlyInvoicesInput,
@@ -592,11 +587,6 @@ export type {
 } from './use-cases/replace-teacher-payroll-rule';
 export { ListTeacherPayrollRulesByTeacher } from './use-cases/list-teacher-payroll-rules-by-teacher';
 export type { ListTeacherPayrollRulesByTeacherInput } from './use-cases/list-teacher-payroll-rules-by-teacher';
-export { ReplaceTeacherPayrollRule } from './use-cases/replace-teacher-payroll-rule';
-export type {
-  ReplaceTeacherPayrollRuleInput,
-  ReplaceTeacherPayrollRuleResult,
-} from './use-cases/replace-teacher-payroll-rule';
 export { ComputeMonthlyPayrolls } from './use-cases/compute-monthly-payrolls';
 export type {
   ComputeMonthlyPayrollsInput,
