@@ -5,13 +5,15 @@ import { CenterHoursSettings } from '../components/center-hours/center-hours-set
 import { HolidaysSettings } from '../components/holiday/holidays-settings';
 import { PasswordSettings } from '../components/settings/password-settings';
 import { LanguageSettings } from '../components/settings/language-settings';
+import { AppearanceSettings } from '../components/settings/appearance-settings';
 import { PlanSettings } from '../components/settings/plan-settings';
 import { BackupSettings } from '../components/settings/backup-settings';
 
 /**
- * Paramètres screen (SOU-31). Seven tabs: the center-profile editor (SOU-28),
+ * Paramètres screen (SOU-31). Eight tabs: the center-profile editor (SOU-28),
  * the center opening-hours editor (SOU-29), the holidays manager (SOU-30),
- * password change, language, read-only plan info, and backup/restore (SOU-102).
+ * password change, language, appearance/dark-mode (SOU-144), read-only plan
+ * info, and backup/restore (SOU-102).
  */
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -28,6 +30,7 @@ export function SettingsPage() {
           <TabsTrigger value="holidays">{t('settings.tabs.holidays')}</TabsTrigger>
           <TabsTrigger value="password">{t('settings.tabs.password')}</TabsTrigger>
           <TabsTrigger value="language">{t('settings.tabs.language')}</TabsTrigger>
+          <TabsTrigger value="appearance">{t('settings.tabs.appearance')}</TabsTrigger>
           <TabsTrigger value="plan">{t('settings.tabs.plan')}</TabsTrigger>
           <TabsTrigger value="backup">{t('settings.tabs.backup')}</TabsTrigger>
         </TabsList>
@@ -45,6 +48,9 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="language">
           <LanguageSettings />
+        </TabsContent>
+        <TabsContent value="appearance">
+          <AppearanceSettings />
         </TabsContent>
         <TabsContent value="plan">
           <PlanSettings />

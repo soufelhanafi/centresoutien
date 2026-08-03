@@ -14,4 +14,10 @@ export default tseslint.config(
     files: ['**/scripts/**/*.mjs', '**/*.config.{ts,mjs}', '**/*.workspace.ts', 'eslint.config.mjs'],
     languageOptions: { globals: { ...globals.node } },
   },
+  // Plain browser scripts served as static renderer assets (outside the
+  // TypeScript/React toolchain, so they need explicit browser globals).
+  {
+    files: ['**/renderer/public/**/*.js'],
+    languageOptions: { globals: { ...globals.browser } },
+  },
 );
