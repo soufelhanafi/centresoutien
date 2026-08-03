@@ -29,13 +29,9 @@ type SetTeacherPayrollRuleDialogProps = {
 
 /**
  * Set-or-replace flow: a teacher with no live rule gets a plain create; a
- * teacher with one gets the close-and-reopen combo (CLAUDE.md §6) — close the
- * current rule the month before the replacement's effective month, then
- * create the replacement. These are two separate, non-transactional IPC
- * calls (mirrors `StudentSubscription`'s own documented close-then-reopen
- * convention, CLAUDE.md §7): if `create` fails after `close` already
- * committed, the teacher is left with no active rule until the admin retries
- * — visible immediately as an empty Active card, not silent data loss.
+ * teacher with one gets the close-and-reopen as a single atomic operation
+ * (SOU-141) — the replace use case computes the close month and issues both
+ * writes in one SQLite transaction (CLAUDE.md §6).
  */
 export function SetTeacherPayrollRuleDialog({
   open,
