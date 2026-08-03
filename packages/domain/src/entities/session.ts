@@ -11,6 +11,20 @@ export const SESSION_ID_PREFIX = 'ses';
 
 export type SessionId = Brand<string, 'SessionId'>;
 
+/** ULID id prefix for a generation batch tag: `gen_01HW…`. */
+export const GENERATION_BATCH_ID_PREFIX = 'gen';
+
+/**
+ * Tags every {@link Session} materialized by one {@link GenerateSessions} run
+ * (SOU-160) so a whole run can be bulk-undone without hunting individual rows.
+ * Not an entity of its own — no table, no repository — just a grouping ULID
+ * stamped on each fresh row at materialization. A natural-key collision in
+ * {@link SessionRepository.upsertMany} leaves the stored row (and its original
+ * `generationBatchId`) untouched, so re-running a generator never re-tags
+ * already-materialized occurrences into the new run's batch.
+ */
+export type GenerationBatchId = Brand<string, 'GenerationBatchId'>;
+
 /**
  * A concrete, dated occurrence materialized from a {@link WeeklyRecurringSession}
  * template by the SOU-56 generator: the template's room / teacher / time range,
@@ -45,6 +59,8 @@ export type SessionId = Brand<string, 'SessionId'>;
 export type Session = EntityEnvelope & {
   readonly id: SessionId;
   readonly recurringSessionId: WeeklyRecurringSessionId;
+  /** Which generator run produced this row (SOU-160); `null` for rows that predate the feature. */
+  readonly generationBatchId: GenerationBatchId | null;
   roomId: RoomId;
   teacherId: EntityId | null;
   groupId: GroupId | null;

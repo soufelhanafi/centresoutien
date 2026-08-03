@@ -190,6 +190,26 @@ describe('GenerateAndPersistSessions', () => {
       expect(datesOf(second)).toEqual(['2026-01-08', '2026-01-15', '2026-01-22', '2026-01-29']);
     });
 
+    it('a widened window only tags the newly-covered dates with the new run\'s generationBatchId (SOU-160)', async () => {
+      const first = await useCase.execute(input({ range: { start: '2026-01-01', end: '2026-01-15' } }));
+      const originalBatchId = first[0]?.generationBatchId;
+      expect(originalBatchId).toMatch(/^gen_/);
+
+      const second = await build(PLANS.essentiel, 500).execute(input()); // full month
+      const byDate = new Map(second.map((s) => [s.date, s]));
+
+      // Pre-existing dates keep their original batch id, untouched by the re-run.
+      expect(byDate.get('2026-01-01')?.generationBatchId).toBe(originalBatchId);
+      expect(byDate.get('2026-01-08')?.generationBatchId).toBe(originalBatchId);
+      expect(byDate.get('2026-01-15')?.generationBatchId).toBe(originalBatchId);
+
+      // Newly-covered dates carry the second run's own (different) batch id.
+      const newBatchId = byDate.get('2026-01-22')?.generationBatchId;
+      expect(newBatchId).toMatch(/^gen_/);
+      expect(newBatchId).not.toBe(originalBatchId);
+      expect(byDate.get('2026-01-29')?.generationBatchId).toBe(newBatchId);
+    });
+
     it('never resurrects a cancelled (soft-deleted) occurrence', async () => {
       const [first] = await useCase.execute(input());
       expect(first).toBeDefined();

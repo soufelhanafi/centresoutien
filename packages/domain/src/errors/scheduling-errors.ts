@@ -5,7 +5,7 @@ import type { WeekdayIndex } from '../value-objects/weekday';
 import type { RoomId } from '../entities/room';
 import type { HolidayId } from '../entities/holiday';
 import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-session';
-import type { SessionId } from '../entities/session';
+import type { SessionId, GenerationBatchId } from '../entities/session';
 
 /** Why a session falls outside the center's opening hours. */
 export type OutsideCenterHoursReason = 'closed' | 'before-open' | 'after-close';
@@ -173,5 +173,22 @@ export class SessionNotFoundError extends DomainError {
 
   constructor(readonly sessionId: SessionId) {
     super(`No live session "${sessionId}" in this center.`);
+  }
+}
+
+/**
+ * Thrown when `UndoGenerationBatch` (SOU-160) is asked to bulk-cancel a
+ * `generationBatchId` with no live session in the current center — unknown,
+ * belonging to another center, or every one of its sessions already
+ * individually cancelled. Mirrors {@link WeeklyRecurringSessionNotFoundError}:
+ * a stale or foreign batch id never silently no-ops as success. The renderer
+ * resolves the stable `generation-batch-not-found` code via
+ * `t(\`errors.${code}\`)`.
+ */
+export class GenerationBatchNotFoundError extends DomainError {
+  readonly code = 'generation-batch-not-found';
+
+  constructor(readonly generationBatchId: GenerationBatchId) {
+    super(`No live session for generation batch "${generationBatchId}" in this center.`);
   }
 }

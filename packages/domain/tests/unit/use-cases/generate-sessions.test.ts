@@ -109,6 +109,20 @@ describe('GenerateSessions', () => {
       expect(first.updatedAt).toEqual(first.createdAt);
       expect(first.deletedAt).toBeNull();
       expect(first.version).toBe(0);
+      expect(first.generationBatchId).toMatch(/^gen_/);
+    });
+
+    it('stamps every occurrence of one run with the same generationBatchId (SOU-160)', () => {
+      const sessions = useCase().execute(input());
+      expect(sessions.length).toBeGreaterThan(1);
+      const batchIds = new Set(sessions.map((s) => s.generationBatchId));
+      expect(batchIds.size).toBe(1);
+    });
+
+    it('mints a different generationBatchId for a separate run', () => {
+      const first = useCase(1).execute(input());
+      const second = useCase(500).execute(input());
+      expect(first[0]?.generationBatchId).not.toBe(second[0]?.generationBatchId);
     });
 
     it('only emits dates that fall on the template weekday', () => {
