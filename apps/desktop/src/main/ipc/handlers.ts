@@ -129,6 +129,7 @@ import {
   GroupNotFoundError,
   TeacherNotFoundError,
   HolidayNotFoundError,
+  NotAuthenticatedError,
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import type { LocalePreference } from '../infra/locale-preference-store';
@@ -1288,7 +1289,7 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       return { ok: true };
     },
     'admin.recovery.generate': async () => {
-      if (!(await deps.deviceSessions.isAuthenticated())) throw new Error('not-authenticated');
+      if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
       const username = await deps.adminUsername();
       const codes = await deps.generateRecoveryCodes.execute(username);
       return { codes: [...codes] };

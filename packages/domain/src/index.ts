@@ -55,6 +55,7 @@ export {
   InvalidCurrentPasswordError,
   NoRecoveryCodesError,
   InvalidRecoveryCodeError,
+  NotAuthenticatedError,
 } from './errors/auth-errors';
 export { StudentNotFoundError, StudentVersionConflictError } from './errors/student-errors';
 export {

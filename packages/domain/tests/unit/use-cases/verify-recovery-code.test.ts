@@ -33,7 +33,7 @@ describe('VerifyRecoveryCode', () => {
     );
   });
 
-  it('verifies a valid code and marks it consumed', async () => {
+  it('validates a valid code but does not consume it', async () => {
     const hashed = await hasher.hash(validPlain);
     await repo.saveMany([
       {
@@ -49,26 +49,7 @@ describe('VerifyRecoveryCode', () => {
     expect(result.outcome).toBe('success');
 
     const remaining = await repo.countUnconsumed();
-    expect(remaining).toBe(0);
-  });
-
-  it('records an audit event on success', async () => {
-    const hashed = await hasher.hash(validPlain);
-    await repo.saveMany([
-      {
-        id: 'rec_1' as RecoveryCodeId,
-        codeHash: hashed,
-        consumed: false,
-        createdAt: new Date(),
-        consumedAt: null,
-      },
-    ]);
-
-    await useCase.execute({ recoveryCode: validPlain, username: 'admin' });
-
-    const events = auditLog.list();
-    expect(events).toHaveLength(1);
-    expect(events[0].eventType).toBe('recovery-code-consumed');
+    expect(remaining).toBe(1);
   });
 
   it('throws InvalidRecoveryCodeError for a wrong code', async () => {

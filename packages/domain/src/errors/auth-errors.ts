@@ -42,3 +42,10 @@ export class InvalidRecoveryCodeError extends DomainError {
     super('The recovery code is invalid or has already been used.');
   }
 }
+
+/** Thrown when an authenticated operation is attempted without a valid session. */
+export class NotAuthenticatedError extends DomainError {
+  constructor() {
+    super('Not authenticated.');
+  }
+}

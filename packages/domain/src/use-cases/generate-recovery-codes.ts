@@ -16,11 +16,15 @@ import {
 } from '../entities/auth-audit-event';
 
 const CODE_COUNT = 16;
-const BYTES_PER = 8;
+const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-function formatCode(hex: string): string {
-  const upper = hex.toUpperCase();
-  return `${upper.slice(0, 4)}-${upper.slice(4, 8)}-${upper.slice(8, 12)}-${upper.slice(12, 16)}`;
+function generateCode(random: SecureRandom): string {
+  const bytes = random.bytes(16);
+  let code = '';
+  for (let i = 0; i < 16; i++) {
+    code += ALPHABET.charAt(bytes[i]! % ALPHABET.length);
+  }
+  return `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8, 12)}-${code.slice(12, 16)}`;
 }
 
 export class GenerateRecoveryCodes {
@@ -41,7 +45,7 @@ export class GenerateRecoveryCodes {
     const hashedCodes: RecoveryCode[] = [];
 
     for (let i = 0; i < CODE_COUNT; i++) {
-      const plain = formatCode(this.random.hex(BYTES_PER));
+      const plain = generateCode(this.random);
       plainCodes.push(plain);
       hashedCodes.push({
         id: this.ids.next(RECOVERY_CODE_ID_PREFIX) as RecoveryCodeId,

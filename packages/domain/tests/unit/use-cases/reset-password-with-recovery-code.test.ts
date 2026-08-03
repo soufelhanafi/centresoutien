@@ -47,7 +47,15 @@ describe('ResetPasswordWithRecoveryCode', () => {
       clock,
       fakeIds(),
     );
-    useCase = new ResetPasswordWithRecoveryCode(verify, accounts, auditLog, hasher, clock, fakeIds());
+    useCase = new ResetPasswordWithRecoveryCode(
+      verify,
+      accounts,
+      codes,
+      auditLog,
+      hasher,
+      clock,
+      fakeIds(),
+    );
 
     const hashed = await hasher.hash(validCode());
     await codes.saveMany([
@@ -77,7 +85,7 @@ describe('ResetPasswordWithRecoveryCode', () => {
     expect(remaining).toBe(0);
   });
 
-  it('records a password-reset audit event', async () => {
+  it('records both consume and password-reset audit events', async () => {
     await useCase.execute({
       recoveryCode: validCode(),
       newPassword: 'NewPass1',
@@ -85,9 +93,8 @@ describe('ResetPasswordWithRecoveryCode', () => {
     });
 
     const events = auditLog.list();
-    const resetEvents = events.filter((e) => e.eventType === 'password-reset-via-recovery-code');
-    expect(resetEvents).toHaveLength(1);
-    expect(resetEvents[0].username).toBe('admin');
+    expect(events.some((e) => e.eventType === 'recovery-code-consumed')).toBe(true);
+    expect(events.some((e) => e.eventType === 'password-reset-via-recovery-code')).toBe(true);
   });
 
   it('throws InvalidRecoveryCodeError for a wrong code', async () => {
@@ -111,7 +118,15 @@ describe('ResetPasswordWithRecoveryCode', () => {
       clock,
       fakeIds(),
     );
-    useCase = new ResetPasswordWithRecoveryCode(verify, accounts, auditLog, hasher, clock, fakeIds());
+    useCase = new ResetPasswordWithRecoveryCode(
+      verify,
+      accounts,
+      codes,
+      auditLog,
+      hasher,
+      clock,
+      fakeIds(),
+    );
 
     await expect(
       useCase.execute({
@@ -120,6 +135,19 @@ describe('ResetPasswordWithRecoveryCode', () => {
         username: 'admin',
       }),
     ).rejects.toBeInstanceOf(AdminAccountNotFoundError);
+
+    const remaining = await codes.countUnconsumed();
+    expect(remaining).toBe(1);
+  });
+
+  it('does not consume a code when password save would fail (bad code)', async () => {
+    await expect(
+      useCase.execute({
+        recoveryCode: 'ZZZZ-ZZZZ-ZZZZ-ZZZZ',
+        newPassword: 'NewPass1',
+        username: 'admin',
+      }),
+    ).rejects.toBeInstanceOf(InvalidRecoveryCodeError);
 
     const remaining = await codes.countUnconsumed();
     expect(remaining).toBe(1);

@@ -10,7 +10,7 @@
 
 CREATE TABLE auth_audit_log (
   id          TEXT PRIMARY KEY,       -- ULID with 'aaev_' prefix
-  event_type  TEXT NOT NULL,          -- 'recovery-codes-generated' | 'recovery-codes-regenerated' | 'recovery-code-consumed' | 'password-reset-via-recovery-code'
+  event_type  TEXT NOT NULL,          -- 'recovery-codes-generated' | 'recovery-code-consumed' | 'recovery-code-failed' | 'password-reset-via-recovery-code'
   username    TEXT NOT NULL,
   created_at  TEXT NOT NULL,          -- ISO-8601 UTC
   metadata    TEXT NOT NULL DEFAULT '{}',  -- JSON object

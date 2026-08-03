@@ -642,6 +642,7 @@ export function buildContainer(options: ContainerOptions): Container {
   const resetPasswordWithRecoveryCode = new ResetPasswordWithRecoveryCode(
     verifyRecoveryCode,
     adminRepo,
+    recoveryCodeRepo,
     auditLogRepo,
     hasher,
     clock,

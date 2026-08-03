@@ -1,4 +1,5 @@
 import type { AdminAccountRepository } from '../ports/admin-account-repository';
+import type { RecoveryCodeRepository } from '../ports/recovery-code-repository';
 import type { AuthAuditLogRepository } from '../ports/auth-audit-log-repository';
 import type { PasswordHasher } from '../ports/password-hasher';
 import type { Clock } from '../ports/clock';
@@ -10,6 +11,7 @@ import {
   type AuthAuditEvent,
   type AuthAuditEventId,
 } from '../entities/auth-audit-event';
+import type { RecoveryCodeId } from '../entities/recovery-code';
 import type { VerifyRecoveryCode } from './verify-recovery-code';
 
 export type ResetPasswordWithRecoveryCodeInput = {
@@ -22,6 +24,7 @@ export class ResetPasswordWithRecoveryCode {
   constructor(
     private readonly verifyCode: VerifyRecoveryCode,
     private readonly accounts: AdminAccountRepository,
+    private readonly codeRepo: RecoveryCodeRepository,
     private readonly auditLog: AuthAuditLogRepository,
     private readonly hasher: PasswordHasher,
     private readonly clock: Clock,
@@ -36,20 +39,33 @@ export class ResetPasswordWithRecoveryCode {
     if (!account) throw new AdminAccountNotFoundError();
 
     const result = await this.verifyCode.execute({ recoveryCode, username });
-    if (result.outcome !== 'success') throw new AdminAccountNotFoundError();
+    if (result.outcome !== 'success') {
+      throw new AdminAccountNotFoundError();
+    }
 
     const now = this.clock.now();
     account.passwordHash = await this.hasher.hash(newPassword);
     account.updatedAt = now;
     await this.accounts.save(account);
 
+    await this.codeRepo.consumeById(result.codeId as RecoveryCodeId, now);
+
     const event: AuthAuditEvent = {
+      id: this.ids.next(AUTH_AUDIT_EVENT_ID_PREFIX) as AuthAuditEventId,
+      eventType: 'recovery-code-consumed',
+      username,
+      timestamp: now,
+      metadata: {},
+    };
+    await this.auditLog.record(event);
+
+    const resetEvent: AuthAuditEvent = {
       id: this.ids.next(AUTH_AUDIT_EVENT_ID_PREFIX) as AuthAuditEventId,
       eventType: 'password-reset-via-recovery-code',
       username,
       timestamp: now,
       metadata: {},
     };
-    await this.auditLog.record(event);
+    await this.auditLog.record(resetEvent);
   }
 }
