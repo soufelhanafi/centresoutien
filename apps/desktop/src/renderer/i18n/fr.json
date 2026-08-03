@@ -32,6 +32,11 @@
     "placeholder": {
       "title": "Bientôt disponible",
       "body": "Ce module sera bientôt disponible."
+    },
+    "error": {
+      "title": "Une erreur est survenue",
+      "body": "Impossible d'afficher cet écran. Réessayez.",
+      "retry": "Réessayer"
     }
   },
   "plan": {
