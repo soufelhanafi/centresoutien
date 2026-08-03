@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { GraduationCap, Users } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { StudentView } from '../../lib/students/student-view';
 import { StudentTable } from './student-table';
 
@@ -29,7 +29,7 @@ export function StudentListContent({ status, students, onRetry, onCreate }: Stud
 
   if (status === 'error') {
     return (
-      <EmptyState
+      <ErrorState
         icon={<Users className="h-5 w-5" aria-hidden="true" />}
         title={t('students.loadError.title')}
         description={t('students.loadError.body')}

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { CalendarOff, Archive, CalendarSearch } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { HolidayStatus, HolidayView } from '../../lib/holidays/holiday-view';
 import { HolidayTable } from './holiday-table';
 
@@ -39,7 +39,7 @@ export function HolidayListContent({
 
   if (status === 'error') {
     return (
-      <EmptyState
+      <ErrorState
         icon={<CalendarOff className="h-5 w-5" aria-hidden="true" />}
         title={t('holidays.loadError.title')}
         description={t('holidays.loadError.body')}

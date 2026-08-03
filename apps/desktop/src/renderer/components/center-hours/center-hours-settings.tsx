@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { WEEKDAYS } from '@centresoutien/domain';
-import { Button, Skeleton } from '@centresoutien/ui';
+import { Clock } from 'lucide-react';
+import { Button, ErrorState, Skeleton } from '@centresoutien/ui';
 import { useCenterHours } from '../../hooks/center-hours/use-center-hours';
 import { seedWeek } from '../../lib/center-hours';
 import { CenterHoursForm } from './center-hours-form';
@@ -28,12 +29,16 @@ export function CenterHoursSettings() {
 
   if (query.isError) {
     return (
-      <div role="alert" className="flex flex-col items-start gap-2">
-        <p className="text-sm text-destructive">{t('centerHours.loadError')}</p>
-        <Button variant="secondary" onClick={() => void query.refetch()}>
-          {t('centerHours.retry')}
-        </Button>
-      </div>
+      <ErrorState
+        className="w-full max-w-2xl"
+        icon={<Clock className="h-5 w-5" aria-hidden="true" />}
+        title={t('centerHours.loadError')}
+        action={
+          <Button variant="secondary" size="sm" onClick={() => void query.refetch()}>
+            {t('centerHours.retry')}
+          </Button>
+        }
+      />
     );
   }
 

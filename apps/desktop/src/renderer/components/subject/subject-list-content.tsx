@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Archive } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { SubjectStatus, SubjectUsageView } from '../../lib/subjects/subject-view';
 import { SubjectTable } from './subject-table';
 
@@ -30,7 +30,7 @@ export function SubjectListContent({ status, variant, subjects, onRetry, onCreat
 
   if (status === 'error') {
     return (
-      <EmptyState
+      <ErrorState
         icon={<BookOpen className="h-5 w-5" aria-hidden="true" />}
         title={t('subjects.loadError.title')}
         description={t('subjects.loadError.body')}

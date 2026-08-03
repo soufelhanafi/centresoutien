@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { UserRound, Users } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { ParentView } from '../../lib/parents/parent-view';
 import { ParentTable } from './parent-table';
 
@@ -36,7 +36,7 @@ export function ParentListContent({
 
   if (status === 'error') {
     return (
-      <EmptyState
+      <ErrorState
         icon={<Users className="h-5 w-5" aria-hidden="true" />}
         title={t('parents.loadError.title')}
         description={t('parents.loadError.body')}

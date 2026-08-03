@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Layers, Archive } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { SubjectView } from '../../lib/subjects/subject-view';
 import type { FormulaStatus, FormulaView } from '../../lib/formulas/formula-view';
 import { FormulaTable } from './formula-table';
@@ -39,7 +39,7 @@ export function FormulaListContent({
 
   if (status === 'error') {
     return (
-      <EmptyState
+      <ErrorState
         icon={<Layers className="h-5 w-5" aria-hidden="true" />}
         title={t('formulas.loadError.title')}
         description={t('formulas.loadError.body')}

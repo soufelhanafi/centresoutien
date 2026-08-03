@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { UserPlus, Users } from 'lucide-react';
-import { Button, EmptyState, Numeric, Skeleton, toast } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Numeric, Skeleton, toast } from '@centresoutien/ui';
 import type { GroupRow } from '../../lib/groups/group-view';
 import { useGroupRoster } from '../../hooks/group/use-group-roster';
 import { useRemoveStudent } from '../../hooks/group/use-remove-student';
@@ -54,9 +54,14 @@ export function GroupRosterPanel({ group }: { group: GroupRow }) {
       )}
 
       {rosterQuery.isError && (
-        <EmptyState
+        <ErrorState
           icon={<Users className="h-5 w-5" aria-hidden="true" />}
           title={t('groups.roster.loadError')}
+          action={
+            <Button variant="outline" size="sm" onClick={() => void rosterQuery.refetch()}>
+              {t('groups.loadError.retry')}
+            </Button>
+          }
         />
       )}
 

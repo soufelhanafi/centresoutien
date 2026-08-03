@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@centresoutien/ui';
+import { Building2 } from 'lucide-react';
+import { Button, Card, CardContent, CardHeader, ErrorState, Skeleton } from '@centresoutien/ui';
 import { useCenterProfile } from '../../hooks/center/use-center-profile';
 import { CenterProfileForm } from './center-profile-form';
 
@@ -30,17 +31,17 @@ export function CenterProfileSettings() {
       )}
 
       {query.isError && (
-        <Card className="w-full max-w-2xl">
-          <CardHeader>
-            <CardTitle>{t('settings.center.loadErrorTitle')}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-start gap-4">
-            <p className="text-sm text-muted-foreground">{t('settings.center.loadErrorBody')}</p>
-            <Button variant="outline" onClick={() => query.refetch()}>
+        <ErrorState
+          className="w-full max-w-2xl"
+          icon={<Building2 className="h-5 w-5" aria-hidden="true" />}
+          title={t('settings.center.loadErrorTitle')}
+          description={t('settings.center.loadErrorBody')}
+          action={
+            <Button variant="outline" size="sm" onClick={() => query.refetch()}>
               {t('settings.center.retry')}
             </Button>
-          </CardContent>
-        </Card>
+          }
+        />
       )}
 
       {query.isSuccess && <CenterProfileForm center={query.data.center} />}

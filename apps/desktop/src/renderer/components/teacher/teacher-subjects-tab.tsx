@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { BookOpen } from 'lucide-react';
-import { Badge, Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Badge, Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import { useSubjects } from '../../hooks/subject/use-subjects';
 import { localizedSubjectName } from '../../lib/subjects/localized-name';
 import type { TeacherView } from '../../lib/teachers/teacher-view';
@@ -38,7 +38,7 @@ export function TeacherSubjectsTab({ teacher }: { teacher: TeacherView }) {
 
   if (query.isError) {
     return (
-      <EmptyState
+      <ErrorState
         className="mt-4"
         icon={<BookOpen className="h-5 w-5" aria-hidden="true" />}
         title={t('teachers.detail.subjects.loadError.title')}

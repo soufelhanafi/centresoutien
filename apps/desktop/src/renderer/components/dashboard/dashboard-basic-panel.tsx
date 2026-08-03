@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { LayoutDashboard } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, ErrorState, Skeleton } from '@centresoutien/ui';
 import { useDashboardBasicSummary } from '../../hooks/dashboard/use-dashboard-basic-summary';
 import { bcp47 } from '../../lib/format';
 import { KpiCard } from './kpi-card';
@@ -24,7 +24,7 @@ export function DashboardBasicPanel() {
 
   if (query.isError) {
     return (
-      <EmptyState
+      <ErrorState
         icon={<LayoutDashboard className="h-5 w-5" aria-hidden="true" />}
         title={t('dashboard.basic.loadError.title')}
         description={t('dashboard.basic.loadError.body')}

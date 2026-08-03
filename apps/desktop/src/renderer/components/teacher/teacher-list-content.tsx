@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Users, Archive } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { TeacherStatus, TeacherView } from '../../lib/teachers/teacher-view';
 import { TeacherTable } from './teacher-table';
 
@@ -36,7 +36,7 @@ export function TeacherListContent({
 
   if (status === 'error') {
     return (
-      <EmptyState
+      <ErrorState
         icon={<Users className="h-5 w-5" aria-hidden="true" />}
         title={t('teachers.loadError.title')}
         description={t('teachers.loadError.body')}

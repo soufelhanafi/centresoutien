@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import { UserPlus, Users } from 'lucide-react';
 import type { ParentView } from '../../lib/parents/parent-view';
 import type { StudentView } from '../../lib/students/student-view';
@@ -55,7 +55,7 @@ export function GuardianLinks({ student }: { student: StudentView }) {
       )}
 
       {parentsQuery.isError && (
-        <EmptyState
+        <ErrorState
           icon={<Users className="h-5 w-5" aria-hidden="true" />}
           title={t('students.guardians.loadError')}
         />
