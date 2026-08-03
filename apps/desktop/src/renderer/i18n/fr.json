@@ -1446,7 +1446,7 @@
       "exportSuccess": "Facture exportée avec succès.",
       "exportError": "L'export a échoué. Réessayez.",
       "issue": {
-        "action": "Issuer la facture",
+        "action": "Émettre la facture",
         "success": "Facture émise.",
         "error": "L'émission a échoué. Réessayez."
       },
