@@ -35,4 +35,9 @@ describe('VerifyAdminPassword', () => {
   it('trims the username so a trailing space still matches the stored account', async () => {
     expect(await verify.execute({ username: '  directrice ', password: 'Casa2026!' })).toBe(true);
   });
+
+  it('matches the username regardless of casing (SOU-153)', async () => {
+    expect(await verify.execute({ username: 'DIRECTRICE', password: 'Casa2026!' })).toBe(true);
+    expect(await verify.execute({ username: 'Directrice', password: 'Casa2026!' })).toBe(true);
+  });
 });
