@@ -3,7 +3,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { DirectionProvider, Toaster, TooltipProvider } from '@centresoutien/ui';
 import { useHtmlDirection } from './hooks/use-html-direction';
 import { usePlanHydration } from './hooks/use-plan-hydration';
-import { useTheme } from './hooks/use-theme';
+import { useThemeEffect } from './hooks/use-theme';
 import { FirstRunGate } from './components/wizard/first-run-gate';
 import { AuthGate } from './components/auth/auth-gate';
 import { router } from './app/router';
@@ -18,7 +18,7 @@ import { queryClient } from './lib/query-client';
 export function App() {
   const direction = useHtmlDirection();
   usePlanHydration();
-  useTheme();
+  useThemeEffect();
 
   return (
     <QueryClientProvider client={queryClient}>

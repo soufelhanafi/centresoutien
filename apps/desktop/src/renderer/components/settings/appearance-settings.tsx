@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Sun, Moon, Monitor, type LucideIcon } from 'lucide-react';
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@centresoutien/ui';
-import { useTheme } from '../../hooks/use-theme';
+import { useThemePreference } from '../../hooks/use-theme';
 import type { ThemePreference } from '../../stores/theme-store';
 
 const THEME_OPTIONS: ReadonlyArray<{ preference: ThemePreference; icon: LucideIcon; labelKey: string }> = [
@@ -17,7 +17,7 @@ const THEME_OPTIONS: ReadonlyArray<{ preference: ThemePreference; icon: LucideIc
  */
 export function AppearanceSettings() {
   const { t } = useTranslation();
-  const { preference, setPreference } = useTheme();
+  const { preference, setPreference } = useThemePreference();
 
   return (
     <Card className="w-full max-w-2xl">
