@@ -419,6 +419,25 @@ const weeklySessionViewSchema = z.object({
   kind: z.enum(['regular', 'exam-prep']),
 });
 
+// The schedule PDF export's view scope (SOU-107): `full` prints every live
+// session; the other three narrow to one room/teacher/group and carry BOTH the
+// target id (so the main process can filter the already-fetched
+// `session.week` rows by it) AND its already-known display name/level — the
+// renderer already holds these for its own filter dropdowns, so the main
+// process resolves nothing beyond filtering, mirroring `session.week`'s own
+// "filtering is client-side" design note (`ListWeekSessions`'s doc comment).
+const scheduleExportViewFilterSchema = z.discriminatedUnion('scope', [
+  z.object({ scope: z.literal('full') }),
+  z.object({ scope: z.literal('room'), roomId: z.string(), roomName: z.string() }),
+  z.object({ scope: z.literal('teacher'), teacherId: z.string(), teacherName: bilingualTextSchema }),
+  z.object({
+    scope: z.literal('group'),
+    groupId: z.string(),
+    subjectName: bilingualTextSchema.nullable(),
+    level: z.string().nullable(),
+  }),
+]);
+
 // The presentation projection of a concrete, dated session occurrence across the
 // IPC boundary (SOU-129) — the sync envelope is stripped and the branded id /
 // `TimeOfDay` values widened to plain strings. `teacherId` is nullable (inherited
@@ -1269,6 +1288,24 @@ export const ipcContract = {
     request: z.object({ id: z.string() }),
     response: z.object({ ok: z.literal(true) }),
   },
+  // Weekly schedule print/PDF export (SOU-107): renders the planner grid's full
+  // live week (the same rows `session.week` returns) to the same bilingual
+  // FR/AR `pdf-lib` layout family as the invoice/payslip/receipt PDFs, A4
+  // landscape — full center, or narrowed to one room/teacher/group via `view`
+  // (see `scheduleExportViewFilterSchema`). `print` opens it in the OS's
+  // default PDF viewer; `export` lets the user pick a save location. `locale`
+  // picks the PDF's language independent of the app's active UI locale,
+  // mirroring `invoice.print`/`invoice.export`. centerCode is injected in
+  // main, never sent from the renderer. Gated by `core.calendar.week` (every
+  // plan) via the reused `ListWeekSessions` use case — no new domain use case.
+  'schedule.print': {
+    request: z.object({ view: scheduleExportViewFilterSchema, locale: z.enum(['fr', 'ar']) }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'schedule.export': {
+    request: z.object({ view: scheduleExportViewFilterSchema, locale: z.enum(['fr', 'ar']) }),
+    response: z.object({ savedPath: z.string().nullable() }),
+  },
   // Auth (SOU-26). `admin.exists` drives first-run detection; `admin.create`
   // reuses the domain credential schema (password policy enforced here too);
   // `admin.verify` is a bare presence check — login must not reject an existing
@@ -1450,6 +1487,11 @@ export type HolidayDto = z.infer<typeof holidayViewSchema>;
 
 /** The weekly-session boundary DTO — the renderer's `WeeklySessionView` aliases this. */
 export type WeeklySessionDto = z.infer<typeof weeklySessionViewSchema>;
+
+/** The schedule PDF export's view-filter boundary DTO — the renderer's export
+ *  dialog builds one of these from its own already-loaded room/teacher/group
+ *  filter state. */
+export type ScheduleExportViewFilterDto = z.infer<typeof scheduleExportViewFilterSchema>;
 
 /** The concrete dated-session boundary DTO — the renderer's `SessionView` aliases this. */
 export type SessionDto = z.infer<typeof sessionViewSchema>;

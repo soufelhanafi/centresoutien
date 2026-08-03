@@ -10,6 +10,7 @@ import { PlannerGrid } from '../../components/planning/planner-grid';
 import { PlannerGridSkeleton } from '../../components/planning/planner-grid-skeleton';
 import { SessionTemplateDialog } from '../../components/planning/session-template-dialog';
 import { CreateSessionDialog } from '../../components/planning/create-session-dialog';
+import { ScheduleExportDialog } from '../../components/planning/schedule-export-dialog';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 import {
   applyFilters,
@@ -61,10 +62,13 @@ export function PlannerPage() {
           </h1>
           <p className="text-sm text-muted-foreground">{t('planning.subtitle')}</p>
         </div>
-        <Button onClick={() => setCreating(true)}>
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          {t('planning.form.new')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <ScheduleExportDialog />
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            {t('planning.form.new')}
+          </Button>
+        </div>
       </header>
 
       {query.isPending ? (

@@ -149,6 +149,7 @@ import { SqliteBackupConfigStore } from '../data/sqlite/repositories/backup-conf
 import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
+import { PdfLibScheduleRenderer } from '../data/pdf/pdf-lib-schedule-renderer';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
@@ -281,6 +282,10 @@ export function buildContainer(options: ContainerOptions): Container {
   const sessionRepo = new SqliteWeeklyRecurringSessionRepository(db);
   const roomReference: RoomReferencePort = sessionRepo;
   const listWeekSessions = new ListWeekSessions(sessionRepo, plan);
+  // Weekly schedule PDF export (SOU-107): no domain use case sits between
+  // `ListWeekSessions` and this renderer — the IPC handler filters the
+  // already-fetched week to the requested view itself (`schedule-pdf-assembly.ts`).
+  const scheduleRenderer = new PdfLibScheduleRenderer();
   const createRoom = new CreateRoom(roomRepo, clock, ids, plan);
   const listRooms = new ListRooms(roomRepo, plan);
   const updateRoom = new UpdateRoom(roomRepo, clock, plan);
@@ -713,6 +718,7 @@ export function buildContainer(options: ContainerOptions): Container {
     getStudentAttendanceReport,
     getGroupAttendanceSheet,
     listWeekSessions,
+    scheduleRenderer,
     generateSessions,
     recordSessionAttendance,
     createWeeklySession,

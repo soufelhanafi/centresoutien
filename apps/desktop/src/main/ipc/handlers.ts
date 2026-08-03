@@ -140,6 +140,7 @@ import { createPayslipHandlers, type PayslipHandlerDeps } from './payslip-handle
 import { createDashboardHandlers, type DashboardHandlerDeps } from './dashboard-handlers';
 import { createPayrollHandlers, type PayrollHandlerDeps } from './payroll-handlers';
 import { createPaymentReceiptHandlers, type PaymentReceiptHandlerDeps } from './payment-receipt-handlers';
+import { createScheduleHandlers, type ScheduleHandlerDeps } from './schedule-handlers';
 import {
   createAttendanceReportingHandlers,
   type AttendanceReportingHandlerDeps,
@@ -531,6 +532,7 @@ export type HandlerDeps = BackupHandlerDeps &
   DashboardHandlerDeps &
   PayrollHandlerDeps &
   PaymentReceiptHandlerDeps &
+  ScheduleHandlerDeps &
   AttendanceReportingHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
@@ -1302,6 +1304,7 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     ...createDashboardHandlers(deps),
     ...createPayrollHandlers(deps),
     ...createPaymentReceiptHandlers(deps),
+    ...createScheduleHandlers(deps),
     ...createAttendanceReportingHandlers(deps),
   };
 }
