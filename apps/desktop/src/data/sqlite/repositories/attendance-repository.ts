@@ -262,8 +262,8 @@ export class SqliteAttendanceRepository implements AttendanceRepository {
       session_id: string;
       status: string;
       date: string;
-      student_name_fr: string;
-      student_name_ar: string;
+      student_name_fr: string | null;
+      student_name_ar: string | null;
     }[];
 
     return {
@@ -273,7 +273,10 @@ export class SqliteAttendanceRepository implements AttendanceRepository {
         sessionId: row.session_id as SessionId,
         date: row.date,
         status: row.status as AttendanceStatus,
-        studentName: { fr: row.student_name_fr, ar: row.student_name_ar },
+        studentName: {
+          fr: row.student_name_fr ?? row.student_id,
+          ar: row.student_name_ar ?? row.student_id,
+        },
       })),
     };
   }
