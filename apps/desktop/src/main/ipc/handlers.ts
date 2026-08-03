@@ -1288,11 +1288,7 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       return { ok: true };
     },
     'admin.recovery.generate': async () => {
-      const username = await deps.adminUsername();
-      const codes = await deps.generateRecoveryCodes.execute(username);
-      return { codes: [...codes] };
-    },
-    'admin.recovery.regenerate': async () => {
+      if (!(await deps.deviceSessions.isAuthenticated())) throw new Error('not-authenticated');
       const username = await deps.adminUsername();
       const codes = await deps.generateRecoveryCodes.execute(username);
       return { codes: [...codes] };

@@ -12,16 +12,16 @@ export class InMemoryRecoveryCodeRepository implements RecoveryCodeRepository {
     return this.rows.filter((c) => !c.consumed).map((c) => structuredClone(c));
   }
 
-  async consumeById(id: RecoveryCode['id']): Promise<void> {
+  async consumeById(id: RecoveryCode['id'], consumedAt: Date): Promise<void> {
     const idx = this.rows.findIndex((c) => c.id === id);
     if (idx !== -1) {
-      this.rows[idx] = { ...this.rows[idx], consumed: true, consumedAt: new Date() };
+      this.rows[idx] = { ...this.rows[idx], consumed: true, consumedAt };
     }
   }
 
-  async invalidateAll(): Promise<void> {
+  async invalidateAll(now: Date): Promise<void> {
     this.rows = this.rows.map((c) =>
-      c.consumed ? c : { ...c, consumed: true, consumedAt: new Date() },
+      c.consumed ? c : { ...c, consumed: true, consumedAt: now },
     );
   }
 

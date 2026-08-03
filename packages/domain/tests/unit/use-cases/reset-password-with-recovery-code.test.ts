@@ -4,10 +4,12 @@ import { VerifyRecoveryCode } from '../../../src/use-cases/verify-recovery-code'
 import { InMemoryRecoveryCodeRepository } from '../fakes/in-memory-recovery-code-repository';
 import { InMemoryAuthAuditLogRepository } from '../fakes/in-memory-auth-audit-log-repository';
 import { InMemoryAdminAccountRepository } from '../fakes/in-memory-admin-account-repository';
+import { InMemoryLoginThrottleStore } from '../fakes/in-memory-login-throttle-store';
+import { LoginThrottlePolicy } from '../../../src/policies/login-throttle-policy';
 import { fakeHasher } from '../fakes/hasher';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
-import { InvalidRecoveryCodeError } from '../../../src/errors/auth-errors';
+import { InvalidRecoveryCodeError, AdminAccountNotFoundError } from '../../../src/errors/auth-errors';
 import type { AdminAccountId } from '../../../src/entities/admin-account';
 import type { RecoveryCodeId } from '../../../src/entities/recovery-code';
 
@@ -36,7 +38,15 @@ describe('ResetPasswordWithRecoveryCode', () => {
       updatedAt: new Date(),
     });
 
-    const verify = new VerifyRecoveryCode(codes, auditLog, hasher, clock, fakeIds());
+    const verify = new VerifyRecoveryCode(
+      codes,
+      auditLog,
+      hasher,
+      new InMemoryLoginThrottleStore(),
+      new LoginThrottlePolicy(),
+      clock,
+      fakeIds(),
+    );
     useCase = new ResetPasswordWithRecoveryCode(verify, accounts, auditLog, hasher, clock, fakeIds());
 
     const hashed = await hasher.hash(validCode());
@@ -88,6 +98,31 @@ describe('ResetPasswordWithRecoveryCode', () => {
         username: 'admin',
       }),
     ).rejects.toBeInstanceOf(InvalidRecoveryCodeError);
+  });
+
+  it('does not consume a code when the account is missing', async () => {
+    accounts = new InMemoryAdminAccountRepository();
+    const verify = new VerifyRecoveryCode(
+      codes,
+      auditLog,
+      hasher,
+      new InMemoryLoginThrottleStore(),
+      new LoginThrottlePolicy(),
+      clock,
+      fakeIds(),
+    );
+    useCase = new ResetPasswordWithRecoveryCode(verify, accounts, auditLog, hasher, clock, fakeIds());
+
+    await expect(
+      useCase.execute({
+        recoveryCode: validCode(),
+        newPassword: 'NewPass1',
+        username: 'admin',
+      }),
+    ).rejects.toBeInstanceOf(AdminAccountNotFoundError);
+
+    const remaining = await codes.countUnconsumed();
+    expect(remaining).toBe(1);
   });
 
   it('throws on weak password', async () => {

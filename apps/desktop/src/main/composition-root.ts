@@ -634,6 +634,8 @@ export function buildContainer(options: ContainerOptions): Container {
     recoveryCodeRepo,
     auditLogRepo,
     hasher,
+    new SqliteLoginThrottleStore(db),
+    new LoginThrottlePolicy(),
     clock,
     ids,
   );

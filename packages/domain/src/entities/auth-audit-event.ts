@@ -6,8 +6,8 @@ export type AuthAuditEventId = Brand<string, 'AuthAuditEventId'>;
 
 export type AuthAuditEventType =
   | 'recovery-codes-generated'
-  | 'recovery-codes-regenerated'
   | 'recovery-code-consumed'
+  | 'recovery-code-failed'
   | 'password-reset-via-recovery-code';
 
 /**

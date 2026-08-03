@@ -55,16 +55,16 @@ export class SqliteRecoveryCodeRepository implements RecoveryCodeRepository {
     return rows.map(fromRow);
   }
 
-  async consumeById(id: RecoveryCode['id']): Promise<void> {
+  async consumeById(id: RecoveryCode['id'], consumedAt: Date): Promise<void> {
     this.db.prepare(CONSUME_SQL).run({
       id,
-      consumed_at: new Date().toISOString(),
+      consumed_at: consumedAt.toISOString(),
     });
   }
 
-  async invalidateAll(): Promise<void> {
+  async invalidateAll(now: Date): Promise<void> {
     this.db.prepare("UPDATE recovery_codes SET consumed = 1, consumed_at = @now WHERE consumed = 0").run({
-      now: new Date().toISOString(),
+      now: now.toISOString(),
     });
   }
 

@@ -18,13 +18,6 @@ export type ResetPasswordWithRecoveryCodeInput = {
   username: string;
 };
 
-/**
- * Orchestrates a password reset via recovery code (SOU-154).
- * 1. Validates and consumes the recovery code.
- * 2. Hashes and persists the new password (bypasses current-password gating,
- *    which is irrelevant here — the code is proof of ownership).
- * 3. Records an audit event.
- */
 export class ResetPasswordWithRecoveryCode {
   constructor(
     private readonly verifyCode: VerifyRecoveryCode,
@@ -39,10 +32,11 @@ export class ResetPasswordWithRecoveryCode {
     const { recoveryCode, newPassword } = resetPasswordWithRecoveryCodeSchema.parse(input);
     const username = input.username;
 
-    await this.verifyCode.execute({ recoveryCode, username });
-
     const account = await this.accounts.findOnly();
     if (!account) throw new AdminAccountNotFoundError();
+
+    const result = await this.verifyCode.execute({ recoveryCode, username });
+    if (result.outcome !== 'success') throw new AdminAccountNotFoundError();
 
     const now = this.clock.now();
     account.passwordHash = await this.hasher.hash(newPassword);

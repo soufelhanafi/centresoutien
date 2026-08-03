@@ -16,19 +16,13 @@ import {
 } from '../entities/auth-audit-event';
 
 const CODE_COUNT = 16;
-const BYTES_PER = 16;
+const BYTES_PER = 8;
 
 function formatCode(hex: string): string {
   const upper = hex.toUpperCase();
   return `${upper.slice(0, 4)}-${upper.slice(4, 8)}-${upper.slice(8, 12)}-${upper.slice(12, 16)}`;
 }
 
-/**
- * Generates 16 XXXX-XXXX-XXXX-XXXX recovery codes (SOU-154). Each code is
- * Argon2id-hashed and stored; the plaintext codes are returned ONCE — only
- * the caller holds them after this call completes. A prior set is invalidated
- * if one exists. An audit event is recorded.
- */
 export class GenerateRecoveryCodes {
   constructor(
     private readonly codes: RecoveryCodeRepository,
@@ -40,9 +34,9 @@ export class GenerateRecoveryCodes {
   ) {}
 
   async execute(username: string): Promise<readonly string[]> {
-    await this.codes.invalidateAll();
-
     const now = this.clock.now();
+    await this.codes.invalidateAll(now);
+
     const plainCodes: string[] = [];
     const hashedCodes: RecoveryCode[] = [];
 
