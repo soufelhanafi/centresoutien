@@ -115,6 +115,21 @@ export class MockStudentsGateway {
     return updated;
   }
 
+  async setGuardians(
+    id: string,
+    guardianIds: readonly string[],
+    expectedVersion: number,
+  ): Promise<StudentView> {
+    const current = this.students.get(id);
+    if (!current) throw new Error(`unknown student ${id}`);
+    if (current.version !== expectedVersion) {
+      throw new Error(`student ${id} has version ${current.version}, expected ${expectedVersion}`);
+    }
+    const updated = { ...current, guardianIds: [...guardianIds] };
+    this.students.set(id, updated);
+    return updated;
+  }
+
   async archive(id: string): Promise<void> {
     const current = this.students.get(id);
     if (current) this.students.set(id, { ...current, archived: true });

@@ -8,8 +8,8 @@ import { ipcStudentsGateway } from './ipc-students-gateway';
  *
  * ## Contract status (SOU-39 frontend ↔ SOU-38 domain)
  *
- * All five channels are now published (`student.create` / `list` / `get` /
- * `update` / `archive`), so this ships against the real {@link ipcStudentsGateway}.
+ * All channels are now published (`student.create` / `list` / `get` /
+ * `update` / `setGuardians` / `archive`), so this ships against the real {@link ipcStudentsGateway}.
  * The in-memory `MockStudentsGateway` stays in the tree for unit tests, which
  * exercise the same interface without Electron.
  */
@@ -18,6 +18,7 @@ export interface StudentsGateway {
   get(id: string): Promise<StudentView | null>;
   create(input: StudentInput): Promise<StudentView>;
   update(id: string, input: StudentInput): Promise<StudentView>;
+  setGuardians(id: string, guardianIds: readonly string[], expectedVersion: number): Promise<StudentView>;
   archive(id: string): Promise<void>;
 }
 
