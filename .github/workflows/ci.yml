@@ -7,7 +7,7 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -39,7 +39,7 @@ jobs:
         run: pnpm build
 
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -54,15 +54,13 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Electron needs its GUI system libraries + a virtual display on Linux.
-      - name: Install Playwright system dependencies
-        run: pnpm --filter @centresoutien/desktop exec playwright install-deps
-
       - name: Build desktop
         run: pnpm --filter @centresoutien/desktop build
 
-      - name: E2E (Electron under Xvfb, FR + AR)
-        run: xvfb-run -a pnpm --filter @centresoutien/desktop test:e2e
+      # Runner is this machine's real display (macOS, no Xvfb equivalent) —
+      # CS_E2E_HIDDEN keeps the Electron window off-screen instead (window.ts).
+      - name: E2E (Electron, FR + AR)
+        run: CS_E2E_HIDDEN=1 pnpm --filter @centresoutien/desktop test:e2e
 
       # On failure, keep the Playwright traces/screenshots so a flake or a
       # headless-only failure can be inspected without re-running locally.

@@ -24,7 +24,10 @@ export function createMainWindow(preloadPath: string, renderer: RendererEntry): 
     },
   });
 
-  window.once('ready-to-show', () => window.show());
+  // `CS_E2E_HIDDEN` keeps the window off-screen for local Playwright runs on
+  // macOS (no Xvfb equivalent there) — Playwright drives it over CDP either
+  // way, so hiding it doesn't affect what the e2e suite can assert on.
+  if (process.env['CS_E2E_HIDDEN'] !== '1') window.once('ready-to-show', () => window.show());
   window.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url);
     return { action: 'deny' };
