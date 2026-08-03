@@ -76,3 +76,45 @@ jobs:
             apps/desktop/playwright-report/
           retention-days: 7
           if-no-files-found: ignore
+
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.9.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # This suite renders the built renderer bundle in a plain Chromium page
+      # (no Electron, no native rebuild — see tests/visual/README.md), so it
+      # only needs the chromium browser binary, not the full GUI dep set the
+      # Electron `e2e` job installs.
+      - name: Install Playwright chromium
+        run: pnpm --filter @centresoutien/desktop exec playwright install --with-deps chromium
+
+      - name: Build desktop
+        run: pnpm --filter @centresoutien/desktop build
+
+      - name: Visual regression (light/dark x FR/AR key screens)
+        run: pnpm --filter @centresoutien/desktop test:visual
+
+      # On failure, keep the actual/expected/diff triptychs so a real visual
+      # regression (vs an intentional baseline update) can be told apart
+      # without re-running locally.
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-visual-results
+          path: |
+            apps/desktop/tests/visual/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
