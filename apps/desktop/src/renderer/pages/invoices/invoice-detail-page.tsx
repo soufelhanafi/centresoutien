@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft, ReceiptText } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import { useInvoice } from '../../hooks/invoice/use-invoice';
 import { useStudent } from '../../hooks/student/use-student';
 import { InvoiceDetailHeader } from '../../components/invoice/invoice-detail-header';
@@ -37,16 +37,29 @@ export function InvoiceDetailPage() {
           <ArrowLeft className="h-4 w-4 rtl:-scale-x-100" aria-hidden="true" />
           {t('invoices.detail.back')}
         </Link>
-        <EmptyState
-          icon={<ReceiptText className="h-5 w-5" aria-hidden="true" />}
-          title={query.isError ? t('invoices.loadError.title') : t('invoices.detail.notFoundTitle')}
-          description={query.isError ? t('invoices.loadError.body') : t('invoices.detail.notFoundBody')}
-          action={
-            <Button variant="outline" size="sm" onClick={() => navigate({ to: '/invoicing' })}>
-              {t('invoices.detail.back')}
-            </Button>
-          }
-        />
+        {query.isError ? (
+          <ErrorState
+            icon={<ReceiptText className="h-5 w-5" aria-hidden="true" />}
+            title={t('invoices.loadError.title')}
+            description={t('invoices.loadError.body')}
+            action={
+              <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
+                {t('invoices.loadError.retry')}
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={<ReceiptText className="h-5 w-5" aria-hidden="true" />}
+            title={t('invoices.detail.notFoundTitle')}
+            description={t('invoices.detail.notFoundBody')}
+            action={
+              <Button variant="outline" size="sm" onClick={() => navigate({ to: '/invoicing' })}>
+                {t('invoices.detail.back')}
+              </Button>
+            }
+          />
+        )}
       </section>
     );
   }

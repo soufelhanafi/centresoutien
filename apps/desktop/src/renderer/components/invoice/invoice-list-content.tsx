@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { ReceiptText } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { StudentView } from '../../lib/students/student-view';
 import type { InvoiceListItemView } from '../../lib/invoices/invoice-view';
 import { InvoiceTable } from './invoice-table';
@@ -30,7 +30,7 @@ export function InvoiceListContent({ status, invoices, studentsById, onRetry }: 
 
   if (status === 'error') {
     return (
-      <EmptyState
+      <ErrorState
         icon={<ReceiptText className="h-5 w-5" aria-hidden="true" />}
         title={t('invoices.loadError.title')}
         description={t('invoices.loadError.body')}

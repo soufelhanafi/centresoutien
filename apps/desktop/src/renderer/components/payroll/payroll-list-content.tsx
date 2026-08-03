@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { HandCoins } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { TeacherView } from '../../lib/teachers/teacher-view';
 import type { SubjectView } from '../../lib/subjects/subject-view';
 import type { TeacherAttributionBreakdownEntryView, TeacherPayoutView } from '../../lib/payroll/teacher-payout-view';
@@ -40,7 +40,7 @@ export function PayrollListContent({
 
   if (status === 'error') {
     return (
-      <EmptyState
+      <ErrorState
         icon={<HandCoins className="h-5 w-5" aria-hidden="true" />}
         title={t('payroll.loadError.title')}
         description={t('payroll.loadError.body')}
