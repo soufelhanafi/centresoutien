@@ -1445,6 +1445,21 @@
       "printError": "L'impression a échoué. Réessayez.",
       "exportSuccess": "Facture exportée avec succès.",
       "exportError": "L'export a échoué. Réessayez.",
+      "issue": {
+        "action": "Issuer la facture",
+        "success": "Facture émise.",
+        "error": "L'émission a échoué. Réessayez."
+      },
+      "cancelInvoice": {
+        "action": "Annuler la facture",
+        "title": "Annuler la facture ?",
+        "body": "Cette action est définitive et ne peut pas être annulée.",
+        "bodyWithPayments": "Cette facture a des paiements enregistrés ({{amount}}). L'annulation ne les supprime pas — pensez à régulariser la situation avec la famille. Cette action est définitive et ne peut pas être annulée.",
+        "dismiss": "Retour",
+        "confirm": "Annuler la facture",
+        "success": "Facture annulée.",
+        "error": "L'annulation a échoué. Réessayez."
+      },
       "kind": {
         "regular": "Régulier",
         "examPrep": "Prépa examen"

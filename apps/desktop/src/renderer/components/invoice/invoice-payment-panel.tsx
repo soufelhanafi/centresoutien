@@ -10,9 +10,8 @@ import { RecordPaymentDialog } from './record-payment-dialog';
 export function InvoicePaymentPanel({ invoice }: { invoice: InvoiceListItemView }) {
   const { t, i18n } = useTranslation();
   const [payOpen, setPayOpen] = useState(false);
-  // `RecordPayment` (domain) has no lifecycle-status guard — and no `invoice.issue`
-  // channel exists on this branch to ever move an invoice out of `draft` — so gating
-  // on `status === 'issued'` would make this button permanently unreachable.
+  // `RecordPayment` (domain) has no lifecycle-status guard, so payments are accepted
+  // on both draft and issued invoices — only `cancelled` blocks recording a payment.
   const canRecordPayment = invoice.status !== 'cancelled' && invoice.outstandingMad > 0;
 
   const rows: [string, number][] = [

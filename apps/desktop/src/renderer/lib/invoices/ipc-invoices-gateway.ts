@@ -32,6 +32,24 @@ class IpcInvoicesGateway implements InvoicesGateway {
     return updated;
   }
 
+  async issue(invoiceId: string): Promise<InvoiceListItemView> {
+    await window.api.invoke('invoice.issue', { invoiceId });
+    const updated = await this.get(invoiceId);
+    if (updated === null) {
+      throw new Error(`invoice ${invoiceId} was issued but could not be read back`);
+    }
+    return updated;
+  }
+
+  async cancel(invoiceId: string): Promise<InvoiceListItemView> {
+    await window.api.invoke('invoice.cancel', { invoiceId });
+    const updated = await this.get(invoiceId);
+    if (updated === null) {
+      throw new Error(`invoice ${invoiceId} was cancelled but could not be read back`);
+    }
+    return updated;
+  }
+
   async print(id: string, locale: 'fr' | 'ar'): Promise<void> {
     await window.api.invoke('invoice.print', { invoiceId: id, locale });
   }

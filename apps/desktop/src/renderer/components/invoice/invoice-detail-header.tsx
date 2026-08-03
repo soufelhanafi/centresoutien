@@ -1,15 +1,14 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, Printer, Download } from 'lucide-react';
-import { BilingualText, Button, StatusBadge, toast } from '@centresoutien/ui';
+import { ArrowLeft } from 'lucide-react';
+import { BilingualText, StatusBadge } from '@centresoutien/ui';
 import type { StudentView } from '../../lib/students/student-view';
 import type { InvoiceListItemView } from '../../lib/invoices/invoice-view';
 import { invoiceStatusLabelKey, invoiceStatusTone } from '../../lib/invoices/invoice-status-view';
 import { formatMonth } from '../../lib/format';
-import { usePrintInvoice } from '../../hooks/invoice/use-print-invoice';
-import { useExportInvoice } from '../../hooks/invoice/use-export-invoice';
+import { InvoiceDetailActions } from './invoice-detail-actions';
 
-/** Back link, student + month title, lifecycle/payment badge, print + export actions. */
+/** Back link, student + month title, lifecycle/payment badge, and the actions row. */
 export function InvoiceDetailHeader({
   invoice,
   student,
@@ -19,26 +18,6 @@ export function InvoiceDetailHeader({
 }) {
   const { t, i18n } = useTranslation();
   const tone = invoiceStatusTone(invoice);
-  const print = usePrintInvoice();
-  const exportPdf = useExportInvoice();
-  const locale = i18n.language === 'ar' ? 'ar' : 'fr';
-
-  const onPrint = async () => {
-    try {
-      await print.mutateAsync({ invoiceId: invoice.id, locale });
-    } catch {
-      toast.error(t('invoices.detail.printError'));
-    }
-  };
-
-  const onExport = async () => {
-    try {
-      const { savedPath } = await exportPdf.mutateAsync({ invoiceId: invoice.id, locale });
-      if (savedPath !== null) toast.success(t('invoices.detail.exportSuccess'));
-    } catch {
-      toast.error(t('invoices.detail.exportError'));
-    }
-  };
 
   return (
     <div className="space-y-3">
@@ -62,16 +41,7 @@ export function InvoiceDetailHeader({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={onPrint} disabled={print.isPending}>
-            <Printer className="h-4 w-4" aria-hidden="true" />
-            {t('invoices.detail.print')}
-          </Button>
-          <Button variant="outline" onClick={onExport} disabled={exportPdf.isPending}>
-            <Download className="h-4 w-4" aria-hidden="true" />
-            {t('invoices.detail.export')}
-          </Button>
-        </div>
+        <InvoiceDetailActions invoice={invoice} />
       </div>
     </div>
   );
