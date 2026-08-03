@@ -1,4 +1,4 @@
--- 0029_payment_note.sql
+-- 0030_payment_note.sql
 -- What: adds a nullable `note` column to `payments` — a free-text cash-desk
 --       annotation ("chèque n°1234", "reste dû reporté"), SOU-101.
 -- Why:  SOU-101 KICKOFF locked scope. Purely additive: new column, no backfill (a
