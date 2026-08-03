@@ -115,6 +115,8 @@ import type {
   CenterCode,
   DeviceId,
   UserId,
+  GetStudentAttendanceReport,
+  GetGroupAttendanceSheet,
 } from '@centresoutien/domain';
 import {
   SubjectNotFoundError,
@@ -138,6 +140,10 @@ import { createPayslipHandlers, type PayslipHandlerDeps } from './payslip-handle
 import { createDashboardHandlers, type DashboardHandlerDeps } from './dashboard-handlers';
 import { createPayrollHandlers, type PayrollHandlerDeps } from './payroll-handlers';
 import { createPaymentReceiptHandlers, type PaymentReceiptHandlerDeps } from './payment-receipt-handlers';
+import {
+  createAttendanceReportingHandlers,
+  type AttendanceReportingHandlerDeps,
+} from './attendance-reporting-handlers';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
@@ -209,6 +215,8 @@ export type CreateWeeklyRecurringSessionUseCase = Pick<CreateWeeklyRecurringSess
 export type UpdateWeeklyRecurringSessionUseCase = Pick<UpdateWeeklyRecurringSession, 'execute'>;
 export type CancelWeeklyRecurringSessionUseCase = Pick<CancelWeeklyRecurringSession, 'execute'>;
 export type RecordSessionAttendanceUseCase = Pick<RecordSessionAttendance, 'execute'>;
+export type GetStudentAttendanceReportUseCase = Pick<GetStudentAttendanceReport, 'execute'>;
+export type GetGroupAttendanceSheetUseCase = Pick<GetGroupAttendanceSheet, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
 export type ChangeAdminPasswordUseCase = Pick<ChangeAdminPassword, 'execute'>;
@@ -522,7 +530,8 @@ export type HandlerDeps = BackupHandlerDeps &
   PayslipHandlerDeps &
   DashboardHandlerDeps &
   PayrollHandlerDeps &
-  PaymentReceiptHandlerDeps & {
+  PaymentReceiptHandlerDeps &
+  AttendanceReportingHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
   createSubject: CreateSubjectUseCase;
@@ -591,6 +600,8 @@ export type HandlerDeps = BackupHandlerDeps &
   listWeekSessions: ListWeekSessionsUseCase;
   generateSessions: GenerateAndPersistSessionsUseCase;
   recordSessionAttendance: RecordSessionAttendanceUseCase;
+  getStudentAttendanceReport: GetStudentAttendanceReportUseCase;
+  getGroupAttendanceSheet: GetGroupAttendanceSheetUseCase;
   createWeeklySession: CreateWeeklyRecurringSessionUseCase;
   updateWeeklySession: UpdateWeeklyRecurringSessionUseCase;
   cancelWeeklySession: CancelWeeklyRecurringSessionUseCase;
@@ -1286,5 +1297,6 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     ...createDashboardHandlers(deps),
     ...createPayrollHandlers(deps),
     ...createPaymentReceiptHandlers(deps),
+    ...createAttendanceReportingHandlers(deps),
   };
 }

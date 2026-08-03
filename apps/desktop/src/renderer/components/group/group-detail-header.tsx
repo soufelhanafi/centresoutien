@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, Archive, CalendarCheck, SquarePen } from 'lucide-react';
+import { ArrowLeft, Archive, CalendarCheck, FileSpreadsheet, SquarePen } from 'lucide-react';
 import { Badge, BilingualText, Button, KindBadge } from '@centresoutien/ui';
 import type { GroupRow } from '../../lib/groups/group-view';
 import { localizedName } from '../../lib/groups/localized-name';
 import { useFeature } from '../../hooks/use-feature';
 import { TakeAttendanceSheet } from '../attendance/take-attendance-sheet';
+import { GroupAttendanceSheetDialog } from '../attendance/group-attendance-sheet-dialog';
 import { GroupFill } from './group-fill';
 import { EditGroupSheet } from './edit-group-sheet';
 import { ArchiveGroupDialog } from './archive-group-dialog';
@@ -33,6 +34,7 @@ export function GroupDetailHeader({
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [attendanceOpen, setAttendanceOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const canTakeAttendance = useFeature('core.attendance');
   const teacher = group.teacherName
     ? localizedName(group.teacherName, i18n.language)
@@ -67,10 +69,16 @@ export function GroupDetailHeader({
 
         <div className="flex items-center gap-2">
           {canTakeAttendance && (
-            <Button variant="outline" size="sm" onClick={() => setAttendanceOpen(true)}>
-              <CalendarCheck className="h-4 w-4" aria-hidden="true" />
-              {t('groups.attendance.action')}
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={() => setAttendanceOpen(true)}>
+                <CalendarCheck className="h-4 w-4" aria-hidden="true" />
+                {t('groups.attendance.action')}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setSheetOpen(true)}>
+                <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
+                {t('attendance.groupSheet.title', { name: group.subjectName.fr.slice(0, 12) })}
+              </Button>
+            </>
           )}
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <SquarePen className="h-4 w-4" aria-hidden="true" />
@@ -96,6 +104,7 @@ export function GroupDetailHeader({
       </div>
 
       <TakeAttendanceSheet group={group} open={attendanceOpen} onOpenChange={setAttendanceOpen} />
+      <GroupAttendanceSheetDialog group={group} open={sheetOpen} onOpenChange={setSheetOpen} />
       <EditGroupSheet group={group} open={editOpen} onOpenChange={setEditOpen} />
       <ArchiveGroupDialog
         group={group}

@@ -13,6 +13,7 @@ import type {
   DeviceId,
   UserId,
   RoomId,
+  GroupId,
   TimeOfDay,
   StudentId,
 } from '@centresoutien/domain';
@@ -51,7 +52,7 @@ afterEach(() => {
 const AT = new Date('2026-07-29T10:00:00Z');
 
 let sessionSeq = 0;
-async function makeSession(date: string): Promise<SessionId> {
+async function makeSession(date: string, groupId: GroupId | null = null): Promise<SessionId> {
   sessionSeq += 1;
   const session: Session = {
     id: `ses_${String(sessionSeq).padStart(26, '0')}` as SessionId,
@@ -65,6 +66,7 @@ async function makeSession(date: string): Promise<SessionId> {
     recurringSessionId: WRS,
     roomId: ROOM,
     teacherId: null,
+    groupId,
     date,
     start: '09:00' as TimeOfDay,
     end: '10:30' as TimeOfDay,
@@ -317,6 +319,71 @@ describe('SqliteAttendanceRepository', () => {
       await expect(
         repo.save(makeAttendance({ sessionId, studentId: STUDENT_A, status: 'absent' })),
       ).resolves.not.toThrow();
+    });
+  });
+
+  describe('listForStudent + sheetForGroup (SOU-108 read models)', () => {
+    it('listForStudent returns rows joined with session date/group, ordered chronologically', async () => {
+      const group = 'grp_00000000000000000000000009' as GroupId;
+      const later = await makeSession('2026-01-12', group);
+      const earlier = await makeSession('2026-01-05', group);
+      await repo.save(makeAttendance({ sessionId: earlier, studentId: STUDENT_A, status: 'present', note: 'ponctuel' }));
+      await repo.save(makeAttendance({ sessionId: later, studentId: STUDENT_A, status: 'absent' }));
+      await repo.save(makeAttendance({ sessionId: later, studentId: STUDENT_B, status: 'present' }));
+
+      const rows = await repo.listForStudent(STUDENT_A, { start: '2026-01-01', end: '2026-01-31' });
+
+      expect(rows.map((r) => r.date)).toEqual(['2026-01-05', '2026-01-12']);
+      expect(rows[0]).toMatchObject({ sessionId: earlier, date: '2026-01-05', groupId: group, status: 'present', note: 'ponctuel' });
+      expect(rows[1]?.status).toBe('absent');
+    });
+
+    it('listForStudent excludes out-of-range sessions and tombstoned records', async () => {
+      const inRange = await makeSession('2026-01-15');
+      const outOfRange = await makeSession('2026-02-01');
+      const record = makeAttendance({ sessionId: inRange, studentId: STUDENT_A, status: 'absent' });
+      await repo.save(record);
+      await repo.save(makeAttendance({ sessionId: outOfRange, studentId: STUDENT_A, status: 'present' }));
+      await repo.softDelete(record.id, AT, USER);
+
+      const rows = await repo.listForStudent(STUDENT_A, { start: '2026-01-01', end: '2026-01-31' });
+      expect(rows).toEqual([]);
+    });
+
+    it('sheetForGroup scopes sessions and cells to the group itself, in the range', async () => {
+      const group = 'grp_00000000000000000000000009' as GroupId;
+      const otherGroup = 'grp_00000000000000000000000010' as GroupId;
+      const groupSession = await makeSession('2026-01-08', group);
+      await makeSession('2026-01-10', otherGroup);
+      await repo.save(makeAttendance({ sessionId: groupSession, studentId: STUDENT_A, status: 'absent' }));
+      await repo.save(makeAttendance({ sessionId: groupSession, studentId: STUDENT_B, status: 'present' }));
+
+      const data = await repo.sheetForGroup(group, { start: '2026-01-01', end: '2026-01-31' });
+
+      expect(data.sessions).toEqual([{ sessionId: groupSession, date: '2026-01-08' }]);
+      expect(data.cells).toHaveLength(2);
+      expect(data.cells.map((c) => c.studentId).sort()).toEqual([STUDENT_A, STUDENT_B].sort());
+    });
+
+    it('sheetForGroup returns student name even when the student is soft-deleted', async () => {
+      const group = 'grp_00000000000000000000000009' as GroupId;
+      const session = await makeSession('2026-01-08', group);
+
+      const now = '2026-01-01T10:00:00Z';
+      db.prepare(
+        `INSERT INTO students (id, center_code, device_origin, created_at, updated_at, updated_by,
+           version, natural_key, name_fr, name_ar, birth_date, level, guardian_ids)
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'Yassine', 'ياسين', '2010-05-01', '2BAC', '[]')`,
+      ).run(STUDENT_A, CENTER, DEVICE, now, now, USER, `${CENTER}::yassine::2010-05-01`);
+
+      await repo.save(makeAttendance({ sessionId: session, studentId: STUDENT_A, status: 'present' }));
+
+      db.prepare('UPDATE students SET deleted_at = ? WHERE id = ?').run(now, STUDENT_A);
+
+      const data = await repo.sheetForGroup(group, { start: '2026-01-01', end: '2026-01-31' });
+
+      expect(data.cells).toHaveLength(1);
+      expect(data.cells[0]?.studentName).toEqual({ fr: 'Yassine', ar: 'ياسين' });
     });
   });
 });

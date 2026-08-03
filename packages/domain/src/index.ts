@@ -317,6 +317,13 @@ export type {
   SubjectRevenueShare,
 } from './read-models/dashboard-advanced-summary';
 export { DASHBOARD_TREND_WINDOW_MONTHS } from './read-models/dashboard-advanced-summary';
+export type {
+  StudentAttendanceRow,
+  AttendanceAbsenceSummary,
+  AttendanceStatusCounts,
+  StudentAttendanceReport,
+  GroupAttendanceSheet,
+} from './read-models/attendance-reporting';
 
 // Value objects & policies (login throttle — SOU-27)
 export { UNLOCKED_STATE } from './value-objects/lockout-state';
@@ -392,7 +399,13 @@ export type { WeeklyRecurringSessionRepository } from './ports/weekly-recurring-
 // the same SQLite adapter that owns weekly_recurring_sessions.
 export type { WeeklySessionViewReadPort } from './ports/weekly-session-view-read-port';
 export type { SessionRepository } from './ports/session-repository';
-export type { AttendanceRepository, AttendanceSummary } from './ports/attendance-repository';
+export type {
+  AttendanceRepository,
+  AttendanceSummary,
+  StudentAttendanceReading,
+  GroupAttendanceCellReading,
+  GroupSheetData,
+} from './ports/attendance-repository';
 // Room in-use guard — its concrete adapter is the weekly-session repo (SOU-53).
 export type { RoomReferencePort } from './ports/room-reference';
 // Student↔parent link — DECLARED CONTRACT ONLY (implemented after SOU-38 merges).
@@ -409,6 +422,12 @@ export { MonthlyFeeAttributionService } from './services/monthly-fee-attribution
 
 // Policies
 export { SessionConflictPolicy } from './policies/session-conflict-policy';
+export {
+  ABSENCE_STREAK_THRESHOLD,
+  countsTowardAbsenceStreak,
+  longestConsecutiveAbsences,
+  summarizeAttendance,
+} from './policies/attendance-absence-policy';
 export type {
   SessionTimeCandidate,
   RoomSessionCandidate,
@@ -618,6 +637,10 @@ export { GetGroupRoster } from './use-cases/get-group-roster';
 export type { GetGroupRosterInput, GroupRosterEntry } from './use-cases/get-group-roster';
 export { RecordSessionAttendance } from './use-cases/record-session-attendance';
 export type { RecordSessionAttendanceInput } from './use-cases/record-session-attendance';
+export { GetStudentAttendanceReport } from './use-cases/get-student-attendance-report';
+export type { GetStudentAttendanceReportInput } from './use-cases/get-student-attendance-report';
+export { GetGroupAttendanceSheet } from './use-cases/get-group-attendance-sheet';
+export type { GetGroupAttendanceSheetInput } from './use-cases/get-group-attendance-sheet';
 export { UpdateGroup } from './use-cases/update-group';
 export type { UpdateGroupInput } from './use-cases/update-group';
 export { ArchiveGroup } from './use-cases/archive-group';
