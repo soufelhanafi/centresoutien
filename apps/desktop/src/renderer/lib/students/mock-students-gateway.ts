@@ -20,6 +20,7 @@ const SEED: readonly StudentView[] = [
     guardianIds: [],
     archived: false,
     createdAt: '2026-02-01T09:00:00.000Z',
+    version: 0,
   },
   {
     id: 'stu_01HW0SEED0000000000000002',
@@ -31,6 +32,7 @@ const SEED: readonly StudentView[] = [
     guardianIds: [],
     archived: false,
     createdAt: '2026-02-03T10:30:00.000Z',
+    version: 0,
   },
   {
     id: 'stu_01HW0SEED0000000000000003',
@@ -42,6 +44,7 @@ const SEED: readonly StudentView[] = [
     guardianIds: [],
     archived: false,
     createdAt: '2026-02-10T14:15:00.000Z',
+    version: 0,
   },
 ];
 
@@ -66,7 +69,7 @@ function matches(student: StudentView, search: string): boolean {
   );
 }
 
-function toView(id: string, input: StudentInput, createdAt: string): StudentView {
+function toView(id: string, input: StudentInput, createdAt: string, version: number): StudentView {
   return {
     id,
     name: { fr: input.name.fr, ar: input.name.ar },
@@ -77,6 +80,7 @@ function toView(id: string, input: StudentInput, createdAt: string): StudentView
     guardianIds: [...input.guardianIds],
     archived: false,
     createdAt,
+    version,
   };
 }
 
@@ -95,7 +99,7 @@ export class MockStudentsGateway {
   }
 
   async create(input: StudentInput): Promise<StudentView> {
-    const student = toView(newId(), input, new Date().toISOString());
+    const student = toView(newId(), input, new Date().toISOString(), 0);
     this.students.set(student.id, student);
     return student;
   }
@@ -103,7 +107,10 @@ export class MockStudentsGateway {
   async update(id: string, input: StudentInput): Promise<StudentView> {
     const current = this.students.get(id);
     if (!current) throw new Error(`unknown student ${id}`);
-    const updated = { ...toView(id, input, current.createdAt), guardianIds: current.guardianIds };
+    const updated = {
+      ...toView(id, input, current.createdAt, current.version),
+      guardianIds: current.guardianIds,
+    };
     this.students.set(id, updated);
     return updated;
   }
