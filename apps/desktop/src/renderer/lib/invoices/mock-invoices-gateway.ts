@@ -58,6 +58,26 @@ export class MockInvoicesGateway implements InvoicesGateway {
     return updated;
   }
 
+  async issue(invoiceId: string): Promise<InvoiceListItemView> {
+    const current = this.invoices.get(invoiceId);
+    if (!current) throw new Error(`unknown invoice ${invoiceId}`);
+    if (current.status !== 'draft') throw new Error(`invoice ${invoiceId} is not a draft`);
+
+    const updated: InvoiceListItemView = { ...current, status: 'issued', issuedAt: new Date().toISOString() };
+    this.invoices.set(updated.id, updated);
+    return updated;
+  }
+
+  async cancel(invoiceId: string): Promise<InvoiceListItemView> {
+    const current = this.invoices.get(invoiceId);
+    if (!current) throw new Error(`unknown invoice ${invoiceId}`);
+    if (current.status === 'cancelled') throw new Error(`invoice ${invoiceId} is already cancelled`);
+
+    const updated: InvoiceListItemView = { ...current, status: 'cancelled' };
+    this.invoices.set(updated.id, updated);
+    return updated;
+  }
+
   async print(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 300));
   }

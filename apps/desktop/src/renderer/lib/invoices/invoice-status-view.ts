@@ -4,13 +4,11 @@ import type { InvoiceListItemView } from './invoice-view';
 /**
  * Collapses the lifecycle + derived payment dimensions into the single tone
  * `StatusBadge` renders. `cancelled` is the one lifecycle state that outranks
- * paid-ness. `draft` does NOT: there is no `invoice.issue` channel wired on this
- * branch (SOU-69's own scope), so every invoice SOU-68's monthly job produces
- * stays `draft` forever — masking payment status behind "Brouillon" would make
- * the payment-tracking feature (list filter, payment panel, "mark paid") this
- * ticket exists to ship permanently unreachable. `RecordPayment` (domain) has
- * no status guard either, so a draft invoice can be paid exactly like an issued
- * one; the badge must reflect that.
+ * paid-ness. `draft` does NOT: `RecordPayment` (domain) has no lifecycle-status
+ * guard, so a draft invoice can be paid exactly like an issued one — masking
+ * payment status behind "Brouillon" would hide real payment state from the
+ * director. Issuing (SOU-143) only moves the lifecycle dimension forward; it
+ * doesn't change this.
  */
 export function invoiceStatusTone(
   invoice: Pick<InvoiceListItemView, 'status' | 'paymentStatus'>,
