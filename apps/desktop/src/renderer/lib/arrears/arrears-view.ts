@@ -66,8 +66,9 @@ export type ArrearsSummaryView = {
 /**
  * Structural + derived filters for the arrears screen. An empty object lists
  * every overdue/partial invoice. `minOutstandingMad` / `maxOutstandingMad`
- * apply to each parent's `totalOutstandingMad` (the number a director actually
- * prioritizes follow-up calls by), not to individual invoice lines.
+ * match each individual overdue invoice's outstanding balance, not a parent's
+ * `totalOutstandingMad` — a parent stays listed if ANY of their invoices
+ * qualifies, and their shown total then reflects only the matching lines.
  */
 export type ArrearsFilters = {
   readonly month?: string;

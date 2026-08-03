@@ -56,8 +56,8 @@ function toAgingSummary(
  * The real {@link ArrearsGateway}: maps `invoice.overdue` (SOU-103) onto the
  * screen's view types.
  *
- * `groupId` on `OverdueInvoiceView` was only ever used by the mock adapter
- * for client-side filtering (never rendered — CLAUDE.md §7 forbids showing
+ * `groupId` on `OverdueInvoiceView` was only ever needed for client-side
+ * filtering (never rendered — CLAUDE.md §7 forbids showing
  * groups as a billing dimension). The real channel filters `groupId`
  * server-side, so this adapter always sets it to `null`. `parentId` /
  * `parentName` / `parentPhone` are passed through as `null` as-is when a

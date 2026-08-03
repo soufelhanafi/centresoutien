@@ -10,5 +10,5 @@ export interface ArrearsGateway {
   list(filters: ArrearsFilters): Promise<ArrearsSummaryView>;
 }
 
-/** The active gateway. `mock-arrears-gateway.ts` remains for local/manual testing. */
+/** The active gateway. */
 export const arrearsGateway: ArrearsGateway = ipcArrearsGateway;
