@@ -58,6 +58,12 @@ describe('SqliteAdminAccountRepository', () => {
     expect(await repo.findByUsername('  DiREctrice  ')).not.toBeNull();
   });
 
+  it('preserves the display username as typed while matching case-insensitively (SOU-153)', async () => {
+    await repo.save(makeAccount({ username: 'Directrice' }));
+    const found = await repo.findByUsername('DIRECTRICE');
+    expect(found?.username).toBe('Directrice');
+  });
+
   it('exists reflects whether any account is present', async () => {
     expect(await repo.exists()).toBe(false);
     await repo.save(makeAccount());
@@ -147,6 +153,10 @@ describe('SqliteAdminAccountRepository', () => {
         .get('adm_00000000000000000000000003') as { username_normalized: string };
 
       expect(row.username_normalized).toBe(normalizeUsername(rawUsername));
+
+      const preRepo = new SqliteAdminAccountRepository(preDb);
+      expect(await preRepo.findByUsername('  ÉTUDIANTE ')).not.toBeNull();
+
       preDb.close();
       rmSync(preDir, { recursive: true, force: true });
     });
