@@ -764,9 +764,9 @@ export { AttemptLogin } from './use-cases/attempt-login';
 export type { LoginResult, CredentialVerifier } from './use-cases/attempt-login';
 export { GenerateRecoveryCodes } from './use-cases/generate-recovery-codes';
 export { VerifyRecoveryCode } from './use-cases/verify-recovery-code';
-export type { VerifyRecoveryCodeInput } from './use-cases/verify-recovery-code';
+export type { VerifyRecoveryCodeInput, VerifyRecoveryCodeResult } from './use-cases/verify-recovery-code';
 export { ResetPasswordWithRecoveryCode } from './use-cases/reset-password-with-recovery-code';
-export type { ResetPasswordWithRecoveryCodeInput } from './use-cases/reset-password-with-recovery-code';
+export type { ResetPasswordWithRecoveryCodeInput, ResetPasswordWithRecoveryCodeResult } from './use-cases/reset-password-with-recovery-code';
 
 // Formula CRUD use cases (SOU-62).
 export { CreateFormula } from './use-cases/create-formula';
