@@ -9,3 +9,12 @@ import { usePlanStore } from '../stores/plan-store';
 export function useFeature(flag: FeatureFlag): boolean {
   return usePlanStore((state) => state.plan.features.has(flag));
 }
+
+/**
+ * Same as `useFeature`, but `flag` may be `undefined` for an ungated module —
+ * in that case this returns `true`. Lets call sites drop the
+ * `useFeature(module.feature ?? 'core.students')` sentinel.
+ */
+export function useOptionalFeature(flag?: FeatureFlag): boolean {
+  return usePlanStore((state) => flag === undefined || state.plan.features.has(flag));
+}

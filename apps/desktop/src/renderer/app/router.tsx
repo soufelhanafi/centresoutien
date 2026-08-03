@@ -6,6 +6,8 @@ import {
   redirect,
 } from '@tanstack/react-router';
 import { AppShell } from '../components/shell/app-shell';
+import { RouteNotFound } from '../components/shell/route-not-found';
+import { RouteError } from '../components/shell/route-error';
 import { ModulePlaceholder } from '../pages/module-placeholder';
 import { DashboardPage } from '../pages/dashboard/dashboard-page';
 import { SettingsPage } from '../pages/settings-page';
@@ -40,6 +42,7 @@ import {
   syncModule,
   settingsModule,
 } from './nav-items';
+import { featureGateBeforeLoad } from './route-guards';
 
 // AppShell hosts the <Outlet/>; every module route renders inside it.
 const rootRoute = createRootRoute({ component: AppShell });
@@ -124,11 +127,13 @@ const paymentsRoute = createRoute({
 const payrollRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: payrollModule.path,
+  beforeLoad: featureGateBeforeLoad(payrollModule),
   component: PayrollPage,
 });
 const syncRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: syncModule.path,
+  beforeLoad: featureGateBeforeLoad(syncModule),
   component: () => <ModulePlaceholder module={syncModule} />,
 });
 const settingsRoute = createRoute({
@@ -170,7 +175,12 @@ const routeTree = rootRoute.addChildren([
 
 // Hash history: the packaged renderer loads from `file://`, where path-based
 // browser history breaks. Hash routing works in both dev and production.
-export const router = createRouter({ routeTree, history: createHashHistory() });
+export const router = createRouter({
+  routeTree,
+  history: createHashHistory(),
+  defaultNotFoundComponent: RouteNotFound,
+  defaultErrorComponent: RouteError,
+});
 
 declare module '@tanstack/react-router' {
   interface Register {
