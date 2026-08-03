@@ -1,11 +1,12 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, dialog, BrowserWindow, ipcMain } from 'electron';
 import { PLANS } from '@centresoutien/domain';
 import type { PlanId, CenterCode } from '@centresoutien/domain';
 import { registerIpc } from './ipc/register';
 import { buildContainer, type Container } from './composition-root';
 import { createHandlers } from './ipc/handlers';
 import { createMainWindow } from './window';
+import { DATABASE_SCHEMA_AHEAD_MESSAGE, DatabaseSchemaAheadOfAppError } from '../data/sqlite/migration-runner';
 
 /** Active plan: from the license later; for now a dev override, default Essentiel. */
 function activePlanId(): PlanId {
@@ -45,15 +46,33 @@ function openWindow(locale: string | undefined): void {
 app.whenReady().then(() => {
   // Dev defaults; real center selection, key management, and license-driven plan
   // arrive with first-run setup and the center switcher.
-  container = buildContainer({
-    centreId: process.env['CS_CENTRE'] ?? 'local',
-    centerCode: (process.env['CS_CENTER_CODE'] ?? 'CS-DEV-001') as CenterCode,
-    key: process.env['CS_DB_KEY'] ?? 'dev-insecure-key',
-    dir: app.getPath('userData'),
-    planId: activePlanId(),
-    appVersion: () => app.getVersion(),
-    scheduleRestart,
-  });
+  try {
+    container = buildContainer({
+      centreId: process.env['CS_CENTRE'] ?? 'local',
+      centerCode: (process.env['CS_CENTER_CODE'] ?? 'CS-DEV-001') as CenterCode,
+      key: process.env['CS_DB_KEY'] ?? 'dev-insecure-key',
+      dir: app.getPath('userData'),
+      planId: activePlanId(),
+      appVersion: () => app.getVersion(),
+      scheduleRestart,
+    });
+  } catch (error) {
+    // A center DB migrated by a newer app build, then reopened after a rollback
+    // (SOU-128): refuse to open rather than silently no-op pending migrations
+    // against a schema shape this build doesn't know.
+    if (error instanceof DatabaseSchemaAheadOfAppError) {
+      dialog.showErrorBox(
+        'Centre Soutien',
+        `${DATABASE_SCHEMA_AHEAD_MESSAGE.fr}\n\n${DATABASE_SCHEMA_AHEAD_MESSAGE.ar}`,
+      );
+      app.quit();
+      return;
+    }
+    // Any other startup error rethrows into an unhandled rejection of the
+    // `whenReady()` promise (unchanged pre-SOU-128 behavior) — not caught by
+    // `console.error` below, which only handles `whenReady()` itself rejecting.
+    throw error;
+  }
   registerIpc(ipcMain, createHandlers(container.handlerDeps));
   // `CS_LOCALE` (dev override) wins over the persisted preference (SOU-31); the
   // language tab writes that preference via `preferences.locale.set`, read

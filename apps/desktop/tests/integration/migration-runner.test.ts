@@ -3,7 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase, openDatabaseAt } from '../../src/data/sqlite/db';
-import { loadMigrations, runMigrations, backupDatabase } from '../../src/data/sqlite/migration-runner';
+import {
+  loadMigrations,
+  runMigrations,
+  backupDatabase,
+  DatabaseSchemaAheadOfAppError,
+} from '../../src/data/sqlite/migration-runner';
 
 const KEY = 'passphrase-under-test';
 const REAL_MIGRATIONS = join(import.meta.dirname, '../../src/data/sqlite/migrations');
@@ -73,6 +78,30 @@ describe('runMigrations', () => {
     expect(runMigrations(db, REAL_MIGRATIONS)).toEqual([]);
     db.prepare('INSERT INTO app_meta (key, value) VALUES (?, ?)').run('schema', 'ok');
     expect(db.prepare('SELECT value FROM app_meta WHERE key = ?').get('schema')).toEqual({ value: 'ok' });
+    db.close();
+  });
+
+  it('throws DatabaseSchemaAheadOfAppError when the DB is already past the app head, and applies no migration', () => {
+    migfile('0001_a.sql', 'CREATE TABLE a (id TEXT PRIMARY KEY);');
+    const db = openDatabase({ centreId: 'C1', key: KEY, dir });
+    expect(runMigrations(db, migrations)).toEqual([1]);
+
+    db.prepare(
+      `INSERT INTO _schema_migrations (version, name, applied_at) VALUES (?, ?, ?)`,
+    ).run(2, '0002_future.sql', new Date('2026-07-28T00:00:00Z').toISOString());
+
+    expect(() => runMigrations(db, migrations)).toThrow(DatabaseSchemaAheadOfAppError);
+    let thrown: unknown;
+    try {
+      runMigrations(db, migrations);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({ dbVersion: 2, appVersion: 1 });
+    expect(db.prepare('SELECT version FROM _schema_migrations ORDER BY version').all()).toEqual([
+      { version: 1 },
+      { version: 2 },
+    ]);
     db.close();
   });
 });

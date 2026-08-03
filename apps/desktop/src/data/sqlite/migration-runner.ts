@@ -17,6 +17,33 @@ export type Migration = {
   sql: string;
 };
 
+/**
+ * Bilingual, non-technical copy for {@link DatabaseSchemaAheadOfAppError} — shown
+ * verbatim in a native `dialog.showErrorBox` at startup (main process, before any
+ * renderer/i18n framework exists). French first per app default, then Arabic.
+ */
+export const DATABASE_SCHEMA_AHEAD_MESSAGE = {
+  fr: "Cette version de l'application est trop ancienne pour ouvrir les données de ce centre. Veuillez installer la dernière mise à jour de Centre Soutien, puis relancer l'application.",
+  ar: 'هذا الإصدار من التطبيق قديم جدًا لفتح بيانات هذا المركز. يرجى تثبيت آخر تحديث لتطبيق Centre Soutien، ثم إعادة تشغيله.',
+} as const;
+
+/**
+ * Thrown when a database's `_schema_migrations` ceiling is higher than the
+ * running app's known migrations — the DB was migrated by a newer app build,
+ * then reopened by an older one (e.g. after a rollback). The app must refuse to
+ * open rather than silently no-op pending migrations against a schema shape it
+ * doesn't know.
+ */
+export class DatabaseSchemaAheadOfAppError extends Error {
+  constructor(
+    public readonly dbVersion: number,
+    public readonly appVersion: number,
+  ) {
+    super(`Database schema (v${dbVersion}) is ahead of the app's known migrations (v${appVersion}).`);
+    this.name = new.target.name;
+  }
+}
+
 export function loadMigrations(dir: string): Migration[] {
   return readdirSync(dir)
     .filter((f) => MIGRATION_FILE.test(f))
@@ -57,6 +84,12 @@ export function applyMigrations(
   now: () => Date = () => new Date(),
 ): number[] {
   const applied = appliedVersions(db);
+  if (applied.size > 0) {
+    const dbVersion = Math.max(...applied);
+    const appVersion = migrations.length > 0 ? Math.max(...migrations.map((m) => m.version)) : 0;
+    if (dbVersion > appVersion) throw new DatabaseSchemaAheadOfAppError(dbVersion, appVersion);
+  }
+
   const pending = [...migrations]
     .sort((a, b) => a.version - b.version)
     .filter((m) => !applied.has(m.version));
