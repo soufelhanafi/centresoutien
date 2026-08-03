@@ -15,8 +15,8 @@ import type { SubjectView } from '../../lib/subjects/subject-view';
 import { currentMonth, nextMonth } from '../../lib/subscriptions/subscription-month';
 import type { SubscriptionInput } from '../../lib/subscriptions/subscription-view';
 import type { WizardTarget } from '../../hooks/subscription/use-subscription-tab';
-import { useCloseSubscription } from '../../hooks/subscription/use-close-subscription';
 import { useCreateSubscription } from '../../hooks/subscription/use-create-subscription';
+import { useReplaceSubscription } from '../../hooks/subscription/use-replace-subscription';
 import { SubscriptionCloseFields } from './subscription-close-fields';
 import { SubscriptionFormulaFields } from './subscription-formula-fields';
 
@@ -43,8 +43,8 @@ export function ChangeSubscriptionDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const close = useCloseSubscription(studentId);
   const create = useCreateSubscription(studentId);
+  const replace = useReplaceSubscription(studentId);
   const [endMonth, setEndMonth] = useState(currentMonth);
   const [formulaId, setFormulaId] = useState('');
   const [startMonth, setStartMonth] = useState(currentMonth);
@@ -60,9 +60,9 @@ export function ChangeSubscriptionDialog({
 
   const kindFormulas = formulas.filter((formula) => formula.kind === target?.kind);
   const selectedFormula = kindFormulas.find((formula) => formula.id === formulaId);
-  const pending = close.isPending || create.isPending;
+  const pending = create.isPending || replace.isPending;
   const canSubmit =
-    target !== null && selectedFormula !== undefined && startMonth !== '' && (!target.current || endMonth !== '') && !pending;
+    target !== null && selectedFormula !== undefined && startMonth !== '' && !pending;
 
   const handleConfirm = async () => {
     if (!target || !selectedFormula) return;
@@ -77,15 +77,9 @@ export function ChangeSubscriptionDialog({
 
     if (target.current) {
       try {
-        await close.mutateAsync({ subscriptionId: target.current.id, endMonth });
+        await replace.mutateAsync({ ...input, activeSubscriptionId: target.current.id });
       } catch {
-        toast.error(t('students.subscription.wizard.closeError'));
-        return;
-      }
-      try {
-        await create.mutateAsync(input);
-      } catch {
-        toast.error(t('students.subscription.wizard.createAfterCloseError'));
+        toast.error(t('students.subscription.wizard.replaceError'));
         return;
       }
     } else {
