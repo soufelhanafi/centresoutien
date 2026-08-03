@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
-import { Button } from '@centresoutien/ui';
+import { Plus, CalendarDays } from 'lucide-react';
+import { Button, ErrorState } from '@centresoutien/ui';
 import { useWeekSessions } from '../../hooks/planning/use-week-sessions';
 import { useTeachers } from '../../hooks/teacher/use-teachers';
 import { localizedName } from '../../lib/teachers/localized-name';
@@ -70,13 +70,16 @@ export function PlannerPage() {
       {query.isPending ? (
         <PlannerGridSkeleton />
       ) : query.isError ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card p-8 text-center">
-          <p className="text-sm font-semibold text-foreground">{t('planning.loadError.title')}</p>
-          <p className="text-sm text-muted-foreground">{t('planning.loadError.body')}</p>
-          <Button variant="secondary" onClick={() => void query.refetch()}>
-            {t('planning.loadError.retry')}
-          </Button>
-        </div>
+        <ErrorState
+          icon={<CalendarDays className="h-5 w-5" aria-hidden="true" />}
+          title={t('planning.loadError.title')}
+          description={t('planning.loadError.body')}
+          action={
+            <Button variant="secondary" size="sm" onClick={() => void query.refetch()}>
+              {t('planning.loadError.retry')}
+            </Button>
+          }
+        />
       ) : (
         <>
           <PlannerToolbar
