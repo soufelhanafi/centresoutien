@@ -1,4 +1,4 @@
--- 0031_sessions_generation_batch_id.sql
+-- 0033_sessions_generation_batch_id.sql
 -- What: add nullable generation_batch_id to sessions (the concrete dated
 --       occurrences) + ix_sessions_generation_batch.
 -- Why:  SOU-160. Every generator run (SOU-158/129) now stamps every occurrence

@@ -1,4 +1,4 @@
--- 0031_admin_account_username_normalized.sql
+-- 0034_admin_account_username_normalized.sql
 -- What: adds `username_normalized` (trim + lowercase) alongside `username` on
 --       admin_accounts, backfills the existing row(s), and adds a UNIQUE index
 --       on the normalized column.
