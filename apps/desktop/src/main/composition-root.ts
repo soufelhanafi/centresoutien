@@ -86,6 +86,8 @@ import {
   CreateInvoiceDraft,
   GenerateMonthlyInvoices,
   ListInvoices,
+  IssueInvoice,
+  CancelInvoice,
   MonthlyFeeAttributionService,
   ComputeMonthlyPayrolls,
   ConfirmTeacherPayout,
@@ -353,6 +355,11 @@ export function buildContainer(options: ContainerOptions): Container {
   // own already-derived totals).
   const listInvoices = new ListInvoices(invoiceRepo, plan);
   const invoicePdfRenderer = new PdfLibInvoiceRenderer();
+  // Issue / cancel (SOU-143): the two lifecycle transitions shipped unwired
+  // alongside CreateInvoiceDraft in SOU-67 (KICKOFF, SOU-69) — thin IPC plumbing
+  // only, no new domain logic.
+  const issueInvoice = new IssueInvoice(invoiceRepo, clock, plan);
+  const cancelInvoice = new CancelInvoice(invoiceRepo, clock, plan);
 
   const teacherRepo = new SqliteTeacherRepository(db);
   // The teacher in-use guard's real backing (a query over live groups / sessions /
@@ -608,6 +615,8 @@ export function buildContainer(options: ContainerOptions): Container {
     getInvoicePaymentSummary,
     generateMonthlyInvoices,
     listInvoices,
+    issueInvoice,
+    cancelInvoice,
     invoicePdfRenderer,
     enrollStudent,
     unenrollStudent,
@@ -660,6 +669,7 @@ export function buildContainer(options: ContainerOptions): Container {
     restoreBackup,
     activeCenterCode: () => options.centerCode,
     centerCode: () => options.centerCode,
+    updatedBy: () => context.updatedBy,
     dbKey: () => options.key,
     scheduleRestart: options.scheduleRestart,
   };
