@@ -42,7 +42,6 @@ import {
   syncModule,
   settingsModule,
 } from './nav-items';
-import { featureGateBeforeLoad } from './route-guards';
 
 // AppShell hosts the <Outlet/>; every module route renders inside it.
 const rootRoute = createRootRoute({ component: AppShell });
@@ -127,13 +126,11 @@ const paymentsRoute = createRoute({
 const payrollRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: payrollModule.path,
-  beforeLoad: featureGateBeforeLoad(payrollModule),
   component: PayrollPage,
 });
 const syncRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: syncModule.path,
-  beforeLoad: featureGateBeforeLoad(syncModule),
   component: () => <ModulePlaceholder module={syncModule} />,
 });
 const settingsRoute = createRoute({
