@@ -106,6 +106,9 @@ import type {
   GetCenterHours,
   CenterHours,
   AttemptLogin,
+  GenerateRecoveryCodes,
+  VerifyRecoveryCode,
+  ResetPasswordWithRecoveryCode,
   DeviceSessionService,
   GetCenterProfile,
   SaveCenterProfile,
@@ -126,6 +129,7 @@ import {
   GroupNotFoundError,
   TeacherNotFoundError,
   HolidayNotFoundError,
+  NotAuthenticatedError,
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import type { LocalePreference } from '../infra/locale-preference-store';
@@ -224,6 +228,9 @@ export type ChangeAdminPasswordUseCase = Pick<ChangeAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
 export type GetCenterHoursUseCase = Pick<GetCenterHours, 'execute'>;
 export type AttemptLoginUseCase = Pick<AttemptLogin, 'execute'>;
+export type GenerateRecoveryCodesUseCase = Pick<GenerateRecoveryCodes, 'execute'>;
+export type VerifyRecoveryCodeUseCase = Pick<VerifyRecoveryCode, 'execute'>;
+export type ResetPasswordWithRecoveryCodeUseCase = Pick<ResetPasswordWithRecoveryCode, 'execute'>;
 export type DeviceSessions = Pick<DeviceSessionService, 'isAuthenticated' | 'forget'>;
 export type GetCenterProfileUseCase = Pick<GetCenterProfile, 'execute'>;
 export type SaveCenterProfileUseCase = Pick<SaveCenterProfile, 'execute'>;
@@ -612,11 +619,16 @@ export type HandlerDeps = BackupHandlerDeps &
   getCenterHours: GetCenterHoursUseCase;
   envelopeContext: () => EnvelopeContext;
   adminExists: AdminExists;
+  adminUsername: () => Promise<string>;
   createAdminAccount: CreateAdminAccountUseCase;
   verifyAdminPassword: VerifyAdminPasswordUseCase;
   changeAdminPassword: ChangeAdminPasswordUseCase;
   attemptLogin: AttemptLoginUseCase;
   deviceSessions: DeviceSessions;
+  generateRecoveryCodes: GenerateRecoveryCodesUseCase;
+  verifyRecoveryCode: VerifyRecoveryCodeUseCase;
+  resetPasswordWithRecoveryCode: ResetPasswordWithRecoveryCodeUseCase;
+  countRemainingRecoveryCodes: () => Promise<number>;
   getCenterProfile: GetCenterProfileUseCase;
   saveCenterProfile: SaveCenterProfileUseCase;
   storeCenterLogo: StoreCenterLogoUseCase;
@@ -1275,6 +1287,30 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'auth.logout': async () => {
       await deps.deviceSessions.forget();
       return { ok: true };
+    },
+    'admin.recovery.generate': async () => {
+      if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
+      const username = await deps.adminUsername();
+      const codes = await deps.generateRecoveryCodes.execute(username);
+      return { codes: [...codes] };
+    },
+    'admin.recovery.count': async () => {
+      const remaining = await deps.countRemainingRecoveryCodes();
+      return { remaining };
+    },
+    'auth.resetWithCode': async (request) => {
+      const username = await deps.adminUsername();
+      const result = await deps.resetPasswordWithRecoveryCode.execute({
+        recoveryCode: request.code,
+        newPassword: request.password,
+        username,
+      });
+      switch (result.outcome) {
+        case 'success':
+          return { outcome: 'success' };
+        case 'locked-out':
+          return { outcome: 'locked-out', lockedUntilMs: result.lockedUntil };
+      }
     },
     'center.get': async () => {
       const center = await deps.getCenterProfile.execute();

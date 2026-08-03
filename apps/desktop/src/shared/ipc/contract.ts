@@ -30,6 +30,8 @@ import {
   payrollMonthQuerySchema,
   adminCredentialsSchema,
   changeAdminPasswordSchema,
+  recoveryCodeSchema,
+  resetPasswordWithRecoveryCodeSchema,
   weeklyHoursSchema,
   loginInputSchema,
   centerProfileSchema,
@@ -1377,6 +1379,33 @@ export const ipcContract = {
   'auth.logout': {
     request: z.object({}),
     response: z.object({ ok: z.literal(true) }),
+  },
+  // Recovery codes (SOU-154). `admin.recovery.generate` returns the
+  // plaintext codes exactly once; the renderer must handle them and
+  // clear them after display — they are never persisted plaintext in
+  // any layer. `admin.recovery.count` answers "X of 16 remaining" for
+  // the settings screen (SOU-156). `auth.resetWithCode` accepts a
+  // recovery code + new password (checked against the domain schema).
+  'admin.recovery.generate': {
+    request: z.object({}),
+    response: z.object({ codes: z.array(z.string()) }),
+  },
+  'admin.recovery.count': {
+    request: z.object({}),
+    response: z.object({ remaining: z.number().int().nonnegative() }),
+  },
+  'auth.resetWithCode': {
+    request: z.object({
+      code: recoveryCodeSchema,
+      password: resetPasswordWithRecoveryCodeSchema.shape.newPassword,
+    }),
+    response: z.discriminatedUnion('outcome', [
+      z.object({ outcome: z.literal('success') }),
+      z.object({
+        outcome: z.literal('locked-out'),
+        lockedUntilMs: z.number().int().nonnegative(),
+      }),
+    ]),
   },
   // Center profile (SOU-28). `center.get` returns the single row (or null before
   // first save). `center.save` upserts the editable profile fields — the request
