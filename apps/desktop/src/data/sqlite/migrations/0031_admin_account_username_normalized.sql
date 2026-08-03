@@ -14,13 +14,14 @@
 -- LOCAL infra table (see 0003_admin_account.sql header) — device-local, never
 -- synced, so this backfill carries none of the sync-neutrality risk migration
 -- backfills normally have (no `updated_at` / `version` to protect here). The
--- backfill below (`LOWER(TRIM(username))`) is a best-effort, ASCII-safe seed
--- for whatever row already exists; the very next admin-account save (e.g. a
--- password change) overwrites it with the precise `normalizeUsername` value,
--- since the repository recomputes this column from `username` on every write.
+-- backfill calls `normalize_username(...)`, a SQLite UDF registered in
+-- `db.ts` that wraps the same domain `normalizeUsername` the repository uses
+-- at runtime — plain SQL `LOWER(TRIM(...))` is ASCII-only and would silently
+-- diverge from it for an accented existing username, locking that admin out
+-- on their very next login.
 
 ALTER TABLE admin_accounts ADD COLUMN username_normalized TEXT;
 
-UPDATE admin_accounts SET username_normalized = LOWER(TRIM(username));
+UPDATE admin_accounts SET username_normalized = normalize_username(username);
 
 CREATE UNIQUE INDEX ux_admin_accounts_username_normalized ON admin_accounts(username_normalized);

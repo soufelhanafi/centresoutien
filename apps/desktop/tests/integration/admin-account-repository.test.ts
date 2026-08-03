@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Database as DB } from 'better-sqlite3';
 import type { AdminAccount, AdminAccountId } from '@centresoutien/domain';
+import { normalizeUsername } from '@centresoutien/domain';
 import { openDatabase } from '../../src/data/sqlite/db';
-import { runMigrations } from '../../src/data/sqlite/migration-runner';
+import { applyMigrations, loadMigrations, runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteAdminAccountRepository } from '../../src/data/sqlite/repositories/admin-account-repository';
 
 const KEY = 'passphrase-under-test';
@@ -107,6 +108,47 @@ describe('SqliteAdminAccountRepository', () => {
           }),
         ),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('migration 0031 backfill (SOU-153)', () => {
+    it('backfills username_normalized to match normalizeUsername for a pre-existing non-ASCII username', async () => {
+      // Separate temp DB (the shared `dir`/`db` from beforeEach is already
+      // migrated to head) so we can apply migrations up to 0030 only, seed a
+      // pre-SOU-153 row by hand, then run 0031 and inspect the backfill. Guards
+      // against SQL's ASCII-only LOWER() silently diverging from the domain's
+      // Unicode-aware normalizeUsername for an existing accented username.
+      const preDir = mkdtempSync(join(tmpdir(), 'cs-admin-pre31-'));
+      const migrations = loadMigrations(REAL_MIGRATIONS);
+      const upTo30 = migrations.filter((m) => m.version <= 30);
+      const only31 = migrations.filter((m) => m.version === 31);
+
+      const preDb = openDatabase({ centreId: 'C1', key: KEY, dir: preDir });
+      applyMigrations(preDb, upTo30);
+
+      const rawUsername = 'Étudiante';
+      preDb
+        .prepare(
+          `INSERT INTO admin_accounts (id, username, password_hash, created_at, updated_at)
+           VALUES (@id, @username, @password_hash, @created_at, @updated_at)`,
+        )
+        .run({
+          id: 'adm_00000000000000000000000003',
+          username: rawUsername,
+          password_hash: '$argon2id$v=19$m=19456,t=2,p=1$abc$def',
+          created_at: AT.toISOString(),
+          updated_at: AT.toISOString(),
+        });
+
+      applyMigrations(preDb, only31);
+
+      const row = preDb
+        .prepare('SELECT username_normalized FROM admin_accounts WHERE id = ?')
+        .get('adm_00000000000000000000000003') as { username_normalized: string };
+
+      expect(row.username_normalized).toBe(normalizeUsername(rawUsername));
+      preDb.close();
+      rmSync(preDir, { recursive: true, force: true });
     });
   });
 });
