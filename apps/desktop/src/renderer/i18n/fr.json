@@ -1211,6 +1211,24 @@
       "dismiss": "Retour",
       "success": "Séance annulée",
       "error": "L'annulation de la séance a échoué."
+    },
+    "export": {
+      "trigger": "Exporter le planning",
+      "title": "Exporter le planning",
+      "description": "Choisissez la vue à exporter en PDF.",
+      "view": {
+        "full": "Grille complète",
+        "room": "Par salle",
+        "teacher": "Par enseignant",
+        "group": "Par groupe"
+      },
+      "print": "Imprimer",
+      "printSuccess": "Planning envoyé à l'impression",
+      "printError": "L'impression du planning a échoué.",
+      "export": "Exporter en PDF",
+      "exportSuccess": "Planning exporté",
+      "exportError": "L'export du planning a échoué.",
+      "cancel": "Annuler"
     }
   },
   "settings": {
