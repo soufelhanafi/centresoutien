@@ -1215,18 +1215,12 @@
     "export": {
       "trigger": "Exporter le planning",
       "title": "Exporter le planning",
-      "description": "Choisissez la vue et la semaine à exporter en PDF.",
+      "description": "Choisissez la vue à exporter en PDF.",
       "view": {
         "full": "Grille complète",
         "room": "Par salle",
         "teacher": "Par enseignant",
         "group": "Par groupe"
-      },
-      "week": {
-        "label": "Semaine",
-        "range": "Du {{start}} au {{end}}",
-        "previous": "Semaine précédente",
-        "next": "Semaine suivante"
       },
       "print": "Imprimer",
       "printSuccess": "Planning envoyé à l'impression",

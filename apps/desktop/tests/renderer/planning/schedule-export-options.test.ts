@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { scheduleExportEntityOptions } from '../../../src/renderer/lib/planning/schedule-export-options';
+import {
+  scheduleExportEntityOptions,
+  scheduleViewFilterOf,
+} from '../../../src/renderer/lib/planning/schedule-export-options';
 import type { SessionFormOptions } from '../../../src/renderer/lib/planning/session-options';
 
 const OPTIONS: SessionFormOptions = {
@@ -33,5 +36,40 @@ describe('scheduleExportEntityOptions', () => {
       { value: 'g1', label: 'Maths — 1BAC', examPrep: false },
       { value: 'g2', label: 'Matière inconnue', examPrep: true },
     ]);
+  });
+});
+
+describe('scheduleViewFilterOf', () => {
+  it('builds the full-grid view regardless of entityId', () => {
+    expect(scheduleViewFilterOf('full', '', OPTIONS)).toEqual({ scope: 'full' });
+  });
+
+  it('denormalizes the picked room name into the view', () => {
+    expect(scheduleViewFilterOf('room', 'r1', OPTIONS)).toEqual({
+      scope: 'room',
+      roomId: 'r1',
+      roomName: 'Salle A',
+    });
+  });
+
+  it('denormalizes the picked teacher bilingual name into the view', () => {
+    expect(scheduleViewFilterOf('teacher', 't1', OPTIONS)).toEqual({
+      scope: 'teacher',
+      teacherId: 't1',
+      teacherName: { fr: 'Prof A', ar: 'أستاذ أ' },
+    });
+  });
+
+  it('denormalizes the picked group subject + level into the view', () => {
+    expect(scheduleViewFilterOf('group', 'g1', OPTIONS)).toEqual({
+      scope: 'group',
+      groupId: 'g1',
+      subjectName: { fr: 'Maths', ar: 'رياضيات' },
+      level: '1BAC',
+    });
+  });
+
+  it('falls back to full when the entityId is not in options', () => {
+    expect(scheduleViewFilterOf('room', 'unknown', OPTIONS)).toEqual({ scope: 'full' });
   });
 });

@@ -1,47 +1,27 @@
-import { useMemo, useState } from 'react';
-import { weekRangeContaining, shiftWeek, todayIso } from '../../lib/planning/week-range';
-import type { ScheduleExportViewFilter } from '../../lib/planning/schedule-export';
+import { useState } from 'react';
+import type { ScheduleViewScope } from '../../lib/planning/schedule-export-options';
 
-export type ScheduleViewKind = ScheduleExportViewFilter['kind'];
-
-/** Maps the picked view kind + entity id to the request's discriminated `viewFilter`. */
-export function viewFilterOf(kind: ScheduleViewKind, entityId: string): ScheduleExportViewFilter {
-  switch (kind) {
-    case 'room':
-      return { kind: 'room', roomId: entityId };
-    case 'teacher':
-      return { kind: 'teacher', teacherId: entityId };
-    case 'group':
-      return { kind: 'group', groupId: entityId };
-    default:
-      return { kind: 'full' };
-  }
-}
-
-/** The view kind, picked entity, and anchor week for the schedule export dialog
- *  (SOU-107) — pure selection state, no IPC (see `use-schedule-export-actions`). */
+/** The picked scope (full grid / room / teacher / group) and entity id for the
+ *  schedule export dialog (SOU-107) — pure selection state, no IPC (see
+ *  `use-schedule-export-actions`). There is no week range: the exported grid is
+ *  the weekly recurring template, the same one `session.week` already renders,
+ *  not a dated week instance. */
 export function useScheduleExportSelection() {
-  const [viewKind, setViewKind] = useState<ScheduleViewKind>('full');
+  const [scope, setScope] = useState<ScheduleViewScope>('full');
   const [entityId, setEntityId] = useState('');
-  const [weekAnchor, setWeekAnchor] = useState(todayIso);
 
-  const weekRange = useMemo(() => weekRangeContaining(weekAnchor), [weekAnchor]);
-  const canSubmit = viewKind === 'full' || entityId !== '';
+  const canSubmit = scope === 'full' || entityId !== '';
 
-  const changeViewKind = (kind: ScheduleViewKind) => {
-    setViewKind(kind);
+  const changeScope = (next: ScheduleViewScope) => {
+    setScope(next);
     setEntityId('');
   };
 
   return {
-    viewKind,
+    scope,
     entityId,
-    weekAnchor,
-    weekRange,
     canSubmit,
-    onViewKindChange: changeViewKind,
+    onScopeChange: changeScope,
     onEntityIdChange: setEntityId,
-    onWeekAnchorChange: setWeekAnchor,
-    onShiftWeek: (delta: number) => setWeekAnchor((current) => shiftWeek(current, delta)),
   };
 }

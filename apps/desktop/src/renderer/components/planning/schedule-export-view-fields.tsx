@@ -12,41 +12,39 @@ import {
 } from '@centresoutien/ui';
 import { scheduleExportEntityOptions } from '../../lib/planning/schedule-export-options';
 import type { SessionFormOptions } from '../../lib/planning/session-options';
-import type { ScheduleViewKind } from '../../hooks/planning/use-schedule-export-selection';
+import type { ScheduleViewScope } from '../../lib/planning/schedule-export-options';
 
 type ScheduleExportViewFieldsProps = {
-  viewKind: ScheduleViewKind;
+  scope: ScheduleViewScope;
   entityId: string;
   options: SessionFormOptions;
-  onViewKindChange: (kind: ScheduleViewKind) => void;
+  onScopeChange: (scope: ScheduleViewScope) => void;
   onEntityIdChange: (id: string) => void;
 };
 
-const PLACEHOLDER_KEY: Record<Exclude<ScheduleViewKind, 'full'>, string> = {
+const PLACEHOLDER_KEY: Record<Exclude<ScheduleViewScope, 'full'>, string> = {
   room: 'planning.form.roomPlaceholder',
   teacher: 'planning.form.teacherPlaceholder',
   group: 'planning.form.groupPlaceholder',
 };
 
-/** View-kind tabs (full grid / room / teacher / group) plus the matching entity
+/** Scope tabs (full grid / room / teacher / group) plus the matching entity
  *  picker, reusing the same room/teacher/group option lists and `Select` pattern
  *  as the session form's `SessionAssignmentFields` (no new picker invented). */
 export function ScheduleExportViewFields({
-  viewKind,
+  scope,
   entityId,
   options,
-  onViewKindChange,
+  onScopeChange,
   onEntityIdChange,
 }: ScheduleExportViewFieldsProps) {
   const { t, i18n } = useTranslation();
   const entityOptions =
-    viewKind === 'full'
-      ? []
-      : scheduleExportEntityOptions(viewKind, options, i18n.language, t('planning.unknownSubject'));
+    scope === 'full' ? [] : scheduleExportEntityOptions(scope, options, i18n.language, t('planning.unknownSubject'));
 
   return (
     <div className="space-y-3">
-      <Tabs value={viewKind} onValueChange={(value) => onViewKindChange(value as ScheduleViewKind)}>
+      <Tabs value={scope} onValueChange={(value) => onScopeChange(value as ScheduleViewScope)}>
         <TabsList>
           <TabsTrigger value="full">{t('planning.export.view.full')}</TabsTrigger>
           <TabsTrigger value="room">{t('planning.export.view.room')}</TabsTrigger>
@@ -55,10 +53,10 @@ export function ScheduleExportViewFields({
         </TabsList>
       </Tabs>
 
-      {viewKind !== 'full' && (
+      {scope !== 'full' && (
         <Select value={entityId} onValueChange={onEntityIdChange}>
-          <SelectTrigger aria-label={t(`planning.export.view.${viewKind}`)}>
-            <SelectValue placeholder={t(PLACEHOLDER_KEY[viewKind])} />
+          <SelectTrigger aria-label={t(`planning.export.view.${scope}`)}>
+            <SelectValue placeholder={t(PLACEHOLDER_KEY[scope])} />
           </SelectTrigger>
           <SelectContent>
             {entityOptions.map((option) => (
