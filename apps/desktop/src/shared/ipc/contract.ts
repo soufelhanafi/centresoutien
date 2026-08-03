@@ -345,6 +345,54 @@ const invoiceTransitionResultSchema = z.object({
   cancelledAt: z.string().nullable(),
 });
 
+// The Impayés (arrears) read model across the IPC boundary (SOU-103). Only the
+// two derived statuses that can ever be overdue — a `paid` invoice is never
+// arrears by definition, so this is a strict subset of `paymentStatusSchema`.
+const overdueStatusFilterSchema = z.enum(['unpaid', 'partially-paid']);
+
+// The 30/60/90-day aging tiers `ListOverdueInvoices` computes from the invoice's
+// implicit due date (its billing month's last day) — boundaries fall in the
+// closing bucket (exactly 90 days is `61-90`).
+const agingBucketSchema = z.enum(['0-30', '31-60', '61-90', '90-plus']);
+
+// One overdue invoice under a guardian's follow-up group — `invoiceId` is the
+// only id the "open invoice" / "record payment" quick actions need; both reuse
+// the existing `invoice.list` (with `invoiceId`) and `payment.summary` channels,
+// so this ticket adds no new navigation DTO beyond the id.
+const overdueInvoiceEntryViewSchema = z.object({
+  invoiceId: z.string(),
+  studentId: z.string(),
+  studentName: bilingualTextSchema.nullable(),
+  month: z.string(),
+  outstandingMad: z.number().int().nonnegative(),
+  daysOverdue: z.number().int().nonnegative(),
+  monthsOverdue: z.number().int().nonnegative(),
+  agingBucket: agingBucketSchema,
+  status: overdueStatusFilterSchema,
+});
+
+// One guardian's follow-up group (SOU-103). `parentId`/`parentName`/`parentPhone`
+// are `null` only for a student with no linked guardian yet — the debt still
+// surfaces rather than being dropped. A student with two linked guardians
+// appears once under EACH guardian's group (both get called); `totalOutstandingMad`
+// is per-group, so the same invoice's amount legitimately counts under both.
+const overdueParentGroupViewSchema = z.object({
+  parentId: z.string().nullable(),
+  parentName: z.string().nullable(),
+  parentPhone: z.string().nullable(),
+  totalOutstandingMad: z.number().int().nonnegative(),
+  invoices: z.array(overdueInvoiceEntryViewSchema),
+});
+
+// The center-wide aging summary (SOU-103), computed from the DEDUPLICATED
+// invoice set — a shared debt fanned out to two guardians is counted once here,
+// even though it appears in two `overdueParentGroupViewSchema` groups above.
+const agingSummaryEntryViewSchema = z.object({
+  bucket: agingBucketSchema,
+  count: z.number().int().nonnegative(),
+  outstandingMad: z.number().int().nonnegative(),
+});
+
 const weeklySessionViewSchema = z.object({
   id: z.string(),
   dayOfWeek: z.number().int().min(0).max(6),
@@ -851,6 +899,31 @@ export const ipcContract = {
   'invoice.cancel': {
     request: z.object({ invoiceId: z.string() }),
     response: invoiceTransitionResultSchema,
+  },
+  // Impayés (arrears) list (SOU-103): every `issued` invoice that is both past its
+  // implicit due date (its billing month's last day) and not fully paid, grouped by
+  // guardian for phone follow-up rounds, plus a 30/60/90-day aging summary — derived
+  // exclusively from the invoice + payment + student read surface, no separate
+  // "arrears" state. Filters are all optional and compose: `month` (exact billing
+  // month), `minOutstandingMad`/`maxOutstandingMad` (centimes), `groupId` (the
+  // student's currently live-enrolled group), `status` (unpaid/partially-paid — a
+  // narrower enum than `paymentStatusSchema` since `paid` is never overdue). The
+  // "open invoice" and "record payment" quick actions reuse the existing
+  // `invoice.list` (with `invoiceId`) and `payment.summary`/`payment.record`
+  // channels — this ticket adds no new write path. centerCode is injected in main,
+  // never sent from the renderer. Gated by `core.invoicing` (every plan).
+  'invoice.overdue': {
+    request: z.object({
+      month: z.string().optional(),
+      minOutstandingMad: z.number().int().nonnegative().optional(),
+      maxOutstandingMad: z.number().int().nonnegative().optional(),
+      groupId: z.string().optional(),
+      status: overdueStatusFilterSchema.optional(),
+    }),
+    response: z.object({
+      groups: z.array(overdueParentGroupViewSchema),
+      agingSummary: z.array(agingSummaryEntryViewSchema),
+    }),
   },
   // Payslip PDF print/export (SOU-75). Renders the confirmed `TeacherPayout`
   // (draft or paid — stateless, printing never mutates the payout) to the same

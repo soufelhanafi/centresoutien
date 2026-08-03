@@ -127,6 +127,10 @@ import type { LocalePreference } from '../infra/locale-preference-store';
 import { createBackupHandlers, type BackupHandlerDeps } from './backup-handlers';
 import { createDialogHandlers } from './dialog-handlers';
 import { createInvoiceHandlers, type InvoiceHandlerDeps } from './invoice-handlers';
+import {
+  createOverdueInvoiceHandlers,
+  type OverdueInvoiceHandlerDeps,
+} from './overdue-invoice-handlers';
 import { createPayslipHandlers, type PayslipHandlerDeps } from './payslip-handlers';
 import { createDashboardHandlers, type DashboardHandlerDeps } from './dashboard-handlers';
 import { createPayrollHandlers, type PayrollHandlerDeps } from './payroll-handlers';
@@ -508,6 +512,7 @@ function toWeekView(week: readonly CenterHours[]) {
  */
 export type HandlerDeps = BackupHandlerDeps &
   InvoiceHandlerDeps &
+  OverdueInvoiceHandlerDeps &
   PayslipHandlerDeps &
   DashboardHandlerDeps &
   PayrollHandlerDeps &
@@ -1227,6 +1232,7 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     ...createBackupHandlers(deps),
     ...createDialogHandlers(),
     ...createInvoiceHandlers(deps),
+    ...createOverdueInvoiceHandlers(deps),
     ...createPayslipHandlers(deps),
     ...createDashboardHandlers(deps),
     ...createPayrollHandlers(deps),

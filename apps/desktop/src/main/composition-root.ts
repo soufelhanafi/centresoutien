@@ -87,6 +87,7 @@ import {
   CreateInvoiceDraft,
   GenerateMonthlyInvoices,
   ListInvoices,
+  ListOverdueInvoices,
   IssueInvoice,
   CancelInvoice,
   MonthlyFeeAttributionService,
@@ -364,6 +365,11 @@ export function buildContainer(options: ContainerOptions): Container {
   // only, no new domain logic.
   const issueInvoice = new IssueInvoice(invoiceRepo, clock, plan);
   const cancelInvoice = new CancelInvoice(invoiceRepo, clock, plan);
+  // Impayés (arrears) list (SOU-103): no new repository — `invoiceRepo` also
+  // implements `OverdueInvoiceViewReadPort` (its join is anchored on `invoices`,
+  // mirroring the WeeklySessionViewReadPort/WeeklyRecurringSessionRepository
+  // pairing), and `parentRepo` resolves the guardian contacts to group by.
+  const listOverdueInvoices = new ListOverdueInvoices(invoiceRepo, parentRepo, clock, plan);
 
   const teacherRepo = new SqliteTeacherRepository(db);
   // The teacher in-use guard's real backing (a query over live groups / sessions /
@@ -642,6 +648,7 @@ export function buildContainer(options: ContainerOptions): Container {
     getInvoicePaymentSummary,
     generateMonthlyInvoices,
     listInvoices,
+    listOverdueInvoices,
     issueInvoice,
     cancelInvoice,
     invoicePdfRenderer,

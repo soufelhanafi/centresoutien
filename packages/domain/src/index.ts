@@ -17,8 +17,8 @@ export { TIME_OF_DAY_REGEX, isTimeOfDay, toMinutes } from './value-objects/time-
 export type { WeekdayIndex } from './value-objects/weekday';
 export { WEEKDAYS, isWeekdayIndex } from './value-objects/weekday';
 export type { DateRange } from './value-objects/date-range';
-export { weekdayOf, eachDateInRange } from './value-objects/date-range';
-export { monthsEndingAt, monthDateRange } from './value-objects/month';
+export { weekdayOf, eachDateInRange, daysBetween } from './value-objects/date-range';
+export { monthsEndingAt, monthDateRange, monthsBetween } from './value-objects/month';
 export type { GuardianRelation } from './value-objects/guardian-relation';
 export { GUARDIAN_RELATIONS, isGuardianRelation } from './value-objects/guardian-relation';
 
@@ -308,6 +308,7 @@ export type { AttendanceRecord, AttendanceRecordId, AttendanceStatus } from './e
 // Read models (denormalized, envelope-free — never persisted)
 export type { WeeklySessionView } from './read-models/weekly-session-view';
 export type { InvoiceListRow, InvoiceListFilters } from './read-models/invoice-list-row';
+export type { OverdueInvoiceLineView } from './read-models/overdue-invoice-view';
 export type { DashboardBasicSummary } from './read-models/dashboard-basic-summary';
 export type {
   DashboardAdvancedSummary,
@@ -360,6 +361,9 @@ export type { GroupRepository } from './ports/group-repository';
 // Enrollment repository — port declared here; SQLite adapter + migration are a follow-up.
 export type { EnrollmentRepository } from './ports/enrollment-repository';
 export type { InvoiceRepository } from './ports/invoice-repository';
+// Impayés arrears read (SOU-103) — cross-aggregate read model served by the
+// same SQLite adapter that owns `invoices`, mirroring WeeklySessionViewReadPort.
+export type { OverdueInvoiceViewReadPort } from './ports/overdue-invoice-view-read-port';
 export type { InvoicePdfRenderer, InvoicePdfInput, InvoicePdfLine } from './ports/invoice-pdf-renderer';
 export type { PayslipPdfRenderer, PayslipPdfInput } from './ports/payslip-pdf-renderer';
 export type {
@@ -433,6 +437,14 @@ export {
 export type { PaymentStatus } from './policies/payment-status';
 export { detectProbableDoubleEntry, detectDuplicateReversals } from './policies/payment-duplicate';
 export type { DoubleEntryCandidate, ReversalCandidate } from './policies/payment-duplicate';
+export {
+  invoiceDueDate,
+  daysOverdue,
+  monthsOverdue,
+  agingBucketFor,
+  AGING_BUCKETS,
+} from './policies/invoice-aging';
+export type { AgingBucket } from './policies/invoice-aging';
 export {
   isSubscriptionActiveInMonth,
   subscriptionRangesOverlap,
@@ -539,6 +551,15 @@ export type {
 } from './use-cases/get-invoice-payment-summary';
 export { ListInvoices } from './use-cases/list-invoices';
 export type { ListInvoicesInput, InvoiceListItem } from './use-cases/list-invoices';
+export { ListOverdueInvoices } from './use-cases/list-overdue-invoices';
+export type {
+  ListOverdueInvoicesInput,
+  OverdueStatusFilter,
+  OverdueInvoiceEntry,
+  OverdueParentGroup,
+  AgingSummaryEntry,
+  ListOverdueInvoicesResult,
+} from './use-cases/list-overdue-invoices';
 export { CreateStudentSubscription } from './use-cases/create-student-subscription';
 export type { CreateStudentSubscriptionInput } from './use-cases/create-student-subscription';
 export { CloseStudentSubscription } from './use-cases/close-student-subscription';

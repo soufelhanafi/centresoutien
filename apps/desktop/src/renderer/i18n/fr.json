@@ -16,6 +16,7 @@
     "rooms": "Salles",
     "planning": "Planning",
     "invoicing": "Facturation",
+    "arrears": "Impayés",
     "payments": "Paiements",
     "payroll": "Paie",
     "sync": "Synchronisation",
@@ -1598,6 +1599,65 @@
       "bulkConfirmError": "La confirmation groupée a échoué. Réessayez.",
       "payslipsGenerated": "{{count}} bulletin(s) généré(s).",
       "payslipsPartial": "{{succeeded}} bulletin(s) généré(s), {{failed}} échec(s)."
+    }
+  },
+  "arrears": {
+    "title": "Impayés",
+    "subtitle": "Factures en retard ou partiellement payées, regroupées par parent, pour vos relances téléphoniques.",
+    "actions": {
+      "exportList": "Exporter la liste en PDF",
+      "recordPayment": "Enregistrer un paiement",
+      "openInvoice": "Ouvrir la facture"
+    },
+    "filters": {
+      "monthLabel": "Filtrer par mois",
+      "amountMin": "Montant min.",
+      "amountMinLabel": "Montant minimum dû (MAD)",
+      "amountMax": "Montant max.",
+      "amountMaxLabel": "Montant maximum dû (MAD)",
+      "groupLabel": "Filtrer par groupe",
+      "groupAll": "Tous les groupes",
+      "statusLabel": "Filtrer par statut de paiement",
+      "statusAll": "Tous les statuts"
+    },
+    "aging": {
+      "groupLabel": "Résumé de l'ancienneté des impayés",
+      "bucket": {
+        "30": "1 à 30 jours",
+        "60": "31 à 60 jours",
+        "ninetyPlus": "61 jours et plus"
+      },
+      "total": "Total dû",
+      "parentsCount": "{{count}} parent(s) concerné(s) par un impayé."
+    },
+    "table": {
+      "student": "Élève",
+      "month": "Mois",
+      "aging": "Ancienneté",
+      "amount": "Montant dû",
+      "status": "Statut",
+      "actions": "Actions"
+    },
+    "parentCard": {
+      "totalOutstanding": "Total dû",
+      "unlinkedParent": "Parent non renseigné"
+    },
+    "loadError": {
+      "title": "Chargement impossible",
+      "body": "Le chargement des impayés a échoué.",
+      "retry": "Réessayer"
+    },
+    "empty": {
+      "title": "Aucun impayé",
+      "body": "Bonne nouvelle : tous les paiements sont à jour."
+    },
+    "noResults": {
+      "title": "Aucun résultat",
+      "body": "Aucun impayé ne correspond à ces filtres."
+    },
+    "print": {
+      "title": "Liste des impayés — relances téléphoniques",
+      "generatedOn": "Générée le {{date}}"
     }
   }
 }

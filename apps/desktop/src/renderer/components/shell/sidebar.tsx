@@ -20,7 +20,7 @@ export function Sidebar() {
     <nav
       aria-label={t('shell.navAriaLabel')}
       className={cn(
-        'flex h-screen flex-col border-e border-border bg-card transition-[width] duration-200',
+        'flex h-screen flex-col border-e border-border bg-card transition-[width] duration-200 print:hidden',
         collapsed ? 'w-16' : 'w-64',
       )}
     >

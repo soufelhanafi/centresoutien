@@ -41,3 +41,14 @@ export function monthDateRange(month: string): DateRange {
   const lastDay = String(daysInMonth(year, m)).padStart(2, '0');
   return { start: `${month}-01`, end: `${month}-${lastDay}` };
 }
+
+/**
+ * Signed whole-month difference `toMonth − fromMonth` (positive when `toMonth`
+ * is later) — the shared absolute-month-index arithmetic behind
+ * `monthsEndingAt` and the invoice-aging policy's `monthsOverdue`.
+ */
+export function monthsBetween(fromMonth: string, toMonth: string): number {
+  const a = parts(fromMonth);
+  const b = parts(toMonth);
+  return b.year * 12 + (b.month - 1) - (a.year * 12 + (a.month - 1));
+}

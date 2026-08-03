@@ -12,7 +12,7 @@ export function AppShell() {
   const { t } = useTranslation();
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-surface-subtle text-foreground">
+    <div className="flex h-screen w-screen overflow-hidden bg-surface-subtle text-foreground print:h-auto print:w-auto print:overflow-visible">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:start-4 focus:top-3 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
@@ -20,9 +20,13 @@ export function AppShell() {
         {t('shell.skipToContent')}
       </a>
       <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col print:block">
         <AppHeader />
-        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto p-6 focus:outline-none">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 overflow-y-auto p-6 focus:outline-none print:overflow-visible print:p-0"
+        >
           <Outlet />
         </main>
       </div>

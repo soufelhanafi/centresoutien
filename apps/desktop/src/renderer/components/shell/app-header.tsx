@@ -13,7 +13,7 @@ export function AppHeader() {
   const { t } = useTranslation();
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4 print:hidden">
       {/* Center-switcher slot — reserved for SOU-96. Static label until then. */}
       <div className="flex min-w-0 items-center gap-2" data-slot="center-switcher">
         <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />

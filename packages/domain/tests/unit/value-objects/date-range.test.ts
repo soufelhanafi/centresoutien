@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { weekdayOf, eachDateInRange } from '../../../src/value-objects/date-range';
+import { weekdayOf, eachDateInRange, daysBetween } from '../../../src/value-objects/date-range';
 
 describe('weekdayOf', () => {
   // 2026-01-01 is a Thursday (index 4); the rest of the week follows.
@@ -60,5 +60,25 @@ describe('eachDateInRange', () => {
       '2027-01-01',
       '2027-01-02',
     ]);
+  });
+});
+
+describe('daysBetween', () => {
+  it('is 0 for the same date', () => {
+    expect(daysBetween('2026-09-30', '2026-09-30')).toBe(0);
+  });
+
+  it('is positive when `to` is later, negative when earlier', () => {
+    expect(daysBetween('2026-09-30', '2026-10-01')).toBe(1);
+    expect(daysBetween('2026-10-01', '2026-09-30')).toBe(-1);
+  });
+
+  it('rolls over a leap February correctly', () => {
+    expect(daysBetween('2024-02-28', '2024-03-01')).toBe(2); // 2024-02-29 exists
+    expect(daysBetween('2026-02-28', '2026-03-01')).toBe(1); // 2026-02-29 does not
+  });
+
+  it('rolls over a year boundary', () => {
+    expect(daysBetween('2026-12-31', '2027-01-01')).toBe(1);
   });
 });

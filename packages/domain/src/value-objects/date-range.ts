@@ -59,6 +59,37 @@ export function weekdayOf(date: string): WeekdayIndex {
 }
 
 /**
+ * Proleptic-Gregorian day number (Fliegel & Van Flandern), used only as a
+ * subtraction key for {@link daysBetween} — never surfaced on its own, so it
+ * needs no calendar-correctness beyond "difference of two of these is a day
+ * count".
+ */
+function toDayNumber(date: string): number {
+  const { year, month, day } = parts(date);
+  const a = Math.floor((14 - month) / 12);
+  const y = year + 4800 - a;
+  const m = month + 12 * a - 3;
+  return (
+    day +
+    Math.floor((153 * m + 2) / 5) +
+    365 * y +
+    Math.floor(y / 4) -
+    Math.floor(y / 100) +
+    Math.floor(y / 400) -
+    32045
+  );
+}
+
+/**
+ * Whole civil days from `from` to `to` (positive when `to` is later) — pure
+ * integer arithmetic, no `Date`, so the domain's only time source stays the
+ * injected `Clock` port. Backs invoice-aging's day-based overdue buckets.
+ */
+export function daysBetween(from: string, to: string): number {
+  return toDayNumber(to) - toDayNumber(from);
+}
+
+/**
  * Every civil date in `[start, end]`, inclusive, in chronological order; empty
  * when `end < start`. Steps one civil day at a time with month/year rollover —
  * no `Date`, no timezone, no DST — so a day is always exactly one increment and
