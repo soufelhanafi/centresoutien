@@ -32,11 +32,15 @@ export function ArrearsParentGroup({ parent, expanded, onToggleExpand }: Arrears
             aria-hidden="true"
           />
           <div>
-            <p className="font-semibold text-foreground">{parent.parentName}</p>
-            <p className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Phone className="h-3 w-3" aria-hidden="true" />
-              <span dir="ltr">{parent.parentPhone}</span>
+            <p className="font-semibold text-foreground">
+              {parent.parentName ?? t('arrears.parentCard.unlinkedParent')}
             </p>
+            {parent.parentPhone !== null && (
+              <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Phone className="h-3 w-3" aria-hidden="true" />
+                <span dir="ltr">{parent.parentPhone}</span>
+              </p>
+            )}
           </div>
         </div>
 

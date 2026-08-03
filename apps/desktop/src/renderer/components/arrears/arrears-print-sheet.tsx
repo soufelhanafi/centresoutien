@@ -25,11 +25,15 @@ export function ArrearsPrintSheet({ parents }: ArrearsPrintSheetProps) {
       </p>
 
       {parents.map((parent) => (
-        <section key={parent.parentId} className="mb-4 break-inside-avoid">
-          <h2 className="text-sm font-semibold text-foreground">{parent.parentName}</h2>
-          <p className="text-xs text-muted-foreground" dir="ltr">
-            {parent.parentPhone}
-          </p>
+        <section key={parent.parentId ?? '__unlinked__'} className="mb-4 break-inside-avoid">
+          <h2 className="text-sm font-semibold text-foreground">
+            {parent.parentName ?? t('arrears.parentCard.unlinkedParent')}
+          </h2>
+          {parent.parentPhone !== null && (
+            <p className="text-xs text-muted-foreground" dir="ltr">
+              {parent.parentPhone}
+            </p>
+          )}
           <table className="mt-1 w-full border-collapse text-xs">
             <thead>
               <tr>

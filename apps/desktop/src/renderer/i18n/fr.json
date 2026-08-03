@@ -1639,7 +1639,8 @@
       "actions": "Actions"
     },
     "parentCard": {
-      "totalOutstanding": "Total dû"
+      "totalOutstanding": "Total dû",
+      "unlinkedParent": "Parent non renseigné"
     },
     "loadError": {
       "title": "Chargement impossible",

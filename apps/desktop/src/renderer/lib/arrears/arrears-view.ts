@@ -33,11 +33,17 @@ export type OverdueInvoiceView = {
   readonly status: ArrearsPaymentStatus;
 };
 
-/** One parent's follow-up card: contact info, total due, and every overdue invoice across their children. */
+/**
+ * One parent's follow-up card: contact info, total due, and every overdue
+ * invoice across their children. `parentId`/`parentName`/`parentPhone` are
+ * `null` only for a student with no linked guardian yet — the domain still
+ * surfaces the debt (in its own group) rather than dropping it, so callers
+ * must render a fallback rather than assuming every group has a guardian.
+ */
 export type ArrearsParentGroupView = {
-  readonly parentId: string;
-  readonly parentName: string;
-  readonly parentPhone: string;
+  readonly parentId: string | null;
+  readonly parentName: string | null;
+  readonly parentPhone: string | null;
   readonly totalOutstandingMad: number;
   readonly oldestAgingBucket: ArrearsAgingBucket;
   readonly invoices: readonly OverdueInvoiceView[];

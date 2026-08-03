@@ -6,13 +6,13 @@ import { ArrearsParentGroup } from './arrears-parent-group';
 export function ArrearsParentList({ parents }: { parents: readonly ArrearsParentGroupView[] }) {
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
 
-  const toggleExpanded = (parentId: string) => {
+  const toggleExpanded = (key: string) => {
     setExpandedIds((current) => {
       const next = new Set(current);
-      if (next.has(parentId)) {
-        next.delete(parentId);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(parentId);
+        next.add(key);
       }
       return next;
     });
@@ -20,14 +20,19 @@ export function ArrearsParentList({ parents }: { parents: readonly ArrearsParent
 
   return (
     <div className="flex flex-col gap-3 print:hidden">
-      {parents.map((parent) => (
-        <ArrearsParentGroup
-          key={parent.parentId}
-          parent={parent}
-          expanded={expandedIds.has(parent.parentId)}
-          onToggleExpand={() => toggleExpanded(parent.parentId)}
-        />
-      ))}
+      {parents.map((parent) => {
+        // The domain merges every guardian-less student into a single `null`
+        // group (never one per student), so this sentinel is always unique.
+        const key = parent.parentId ?? '__unlinked__';
+        return (
+          <ArrearsParentGroup
+            key={key}
+            parent={parent}
+            expanded={expandedIds.has(key)}
+            onToggleExpand={() => toggleExpanded(key)}
+          />
+        );
+      })}
     </div>
   );
 }

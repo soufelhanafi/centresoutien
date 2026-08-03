@@ -1681,7 +1681,8 @@
       "actions": "إجراءات"
     },
     "parentCard": {
-      "totalOutstanding": "المجموع المستحق"
+      "totalOutstanding": "المجموع المستحق",
+      "unlinkedParent": "لا يوجد ولي أمر مسجَّل"
     },
     "loadError": {
       "title": "تعذّر التحميل",
