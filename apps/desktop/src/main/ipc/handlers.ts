@@ -104,6 +104,9 @@ import type {
   GetCenterHours,
   CenterHours,
   AttemptLogin,
+  GenerateRecoveryCodes,
+  VerifyRecoveryCode,
+  ResetPasswordWithRecoveryCode,
   DeviceSessionService,
   GetCenterProfile,
   SaveCenterProfile,
@@ -211,6 +214,9 @@ export type ChangeAdminPasswordUseCase = Pick<ChangeAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
 export type GetCenterHoursUseCase = Pick<GetCenterHours, 'execute'>;
 export type AttemptLoginUseCase = Pick<AttemptLogin, 'execute'>;
+export type GenerateRecoveryCodesUseCase = Pick<GenerateRecoveryCodes, 'execute'>;
+export type VerifyRecoveryCodeUseCase = Pick<VerifyRecoveryCode, 'execute'>;
+export type ResetPasswordWithRecoveryCodeUseCase = Pick<ResetPasswordWithRecoveryCode, 'execute'>;
 export type DeviceSessions = Pick<DeviceSessionService, 'isAuthenticated' | 'forget'>;
 export type GetCenterProfileUseCase = Pick<GetCenterProfile, 'execute'>;
 export type SaveCenterProfileUseCase = Pick<SaveCenterProfile, 'execute'>;
@@ -592,11 +598,16 @@ export type HandlerDeps = BackupHandlerDeps &
   getCenterHours: GetCenterHoursUseCase;
   envelopeContext: () => EnvelopeContext;
   adminExists: AdminExists;
+  adminUsername: () => Promise<string>;
   createAdminAccount: CreateAdminAccountUseCase;
   verifyAdminPassword: VerifyAdminPasswordUseCase;
   changeAdminPassword: ChangeAdminPasswordUseCase;
   attemptLogin: AttemptLoginUseCase;
   deviceSessions: DeviceSessions;
+  generateRecoveryCodes: GenerateRecoveryCodesUseCase;
+  verifyRecoveryCode: VerifyRecoveryCodeUseCase;
+  resetPasswordWithRecoveryCode: ResetPasswordWithRecoveryCodeUseCase;
+  countRemainingRecoveryCodes: () => Promise<number>;
   getCenterProfile: GetCenterProfileUseCase;
   saveCenterProfile: SaveCenterProfileUseCase;
   storeCenterLogo: StoreCenterLogoUseCase;
@@ -1225,6 +1236,29 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'auth.session': async () => ({ authenticated: await deps.deviceSessions.isAuthenticated() }),
     'auth.logout': async () => {
       await deps.deviceSessions.forget();
+      return { ok: true };
+    },
+    'admin.recovery.generate': async () => {
+      const username = await deps.adminUsername();
+      const codes = await deps.generateRecoveryCodes.execute(username);
+      return { codes: [...codes] };
+    },
+    'admin.recovery.regenerate': async () => {
+      const username = await deps.adminUsername();
+      const codes = await deps.generateRecoveryCodes.execute(username);
+      return { codes: [...codes] };
+    },
+    'admin.recovery.count': async () => {
+      const remaining = await deps.countRemainingRecoveryCodes();
+      return { remaining };
+    },
+    'auth.resetWithCode': async (request) => {
+      const username = await deps.adminUsername();
+      await deps.resetPasswordWithRecoveryCode.execute({
+        recoveryCode: request.code,
+        newPassword: request.password,
+        username,
+      });
       return { ok: true };
     },
     'center.get': async () => {

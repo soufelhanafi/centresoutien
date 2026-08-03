@@ -50,6 +50,8 @@ export {
   AdminAccountAlreadyExistsError,
   AdminAccountNotFoundError,
   InvalidCurrentPasswordError,
+  NoRecoveryCodesError,
+  InvalidRecoveryCodeError,
 } from './errors/auth-errors';
 export { StudentNotFoundError, StudentVersionConflictError } from './errors/student-errors';
 export {
@@ -154,6 +156,12 @@ export type { WeekdayHoursInput, WeeklyHoursInput } from './schemas/center-hours
 export { loginInputSchema } from './schemas/login';
 export type { LoginInput } from './schemas/login';
 export {
+  recoveryCodeSchema,
+  recoveryCodeGroupSchema,
+  resetPasswordWithRecoveryCodeSchema,
+} from './schemas/recovery-code';
+export type { RecoveryCodeString, ResetPasswordWithRecoveryCodeInput as ResetPasswordWithCodeSchemaInput } from './schemas/recovery-code';
+export {
   parentInputSchema,
   PARENT_NAME_MAX,
   PARENT_PHONE_MAX,
@@ -249,6 +257,10 @@ export { CENTER_HOURS_ID_PREFIX, isClosed } from './entities/center-hours';
 export type { CenterHours, CenterHoursId } from './entities/center-hours';
 export { ADMIN_ACCOUNT_ID_PREFIX } from './entities/admin-account';
 export type { AdminAccount, AdminAccountId } from './entities/admin-account';
+export { RECOVERY_CODE_ID_PREFIX } from './entities/recovery-code';
+export type { RecoveryCode, RecoveryCodeId } from './entities/recovery-code';
+export { AUTH_AUDIT_EVENT_ID_PREFIX } from './entities/auth-audit-event';
+export type { AuthAuditEvent, AuthAuditEventId, AuthAuditEventType } from './entities/auth-audit-event';
 export {
   DEVICE_SESSION_ID_PREFIX,
   DEVICE_SESSION_TTL_MS,
@@ -342,6 +354,9 @@ export type { StudentRepository } from './ports/student-repository';
 export type { CenterHoursRepository } from './ports/center-hours-repository';
 export type { AdminAccountRepository } from './ports/admin-account-repository';
 export type { PasswordHasher } from './ports/password-hasher';
+export type { SecureRandom } from './ports/secure-random';
+export type { RecoveryCodeRepository } from './ports/recovery-code-repository';
+export type { AuthAuditLogRepository } from './ports/auth-audit-log-repository';
 export type { LoginThrottleStore } from './ports/login-throttle-store';
 export type { DeviceSessionStore } from './ports/device-session-store';
 export type { CenterRepository } from './ports/center-repository';
@@ -695,6 +710,11 @@ export { ChangeAdminPassword } from './use-cases/change-admin-password';
 export type { ChangeAdminPasswordInput } from './use-cases/change-admin-password';
 export { AttemptLogin } from './use-cases/attempt-login';
 export type { LoginResult, CredentialVerifier } from './use-cases/attempt-login';
+export { GenerateRecoveryCodes } from './use-cases/generate-recovery-codes';
+export { VerifyRecoveryCode } from './use-cases/verify-recovery-code';
+export type { VerifyRecoveryCodeInput } from './use-cases/verify-recovery-code';
+export { ResetPasswordWithRecoveryCode } from './use-cases/reset-password-with-recovery-code';
+export type { ResetPasswordWithRecoveryCodeInput } from './use-cases/reset-password-with-recovery-code';
 
 // Formula CRUD use cases (SOU-62).
 export { CreateFormula } from './use-cases/create-formula';

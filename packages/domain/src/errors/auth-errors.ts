@@ -28,3 +28,17 @@ export class InvalidCurrentPasswordError extends DomainError {
     super('The current password is incorrect.');
   }
 }
+
+/** Thrown when no recovery codes exist for the admin account. */
+export class NoRecoveryCodesError extends DomainError {
+  constructor() {
+    super('No recovery codes exist for this account.');
+  }
+}
+
+/** Thrown when a recovery code is invalid (not found or already consumed). */
+export class InvalidRecoveryCodeError extends DomainError {
+  constructor() {
+    super('The recovery code is invalid or has already been used.');
+  }
+}
