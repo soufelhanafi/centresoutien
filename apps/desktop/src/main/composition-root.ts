@@ -41,6 +41,7 @@ import {
   RestoreGroup,
   CreateStudentSubscription,
   CloseStudentSubscription,
+  ReplaceStudentSubscription,
   ListStudentSubscriptions,
   RecordPayment,
   VoidPayment,
@@ -84,6 +85,7 @@ import {
   RunScheduledBackup,
   CreateTeacherPayrollRule,
   CloseTeacherPayrollRule,
+  ReplaceTeacherPayrollRule,
   ListTeacherPayrollRulesByTeacher,
   CreateInvoiceDraft,
   GenerateMonthlyInvoices,
@@ -308,6 +310,13 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
   const closeStudentSubscription = new CloseStudentSubscription(subscriptionRepo, clock, plan);
+  const replaceStudentSubscription = new ReplaceStudentSubscription(
+    subscriptionRepo,
+    studentRepo,
+    clock,
+    ids,
+    plan,
+  );
   const listStudentSubscriptions = new ListStudentSubscriptions(subscriptionRepo, plan);
   // The real StudentSubscriptionReferencePort adapter (SOU-63): the coverage query
   // EnrollStudent (SOU-121) needs for its subscription/cross-kind guards. SOU-126 wired
@@ -404,6 +413,13 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
   const closeTeacherPayrollRule = new CloseTeacherPayrollRule(payrollRuleRepo, clock, plan);
+  const replaceTeacherPayrollRule = new ReplaceTeacherPayrollRule(
+    payrollRuleRepo,
+    teacherRepo,
+    clock,
+    ids,
+    plan,
+  );
   const listTeacherPayrollRulesByTeacher = new ListTeacherPayrollRulesByTeacher(
     payrollRuleRepo,
     teacherRepo,
@@ -644,6 +660,7 @@ export function buildContainer(options: ContainerOptions): Container {
     restoreGroup,
     createStudentSubscription,
     closeStudentSubscription,
+    replaceStudentSubscription,
     listStudentSubscriptions,
     recordPayment,
     voidPayment,
@@ -665,6 +682,7 @@ export function buildContainer(options: ContainerOptions): Container {
     restoreTeacher,
     createTeacherPayrollRule,
     closeTeacherPayrollRule,
+    replaceTeacherPayrollRule,
     listTeacherPayrollRulesByTeacher,
     computeMonthlyPayrolls,
     confirmTeacherPayout,

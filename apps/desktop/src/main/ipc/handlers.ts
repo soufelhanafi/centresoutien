@@ -53,6 +53,7 @@ import type {
   GroupId,
   CreateStudentSubscription,
   CloseStudentSubscription,
+  ReplaceStudentSubscription,
   ListStudentSubscriptions,
   StudentSubscription,
   StudentSubscriptionId,
@@ -76,6 +77,7 @@ import type {
   TeacherId,
   CreateTeacherPayrollRule,
   CloseTeacherPayrollRule,
+  ReplaceTeacherPayrollRule,
   ListTeacherPayrollRulesByTeacher,
   TeacherPayrollRule,
   TeacherPayrollRuleId,
@@ -176,6 +178,7 @@ export type ArchiveGroupUseCase = Pick<ArchiveGroup, 'execute'>;
 export type RestoreGroupUseCase = Pick<RestoreGroup, 'execute'>;
 export type CreateStudentSubscriptionUseCase = Pick<CreateStudentSubscription, 'execute'>;
 export type CloseStudentSubscriptionUseCase = Pick<CloseStudentSubscription, 'execute'>;
+export type ReplaceStudentSubscriptionUseCase = Pick<ReplaceStudentSubscription, 'execute'>;
 export type ListStudentSubscriptionsUseCase = Pick<ListStudentSubscriptions, 'execute'>;
 export type RecordPaymentUseCase = Pick<RecordPayment, 'execute'>;
 export type VoidPaymentUseCase = Pick<VoidPayment, 'execute'>;
@@ -192,6 +195,7 @@ export type ArchiveTeacherUseCase = Pick<ArchiveTeacher, 'execute'>;
 export type RestoreTeacherUseCase = Pick<RestoreTeacher, 'execute'>;
 export type CreateTeacherPayrollRuleUseCase = Pick<CreateTeacherPayrollRule, 'execute'>;
 export type CloseTeacherPayrollRuleUseCase = Pick<CloseTeacherPayrollRule, 'execute'>;
+export type ReplaceTeacherPayrollRuleUseCase = Pick<ReplaceTeacherPayrollRule, 'execute'>;
 export type ListTeacherPayrollRulesByTeacherUseCase = Pick<ListTeacherPayrollRulesByTeacher, 'execute'>;
 export type ComputeMonthlyPayrollsUseCase = Pick<ComputeMonthlyPayrolls, 'execute'>;
 export type CreateHolidayUseCase = Pick<CreateHoliday, 'execute'>;
@@ -559,6 +563,7 @@ export type HandlerDeps = BackupHandlerDeps &
   restoreGroup: RestoreGroupUseCase;
   createStudentSubscription: CreateStudentSubscriptionUseCase;
   closeStudentSubscription: CloseStudentSubscriptionUseCase;
+  replaceStudentSubscription: ReplaceStudentSubscriptionUseCase;
   listStudentSubscriptions: ListStudentSubscriptionsUseCase;
   recordPayment: RecordPaymentUseCase;
   voidPayment: VoidPaymentUseCase;
@@ -575,6 +580,7 @@ export type HandlerDeps = BackupHandlerDeps &
   restoreTeacher: RestoreTeacherUseCase;
   createTeacherPayrollRule: CreateTeacherPayrollRuleUseCase;
   closeTeacherPayrollRule: CloseTeacherPayrollRuleUseCase;
+  replaceTeacherPayrollRule: ReplaceTeacherPayrollRuleUseCase;
   listTeacherPayrollRulesByTeacher: ListTeacherPayrollRulesByTeacherUseCase;
   computeMonthlyPayrolls: ComputeMonthlyPayrollsUseCase;
   createHoliday: CreateHolidayUseCase;
@@ -932,6 +938,18 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       });
       return { subscription: toSubscriptionView(subscription) };
     },
+    'subscription.replace': async (request) => {
+      const { activeSubscriptionId, ...fields } = request;
+      const { closed, created } = await deps.replaceStudentSubscription.execute({
+        ...fields,
+        activeSubscriptionId: activeSubscriptionId as StudentSubscriptionId,
+        ...deps.envelopeContext(),
+      });
+      return {
+        closed: toSubscriptionView(closed),
+        created: toSubscriptionView(created),
+      };
+    },
     'subscription.list': async (request) => {
       const subscriptions = await deps.listStudentSubscriptions.execute({
         centerCode: deps.envelopeContext().centerCode,
@@ -1073,6 +1091,19 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       });
       return { rule: toTeacherPayrollRuleView(rule) };
     },
+    'teacherPayrollRule.replace': async (request) => {
+      const { activeRuleId, ...fields } = request;
+      const { closed, created } = await deps.replaceTeacherPayrollRule.execute({
+        ...fields,
+        activeRuleId: activeRuleId as TeacherPayrollRuleId,
+        ...deps.envelopeContext(),
+      });
+      return {
+        closed: toTeacherPayrollRuleView(closed),
+        created: toTeacherPayrollRuleView(created),
+      };
+    },
+
     'teacherPayrollRule.list': async (request) => {
       const rules = await deps.listTeacherPayrollRulesByTeacher.execute({
         centerCode: deps.envelopeContext().centerCode,

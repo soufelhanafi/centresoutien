@@ -18,7 +18,7 @@ export type { WeekdayIndex } from './value-objects/weekday';
 export { WEEKDAYS, isWeekdayIndex } from './value-objects/weekday';
 export type { DateRange } from './value-objects/date-range';
 export { weekdayOf, eachDateInRange, daysBetween } from './value-objects/date-range';
-export { monthsEndingAt, monthDateRange, monthsBetween } from './value-objects/month';
+export { monthsEndingAt, monthDateRange, monthsBetween, previousMonth } from './value-objects/month';
 export type { GuardianRelation } from './value-objects/guardian-relation';
 export { GUARDIAN_RELATIONS, isGuardianRelation } from './value-objects/guardian-relation';
 
@@ -566,6 +566,11 @@ export { CloseStudentSubscription } from './use-cases/close-student-subscription
 export type { CloseStudentSubscriptionInput } from './use-cases/close-student-subscription';
 export { ListStudentSubscriptions } from './use-cases/list-student-subscriptions';
 export type { ListStudentSubscriptionsInput } from './use-cases/list-student-subscriptions';
+export { ReplaceStudentSubscription } from './use-cases/replace-student-subscription';
+export type {
+  ReplaceStudentSubscriptionInput,
+  ReplaceStudentSubscriptionResult,
+} from './use-cases/replace-student-subscription';
 export { GenerateMonthlyInvoices } from './use-cases/generate-monthly-invoices';
 export type {
   GenerateMonthlyInvoicesInput,
@@ -577,6 +582,11 @@ export { CloseTeacherPayrollRule } from './use-cases/close-teacher-payroll-rule'
 export type { CloseTeacherPayrollRuleInput } from './use-cases/close-teacher-payroll-rule';
 export { ListTeacherPayrollRulesByTeacher } from './use-cases/list-teacher-payroll-rules-by-teacher';
 export type { ListTeacherPayrollRulesByTeacherInput } from './use-cases/list-teacher-payroll-rules-by-teacher';
+export { ReplaceTeacherPayrollRule } from './use-cases/replace-teacher-payroll-rule';
+export type {
+  ReplaceTeacherPayrollRuleInput,
+  ReplaceTeacherPayrollRuleResult,
+} from './use-cases/replace-teacher-payroll-rule';
 export { ComputeMonthlyPayrolls } from './use-cases/compute-monthly-payrolls';
 export type {
   ComputeMonthlyPayrollsInput,

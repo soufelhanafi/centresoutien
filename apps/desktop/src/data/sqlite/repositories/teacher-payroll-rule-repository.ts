@@ -128,4 +128,19 @@ export class SqliteTeacherPayrollRuleRepository implements TeacherPayrollRuleRep
       .all(teacherId) as TeacherPayrollRuleRow[];
     return rows.map(fromRow);
   }
+
+  /**
+   * SOU-141: persists a close-then-reopen pair so the close can never commit
+   * without its replacement. Both writes run inside one `db.transaction` — if
+   * `created` violates a constraint (or any write throws), the whole batch rolls
+   * back and the incumbent rule stays live. This is the single call a
+   * `ReplaceTeacherPayrollRule` issues, replacing the old two-call
+   * close→create dance that could orphan a teacher with no live rule.
+   */
+  async replaceLiveRule(closed: TeacherPayrollRule, created: TeacherPayrollRule): Promise<void> {
+    this.db.transaction(() => {
+      this.save(closed);
+      this.save(created);
+    })();
+  }
 }
