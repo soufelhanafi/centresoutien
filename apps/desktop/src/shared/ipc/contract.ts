@@ -564,6 +564,13 @@ export const ipcContract = {
     request: z.object({}),
     response: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
   },
+  // Dev plan switcher (SOU) — swaps the domain's active plan so the PlanPolicy
+  // gate and the renderer's cosmetic mirror stay in sync. Without it, flipping a
+  // UI feature on would fire gated reads the domain still rejects.
+  'plan.set': {
+    request: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
+    response: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
+  },
   // The request schema is the domain's own input schema — validated once, shared
   // by the form (zodResolver), the preload types, and this boundary.
   'subject.create': {

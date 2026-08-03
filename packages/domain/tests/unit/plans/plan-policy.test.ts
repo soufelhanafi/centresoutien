@@ -30,6 +30,34 @@ describe('PlanPolicy.has / require', () => {
   });
 });
 
+describe('PlanPolicy.setActivePlan', () => {
+  it('activePlanId() reflects the plan the policy was built with', () => {
+    expect(new PlanPolicy(PLANS.essentiel).activePlanId()).toBe('essentiel');
+  });
+
+  it('setActivePlan swaps the active plan so gating follows the new tier', () => {
+    const policy = new PlanPolicy(PLANS.essentiel);
+    expect(policy.has('payroll.teacher')).toBe(false);
+    expect(() => policy.require('payroll.teacher')).toThrow(PlanFeatureUnavailableError);
+
+    policy.setActivePlan(PLANS.pro);
+
+    expect(policy.activePlanId()).toBe('pro');
+    expect(policy.has('payroll.teacher')).toBe(true);
+    expect(() => policy.require('payroll.teacher')).not.toThrow();
+  });
+
+  it('setActivePlan back to a lower tier re-locks the feature', () => {
+    const policy = new PlanPolicy(PLANS.premium);
+    expect(policy.has('dashboard.advanced')).toBe(true);
+
+    policy.setActivePlan(PLANS.essentiel);
+
+    expect(policy.has('dashboard.advanced')).toBe(false);
+    expect(() => policy.require('dashboard.advanced')).toThrow(PlanFeatureUnavailableError);
+  });
+});
+
 describe('PlanPolicy limits', () => {
   it('limit() returns the configured cap', () => {
     expect(essentiel.limit('maxStudents')).toBe(50);

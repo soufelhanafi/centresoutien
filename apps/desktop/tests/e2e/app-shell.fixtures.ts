@@ -15,9 +15,11 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
  *   - CS_PLAN            → active plan (essentiel | pro | premium)
  *   - --user-data-dir    → throwaway Electron userData dir (fresh first run)
  *
- * The plan is set per-launch via CS_PLAN because the packaged build ships no
- * dev PlanSwitcher control and exposes no `plan.set` IPC channel; relaunching
- * under each plan is the reliable black-box way to observe the gating registry.
+ * The plan is set per-launch via CS_PLAN because the packaged build renders no
+ * dev PlanSwitcher control (it is gated behind `import.meta.env.DEV`), so the
+ * `plan.set` IPC channel it drives is never reachable from the E2E UI;
+ * relaunching under each plan is the reliable black-box way to observe the
+ * gating registry.
  */
 
 const dirname = fileURLToPath(new URL('.', import.meta.url));
