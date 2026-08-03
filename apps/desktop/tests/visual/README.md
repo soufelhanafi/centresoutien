@@ -71,3 +71,10 @@ pnpm --filter @centresoutien/desktop exec playwright test -c tests/visual/playwr
 ```
 
 and review the diff like any other reviewed asset.
+
+**Must be run on macOS.** Baselines are platform-specific (font rendering,
+subpixel AA) — the committed PNGs are all `-darwin` suffixed, and the CI
+`visual` job runs on `macos-latest` to match them. Regenerating on Linux
+would produce `-linux` baselines that mismatch CI. Don't retarget the CI job
+to `ubuntu-latest` without regenerating every baseline on that same platform
+first.

@@ -78,7 +78,12 @@ jobs:
           if-no-files-found: ignore
 
   visual:
-    runs-on: ubuntu-latest
+    # Golden-image baselines are platform-specific (font rendering, subpixel
+    # AA) and were generated on macOS — this job must run on the same
+    # platform the committed `*-darwin.png` baselines were captured on, or
+    # every screenshot assertion mismatches on first byte. See
+    # tests/visual/README.md "Updating baselines" before changing this.
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -95,10 +100,10 @@ jobs:
 
       # This suite renders the built renderer bundle in a plain Chromium page
       # (no Electron, no native rebuild — see tests/visual/README.md), so it
-      # only needs the chromium browser binary, not the full GUI dep set the
-      # Electron `e2e` job installs.
+      # only needs the chromium browser binary. `--with-deps` is a Linux-only
+      # flag (apt system libraries) and doesn't apply on the macOS runner.
       - name: Install Playwright chromium
-        run: pnpm --filter @centresoutien/desktop exec playwright install --with-deps chromium
+        run: pnpm --filter @centresoutien/desktop exec playwright install chromium
 
       - name: Build desktop
         run: pnpm --filter @centresoutien/desktop build
