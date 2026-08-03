@@ -1,4 +1,5 @@
 import type { AttendanceRecordView, RollCallRecordInput, WeeklySlotOption } from './attendance-view';
+import type { StudentAttendanceReport, GroupAttendanceSheetView } from './attendance-reporting-view';
 import { ipcAttendanceGateway } from './ipc-attendance-gateway';
 
 /**
@@ -26,6 +27,14 @@ export interface AttendanceGateway {
     sessionId: string,
     records: readonly RollCallRecordInput[],
   ): Promise<readonly AttendanceRecordView[]>;
+  /** SOU-108: per-student attendance history + absence summary for a month. */
+  getStudentReport(
+    studentId: string,
+    month: string,
+    groupId?: string,
+  ): Promise<StudentAttendanceReport>;
+  /** SOU-108: printable per-group attendance sheet for a month. */
+  getGroupSheet(groupId: string, month: string): Promise<GroupAttendanceSheetView>;
 }
 
 /** The active gateway: the real IPC adapter. Swapping it is this one line. */
