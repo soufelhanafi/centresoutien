@@ -631,7 +631,8 @@ export function buildContainer(options: ContainerOptions): Container {
 
   const handlerDeps: HandlerDeps = {
     appVersion: options.appVersion,
-    activePlanId: () => activePlanId,
+    activePlanId: () => plan.activePlanId(),
+    setActivePlan: (planId) => plan.setActivePlan(PLANS[planId]),
     createSubject,
     archiveSubject,
     listSubjects,

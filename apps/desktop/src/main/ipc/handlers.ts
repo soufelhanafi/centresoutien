@@ -534,6 +534,7 @@ export type HandlerDeps = BackupHandlerDeps &
   AttendanceReportingHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
+  setActivePlan: (planId: PlanId) => void;
   createSubject: CreateSubjectUseCase;
   archiveSubject: ArchiveSubjectUseCase;
   listSubjects: ListSubjectsUseCase;
@@ -631,6 +632,10 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'plan.get': () => ({
       planId: deps.activePlanId(),
     }),
+    'plan.set': (request) => {
+      deps.setActivePlan(request.planId);
+      return { planId: deps.activePlanId() };
+    },
     'subject.create': async (request) => {
       const subject = await deps.createSubject.execute({ ...request, ...deps.envelopeContext() });
       return { id: subject.id };
