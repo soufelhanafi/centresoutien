@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { EmptyState, LockOverlay } from '@centresoutien/ui';
-import { useFeature } from '../hooks/use-feature';
+import { useOptionalFeature } from '../hooks/use-feature';
 import type { NavModule } from '../app/nav-items';
 
 /**
@@ -13,7 +13,7 @@ export function ModulePlaceholder({ module }: { module: NavModule }) {
   const { t } = useTranslation();
   const title = t(`nav.${module.id}`);
   const Icon = module.icon;
-  const hasFeature = useFeature(module.feature ?? 'core.students');
+  const hasFeature = useOptionalFeature(module.feature);
   const locked = module.feature !== undefined && !hasFeature;
 
   const body = (

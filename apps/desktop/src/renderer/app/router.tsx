@@ -7,6 +7,8 @@ import {
 } from '@tanstack/react-router';
 import { z } from 'zod';
 import { AppShell } from '../components/shell/app-shell';
+import { RouteNotFound } from '../components/shell/route-not-found';
+import { RouteError } from '../components/shell/route-error';
 import { ModulePlaceholder } from '../pages/module-placeholder';
 import { DashboardPage } from '../pages/dashboard/dashboard-page';
 import { SettingsPage } from '../pages/settings-page';
@@ -185,7 +187,12 @@ const routeTree = rootRoute.addChildren([
 
 // Hash history: the packaged renderer loads from `file://`, where path-based
 // browser history breaks. Hash routing works in both dev and production.
-export const router = createRouter({ routeTree, history: createHashHistory() });
+export const router = createRouter({
+  routeTree,
+  history: createHashHistory(),
+  defaultNotFoundComponent: RouteNotFound,
+  defaultErrorComponent: RouteError,
+});
 
 declare module '@tanstack/react-router' {
   interface Register {

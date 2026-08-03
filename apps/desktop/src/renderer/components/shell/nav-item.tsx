@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
 import { Lock } from 'lucide-react';
 import { PlanBadge, cn } from '@centresoutien/ui';
-import { useFeature } from '../../hooks/use-feature';
+import { useOptionalFeature } from '../../hooks/use-feature';
 import type { NavModule } from '../../app/nav-items';
 
 const BASE =
@@ -20,7 +20,7 @@ export function NavItem({ module, collapsed }: NavItemProps) {
   const { t } = useTranslation();
   const label = t(`nav.${module.id}`);
   const Icon = module.icon;
-  const hasFeature = useFeature(module.feature ?? 'core.students');
+  const hasFeature = useOptionalFeature(module.feature);
   const locked = module.feature !== undefined && !hasFeature;
 
   const icon = <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />;

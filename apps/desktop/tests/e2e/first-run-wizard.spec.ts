@@ -54,8 +54,12 @@ async function fillAdmin(win: Page, L: Record<string, string>) {
 
 // The Center Profile step is real and blocking (SOU-111): name + valid phone are
 // required before Continue advances. Fills the minimum to move past it.
+//
+// Types L.appMarker as the center name: since SOU-113 the app-shell header
+// renders the real persisted center name (no longer a static placeholder), so
+// the post-wizard `appMarker` assertions must match what was actually typed here.
 async function fillCenter(win: Page, L: Record<string, string>) {
-  await win.getByLabel(L.centerName, { exact: true }).fill('Centre principal');
+  await win.getByLabel(L.centerName, { exact: true }).fill(L.appMarker);
   await win.getByLabel(L.centerPhone, { exact: true }).fill('+212612345678');
 }
 
