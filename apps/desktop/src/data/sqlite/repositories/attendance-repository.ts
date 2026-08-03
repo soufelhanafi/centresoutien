@@ -169,4 +169,23 @@ export class SqliteAttendanceRepository implements AttendanceRepository {
     for (const row of rows) summary[row.status as AttendanceStatus] = row.count;
     return summary;
   }
+
+  async summarizeForCenter(centerCode: CenterCode, range: DateRange): Promise<AttendanceSummary> {
+    const rows = this.db
+      .prepare(
+        `SELECT ar.status AS status, COUNT(*) AS count
+           FROM attendance_records ar
+           JOIN sessions s ON s.id = ar.session_id
+          WHERE ar.center_code = ?
+            AND ar.deleted_at IS NULL
+            AND s.deleted_at IS NULL
+            AND s.date BETWEEN ? AND ?
+          GROUP BY ar.status`,
+      )
+      .all(centerCode, range.start, range.end) as { status: string; count: number }[];
+
+    const summary = emptySummary();
+    for (const row of rows) summary[row.status as AttendanceStatus] = row.count;
+    return summary;
+  }
 }
