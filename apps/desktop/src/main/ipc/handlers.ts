@@ -136,6 +136,7 @@ import { createPayslipHandlers, type PayslipHandlerDeps } from './payslip-handle
 import { createDashboardHandlers, type DashboardHandlerDeps } from './dashboard-handlers';
 import { createPayrollHandlers, type PayrollHandlerDeps } from './payroll-handlers';
 import { createPaymentReceiptHandlers, type PaymentReceiptHandlerDeps } from './payment-receipt-handlers';
+import { createScheduleHandlers, type ScheduleHandlerDeps } from './schedule-handlers';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
@@ -518,7 +519,8 @@ export type HandlerDeps = BackupHandlerDeps &
   PayslipHandlerDeps &
   DashboardHandlerDeps &
   PayrollHandlerDeps &
-  PaymentReceiptHandlerDeps & {
+  PaymentReceiptHandlerDeps &
+  ScheduleHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
   createSubject: CreateSubjectUseCase;
@@ -1255,5 +1257,6 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     ...createDashboardHandlers(deps),
     ...createPayrollHandlers(deps),
     ...createPaymentReceiptHandlers(deps),
+    ...createScheduleHandlers(deps),
   };
 }
