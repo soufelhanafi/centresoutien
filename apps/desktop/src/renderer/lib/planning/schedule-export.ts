@@ -1,5 +1,5 @@
 import type { LocalizedName } from './session-options';
-import { mockScheduleExportGateway } from './mock-schedule-export-gateway';
+import { ipcScheduleExportGateway } from './ipc-schedule-export-gateway';
 
 /**
  * Which slice of the planner grid the exported PDF renders — the full center
@@ -8,7 +8,7 @@ import { mockScheduleExportGateway } from './mock-schedule-export-gateway';
  * directly from `useSessionFormOptions()`, the same data the picker itself
  * renders from. Field-for-field alias of the real `schedule.print`/
  * `schedule.export` channels' `scheduleExportViewFilterSchema` (SOU-107,
- * `shared/ipc/contract.ts` on `feature/SOU-107-domain`).
+ * `shared/ipc/contract.ts`).
  */
 export type ScheduleExportViewFilter =
   | { readonly scope: 'full' }
@@ -28,18 +28,8 @@ export type ScheduleExportRequest = {
 
 /**
  * The seam the schedule export dialog depends on (Dependency Inversion). The
- * component calls this interface, never `window.api` directly, so the mock
- * adapter swaps for the real IPC one in a single place — exactly like
- * `InvoicesGateway`.
- *
- * ## Contract status (SOU-107)
- * `schedule.print` / `schedule.export` are published on `feature/SOU-107-domain`
- * (`shared/ipc/contract.ts`) but not yet merged into this branch — wiring the
- * real `IpcScheduleExportGateway` here would require `window.api.invoke` to
- * resolve those channels, which only exist once `IpcHandlers` (exhaustive over
- * every contract channel) gains their `main/composition-root.ts` registration,
- * outside this half's ownership. So this stays a same-shape mock until the
- * branches merge — swapping it is then the one-line change below. There is
+ * component calls this interface, never `window.api` directly, so the concrete
+ * adapter is swappable in one place — exactly like `InvoicesGateway`. There is
  * deliberately no week range in the request: `WeeklyRecurringSession` is a
  * template (weekday + time, no calendar date), same as `session.week`.
  * `centerCode` is intentionally absent too — injected in main from the active
@@ -55,6 +45,4 @@ export interface ScheduleExportGateway {
   export(request: ScheduleExportRequest): Promise<{ savedPath: string | null }>;
 }
 
-// TODO(SOU-107): swap mock for the real IpcScheduleExportGateway (schedule.print /
-// schedule.export) once feature/SOU-107-domain merges and registers their handlers.
-export const scheduleExportGateway: ScheduleExportGateway = mockScheduleExportGateway;
+export const scheduleExportGateway: ScheduleExportGateway = ipcScheduleExportGateway;
