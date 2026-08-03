@@ -10,6 +10,7 @@ import type {
   EntityId,
   RoomId,
   GroupId,
+  GenerationBatchId,
   TimeOfDay,
   DateRange,
 } from '@centresoutien/domain';
@@ -25,6 +26,7 @@ type SessionRow = {
   deleted_at: string | null;
   version: number;
   recurring_session_id: string;
+  generation_batch_id: string | null;
   room_id: string;
   teacher_id: string | null;
   group_id: string | null;
@@ -44,6 +46,8 @@ function fromRow(row: SessionRow): Session {
     deletedAt: row.deleted_at === null ? null : new Date(row.deleted_at),
     version: row.version,
     recurringSessionId: row.recurring_session_id as WeeklyRecurringSessionId,
+    generationBatchId:
+      row.generation_batch_id === null ? null : (row.generation_batch_id as GenerationBatchId),
     roomId: row.room_id as RoomId,
     teacherId: row.teacher_id === null ? null : (row.teacher_id as EntityId),
     groupId: row.group_id === null ? null : (row.group_id as GroupId),
@@ -65,6 +69,7 @@ function toParams(session: Session): Record<string, string | number | null> {
     deleted_at: session.deletedAt ? session.deletedAt.toISOString() : null,
     version: session.version,
     recurring_session_id: session.recurringSessionId,
+    generation_batch_id: session.generationBatchId,
     room_id: session.roomId,
     teacher_id: session.teacherId,
     group_id: session.groupId,
@@ -76,13 +81,13 @@ function toParams(session: Session): Record<string, string | number | null> {
 
 const COLUMNS = `
   (id, center_code, device_origin, created_at, updated_at, updated_by,
-   deleted_at, version, recurring_session_id, room_id, teacher_id, group_id,
-   date, start_time, end_time)`;
+   deleted_at, version, recurring_session_id, generation_batch_id, room_id,
+   teacher_id, group_id, date, start_time, end_time)`;
 
 const VALUES = `
   (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
-   @deleted_at, @version, @recurring_session_id, @room_id, @teacher_id,
-   @group_id, @date, @start_time, @end_time)`;
+   @deleted_at, @version, @recurring_session_id, @generation_batch_id, @room_id,
+   @teacher_id, @group_id, @date, @start_time, @end_time)`;
 
 // Single-occurrence save (edit one materialized session — move room, reassign,
 // re-time, or cancel via softDelete). Upsert on the ULID `id`: identity columns
@@ -180,6 +185,20 @@ export class SqliteSessionRepository implements SessionRepository {
           ORDER BY date, start_time`,
       )
       .all(centerCode, range.start, range.end) as SessionRow[];
+    return rows.map(fromRow);
+  }
+
+  async listByGenerationBatch(
+    centerCode: CenterCode,
+    batchId: GenerationBatchId,
+  ): Promise<readonly Session[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM sessions
+          WHERE center_code = ? AND generation_batch_id = ? AND deleted_at IS NULL
+          ORDER BY date, start_time`,
+      )
+      .all(centerCode, batchId) as SessionRow[];
     return rows.map(fromRow);
   }
 }

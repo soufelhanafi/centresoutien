@@ -13,6 +13,7 @@ import type {
   EntityId,
   RoomId,
   GroupId,
+  GenerationBatchId,
   TimeOfDay,
 } from '@centresoutien/domain';
 import { openDatabase } from '../../src/data/sqlite/db';
@@ -63,6 +64,7 @@ function makeSession(over: Partial<Session> = {}): Session {
     deletedAt: null,
     version: 0,
     recurringSessionId: WRS_A,
+    generationBatchId: null,
     roomId: ROOM_A,
     teacherId: TEACHER_A,
     groupId: GROUP_A,
@@ -91,6 +93,13 @@ describe('SqliteSessionRepository', () => {
       const session = makeSession({ groupId: null });
       await repo.save(session);
       expect((await repo.findById(session.id))?.groupId).toBeNull();
+    });
+
+    it('round-trips a generationBatchId (SOU-160)', async () => {
+      const batchId = 'gen_00000000000000000000000001' as GenerationBatchId;
+      const session = makeSession({ generationBatchId: batchId });
+      await repo.save(session);
+      expect((await repo.findById(session.id))?.generationBatchId).toBe(batchId);
     });
 
     it('findById returns null for an unknown id', async () => {
@@ -241,6 +250,32 @@ describe('SqliteSessionRepository', () => {
 
       const list = await repo.listForRecurrence(WRS_A);
       expect(list.map((s) => s.date)).toEqual(['2026-01-08', '2026-01-15']);
+    });
+  });
+
+  describe('listByGenerationBatch', () => {
+    const BATCH_A = 'gen_00000000000000000000000001' as GenerationBatchId;
+    const BATCH_B = 'gen_00000000000000000000000002' as GenerationBatchId;
+
+    it('returns live occurrences sharing the batch id, ordered by date then start, excluding tombstones + other centers', async () => {
+      await repo.save(makeSession({ generationBatchId: BATCH_A, date: '2026-01-15' }));
+      await repo.save(
+        makeSession({ generationBatchId: BATCH_A, recurringSessionId: WRS_B, date: '2026-01-08' }),
+      );
+      await repo.save(makeSession({ generationBatchId: BATCH_B, date: '2026-02-01' })); // different batch
+      const gone = makeSession({ generationBatchId: BATCH_A, date: '2026-01-10' });
+      await repo.save(gone);
+      await repo.softDelete(gone.id, AT, USER);
+      await repo.save(
+        makeSession({ generationBatchId: BATCH_A, centerCode: OTHER_CENTER, recurringSessionId: WRS_B, date: '2026-01-09' }),
+      );
+
+      const inBatch = await repo.listByGenerationBatch(CENTER, BATCH_A);
+      expect(inBatch.map((s) => s.date)).toEqual(['2026-01-08', '2026-01-15']);
+    });
+
+    it('returns nothing for an unknown batch id', async () => {
+      expect(await repo.listByGenerationBatch(CENTER, BATCH_A)).toEqual([]);
     });
   });
 
