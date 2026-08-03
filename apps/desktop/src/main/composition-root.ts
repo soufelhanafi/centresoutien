@@ -90,6 +90,8 @@ import {
   ComputeMonthlyPayrolls,
   GeneratePayslipPdf,
   RecordSessionAttendance,
+  GetDashboardBasicSummary,
+  GetDashboardAdvancedSummary,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -461,6 +463,28 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
+  // Dashboard reads (SOU-100): both use cases only read repositories already
+  // constructed above — no new repository, no new adapter. `getDashboardAdvancedSummary`
+  // reuses the same `monthlyFeeAttribution` service SOU-74's payroll compute job wired,
+  // so the per-subject breakdown and per-teacher payroll can never disagree on one
+  // month's collected money.
+  const getDashboardBasicSummary = new GetDashboardBasicSummary(
+    concreteSessionRepo,
+    studentRepo,
+    invoiceRepo,
+    clock,
+    plan,
+  );
+  const getDashboardAdvancedSummary = new GetDashboardAdvancedSummary(
+    invoiceRepo,
+    subscriptionRepo,
+    attendanceRepo,
+    subjectRepo,
+    monthlyFeeAttribution,
+    clock,
+    plan,
+  );
+
   // Backup & restore (SOU-102). `options.key` is today's key-management
   // mechanism (CS_DB_KEY / dev fallback) — real per-center key derivation is a
   // separate future ticket; both the manual/scheduled snapshot path and the
@@ -595,6 +619,8 @@ export function buildContainer(options: ContainerOptions): Container {
     updateHoliday,
     archiveHoliday,
     restoreHoliday,
+    getDashboardBasicSummary,
+    getDashboardAdvancedSummary,
     listWeekSessions,
     generateSessions,
     recordSessionAttendance,

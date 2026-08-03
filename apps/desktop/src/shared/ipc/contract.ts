@@ -332,6 +332,35 @@ const attendanceRecordViewSchema = z.object({
   status: z.enum(['present', 'absent', 'excused', 'late']),
 });
 
+// The Basique dashboard's three KPI cards across the IPC boundary (SOU-100) —
+// already a plain read model, no envelope to strip. Single source of truth for
+// the renderer's `DashboardBasicSummaryView` type.
+const dashboardBasicSummarySchema = z.object({
+  todaysSessionCount: z.number().int().nonnegative(),
+  activeStudentCount: z.number().int().nonnegative(),
+  unpaidInvoiceCount: z.number().int().nonnegative(),
+});
+
+// The Avancé dashboard's four widgets across the IPC boundary (SOU-100),
+// gated by `dashboard.advanced` (Premium) in the domain use case. `month` is
+// `'YYYY-MM'`; `revenueTrend`/`enrollmentEvolution` are oldest-first over the
+// same trailing window. Single source of truth for the renderer's
+// `DashboardAdvancedSummaryView` type.
+const dashboardAdvancedSummarySchema = z.object({
+  revenueTrend: z.array(z.object({ month: z.string(), collectedMad: z.number().int() })),
+  enrollmentEvolution: z.array(
+    z.object({ month: z.string(), activeStudentCount: z.number().int().nonnegative() }),
+  ),
+  attendanceRatePercent: z.number().int().min(0).max(100),
+  subjectRevenueBreakdown: z.array(
+    z.object({
+      subjectId: z.string(),
+      subjectName: bilingualTextSchema,
+      amountMad: z.number().int().nonnegative(),
+    }),
+  ),
+});
+
 // The presentation projection of a Subject across the IPC boundary (SOU-124) — the
 // sync envelope (version, deviceOrigin, updatedBy…, and the Date timestamps) is
 // stripped, leaving only the fields name-resolution and the pickers need. `code` is
@@ -904,6 +933,19 @@ export const ipcContract = {
     request: recordSessionAttendanceSchema,
     response: z.object({ records: z.array(attendanceRecordViewSchema) }),
   },
+  // Dashboard reads (SOU-100). `basic` is every plan (`dashboard.basic`);
+  // `advanced` is gated by `dashboard.advanced` (Premium) in the domain use
+  // case — a locked plan rejects with `PlanFeatureUnavailableError`, mapped by
+  // the shared dispatcher like any other gated channel, not a special response
+  // shape here. centerCode is injected in main, never sent from the renderer.
+  'dashboard.basic': {
+    request: z.object({}),
+    response: z.object({ summary: dashboardBasicSummarySchema }),
+  },
+  'dashboard.advanced': {
+    request: z.object({}),
+    response: z.object({ summary: dashboardAdvancedSummarySchema }),
+  },
   // Weekly recurring session write channels (SOU-131 — populate the planner grid).
   // The requests are the domain's own input schemas (`wrs_`/`rom_`/`tch_`/`grp_`
   // prefixes, `HH:mm` times, `YYYY-MM-DD` validity bounds), validated once and
@@ -1105,6 +1147,12 @@ export type SessionDto = z.infer<typeof sessionViewSchema>;
 
 /** The AttendanceRecord boundary DTO — the renderer's `AttendanceRecordView` aliases this. */
 export type AttendanceRecordDto = z.infer<typeof attendanceRecordViewSchema>;
+
+/** The Basique dashboard summary DTO — the renderer's `DashboardBasicSummaryView` aliases this. */
+export type DashboardBasicSummaryDto = z.infer<typeof dashboardBasicSummarySchema>;
+
+/** The Avancé dashboard summary DTO — the renderer's `DashboardAdvancedSummaryView` aliases this. */
+export type DashboardAdvancedSummaryDto = z.infer<typeof dashboardAdvancedSummarySchema>;
 
 export type IpcContract = typeof ipcContract;
 export type IpcChannel = keyof IpcContract;
