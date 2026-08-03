@@ -98,6 +98,7 @@ export {
   TooManyActivePayrollRulesError,
   TeacherPayrollRuleNotFoundError,
   TeacherPayoutNotFoundError,
+  TeacherPayoutAlreadyPaidError,
   EmptyAttributionLineError,
 } from './errors/payroll-errors';
 export {
@@ -201,8 +202,12 @@ export {
   closeTeacherPayrollRuleMonthSchema,
 } from './schemas/teacher-payroll-rule';
 export type { TeacherPayrollRuleInput } from './schemas/teacher-payroll-rule';
-export { computeMonthlyPayrollsSchema } from './schemas/teacher-payout';
-export type { ComputeMonthlyPayrollsFields } from './schemas/teacher-payout';
+export {
+  computeMonthlyPayrollsSchema,
+  confirmMonthlyPayrollsSchema,
+  payrollMonthQuerySchema,
+} from './schemas/teacher-payout';
+export type { ComputeMonthlyPayrollsFields, ConfirmMonthlyPayrollsFields } from './schemas/teacher-payout';
 export {
   teacherInputSchema,
   TEACHER_NAME_MAX,
@@ -427,6 +432,7 @@ export type {
   SubjectTeacherAssignment,
   StudentLineAttributionInput,
   TeacherAttributedAmount,
+  TeacherSubjectAttributedAmount,
 } from './policies/teacher-fee-attribution-policy';
 export { collectedLineAmounts } from './policies/collected-fees';
 export { updateFormula, deactivateFormula } from './policies/formula-policy';
@@ -538,6 +544,17 @@ export type {
 } from './use-cases/compute-monthly-payrolls';
 export { GeneratePayslipPdf } from './use-cases/generate-payslip-pdf';
 export type { GeneratePayslipPdfInput } from './use-cases/generate-payslip-pdf';
+export { ConfirmTeacherPayout } from './use-cases/confirm-teacher-payout';
+export type { ConfirmTeacherPayoutInput } from './use-cases/confirm-teacher-payout';
+export { ConfirmMonthlyPayrolls } from './use-cases/confirm-monthly-payrolls';
+export type {
+  ConfirmMonthlyPayrollsInput,
+  ConfirmMonthlyPayrollsResult,
+} from './use-cases/confirm-monthly-payrolls';
+export { ListTeacherPayouts } from './use-cases/list-teacher-payouts';
+export type { ListTeacherPayoutsInput } from './use-cases/list-teacher-payouts';
+export { GetTeacherAttributionBreakdown } from './use-cases/get-teacher-attribution-breakdown';
+export type { GetTeacherAttributionBreakdownInput } from './use-cases/get-teacher-attribution-breakdown';
 export { ListGroups, orderGroupsForList } from './use-cases/list-groups';
 export type { ListGroupsInput, GroupScope } from './use-cases/list-groups';
 export { ListGroupsWithCounts } from './use-cases/list-groups-with-counts';

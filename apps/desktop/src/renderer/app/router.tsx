@@ -22,6 +22,7 @@ import { RoomsPage } from '../pages/rooms/rooms-page';
 import { PlannerPage } from '../pages/planning/planner-page';
 import { InvoicesPage } from '../pages/invoices/invoices-page';
 import { InvoiceDetailPage } from '../pages/invoices/invoice-detail-page';
+import { PayrollPage } from '../pages/payroll/payroll-page';
 import {
   DEFAULT_ROUTE,
   dashboardModule,
@@ -123,7 +124,7 @@ const paymentsRoute = createRoute({
 const payrollRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: payrollModule.path,
-  component: () => <ModulePlaceholder module={payrollModule} />,
+  component: PayrollPage,
 });
 const syncRoute = createRoute({
   getParentRoute: () => rootRoute,

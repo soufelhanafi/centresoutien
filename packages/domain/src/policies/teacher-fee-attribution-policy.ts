@@ -40,6 +40,13 @@ export type TeacherAttributedAmount = {
   readonly attributedAmountMad: number;
 };
 
+/** A teacher's monthly attribution base for one subject — the payroll dashboard drill-down (SOU-76). */
+export type TeacherSubjectAttributedAmount = {
+  readonly teacherId: TeacherId;
+  readonly subjectId: SubjectId;
+  readonly attributedAmountMad: number;
+};
+
 /**
  * Splits `amountMad` into `count` shares that are equal to the centime and sum
  * back to `amountMad` exactly — the largest-remainder method. Every share gets
@@ -52,14 +59,44 @@ export type TeacherAttributedAmount = {
  */
 function splitLineAmount(
   line: StudentLineAttributionInput,
-): readonly { readonly teacherId: TeacherId | null; readonly shareMad: number }[] {
+): readonly { readonly subjectId: SubjectId; readonly teacherId: TeacherId | null; readonly shareMad: number }[] {
   const count = line.subjectAssignments.length;
   const base = Math.floor(line.lineAmountMad / count);
   const remainder = line.lineAmountMad - base * count;
   return line.subjectAssignments.map((assignment, index) => ({
+    subjectId: assignment.subjectId,
     teacherId: assignment.teacherId,
     shareMad: base + (index < remainder ? 1 : 0),
   }));
+}
+
+function validateLine(line: StudentLineAttributionInput): void {
+  if (line.subjectAssignments.length === 0) {
+    throw new EmptyAttributionLineError(line.studentId);
+  }
+  if (!Number.isInteger(line.lineAmountMad) || line.lineAmountMad < 0) {
+    throw new InvalidAttributionAmountError(line.studentId, line.lineAmountMad);
+  }
+}
+
+/**
+ * Validates and splits every line, dropping unstaffed (`teacherId: null`)
+ * shares — the staffed, per-subject shares both `attribute` and
+ * `attributeBySubject` fold from, so the split math and the unstaffed-share
+ * drop (SOU-74 M1) live in exactly one place.
+ */
+function staffedShares(
+  lines: readonly StudentLineAttributionInput[],
+): readonly { readonly teacherId: TeacherId; readonly subjectId: SubjectId; readonly shareMad: number }[] {
+  const shares: { teacherId: TeacherId; subjectId: SubjectId; shareMad: number }[] = [];
+  for (const line of lines) {
+    validateLine(line);
+    for (const share of splitLineAmount(line)) {
+      if (share.teacherId === null) continue;
+      shares.push({ teacherId: share.teacherId, subjectId: share.subjectId, shareMad: share.shareMad });
+    }
+  }
+  return shares;
 }
 
 /**
@@ -78,20 +115,29 @@ function splitLineAmount(
 export const TeacherFeeAttributionPolicy = {
   attribute(lines: readonly StudentLineAttributionInput[]): readonly TeacherAttributedAmount[] {
     const totals = new Map<TeacherId, number>();
-
-    for (const line of lines) {
-      if (line.subjectAssignments.length === 0) {
-        throw new EmptyAttributionLineError(line.studentId);
-      }
-      if (!Number.isInteger(line.lineAmountMad) || line.lineAmountMad < 0) {
-        throw new InvalidAttributionAmountError(line.studentId, line.lineAmountMad);
-      }
-      for (const share of splitLineAmount(line)) {
-        if (share.teacherId === null) continue;
-        totals.set(share.teacherId, (totals.get(share.teacherId) ?? 0) + share.shareMad);
-      }
+    for (const share of staffedShares(lines)) {
+      totals.set(share.teacherId, (totals.get(share.teacherId) ?? 0) + share.shareMad);
     }
-
     return Array.from(totals, ([teacherId, attributedAmountMad]) => ({ teacherId, attributedAmountMad }));
+  },
+
+  /**
+   * Same equal-split attribution as `attribute`, kept broken out by subject
+   * rather than collapsed to a teacher total — the payroll dashboard
+   * drill-down (SOU-76) shows *which* subjects made up a teacher's monthly
+   * figure, which `attribute`'s per-teacher sum discards.
+   */
+  attributeBySubject(lines: readonly StudentLineAttributionInput[]): readonly TeacherSubjectAttributedAmount[] {
+    const totals = new Map<string, TeacherSubjectAttributedAmount>();
+    for (const share of staffedShares(lines)) {
+      const key = `${share.teacherId}::${share.subjectId}`;
+      const existing = totals.get(key);
+      totals.set(key, {
+        teacherId: share.teacherId,
+        subjectId: share.subjectId,
+        attributedAmountMad: (existing?.attributedAmountMad ?? 0) + share.shareMad,
+      });
+    }
+    return Array.from(totals.values());
   },
 };

@@ -24,6 +24,8 @@ import {
   voidPaymentSchema,
   generateMonthlyInvoicesSchema,
   computeMonthlyPayrollsSchema,
+  confirmMonthlyPayrollsSchema,
+  payrollMonthQuerySchema,
   adminCredentialsSchema,
   changeAdminPasswordSchema,
   weeklyHoursSchema,
@@ -31,6 +33,8 @@ import {
   centerProfileSchema,
   PASSWORD_MAX,
   CENTER_LOGO_PATH_MAX,
+  TEACHER_PAYOUT_STATUSES,
+  TEACHER_PAYROLL_RULE_KINDS,
 } from '@centresoutien/domain';
 
 /** The center profile as it crosses the IPC boundary — envelope dates stay in main. */
@@ -224,6 +228,35 @@ const teacherPayrollRuleViewSchema = z.discriminatedUnion('kind', [
     endMonth: z.string().nullable(),
   }),
 ]);
+
+// The presentation projection of a TeacherPayout across the IPC boundary
+// (SOU-76) — the sync envelope is stripped, exactly like `teacherViewSchema`.
+// `ruleKind`/`baseAmountMad`/`percentSnapshot` mirror what `TeacherPayout`
+// itself snapshots at compute time; `baseAmountMad`/`percentSnapshot` are
+// `null` for `fixed-monthly` payouts. Single source of truth for the
+// renderer's `TeacherPayoutView` type (the payroll dashboard's list row).
+const teacherPayoutViewSchema = z.object({
+  id: z.string(),
+  teacherId: z.string(),
+  month: z.string(),
+  ruleKind: z.enum(TEACHER_PAYROLL_RULE_KINDS),
+  amountMad: z.number().int(),
+  baseAmountMad: z.number().int().nullable(),
+  percentSnapshot: z.number().nullable(),
+  status: z.enum(TEACHER_PAYOUT_STATUSES),
+  notes: z.string().nullable(),
+});
+
+// One teacher's attributed amount for one subject, for a given month — the
+// payroll dashboard's per-teacher drill-down (SOU-76). Flat rows rather than
+// nested-by-teacher, so the renderer groups client-side however the
+// drill-down panel needs (the whole month's breakdown is fetched once, not
+// once per expanded row).
+const teacherAttributionBreakdownEntrySchema = z.object({
+  teacherId: z.string(),
+  subjectId: z.string(),
+  amountMad: z.number().int(),
+});
 
 // The presentation projection of a Holiday across the IPC boundary — the sync
 // envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized,
@@ -839,6 +872,52 @@ export const ipcContract = {
       skippedAlreadyPaid: z.number().int(),
     }),
   },
+  // Payroll dashboard (SOU-76): the month's list of payouts, one row per
+  // teacher who has a live payout that month (a teacher with no rule active,
+  // per `payroll.computeMonthly`'s own doc, has no row at all). centerCode is
+  // injected in main, never sent from the renderer. Gated by `payroll.teacher`
+  // in `ListTeacherPayouts` — the repository's own `listLiveByCenterMonth`
+  // read carries no gate of its own.
+  'payroll.listPayouts': {
+    request: payrollMonthQuerySchema,
+    response: z.object({ payouts: z.array(teacherPayoutViewSchema) }),
+  },
+  // "Mark paid" on a single dashboard row (SOU-76): flips one `draft` payout
+  // to `paid`. Rejects (does not silently no-op) a payout that is already
+  // `paid` — paid payouts are immutable — or unknown/foreign-center.
+  // centerCode/updatedBy are injected in main, never sent from the renderer.
+  // Gated by `payroll.teacher` in `ConfirmTeacherPayout`.
+  'payroll.confirmPayout': {
+    request: z.object({ teacherPayoutId: z.string() }),
+    response: z.object({ payout: teacherPayoutViewSchema }),
+  },
+  // The dashboard's "Mark all paid" bulk action (SOU-76): confirms every live
+  // `draft` payout for the month in one pass. `confirmed` counts newly-paid
+  // rows; `skippedAlreadyPaid` counts rows a teammate already confirmed
+  // before this run — expected in a bulk action, not an error (unlike the
+  // single-row `payroll.confirmPayout`, which rejects a repeat target).
+  // centerCode/updatedBy are injected in main, never sent from the renderer.
+  // Gated by `payroll.teacher` in `ConfirmMonthlyPayrolls`.
+  'payroll.confirmMonthly': {
+    request: confirmMonthlyPayrollsSchema,
+    response: z.object({
+      confirmed: z.number().int(),
+      skippedAlreadyPaid: z.number().int(),
+    }),
+  },
+  // The dashboard's per-teacher drill-down (SOU-76): the whole month's
+  // attribution broken down by teacher AND subject in one call — the
+  // renderer groups the flat rows by `teacherId` client-side rather than
+  // issuing one call per expanded row. Mirrors the same equal-split base
+  // `payroll.computeMonthly`'s percentage-rule path already computes, just
+  // not collapsed to a per-teacher total. centerCode is injected in main,
+  // never sent from the renderer. Gated by `payroll.teacher` in
+  // `GetTeacherAttributionBreakdown` — `MonthlyFeeAttributionService` itself
+  // carries no gate of its own.
+  'payroll.attributionBreakdown': {
+    request: payrollMonthQuerySchema,
+    response: z.object({ breakdown: z.array(teacherAttributionBreakdownEntrySchema) }),
+  },
   // Holidays (SOU-30). `list` selects the live holidays or the archive via `scope`;
   // `create` and `update` take the domain's own `holidayInputSchema` (bilingual
   // name, kind fixed|lunar, calendar-date range with end >= start), validated once
@@ -1093,6 +1172,12 @@ export type TeacherDto = z.infer<typeof teacherViewSchema>;
 
 /** The TeacherPayrollRule boundary DTO — the renderer's `TeacherPayrollRuleView` aliases this. */
 export type TeacherPayrollRuleDto = z.infer<typeof teacherPayrollRuleViewSchema>;
+
+/** The TeacherPayout boundary DTO — the renderer's `TeacherPayoutView` aliases this. */
+export type TeacherPayoutDto = z.infer<typeof teacherPayoutViewSchema>;
+
+/** One flat attribution-breakdown row — the renderer's `TeacherAttributionBreakdownEntryView` aliases this. */
+export type TeacherAttributionBreakdownEntryDto = z.infer<typeof teacherAttributionBreakdownEntrySchema>;
 
 /** The Holiday boundary DTO — the renderer's `HolidayView` is an alias of this. */
 export type HolidayDto = z.infer<typeof holidayViewSchema>;

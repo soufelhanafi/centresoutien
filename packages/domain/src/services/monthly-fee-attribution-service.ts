@@ -51,10 +51,51 @@ export class MonthlyFeeAttributionService {
     centerCode: CenterCode,
     month: string,
   ): Promise<ReadonlyMap<TeacherId, number>> {
+    const inputLines = await this.collectAttributionLines(centerCode, month);
+    if (inputLines.length === 0) return new Map();
+
+    const attributed = TeacherFeeAttributionPolicy.attribute(inputLines);
+    return new Map(attributed.map((entry) => [entry.teacherId, entry.attributedAmountMad]));
+  }
+
+  /**
+   * Same attribution base as `attributedAmountsByTeacher`, broken out by
+   * subject — the payroll dashboard drill-down (SOU-76): "which subjects made
+   * up this teacher's figure this month". A teacher with no attributable fees
+   * that month is simply absent from the outer map, mirroring
+   * `attributedAmountsByTeacher`'s empty-map convention.
+   */
+  async attributedAmountsByTeacherAndSubject(
+    centerCode: CenterCode,
+    month: string,
+  ): Promise<ReadonlyMap<TeacherId, ReadonlyMap<SubjectId, number>>> {
+    const inputLines = await this.collectAttributionLines(centerCode, month);
+    if (inputLines.length === 0) return new Map();
+
+    const attributed = TeacherFeeAttributionPolicy.attributeBySubject(inputLines);
+    const byTeacher = new Map<TeacherId, Map<SubjectId, number>>();
+    for (const entry of attributed) {
+      const bySubject = byTeacher.get(entry.teacherId) ?? new Map<SubjectId, number>();
+      bySubject.set(entry.subjectId, entry.attributedAmountMad);
+      byTeacher.set(entry.teacherId, bySubject);
+    }
+    return byTeacher;
+  }
+
+  /**
+   * Assembles every collected invoice line for `(centerCode, month)` into
+   * `TeacherFeeAttributionPolicy` inputs (CLAUDE.md §6 steps 1–4) — shared by
+   * both the per-teacher and the per-teacher-per-subject reads so the
+   * `resolveSubjectAssignments` walk (step 3) lives in exactly one place.
+   */
+  private async collectAttributionLines(
+    centerCode: CenterCode,
+    month: string,
+  ): Promise<StudentLineAttributionInput[]> {
     const issuedInvoices = (await this.invoices.listByCenterMonth(centerCode, month)).filter(
       (invoice) => invoice.status === 'issued',
     );
-    if (issuedInvoices.length === 0) return new Map();
+    if (issuedInvoices.length === 0) return [];
 
     const formulaById = new Map<FormulaId, Formula>(
       (await this.formulas.listAll(centerCode)).map((formula) => [formula.id, formula]),
@@ -82,10 +123,7 @@ export class MonthlyFeeAttributionService {
         inputLines.push({ studentId: invoice.studentId, lineAmountMad: collectedMad, subjectAssignments });
       }
     }
-    if (inputLines.length === 0) return new Map();
-
-    const attributed = TeacherFeeAttributionPolicy.attribute(inputLines);
-    return new Map(attributed.map((entry) => [entry.teacherId, entry.attributedAmountMad]));
+    return inputLines;
   }
 
   private async resolveSubjectAssignments(

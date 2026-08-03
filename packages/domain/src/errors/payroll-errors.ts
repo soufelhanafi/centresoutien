@@ -59,6 +59,25 @@ export class TeacherPayoutNotFoundError extends DomainError {
 }
 
 /**
+ * Thrown when {@link ConfirmTeacherPayout} (SOU-76) targets a payout whose live
+ * row is already `paid` — paid payouts are immutable (CLAUDE.md §6/§13), so a
+ * repeat single-target confirm is a caller/UI bug, not a real business state,
+ * and must fail loudly rather than silently no-op. `ConfirmMonthlyPayrolls`
+ * (the bulk "Mark all paid" action) takes the opposite stance for the same
+ * state — skip-and-count, mirroring `ComputeMonthlyPayrolls`'s
+ * `skippedAlreadyPaid` — since a bulk confirm naturally revisits rows other
+ * teachers already confirmed. The renderer resolves the stable
+ * `teacher-payout-already-paid` code; the domain stays i18n-agnostic.
+ */
+export class TeacherPayoutAlreadyPaidError extends DomainError {
+  readonly code = 'teacher-payout-already-paid';
+
+  constructor(readonly id: TeacherPayoutId) {
+    super(`Teacher payout "${id}" is already paid and cannot be confirmed again.`);
+  }
+}
+
+/**
  * Thrown when a `TeacherFeeAttributionPolicy` input line names zero subjects —
  * equal-split attribution has no denominator to divide by. A Formula always
  * carries at least one subject (CLAUDE.md §7), so an empty line signals a

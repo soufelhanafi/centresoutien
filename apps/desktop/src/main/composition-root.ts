@@ -88,6 +88,10 @@ import {
   ListInvoices,
   MonthlyFeeAttributionService,
   ComputeMonthlyPayrolls,
+  ConfirmTeacherPayout,
+  ConfirmMonthlyPayrolls,
+  ListTeacherPayouts,
+  GetTeacherAttributionBreakdown,
   GeneratePayslipPdf,
   RecordSessionAttendance,
 } from '@centresoutien/domain';
@@ -408,6 +412,19 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
+  // Payroll dashboard (SOU-76): confirmTeacherPayout/confirmMonthlyPayrolls are
+  // the single-row and bulk halves of "Mark paid", both writing through the
+  // same `payoutRepo` the compute job above populates. listTeacherPayouts and
+  // getTeacherAttributionBreakdown are thin `payroll.teacher`-gated wrappers
+  // around `payoutRepo.listLiveByCenterMonth` and `monthlyFeeAttribution`
+  // respectively — neither the repo method nor the attribution service carries
+  // its own plan check, so the dashboard's read channels need these wrappers
+  // for the same gate the write channels already have.
+  const confirmTeacherPayout = new ConfirmTeacherPayout(payoutRepo, clock, plan);
+  const confirmMonthlyPayrolls = new ConfirmMonthlyPayrolls(payoutRepo, clock, plan);
+  const listTeacherPayouts = new ListTeacherPayouts(payoutRepo, plan);
+  const getTeacherAttributionBreakdown = new GetTeacherAttributionBreakdown(monthlyFeeAttribution, plan);
+
   const holidayRepo = new SqliteHolidayRepository(db);
   const createHoliday = new CreateHoliday(holidayRepo, clock, ids, plan);
   const listHolidays = new ListHolidays(holidayRepo, plan);
@@ -589,6 +606,11 @@ export function buildContainer(options: ContainerOptions): Container {
     closeTeacherPayrollRule,
     listTeacherPayrollRulesByTeacher,
     computeMonthlyPayrolls,
+    confirmTeacherPayout,
+    confirmMonthlyPayrolls,
+    listTeacherPayouts,
+    getTeacherAttributionBreakdown,
+    currentUserId: () => context.updatedBy,
     generatePayslipPdf,
     createHoliday,
     listHolidays,
