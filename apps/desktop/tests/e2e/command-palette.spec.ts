@@ -225,7 +225,7 @@ test('Scenario 7b — selecting a teacher result closes the palette and opens th
   await expect(win.getByRole('heading', { level: 1, name: 'Yassine Alaoui' })).toBeVisible();
 });
 
-test('Scenario 7c — selecting a parent result closes the palette and opens that parent detail sheet [KNOWN FAILING]', async () => {
+test('Scenario 7c — selecting a parent result closes the palette and opens that parent detail sheet', async () => {
   live = await boot(locale());
   const win = live.win;
   const parent = await createParent(win, { name: 'Yassine Idrissi', phone: '0622334455' });
@@ -238,9 +238,14 @@ test('Scenario 7c — selecting a parent result closes the palette and opens tha
   // Manual navigation (Parents list -> click row) opens a detail *sheet* over
   // #/parents (parents have no #/parents/:id route — see parents.fixtures.ts).
   // The palette's "navigate to the correct detail page" therefore means:
-  // land on #/parents AND have that specific parent's sheet open.
-  expect(await win.evaluate(() => location.hash)).toBe('#/parents');
+  // land on #/parents AND have that specific parent's sheet open. The sheet
+  // opens from an `openParentId` search param that ParentsPage strips right
+  // after consuming it, so check the heading first (the param may briefly
+  // still be in the hash while that cleanup navigation is in flight).
   await expect(win.getByRole('heading', { level: 2, name: 'Yassine Idrissi' })).toBeVisible();
+  await expect(async () => {
+    expect(await win.evaluate(() => location.hash)).toBe('#/parents');
+  }).toPass();
   void parent;
 });
 
