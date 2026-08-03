@@ -6,6 +6,7 @@ import {
   subjectUpdateInputSchema,
   formulaInputSchema,
   studentInputSchema,
+  setStudentGuardiansInputSchema,
   parentInputSchema,
   roomInputSchema,
   groupInputSchema,
@@ -48,11 +49,16 @@ const centerDto = z.object({
   plan: z.enum(['essentiel', 'pro', 'premium']),
 });
 
-// The presentation projection of a Student across the IPC boundary — the sync
-// envelope (version, deviceOrigin, updatedBy…) is stripped and Dates are
-// serialized to strings, exactly like `centerDto`. `archived` is derived from
+// The presentation projection of a Student across the IPC boundary — most of the
+// sync envelope (deviceOrigin, updatedBy…) is stripped and Dates are serialized
+// to strings, exactly like `centerDto`. `archived` is derived from
 // `deletedAt != null` in main; the renderer never sees the raw entity. This is
 // the single source of truth for the renderer's `StudentView` type.
+//
+// `version` is the one envelope field deliberately kept, unlike every other view
+// in this file: `student.setGuardians` (SOU-116) is an optimistic-concurrency
+// partial update, and the caller must round-trip the version it last saw so a
+// stale write is rejected instead of silently applied.
 const studentViewSchema = z.object({
   id: z.string(),
   name: z.object({ fr: z.string(), ar: z.string() }),
@@ -63,6 +69,7 @@ const studentViewSchema = z.object({
   guardianIds: z.array(z.string()),
   archived: z.boolean(),
   createdAt: z.string(),
+  version: z.number().int(),
 });
 
 // The presentation projection of a Parent/guardian across the IPC boundary — the
@@ -547,6 +554,15 @@ export const ipcContract = {
   },
   'student.update': {
     request: studentInputSchema.extend({ id: z.string() }),
+    response: z.object({ student: studentViewSchema }),
+  },
+  // Partial-update channel (SOU-116): touches only `guardianIds` + the sync
+  // envelope, never the rest of `StudentInput` — see the note on
+  // `studentViewSchema`. `expectedVersion` must match the student's current
+  // `version` or the write is rejected so a stale snapshot can't silently
+  // revert an unrelated field.
+  'student.setGuardians': {
+    request: setStudentGuardiansInputSchema.extend({ id: z.string() }),
     response: z.object({ student: studentViewSchema }),
   },
   'student.archive': {

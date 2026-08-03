@@ -19,6 +19,7 @@ import {
   ListStudents,
   GetStudent,
   UpdateStudent,
+  SetStudentGuardians,
   ArchiveStudent,
   CreateParent,
   ListParents,
@@ -260,6 +261,7 @@ export function buildContainer(options: ContainerOptions): Container {
   const updateParent = new UpdateParent(parentRepo, clock, plan);
   const archiveParent = new ArchiveParent(parentRepo, clock, plan);
   const listParentChildren = new ListParentChildren(studentRepo, plan);
+  const setStudentGuardians = new SetStudentGuardians(studentRepo, parentRepo, clock, plan);
 
   const roomRepo = new SqliteRoomRepository(db);
   // The weekly-session repository (SOU-53) is the real backing for the ArchiveRoom
@@ -605,6 +607,7 @@ export function buildContainer(options: ContainerOptions): Container {
     listStudents,
     getStudent,
     updateStudent,
+    setStudentGuardians,
     archiveStudent,
     createParent,
     listParents,

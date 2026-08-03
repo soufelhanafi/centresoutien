@@ -21,6 +21,7 @@ import type {
   ListStudents,
   GetStudent,
   UpdateStudent,
+  SetStudentGuardians,
   ArchiveStudent,
   Student,
   StudentId,
@@ -148,6 +149,7 @@ export type CreateStudentUseCase = Pick<CreateStudent, 'execute'>;
 export type ListStudentsUseCase = Pick<ListStudents, 'execute'>;
 export type GetStudentUseCase = Pick<GetStudent, 'execute'>;
 export type UpdateStudentUseCase = Pick<UpdateStudent, 'execute'>;
+export type SetStudentGuardiansUseCase = Pick<SetStudentGuardians, 'execute'>;
 export type ArchiveStudentUseCase = Pick<ArchiveStudent, 'execute'>;
 export type CreateParentUseCase = Pick<CreateParent, 'execute'>;
 export type ListParentsUseCase = Pick<ListParents, 'execute'>;
@@ -234,8 +236,10 @@ function toCenterDto(center: Center) {
   };
 }
 
-/** Project a Student to its boundary DTO: envelope stripped, dates serialized,
- *  `archived` derived from the soft-delete tombstone. */
+/** Project a Student to its boundary DTO: envelope mostly stripped, dates
+ *  serialized, `archived` derived from the soft-delete tombstone. `version` is
+ *  kept (see the note on `studentViewSchema`) so `student.setGuardians` callers
+ *  can round-trip it as `expectedVersion`. */
 function toStudentView(student: Student) {
   return {
     id: student.id,
@@ -247,6 +251,7 @@ function toStudentView(student: Student) {
     guardianIds: [...student.guardianIds],
     archived: student.deletedAt !== null,
     createdAt: student.createdAt.toISOString(),
+    version: student.version,
   };
 }
 
@@ -525,6 +530,7 @@ export type HandlerDeps = BackupHandlerDeps &
   listStudents: ListStudentsUseCase;
   getStudent: GetStudentUseCase;
   updateStudent: UpdateStudentUseCase;
+  setStudentGuardians: SetStudentGuardiansUseCase;
   archiveStudent: ArchiveStudentUseCase;
   createParent: CreateParentUseCase;
   listParents: ListParentsUseCase;
@@ -727,6 +733,18 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         ...fields,
         centerCode,
         id: id as StudentId,
+        updatedBy,
+      });
+      return { student: toStudentView(student) };
+    },
+    'student.setGuardians': async (request) => {
+      const { id, guardianIds, expectedVersion } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const student = await deps.setStudentGuardians.execute({
+        centerCode,
+        id: id as StudentId,
+        guardianIds: guardianIds as ParentId[],
+        expectedVersion,
         updatedBy,
       });
       return { student: toStudentView(student) };
