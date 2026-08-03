@@ -212,6 +212,16 @@ const teacherViewSchema = z.object({
   createdAt: z.string(),
 });
 
+// One row of the global command-palette search (SOU-43): the matched person's own
+// boundary DTO tagged with its entity kind, so the renderer can group results and
+// resolve the detail route without a second lookup. Single source of truth for the
+// renderer's `PersonSearchResultView` type.
+const personSearchResultSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('student'), person: studentViewSchema }),
+  z.object({ kind: z.literal('teacher'), person: teacherViewSchema }),
+  z.object({ kind: z.literal('parent'), person: parentViewSchema }),
+]);
+
 // The presentation projection of a TeacherPayrollRule across the IPC boundary
 // (SOU-72) — the sync envelope is stripped, exactly like `teacherViewSchema`.
 // There is NO stored status: the renderer derives active/history from
@@ -976,6 +986,14 @@ export const ipcContract = {
     request: z.object({ scope: z.enum(['active', 'archived']), search: z.string() }),
     response: z.object({ teachers: z.array(teacherViewSchema) }),
   },
+  // The global command-palette search (SOU-43): a single FR/AR name query fanned
+  // out across students, teachers, and live guardians, gated per entity kind by
+  // `core.students` / `core.teachers` / `core.parents`, merged, and capped to the
+  // top 20. centerCode is injected in main, never sent from the renderer.
+  'people.search': {
+    request: z.object({ query: z.string() }),
+    response: z.object({ results: z.array(personSearchResultSchema) }),
+  },
   'teacher.create': {
     request: teacherInputSchema,
     response: z.object({ id: z.string() }),
@@ -1349,6 +1367,9 @@ export type InvoiceListItemDto = z.infer<typeof invoiceListItemViewSchema>;
 
 /** The Teacher boundary DTO — the renderer's `TeacherView` is an alias of this. */
 export type TeacherDto = z.infer<typeof teacherViewSchema>;
+
+/** One command-palette result — the renderer's `PersonSearchResultView` aliases this. */
+export type PersonSearchResultDto = z.infer<typeof personSearchResultSchema>;
 
 /** The TeacherPayrollRule boundary DTO — the renderer's `TeacherPayrollRuleView` aliases this. */
 export type TeacherPayrollRuleDto = z.infer<typeof teacherPayrollRuleViewSchema>;

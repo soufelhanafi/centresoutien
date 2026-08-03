@@ -49,6 +49,7 @@ import {
   UnenrollStudent,
   CreateTeacher,
   ListTeachers,
+  SearchPeople,
   GetTeacher,
   UpdateTeacher,
   ArchiveTeacher,
@@ -382,6 +383,7 @@ export function buildContainer(options: ContainerOptions): Container {
   };
   const createTeacher = new CreateTeacher(teacherRepo, clock, ids, plan);
   const listTeachers = new ListTeachers(teacherRepo, plan);
+  const searchPeople = new SearchPeople(listStudents, listTeachers, listParents);
   const getTeacher = new GetTeacher(teacherRepo, plan);
   const updateTeacher = new UpdateTeacher(teacherRepo, clock, plan);
   const archiveTeacher = new ArchiveTeacher(teacherRepo, teacherReference, clock, plan);
@@ -656,6 +658,7 @@ export function buildContainer(options: ContainerOptions): Container {
     unenrollStudent,
     createTeacher,
     listTeachers,
+    searchPeople,
     getTeacher,
     updateTeacher,
     archiveTeacher,
