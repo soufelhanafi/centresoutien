@@ -47,6 +47,24 @@
   "language": {
     "switch": "العربية"
   },
+  "search": {
+    "trigger": "Rechercher",
+    "title": "Recherche globale",
+    "description": "Rechercher parmi les élèves, enseignants et parents.",
+    "placeholder": "Rechercher un élève, un enseignant, un parent…",
+    "hint": "Commencez à taper pour rechercher.",
+    "loading": "Recherche…",
+    "error": "La recherche a échoué. Réessayez.",
+    "empty": "Aucun résultat pour « {{query}} ».",
+    "close": "Fermer",
+    "shortcutMac": "⌘K",
+    "shortcutWindows": "Ctrl+K",
+    "groups": {
+      "student": "Élèves",
+      "teacher": "Enseignants",
+      "parent": "Parents"
+    }
+  },
   "dashboard": {
     "title": "Tableau de bord",
     "subtitle": "Vue d'ensemble de l'activité de votre centre.",

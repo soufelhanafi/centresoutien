@@ -17,20 +17,28 @@ export const Command = React.forwardRef<
 Command.displayName = CommandPrimitive.displayName;
 
 export type CommandDialogProps = React.ComponentPropsWithoutRef<typeof Dialog> & {
-  /** Palette title, read only by assistive tech (visually hidden). Pass a translated string (SOU-21). */
-  title?: string;
-  /** Palette description, read only by assistive tech (visually hidden). Pass a translated string (SOU-21). */
-  description?: string;
+  /** Palette title, read only by assistive tech (visually hidden). Always pass a translated string (SOU-21). */
+  title: string;
+  /** Palette description, read only by assistive tech (visually hidden). Always pass a translated string (SOU-21). */
+  description: string;
   className?: string;
   closeLabel?: string;
+  /**
+   * Forwarded to the inner cmdk `Command`. Set `false` when the results are
+   * already filtered upstream (e.g. a server/domain search, SOU-43) so cmdk's
+   * built-in matcher doesn't hide valid hits it scores differently (accent /
+   * Arabic folding). Defaults to cmdk's behaviour (client-side filtering).
+   */
+  shouldFilter?: boolean;
 };
 
 export function CommandDialog({
-  title = 'Palette de commandes',
-  description = 'Rechercher une commande à exécuter…',
+  title,
+  description,
   children,
   className,
   closeLabel,
+  shouldFilter,
   ...props
 }: CommandDialogProps) {
   return (
@@ -40,7 +48,10 @@ export function CommandDialog({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <DialogContent className={cn('overflow-hidden p-0', className)} {...(closeLabel !== undefined ? { closeLabel } : {})}>
-        <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+        <Command
+          {...(shouldFilter !== undefined ? { shouldFilter } : {})}
+          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5"
+        >
           {children}
         </Command>
       </DialogContent>

@@ -47,6 +47,24 @@
   "language": {
     "switch": "Français"
   },
+  "search": {
+    "trigger": "بحث",
+    "title": "بحث شامل",
+    "description": "ابحث بين التلاميذ والأساتذة والأولياء.",
+    "placeholder": "ابحث عن تلميذ أو أستاذ أو ولي…",
+    "hint": "ابدأ الكتابة للبحث.",
+    "loading": "جارٍ البحث…",
+    "error": "فشل البحث. حاول مرة أخرى.",
+    "empty": "لا نتائج لـ « {{query}} ».",
+    "close": "إغلاق",
+    "shortcutMac": "⌘K",
+    "shortcutWindows": "Ctrl+K",
+    "groups": {
+      "student": "التلاميذ",
+      "teacher": "الأساتذة",
+      "parent": "الأولياء"
+    }
+  },
   "dashboard": {
     "title": "لوحة القيادة",
     "subtitle": "نظرة عامة على نشاط مركزكم.",

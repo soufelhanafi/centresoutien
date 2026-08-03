@@ -3,6 +3,7 @@ import { Building2, UserRound } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@centresoutien/ui';
 import { LanguageToggle } from '../language-toggle';
 import { LogoutButton } from '../auth/logout-button';
+import { SearchTrigger } from '../search/search-trigger';
 import { useCenterProfile } from '../../hooks/center/use-center-profile';
 
 /**
@@ -28,6 +29,7 @@ export function AppHeader() {
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
+        <SearchTrigger />
         <LanguageToggle />
         <Avatar className="h-8 w-8">
           <AvatarFallback aria-label={t('shell.account')}>

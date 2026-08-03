@@ -67,6 +67,7 @@ import type {
   EnrollmentId,
   CreateTeacher,
   ListTeachers,
+  SearchPeople,
   GetTeacher,
   UpdateTeacher,
   ArchiveTeacher,
@@ -184,6 +185,7 @@ export type EnrollStudentUseCase = Pick<EnrollStudent, 'execute'>;
 export type UnenrollStudentUseCase = Pick<UnenrollStudent, 'execute'>;
 export type CreateTeacherUseCase = Pick<CreateTeacher, 'execute'>;
 export type ListTeachersUseCase = Pick<ListTeachers, 'execute'>;
+export type SearchPeopleUseCase = Pick<SearchPeople, 'execute'>;
 export type GetTeacherUseCase = Pick<GetTeacher, 'execute'>;
 export type UpdateTeacherUseCase = Pick<UpdateTeacher, 'execute'>;
 export type ArchiveTeacherUseCase = Pick<ArchiveTeacher, 'execute'>;
@@ -566,6 +568,7 @@ export type HandlerDeps = BackupHandlerDeps &
   unenrollStudent: UnenrollStudentUseCase;
   createTeacher: CreateTeacherUseCase;
   listTeachers: ListTeachersUseCase;
+  searchPeople: SearchPeopleUseCase;
   getTeacher: GetTeacherUseCase;
   updateTeacher: UpdateTeacherUseCase;
   archiveTeacher: ArchiveTeacherUseCase;
@@ -987,6 +990,21 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'teacher.create': async (request) => {
       const teacher = await deps.createTeacher.execute({ ...request, ...deps.envelopeContext() });
       return { id: teacher.id };
+    },
+    'people.search': async (request) => {
+      const results = await deps.searchPeople.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        query: request.query,
+      });
+      return {
+        results: results.map((result) =>
+          result.kind === 'student'
+            ? { kind: 'student' as const, person: toStudentView(result.entity) }
+            : result.kind === 'teacher'
+              ? { kind: 'teacher' as const, person: toTeacherView(result.entity) }
+              : { kind: 'parent' as const, person: toParentView(result.entity) },
+        ),
+      };
     },
     'teacher.list': async (request) => {
       const teachers = await deps.listTeachers.execute({
