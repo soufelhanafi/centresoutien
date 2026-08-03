@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isTimeOfDay, toMinutes } from '../../../src/value-objects/time-of-day';
+import { fromMinutes, isTimeOfDay, toMinutes } from '../../../src/value-objects/time-of-day';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 
 describe('isTimeOfDay', () => {
@@ -23,5 +23,20 @@ describe('toMinutes', () => {
     ['23:59', 1439],
   ] as const)('%s → %i minutes since midnight', (value, expected) => {
     expect(toMinutes(value as TimeOfDay)).toBe(expected);
+  });
+});
+
+describe('fromMinutes', () => {
+  it.each([
+    [0, '00:00'],
+    [540, '09:00'],
+    [1110, '18:30'],
+    [1439, '23:59'],
+  ] as const)('%i minutes → %s (inverse of toMinutes)', (minutes, expected) => {
+    expect(fromMinutes(minutes)).toBe(expected);
+  });
+
+  it.each([-1, 1440, 90.5])('rejects out-of-day value %s', (minutes) => {
+    expect(() => fromMinutes(minutes)).toThrow(RangeError);
   });
 });

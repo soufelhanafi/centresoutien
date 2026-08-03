@@ -175,7 +175,10 @@
     "teacher-payroll-rule-not-found": "قاعدة الأجر هذه غير موجودة.",
     "teacher-not-found": "هذا الأستاذ غير موجود.",
     "teacher-payout-not-found": "هذا الاستحقاق غير موجود.",
-    "teacher-payout-already-paid": "تم تعليم هذا الاستحقاق كمدفوع بالفعل."
+    "teacher-payout-already-paid": "تم تعليم هذا الاستحقاق كمدفوع بالفعل.",
+    "too-many-active-subscriptions": "هذا التلميذ لديه بالفعل اشتراك نشط من هذا النوع خلال هذه الفترة.",
+    "student-subscription-not-found": "هذا الاشتراك غير موجود.",
+    "student-not-found": "هذا التلميذ غير موجود."
   },
   "groups": {
     "title": "المجموعات",
@@ -346,6 +349,22 @@
         "body": "أضف طلبة إلى هذه المجموعة قبل تسجيل الحضور."
       },
       "loadError": "فشل تحميل قائمة الطلبة."
+    }
+  },
+  "attendance": {
+    "groupSheet": {
+      "title": "ورقة الحضور — {{name}}",
+      "monthLabel": "الشهر",
+      "print": "طباعة",
+      "student": "التلميذ",
+      "presentCount": "الحاضرون",
+      "count": "{{present}}/{{total}}",
+      "locked": "وحدة الحضور غير متاحة في خطتك.",
+      "loadError": "فشل تحميل ورقة الحضور.",
+      "empty": {
+        "title": "لا توجد حصص هذا الشهر",
+        "body": "لا توجد حصص مبرمجة لهذه المجموعة هذا الشهر."
+      }
     }
   },
   "guardian": {
@@ -802,9 +821,8 @@
         "confirm": "تأكيد",
         "confirming": "جارٍ الحفظ…",
         "success": "تم تحديث الاشتراك",
-        "closeError": "فشل إنهاء الاشتراك. حاول مجددًا.",
-        "createError": "فشل الاشتراك. حاول مجددًا.",
-        "createAfterCloseError": "تم إنهاء الاشتراك السابق، لكن الاشتراك الجديد فشل. أعد المحاولة من هذا التبويب."
+        "replaceError": "فشل تغيير الصيغة. حاول مجددًا.",
+        "createError": "فشل الاشتراك. حاول مجددًا."
       }
     },
     "comingSoon": {
@@ -815,6 +833,27 @@
       "attendance": {
         "title": "الحضور قريبًا",
         "body": "ستظهر هنا متابعة حضور التلميذ."
+      }
+    },
+    "attendance": {
+      "locked": "وحدة الحضور غير متاحة في خطتك.",
+      "monthLabel": "الشهر",
+      "groupLabel": "المجموعة",
+      "allGroups": "جميع المجموعات",
+      "rate": "نسبة الحضور",
+      "consecutiveAbsences": "الغيابات المتتالية",
+      "consecutiveValue": "{{n}}",
+      "streakWarning": "هذا التلميذ لديه سلسلة غيابات. اتصل بالوالدين.",
+      "noNote": "—",
+      "empty": {
+        "title": "لا توجد حصص حضور",
+        "body": "ستظهر الحضور هنا بعد أول حصة."
+      },
+      "loadError": "فشل تحميل الحضور.",
+      "table": {
+        "date": "التاريخ",
+        "status": "الحالة",
+        "note": "ملاحظة"
       }
     }
   },

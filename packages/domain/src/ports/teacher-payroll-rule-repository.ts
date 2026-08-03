@@ -26,4 +26,14 @@ export interface TeacherPayrollRuleRepository
    * set the at-most-one-active invariant checks a new rule's range against.
    */
   listLiveByTeacher(teacherId: TeacherId): Promise<readonly TeacherPayrollRule[]>;
+  /**
+   * Atomically persists a close-then-reopen pair (SOU-141): writes `closed`
+   * (the just-capped live rule) and `created` (its replacement) so that the
+   * close can **never** commit without its replacement. The adapter runs both
+   * writes inside one SQLite transaction — a failure creating the replacement
+   * rolls the close back, leaving the original rule live and untouched. The
+   * caller (a `Replace*` use case) computes both entities before calling, so
+   * this is a pure translation of intent with no business decisions here.
+   */
+  replaceLiveRule(closed: TeacherPayrollRule, created: TeacherPayrollRule): Promise<void>;
 }

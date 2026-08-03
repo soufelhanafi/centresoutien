@@ -12,6 +12,16 @@ export function PlanSwitcher() {
   const planId = usePlanStore((state) => state.planId);
   const setPlan = usePlanStore((state) => state.setPlan);
 
+  // Switch the domain's active plan first, then mirror it into the store. The
+  // store is cosmetic; letting it flip a feature on before the domain agrees
+  // would fire gated reads the PlanPolicy still rejects (CLAUDE.md §4).
+  const switchPlan = (id: PlanId) => {
+    window.api
+      ?.invoke('plan.set', { planId: id })
+      .then((res) => setPlan(res.planId))
+      .catch(() => undefined);
+  };
+
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-muted-foreground">{t('plan.devSwitcher')} :</span>
@@ -20,7 +30,7 @@ export function PlanSwitcher() {
           key={id}
           size="sm"
           variant={id === planId ? 'default' : 'outline'}
-          onClick={() => setPlan(id)}
+          onClick={() => switchPlan(id)}
         >
           {id}
         </Button>

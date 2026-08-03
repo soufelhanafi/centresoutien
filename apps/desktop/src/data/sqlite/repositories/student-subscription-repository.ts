@@ -153,4 +153,22 @@ export class SqliteStudentSubscriptionRepository implements StudentSubscriptionR
       .all(centerCode) as StudentSubscriptionRow[];
     return rows.map(fromRow);
   }
+
+  /**
+   * SOU-141: persists a close-then-reopen pair so the close can never commit
+   * without its replacement. Both writes run inside one `db.transaction` — if
+   * `created` violates a constraint (or any write throws), the whole batch rolls
+   * back and the incumbent subscription stays live. This is the single call a
+   * `ReplaceStudentSubscription` issues, replacing the old two-call close→create
+   * dance that could orphan a student with no active subscription.
+   */
+  async replaceLiveSubscription(
+    closed: StudentSubscription,
+    created: StudentSubscription,
+  ): Promise<void> {
+    this.db.transaction(() => {
+      this.save(closed);
+      this.save(created);
+    })();
+  }
 }

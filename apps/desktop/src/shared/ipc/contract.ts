@@ -583,6 +583,13 @@ export const ipcContract = {
     request: z.object({}),
     response: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
   },
+  // Dev plan switcher (SOU) — swaps the domain's active plan so the PlanPolicy
+  // gate and the renderer's cosmetic mirror stay in sync. Without it, flipping a
+  // UI feature on would fire gated reads the domain still rejects.
+  'plan.set': {
+    request: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
+    response: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
+  },
   // The request schema is the domain's own input schema — validated once, shared
   // by the form (zodResolver), the preload types, and this boundary.
   'subject.create': {
@@ -820,6 +827,13 @@ export const ipcContract = {
     request: z.object({ subscriptionId: z.string(), endMonth: closeStudentSubscriptionMonthSchema }),
     response: z.object({ subscription: subscriptionViewSchema }),
   },
+  'subscription.replace': {
+    request: studentSubscriptionInputSchema.extend({ activeSubscriptionId: z.string() }),
+    response: z.object({
+      closed: subscriptionViewSchema,
+      created: subscriptionViewSchema,
+    }),
+  },
   'subscription.list': {
     request: z.object({ studentId: z.string() }),
     response: z.object({ subscriptions: z.array(subscriptionViewSchema) }),
@@ -1052,6 +1066,13 @@ export const ipcContract = {
     request: z.object({ ruleId: z.string(), endMonth: closeTeacherPayrollRuleMonthSchema }),
     response: z.object({ rule: teacherPayrollRuleViewSchema }),
   },
+  'teacherPayrollRule.replace': {
+    request: teacherPayrollRuleInputSchema.and(z.object({ activeRuleId: z.string() })),
+    response: z.object({
+      closed: teacherPayrollRuleViewSchema,
+      created: teacherPayrollRuleViewSchema,
+    }),
+  },
   'teacherPayrollRule.list': {
     request: z.object({ teacherId: z.string() }),
     response: z.object({ rules: z.array(teacherPayrollRuleViewSchema) }),
@@ -1186,6 +1207,50 @@ export const ipcContract = {
   'attendance.record': {
     request: recordSessionAttendanceSchema,
     response: z.object({ records: z.array(attendanceRecordViewSchema) }),
+  },
+  // Attendance reporting reads (SOU-108) — the parent-conversation read side, both
+  // gated by `core.attendance` (every plan) in the domain use cases. Pure reads,
+  // no side effects; month is a strict `YYYY-MM`. `studentReport` returns the
+  // student's session-by-session history for the month (optionally one group)
+  // plus the absence summary (attendance-rate percent shared with SOU-100, the
+  // longest consecutive-absence run, and the ≥3 streak flag). `groupSheet`
+  // returns the printable per-group sheet: sessions as columns and, per student,
+  // a `cells` array parallel to `sessions` (`null` where no record exists).
+  'attendance.studentReport': {
+    request: z.object({ studentId: z.string(), month: z.string().regex(/^\d{4}-\d{2}$/), groupId: z.string().optional() }),
+    response: z.object({
+      studentId: z.string(),
+      history: z.array(
+        z.object({
+          sessionId: z.string(),
+          date: z.string(),
+          groupId: z.string().nullable(),
+          groupName: z.object({ fr: z.string(), ar: z.string() }).nullable(),
+          status: z.enum(['present', 'absent', 'excused', 'late']),
+          note: z.string().nullable(),
+        }),
+      ),
+      summary: z.object({
+        attendanceRatePercent: z.number(),
+        consecutiveAbsences: z.number().int(),
+        hasAbsenceStreak: z.boolean(),
+        counts: z.object({ present: z.number().int(), absent: z.number().int(), excused: z.number().int(), late: z.number().int() }),
+      }),
+    }),
+  },
+  'attendance.groupSheet': {
+    request: z.object({ groupId: z.string(), month: z.string().regex(/^\d{4}-\d{2}$/) }),
+    response: z.object({
+      groupId: z.string(),
+      sessions: z.array(z.object({ sessionId: z.string(), date: z.string() })),
+      students: z.array(
+        z.object({
+          studentId: z.string(),
+          name: z.object({ fr: z.string(), ar: z.string() }),
+          cells: z.array(z.enum(['present', 'absent', 'excused', 'late']).nullable()),
+        }),
+      ),
+    }),
   },
   // Dashboard reads (SOU-100). `basic` is every plan (`dashboard.basic`);
   // `advanced` is gated by `dashboard.advanced` (Premium) in the domain use

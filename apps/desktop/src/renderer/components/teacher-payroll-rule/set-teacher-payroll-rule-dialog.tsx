@@ -13,10 +13,10 @@ import {
 } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
 import { useCreateTeacherPayrollRule } from '../../hooks/teacher-payroll-rule/use-create-teacher-payroll-rule';
-import { useCloseTeacherPayrollRule } from '../../hooks/teacher-payroll-rule/use-close-teacher-payroll-rule';
+import { useReplaceTeacherPayrollRule } from '../../hooks/teacher-payroll-rule/use-replace-teacher-payroll-rule';
 import { mapTeacherPayrollRuleWriteError } from '../../lib/teacher-payroll-rules/teacher-payroll-rule-write-error';
 import type { TeacherPayrollRuleView } from '../../lib/teacher-payroll-rules/teacher-payroll-rule-view';
-import { currentMonth, nextMonth, previousMonth } from '../../lib/teacher-payroll-rules/month';
+import { currentMonth, nextMonth } from '../../lib/teacher-payroll-rules/month';
 import { TeacherPayrollRuleForm } from './teacher-payroll-rule-form';
 
 type SetTeacherPayrollRuleDialogProps = {
@@ -29,13 +29,9 @@ type SetTeacherPayrollRuleDialogProps = {
 
 /**
  * Set-or-replace flow: a teacher with no live rule gets a plain create; a
- * teacher with one gets the close-and-reopen combo (CLAUDE.md §6) — close the
- * current rule the month before the replacement's effective month, then
- * create the replacement. These are two separate, non-transactional IPC
- * calls (mirrors `StudentSubscription`'s own documented close-then-reopen
- * convention, CLAUDE.md §7): if `create` fails after `close` already
- * committed, the teacher is left with no active rule until the admin retries
- * — visible immediately as an empty Active card, not silent data loss.
+ * teacher with one gets the close-and-reopen as a single atomic operation
+ * (SOU-141) — the replace use case computes the close month and issues both
+ * writes in one SQLite transaction (CLAUDE.md §6).
  */
 export function SetTeacherPayrollRuleDialog({
   open,
@@ -46,7 +42,7 @@ export function SetTeacherPayrollRuleDialog({
   const { t } = useTranslation();
   const formId = useId();
   const create = useCreateTeacherPayrollRule();
-  const close = useCloseTeacherPayrollRule();
+  const replace = useReplaceTeacherPayrollRule();
   const fixedEnabled = useFeature('payroll.teacher.fixed');
 
   // With no active rule, default to whichever kind flag the plan actually
@@ -80,9 +76,10 @@ export function SetTeacherPayrollRuleDialog({
   const handleSubmit = async (values: TeacherPayrollRuleInput) => {
     try {
       if (activeRule) {
-        await close.mutateAsync({ ruleId: activeRule.id, endMonth: previousMonth(values.startMonth) });
+        await replace.mutateAsync({ ...values, activeRuleId: activeRule.id });
+      } else {
+        await create.mutateAsync(values);
       }
-      await create.mutateAsync(values);
       toast.success(
         t(activeRule ? 'teachers.detail.payroll.form.changeSuccess' : 'teachers.detail.payroll.form.createSuccess'),
       );
@@ -93,7 +90,7 @@ export function SetTeacherPayrollRuleDialog({
     }
   };
 
-  const saving = create.isPending || close.isPending;
+  const saving = create.isPending || replace.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

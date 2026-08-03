@@ -23,6 +23,13 @@ class IpcSubscriptionsGateway implements SubscriptionsGateway {
     });
     return subscription;
   }
+
+  async replace(
+    input: SubscriptionInput,
+    activeSubscriptionId: string,
+  ): Promise<{ closed: SubscriptionView; created: SubscriptionView }> {
+    return window.api.invoke('subscription.replace', { ...input, activeSubscriptionId });
+  }
 }
 
 export const ipcSubscriptionsGateway: SubscriptionsGateway = new IpcSubscriptionsGateway();

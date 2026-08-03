@@ -41,6 +41,7 @@ import {
   RestoreGroup,
   CreateStudentSubscription,
   CloseStudentSubscription,
+  ReplaceStudentSubscription,
   ListStudentSubscriptions,
   RecordPayment,
   VoidPayment,
@@ -84,6 +85,7 @@ import {
   RunScheduledBackup,
   CreateTeacherPayrollRule,
   CloseTeacherPayrollRule,
+  ReplaceTeacherPayrollRule,
   ListTeacherPayrollRulesByTeacher,
   CreateInvoiceDraft,
   GenerateMonthlyInvoices,
@@ -102,6 +104,8 @@ import {
   RecordSessionAttendance,
   GetDashboardBasicSummary,
   GetDashboardAdvancedSummary,
+  GetStudentAttendanceReport,
+  GetGroupAttendanceSheet,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -313,6 +317,13 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
   const closeStudentSubscription = new CloseStudentSubscription(subscriptionRepo, clock, plan);
+  const replaceStudentSubscription = new ReplaceStudentSubscription(
+    subscriptionRepo,
+    studentRepo,
+    clock,
+    ids,
+    plan,
+  );
   const listStudentSubscriptions = new ListStudentSubscriptions(subscriptionRepo, plan);
   // The real StudentSubscriptionReferencePort adapter (SOU-63): the coverage query
   // EnrollStudent (SOU-121) needs for its subscription/cross-kind guards. SOU-126 wired
@@ -409,6 +420,13 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
   const closeTeacherPayrollRule = new CloseTeacherPayrollRule(payrollRuleRepo, clock, plan);
+  const replaceTeacherPayrollRule = new ReplaceTeacherPayrollRule(
+    payrollRuleRepo,
+    teacherRepo,
+    clock,
+    ids,
+    plan,
+  );
   const listTeacherPayrollRulesByTeacher = new ListTeacherPayrollRulesByTeacher(
     payrollRuleRepo,
     teacherRepo,
@@ -539,6 +557,14 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
+  // Attendance reporting reads (SOU-108) — per-student history + absence summary
+  // and printable per-group attendance sheet, both read-model reads over the
+  // existing attendanceRepo (no new repository, no new adapter). Gated by
+  // `core.attendance` (base tier) in the use case; IPC handler passes the throw
+  // through the shared error mapping.
+  const getStudentAttendanceReport = new GetStudentAttendanceReport(attendanceRepo, plan);
+  const getGroupAttendanceSheet = new GetGroupAttendanceSheet(attendanceRepo, plan);
+
   // Backup & restore (SOU-102). `options.key` is today's key-management
   // mechanism (CS_DB_KEY / dev fallback) — real per-center key derivation is a
   // separate future ticket; both the manual/scheduled snapshot path and the
@@ -610,7 +636,8 @@ export function buildContainer(options: ContainerOptions): Container {
 
   const handlerDeps: HandlerDeps = {
     appVersion: options.appVersion,
-    activePlanId: () => activePlanId,
+    activePlanId: () => plan.activePlanId(),
+    setActivePlan: (planId) => plan.setActivePlan(PLANS[planId]),
     createSubject,
     archiveSubject,
     listSubjects,
@@ -649,6 +676,7 @@ export function buildContainer(options: ContainerOptions): Container {
     restoreGroup,
     createStudentSubscription,
     closeStudentSubscription,
+    replaceStudentSubscription,
     listStudentSubscriptions,
     recordPayment,
     voidPayment,
@@ -670,6 +698,7 @@ export function buildContainer(options: ContainerOptions): Container {
     restoreTeacher,
     createTeacherPayrollRule,
     closeTeacherPayrollRule,
+    replaceTeacherPayrollRule,
     listTeacherPayrollRulesByTeacher,
     computeMonthlyPayrolls,
     confirmTeacherPayout,
@@ -686,6 +715,8 @@ export function buildContainer(options: ContainerOptions): Container {
     restoreHoliday,
     getDashboardBasicSummary,
     getDashboardAdvancedSummary,
+    getStudentAttendanceReport,
+    getGroupAttendanceSheet,
     listWeekSessions,
     scheduleRenderer,
     generateSessions,

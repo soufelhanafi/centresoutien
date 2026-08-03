@@ -1,5 +1,6 @@
 import type { AttendanceGateway } from './attendance-gateway';
 import type { AttendanceRecordView, RollCallRecordInput, WeeklySlotOption } from './attendance-view';
+import type { StudentAttendanceReport, GroupAttendanceSheetView } from './attendance-reporting-view';
 
 /**
  * The real {@link AttendanceGateway}. `weeklySlotsForGroup` reads `session.week`
@@ -44,6 +45,52 @@ class IpcAttendanceGateway implements AttendanceGateway {
       records: records.map((record) => ({ studentId: record.studentId, status: record.status })),
     });
     return response.records;
+  }
+
+  async getStudentReport(
+    studentId: string,
+    month: string,
+    groupId?: string,
+  ): Promise<StudentAttendanceReport> {
+    const report = await window.api.invoke('attendance.studentReport', { studentId, month, groupId });
+    return {
+      studentId: report.studentId,
+      history: report.history.map((row) => ({
+        sessionId: row.sessionId,
+        date: row.date,
+        groupId: row.groupId,
+        groupName: row.groupName,
+        status: row.status,
+        note: row.note,
+      })),
+      summary: {
+        attendanceRatePercent: report.summary.attendanceRatePercent,
+        consecutiveAbsences: report.summary.consecutiveAbsences,
+        hasAbsenceStreak: report.summary.hasAbsenceStreak,
+        counts: {
+          present: report.summary.counts.present,
+          absent: report.summary.counts.absent,
+          excused: report.summary.counts.excused,
+          late: report.summary.counts.late,
+        },
+      },
+    };
+  }
+
+  async getGroupSheet(groupId: string, month: string): Promise<GroupAttendanceSheetView> {
+    const sheet = await window.api.invoke('attendance.groupSheet', { groupId, month });
+    return {
+      groupId: sheet.groupId,
+      sessions: sheet.sessions.map((session) => ({
+        sessionId: session.sessionId,
+        date: session.date,
+      })),
+      students: sheet.students.map((student) => ({
+        studentId: student.studentId,
+        name: { fr: student.name.fr, ar: student.name.ar },
+        cells: [...student.cells],
+      })),
+    };
   }
 }
 

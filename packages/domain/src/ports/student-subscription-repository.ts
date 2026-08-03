@@ -43,4 +43,17 @@ export interface StudentSubscriptionRepository
    * without a per-student round trip.
    */
   listLiveByCenter(centerCode: CenterCode): Promise<readonly StudentSubscription[]>;
+  /**
+   * Atomically persists a close-then-reopen pair (SOU-141): writes `closed`
+   * (the just-capped live subscription) and `created` (its replacement) so the
+   * close can **never** commit without its replacement. The adapter runs both
+   * writes inside one SQLite transaction — a failure creating the replacement
+   * rolls the close back, leaving the original subscription live and untouched.
+   * The caller (a `Replace*` use case) computes both entities before calling,
+   * so this is a pure translation of intent with no business decisions here.
+   */
+  replaceLiveSubscription(
+    closed: StudentSubscription,
+    created: StudentSubscription,
+  ): Promise<void>;
 }

@@ -13,18 +13,21 @@ export { ULID_REGEX, isUlid, hasIdPrefix } from './value-objects/ids';
 export type { PhoneNumber, PhoneRegion } from './value-objects/phone-number';
 export { normalizePhone, InvalidPhoneNumberError } from './value-objects/phone-number';
 export type { TimeOfDay } from './value-objects/time-of-day';
-export { TIME_OF_DAY_REGEX, isTimeOfDay, toMinutes } from './value-objects/time-of-day';
+export { TIME_OF_DAY_REGEX, isTimeOfDay, toMinutes, fromMinutes } from './value-objects/time-of-day';
 export type { WeekdayIndex } from './value-objects/weekday';
 export { WEEKDAYS, isWeekdayIndex } from './value-objects/weekday';
+export type { WeeklyBlock } from './value-objects/weekly-block';
+export { weeklyBlockFromOpen } from './value-objects/weekly-block';
 export type { DateRange } from './value-objects/date-range';
 export { weekdayOf, eachDateInRange, daysBetween } from './value-objects/date-range';
-export { monthsEndingAt, monthDateRange, monthsBetween } from './value-objects/month';
+export { monthsEndingAt, monthDateRange, monthsBetween, previousMonth } from './value-objects/month';
 export type { GuardianRelation } from './value-objects/guardian-relation';
 export { GUARDIAN_RELATIONS, isGuardianRelation } from './value-objects/guardian-relation';
 
 // Ports
 export type { Clock } from './ports/clock';
 export type { IdGenerator } from './ports/id-generator';
+export type { RandomPort } from './ports/random-port';
 
 // Entity base + envelope
 export type { EntityEnvelope, NewEnvelopeInput } from './entities/envelope';
@@ -114,6 +117,8 @@ export {
   SessionNotFoundError,
 } from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/scheduling-errors';
+export { InfeasibleGeneratorConfigError, NoRoomsConfiguredError } from './errors/session-generator-errors';
+export type { InfeasibleGeneratorReason } from './errors/session-generator-errors';
 
 // Input validation schemas (shared by forms via zodResolver and by use cases)
 export {
@@ -317,6 +322,13 @@ export type {
   SubjectRevenueShare,
 } from './read-models/dashboard-advanced-summary';
 export { DASHBOARD_TREND_WINDOW_MONTHS } from './read-models/dashboard-advanced-summary';
+export type {
+  StudentAttendanceRow,
+  AttendanceAbsenceSummary,
+  AttendanceStatusCounts,
+  StudentAttendanceReport,
+  GroupAttendanceSheet,
+} from './read-models/attendance-reporting';
 
 // Value objects & policies (login throttle — SOU-27)
 export { UNLOCKED_STATE } from './value-objects/lockout-state';
@@ -392,7 +404,13 @@ export type { WeeklyRecurringSessionRepository } from './ports/weekly-recurring-
 // the same SQLite adapter that owns weekly_recurring_sessions.
 export type { WeeklySessionViewReadPort } from './ports/weekly-session-view-read-port';
 export type { SessionRepository } from './ports/session-repository';
-export type { AttendanceRepository, AttendanceSummary } from './ports/attendance-repository';
+export type {
+  AttendanceRepository,
+  AttendanceSummary,
+  StudentAttendanceReading,
+  GroupAttendanceCellReading,
+  GroupSheetData,
+} from './ports/attendance-repository';
 // Room in-use guard — its concrete adapter is the weekly-session repo (SOU-53).
 export type { RoomReferencePort } from './ports/room-reference';
 // Student↔parent link — DECLARED CONTRACT ONLY (implemented after SOU-38 merges).
@@ -406,9 +424,26 @@ export type {
 // Domain services
 export { DeviceSessionService } from './services/device-session-service';
 export { MonthlyFeeAttributionService } from './services/monthly-fee-attribution-service';
+export { SessionGenerator, assignRoomsToBlocks } from './services/session-generator';
+export type {
+  SessionGeneratorConfig,
+  SessionGeneratorScope,
+  SessionGeneratorRange,
+  SessionGenerationInput,
+  SessionGeneratorResult,
+  GroupScheduleProposal,
+  ScheduledBlockProposal,
+  UnroomedBlock,
+} from './services/session-generator';
 
 // Policies
 export { SessionConflictPolicy } from './policies/session-conflict-policy';
+export {
+  ABSENCE_STREAK_THRESHOLD,
+  countsTowardAbsenceStreak,
+  longestConsecutiveAbsences,
+  summarizeAttendance,
+} from './policies/attendance-absence-policy';
 export type {
   SessionTimeCandidate,
   RoomSessionCandidate,
@@ -418,6 +453,8 @@ export type {
 export { teacherTeachesSubject } from './policies/teacher-teaches-subject';
 export { holidayCoversDate, holidayOn } from './policies/holiday-policy';
 export type { HolidayOccurrence } from './policies/holiday-policy';
+export { circularWeekdayGaps, satisfiesMinGap, gapViolations } from './policies/weekday-gap';
+export type { WeekdayGap } from './policies/weekday-gap';
 export { detectSessionConflicts } from './policies/composite-session-conflicts';
 export type {
   ConflictSeverity,
@@ -564,6 +601,11 @@ export { CreateStudentSubscription } from './use-cases/create-student-subscripti
 export type { CreateStudentSubscriptionInput } from './use-cases/create-student-subscription';
 export { CloseStudentSubscription } from './use-cases/close-student-subscription';
 export type { CloseStudentSubscriptionInput } from './use-cases/close-student-subscription';
+export { ReplaceStudentSubscription } from './use-cases/replace-student-subscription';
+export type {
+  ReplaceStudentSubscriptionInput,
+  ReplaceStudentSubscriptionResult,
+} from './use-cases/replace-student-subscription';
 export { ListStudentSubscriptions } from './use-cases/list-student-subscriptions';
 export type { ListStudentSubscriptionsInput } from './use-cases/list-student-subscriptions';
 export { GenerateMonthlyInvoices } from './use-cases/generate-monthly-invoices';
@@ -575,6 +617,11 @@ export { CreateTeacherPayrollRule } from './use-cases/create-teacher-payroll-rul
 export type { CreateTeacherPayrollRuleInput } from './use-cases/create-teacher-payroll-rule';
 export { CloseTeacherPayrollRule } from './use-cases/close-teacher-payroll-rule';
 export type { CloseTeacherPayrollRuleInput } from './use-cases/close-teacher-payroll-rule';
+export { ReplaceTeacherPayrollRule } from './use-cases/replace-teacher-payroll-rule';
+export type {
+  ReplaceTeacherPayrollRuleInput,
+  ReplaceTeacherPayrollRuleResult,
+} from './use-cases/replace-teacher-payroll-rule';
 export { ListTeacherPayrollRulesByTeacher } from './use-cases/list-teacher-payroll-rules-by-teacher';
 export type { ListTeacherPayrollRulesByTeacherInput } from './use-cases/list-teacher-payroll-rules-by-teacher';
 export { ComputeMonthlyPayrolls } from './use-cases/compute-monthly-payrolls';
@@ -608,6 +655,10 @@ export { GetGroupRoster } from './use-cases/get-group-roster';
 export type { GetGroupRosterInput, GroupRosterEntry } from './use-cases/get-group-roster';
 export { RecordSessionAttendance } from './use-cases/record-session-attendance';
 export type { RecordSessionAttendanceInput } from './use-cases/record-session-attendance';
+export { GetStudentAttendanceReport } from './use-cases/get-student-attendance-report';
+export type { GetStudentAttendanceReportInput } from './use-cases/get-student-attendance-report';
+export { GetGroupAttendanceSheet } from './use-cases/get-group-attendance-sheet';
+export type { GetGroupAttendanceSheetInput } from './use-cases/get-group-attendance-sheet';
 export { UpdateGroup } from './use-cases/update-group';
 export type { UpdateGroupInput } from './use-cases/update-group';
 export { ArchiveGroup } from './use-cases/archive-group';
