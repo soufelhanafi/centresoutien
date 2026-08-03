@@ -34,6 +34,19 @@ class IpcStudentsGateway implements StudentsGateway {
     return student;
   }
 
+  async setGuardians(
+    id: string,
+    guardianIds: readonly string[],
+    expectedVersion: number,
+  ): Promise<StudentView> {
+    const { student } = await window.api.invoke('student.setGuardians', {
+      id,
+      guardianIds: [...guardianIds],
+      expectedVersion,
+    });
+    return student;
+  }
+
   async archive(id: string): Promise<void> {
     await window.api.invoke('student.archive', { id });
   }

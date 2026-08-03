@@ -315,6 +315,33 @@ describe('composition root', () => {
     expect(updated.student.level).toBe('1 Bac SE');
     expect((await dispatch('student.get', { id })).student?.school).toBe('Lycée Ibn Sina');
 
+    // setGuardians — the partial-update channel (SOU-116) links a guardian
+    // without replaying name/level/notes, and rejects a stale expectedVersion.
+    const { id: guardianId } = await dispatch('parent.create', {
+      name: 'Karim Alaoui',
+      phone: '06 00 00 00 01',
+      email: null,
+      relation: 'pere',
+      whatsappOptIn: false,
+    });
+
+    await expect(
+      dispatch('student.setGuardians', {
+        id,
+        guardianIds: [guardianId],
+        expectedVersion: updated.student.version + 1,
+      }),
+    ).rejects.toThrow();
+
+    const withGuardian = await dispatch('student.setGuardians', {
+      id,
+      guardianIds: [guardianId],
+      expectedVersion: updated.student.version,
+    });
+    expect(withGuardian.student.guardianIds).toEqual([guardianId]);
+    expect(withGuardian.student.level).toBe('1 Bac SE');
+    expect((await dispatch('student.get', { id })).student?.guardianIds).toEqual([guardianId]);
+
     // archive — soft delete removes it from reads.
     expect(await dispatch('student.archive', { id })).toEqual({ ok: true });
     expect((await dispatch('student.list', { search: '' })).students).toHaveLength(0);

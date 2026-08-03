@@ -51,7 +51,7 @@ export {
   AdminAccountNotFoundError,
   InvalidCurrentPasswordError,
 } from './errors/auth-errors';
-export { StudentNotFoundError } from './errors/student-errors';
+export { StudentNotFoundError, StudentVersionConflictError } from './errors/student-errors';
 export {
   DuplicateParentError,
   ParentNotFoundError,
@@ -126,13 +126,14 @@ export {
 export type { SubjectInput, SubjectUpdateInput } from './schemas/subject';
 export {
   studentInputSchema,
+  setStudentGuardiansInputSchema,
   isCalendarDate,
   STUDENT_NAME_MAX,
   STUDENT_LEVEL_MAX,
   STUDENT_SCHOOL_MAX,
   STUDENT_NOTES_MAX,
 } from './schemas/student';
-export type { StudentInput } from './schemas/student';
+export type { StudentInput, SetStudentGuardiansFields } from './schemas/student';
 export {
   adminCredentialsSchema,
   changeAdminPasswordSchema,
@@ -494,6 +495,8 @@ export { GetStudent } from './use-cases/get-student';
 export type { GetStudentInput } from './use-cases/get-student';
 export { UpdateStudent } from './use-cases/update-student';
 export type { UpdateStudentInput } from './use-cases/update-student';
+export { SetStudentGuardians } from './use-cases/set-student-guardians';
+export type { SetStudentGuardiansInput } from './use-cases/set-student-guardians';
 export { ArchiveStudent } from './use-cases/archive-student';
 export type { ArchiveStudentInput } from './use-cases/archive-student';
 export { CreateParent } from './use-cases/create-parent';
