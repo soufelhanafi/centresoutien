@@ -290,6 +290,11 @@ const holidayViewSchema = z.object({
 // Single source of truth for the renderer's `WeeklySessionView` type.
 const bilingualTextSchema = z.object({ fr: z.string(), ar: z.string() });
 
+// The invoice lifecycle status (SOU-67: draft -> issued -> cancelled), shared by
+// the list/detail read model and the issue/cancel transition responses (SOU-143)
+// so both sides of the boundary read it off one definition.
+const invoiceStatusSchema = z.enum(['draft', 'issued', 'cancelled']);
+
 // One line of the invoice list/detail read model (SOU-69) — the frozen billed
 // snapshot (bilingual label, kind, amount), envelope stripped like every other
 // view. Mirrors `invoiceLineSnapshotSchema`'s shape but is a read DTO, not an
@@ -313,13 +318,25 @@ const invoiceListItemViewSchema = z.object({
   id: z.string(),
   studentId: z.string(),
   month: z.string(),
-  status: z.enum(['draft', 'issued', 'cancelled']),
+  status: invoiceStatusSchema,
   issuedAt: z.string().nullable(),
   lines: z.array(invoiceLineViewSchema),
   totalMad: z.number().int(),
   netPaidMad: z.number().int(),
   outstandingMad: z.number().int().nonnegative(),
   paymentStatus: paymentStatusSchema,
+});
+
+// The result of an issue/cancel transition (SOU-143) — just enough for the
+// invoice detail view to update its header in place: the derived totals/lines
+// are unaffected by a lifecycle transition, so the renderer keeps its existing
+// `invoiceListItemViewSchema` row and only patches these fields rather than
+// refetching `invoice.list`.
+const invoiceTransitionResultSchema = z.object({
+  id: z.string(),
+  status: invoiceStatusSchema,
+  issuedAt: z.string().nullable(),
+  cancelledAt: z.string().nullable(),
 });
 
 const weeklySessionViewSchema = z.object({
@@ -774,6 +791,22 @@ export const ipcContract = {
   'invoice.export': {
     request: z.object({ invoiceId: z.string(), locale: z.enum(['fr', 'ar']) }),
     response: z.object({ savedPath: z.string().nullable() }),
+  },
+  // Issue / cancel (SOU-143) — the two lifecycle transitions `IssueInvoice`/
+  // `CancelInvoice` (domain, pre-dating SOU-69) already implement; this ticket
+  // only wires them to IPC. `issue` moves draft -> issued; `cancel` moves
+  // draft|issued -> cancelled (discard or void) — both terminal moves the domain
+  // rejects with `InvalidInvoiceTransitionError` off the wrong source state, and
+  // an unknown/foreign-center id with `InvoiceNotFoundError`. Neither touches the
+  // frozen lines. centerCode/updatedBy are injected in main, never sent from the
+  // renderer. Gated by `core.invoicing` (every plan) in the use cases.
+  'invoice.issue': {
+    request: z.object({ invoiceId: z.string() }),
+    response: invoiceTransitionResultSchema,
+  },
+  'invoice.cancel': {
+    request: z.object({ invoiceId: z.string() }),
+    response: invoiceTransitionResultSchema,
   },
   // Payslip PDF print/export (SOU-75). Renders the confirmed `TeacherPayout`
   // (draft or paid — stateless, printing never mutates the payout) to the same

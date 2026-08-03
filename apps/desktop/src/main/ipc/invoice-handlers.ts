@@ -3,25 +3,34 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
   ListInvoices,
+  IssueInvoice,
+  CancelInvoice,
   InvoicePdfRenderer,
   InvoiceListItem,
   InvoiceLine,
+  Invoice,
   CenterCode,
   StudentId,
   InvoiceId,
+  UserId,
 } from '@centresoutien/domain';
 import { InvoiceNotFoundError } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import { buildInvoicePdfInput, type PdfAssemblyDeps } from './invoice-pdf-assembly';
 
 export type ListInvoicesUseCase = Pick<ListInvoices, 'execute'>;
+export type IssueInvoiceUseCase = Pick<IssueInvoice, 'execute'>;
+export type CancelInvoiceUseCase = Pick<CancelInvoice, 'execute'>;
 export type InvoicePdfRendererPort = Pick<InvoicePdfRenderer, 'render'>;
 
-/** Only the surface the invoice list/print/export channels need. */
+/** Only the surface the invoice list/print/export/issue/cancel channels need. */
 export type InvoiceHandlerDeps = PdfAssemblyDeps & {
   listInvoices: ListInvoicesUseCase;
+  issueInvoice: IssueInvoiceUseCase;
+  cancelInvoice: CancelInvoiceUseCase;
   invoicePdfRenderer: InvoicePdfRendererPort;
   centerCode: () => CenterCode;
+  updatedBy: () => UserId;
 };
 
 function toInvoiceLineView(line: InvoiceLine) {
@@ -51,6 +60,17 @@ function toInvoiceListItemView(item: InvoiceListItem) {
   };
 }
 
+/** Project an issued/cancelled invoice header to the transition result DTO
+ *  (SOU-143) — dates serialized like every other view in this file. */
+function toInvoiceTransitionView(invoice: Invoice) {
+  return {
+    id: invoice.id,
+    status: invoice.status,
+    issuedAt: invoice.issuedAt ? invoice.issuedAt.toISOString() : null,
+    cancelledAt: invoice.cancelledAt ? invoice.cancelledAt.toISOString() : null,
+  };
+}
+
 /** Resolves the single invoice `invoiceId` names to its full list/detail read
  *  row, or throws {@link InvoiceNotFoundError} for an unknown/foreign-center id —
  *  the same resolution `payment.summary` already performs via a different port. */
@@ -77,7 +97,10 @@ async function findInvoiceOrThrow(
  */
 export function createInvoiceHandlers(
   deps: InvoiceHandlerDeps,
-): Pick<IpcHandlers, 'invoice.list' | 'invoice.print' | 'invoice.export'> {
+): Pick<
+  IpcHandlers,
+  'invoice.list' | 'invoice.print' | 'invoice.export' | 'invoice.issue' | 'invoice.cancel'
+> {
   return {
     'invoice.list': async (request) => {
       const items = await deps.listInvoices.execute({
@@ -111,6 +134,22 @@ export function createInvoiceHandlers(
       const bytes = await deps.invoicePdfRenderer.render(pdfInput);
       writeFileSync(result.filePath, bytes);
       return { savedPath: result.filePath };
+    },
+    'invoice.issue': async (request) => {
+      const invoice = await deps.issueInvoice.execute({
+        centerCode: deps.centerCode(),
+        invoiceId: request.invoiceId as InvoiceId,
+        updatedBy: deps.updatedBy(),
+      });
+      return toInvoiceTransitionView(invoice);
+    },
+    'invoice.cancel': async (request) => {
+      const invoice = await deps.cancelInvoice.execute({
+        centerCode: deps.centerCode(),
+        invoiceId: request.invoiceId as InvoiceId,
+        updatedBy: deps.updatedBy(),
+      });
+      return toInvoiceTransitionView(invoice);
     },
   };
 }

@@ -15,6 +15,10 @@ export interface InvoicesGateway {
   list(filters: InvoiceListFilters): Promise<readonly InvoiceListItemView[]>;
   get(id: string): Promise<InvoiceListItemView | null>;
   recordPayment(input: RecordPaymentInput): Promise<InvoiceListItemView>;
+  /** Moves a draft invoice to `issued`. Returns the updated invoice (write-then-read-back). */
+  issue(invoiceId: string): Promise<InvoiceListItemView>;
+  /** Moves a draft or issued invoice to `cancelled`. Returns the updated invoice. */
+  cancel(invoiceId: string): Promise<InvoiceListItemView>;
   /** Renders the invoice PDF in `locale` and opens it in the OS's default viewer. */
   print(id: string, locale: 'fr' | 'ar'): Promise<void>;
   /**
