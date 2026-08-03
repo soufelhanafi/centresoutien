@@ -1399,7 +1399,13 @@ export const ipcContract = {
       code: recoveryCodeSchema,
       password: resetPasswordWithRecoveryCodeSchema.shape.newPassword,
     }),
-    response: z.object({ ok: z.literal(true) }),
+    response: z.discriminatedUnion('outcome', [
+      z.object({ outcome: z.literal('success') }),
+      z.object({
+        outcome: z.literal('locked-out'),
+        lockedUntilMs: z.number().int().nonnegative(),
+      }),
+    ]),
   },
   // Center profile (SOU-28). `center.get` returns the single row (or null before
   // first save). `center.save` upserts the editable profile fields — the request

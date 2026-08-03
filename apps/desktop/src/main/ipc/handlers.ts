@@ -1300,12 +1300,17 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     },
     'auth.resetWithCode': async (request) => {
       const username = await deps.adminUsername();
-      await deps.resetPasswordWithRecoveryCode.execute({
+      const result = await deps.resetPasswordWithRecoveryCode.execute({
         recoveryCode: request.code,
         newPassword: request.password,
         username,
       });
-      return { ok: true };
+      switch (result.outcome) {
+        case 'success':
+          return { outcome: 'success' };
+        case 'locked-out':
+          return { outcome: 'locked-out', lockedUntilMs: result.lockedUntil };
+      }
     },
     'center.get': async () => {
       const center = await deps.getCenterProfile.execute();

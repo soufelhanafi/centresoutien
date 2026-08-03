@@ -70,11 +70,12 @@ describe('ResetPasswordWithRecoveryCode', () => {
   });
 
   it('resets the password with a valid recovery code', async () => {
-    await useCase.execute({
+    const result = await useCase.execute({
       recoveryCode: validCode(),
       newPassword: 'NewPass1',
       username: 'admin',
     });
+    expect(result.outcome).toBe('success');
 
     const account = await accounts.findOnly();
     expect(account).not.toBeNull();

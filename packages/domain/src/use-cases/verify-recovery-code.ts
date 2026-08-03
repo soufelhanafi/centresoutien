@@ -8,6 +8,7 @@ import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
 import { recoveryCodeSchema } from '../schemas/recovery-code';
 import { InvalidRecoveryCodeError, NoRecoveryCodesError } from '../errors/auth-errors';
+import type { RecoveryCodeId } from '../entities/recovery-code';
 import {
   AUTH_AUDIT_EVENT_ID_PREFIX,
   type AuthAuditEvent,
@@ -20,7 +21,7 @@ export type VerifyRecoveryCodeInput = {
 };
 
 export type VerifyRecoveryCodeResult =
-  | { readonly outcome: 'success'; readonly codeId: string }
+  | { readonly outcome: 'success'; readonly codeId: RecoveryCodeId }
   | { readonly outcome: 'locked-out'; readonly lockedUntil: number };
 
 export class VerifyRecoveryCode {
@@ -51,7 +52,7 @@ export class VerifyRecoveryCode {
     for (const code of unconsumed) {
       if (await this.hasher.verify(code.codeHash, plain)) {
         await this.throttle.reset();
-        return { outcome: 'success', codeId: code.id as string };
+        return { outcome: 'success', codeId: code.id };
       }
     }
 

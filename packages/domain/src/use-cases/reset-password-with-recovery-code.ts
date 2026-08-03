@@ -11,7 +11,6 @@ import {
   type AuthAuditEvent,
   type AuthAuditEventId,
 } from '../entities/auth-audit-event';
-import type { RecoveryCodeId } from '../entities/recovery-code';
 import type { VerifyRecoveryCode } from './verify-recovery-code';
 
 export type ResetPasswordWithRecoveryCodeInput = {
@@ -19,6 +18,10 @@ export type ResetPasswordWithRecoveryCodeInput = {
   newPassword: string;
   username: string;
 };
+
+export type ResetPasswordWithRecoveryCodeResult =
+  | { readonly outcome: 'success' }
+  | { readonly outcome: 'locked-out'; readonly lockedUntil: number };
 
 export class ResetPasswordWithRecoveryCode {
   constructor(
@@ -31,7 +34,9 @@ export class ResetPasswordWithRecoveryCode {
     private readonly ids: IdGenerator,
   ) {}
 
-  async execute(input: ResetPasswordWithRecoveryCodeInput): Promise<void> {
+  async execute(
+    input: ResetPasswordWithRecoveryCodeInput,
+  ): Promise<ResetPasswordWithRecoveryCodeResult> {
     const { recoveryCode, newPassword } = resetPasswordWithRecoveryCodeSchema.parse(input);
     const username = input.username;
 
@@ -39,8 +44,8 @@ export class ResetPasswordWithRecoveryCode {
     if (!account) throw new AdminAccountNotFoundError();
 
     const result = await this.verifyCode.execute({ recoveryCode, username });
-    if (result.outcome !== 'success') {
-      throw new AdminAccountNotFoundError();
+    if (result.outcome === 'locked-out') {
+      return { outcome: 'locked-out', lockedUntil: result.lockedUntil };
     }
 
     const now = this.clock.now();
@@ -48,7 +53,7 @@ export class ResetPasswordWithRecoveryCode {
     account.updatedAt = now;
     await this.accounts.save(account);
 
-    await this.codeRepo.consumeById(result.codeId as RecoveryCodeId, now);
+    await this.codeRepo.consumeById(result.codeId, now);
 
     const event: AuthAuditEvent = {
       id: this.ids.next(AUTH_AUDIT_EVENT_ID_PREFIX) as AuthAuditEventId,
@@ -67,5 +72,7 @@ export class ResetPasswordWithRecoveryCode {
       metadata: {},
     };
     await this.auditLog.record(resetEvent);
+
+    return { outcome: 'success' };
   }
 }

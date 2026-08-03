@@ -19,11 +19,20 @@ const CODE_COUNT = 16;
 const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 function generateCode(random: SecureRandom): string {
-  const bytes = random.bytes(16);
-  let code = '';
-  for (let i = 0; i < 16; i++) {
-    code += ALPHABET.charAt(bytes[i]! % ALPHABET.length);
+  const chars: string[] = [];
+  let pool = random.bytes(32);
+  let pos = 0;
+  while (chars.length < 16) {
+    if (pos >= pool.length) {
+      pool = random.bytes(32);
+      pos = 0;
+    }
+    const b = pool[pos++]!;
+    if (b < 252) {
+      chars.push(ALPHABET.charAt(b % ALPHABET.length));
+    }
   }
+  const code = chars.join('');
   return `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8, 12)}-${code.slice(12, 16)}`;
 }
 
