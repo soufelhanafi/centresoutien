@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { DoorOpen, Archive } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { RoomStatus, RoomView } from '../../lib/rooms/room-view';
 import { RoomTable } from './room-table';
 
@@ -30,7 +30,7 @@ export function RoomListContent({ status, variant, rooms, onRetry, onCreate }: R
 
   if (status === 'error') {
     return (
-      <EmptyState
+      <ErrorState
         icon={<DoorOpen className="h-5 w-5" aria-hidden="true" />}
         title={t('rooms.loadError.title')}
         description={t('rooms.loadError.body')}
