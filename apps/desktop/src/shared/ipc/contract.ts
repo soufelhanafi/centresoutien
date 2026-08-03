@@ -327,11 +327,10 @@ const invoiceListItemViewSchema = z.object({
   paymentStatus: paymentStatusSchema,
 });
 
-// The result of an issue/cancel transition (SOU-143) — just enough for the
-// invoice detail view to update its header in place: the derived totals/lines
-// are unaffected by a lifecycle transition, so the renderer keeps its existing
-// `invoiceListItemViewSchema` row and only patches these fields rather than
-// refetching `invoice.list`.
+// The result of an issue/cancel transition (SOU-143). The renderer does a
+// write-then-read-back via `invoice.list` (same pattern as recordPayment) to
+// refresh the full detail view, so this DTO is a validated ack, not the source
+// of the renderer's patched row.
 const invoiceTransitionResultSchema = z.object({
   id: z.string(),
   status: invoiceStatusSchema,

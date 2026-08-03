@@ -38,7 +38,8 @@ export function InvoiceDetailActions({ invoice }: { invoice: InvoiceListItemView
     try {
       await issueInvoice.mutateAsync(invoice.id);
       toast.success(t('invoices.detail.issue.success'));
-    } catch {
+    } catch (error) {
+      console.error('invoice.issue failed', error);
       toast.error(t('invoices.detail.issue.error'));
     }
   };

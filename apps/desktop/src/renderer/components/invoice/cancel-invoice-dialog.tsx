@@ -37,7 +37,8 @@ export function CancelInvoiceDialog({
       await cancelInvoice.mutateAsync(invoice.id);
       toast.success(t('invoices.detail.cancelInvoice.success'));
       onOpenChange(false);
-    } catch {
+    } catch (error) {
+      console.error('invoice.cancel failed', error);
       toast.error(t('invoices.detail.cancelInvoice.error'));
     }
   };
