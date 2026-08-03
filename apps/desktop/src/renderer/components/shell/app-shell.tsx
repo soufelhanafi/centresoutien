@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Outlet } from '@tanstack/react-router';
 import { Sidebar } from './sidebar';
 import { AppHeader } from './app-header';
+import { CommandPalette } from '../search/command-palette';
 
 /**
  * The application chrome every feature screen mounts into: a navigation rail,
@@ -30,6 +31,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <CommandPalette />
     </div>
   );
 }
