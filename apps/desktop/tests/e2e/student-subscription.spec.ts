@@ -9,7 +9,6 @@ import {
   seedFormula,
   formulaName,
   currentMonth,
-  previousMonth,
   tryCreateSubscription,
   fakeFormulaId,
   type Launched,
@@ -89,15 +88,15 @@ test('Scenario 2 — HAPPY PATH: subscribe then change formula via the wizard', 
 
   await expect(win.getByText(formulaName(locale(), formulaA)).first()).toBeVisible();
 
-  // --- Change: close the current subscription a month early so the new one
-  // takes effect immediately, keeping the assertions below deterministic
-  // instead of depending on which day of the month the suite runs.
+  // --- Change: pick the new formula and set its start month to the current
+  // month. Close-and-reopen is atomic (SOU-141): the previous subscription's
+  // end month is derived as the month before this start, so the new formula
+  // takes effect immediately with no separate end-month step.
   await win.getByRole('button', { name: L.active.changeCta }).first().click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText(L.wizard.changeTitle)).toBeVisible();
   await expect(dialog.getByText(formulaName(locale(), formulaA))).toBeVisible();
 
-  await dialog.locator('#subscription-end-month').fill(previousMonth(currentMonth()));
   await combobox.click();
   await win.getByRole('option', { name: escapeRegExp(formulaName(locale(), formulaB)) }).click();
   await dialog.locator('#subscription-start-month').fill(currentMonth());
