@@ -7,6 +7,7 @@ import {
   gotoDashboard,
   seedFullMonth,
   readDashboardApi,
+  expectedPercent,
   type Launched,
   type Locale,
 } from './dashboard.fixtures';
@@ -159,15 +160,15 @@ test('Scenario 5 — Avancé empty state on a fresh Premium center', async () =>
   await expect(win.getByText(L.widgets.attendanceRate)).toBeVisible();
   await expect(win.getByText(L.widgets.subjectBreakdown)).toBeVisible();
   await expect(win.getByText(L.subjectBreakdownEmpty)).toBeVisible();
-  await expect(win.getByText('0%')).toBeVisible();
+  await expect(win.getByText(expectedPercent(0, locale()))).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------
 // Scenario 6 — Avancé happy path (Premium, read-model only): after seeding one
 // fully-paid invoice + one present attendance record this month, the widgets
 // must reflect that collected revenue and attendance — enrollment evolution and
-// attendance rate do; revenue trend and the per-subject breakdown do not
-// (tracked as a FAIL / read-model bug below).
+// attendance rate do; revenue trend and the per-subject breakdown don't yet,
+// because the seeded invoice can never leave `draft` (SOU-143, not SOU-100).
 // ---------------------------------------------------------------------------
 test('Scenario 6 — Avancé widgets reflect seeded paid revenue and attendance', async () => {
   const L = STR[locale()];
@@ -188,7 +189,7 @@ test('Scenario 6 — Avancé widgets reflect seeded paid revenue and attendance'
   await win.screenshot({ path: `test-results/dashboard-advanced-seeded-${locale()}.png` });
 
   // Attendance rate: 1 present out of 1 recorded this month → 100%.
-  await expect(win.getByText('100%')).toBeVisible();
+  await expect(win.getByText(expectedPercent(100, locale()))).toBeVisible();
   // Enrollment evolution: the read model does carry the active student for
   // the current month (asserted via the raw payload, the chart renders no
   // per-point text nodes to assert on directly).
@@ -196,13 +197,11 @@ test('Scenario 6 — Avancé widgets reflect seeded paid revenue and attendance'
   const currentMonthEnrollment = advancedSummary.enrollmentEvolution.at(-1);
   expect(currentMonthEnrollment?.activeStudentCount).toBe(1);
 
-  // KNOWN FAILURE (reported as a bug, not adjusted for): revenue trend and the
-  // per-subject breakdown both still show zero/empty despite a fully-paid
-  // 300 MAD invoice this month.
-  await expect(
-    win.getByText(L.subjectBreakdownEmpty),
-    'BUG: subject revenue breakdown still shows "no revenue collected" despite a fully-paid invoice this month',
-  ).toHaveCount(0);
+  // Revenue trend and the per-subject breakdown both read only `issued`
+  // invoices (CLAUDE.md §6/§7), and `seedFullMonth`'s invoice never leaves
+  // `draft` because no IPC channel issues an invoice yet — tracked as SOU-143,
+  // not a SOU-100 bug. Once SOU-143 ships, this assertion flips to `toHaveCount(0)`.
+  await expect(win.getByText(L.subjectBreakdownEmpty)).toHaveCount(1);
 });
 
 // ---------------------------------------------------------------------------

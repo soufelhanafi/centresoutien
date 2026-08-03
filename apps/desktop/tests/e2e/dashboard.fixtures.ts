@@ -102,6 +102,16 @@ export const STR: Record<
   },
 };
 
+/**
+ * Mirrors `formatPercent` (renderer `lib/format.ts`): `Intl.NumberFormat`'s
+ * `style: 'percent'` inserts a NBSP before `%` for `fr-MA` and LRM marks
+ * around it for `ar-MA`, so specs must match this, not a bare `"100%"`.
+ */
+export function expectedPercent(percent: number, locale: Locale): string {
+  const bcp47 = locale === 'ar' ? 'ar-MA' : 'fr-MA';
+  return new Intl.NumberFormat(bcp47, { style: 'percent', maximumFractionDigits: 2 }).format(percent / 100);
+}
+
 export function freshUserDataDir(): string {
   return mkdtempSync(join(tmpdir(), 'cs-e2e-dashboard-'));
 }
