@@ -59,8 +59,7 @@ app.whenReady().then(() => {
   } catch (error) {
     // A center DB migrated by a newer app build, then reopened after a rollback
     // (SOU-128): refuse to open rather than silently no-op pending migrations
-    // against a schema shape this build doesn't know. Every other startup error
-    // keeps its previous behavior — swallowed by `console.error` below.
+    // against a schema shape this build doesn't know.
     if (error instanceof DatabaseSchemaAheadOfAppError) {
       dialog.showErrorBox(
         'Centre Soutien',
@@ -69,6 +68,9 @@ app.whenReady().then(() => {
       app.quit();
       return;
     }
+    // Any other startup error rethrows into an unhandled rejection of the
+    // `whenReady()` promise (unchanged pre-SOU-128 behavior) — not caught by
+    // `console.error` below, which only handles `whenReady()` itself rejecting.
     throw error;
   }
   registerIpc(ipcMain, createHandlers(container.handlerDeps));

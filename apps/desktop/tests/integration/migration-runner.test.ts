@@ -91,6 +91,13 @@ describe('runMigrations', () => {
     ).run(2, '0002_future.sql', new Date('2026-07-28T00:00:00Z').toISOString());
 
     expect(() => runMigrations(db, migrations)).toThrow(DatabaseSchemaAheadOfAppError);
+    let thrown: unknown;
+    try {
+      runMigrations(db, migrations);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({ dbVersion: 2, appVersion: 1 });
     expect(db.prepare('SELECT version FROM _schema_migrations ORDER BY version').all()).toEqual([
       { version: 1 },
       { version: 2 },
