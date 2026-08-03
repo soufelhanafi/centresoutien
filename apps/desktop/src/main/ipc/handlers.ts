@@ -127,6 +127,7 @@ import { createBackupHandlers, type BackupHandlerDeps } from './backup-handlers'
 import { createDialogHandlers } from './dialog-handlers';
 import { createInvoiceHandlers, type InvoiceHandlerDeps } from './invoice-handlers';
 import { createPayslipHandlers, type PayslipHandlerDeps } from './payslip-handlers';
+import { createDashboardHandlers, type DashboardHandlerDeps } from './dashboard-handlers';
 import { createPayrollHandlers, type PayrollHandlerDeps } from './payroll-handlers';
 import { createPaymentReceiptHandlers, type PaymentReceiptHandlerDeps } from './payment-receipt-handlers';
 
@@ -503,6 +504,7 @@ function toWeekView(week: readonly CenterHours[]) {
 export type HandlerDeps = BackupHandlerDeps &
   InvoiceHandlerDeps &
   PayslipHandlerDeps &
+  DashboardHandlerDeps &
   PayrollHandlerDeps &
   PaymentReceiptHandlerDeps & {
   appVersion: () => string;
@@ -1208,6 +1210,7 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     ...createDialogHandlers(),
     ...createInvoiceHandlers(deps),
     ...createPayslipHandlers(deps),
+    ...createDashboardHandlers(deps),
     ...createPayrollHandlers(deps),
     ...createPaymentReceiptHandlers(deps),
   };

@@ -4,6 +4,7 @@ import { MAIN_ENTRY, VALID_ADMIN, freshUserDataDir, passAuthGate } from './wizar
 // The app boots to the default route (/dashboard), so the page heading is the
 // dashboard module title. Language toggle shows the OTHER language's label.
 const HEADING = { fr: 'Tableau de bord', ar: 'لوحة القيادة' } as const;
+const NAV_LABEL = { fr: 'Navigation principale', ar: 'التنقل الرئيسي' } as const;
 const DIRECTION = { fr: 'ltr', ar: 'rtl' } as const;
 const OTHER_LANG_LABEL = { fr: 'العربية', ar: 'Français' } as const;
 type Locale = 'fr' | 'ar';
@@ -42,7 +43,7 @@ test('boots into the shell on the default route, in the project locale and direc
   const window = await launch(locale);
 
   await expect(window.getByRole('heading', { level: 1, name: HEADING[locale] })).toBeVisible();
-  await expect(window.getByRole('navigation')).toBeVisible();
+  await expect(window.getByRole('navigation', { name: NAV_LABEL[locale] })).toBeVisible();
   expect(await window.evaluate(() => document.documentElement.dir)).toBe(DIRECTION[locale]);
   expect(await window.evaluate(() => document.documentElement.lang)).toBe(locale);
 });

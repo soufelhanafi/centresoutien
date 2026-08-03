@@ -52,6 +52,19 @@ Object.defineProperty(window, 'api', {
         // Settings form. Center-specific tests override `window.api.invoke`.
         case 'center.get':
           return { center: null };
+        // Zeroed KPI/widget summaries so App smoke tests can mount the dashboard
+        // without a real backend. Dashboard-specific tests override this.
+        case 'dashboard.basic':
+          return { summary: { todaysSessionCount: 0, activeStudentCount: 0, unpaidInvoiceCount: 0 } };
+        case 'dashboard.advanced':
+          return {
+            summary: {
+              revenueTrend: [],
+              enrollmentEvolution: [],
+              attendanceRatePercent: 0,
+              subjectRevenueBreakdown: [],
+            },
+          };
         default:
           return { reply: 'pong: test', appVersion: '0.0.0' };
       }

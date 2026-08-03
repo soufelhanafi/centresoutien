@@ -18,6 +18,7 @@ export type { WeekdayIndex } from './value-objects/weekday';
 export { WEEKDAYS, isWeekdayIndex } from './value-objects/weekday';
 export type { DateRange } from './value-objects/date-range';
 export { weekdayOf, eachDateInRange } from './value-objects/date-range';
+export { monthsEndingAt, monthDateRange } from './value-objects/month';
 export type { GuardianRelation } from './value-objects/guardian-relation';
 export { GUARDIAN_RELATIONS, isGuardianRelation } from './value-objects/guardian-relation';
 
@@ -306,6 +307,14 @@ export type { AttendanceRecord, AttendanceRecordId, AttendanceStatus } from './e
 // Read models (denormalized, envelope-free — never persisted)
 export type { WeeklySessionView } from './read-models/weekly-session-view';
 export type { InvoiceListRow, InvoiceListFilters } from './read-models/invoice-list-row';
+export type { DashboardBasicSummary } from './read-models/dashboard-basic-summary';
+export type {
+  DashboardAdvancedSummary,
+  MonthlyRevenuePoint,
+  MonthlyEnrollmentPoint,
+  SubjectRevenueShare,
+} from './read-models/dashboard-advanced-summary';
+export { DASHBOARD_TREND_WINDOW_MONTHS } from './read-models/dashboard-advanced-summary';
 
 // Value objects & policies (login throttle — SOU-27)
 export { UNLOCKED_STATE } from './value-objects/lockout-state';
@@ -440,6 +449,8 @@ export type {
   TeacherSubjectAttributedAmount,
 } from './policies/teacher-fee-attribution-policy';
 export { collectedLineAmounts } from './policies/collected-fees';
+export { SubjectRevenueAttributionPolicy } from './policies/subject-revenue-attribution-policy';
+export type { SubjectAttributedAmount } from './policies/subject-revenue-attribution-policy';
 export { updateFormula, deactivateFormula } from './policies/formula-policy';
 export type { FormulaPatch } from './policies/formula-policy';
 export { validateFormulaSubjects } from './policies/validate-formula-subjects';
@@ -585,6 +596,10 @@ export { ListRooms } from './use-cases/list-rooms';
 export type { ListRoomsInput, RoomScope } from './use-cases/list-rooms';
 export { ListWeekSessions } from './use-cases/list-week-sessions';
 export type { ListWeekSessionsInput } from './use-cases/list-week-sessions';
+export { GetDashboardBasicSummary } from './use-cases/get-dashboard-basic-summary';
+export type { GetDashboardBasicSummaryInput } from './use-cases/get-dashboard-basic-summary';
+export { GetDashboardAdvancedSummary } from './use-cases/get-dashboard-advanced-summary';
+export type { GetDashboardAdvancedSummaryInput } from './use-cases/get-dashboard-advanced-summary';
 export { GenerateSessions } from './use-cases/generate-sessions';
 export type { GenerateSessionsInput } from './use-cases/generate-sessions';
 export { GenerateAndPersistSessions } from './use-cases/generate-and-persist-sessions';

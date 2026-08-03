@@ -265,6 +265,79 @@ describe('MonthlyFeeAttributionService', () => {
 
     expect(result.get(TEACHER_MATH)).toBe(35000);
   });
+
+  describe('attributedAmountsBySubject (SOU-100)', () => {
+    it('splits a 2-subject line across each subject, regardless of staffing', async () => {
+      const mathGroup = seedGroup({ subjectId: MATH, teacherId: TEACHER_MATH as unknown as EntityId });
+      // Physics has no group/enrollment seeded — unstaffed, unlike the teacher view
+      // this still claims its share.
+      seedEnrollment(STUDENT, mathGroup.id);
+      const formula = seedFormula({ subjectIds: [MATH, PHYSICS] });
+      await seedIssuedInvoice(STUDENT, formula.id, 30000, 30000);
+
+      const result = await service.attributedAmountsBySubject(CENTER, MONTH);
+
+      expect(result.get(MATH)).toBe(15000);
+      expect(result.get(PHYSICS)).toBe(15000);
+    });
+
+    it('only attributes the collected portion of a partially-paid invoice', async () => {
+      const group = seedGroup({ subjectId: MATH, teacherId: TEACHER_MATH as unknown as EntityId });
+      seedEnrollment(STUDENT, group.id);
+      const formula = seedFormula({ subjectIds: [MATH] });
+      await seedIssuedInvoice(STUDENT, formula.id, 20000, 10000);
+
+      const result = await service.attributedAmountsBySubject(CENTER, MONTH);
+
+      expect(result.get(MATH)).toBe(10000);
+    });
+
+    it('excludes a draft invoice — only issued invoices count', async () => {
+      const formula = seedFormula({ subjectIds: [MATH] });
+      const invoice: Invoice = {
+        id: ids.next('inv') as InvoiceId,
+        ...envelope(),
+        studentId: STUDENT,
+        month: MONTH,
+        status: 'draft',
+        issuedAt: null,
+        cancelledAt: null,
+      };
+      const line: InvoiceLine = {
+        id: ids.next('invl') as InvoiceLineId,
+        ...envelope(),
+        invoiceId: invoice.id,
+        formulaId: formula.id,
+        label: { fr: 'Math', ar: 'رياضيات' },
+        kind: 'regular',
+        amountMad: 20000,
+      };
+      await invoices.createDraft(invoice, [line]);
+
+      const result = await service.attributedAmountsBySubject(CENTER, MONTH);
+
+      expect(result.size).toBe(0);
+    });
+
+    it('aggregates a subject’s revenue across multiple students', async () => {
+      const group = seedGroup({ subjectId: MATH, teacherId: TEACHER_MATH as unknown as EntityId });
+      const studentB = 'stu_00000000000000000000000002' as StudentId;
+      seedEnrollment(STUDENT, group.id);
+      seedEnrollment(studentB, group.id);
+      const formula = seedFormula({ subjectIds: [MATH] });
+      await seedIssuedInvoice(STUDENT, formula.id, 20000, 20000);
+      await seedIssuedInvoice(studentB, formula.id, 15000, 15000);
+
+      const result = await service.attributedAmountsBySubject(CENTER, MONTH);
+
+      expect(result.get(MATH)).toBe(35000);
+    });
+
+    it('returns an empty map when there are no issued invoices that month', async () => {
+      const result = await service.attributedAmountsBySubject(CENTER, MONTH);
+      expect(result.size).toBe(0);
+    });
+  });
 });
 
 describe('MonthlyFeeAttributionService.attributedAmountsByTeacherAndSubject', () => {

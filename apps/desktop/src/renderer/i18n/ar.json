@@ -47,6 +47,41 @@
     "tabs": {
       "basic": "أساسي",
       "advanced": "متقدم"
+    },
+    "basic": {
+      "kpis": {
+        "todaysSessions": "الحصص اليوم",
+        "activeStudents": "التلاميذ النشيطون",
+        "unpaidInvoices": "الفواتير غير المؤداة"
+      },
+      "quickActions": {
+        "title": "إجراءات سريعة",
+        "addStudent": "إضافة تلميذ",
+        "recordPayment": "تسجيل دفعة",
+        "addSession": "إضافة حصة"
+      },
+      "loadError": {
+        "title": "تعذر تحميل لوحة القيادة",
+        "body": "حدث خطأ أثناء تحميل المؤشرات.",
+        "retry": "إعادة المحاولة"
+      }
+    },
+    "advanced": {
+      "lockedBody": "تطور رقم المعاملات والتسجيلات، نسبة الحضور والتوزيع حسب المادة.",
+      "widgets": {
+        "revenueTrend": "تطور رقم المعاملات",
+        "enrollmentEvolution": "تطور التسجيلات",
+        "attendanceRate": "نسبة الحضور — هذا الشهر",
+        "subjectBreakdown": "التوزيع حسب المادة"
+      },
+      "subjectBreakdown": {
+        "empty": "لا توجد مداخيل محصلة هذا الشهر."
+      },
+      "loadError": {
+        "title": "تعذر تحميل الإحصائيات المتقدمة",
+        "body": "حدث خطأ أثناء تحميل المؤشرات.",
+        "retry": "إعادة المحاولة"
+      }
     }
   },
   "errors": {

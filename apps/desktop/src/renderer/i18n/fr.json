@@ -47,6 +47,41 @@
     "tabs": {
       "basic": "Basique",
       "advanced": "Avancé"
+    },
+    "basic": {
+      "kpis": {
+        "todaysSessions": "Séances aujourd'hui",
+        "activeStudents": "Élèves actifs",
+        "unpaidInvoices": "Factures impayées"
+      },
+      "quickActions": {
+        "title": "Actions rapides",
+        "addStudent": "Ajouter un élève",
+        "recordPayment": "Enregistrer un paiement",
+        "addSession": "Ajouter une séance"
+      },
+      "loadError": {
+        "title": "Impossible de charger le tableau de bord",
+        "body": "Une erreur est survenue lors du chargement des indicateurs.",
+        "retry": "Réessayer"
+      }
+    },
+    "advanced": {
+      "lockedBody": "Évolution du chiffre d'affaires, des inscriptions, taux de présence et répartition par matière.",
+      "widgets": {
+        "revenueTrend": "Évolution du chiffre d'affaires",
+        "enrollmentEvolution": "Évolution des inscriptions",
+        "attendanceRate": "Taux de présence — ce mois-ci",
+        "subjectBreakdown": "Répartition par matière"
+      },
+      "subjectBreakdown": {
+        "empty": "Aucun encaissement ce mois-ci."
+      },
+      "loadError": {
+        "title": "Impossible de charger les statistiques avancées",
+        "body": "Une erreur est survenue lors du chargement des indicateurs.",
+        "retry": "Réessayer"
+      }
     }
   },
   "errors": {

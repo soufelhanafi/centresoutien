@@ -248,6 +248,54 @@ describe('SqliteAttendanceRepository', () => {
     });
   });
 
+  describe('summarizeForCenter', () => {
+    it('counts each status within the range across every student, defaulting missing statuses to 0', async () => {
+      const s1 = await makeSession('2026-01-05');
+      const s2 = await makeSession('2026-01-12');
+      await repo.save(makeAttendance({ sessionId: s1, studentId: STUDENT_A, status: 'present' }));
+      await repo.save(makeAttendance({ sessionId: s1, studentId: STUDENT_B, status: 'absent' }));
+      await repo.save(makeAttendance({ sessionId: s2, studentId: STUDENT_A, status: 'absent' }));
+
+      const summary = await repo.summarizeForCenter(CENTER, { start: '2026-01-01', end: '2026-01-31' });
+      expect(summary).toEqual({ present: 1, absent: 2, excused: 0, late: 0 });
+    });
+
+    it('excludes sessions outside the range', async () => {
+      const inRange = await makeSession('2026-01-15');
+      const outOfRange = await makeSession('2026-02-01');
+      await repo.save(makeAttendance({ sessionId: inRange, studentId: STUDENT_A, status: 'present' }));
+      await repo.save(makeAttendance({ sessionId: outOfRange, studentId: STUDENT_B, status: 'absent' }));
+
+      const summary = await repo.summarizeForCenter(CENTER, { start: '2026-01-01', end: '2026-01-31' });
+      expect(summary).toEqual({ present: 1, absent: 0, excused: 0, late: 0 });
+    });
+
+    it('excludes tombstoned records', async () => {
+      const sessionId = await makeSession('2026-01-15');
+      const record = makeAttendance({ sessionId, studentId: STUDENT_A, status: 'absent' });
+      await repo.save(record);
+      await repo.softDelete(record.id, AT, USER);
+
+      const summary = await repo.summarizeForCenter(CENTER, { start: '2026-01-01', end: '2026-01-31' });
+      expect(summary).toEqual({ present: 0, absent: 0, excused: 0, late: 0 });
+    });
+
+    it('excludes another center’s records', async () => {
+      const sessionId = await makeSession('2026-01-15');
+      await repo.save(
+        makeAttendance({
+          sessionId,
+          studentId: STUDENT_A,
+          status: 'absent',
+          centerCode: 'CS-RABAT-002' as CenterCode,
+        }),
+      );
+
+      const summary = await repo.summarizeForCenter(CENTER, { start: '2026-01-01', end: '2026-01-31' });
+      expect(summary).toEqual({ present: 0, absent: 0, excused: 0, late: 0 });
+    });
+  });
+
   describe('DB constraints', () => {
     it('rejects an id without the att_ prefix (CHECK)', async () => {
       const sessionId = await makeSession('2026-01-08');

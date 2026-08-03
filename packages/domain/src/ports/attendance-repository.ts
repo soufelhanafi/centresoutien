@@ -2,6 +2,7 @@ import type { SoftDeletableRepository } from '../repositories/soft-deletable';
 import type { AttendanceRecord, AttendanceRecordId, AttendanceStatus } from '../entities/attendance-record';
 import type { SessionId } from '../entities/session';
 import type { StudentId } from '../entities/student';
+import type { CenterCode } from '../value-objects/ids';
 import type { DateRange } from '../value-objects/date-range';
 
 /** Count of each {@link AttendanceStatus} across a queried window — the per-student aggregate. */
@@ -45,4 +46,14 @@ export interface AttendanceRepository
    * one center by construction, since a session never crosses centers.
    */
   summarizeForStudent(studentId: StudentId, range: DateRange): Promise<AttendanceSummary>;
+
+  /**
+   * Count of each status across the **whole center's** live records whose
+   * session falls in `range`, live sessions only — the SOU-100 dashboard's
+   * attendance-rate widget. Same shape and every-status-present guarantee as
+   * {@link summarizeForStudent}, just scoped by center instead of student, so
+   * it costs one aggregate query regardless of headcount (never one read per
+   * student — the <500ms/500-student acceptance target).
+   */
+  summarizeForCenter(centerCode: CenterCode, range: DateRange): Promise<AttendanceSummary>;
 }

@@ -40,6 +40,13 @@ export type TeacherAttributedAmount = {
   readonly attributedAmountMad: number;
 };
 
+/** One subject's equal-split share of a billed line — the shape {@link splitLineAmount} returns. */
+export type SubjectLineShare = {
+  readonly subjectId: SubjectId;
+  readonly teacherId: TeacherId | null;
+  readonly shareMad: number;
+};
+
 /** A teacher's monthly attribution base for one subject — the payroll dashboard drill-down (SOU-76). */
 export type TeacherSubjectAttributedAmount = {
   readonly teacherId: TeacherId;
@@ -48,18 +55,37 @@ export type TeacherSubjectAttributedAmount = {
 };
 
 /**
+ * Validates a `TeacherFeeAttributionPolicy` input line before it is split —
+ * shared by {@link splitLineAmount}'s callers (`attribute` here, and
+ * `SubjectRevenueAttributionPolicy.attribute`) so the guard lives in exactly
+ * one place regardless of which policy groups the shares.
+ */
+export function assertValidAttributionLine(line: StudentLineAttributionInput): void {
+  if (line.subjectAssignments.length === 0) {
+    throw new EmptyAttributionLineError(line.studentId);
+  }
+  if (!Number.isInteger(line.lineAmountMad) || line.lineAmountMad < 0) {
+    throw new InvalidAttributionAmountError(line.studentId, line.lineAmountMad);
+  }
+}
+
+/**
  * Splits `amountMad` into `count` shares that are equal to the centime and sum
  * back to `amountMad` exactly — the largest-remainder method. Every share gets
  * `floor(amountMad / count)`; the leftover centimes (`amountMad % count`) go
  * one each to the first shares in assignment order, so the split is
  * deterministic for a given line. `count` is the full subject count on the
  * line — including subjects whose `teacherId` is `null` — so an unstaffed
- * subject still claims its share of the denominator; the caller drops that
- * share rather than folding it into a staffed subject's cut (SOU-74 M1).
+ * subject still claims its share of the denominator; a teacher-keyed caller
+ * drops that share rather than folding it into a staffed subject's cut
+ * (SOU-74 M1) — a subject-keyed caller (SOU-100's revenue breakdown) keeps it,
+ * since every subject on the line is real regardless of staffing.
+ *
+ * Exported (not just `attribute`'s private helper) so `SubjectRevenueAttributionPolicy`
+ * reuses the exact same split instead of re-deriving the largest-remainder math.
  */
-function splitLineAmount(
-  line: StudentLineAttributionInput,
-): readonly { readonly subjectId: SubjectId; readonly teacherId: TeacherId | null; readonly shareMad: number }[] {
+export function splitLineAmount(line: StudentLineAttributionInput): readonly SubjectLineShare[] {
+  assertValidAttributionLine(line);
   const count = line.subjectAssignments.length;
   const base = Math.floor(line.lineAmountMad / count);
   const remainder = line.lineAmountMad - base * count;
@@ -68,15 +94,6 @@ function splitLineAmount(
     teacherId: assignment.teacherId,
     shareMad: base + (index < remainder ? 1 : 0),
   }));
-}
-
-function validateLine(line: StudentLineAttributionInput): void {
-  if (line.subjectAssignments.length === 0) {
-    throw new EmptyAttributionLineError(line.studentId);
-  }
-  if (!Number.isInteger(line.lineAmountMad) || line.lineAmountMad < 0) {
-    throw new InvalidAttributionAmountError(line.studentId, line.lineAmountMad);
-  }
 }
 
 /**
@@ -90,7 +107,6 @@ function staffedShares(
 ): readonly { readonly teacherId: TeacherId; readonly subjectId: SubjectId; readonly shareMad: number }[] {
   const shares: { teacherId: TeacherId; subjectId: SubjectId; shareMad: number }[] = [];
   for (const line of lines) {
-    validateLine(line);
     for (const share of splitLineAmount(line)) {
       if (share.teacherId === null) continue;
       shares.push({ teacherId: share.teacherId, subjectId: share.subjectId, shareMad: share.shareMad });

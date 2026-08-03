@@ -13,6 +13,7 @@ import {
   type StudentLineAttributionInput,
   type SubjectTeacherAssignment,
 } from '../policies/teacher-fee-attribution-policy';
+import { SubjectRevenueAttributionPolicy } from '../policies/subject-revenue-attribution-policy';
 import { collectedLineAmounts } from '../policies/collected-fees';
 
 /**
@@ -59,6 +60,23 @@ export class MonthlyFeeAttributionService {
   }
 
   /**
+   * Same collected-fee lines as {@link attributedAmountsByTeacher}, grouped by
+   * subject instead of teacher (SOU-100's per-subject revenue widget) — reuses
+   * the identical assembly so the two views of one month's collected money can
+   * never drift apart.
+   */
+  async attributedAmountsBySubject(
+    centerCode: CenterCode,
+    month: string,
+  ): Promise<ReadonlyMap<SubjectId, number>> {
+    const inputLines = await this.collectAttributionLines(centerCode, month);
+    if (inputLines.length === 0) return new Map();
+
+    const attributed = SubjectRevenueAttributionPolicy.attribute(inputLines);
+    return new Map(attributed.map((entry) => [entry.subjectId, entry.attributedAmountMad]));
+  }
+
+  /**
    * Same attribution base as `attributedAmountsByTeacher`, broken out by
    * subject — the payroll dashboard drill-down (SOU-76): "which subjects made
    * up this teacher's figure this month". A teacher with no attributable fees
@@ -83,10 +101,12 @@ export class MonthlyFeeAttributionService {
   }
 
   /**
-   * Assembles every collected invoice line for `(centerCode, month)` into
-   * `TeacherFeeAttributionPolicy` inputs (CLAUDE.md §6 steps 1–4) — shared by
-   * both the per-teacher and the per-teacher-per-subject reads so the
-   * `resolveSubjectAssignments` walk (step 3) lives in exactly one place.
+   * Assembles a center+month's collected invoice lines into
+   * `TeacherFeeAttributionPolicy` inputs (CLAUDE.md §6 steps 1–4): only
+   * `issued` invoices, only their actually-collected portion, each subject on
+   * the formula resolved to the teacher of the group the student attended for
+   * it (or `null` if unresolved). Shared by every attribution view so there is
+   * exactly one place this wiring lives.
    */
   private async collectAttributionLines(
     centerCode: CenterCode,
