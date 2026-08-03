@@ -1,30 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CalendarDays, AlertTriangle } from 'lucide-react';
-import { Badge, EmptyState, ErrorState, Numeric, Skeleton } from '@centresoutien/ui';
+import { Badge, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { StudentView } from '../../lib/students/student-view';
 import { useStudentAttendanceReport } from '../../hooks/attendance/use-student-attendance-report';
 import { useFeature } from '../../hooks/use-feature';
-import { getAttributedMonth } from '../../lib/attendance/get-attributed-month';
-
-function getRecentMonths(count: number): string[] {
-  const now = new Date();
-  const months: string[] = [];
-  for (let i = count - 1; i >= 0; i -= 1) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    months.push(`${year}-${month}`);
-  }
-  return months;
-}
-
-const MONTH_NAMES = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-
-function monthLabel(month: string): string {
-  const [year, m] = month.split('-') as [string, string];
-  return `${MONTH_NAMES[Number(m) - 1]} ${year}`;
-}
+import { getAttributedMonth, getRecentMonths, monthLabel } from '../../lib/attendance/get-attributed-month';
+import { AttendanceSummaryCard } from '../attendance/attendance-summary-card';
 
 function StatusBadge({ status }: { status: 'present' | 'absent' | 'excused' | 'late' }) {
   const { t } = useTranslation();
@@ -142,22 +124,22 @@ export function StudentAttendanceTab({ student }: { student: StudentView }) {
       {query.isSuccess && filtered.length > 0 && (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <SummaryCard
+            <AttendanceSummaryCard
               label={t('students.attendance.rate')}
               value={`${query.data.summary.attendanceRatePercent} %`}
               variant={undefined}
             />
-            <SummaryCard
+            <AttendanceSummaryCard
               label={t('students.attendance.consecutiveAbsences')}
               value={t('students.attendance.consecutiveValue', { n: query.data.summary.consecutiveAbsences })}
               variant={query.data.summary.hasAbsenceStreak ? 'negative' : undefined}
             />
-            <SummaryCard
+            <AttendanceSummaryCard
               label={t('groups.attendance.status.present')}
               value={String(query.data.summary.counts.present)}
               variant={undefined}
             />
-            <SummaryCard
+            <AttendanceSummaryCard
               label={t('groups.attendance.status.absent')}
               value={String(query.data.summary.counts.absent)}
               variant={undefined}
@@ -204,26 +186,5 @@ export function StudentAttendanceTab({ student }: { student: StudentView }) {
         </>
       )}
     </section>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  variant,
-}: {
-  label: string;
-  value: string;
-  variant: 'negative' | undefined;
-}) {
-  return (
-    <div
-      className={`flex flex-col gap-0.5 rounded-lg border border-border bg-card p-3 ${variant === 'negative' ? 'border-destructive/20 bg-destructive/5' : ''}`}
-    >
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <Numeric className="text-lg font-semibold" data-negative={variant === 'negative'}>
-        {value}
-      </Numeric>
-    </div>
   );
 }
