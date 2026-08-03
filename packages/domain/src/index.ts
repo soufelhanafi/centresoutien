@@ -41,6 +41,9 @@ export { diffChangedFields } from './sync/change-log';
 // Duplicate-matching policy (people-like naturalKey)
 export { normalizeNaturalKey } from './policies/natural-key';
 
+// Username case-insensitive matching (SOU-153)
+export { normalizeUsername } from './policies/username-normalization';
+
 // Repository ports
 export type { SoftDeletableRepository } from './repositories/soft-deletable';
 

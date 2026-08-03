@@ -1,9 +1,12 @@
 import type { AdminAccountRepository } from '../../../src/ports/admin-account-repository';
 import type { AdminAccount, AdminAccountId } from '../../../src/entities/admin-account';
+import { normalizeUsername } from '../../../src/policies/username-normalization';
 
 /**
  * In-memory {@link AdminAccountRepository} for unit tests. Keyed by id; `save`
  * clones so callers cannot mutate stored state. `all()` is a test-only helper.
+ * `findByUsername` matches via {@link normalizeUsername} (SOU-153), mirroring
+ * the SQLite adapter's normalized-column lookup.
  */
 export class InMemoryAdminAccountRepository implements AdminAccountRepository {
   private readonly rows = new Map<AdminAccountId, AdminAccount>();
@@ -13,8 +16,9 @@ export class InMemoryAdminAccountRepository implements AdminAccountRepository {
   }
 
   async findByUsername(username: string): Promise<AdminAccount | null> {
+    const target = normalizeUsername(username);
     for (const account of this.rows.values()) {
-      if (account.username === username) return structuredClone(account);
+      if (normalizeUsername(account.username) === target) return structuredClone(account);
     }
     return null;
   }

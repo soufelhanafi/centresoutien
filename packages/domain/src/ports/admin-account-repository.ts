@@ -9,6 +9,11 @@ import type { AdminAccount } from '../entities/admin-account';
 export interface AdminAccountRepository {
   /** True when any admin account is present (drives first-run detection). */
   exists(): Promise<boolean>;
+  /**
+   * Case-insensitive lookup (SOU-153): implementations must match `username`
+   * against the stored account after {@link normalizeUsername}, not by exact
+   * string equality, so login succeeds regardless of casing typed.
+   */
   findByUsername(username: string): Promise<AdminAccount | null>;
   /**
    * The sole admin account (single-admin app). Backs password change, which has

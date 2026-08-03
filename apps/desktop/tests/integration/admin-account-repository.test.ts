@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Database as DB } from 'better-sqlite3';
 import type { AdminAccount, AdminAccountId } from '@centresoutien/domain';
+import { normalizeUsername } from '@centresoutien/domain';
 import { openDatabase } from '../../src/data/sqlite/db';
-import { runMigrations } from '../../src/data/sqlite/migration-runner';
+import { applyMigrations, loadMigrations, runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteAdminAccountRepository } from '../../src/data/sqlite/repositories/admin-account-repository';
 
 const KEY = 'passphrase-under-test';
@@ -50,6 +51,19 @@ describe('SqliteAdminAccountRepository', () => {
     expect(await repo.findByUsername('ghost')).toBeNull();
   });
 
+  it('findByUsername matches regardless of casing (SOU-153)', async () => {
+    await repo.save(makeAccount({ username: 'Directrice' }));
+    expect(await repo.findByUsername('directrice')).not.toBeNull();
+    expect(await repo.findByUsername('DIRECTRICE')).not.toBeNull();
+    expect(await repo.findByUsername('  DiREctrice  ')).not.toBeNull();
+  });
+
+  it('preserves the display username as typed while matching case-insensitively (SOU-153)', async () => {
+    await repo.save(makeAccount({ username: 'Directrice' }));
+    const found = await repo.findByUsername('DIRECTRICE');
+    expect(found?.username).toBe('Directrice');
+  });
+
   it('exists reflects whether any account is present', async () => {
     expect(await repo.exists()).toBe(false);
     await repo.save(makeAccount());
@@ -88,6 +102,63 @@ describe('SqliteAdminAccountRepository', () => {
       await expect(
         repo.save(makeAccount({ id: 'adm_00000000000000000000000002' as AdminAccountId })),
       ).rejects.toThrow();
+    });
+
+    it('rejects a duplicate username that only differs by casing (unique normalized index, SOU-153)', async () => {
+      await repo.save(makeAccount({ username: 'Directrice' }));
+      await expect(
+        repo.save(
+          makeAccount({
+            id: 'adm_00000000000000000000000002' as AdminAccountId,
+            username: 'DIRECTRICE',
+          }),
+        ),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('migration 0031 backfill (SOU-153)', () => {
+    it('backfills username_normalized to match normalizeUsername for a pre-existing non-ASCII username', async () => {
+      // Separate temp DB (the shared `dir`/`db` from beforeEach is already
+      // migrated to head) so we can apply migrations up to 0030 only, seed a
+      // pre-SOU-153 row by hand, then run 0031 and inspect the backfill. Guards
+      // against SQL's ASCII-only LOWER() silently diverging from the domain's
+      // Unicode-aware normalizeUsername for an existing accented username.
+      const preDir = mkdtempSync(join(tmpdir(), 'cs-admin-pre31-'));
+      const migrations = loadMigrations(REAL_MIGRATIONS);
+      const upTo30 = migrations.filter((m) => m.version <= 30);
+      const only31 = migrations.filter((m) => m.version === 31);
+
+      const preDb = openDatabase({ centreId: 'C1', key: KEY, dir: preDir });
+      applyMigrations(preDb, upTo30);
+
+      const rawUsername = 'Étudiante';
+      preDb
+        .prepare(
+          `INSERT INTO admin_accounts (id, username, password_hash, created_at, updated_at)
+           VALUES (@id, @username, @password_hash, @created_at, @updated_at)`,
+        )
+        .run({
+          id: 'adm_00000000000000000000000003',
+          username: rawUsername,
+          password_hash: '$argon2id$v=19$m=19456,t=2,p=1$abc$def',
+          created_at: AT.toISOString(),
+          updated_at: AT.toISOString(),
+        });
+
+      applyMigrations(preDb, only31);
+
+      const row = preDb
+        .prepare('SELECT username_normalized FROM admin_accounts WHERE id = ?')
+        .get('adm_00000000000000000000000003') as { username_normalized: string };
+
+      expect(row.username_normalized).toBe(normalizeUsername(rawUsername));
+
+      const preRepo = new SqliteAdminAccountRepository(preDb);
+      expect(await preRepo.findByUsername('  ÉTUDIANTE ')).not.toBeNull();
+
+      preDb.close();
+      rmSync(preDir, { recursive: true, force: true });
     });
   });
 });
