@@ -1197,6 +1197,7 @@
       "holidays": "Vacances",
       "password": "Mot de passe",
       "language": "Langue",
+      "appearance": "Apparence",
       "plan": "Formule",
       "backup": "Sauvegarde"
     },
@@ -1243,6 +1244,13 @@
       "fr": "Français",
       "ar": "العربية",
       "error": "La mise à jour a échoué. Réessayez."
+    },
+    "appearance": {
+      "title": "Apparence",
+      "subtitle": "Le thème de l'application sur cet ordinateur.",
+      "light": "Clair",
+      "dark": "Sombre",
+      "system": "Système"
     },
     "plan": {
       "title": "Votre formule",
