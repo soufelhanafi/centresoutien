@@ -50,6 +50,13 @@ describe('SqliteAdminAccountRepository', () => {
     expect(await repo.findByUsername('ghost')).toBeNull();
   });
 
+  it('findByUsername matches regardless of casing (SOU-153)', async () => {
+    await repo.save(makeAccount({ username: 'Directrice' }));
+    expect(await repo.findByUsername('directrice')).not.toBeNull();
+    expect(await repo.findByUsername('DIRECTRICE')).not.toBeNull();
+    expect(await repo.findByUsername('  DiREctrice  ')).not.toBeNull();
+  });
+
   it('exists reflects whether any account is present', async () => {
     expect(await repo.exists()).toBe(false);
     await repo.save(makeAccount());
@@ -87,6 +94,18 @@ describe('SqliteAdminAccountRepository', () => {
       await repo.save(makeAccount());
       await expect(
         repo.save(makeAccount({ id: 'adm_00000000000000000000000002' as AdminAccountId })),
+      ).rejects.toThrow();
+    });
+
+    it('rejects a duplicate username that only differs by casing (unique normalized index, SOU-153)', async () => {
+      await repo.save(makeAccount({ username: 'Directrice' }));
+      await expect(
+        repo.save(
+          makeAccount({
+            id: 'adm_00000000000000000000000002' as AdminAccountId,
+            username: 'DIRECTRICE',
+          }),
+        ),
       ).rejects.toThrow();
     });
   });
