@@ -38,6 +38,13 @@ export function formatMoneyMad(amountCentimes: number, locale: string): string {
   );
 }
 
+/** Formats a `YYYY-MM` month as a short label for chart axes ("juil."). */
+export function formatMonthShort(value: string, locale: string): string {
+  const date = new Date(`${value}-01T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(bcp47(locale), { month: 'short' }).format(date);
+}
+
 /** Formats percentage points (e.g. `30` for 30%) via `Intl.NumberFormat`, not a 0..1 fraction. */
 export function formatPercent(percent: number, locale: string): string {
   return new Intl.NumberFormat(bcp47(locale), { style: 'percent', maximumFractionDigits: 2 }).format(
