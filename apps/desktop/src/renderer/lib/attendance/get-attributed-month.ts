@@ -1,5 +1,3 @@
-const MONTH_NAMES = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-
 /** Current calendar month in `YYYY-MM` format — the attendance tab's default. */
 export function getAttributedMonth(): string {
   const now = new Date();
@@ -19,10 +17,4 @@ export function getRecentMonths(count: number): string[] {
     months.push(`${year}-${month}`);
   }
   return months;
-}
-
-/** Human-readable month label for a `YYYY-MM` string (e.g. "Aoû 2026"). */
-export function monthLabel(month: string): string {
-  const [year, m] = month.split('-') as [string, string];
-  return `${MONTH_NAMES[Number(m) - 1]} ${year}`;
 }

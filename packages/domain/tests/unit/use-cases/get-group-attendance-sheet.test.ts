@@ -12,6 +12,8 @@ import { InMemoryAttendanceRepository } from '../fakes/in-memory-attendance-repo
 const GROUP = 'grp_00000000000000000000000001' as GroupId;
 const STUDENT_A = 'stu_00000000000000000000000001' as StudentId;
 const STUDENT_B = 'stu_00000000000000000000000002' as StudentId;
+const NAME_A = { fr: 'Alice', ar: 'أليس' };
+const NAME_B = { fr: 'Bob', ar: 'بوب' };
 
 function session(day: number): string {
   return `ses_${String(day).padStart(26, '0')}`;
@@ -35,9 +37,9 @@ describe('GetGroupAttendanceSheet (SOU-108)', () => {
         { sessionId: session(2) as SessionId, date: '2026-08-02' },
       ],
       cells: [
-        { studentId: STUDENT_A, sessionId: session(9) as SessionId, date: '2026-08-09', status: 'absent' },
-        { studentId: STUDENT_B, sessionId: session(9) as SessionId, date: '2026-08-09', status: 'present' },
-        { studentId: STUDENT_A, sessionId: session(2) as SessionId, date: '2026-08-02', status: 'present' },
+        { studentId: STUDENT_A, studentName: NAME_A, sessionId: session(9) as SessionId, date: '2026-08-09', status: 'absent' },
+        { studentId: STUDENT_B, studentName: NAME_B, sessionId: session(9) as SessionId, date: '2026-08-09', status: 'present' },
+        { studentId: STUDENT_A, studentName: NAME_A, sessionId: session(2) as SessionId, date: '2026-08-02', status: 'present' },
       ],
     };
     attendance.setGroupSheet(GROUP, data);
@@ -48,9 +50,11 @@ describe('GetGroupAttendanceSheet (SOU-108)', () => {
     expect(result.sessions.map((s) => s.date)).toEqual(['2026-08-02', '2026-08-09']);
 
     // STUDENT_A has a record in both sessions; STUDENT_B only in the second.
-    const byStudent = new Map(result.students.map((row) => [row.studentId, row.cells]));
-    expect(byStudent.get(STUDENT_A)).toEqual(['present', 'absent']);
-    expect(byStudent.get(STUDENT_B)).toEqual([null, 'present']);
+    const byStudent = new Map(result.students.map((row) => [row.studentId, row]));
+    expect(byStudent.get(STUDENT_A)?.name).toEqual(NAME_A);
+    expect(byStudent.get(STUDENT_A)?.cells).toEqual(['present', 'absent']);
+    expect(byStudent.get(STUDENT_B)?.name).toEqual(NAME_B);
+    expect(byStudent.get(STUDENT_B)?.cells).toEqual([null, 'present']);
   });
 
   it('returns empty sessions and students for a group with no records in the month', async () => {

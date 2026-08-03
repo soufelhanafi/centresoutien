@@ -1167,6 +1167,7 @@ export const ipcContract = {
           sessionId: z.string(),
           date: z.string(),
           groupId: z.string().nullable(),
+          groupName: z.object({ fr: z.string(), ar: z.string() }).nullable(),
           status: z.enum(['present', 'absent', 'excused', 'late']),
           note: z.string().nullable(),
         }),
@@ -1187,6 +1188,7 @@ export const ipcContract = {
       students: z.array(
         z.object({
           studentId: z.string(),
+          name: z.object({ fr: z.string(), ar: z.string() }),
           cells: z.array(z.enum(['present', 'absent', 'excused', 'late']).nullable()),
         }),
       ),

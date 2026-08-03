@@ -37,14 +37,17 @@ export class GetGroupAttendanceSheet {
       (a, b) => a.date.localeCompare(b.date) || a.sessionId.localeCompare(b.sessionId),
     );
     const statusBySessionStudent = new Map<string, AttendanceStatus>();
+    const nameByStudent = new Map<string, { readonly fr: string; readonly ar: string }>();
     for (const cell of data.cells) {
       statusBySessionStudent.set(`${cell.sessionId}:${cell.studentId}`, cell.status);
+      if (!nameByStudent.has(cell.studentId)) nameByStudent.set(cell.studentId, cell.studentName);
     }
 
     const studentIds = [...new Set(data.cells.map((cell) => cell.studentId))] as StudentId[];
 
     const students = studentIds.map((studentId) => ({
       studentId,
+      name: nameByStudent.get(studentId)!,
       cells: sessions.map(
         (session) => statusBySessionStudent.get(`${session.sessionId}:${studentId}`) ?? null,
       ),

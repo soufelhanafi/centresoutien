@@ -17,8 +17,9 @@ export type AttendanceSummary = Readonly<Record<AttendanceStatus, number>>;
  */
 export type StudentAttendanceReading = {
   readonly sessionId: SessionId;
-  readonly date: string; // strict 'YYYY-MM-DD'
+  readonly date: string;
   readonly groupId: GroupId | null;
+  readonly groupName: { readonly fr: string; readonly ar: string } | null;
   readonly status: AttendanceStatus;
   readonly note: string | null;
 };
@@ -26,6 +27,7 @@ export type StudentAttendanceReading = {
 /** One (student, session, status) cell of a per-group sheet (SOU-108). */
 export type GroupAttendanceCellReading = {
   readonly studentId: StudentId;
+  readonly studentName: { readonly fr: string; readonly ar: string };
   readonly sessionId: SessionId;
   readonly date: string;
   readonly status: AttendanceStatus;

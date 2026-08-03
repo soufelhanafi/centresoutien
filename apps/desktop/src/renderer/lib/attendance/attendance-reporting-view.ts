@@ -4,6 +4,7 @@ export type StudentAttendanceRow = {
   readonly sessionId: string;
   readonly date: string;
   readonly groupId: string | null;
+  readonly groupName: { readonly fr: string; readonly ar: string } | null;
   readonly status: AttendanceStatus;
   readonly note: string | null;
 };
@@ -28,6 +29,7 @@ export type GroupAttendanceSheetView = {
   readonly sessions: readonly { readonly sessionId: string; readonly date: string }[];
   readonly students: readonly {
     readonly studentId: string;
+    readonly name: { readonly fr: string; readonly ar: string };
     readonly cells: ReadonlyArray<AttendanceStatus | null>;
   }[];
 };

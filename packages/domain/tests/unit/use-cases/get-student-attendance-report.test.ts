@@ -13,11 +13,15 @@ const STUDENT = 'stu_00000000000000000000000001' as StudentId;
 const GROUP_A = 'grp_00000000000000000000000001' as GroupId;
 const GROUP_B = 'grp_00000000000000000000000002' as GroupId;
 
+const GROUP_A_NAME = { fr: 'Mathématiques', ar: 'رياضيات' };
+const GROUP_B_NAME = { fr: 'Physique', ar: 'فيزياء' };
+
 function reading(day: number, groupId: GroupId | null, status: 'present' | 'absent' | 'excused' | 'late'): StudentAttendanceReading {
   return {
     sessionId: `ses_${String(day).padStart(26, '0')}` as SessionId,
     date: `2026-08-${String(day).padStart(2, '0')}`,
     groupId,
+    groupName: groupId === GROUP_A ? GROUP_A_NAME : groupId === GROUP_B ? GROUP_B_NAME : null,
     status,
     note: null,
   };

@@ -4,14 +4,10 @@ import { Printer, AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, EmptyState, ErrorState, Skeleton, Numeric } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
 import { useGroupAttendanceSheet } from '../../hooks/attendance/use-group-attendance-sheet';
-import { getAttributedMonth } from '../../lib/attendance/get-attributed-month';
+import { getRecentMonths, getAttributedMonth } from '../../lib/attendance/get-attributed-month';
+import { formatDate, formatMonthShort } from '../../lib/format';
 import type { GroupRow } from '../../lib/groups/group-view';
 import type { AttendanceStatus } from '@centresoutien/domain';
-
-function monthLabel(month: string): string {
-  const [year, m] = month.split('-') as [string, string];
-  return `${['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'][Number(m) - 1]} ${year}`;
-}
 
 function StatusCell({ status }: { status: AttendanceStatus | null }) {
   const { t } = useTranslation();
@@ -30,8 +26,7 @@ function StatusCell({ status }: { status: AttendanceStatus | null }) {
   );
 }
 
-/** Printable per-group attendance matrix (SOU-108): sessions × students grid. */
-function Content({ groupId, month }: { groupId: string; month: string }) {
+function Content({ groupId, month, locale }: { groupId: string; month: string; locale: string }) {
   const { t } = useTranslation();
   const query = useGroupAttendanceSheet(groupId, month);
 
@@ -76,7 +71,7 @@ function Content({ groupId, month }: { groupId: string; month: string }) {
             </th>
             {sessions.map((session) => (
               <th key={session.sessionId} className="whitespace-nowrap px-2 py-1.5 text-center font-semibold text-muted-foreground">
-                <div>{session.date}</div>
+                <div>{formatDate(session.date, locale)}</div>
               </th>
             ))}
           </tr>
@@ -85,10 +80,10 @@ function Content({ groupId, month }: { groupId: string; month: string }) {
           {students.map((student) => (
             <tr key={student.studentId} className="hover:bg-muted/20 transition-colors">
               <td className="sticky start-0 bg-card px-2 py-1.5 font-medium text-foreground">
-                {student.studentId.slice(0, 8)}
+                {student.name.fr}
               </td>
-              {student.cells.map((status, idx) => (
-                <td key={idx} className="px-2 py-1.5 text-center">
+              {student.cells.map((status, colIdx) => (
+                <td key={`${student.studentId}-${sessions[colIdx]?.sessionId ?? colIdx}`} className="px-2 py-1.5 text-center">
                   <StatusCell status={status} />
                 </td>
               ))}
@@ -98,12 +93,9 @@ function Content({ groupId, month }: { groupId: string; month: string }) {
             <td className="sticky start-0 bg-muted/30 px-2 py-1.5 text-foreground">
               {t('attendance.groupSheet.presentCount')}
             </td>
-            {sessions.map((session) => {
+            {sessions.map((session, sessionIdx) => {
               const count = students.reduce(
-                (sum, student) => {
-                  const idx = sessions.findIndex((s) => s.sessionId === session.sessionId);
-                  return sum + (student.cells[idx] === 'present' ? 1 : 0);
-                },
+                (sum, student) => sum + (student.cells[sessionIdx] === 'present' ? 1 : 0),
                 0,
               );
               return (
@@ -119,11 +111,6 @@ function Content({ groupId, month }: { groupId: string; month: string }) {
   );
 }
 
-/**
- * The printable per-group monthly attendance sheet (SOU-108). Opens as a dialog
- * triggered from the group detail header's "Attendance sheet" button. Sessions
- * are columns, students are rows, cells = status letter.
- */
 export function GroupAttendanceSheetDialog({
   group,
   open,
@@ -133,24 +120,16 @@ export function GroupAttendanceSheetDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const canView = useFeature('core.attendance');
   const [selectedMonth, setSelectedMonth] = useState(() => getAttributedMonth());
-
-  const months: string[] = [];
-  const now = new Date();
-  for (let i = 5; i >= 0; i -= 1) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    months.push(`${year}-${month}`);
-  }
+  const months = getRecentMonths(6);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>{t('attendance.groupSheet.title')}</DialogTitle>
+          <DialogTitle>{t('attendance.groupSheet.title', { name: group.subjectName.fr })}</DialogTitle>
         </DialogHeader>
 
         {!canView && (
@@ -174,7 +153,7 @@ export function GroupAttendanceSheetDialog({
                 >
                   {months.map((month) => (
                     <option key={month} value={month}>
-                      {monthLabel(month)}
+                      {formatMonthShort(month, i18n.language)}
                     </option>
                   ))}
                 </select>
@@ -186,7 +165,7 @@ export function GroupAttendanceSheetDialog({
               </Button>
             </div>
 
-            <Content groupId={group.id} month={selectedMonth} />
+            <Content groupId={group.id} month={selectedMonth} locale={i18n.language} />
           </div>
         )}
       </DialogContent>

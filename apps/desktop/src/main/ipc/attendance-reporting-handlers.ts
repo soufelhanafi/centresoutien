@@ -1,7 +1,6 @@
 import type {
   GetStudentAttendanceReport,
   GetGroupAttendanceSheet,
-  CenterCode,
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 
@@ -11,16 +10,8 @@ export type GetGroupAttendanceSheetUseCase = Pick<GetGroupAttendanceSheet, 'exec
 export type AttendanceReportingHandlerDeps = {
   getStudentAttendanceReport: GetStudentAttendanceReportUseCase;
   getGroupAttendanceSheet: GetGroupAttendanceSheetUseCase;
-  centerCode: () => CenterCode;
 };
 
-/**
- * Attendance reporting read handlers (SOU-108) — the per-student history +
- * absence-summary tab and the printable per-group attendance sheet. Both are
- * read-model reads, no side effects, gated by `core.attendance` (base tier)
- * in the domain use case; a locked plan throws `PlanFeatureUnavailableError`
- * handled by the shared IPC error mapping.
- */
 export function createAttendanceReportingHandlers(
   deps: AttendanceReportingHandlerDeps,
 ): Pick<IpcHandlers, 'attendance.studentReport' | 'attendance.groupSheet'> {
@@ -37,6 +28,7 @@ export function createAttendanceReportingHandlers(
           sessionId: row.sessionId,
           date: row.date,
           groupId: row.groupId,
+          groupName: row.groupName,
           status: row.status,
           note: row.note,
         })),
@@ -66,6 +58,7 @@ export function createAttendanceReportingHandlers(
         })),
         students: sheet.students.map((student) => ({
           studentId: student.studentId,
+          name: { fr: student.name.fr, ar: student.name.ar },
           cells: [...student.cells],
         })),
       };

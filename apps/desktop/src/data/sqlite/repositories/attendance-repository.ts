@@ -196,9 +196,12 @@ export class SqliteAttendanceRepository implements AttendanceRepository {
     const rows = this.db
       .prepare(
         `SELECT s.id AS session_id, s.date AS date, s.group_id AS group_id,
-                ar.status AS status, ar.note AS note
+                ar.status AS status, ar.note AS note,
+                sub.name_fr AS group_name_fr, sub.name_ar AS group_name_ar
            FROM attendance_records ar
            JOIN sessions s ON s.id = ar.session_id
+           LEFT JOIN groups g ON g.id = s.group_id AND g.deleted_at IS NULL
+           LEFT JOIN subjects sub ON sub.id = g.subject_id AND sub.deleted_at IS NULL
           WHERE ar.student_id = ?
             AND ar.deleted_at IS NULL
             AND s.deleted_at IS NULL
@@ -211,12 +214,18 @@ export class SqliteAttendanceRepository implements AttendanceRepository {
       group_id: string | null;
       status: string;
       note: string | null;
+      group_name_fr: string | null;
+      group_name_ar: string | null;
     }[];
 
     return rows.map((row) => ({
       sessionId: row.session_id as SessionId,
       date: row.date,
       groupId: row.group_id as GroupId | null,
+      groupName:
+        row.group_name_fr && row.group_name_ar
+          ? { fr: row.group_name_fr, ar: row.group_name_ar }
+          : null,
       status: row.status as AttendanceStatus,
       note: row.note,
     }));
@@ -237,9 +246,11 @@ export class SqliteAttendanceRepository implements AttendanceRepository {
     const cells = this.db
       .prepare(
         `SELECT ar.student_id AS student_id, ar.session_id AS session_id,
-                ar.status AS status, s.date AS date
+                ar.status AS status, s.date AS date,
+                stu.name_fr AS student_name_fr, stu.name_ar AS student_name_ar
            FROM attendance_records ar
            JOIN sessions s ON s.id = ar.session_id
+           LEFT JOIN students stu ON stu.id = ar.student_id AND stu.deleted_at IS NULL
           WHERE s.group_id = ?
             AND ar.deleted_at IS NULL
             AND s.deleted_at IS NULL
@@ -251,6 +262,8 @@ export class SqliteAttendanceRepository implements AttendanceRepository {
       session_id: string;
       status: string;
       date: string;
+      student_name_fr: string;
+      student_name_ar: string;
     }[];
 
     return {
@@ -260,6 +273,7 @@ export class SqliteAttendanceRepository implements AttendanceRepository {
         sessionId: row.session_id as SessionId,
         date: row.date,
         status: row.status as AttendanceStatus,
+        studentName: { fr: row.student_name_fr, ar: row.student_name_ar },
       })),
     };
   }

@@ -20,8 +20,9 @@ import type { StudentId } from '../entities/student';
  */
 export type StudentAttendanceRow = {
   readonly sessionId: SessionId;
-  readonly date: string; // strict 'YYYY-MM-DD'
+  readonly date: string;
   readonly groupId: GroupId | null;
+  readonly groupName: { readonly fr: string; readonly ar: string } | null;
   readonly status: AttendanceStatus;
   readonly note: string | null;
 };
@@ -69,6 +70,7 @@ export type GroupAttendanceSheet = {
   readonly sessions: readonly { readonly sessionId: SessionId; readonly date: string }[];
   readonly students: readonly {
     readonly studentId: StudentId;
+    readonly name: { readonly fr: string; readonly ar: string };
     readonly cells: ReadonlyArray<AttendanceStatus | null>;
   }[];
 };

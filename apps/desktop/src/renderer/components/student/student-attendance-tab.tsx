@@ -5,7 +5,8 @@ import { Badge, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { StudentView } from '../../lib/students/student-view';
 import { useStudentAttendanceReport } from '../../hooks/attendance/use-student-attendance-report';
 import { useFeature } from '../../hooks/use-feature';
-import { getAttributedMonth, getRecentMonths, monthLabel } from '../../lib/attendance/get-attributed-month';
+import { getAttributedMonth, getRecentMonths } from '../../lib/attendance/get-attributed-month';
+import { formatMonthShort, formatDate } from '../../lib/format';
 import { AttendanceSummaryCard } from '../attendance/attendance-summary-card';
 
 function StatusBadge({ status }: { status: 'present' | 'absent' | 'excused' | 'late' }) {
@@ -29,7 +30,7 @@ function StatusBadge({ status }: { status: 'present' | 'absent' | 'excused' | 'l
  * placeholder. Fetches all groups for the month; group filtering is client-side.
  */
 export function StudentAttendanceTab({ student }: { student: StudentView }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const canView = useFeature('core.attendance');
   const [selectedMonth, setSelectedMonth] = useState(() => getAttributedMonth());
   const [selectedGroup, setSelectedGroup] = useState<string | undefined>(undefined);
@@ -37,7 +38,13 @@ export function StudentAttendanceTab({ student }: { student: StudentView }) {
 
   const groupIds = useMemo(() => {
     if (!query.isSuccess) return [];
-    return [...new Set(query.data.history.map((row) => row.groupId).filter(Boolean))] as string[];
+    const seen = new Map<string, { fr: string; ar: string }>();
+    for (const row of query.data.history) {
+      if (row.groupId && row.groupName && !seen.has(row.groupId)) {
+        seen.set(row.groupId, row.groupName);
+      }
+    }
+    return [...seen.entries()];
   }, [query.data, query.isSuccess]);
 
   const filtered = useMemo(() => {
@@ -65,7 +72,7 @@ export function StudentAttendanceTab({ student }: { student: StudentView }) {
           >
             {getRecentMonths(6).map((month) => (
               <option key={month} value={month}>
-                {monthLabel(month)}
+                {formatMonthShort(month, i18n.language)}
               </option>
             ))}
           </select>
@@ -82,8 +89,8 @@ export function StudentAttendanceTab({ student }: { student: StudentView }) {
               onChange={(e) => setSelectedGroup(e.target.value || undefined)}
             >
               <option value="">{t('students.attendance.allGroups')}</option>
-              {groupIds.map((id) => (
-                <option key={id} value={id}>{id.slice(0, 8)}</option>
+              {groupIds.map(([id, name]) => (
+                <option key={id} value={id}>{name.fr}</option>
               ))}
             </select>
           </div>
@@ -171,7 +178,7 @@ export function StudentAttendanceTab({ student }: { student: StudentView }) {
               <tbody className="divide-y divide-border">
                 {filtered.map((row) => (
                   <tr key={row.sessionId} className="hover:bg-muted/30 transition-colors">
-                    <td className="ps-3 py-2 text-foreground">{row.date}</td>
+                    <td className="ps-3 py-2 text-foreground">{formatDate(row.date, i18n.language)}</td>
                     <td className="pe-3 py-2">
                       <StatusBadge status={row.status} />
                     </td>

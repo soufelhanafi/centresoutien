@@ -59,6 +59,7 @@ class IpcAttendanceGateway implements AttendanceGateway {
         sessionId: row.sessionId,
         date: row.date,
         groupId: row.groupId,
+        groupName: row.groupName,
         status: row.status,
         note: row.note,
       })),
@@ -86,6 +87,7 @@ class IpcAttendanceGateway implements AttendanceGateway {
       })),
       students: sheet.students.map((student) => ({
         studentId: student.studentId,
+        name: { fr: student.name.fr, ar: student.name.ar },
         cells: [...student.cells],
       })),
     };
