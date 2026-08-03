@@ -22,8 +22,10 @@ function parts(date: string): { year: number; month: number; day: number } {
   };
 }
 
-/** Days in a Gregorian month (`month` is 1–12) — pure, leap-year-aware. */
-function daysInMonth(year: number, month: number): number {
+/** Days in a Gregorian month (`month` is 1–12) — pure, leap-year-aware. Exported
+ *  so `value-objects/month.ts` can compute a calendar month's last day without
+ *  duplicating the leap-year rule. */
+export function daysInMonth(year: number, month: number): number {
   const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
   const lengths = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   return lengths[month - 1] ?? 0;
