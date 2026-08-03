@@ -124,6 +124,8 @@ export { LockOverlay } from '@ui/components/feedback/lock-overlay';
 export type { LockOverlayProps } from '@ui/components/feedback/lock-overlay';
 export { EmptyState } from '@ui/components/feedback/empty-state';
 export type { EmptyStateProps } from '@ui/components/feedback/empty-state';
+export { ErrorState } from '@ui/components/feedback/error-state';
+export type { ErrorStateProps } from '@ui/components/feedback/error-state';
 export {
   DataTable,
   DataTableRow,
