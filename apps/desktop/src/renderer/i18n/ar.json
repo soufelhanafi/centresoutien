@@ -175,7 +175,10 @@
     "teacher-payroll-rule-not-found": "قاعدة الأجر هذه غير موجودة.",
     "teacher-not-found": "هذا الأستاذ غير موجود.",
     "teacher-payout-not-found": "هذا الاستحقاق غير موجود.",
-    "teacher-payout-already-paid": "تم تعليم هذا الاستحقاق كمدفوع بالفعل."
+    "teacher-payout-already-paid": "تم تعليم هذا الاستحقاق كمدفوع بالفعل.",
+    "too-many-active-subscriptions": "هذا التلميذ لديه بالفعل اشتراك نشط من هذا النوع خلال هذه الفترة.",
+    "student-subscription-not-found": "هذا الاشتراك غير موجود.",
+    "student-not-found": "هذا التلميذ غير موجود."
   },
   "groups": {
     "title": "المجموعات",
@@ -802,9 +805,8 @@
         "confirm": "تأكيد",
         "confirming": "جارٍ الحفظ…",
         "success": "تم تحديث الاشتراك",
-        "closeError": "فشل إنهاء الاشتراك. حاول مجددًا.",
-        "createError": "فشل الاشتراك. حاول مجددًا.",
-        "createAfterCloseError": "تم إنهاء الاشتراك السابق، لكن الاشتراك الجديد فشل. أعد المحاولة من هذا التبويب."
+        "replaceError": "فشل تغيير الصيغة. حاول مجددًا.",
+        "createError": "فشل الاشتراك. حاول مجددًا."
       }
     },
     "comingSoon": {

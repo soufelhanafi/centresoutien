@@ -175,7 +175,10 @@
     "teacher-payroll-rule-not-found": "Cette règle de paie est introuvable.",
     "teacher-not-found": "Cet enseignant est introuvable.",
     "teacher-payout-not-found": "Ce versement est introuvable.",
-    "teacher-payout-already-paid": "Ce versement est déjà marqué payé."
+    "teacher-payout-already-paid": "Ce versement est déjà marqué payé.",
+    "too-many-active-subscriptions": "Cet élève a déjà un abonnement actif de ce type sur cette période.",
+    "student-subscription-not-found": "Cet abonnement est introuvable.",
+    "student-not-found": "Cet élève est introuvable."
   },
   "groups": {
     "title": "Groupes",
@@ -775,9 +778,8 @@
         "confirm": "Confirmer",
         "confirming": "Enregistrement…",
         "success": "Abonnement mis à jour",
-        "closeError": "La clôture de l'abonnement a échoué. Réessayez.",
-        "createError": "La souscription a échoué. Réessayez.",
-        "createAfterCloseError": "L'abonnement précédent a été clôturé, mais la nouvelle souscription a échoué. Réessayez depuis cet onglet."
+        "replaceError": "Le changement de formule a échoué. Réessayez.",
+        "createError": "La souscription a échoué. Réessayez."
       }
     },
     "comingSoon": {

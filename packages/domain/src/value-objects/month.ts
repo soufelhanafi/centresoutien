@@ -52,3 +52,15 @@ export function monthsBetween(fromMonth: string, toMonth: string): number {
   const b = parts(toMonth);
   return b.year * 12 + (b.month - 1) - (a.year * 12 + (a.month - 1));
 }
+
+/** The `YYYY-MM` one month before `month` — the month a close caps at when a
+ * replacement starts on `month` (close-and-reopen, CLAUDE.md §6/§7). Pure
+ * absolute-month-index arithmetic so year rollover (e.g. `2026-01` → `2025-12`)
+ * is correct, mirroring `monthsEndingAt`/`monthsBetween`. */
+export function previousMonth(month: string): string {
+  const { year, month: m } = parts(month);
+  const index = year * 12 + (m - 1) - 1;
+  const y = Math.floor(index / 12);
+  const mm = index - y * 12 + 1;
+  return format(y, mm);
+}

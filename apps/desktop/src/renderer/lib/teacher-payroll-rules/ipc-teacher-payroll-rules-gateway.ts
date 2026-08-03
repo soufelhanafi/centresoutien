@@ -20,6 +20,13 @@ class IpcTeacherPayrollRulesGateway implements TeacherPayrollRulesGateway {
     const { rule } = await window.api.invoke('teacherPayrollRule.close', { ruleId, endMonth });
     return rule;
   }
+
+  async replace(
+    input: TeacherPayrollRuleInput,
+    activeRuleId: string,
+  ): Promise<{ closed: TeacherPayrollRuleView; created: TeacherPayrollRuleView }> {
+    return window.api.invoke('teacherPayrollRule.replace', { ...input, activeRuleId });
+  }
 }
 
 export const ipcTeacherPayrollRulesGateway: TeacherPayrollRulesGateway = new IpcTeacherPayrollRulesGateway();

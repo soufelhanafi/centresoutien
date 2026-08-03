@@ -801,6 +801,13 @@ export const ipcContract = {
     request: z.object({ subscriptionId: z.string(), endMonth: closeStudentSubscriptionMonthSchema }),
     response: z.object({ subscription: subscriptionViewSchema }),
   },
+  'subscription.replace': {
+    request: studentSubscriptionInputSchema.extend({ activeSubscriptionId: z.string() }),
+    response: z.object({
+      closed: subscriptionViewSchema,
+      created: subscriptionViewSchema,
+    }),
+  },
   'subscription.list': {
     request: z.object({ studentId: z.string() }),
     response: z.object({ subscriptions: z.array(subscriptionViewSchema) }),
@@ -1032,6 +1039,13 @@ export const ipcContract = {
   'teacherPayrollRule.close': {
     request: z.object({ ruleId: z.string(), endMonth: closeTeacherPayrollRuleMonthSchema }),
     response: z.object({ rule: teacherPayrollRuleViewSchema }),
+  },
+  'teacherPayrollRule.replace': {
+    request: teacherPayrollRuleInputSchema.and(z.object({ activeRuleId: z.string() })),
+    response: z.object({
+      closed: teacherPayrollRuleViewSchema,
+      created: teacherPayrollRuleViewSchema,
+    }),
   },
   'teacherPayrollRule.list': {
     request: z.object({ teacherId: z.string() }),
