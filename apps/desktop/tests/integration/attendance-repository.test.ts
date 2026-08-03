@@ -364,5 +364,26 @@ describe('SqliteAttendanceRepository', () => {
       expect(data.cells).toHaveLength(2);
       expect(data.cells.map((c) => c.studentId).sort()).toEqual([STUDENT_A, STUDENT_B].sort());
     });
+
+    it('sheetForGroup returns student name even when the student is soft-deleted', async () => {
+      const group = 'grp_00000000000000000000000009' as GroupId;
+      const session = await makeSession('2026-01-08', group);
+
+      const now = '2026-01-01T10:00:00Z';
+      db.prepare(
+        `INSERT INTO students (id, center_code, device_origin, created_at, updated_at, updated_by,
+           version, natural_key, name_fr, name_ar, birth_date, level, guardian_ids)
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'Yassine', 'ياسين', '2010-05-01', '2BAC', '[]')`,
+      ).run(STUDENT_A, CENTER, DEVICE, now, now, USER, `${CENTER}::yassine::2010-05-01`);
+
+      await repo.save(makeAttendance({ sessionId: session, studentId: STUDENT_A, status: 'present' }));
+
+      db.prepare('UPDATE students SET deleted_at = ? WHERE id = ?').run(now, STUDENT_A);
+
+      const data = await repo.sheetForGroup(group, { start: '2026-01-01', end: '2026-01-31' });
+
+      expect(data.cells).toHaveLength(1);
+      expect(data.cells[0]?.studentName).toEqual({ fr: 'Yassine', ar: 'ياسين' });
+    });
   });
 });

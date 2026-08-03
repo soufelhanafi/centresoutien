@@ -6,6 +6,7 @@ import { useFeature } from '../../hooks/use-feature';
 import { useGroupAttendanceSheet } from '../../hooks/attendance/use-group-attendance-sheet';
 import { getRecentMonths, getAttributedMonth } from '../../lib/attendance/get-attributed-month';
 import { formatDate, formatMonthShort } from '../../lib/format';
+import { localizedName } from '../../lib/groups/localized-name';
 import type { GroupRow } from '../../lib/groups/group-view';
 import type { AttendanceStatus } from '@centresoutien/domain';
 
@@ -80,7 +81,7 @@ function Content({ groupId, month, locale }: { groupId: string; month: string; l
           {students.map((student) => (
             <tr key={student.studentId} className="hover:bg-muted/20 transition-colors">
               <td className="sticky start-0 bg-card px-2 py-1.5 font-medium text-foreground">
-                {student.name.fr}
+                {localizedName(student.name, locale)}
               </td>
               {student.cells.map((status, colIdx) => (
                 <td key={`${student.studentId}-${sessions[colIdx]?.sessionId ?? colIdx}`} className="px-2 py-1.5 text-center">

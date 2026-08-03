@@ -45,13 +45,16 @@ export class GetGroupAttendanceSheet {
 
     const studentIds = [...new Set(data.cells.map((cell) => cell.studentId))] as StudentId[];
 
-    const students = studentIds.map((studentId) => ({
-      studentId,
-      name: nameByStudent.get(studentId)!,
-      cells: sessions.map(
-        (session) => statusBySessionStudent.get(`${session.sessionId}:${studentId}`) ?? null,
-      ),
-    }));
+    const students = studentIds.map((studentId) => {
+      const name = nameByStudent.get(studentId) ?? { fr: studentId, ar: studentId };
+      return {
+        studentId,
+        name,
+        cells: sessions.map(
+          (session) => statusBySessionStudent.get(`${session.sessionId}:${studentId}`) ?? null,
+        ),
+      };
+    });
 
     return { groupId, sessions, students };
   }

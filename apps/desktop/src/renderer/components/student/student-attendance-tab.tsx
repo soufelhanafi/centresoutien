@@ -7,6 +7,7 @@ import { useStudentAttendanceReport } from '../../hooks/attendance/use-student-a
 import { useFeature } from '../../hooks/use-feature';
 import { getAttributedMonth, getRecentMonths } from '../../lib/attendance/get-attributed-month';
 import { formatMonthShort, formatDate } from '../../lib/format';
+import { localizedName } from '../../lib/groups/localized-name';
 import { AttendanceSummaryCard } from '../attendance/attendance-summary-card';
 
 function StatusBadge({ status }: { status: 'present' | 'absent' | 'excused' | 'late' }) {
@@ -90,7 +91,7 @@ export function StudentAttendanceTab({ student }: { student: StudentView }) {
             >
               <option value="">{t('students.attendance.allGroups')}</option>
               {groupIds.map(([id, name]) => (
-                <option key={id} value={id}>{name.fr}</option>
+                <option key={id} value={id}>{localizedName(name, i18n.language)}</option>
               ))}
             </select>
           </div>

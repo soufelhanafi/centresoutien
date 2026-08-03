@@ -250,7 +250,7 @@ export class SqliteAttendanceRepository implements AttendanceRepository {
                 stu.name_fr AS student_name_fr, stu.name_ar AS student_name_ar
            FROM attendance_records ar
            JOIN sessions s ON s.id = ar.session_id
-           LEFT JOIN students stu ON stu.id = ar.student_id AND stu.deleted_at IS NULL
+           LEFT JOIN students stu ON stu.id = ar.student_id
           WHERE s.group_id = ?
             AND ar.deleted_at IS NULL
             AND s.deleted_at IS NULL
