@@ -75,49 +75,40 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  visual:
-    # Golden-image baselines are platform-specific (font rendering, subpixel
-    # AA) and were generated on macOS — this job must run on the same
-    # platform the committed `*-darwin.png` baselines were captured on, or
-    # every screenshot assertion mismatches on first byte. See
-    # tests/visual/README.md "Updating baselines" before changing this.
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9.9.0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      # This suite renders the built renderer bundle in a plain Chromium page
-      # (no Electron, no native rebuild — see tests/visual/README.md), so it
-      # only needs the chromium browser binary. `--with-deps` is a Linux-only
-      # flag (apt system libraries) and doesn't apply on the macOS runner.
-      - name: Install Playwright chromium
-        run: pnpm --filter @centresoutien/desktop exec playwright install chromium
-
-      - name: Build desktop
-        run: pnpm --filter @centresoutien/desktop build
-
-      - name: Visual regression (light/dark x FR/AR key screens)
-        run: pnpm --filter @centresoutien/desktop test:visual
-
-      # On failure, keep the actual/expected/diff triptychs so a real visual
-      # regression (vs an intentional baseline update) can be told apart
-      # without re-running locally.
-      - name: Upload Playwright artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-visual-results
-          path: |
-            apps/desktop/tests/visual/test-results/
-          retention-days: 7
-          if-no-files-found: ignore
+  # visual job disabled — blocked on SOU-150 (baselines are macOS-only,
+  # `*-darwin.png`, no macos-latest runner available; must regenerate as
+  # `-linux.png` via Docker and retarget to ubuntu-latest before re-enabling).
+  # visual:
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - uses: pnpm/action-setup@v4
+  #       with:
+  #         version: 9.9.0
+  #
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version-file: .node-version
+  #         cache: pnpm
+  #
+  #     - run: pnpm install --frozen-lockfile
+  #
+  #     - name: Install Playwright chromium
+  #       run: pnpm --filter @centresoutien/desktop exec playwright install chromium
+  #
+  #     - name: Build desktop
+  #       run: pnpm --filter @centresoutien/desktop build
+  #
+  #     - name: Visual regression (light/dark x FR/AR key screens)
+  #       run: pnpm --filter @centresoutien/desktop test:visual
+  #
+  #     - name: Upload Playwright artifacts
+  #       if: failure()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: playwright-visual-results
+  #         path: |
+  #           apps/desktop/tests/visual/test-results/
+  #         retention-days: 7
+  #         if-no-files-found: ignore
