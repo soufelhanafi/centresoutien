@@ -13,9 +13,11 @@ export { ULID_REGEX, isUlid, hasIdPrefix } from './value-objects/ids';
 export type { PhoneNumber, PhoneRegion } from './value-objects/phone-number';
 export { normalizePhone, InvalidPhoneNumberError } from './value-objects/phone-number';
 export type { TimeOfDay } from './value-objects/time-of-day';
-export { TIME_OF_DAY_REGEX, isTimeOfDay, toMinutes } from './value-objects/time-of-day';
+export { TIME_OF_DAY_REGEX, isTimeOfDay, toMinutes, fromMinutes } from './value-objects/time-of-day';
 export type { WeekdayIndex } from './value-objects/weekday';
 export { WEEKDAYS, isWeekdayIndex } from './value-objects/weekday';
+export type { WeeklyBlock } from './value-objects/weekly-block';
+export { weeklyBlockFromOpen } from './value-objects/weekly-block';
 export type { DateRange } from './value-objects/date-range';
 export { weekdayOf, eachDateInRange, daysBetween } from './value-objects/date-range';
 export { monthsEndingAt, monthDateRange, monthsBetween, previousMonth } from './value-objects/month';
@@ -25,6 +27,7 @@ export { GUARDIAN_RELATIONS, isGuardianRelation } from './value-objects/guardian
 // Ports
 export type { Clock } from './ports/clock';
 export type { IdGenerator } from './ports/id-generator';
+export type { RandomPort } from './ports/random-port';
 
 // Entity base + envelope
 export type { EntityEnvelope, NewEnvelopeInput } from './entities/envelope';
@@ -114,6 +117,8 @@ export {
   SessionNotFoundError,
 } from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/scheduling-errors';
+export { InfeasibleGeneratorConfigError, NoRoomsConfiguredError } from './errors/session-generator-errors';
+export type { InfeasibleGeneratorReason } from './errors/session-generator-errors';
 
 // Input validation schemas (shared by forms via zodResolver and by use cases)
 export {
@@ -419,6 +424,17 @@ export type {
 // Domain services
 export { DeviceSessionService } from './services/device-session-service';
 export { MonthlyFeeAttributionService } from './services/monthly-fee-attribution-service';
+export { SessionGenerator, assignRoomsToBlocks } from './services/session-generator';
+export type {
+  SessionGeneratorConfig,
+  SessionGeneratorScope,
+  SessionGeneratorRange,
+  SessionGenerationInput,
+  SessionGeneratorResult,
+  GroupScheduleProposal,
+  ScheduledBlockProposal,
+  UnroomedBlock,
+} from './services/session-generator';
 
 // Policies
 export { SessionConflictPolicy } from './policies/session-conflict-policy';
@@ -437,6 +453,8 @@ export type {
 export { teacherTeachesSubject } from './policies/teacher-teaches-subject';
 export { holidayCoversDate, holidayOn } from './policies/holiday-policy';
 export type { HolidayOccurrence } from './policies/holiday-policy';
+export { circularWeekdayGaps, satisfiesMinGap, gapViolations } from './policies/weekday-gap';
+export type { WeekdayGap } from './policies/weekday-gap';
 export { detectSessionConflicts } from './policies/composite-session-conflicts';
 export type {
   ConflictSeverity,

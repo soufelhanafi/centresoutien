@@ -25,3 +25,20 @@ export function toMinutes(time: TimeOfDay): number {
   const minutes = Number(time.slice(3, 5));
   return hours * 60 + minutes;
 }
+
+/**
+ * The inverse of {@link toMinutes}: minutes-since-midnight back to a zero-padded
+ * `'HH:mm'` {@link TimeOfDay} (`540` → `'09:00'`). Used by the session generator
+ * to derive a block's `end` from its `start` plus a duration. `totalMinutes`
+ * must land inside a single day (`0..1439`); a value that would spill past
+ * midnight is a broken config the boundary schema is expected to reject, so it
+ * throws rather than silently wrapping or clamping.
+ */
+export function fromMinutes(totalMinutes: number): TimeOfDay {
+  if (!Number.isInteger(totalMinutes) || totalMinutes < 0 || totalMinutes > 1439) {
+    throw new RangeError(`Time of day out of range: ${totalMinutes} minutes is not within 00:00–23:59.`);
+  }
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}` as TimeOfDay;
+}
