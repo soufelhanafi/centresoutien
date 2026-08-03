@@ -87,6 +87,7 @@ export class VoidPayment {
       method: original.method,
       paidOn: now.toISOString().slice(0, 10), // reversal date, UTC 'YYYY-MM-DD'
       reversesPaymentId: originalId,
+      note: null, // voiding takes no note input (SOU-101 scope is RecordPayment only)
     };
 
     await this.payments.append(reversal);

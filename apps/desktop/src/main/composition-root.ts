@@ -93,6 +93,7 @@ import {
   ListTeacherPayouts,
   GetTeacherAttributionBreakdown,
   GeneratePayslipPdf,
+  GeneratePaymentReceiptPdf,
   RecordSessionAttendance,
 } from '@centresoutien/domain';
 import type {
@@ -136,6 +137,7 @@ import { SqliteBackupAdapter } from '../data/sqlite/repositories/backup-adapter'
 import { SqliteBackupConfigStore } from '../data/sqlite/repositories/backup-config-store';
 import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
+import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
@@ -478,6 +480,19 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
+  // Payment receipt PDF (SOU-101): renders a single ledger row (payment or
+  // reversal), reusing the invoice/payslip PDF adapters' font/layout setup.
+  const paymentReceiptPdfRenderer = new PdfLibPaymentReceiptRenderer();
+  const generatePaymentReceiptPdf = new GeneratePaymentReceiptPdf(
+    paymentRepo,
+    invoiceRepo,
+    getStudent,
+    getCenterProfile,
+    readCenterLogo,
+    paymentReceiptPdfRenderer,
+    plan,
+  );
+
   // Backup & restore (SOU-102). `options.key` is today's key-management
   // mechanism (CS_DB_KEY / dev fallback) — real per-center key derivation is a
   // separate future ticket; both the manual/scheduled snapshot path and the
@@ -612,6 +627,7 @@ export function buildContainer(options: ContainerOptions): Container {
     getTeacherAttributionBreakdown,
     currentUserId: () => context.updatedBy,
     generatePayslipPdf,
+    generatePaymentReceiptPdf,
     createHoliday,
     listHolidays,
     updateHoliday,

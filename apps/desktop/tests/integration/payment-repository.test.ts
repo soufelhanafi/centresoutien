@@ -65,6 +65,7 @@ function makePayment(over: Partial<Payment> & { kind?: PaymentKind } = {}): Paym
     method: 'cash',
     paidOn: '2026-08-05',
     reversesPaymentId: null,
+    note: null,
     ...over,
   };
 }
@@ -86,6 +87,12 @@ describe('SqlitePaymentRepository', () => {
     const found = await repo.findById(reversal.id);
     expect(found?.kind).toBe('reversal');
     expect(found?.reversesPaymentId).toBe(PAYMENT_A);
+  });
+
+  it('round-trips a payment carrying a note', async () => {
+    const payment = makePayment({ id: PAYMENT_A, note: 'chèque n°1234' });
+    await repo.append(payment);
+    expect((await repo.findById(PAYMENT_A))?.note).toBe('chèque n°1234');
   });
 
   it('findById returns null for an unknown id', async () => {

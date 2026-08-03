@@ -18,15 +18,31 @@ const invoiceRef = z
   .string()
   .refine((value) => hasIdPrefix(value, INVOICE_ID_PREFIX), { message: 'invalid-id' });
 
-const paymentRef = z
+/** A payment id's shape at any IPC/domain boundary — exported so callers outside this
+ * file (e.g. the receipt print/export IPC contract) validate the same way voiding does,
+ * instead of falling back to a bare `z.string()`. */
+export const paymentRef = z
   .string()
   .refine((value) => hasIdPrefix(value, PAYMENT_ID_PREFIX), { message: 'invalid-id' });
+
+/** SOU-101: cash-desk annotation, e.g. "chèque n°1234". Mirrors the CIN/email fields'
+ *  optional-collapses-to-null shape (`teacher.ts`) — blank, `null`, or omitted all
+ *  collapse to `null`; `null` is accepted as input for idempotent re-validation. */
+const PAYMENT_NOTE_MAX = 500;
+const noteField = z
+  .string()
+  .trim()
+  .max(PAYMENT_NOTE_MAX, { message: 'too-long' })
+  .transform((v) => (v === '' ? null : v))
+  .nullable();
 
 /**
  * Recording a payment against an invoice. `amountMad` is **positive** integer centimes:
  * a 0 payment is meaningless, and reversals are never recorded through this schema
  * (they are appended by `VoidPayment`). Whether a below-balance amount is allowed is a
- * plan gate (`core.invoicing.partial-paid`, Pro+), enforced in the use case — not here.
+ * plan gate (`core.invoicing.partial-paid`, Pro+); whether it exceeds the balance at
+ * all (`PaymentExceedsBalanceError`) is a hard block — both enforced in the use case,
+ * not here.
  */
 export const recordPaymentSchema = z.object({
   invoiceId: invoiceRef,
@@ -37,6 +53,7 @@ export const recordPaymentSchema = z.object({
   method: z.enum(PAYMENT_METHODS, { error: 'invalid-method' }),
   // The business date the money changed hands, a real 'YYYY-MM-DD' calendar date.
   paidOn: z.string().trim().refine(isCalendarDate, { message: 'invalid-date' }),
+  note: noteField.optional().transform((v) => v ?? null),
 });
 export type RecordPaymentFields = z.infer<typeof recordPaymentSchema>;
 

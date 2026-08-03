@@ -4,6 +4,7 @@ import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
 import { InvoiceNotFoundError } from '../../../src/errors/invoice-errors';
+import { PaymentExceedsBalanceError } from '../../../src/errors/payment-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Invoice, InvoiceId } from '../../../src/entities/invoice';
 import type { InvoiceLine, InvoiceLineId } from '../../../src/entities/invoice-line';
@@ -97,12 +98,48 @@ describe('RecordPayment', () => {
       expect(payment.version).toBe(0); // hub's to assign
       expect(status).toBe('paid');
       expect(await payments.sumForInvoice(INVOICE)).toBe(35000);
+      expect(payment.note).toBeNull();
     });
 
-    it('accepts overpayment on any plan and clamps status to paid', async () => {
-      const { status } = await build(PLANS.essentiel).execute({ ...baseInput(), amountMad: 40000 });
-      expect(status).toBe('paid');
-      expect(await payments.sumForInvoice(INVOICE)).toBe(40000);
+    it('stores a trimmed note when provided', async () => {
+      const { payment } = await build(PLANS.essentiel).execute({
+        ...baseInput(),
+        note: '  chèque n°1234  ',
+      });
+      expect(payment.note).toBe('chèque n°1234');
+    });
+
+    it('collapses a blank note to null', async () => {
+      const { payment } = await build(PLANS.essentiel).execute({ ...baseInput(), note: '   ' });
+      expect(payment.note).toBeNull();
+    });
+  });
+
+  describe('overpayment — blocked outright (SOU-101)', () => {
+    it('throws PaymentExceedsBalanceError above the outstanding balance and appends nothing', async () => {
+      await expect(
+        build(PLANS.essentiel).execute({ ...baseInput(), amountMad: 40000 }),
+      ).rejects.toBeInstanceOf(PaymentExceedsBalanceError);
+      expect(payments.all()).toHaveLength(0);
+    });
+
+    it('carries the invoice id, outstanding balance, and attempted amount', async () => {
+      await expect(
+        build(PLANS.essentiel).execute({ ...baseInput(), amountMad: 40000 }),
+      ).rejects.toMatchObject({ invoiceId: INVOICE, outstandingMad: 35000, attemptedAmountMad: 40000 });
+    });
+
+    it('blocks even on Pro, where partial payments are otherwise allowed', async () => {
+      await expect(
+        build(PLANS.pro).execute({ ...baseInput(), amountMad: 40000 }),
+      ).rejects.toBeInstanceOf(PaymentExceedsBalanceError);
+    });
+
+    it('blocks overpaying the small remainder after a partial payment', async () => {
+      await build(PLANS.pro).execute({ ...baseInput(), amountMad: 20000 });
+      await expect(
+        build(PLANS.pro).execute({ ...baseInput(), amountMad: 15001 }),
+      ).rejects.toBeInstanceOf(PaymentExceedsBalanceError);
     });
   });
 

@@ -27,6 +27,7 @@ type PaymentRow = {
   method: string;
   paid_on: string;
   reverses_payment_id: string | null;
+  note: string | null;
 };
 
 function paymentFromRow(row: PaymentRow): Payment {
@@ -45,6 +46,7 @@ function paymentFromRow(row: PaymentRow): Payment {
     method: row.method as PaymentMethod,
     paidOn: row.paid_on,
     reversesPaymentId: row.reverses_payment_id === null ? null : (row.reverses_payment_id as PaymentId),
+    note: row.note,
   };
 }
 
@@ -64,6 +66,7 @@ function paymentToParams(payment: Payment) {
     method: payment.method,
     paid_on: payment.paidOn,
     reverses_payment_id: payment.reversesPaymentId,
+    note: payment.note,
   };
 }
 
@@ -73,10 +76,10 @@ function paymentToParams(payment: Payment) {
 const APPEND_PAYMENT_SQL = `
   INSERT INTO payments
     (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at,
-     version, invoice_id, kind, amount_mad, method, paid_on, reverses_payment_id)
+     version, invoice_id, kind, amount_mad, method, paid_on, reverses_payment_id, note)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by, @deleted_at,
-     @version, @invoice_id, @kind, @amount_mad, @method, @paid_on, @reverses_payment_id)
+     @version, @invoice_id, @kind, @amount_mad, @method, @paid_on, @reverses_payment_id, @note)
 `;
 
 // Net paid on an invoice, in centimes: Σ payments − Σ reversals. Computed in SQL so a

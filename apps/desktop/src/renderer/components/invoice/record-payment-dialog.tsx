@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
+import type { z } from 'zod';
 import { recordPaymentSchema, PAYMENT_METHODS, type RecordPaymentFields } from '@centresoutien/domain';
 import {
   Button,
@@ -22,14 +23,19 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Textarea,
   toast,
 } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
 import { useFeature } from '../../hooks/use-feature';
 import { useRecordPayment } from '../../hooks/invoice/use-record-payment';
+import { mapPaymentWriteError } from '../../lib/invoices/payment-write-error';
 import { centimesToMad, madToCentimes } from '../../lib/formulas/price-mad';
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+/** Pre-transform shape RHF holds (blank note), vs the parsed `RecordPaymentFields` output. */
+type RecordPaymentFormInput = z.input<typeof recordPaymentSchema>;
 
 type RecordPaymentDialogProps = {
   invoiceId: string;
@@ -45,9 +51,9 @@ export function RecordPaymentDialog({ invoiceId, outstandingMad, open, onOpenCha
   const canPartialPay = useFeature('core.invoicing.partial-paid');
   const record = useRecordPayment();
 
-  const form = useForm<RecordPaymentFields>({
+  const form = useForm<RecordPaymentFormInput, unknown, RecordPaymentFields>({
     resolver: zodResolver(recordPaymentSchema),
-    values: { invoiceId, amountMad: outstandingMad, method: 'cash', paidOn: today() },
+    values: { invoiceId, amountMad: outstandingMad, method: 'cash', paidOn: today(), note: '' },
   });
 
   const submit = form.handleSubmit(async (values) => {
@@ -55,7 +61,12 @@ export function RecordPaymentDialog({ invoiceId, outstandingMad, open, onOpenCha
       await record.mutateAsync(canPartialPay ? values : { ...values, amountMad: outstandingMad });
       toast.success(t('invoices.detail.payment.success'));
       onOpenChange(false);
-    } catch {
+    } catch (error) {
+      const code = mapPaymentWriteError(error);
+      if (code === 'payment-exceeds-balance') {
+        form.setError('amountMad', { message: code });
+        return;
+      }
       toast.error(t('invoices.detail.payment.error'));
     }
   });
@@ -135,6 +146,20 @@ export function RecordPaymentDialog({ invoiceId, outstandingMad, open, onOpenCha
                   <FormLabel>{t('invoices.detail.payment.paidOn')}</FormLabel>
                   <FormControl>
                     <Input type="date" dir="ltr" {...field} />
+                  </FormControl>
+                  <FieldMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="note"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('invoices.detail.payment.note')}</FormLabel>
+                  <FormControl>
+                    <Textarea rows={2} {...field} value={field.value ?? ''} />
                   </FormControl>
                   <FieldMessage />
                 </FormItem>

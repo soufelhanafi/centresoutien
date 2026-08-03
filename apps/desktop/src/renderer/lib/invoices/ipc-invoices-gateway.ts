@@ -1,4 +1,5 @@
 import type { InvoiceListFilters, InvoiceListItemView } from './invoice-view';
+import type { InvoicePaymentSummaryView } from './payment-view';
 import type { InvoicesGateway, RecordPaymentInput } from './invoices-gateway';
 
 /**
@@ -37,6 +38,18 @@ class IpcInvoicesGateway implements InvoicesGateway {
 
   async export(id: string, locale: 'fr' | 'ar'): Promise<{ savedPath: string | null }> {
     return window.api.invoke('invoice.export', { invoiceId: id, locale });
+  }
+
+  async paymentSummary(invoiceId: string): Promise<InvoicePaymentSummaryView> {
+    return window.api.invoke('payment.summary', { invoiceId });
+  }
+
+  async printReceipt(paymentId: string, locale: 'fr' | 'ar'): Promise<void> {
+    await window.api.invoke('payment.receipt.print', { paymentId, locale });
+  }
+
+  async exportReceipt(paymentId: string, locale: 'fr' | 'ar'): Promise<{ savedPath: string | null }> {
+    return window.api.invoke('payment.receipt.export', { paymentId, locale });
   }
 }
 

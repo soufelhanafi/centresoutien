@@ -87,6 +87,7 @@ export {
   PaymentNotFoundError,
   CannotReverseReversalError,
   PaymentAlreadyReversedError,
+  PaymentExceedsBalanceError,
 } from './errors/payment-errors';
 export {
   TooManyActiveSubscriptionsError,
@@ -188,7 +189,7 @@ export type {
   CreateInvoiceDraftFields,
   GenerateMonthlyInvoicesFields,
 } from './schemas/invoice';
-export { recordPaymentSchema, voidPaymentSchema } from './schemas/payment';
+export { recordPaymentSchema, voidPaymentSchema, paymentRef } from './schemas/payment';
 export type { RecordPaymentFields, VoidPaymentFields } from './schemas/payment';
 export {
   studentSubscriptionInputSchema,
@@ -351,6 +352,10 @@ export type { EnrollmentRepository } from './ports/enrollment-repository';
 export type { InvoiceRepository } from './ports/invoice-repository';
 export type { InvoicePdfRenderer, InvoicePdfInput, InvoicePdfLine } from './ports/invoice-pdf-renderer';
 export type { PayslipPdfRenderer, PayslipPdfInput } from './ports/payslip-pdf-renderer';
+export type {
+  PaymentReceiptPdfRenderer,
+  PaymentReceiptPdfInput,
+} from './ports/payment-receipt-pdf-renderer';
 // Formula repository (SOU-61) — save() never writes isImmutable; the SQLite
 // trigger is the sole writer, flipped when an InvoiceLine first references it.
 export type { FormulaRepository } from './ports/formula-repository';
@@ -555,6 +560,11 @@ export { ListTeacherPayouts } from './use-cases/list-teacher-payouts';
 export type { ListTeacherPayoutsInput } from './use-cases/list-teacher-payouts';
 export { GetTeacherAttributionBreakdown } from './use-cases/get-teacher-attribution-breakdown';
 export type { GetTeacherAttributionBreakdownInput } from './use-cases/get-teacher-attribution-breakdown';
+export { GeneratePaymentReceiptPdf } from './use-cases/generate-payment-receipt-pdf';
+export type {
+  GeneratePaymentReceiptPdfInput,
+  GeneratePaymentReceiptPdfResult,
+} from './use-cases/generate-payment-receipt-pdf';
 export { ListGroups, orderGroupsForList } from './use-cases/list-groups';
 export type { ListGroupsInput, GroupScope } from './use-cases/list-groups';
 export { ListGroupsWithCounts } from './use-cases/list-groups-with-counts';
