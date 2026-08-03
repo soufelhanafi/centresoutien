@@ -45,16 +45,19 @@ export type ScheduleGridGeometry = {
 };
 
 /** Pure geometry for the 7-day time grid — no `pdf-lib` dependency, so it is
- *  unit-testable as plain arithmetic. The time axis always reserves its own
- *  column on the page's physical left; `dayColumnIndex` is what actually flips
- *  the day order for `ar`, not this function. */
+ *  unit-testable as plain arithmetic. The time axis sits on the page's start
+ *  edge, mirroring the on-screen grid: physical left for `fr`, physical right
+ *  for `ar` (whose hour gutter is the RTL first column). `dayColumnIndex` flips
+ *  the day order to match. */
 export function computeGridGeometry(
   pageWidth: number,
   pageHeight: number,
   sessions: readonly ScheduleExportSessionRow[],
+  locale: 'fr' | 'ar',
 ): ScheduleGridGeometry {
-  const gridLeft = GRID_MARGIN + TIME_AXIS_WIDTH;
-  const gridRight = pageWidth - GRID_MARGIN;
+  const timeAxisOnLeft = locale === 'fr';
+  const gridLeft = GRID_MARGIN + (timeAxisOnLeft ? TIME_AXIS_WIDTH : 0);
+  const gridRight = pageWidth - GRID_MARGIN - (timeAxisOnLeft ? 0 : TIME_AXIS_WIDTH);
   const gridTop = pageHeight - GRID_MARGIN - HEADER_HEIGHT - DAY_HEADER_HEIGHT;
   const gridBottom = GRID_MARGIN + FOOTER_HEIGHT;
   return {

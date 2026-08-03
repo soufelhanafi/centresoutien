@@ -46,21 +46,29 @@ export function drawDayHeaders(
   }
 }
 
-/** Hourly tick labels down the time axis, on the grid's physical left. */
-export function drawTimeAxis(page: PDFPage, geometry: ScheduleGridGeometry, font: PDFFont): void {
+/** Hourly tick labels down the time axis, on the grid's start edge —
+ *  physical left for `fr`, physical right for `ar`, matching the on-screen grid. */
+export function drawTimeAxis(
+  page: PDFPage,
+  geometry: ScheduleGridGeometry,
+  font: PDFFont,
+  locale: 'fr' | 'ar',
+): void {
   const { startMinutes, endMinutes } = geometry.timeBounds;
   const firstHour = Math.ceil(startMinutes / HOUR_MINUTES) * HOUR_MINUTES;
   const lastHour = Math.floor(endMinutes / HOUR_MINUTES) * HOUR_MINUTES;
+  const labelX = locale === 'ar' ? geometry.gridRight + 6 : geometry.gridLeft - 6;
+  const labelAlign = locale === 'ar' ? 'left' : 'right';
   for (let minutes = firstHour; minutes <= lastHour; minutes += HOUR_MINUTES) {
     const y = minutesToGridY(minutes, geometry);
     const hourLabel = `${String(Math.floor(minutes / HOUR_MINUTES)).padStart(2, '0')}:00`;
     drawAlignedText(page, hourLabel, {
-      x: geometry.gridLeft - 6,
+      x: labelX,
       y: y - 3,
       size: 7,
       font,
       color: MUTED_GRAY,
-      align: 'right',
+      align: labelAlign,
       locale: 'fr',
     });
     page.drawLine({

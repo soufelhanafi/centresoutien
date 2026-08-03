@@ -35,10 +35,10 @@ export class PdfLibScheduleRenderer {
 
     await drawScheduleHeader(pdfDoc, page, input, labels, { regular: regularFont, bold: boldFont });
 
-    const geometry = computeGridGeometry(page.getWidth(), page.getHeight(), input.sessions);
+    const geometry = computeGridGeometry(page.getWidth(), page.getHeight(), input.sessions, input.locale);
     drawGridFrame(page, geometry);
     drawDayHeaders(page, geometry, labels, input.locale, regularFont);
-    drawTimeAxis(page, geometry, regularFont);
+    drawTimeAxis(page, geometry, regularFont, input.locale);
 
     for (const day of WEEKDAYS) {
       const laned = assignLanes(sessionsOnDay(input.sessions, day));

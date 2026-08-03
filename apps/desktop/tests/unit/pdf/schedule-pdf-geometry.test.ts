@@ -5,6 +5,7 @@ import {
   computeScheduleTimeBounds,
   dayColumnIndex,
   dayColumnX,
+  GRID_MARGIN,
   minutesToGridY,
   timeToGridY,
 } from '../../../src/data/pdf/schedule-pdf-geometry';
@@ -42,17 +43,24 @@ describe('computeScheduleTimeBounds', () => {
 });
 
 describe('computeGridGeometry', () => {
-  it('reserves the time axis on the left and divides the remaining width into 7 equal columns', () => {
-    const geometry = computeGridGeometry(841.89, 595.28, []);
-    expect(geometry.gridLeft).toBeGreaterThan(0);
-    expect(geometry.gridRight).toBeLessThan(841.89);
+  it('reserves the time axis on the physical left for fr and divides the rest into 7 equal columns', () => {
+    const geometry = computeGridGeometry(841.89, 595.28, [], 'fr');
+    expect(geometry.gridLeft).toBeGreaterThan(GRID_MARGIN);
+    expect(geometry.gridRight).toBeCloseTo(841.89 - GRID_MARGIN, 5);
     expect(geometry.columnWidth * 7).toBeCloseTo(geometry.gridRight - geometry.gridLeft, 5);
     expect(geometry.gridTop).toBeGreaterThan(geometry.gridBottom);
+  });
+
+  it('reserves the time axis on the physical right for ar — matching the RTL on-screen hour gutter', () => {
+    const geometry = computeGridGeometry(841.89, 595.28, [], 'ar');
+    expect(geometry.gridLeft).toBeCloseTo(GRID_MARGIN, 5);
+    expect(geometry.gridRight).toBeLessThan(841.89 - GRID_MARGIN);
+    expect(geometry.columnWidth * 7).toBeCloseTo(geometry.gridRight - geometry.gridLeft, 5);
   });
 });
 
 describe('dayColumnIndex / dayColumnX', () => {
-  const geometry = computeGridGeometry(841.89, 595.28, []);
+  const geometry = computeGridGeometry(841.89, 595.28, [], 'ar');
 
   it('keeps Sunday-first order for fr', () => {
     expect(dayColumnIndex(0 as WeekdayIndex, 'fr')).toBe(0);
@@ -72,7 +80,7 @@ describe('dayColumnIndex / dayColumnX', () => {
 });
 
 describe('minutesToGridY / timeToGridY', () => {
-  const geometry = computeGridGeometry(841.89, 595.28, []);
+  const geometry = computeGridGeometry(841.89, 595.28, [], 'fr');
 
   it('places the bounds start at gridTop and the bounds end at gridBottom', () => {
     expect(minutesToGridY(geometry.timeBounds.startMinutes, geometry)).toBeCloseTo(geometry.gridTop, 5);
