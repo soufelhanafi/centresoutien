@@ -191,8 +191,13 @@ export async function openPaletteViaButton(win: Page, L: (typeof STR)[Locale]): 
   await expect(paletteInput(win)).toBeFocused();
 }
 
+/**
+ * Scoped to the palette's own combobox so it stays unambiguous once a result
+ * selection opens a second `role="dialog"` (e.g. the parent detail sheet,
+ * Scenario 7c) — a plain `getByRole('dialog')` would match both.
+ */
 export function paletteDialog(win: Page) {
-  return win.getByRole('dialog');
+  return win.getByRole('dialog').filter({ has: win.getByRole('combobox') });
 }
 
 export function paletteInput(win: Page) {
