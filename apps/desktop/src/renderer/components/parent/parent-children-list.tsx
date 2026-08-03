@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { GraduationCap, Plus } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { StudentView } from '../../lib/students/student-view';
 import { useParentChildren } from '../../hooks/parent/use-parent-children';
 import { useChildLinks } from '../../hooks/parent/use-child-links';
@@ -63,7 +63,7 @@ export function ParentChildrenList({
       )}
 
       {query.isError && (
-        <EmptyState
+        <ErrorState
           icon={<GraduationCap className="h-5 w-5" aria-hidden="true" />}
           title={t('parents.detail.children.loadError')}
         />

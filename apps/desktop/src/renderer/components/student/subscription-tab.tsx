@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { ReceiptText } from 'lucide-react';
-import { EmptyState, Skeleton } from '@centresoutien/ui';
+import { EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { StudentView } from '../../lib/students/student-view';
 import { useSubscriptionTab } from '../../hooks/subscription/use-subscription-tab';
 import { SubscriptionActiveCard } from './subscription-active-card';
@@ -37,7 +37,7 @@ export function SubscriptionTab({ student }: { student: StudentView }) {
 
   if (subscriptionsQuery.isError) {
     return (
-      <EmptyState
+      <ErrorState
         className="mt-4"
         icon={<ReceiptText className="h-5 w-5" aria-hidden="true" />}
         title={t('students.subscription.loadError')}

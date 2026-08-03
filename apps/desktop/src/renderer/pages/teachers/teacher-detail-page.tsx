@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft, UserX } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import { useTeacher } from '../../hooks/teacher/use-teacher';
 import { TeacherDetailHeader } from '../../components/teacher/teacher-detail-header';
 import { TeacherDetailTabs } from '../../components/teacher/teacher-detail-tabs';
@@ -33,16 +33,29 @@ export function TeacherDetailPage() {
           <ArrowLeft className="h-4 w-4 rtl:-scale-x-100" aria-hidden="true" />
           {t('teachers.detail.back')}
         </Link>
-        <EmptyState
-          icon={<UserX className="h-5 w-5" aria-hidden="true" />}
-          title={query.isError ? t('teachers.loadError.title') : t('teachers.detail.notFoundTitle')}
-          description={query.isError ? t('teachers.detail.loadError') : t('teachers.detail.notFoundBody')}
-          action={
-            <Button variant="outline" size="sm" onClick={() => navigate({ to: '/teachers' })}>
-              {t('teachers.detail.back')}
-            </Button>
-          }
-        />
+        {query.isError ? (
+          <ErrorState
+            icon={<UserX className="h-5 w-5" aria-hidden="true" />}
+            title={t('teachers.loadError.title')}
+            description={t('teachers.detail.loadError')}
+            action={
+              <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
+                {t('teachers.loadError.retry')}
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={<UserX className="h-5 w-5" aria-hidden="true" />}
+            title={t('teachers.detail.notFoundTitle')}
+            description={t('teachers.detail.notFoundBody')}
+            action={
+              <Button variant="outline" size="sm" onClick={() => navigate({ to: '/teachers' })}>
+                {t('teachers.detail.back')}
+              </Button>
+            }
+          />
+        )}
       </section>
     );
   }

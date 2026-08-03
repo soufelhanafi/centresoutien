@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { TrendingUp } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, ErrorState, Skeleton } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
 import { useDashboardAdvancedSummary } from '../../hooks/dashboard/use-dashboard-advanced-summary';
 import { RevenueTrendChart } from './revenue-trend-chart';
@@ -29,7 +29,7 @@ export function DashboardAdvancedPanel() {
 
   if (query.isError) {
     return (
-      <EmptyState
+      <ErrorState
         icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />}
         title={t('dashboard.advanced.loadError.title')}
         description={t('dashboard.advanced.loadError.body')}
