@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Boxes, Archive } from 'lucide-react';
-import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import type { GroupRow, GroupStatus } from '../../lib/groups/group-view';
 import { GroupTable } from './group-table';
 
@@ -36,7 +36,7 @@ export function GroupListContent({
 
   if (status === 'error') {
     return (
-      <EmptyState
+      <ErrorState
         icon={<Boxes className="h-5 w-5" aria-hidden="true" />}
         title={t('groups.loadError.title')}
         description={t('groups.loadError.body')}

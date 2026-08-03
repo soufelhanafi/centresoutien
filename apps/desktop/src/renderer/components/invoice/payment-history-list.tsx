@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { History } from 'lucide-react';
-import { EmptyState, Skeleton } from '@centresoutien/ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import { usePaymentSummary } from '../../hooks/invoice/use-payment-summary';
 import { PaymentHistoryRow } from './payment-history-row';
 
@@ -20,7 +20,17 @@ export function PaymentHistoryList({ invoiceId }: { invoiceId: string }) {
         </div>
       )}
 
-      {query.isError && <p className="text-sm text-destructive">{t('invoices.detail.payment.history.loadError')}</p>}
+      {query.isError && (
+        <ErrorState
+          icon={<History className="h-5 w-5" aria-hidden="true" />}
+          title={t('invoices.detail.payment.history.loadError')}
+          action={
+            <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
+              {t('invoices.loadError.retry')}
+            </Button>
+          }
+        />
+      )}
 
       {query.data && query.data.payments.length === 0 && (
         <EmptyState
