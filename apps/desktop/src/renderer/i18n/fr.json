@@ -52,6 +52,8 @@
     "error": "La recherche a échoué. Réessayez.",
     "empty": "Aucun résultat pour « {{query}} ».",
     "close": "Fermer",
+    "shortcutMac": "⌘K",
+    "shortcutWindows": "Ctrl+K",
     "groups": {
       "student": "Élèves",
       "teacher": "Enseignants",

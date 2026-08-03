@@ -5,6 +5,7 @@ import {
   createHashHistory,
   redirect,
 } from '@tanstack/react-router';
+import { z } from 'zod';
 import { AppShell } from '../components/shell/app-shell';
 import { ModulePlaceholder } from '../pages/module-placeholder';
 import { DashboardPage } from '../pages/dashboard/dashboard-page';
@@ -73,10 +74,16 @@ const teacherDetailRoute = createRoute({
   path: '/teachers/$teacherId',
   component: TeacherDetailPage,
 });
+const parentsSearchSchema = z.object({
+  // Set by the command palette (SOU-43) so selecting a parent hit opens its
+  // detail sheet; ParentsPage clears it after consuming it.
+  openParentId: z.string().optional(),
+});
 const parentsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: parentsModule.path,
   component: ParentsPage,
+  validateSearch: parentsSearchSchema,
 });
 const subjectsRoute = createRoute({
   getParentRoute: () => rootRoute,

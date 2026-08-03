@@ -72,7 +72,12 @@ export function PersonSearchResults({ status, query, results, onSelect }: Person
               >
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span className="truncate">{displayName(result, i18n.language)}</span>
-                <span className="ms-auto shrink-0 text-xs text-muted-foreground">{detailLine(result)}</span>
+                <span
+                  className="ms-auto shrink-0 text-xs text-muted-foreground"
+                  dir={result.kind === 'student' ? undefined : 'ltr'}
+                >
+                  {detailLine(result)}
+                </span>
               </CommandItem>
             ))}
           </CommandGroup>

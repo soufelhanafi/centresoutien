@@ -71,7 +71,7 @@ export function CommandPalette() {
           navigate({ to: '/teachers/$teacherId', params: { teacherId: result.entity.id } });
           return;
         case 'parent':
-          navigate({ to: '/parents' });
+          navigate({ to: '/parents', search: { openParentId: result.entity.id } });
           return;
       }
     },

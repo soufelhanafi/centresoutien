@@ -52,6 +52,8 @@
     "error": "فشل البحث. حاول مرة أخرى.",
     "empty": "لا نتائج لـ « {{query}} ».",
     "close": "إغلاق",
+    "shortcutMac": "⌘K",
+    "shortcutWindows": "Ctrl+K",
     "groups": {
       "student": "التلاميذ",
       "teacher": "الأساتذة",

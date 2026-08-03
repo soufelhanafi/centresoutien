@@ -17,10 +17,10 @@ export const Command = React.forwardRef<
 Command.displayName = CommandPrimitive.displayName;
 
 export type CommandDialogProps = React.ComponentPropsWithoutRef<typeof Dialog> & {
-  /** Palette title, read only by assistive tech (visually hidden). Pass a translated string (SOU-21). */
-  title?: string;
-  /** Palette description, read only by assistive tech (visually hidden). Pass a translated string (SOU-21). */
-  description?: string;
+  /** Palette title, read only by assistive tech (visually hidden). Always pass a translated string (SOU-21). */
+  title: string;
+  /** Palette description, read only by assistive tech (visually hidden). Always pass a translated string (SOU-21). */
+  description: string;
   className?: string;
   closeLabel?: string;
   /**
@@ -33,8 +33,8 @@ export type CommandDialogProps = React.ComponentPropsWithoutRef<typeof Dialog> &
 };
 
 export function CommandDialog({
-  title = 'Palette de commandes',
-  description = 'Rechercher une commande à exécuter…',
+  title,
+  description,
   children,
   className,
   closeLabel,

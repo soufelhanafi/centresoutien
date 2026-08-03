@@ -15,7 +15,7 @@ function isMacPlatform(): boolean {
 export function SearchTrigger() {
   const { t } = useTranslation();
   const setOpen = useCommandPaletteStore((state) => state.setOpen);
-  const shortcut = isMacPlatform() ? '⌘K' : 'Ctrl K';
+  const shortcut = isMacPlatform() ? t('search.shortcutMac') : t('search.shortcutWindows');
 
   return (
     <button
@@ -25,7 +25,10 @@ export function SearchTrigger() {
     >
       <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
       <span className="hidden sm:inline">{t('search.trigger')}</span>
-      <kbd className="ms-auto hidden shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs md:inline">
+      <kbd
+        dir="ltr"
+        className="ms-auto hidden shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs md:inline"
+      >
         {shortcut}
       </kbd>
     </button>
