@@ -12,6 +12,7 @@ import {
   groupInputSchema,
   enrollmentInputSchema,
   generateSessionsSchema,
+  undoGenerationBatchSchema,
   recordSessionAttendanceSchema,
   weeklyRecurringSessionInputSchema,
   weeklyRecurringSessionUpdateSchema,
@@ -447,6 +448,7 @@ const scheduleExportViewFilterSchema = z.discriminatedUnion('scope', [
 const sessionViewSchema = z.object({
   id: z.string(),
   recurringSessionId: z.string(),
+  generationBatchId: z.string().nullable(),
   roomId: z.string(),
   teacherId: z.string().nullable(),
   date: z.string(),
@@ -1191,6 +1193,22 @@ export const ipcContract = {
   'session.generate': {
     request: generateSessionsSchema,
     response: z.object({ sessions: z.array(sessionViewSchema) }),
+  },
+  // Bulk undo of one generator run (SOU-160). Every session `session.generate`
+  // materializes in one call shares the returned row's `generationBatchId`, so
+  // the renderer's "Undo this batch" action passes that id straight back here.
+  // Bulk-cancels (soft-deletes) every live session of the batch that hasn't yet
+  // occurred — a session whose civil `date` has already passed is left alone
+  // and counted in `skippedOccurredCount`. There is no per-session invoiced
+  // state to guard against: billing is monthly per subscription, never per
+  // session. centerCode/updatedBy are injected in main, never sent from the
+  // renderer. Gated by `core.calendar.week`, the same flag that gates
+  // generation itself. An unknown, foreign-center, or already-fully-cancelled
+  // batch id rejects with the stable `generation-batch-not-found` code rather
+  // than silently no-op'ing.
+  'session.undoGenerationBatch': {
+    request: undoGenerationBatchSchema,
+    response: z.object({ cancelledCount: z.number().int(), skippedOccurredCount: z.number().int() }),
   },
   // Per-session roll-call (SOU-58). One batched write for the whole roster — one
   // transaction, one round trip, never one call per student — so marking a

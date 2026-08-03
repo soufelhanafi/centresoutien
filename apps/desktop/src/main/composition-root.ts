@@ -63,6 +63,7 @@ import {
   ListWeekSessions,
   GenerateSessions,
   GenerateAndPersistSessions,
+  UndoGenerationBatch,
   CreateWeeklyRecurringSession,
   UpdateWeeklyRecurringSession,
   CancelWeeklyRecurringSession,
@@ -488,6 +489,10 @@ export function buildContainer(options: ContainerOptions): Container {
     new GenerateSessions(clock, ids),
     plan,
   );
+  // Bulk undo of one generator run (SOU-160): every session a run materializes
+  // shares the generationBatchId GenerateSessions mints, so this reuses the same
+  // concrete session repository — no new adapter needed.
+  const undoGenerationBatch = new UndoGenerationBatch(concreteSessionRepo, clock, plan);
 
   // Per-session roll-call (SOU-58). The roster itself comes from the existing
   // group-roster IPC (SOU-126/127) — this use case only records the outcome
@@ -720,6 +725,7 @@ export function buildContainer(options: ContainerOptions): Container {
     listWeekSessions,
     scheduleRenderer,
     generateSessions,
+    undoGenerationBatch,
     recordSessionAttendance,
     createWeeklySession,
     updateWeeklySession,
