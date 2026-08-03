@@ -10,23 +10,23 @@ type KpiCardProps = {
 
 /**
  * One Basique dashboard KPI tile: label, JetBrains Mono figure, optional
- * warning tone. `dir="ltr"` keeps digit order stable in Arabic without the
- * table-only end-alignment `Numeric` applies — this is a standalone figure,
- * not a table cell.
+ * warning tone. `text-start` on the outer block follows the page direction
+ * (matching the label above it); `dir="ltr"` is scoped to the inline figure
+ * only, so it fixes digit order without dragging the block's own alignment
+ * to the left in RTL.
  */
 export function KpiCard({ label, value, tone = 'default' }: KpiCardProps) {
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <span
-        dir="ltr"
+      <p
         className={cn(
-          'mt-1 block font-mono text-2xl font-semibold tabular-nums text-start',
+          'mt-1 block text-start font-mono text-2xl font-semibold tabular-nums',
           tone === 'warning' && 'text-warning',
         )}
       >
-        {value}
-      </span>
+        <span dir="ltr">{value}</span>
+      </p>
     </div>
   );
 }

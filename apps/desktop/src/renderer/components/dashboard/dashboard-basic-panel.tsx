@@ -2,13 +2,15 @@ import { useTranslation } from 'react-i18next';
 import { LayoutDashboard } from 'lucide-react';
 import { Button, EmptyState, Skeleton } from '@centresoutien/ui';
 import { useDashboardBasicSummary } from '../../hooks/dashboard/use-dashboard-basic-summary';
+import { bcp47 } from '../../lib/format';
 import { KpiCard } from './kpi-card';
 import { DashboardQuickActions } from './dashboard-quick-actions';
 
 /** The Basique dashboard pane (SOU-100): three KPI cards + quick actions, gated by `dashboard.basic` (every plan). */
 export function DashboardBasicPanel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const query = useDashboardBasicSummary();
+  const formatCount = (count: number) => new Intl.NumberFormat(bcp47(i18n.language)).format(count);
 
   if (query.isPending) {
     return (
@@ -40,11 +42,17 @@ export function DashboardBasicPanel() {
   return (
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
-        <KpiCard label={t('dashboard.basic.kpis.todaysSessions')} value={summary.todaysSessionCount} />
-        <KpiCard label={t('dashboard.basic.kpis.activeStudents')} value={summary.activeStudentCount} />
+        <KpiCard
+          label={t('dashboard.basic.kpis.todaysSessions')}
+          value={formatCount(summary.todaysSessionCount)}
+        />
+        <KpiCard
+          label={t('dashboard.basic.kpis.activeStudents')}
+          value={formatCount(summary.activeStudentCount)}
+        />
         <KpiCard
           label={t('dashboard.basic.kpis.unpaidInvoices')}
-          value={summary.unpaidInvoiceCount}
+          value={formatCount(summary.unpaidInvoiceCount)}
           tone={summary.unpaidInvoiceCount > 0 ? 'warning' : 'default'}
         />
       </div>
