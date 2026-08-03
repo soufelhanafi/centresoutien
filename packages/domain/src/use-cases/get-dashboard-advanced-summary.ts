@@ -75,6 +75,8 @@ export class GetDashboardAdvancedSummary {
     return Promise.all(
       months.map(async (month) => {
         const rows = await this.invoices.listInvoices(centerCode, { month });
+        // Recognized to the invoice's billed month, not the payment date — same
+        // convention as MonthlyFeeAttributionService (CLAUDE.md §6).
         const collectedMad = rows
           .filter((row) => row.invoice.status === 'issued')
           .reduce((sum, row) => sum + row.netPaidMad, 0);
@@ -121,6 +123,9 @@ export class GetDashboardAdvancedSummary {
       // A subject in-use by a formula can't be tombstoned (SubjectInUseError) —
       // this is defensive, mirroring GenerateMonthlyInvoices' unresolved-formula skip.
       if (!subject) continue;
+      // Matches the read-model contract ("a subject with zero collected fees is
+      // omitted") — a largest-remainder split can theoretically hand a subject 0.
+      if (amountMad <= 0) continue;
       shares.push({ subjectId, subjectName: subject.name, amountMad });
     }
     return shares.sort((a, b) => b.amountMad - a.amountMad);
