@@ -15,8 +15,11 @@ import {
   SelectValue,
 } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
-import { holidayInputSchema, HOLIDAY_KINDS } from '../../lib/holidays/holiday-input-schema';
+import { holidayInputSchema } from '@centresoutien/domain';
 import type { HolidayInput } from '../../lib/holidays/holiday-view';
+
+/** The two holiday kinds — solar (recurs yearly) and lunar (entered per year). */
+const HOLIDAY_KINDS = ['fixed', 'lunar'] as const;
 
 /** Blank defaults for the create flow — a solar holiday with empty name and dates. */
 export const EMPTY_HOLIDAY_INPUT: HolidayInput = {

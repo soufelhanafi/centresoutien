@@ -47,6 +47,13 @@ export type SubjectLineShare = {
   readonly shareMad: number;
 };
 
+/** A teacher's monthly attribution base for one subject — the payroll dashboard drill-down (SOU-76). */
+export type TeacherSubjectAttributedAmount = {
+  readonly teacherId: TeacherId;
+  readonly subjectId: SubjectId;
+  readonly attributedAmountMad: number;
+};
+
 /**
  * Validates a `TeacherFeeAttributionPolicy` input line before it is split —
  * shared by {@link splitLineAmount}'s callers (`attribute` here, and
@@ -90,6 +97,25 @@ export function splitLineAmount(line: StudentLineAttributionInput): readonly Sub
 }
 
 /**
+ * Validates and splits every line, dropping unstaffed (`teacherId: null`)
+ * shares — the staffed, per-subject shares both `attribute` and
+ * `attributeBySubject` fold from, so the split math and the unstaffed-share
+ * drop (SOU-74 M1) live in exactly one place.
+ */
+function staffedShares(
+  lines: readonly StudentLineAttributionInput[],
+): readonly { readonly teacherId: TeacherId; readonly subjectId: SubjectId; readonly shareMad: number }[] {
+  const shares: { teacherId: TeacherId; subjectId: SubjectId; shareMad: number }[] = [];
+  for (const line of lines) {
+    for (const share of splitLineAmount(line)) {
+      if (share.teacherId === null) continue;
+      shares.push({ teacherId: share.teacherId, subjectId: share.subjectId, shareMad: share.shareMad });
+    }
+  }
+  return shares;
+}
+
+/**
  * Equal-split teacher fee attribution (CLAUDE.md §6). For each student's
  * collected invoice line, splits the amount equally across its N subjects,
  * then sums each subject's share into the teacher who taught it — across all
@@ -105,14 +131,29 @@ export function splitLineAmount(line: StudentLineAttributionInput): readonly Sub
 export const TeacherFeeAttributionPolicy = {
   attribute(lines: readonly StudentLineAttributionInput[]): readonly TeacherAttributedAmount[] {
     const totals = new Map<TeacherId, number>();
-
-    for (const line of lines) {
-      for (const share of splitLineAmount(line)) {
-        if (share.teacherId === null) continue;
-        totals.set(share.teacherId, (totals.get(share.teacherId) ?? 0) + share.shareMad);
-      }
+    for (const share of staffedShares(lines)) {
+      totals.set(share.teacherId, (totals.get(share.teacherId) ?? 0) + share.shareMad);
     }
-
     return Array.from(totals, ([teacherId, attributedAmountMad]) => ({ teacherId, attributedAmountMad }));
+  },
+
+  /**
+   * Same equal-split attribution as `attribute`, kept broken out by subject
+   * rather than collapsed to a teacher total — the payroll dashboard
+   * drill-down (SOU-76) shows *which* subjects made up a teacher's monthly
+   * figure, which `attribute`'s per-teacher sum discards.
+   */
+  attributeBySubject(lines: readonly StudentLineAttributionInput[]): readonly TeacherSubjectAttributedAmount[] {
+    const totals = new Map<string, TeacherSubjectAttributedAmount>();
+    for (const share of staffedShares(lines)) {
+      const key = `${share.teacherId}::${share.subjectId}`;
+      const existing = totals.get(key);
+      totals.set(key, {
+        teacherId: share.teacherId,
+        subjectId: share.subjectId,
+        attributedAmountMad: (existing?.attributedAmountMad ?? 0) + share.shareMad,
+      });
+    }
+    return Array.from(totals.values());
   },
 };

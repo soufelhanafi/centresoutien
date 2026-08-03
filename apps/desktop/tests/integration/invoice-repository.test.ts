@@ -286,6 +286,7 @@ describe('SqliteInvoiceRepository', () => {
         method: 'cash' as const,
         paidOn: '2026-08-05',
         reversesPaymentId: null,
+        note: null,
       };
     }
 

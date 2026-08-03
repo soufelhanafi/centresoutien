@@ -285,3 +285,103 @@ describe('TeacherFeeAttributionPolicy.attribute', () => {
     expect(TeacherFeeAttributionPolicy.attribute([])).toEqual([]);
   });
 });
+
+describe('TeacherFeeAttributionPolicy.attributeBySubject', () => {
+  it('keeps a teacher’s shares broken out by subject instead of collapsing to one total', () => {
+    const lines: StudentLineAttributionInput[] = [
+      {
+        studentId: STUDENT_A,
+        lineAmountMad: 30000,
+        subjectAssignments: [
+          { subjectId: MATH, teacherId: TEACHER_1 },
+          { subjectId: PHYSICS, teacherId: TEACHER_2 },
+          { subjectId: CHEMISTRY, teacherId: TEACHER_3 },
+        ],
+      },
+    ];
+
+    const result = TeacherFeeAttributionPolicy.attributeBySubject(lines);
+
+    expect(result).toEqual(
+      expect.arrayContaining([
+        { teacherId: TEACHER_1, subjectId: MATH, attributedAmountMad: 10000 },
+        { teacherId: TEACHER_2, subjectId: PHYSICS, attributedAmountMad: 10000 },
+        { teacherId: TEACHER_3, subjectId: CHEMISTRY, attributedAmountMad: 10000 },
+      ]),
+    );
+    expect(result).toHaveLength(3);
+  });
+
+  it('aggregates the same teacher+subject pair across multiple lines', () => {
+    const lines: StudentLineAttributionInput[] = [
+      {
+        studentId: STUDENT_A,
+        lineAmountMad: 20000,
+        subjectAssignments: [{ subjectId: MATH, teacherId: TEACHER_1 }],
+      },
+      {
+        studentId: STUDENT_B,
+        lineAmountMad: 15000,
+        subjectAssignments: [{ subjectId: MATH, teacherId: TEACHER_1 }],
+      },
+    ];
+
+    const result = TeacherFeeAttributionPolicy.attributeBySubject(lines);
+
+    expect(result).toEqual([{ teacherId: TEACHER_1, subjectId: MATH, attributedAmountMad: 35000 }]);
+  });
+
+  it('keeps a teacher teaching two subjects on one line as two separate entries', () => {
+    const lines: StudentLineAttributionInput[] = [
+      {
+        studentId: STUDENT_A,
+        lineAmountMad: 30000,
+        subjectAssignments: [
+          { subjectId: MATH, teacherId: TEACHER_1 },
+          { subjectId: PHYSICS, teacherId: TEACHER_1 },
+          { subjectId: CHEMISTRY, teacherId: TEACHER_2 },
+        ],
+      },
+    ];
+
+    const result = TeacherFeeAttributionPolicy.attributeBySubject(lines);
+
+    expect(result).toEqual(
+      expect.arrayContaining([
+        { teacherId: TEACHER_1, subjectId: MATH, attributedAmountMad: 10000 },
+        { teacherId: TEACHER_1, subjectId: PHYSICS, attributedAmountMad: 10000 },
+        { teacherId: TEACHER_2, subjectId: CHEMISTRY, attributedAmountMad: 10000 },
+      ]),
+    );
+    expect(result).toHaveLength(3);
+  });
+
+  it('drops an unstaffed subject’s share instead of emitting a null-teacher entry', () => {
+    const lines: StudentLineAttributionInput[] = [
+      {
+        studentId: STUDENT_A,
+        lineAmountMad: 30000,
+        subjectAssignments: [
+          { subjectId: MATH, teacherId: TEACHER_1 },
+          { subjectId: PHYSICS, teacherId: null },
+        ],
+      },
+    ];
+
+    const result = TeacherFeeAttributionPolicy.attributeBySubject(lines);
+
+    expect(result).toEqual([{ teacherId: TEACHER_1, subjectId: MATH, attributedAmountMad: 15000 }]);
+  });
+
+  it('throws EmptyAttributionLineError when a line names zero subjects', () => {
+    const lines: StudentLineAttributionInput[] = [
+      { studentId: STUDENT_A, lineAmountMad: 20000, subjectAssignments: [] },
+    ];
+
+    expect(() => TeacherFeeAttributionPolicy.attributeBySubject(lines)).toThrow(EmptyAttributionLineError);
+  });
+
+  it('returns an empty result for no lines', () => {
+    expect(TeacherFeeAttributionPolicy.attributeBySubject([])).toEqual([]);
+  });
+});

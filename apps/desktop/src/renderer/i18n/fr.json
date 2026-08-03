@@ -122,6 +122,7 @@
     "invalid-month": "Mois invalide (AAAA-MM)",
     "invalid-amount": "Montant invalide",
     "invalid-method": "Moyen de paiement invalide",
+    "payment-exceeds-balance": "Ce montant dépasse le solde restant de la facture.",
     "group-full": "Ce groupe est complet : toutes les places sont occupées.",
     "duplicate-enrollment": "Cet élève est déjà inscrit dans ce groupe.",
     "cross-kind-enrollment": "L'abonnement de l'élève ne correspond pas au type du groupe (régulier / prépa examen).",
@@ -148,7 +149,9 @@
     "start-month-too-early": "Le mois d'effet doit être postérieur au début de la règle actuelle.",
     "too-many-active-payroll-rules": "Cet enseignant a déjà une règle de paie active sur cette période.",
     "teacher-payroll-rule-not-found": "Cette règle de paie est introuvable.",
-    "teacher-not-found": "Cet enseignant est introuvable."
+    "teacher-not-found": "Cet enseignant est introuvable.",
+    "teacher-payout-not-found": "Ce versement est introuvable.",
+    "teacher-payout-already-paid": "Ce versement est déjà marqué payé."
   },
   "groups": {
     "title": "Groupes",
@@ -1501,12 +1504,77 @@
           "other": "Autre"
         },
         "paidOn": "Date du paiement",
+        "note": "Note (facultatif)",
         "cancel": "Annuler",
         "saving": "Enregistrement…",
         "submit": "Enregistrer",
         "success": "Paiement enregistré.",
-        "error": "L'enregistrement du paiement a échoué."
+        "error": "L'enregistrement du paiement a échoué.",
+        "history": {
+          "title": "Historique des paiements",
+          "loadError": "Le chargement de l'historique des paiements a échoué.",
+          "emptyTitle": "Aucun paiement",
+          "emptyBody": "Les paiements enregistrés apparaîtront ici.",
+          "kind": {
+            "reversal": "Annulation"
+          },
+          "print": "Imprimer le reçu",
+          "export": "Exporter le reçu en PDF",
+          "printError": "L'impression du reçu a échoué. Réessayez.",
+          "exportSuccess": "Reçu exporté avec succès.",
+          "exportError": "L'export du reçu a échoué. Réessayez."
+        }
       }
+    }
+  },
+  "payroll": {
+    "title": "Paie des enseignants",
+    "subtitle": "Confirmez les versements du mois et générez les bulletins de paie.",
+    "monthLabel": "Filtrer par mois",
+    "actions": {
+      "generatePayslips": "Générer les bulletins",
+      "generatingPayslips": "Génération…",
+      "markAllPaid": "Marquer tout payé",
+      "markingAllPaid": "Confirmation…",
+      "markPaid": "Marquer payé"
+    },
+    "table": {
+      "teacher": "Enseignant",
+      "ruleKind": "Type de règle",
+      "baseAmount": "Base",
+      "total": "Total",
+      "status": "Statut",
+      "actions": "Actions",
+      "notApplicable": "—",
+      "expand": "Afficher le détail",
+      "collapse": "Masquer le détail"
+    },
+    "status": {
+      "draft": "Brouillon",
+      "paid": "Payé"
+    },
+    "breakdown": {
+      "title": "Répartition par matière",
+      "empty": "Aucune répartition attribuée pour ce mois."
+    },
+    "loadError": {
+      "title": "Chargement impossible",
+      "body": "Le chargement des versements a échoué.",
+      "retry": "Réessayer"
+    },
+    "empty": {
+      "title": "Aucun versement",
+      "body": "Aucun enseignant n'a de règle de paie active pour ce mois."
+    },
+    "unknownTeacher": "Enseignant inconnu",
+    "unknownSubject": "Matière inconnue",
+    "toasts": {
+      "confirmSuccess": "Versement marqué payé.",
+      "confirmError": "La confirmation a échoué. Réessayez.",
+      "bulkConfirmSuccess": "{{confirmed}} versement(s) confirmé(s), {{skipped}} déjà payé(s).",
+      "bulkConfirmError": "La confirmation groupée a échoué. Réessayez.",
+      "payslipsGenerated": "{{count}} bulletin(s) généré(s).",
+      "payslipsPartial": "{{succeeded}} bulletin(s) généré(s), {{failed}} échec(s)."
     }
   }
 }

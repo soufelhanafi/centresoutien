@@ -88,7 +88,12 @@ import {
   ListInvoices,
   MonthlyFeeAttributionService,
   ComputeMonthlyPayrolls,
+  ConfirmTeacherPayout,
+  ConfirmMonthlyPayrolls,
+  ListTeacherPayouts,
+  GetTeacherAttributionBreakdown,
   GeneratePayslipPdf,
+  GeneratePaymentReceiptPdf,
   RecordSessionAttendance,
   GetDashboardBasicSummary,
   GetDashboardAdvancedSummary,
@@ -134,6 +139,7 @@ import { SqliteBackupAdapter } from '../data/sqlite/repositories/backup-adapter'
 import { SqliteBackupConfigStore } from '../data/sqlite/repositories/backup-config-store';
 import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
+import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
@@ -410,6 +416,19 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
+  // Payroll dashboard (SOU-76): confirmTeacherPayout/confirmMonthlyPayrolls are
+  // the single-row and bulk halves of "Mark paid", both writing through the
+  // same `payoutRepo` the compute job above populates. listTeacherPayouts and
+  // getTeacherAttributionBreakdown are thin `payroll.teacher`-gated wrappers
+  // around `payoutRepo.listLiveByCenterMonth` and `monthlyFeeAttribution`
+  // respectively — neither the repo method nor the attribution service carries
+  // its own plan check, so the dashboard's read channels need these wrappers
+  // for the same gate the write channels already have.
+  const confirmTeacherPayout = new ConfirmTeacherPayout(payoutRepo, clock, plan);
+  const confirmMonthlyPayrolls = new ConfirmMonthlyPayrolls(payoutRepo, clock, plan);
+  const listTeacherPayouts = new ListTeacherPayouts(payoutRepo, plan);
+  const getTeacherAttributionBreakdown = new GetTeacherAttributionBreakdown(monthlyFeeAttribution, plan);
+
   const holidayRepo = new SqliteHolidayRepository(db);
   const createHoliday = new CreateHoliday(holidayRepo, clock, ids, plan);
   const listHolidays = new ListHolidays(holidayRepo, plan);
@@ -460,6 +479,19 @@ export function buildContainer(options: ContainerOptions): Container {
     getCenterProfile,
     readCenterLogo,
     payslipPdfRenderer,
+    plan,
+  );
+
+  // Payment receipt PDF (SOU-101): renders a single ledger row (payment or
+  // reversal), reusing the invoice/payslip PDF adapters' font/layout setup.
+  const paymentReceiptPdfRenderer = new PdfLibPaymentReceiptRenderer();
+  const generatePaymentReceiptPdf = new GeneratePaymentReceiptPdf(
+    paymentRepo,
+    invoiceRepo,
+    getStudent,
+    getCenterProfile,
+    readCenterLogo,
+    paymentReceiptPdfRenderer,
     plan,
   );
 
@@ -613,7 +645,13 @@ export function buildContainer(options: ContainerOptions): Container {
     closeTeacherPayrollRule,
     listTeacherPayrollRulesByTeacher,
     computeMonthlyPayrolls,
+    confirmTeacherPayout,
+    confirmMonthlyPayrolls,
+    listTeacherPayouts,
+    getTeacherAttributionBreakdown,
+    currentUserId: () => context.updatedBy,
     generatePayslipPdf,
+    generatePaymentReceiptPdf,
     createHoliday,
     listHolidays,
     updateHoliday,

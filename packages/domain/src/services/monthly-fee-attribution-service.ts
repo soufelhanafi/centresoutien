@@ -77,11 +77,35 @@ export class MonthlyFeeAttributionService {
   }
 
   /**
+   * Same attribution base as `attributedAmountsByTeacher`, broken out by
+   * subject — the payroll dashboard drill-down (SOU-76): "which subjects made
+   * up this teacher's figure this month". A teacher with no attributable fees
+   * that month is simply absent from the outer map, mirroring
+   * `attributedAmountsByTeacher`'s empty-map convention.
+   */
+  async attributedAmountsByTeacherAndSubject(
+    centerCode: CenterCode,
+    month: string,
+  ): Promise<ReadonlyMap<TeacherId, ReadonlyMap<SubjectId, number>>> {
+    const inputLines = await this.collectAttributionLines(centerCode, month);
+    if (inputLines.length === 0) return new Map();
+
+    const attributed = TeacherFeeAttributionPolicy.attributeBySubject(inputLines);
+    const byTeacher = new Map<TeacherId, Map<SubjectId, number>>();
+    for (const entry of attributed) {
+      const bySubject = byTeacher.get(entry.teacherId) ?? new Map<SubjectId, number>();
+      bySubject.set(entry.subjectId, entry.attributedAmountMad);
+      byTeacher.set(entry.teacherId, bySubject);
+    }
+    return byTeacher;
+  }
+
+  /**
    * Assembles a center+month's collected invoice lines into
    * `TeacherFeeAttributionPolicy` inputs (CLAUDE.md §6 steps 1–4): only
    * `issued` invoices, only their actually-collected portion, each subject on
    * the formula resolved to the teacher of the group the student attended for
-   * it (or `null` if unresolved). Shared by both attribution views so there is
+   * it (or `null` if unresolved). Shared by every attribution view so there is
    * exactly one place this wiring lives.
    */
   private async collectAttributionLines(

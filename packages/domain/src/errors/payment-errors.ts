@@ -1,5 +1,6 @@
 import { DomainError } from './plan-errors';
 import type { PaymentId } from '../entities/payment';
+import type { InvoiceId } from '../entities/invoice';
 
 /**
  * Thrown when a void targets a payment id with no live row — unknown or belonging to
@@ -37,5 +38,25 @@ export class PaymentAlreadyReversedError extends DomainError {
 
   constructor(readonly id: PaymentId) {
     super(`Payment "${id}" has already been reversed.`);
+  }
+}
+
+/**
+ * Thrown when `RecordPayment` is asked to append more than the outstanding balance
+ * (SOU-101 KICKOFF: overpayment is blocked outright, not clamped — there is no
+ * credit-note entity). The renderer resolves the stable `payment-exceeds-balance`
+ * code and surfaces the outstanding amount so the cash desk can correct the entry.
+ */
+export class PaymentExceedsBalanceError extends DomainError {
+  readonly code = 'payment-exceeds-balance';
+
+  constructor(
+    readonly invoiceId: InvoiceId,
+    readonly outstandingMad: number,
+    readonly attemptedAmountMad: number,
+  ) {
+    super(
+      `Payment of ${attemptedAmountMad} exceeds the outstanding balance of ${outstandingMad} for invoice "${invoiceId}".`,
+    );
   }
 }

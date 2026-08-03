@@ -10,6 +10,7 @@ import { recordPaymentSchema } from '../schemas/payment';
 import { invoiceTotalMad } from '../policies/invoice-total';
 import { paymentStatusOf, type PaymentStatus } from '../policies/payment-status';
 import { InvoiceNotFoundError } from '../errors/invoice-errors';
+import { PaymentExceedsBalanceError } from '../errors/payment-errors';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 
 export type RecordPaymentInput = {
@@ -17,6 +18,7 @@ export type RecordPaymentInput = {
   amountMad: number;
   method: string;
   paidOn: string;
+  note?: string | null;
   centerCode: CenterCode;
   deviceOrigin: DeviceId;
   updatedBy: UserId;
@@ -37,14 +39,16 @@ export type RecordPaymentResult = {
  * Order of work:
  *  1. Gate on `core.invoicing` (every plan; the base invoicing feature).
  *  2. Validate the user-derivable fields (`invoiceId` shape, positive integer amount,
- *     method enum, real `paidOn` date).
+ *     method enum, real `paidOn` date, optional `note`).
  *  3. Resolve the invoice center-scoped; an unknown, discarded, or foreign-center id
  *     raises {@link InvoiceNotFoundError} before anything is written.
  *  4. Compute the outstanding balance = invoice total (sum of immutable lines) − net
- *     already paid (`sumForInvoice`). If the amount does **not** cover the full balance,
- *     require `core.invoicing.partial-paid` (Pro+) — on Essentiel a partial payment
- *     throws `PlanFeatureUnavailableError`. An amount that meets or exceeds the balance
- *     (full payment or overpayment) is allowed on every plan.
+ *     already paid (`sumForInvoice`). An amount **above** the outstanding balance is
+ *     blocked outright with {@link PaymentExceedsBalanceError} (SOU-101 KICKOFF: no
+ *     credit-note entity exists, so overpayment is never silently clamped to "paid").
+ *     Below the balance, require `core.invoicing.partial-paid` (Pro+) — on Essentiel a
+ *     partial payment throws `PlanFeatureUnavailableError`. Exactly the outstanding
+ *     balance (a full payment) is allowed on every plan.
  *  5. Append the `payment` (fresh envelope, `kind: 'payment'`, `reversesPaymentId: null`)
  *     and return it with the freshly derived status.
  *
@@ -75,8 +79,14 @@ export class RecordPayment {
     const netBefore = await this.payments.sumForInvoice(invoiceId);
     const outstanding = totalMad - netBefore;
 
+    // Overpayment is blocked outright (SOU-101 KICKOFF) — there is no credit-note
+    // entity to absorb the excess, so it must be caught before anything is written.
+    if (fields.amountMad > outstanding) {
+      throw new PaymentExceedsBalanceError(invoiceId, outstanding, fields.amountMad);
+    }
+
     // Below the full outstanding balance = a partial payment, a Pro-gated feature.
-    // Full payment or overpayment (amount >= outstanding) is allowed on every plan.
+    // Exactly the outstanding balance (a full payment) is allowed on every plan.
     if (fields.amountMad < outstanding) {
       this.plan.require('core.invoicing.partial-paid');
     }
@@ -97,6 +107,7 @@ export class RecordPayment {
       method: fields.method,
       paidOn: fields.paidOn,
       reversesPaymentId: null,
+      note: fields.note,
     };
 
     await this.payments.append(payment);

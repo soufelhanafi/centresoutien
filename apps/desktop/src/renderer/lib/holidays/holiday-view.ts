@@ -1,4 +1,4 @@
-import type { HolidayInput } from './holiday-input-schema';
+import type { HolidayInput } from '@centresoutien/domain';
 import type { HolidayDto } from '../../../shared/ipc/contract';
 
 /**

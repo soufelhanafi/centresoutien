@@ -75,8 +75,12 @@ function CenterProfileStepForm({ center }: { center: CenterDto | null }) {
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
-    await saveProfile.mutateAsync({ ...values, logoPath });
-    submit();
+    try {
+      await saveProfile.mutateAsync({ ...values, logoPath });
+      submit();
+    } catch {
+      // saveProfile.isError renders the alert banner below; nothing else to do here.
+    }
   });
 
   return (

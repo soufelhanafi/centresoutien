@@ -45,6 +45,11 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
  * convention; a future `Money` value object handles display. `paidOn` is the
  * business date the money changed hands, `'YYYY-MM-DD'` — a human date, not a
  * timestamp; sync ordering is decided by `version`, never `paidOn`.
+ *
+ * `note` (SOU-101) is a free-text cash-desk annotation ("chèque n°1234", "reste
+ * dû reporté") — optional, `null` when absent. Like every other field it is
+ * `readonly`: the append-only invariant covers it too, so a correction is a new
+ * `reversal` row, never an edit of the note.
  */
 export type Payment = EntityEnvelope & {
   readonly id: PaymentId;
@@ -54,4 +59,5 @@ export type Payment = EntityEnvelope & {
   readonly method: PaymentMethod;
   readonly paidOn: string; // 'YYYY-MM-DD', the business date the money moved
   readonly reversesPaymentId: PaymentId | null; // set on a reversal, null on a payment
+  readonly note: string | null; // free-text cash-desk annotation, optional
 };

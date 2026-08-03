@@ -16,6 +16,7 @@ import { InMemoryInvoiceRepository } from '../fakes/in-memory-invoice-repository
 import { InMemoryPaymentRepository } from '../fakes/in-memory-payment-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import type { Payment, PaymentId } from '../../../src/entities/payment';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const OTHER_CENTER = 'CS-RABAT-002' as CenterCode;
@@ -98,8 +99,24 @@ describe('GetInvoicePaymentSummary', () => {
     expect(summary.outstandingMad).toBe(0);
   });
 
-  it('clamps outstanding to 0 on overpayment (never negative)', async () => {
-    await recorder().execute(paymentInput(50000));
+  it('clamps outstanding to 0 for a ledger that somehow overpaid (never negative)', async () => {
+    // RecordPayment blocks overpayment outright (SOU-101), so an overpaid ledger can
+    // only arise from data that predates that guard (or a sync-arrived row from
+    // another device). The summary's derivation must still stay defensive about it —
+    // append the overpaying row directly to the fake, bypassing the use case.
+    const overpaying: Payment = {
+      id: 'pay_00000000000000000000000099' as PaymentId,
+      ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, seedClock),
+      invoiceId: INVOICE,
+      kind: 'payment',
+      amountMad: 50000,
+      method: 'cash',
+      paidOn: '2026-08-05',
+      reversesPaymentId: null,
+      note: null,
+    };
+    await payments.append(overpaying);
+
     const summary = await build().execute({ centerCode: CENTER, invoiceId: INVOICE });
     expect(summary.status).toBe('paid');
     expect(summary.netPaidMad).toBe(50000);
