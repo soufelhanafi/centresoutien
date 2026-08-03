@@ -642,6 +642,8 @@ export { CreateTeacher } from './use-cases/create-teacher';
 export type { CreateTeacherInput } from './use-cases/create-teacher';
 export { ListTeachers } from './use-cases/list-teachers';
 export type { ListTeachersInput, TeacherScope } from './use-cases/list-teachers';
+export { SearchPeople } from './use-cases/search-people';
+export type { SearchPeopleInput, PersonSearchResult } from './use-cases/search-people';
 export { GetTeacher } from './use-cases/get-teacher';
 export type { GetTeacherInput } from './use-cases/get-teacher';
 export { UpdateTeacher } from './use-cases/update-teacher';
