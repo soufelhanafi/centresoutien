@@ -104,31 +104,46 @@ describe('GenerateAndPersistSessions', () => {
   describe('happy path', () => {
     it('generates and persists one dated occurrence per matching weekday', async () => {
       const result = await useCase.execute(input());
-      expect(datesOf(result)).toEqual([
+      expect(datesOf(result.sessions)).toEqual([
         '2026-01-01',
         '2026-01-08',
         '2026-01-15',
         '2026-01-22',
         '2026-01-29',
       ]);
-      // The return is the persisted truth, not the generator output: it deep-equals
+      // sessions is the persisted truth, not the generator output: it deep-equals
       // a fresh range read (same ids, same envelopes), not merely the same dates.
       const stored = await sessions.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' });
-      expect(result).toEqual(stored);
+      expect(result.sessions).toEqual(stored);
+    });
+
+    it('returns this run\'s own generationBatchId (SOU-160)', async () => {
+      const result = await useCase.execute(input());
+      expect(result.generationBatchId).toMatch(/^gen_/);
+      expect(result.sessions.every((s) => s.generationBatchId === result.generationBatchId)).toBe(
+        true,
+      );
+    });
+
+    it('returns a null generationBatchId when the run materializes nothing', async () => {
+      await recurrences.save(recurring({ active: false }));
+      const result = await useCase.execute(input());
+      expect(result.sessions).toEqual([]);
+      expect(result.generationBatchId).toBeNull();
     });
 
     it('skips holiday dates (delegated to the pure generator)', async () => {
       await holidays.save(holiday({ startDate: '2026-01-15', endDate: '2026-01-15' }));
       const result = await useCase.execute(input());
-      expect(datesOf(result)).toEqual(['2026-01-01', '2026-01-08', '2026-01-22', '2026-01-29']);
+      expect(datesOf(result.sessions)).toEqual(['2026-01-01', '2026-01-08', '2026-01-22', '2026-01-29']);
     });
 
     it('persists occurrences inheriting the template\'s groupId (SOU-130)', async () => {
       const groupId = 'grp_00000000000000000000000001' as GroupId;
       await recurrences.save(recurring({ groupId }));
       const result = await useCase.execute(input());
-      expect(result.length).toBeGreaterThan(0);
-      for (const session of result) {
+      expect(result.sessions.length).toBeGreaterThan(0);
+      for (const session of result.sessions) {
         expect(session.groupId).toBe(groupId);
       }
     });
@@ -142,7 +157,7 @@ describe('GenerateAndPersistSessions', () => {
           endDate: '2026-01-15',
         }),
       );
-      expect(datesOf(await useCase.execute(input()))).toContain('2026-01-15');
+      expect(datesOf((await useCase.execute(input())).sessions)).toContain('2026-01-15');
     });
   });
 
@@ -171,7 +186,7 @@ describe('GenerateAndPersistSessions', () => {
       const first = await useCase.execute(input());
       // Cancel the first occurrence (2026-01-01) so the re-run must not report it,
       // even though the pure generator would still emit that date.
-      const cancelled = first.find((s) => s.date === '2026-01-01');
+      const cancelled = first.sessions.find((s) => s.date === '2026-01-01');
       expect(cancelled).toBeDefined();
       if (!cancelled) return;
       await sessions.softDelete(cancelled.id, new Date('2026-01-02T00:00:00Z'), USER);
@@ -180,41 +195,43 @@ describe('GenerateAndPersistSessions', () => {
       const second = await build(PLANS.essentiel, 500).execute(input());
 
       // (a) A pre-existing live date carries its ORIGINAL stored id, not a fresh ULID.
-      const original = first.find((s) => s.date === '2026-01-08');
-      const returned = second.find((s) => s.date === '2026-01-08');
+      const original = first.sessions.find((s) => s.date === '2026-01-08');
+      const returned = second.sessions.find((s) => s.date === '2026-01-08');
       expect(original).toBeDefined();
       expect(returned?.id).toBe(original?.id);
 
       // (b) The cancelled date is absent from the returned window (persisted truth).
-      expect(datesOf(second)).not.toContain('2026-01-01');
-      expect(datesOf(second)).toEqual(['2026-01-08', '2026-01-15', '2026-01-22', '2026-01-29']);
+      expect(datesOf(second.sessions)).not.toContain('2026-01-01');
+      expect(datesOf(second.sessions)).toEqual(['2026-01-08', '2026-01-15', '2026-01-22', '2026-01-29']);
     });
 
     it('a widened window only tags the newly-covered dates with the new run\'s generationBatchId (SOU-160)', async () => {
       const first = await useCase.execute(input({ range: { start: '2026-01-01', end: '2026-01-15' } }));
-      const originalBatchId = first[0]?.generationBatchId;
+      const originalBatchId = first.generationBatchId;
       expect(originalBatchId).toMatch(/^gen_/);
 
       const second = await build(PLANS.essentiel, 500).execute(input()); // full month
-      const byDate = new Map(second.map((s) => [s.date, s]));
+      const byDate = new Map(second.sessions.map((s) => [s.date, s]));
 
       // Pre-existing dates keep their original batch id, untouched by the re-run.
       expect(byDate.get('2026-01-01')?.generationBatchId).toBe(originalBatchId);
       expect(byDate.get('2026-01-08')?.generationBatchId).toBe(originalBatchId);
       expect(byDate.get('2026-01-15')?.generationBatchId).toBe(originalBatchId);
 
-      // Newly-covered dates carry the second run's own (different) batch id.
+      // Newly-covered dates carry the second run's own (different) batch id —
+      // which is exactly the id `second.generationBatchId` itself reports.
+      expect(second.generationBatchId).not.toBe(originalBatchId);
       const newBatchId = byDate.get('2026-01-22')?.generationBatchId;
-      expect(newBatchId).toMatch(/^gen_/);
-      expect(newBatchId).not.toBe(originalBatchId);
+      expect(newBatchId).toBe(second.generationBatchId);
       expect(byDate.get('2026-01-29')?.generationBatchId).toBe(newBatchId);
     });
 
     it('never resurrects a cancelled (soft-deleted) occurrence', async () => {
-      const [first] = await useCase.execute(input());
-      expect(first).toBeDefined();
-      if (!first) return;
-      await sessions.softDelete(first.id, new Date('2026-01-02T00:00:00Z'), USER);
+      const first = await useCase.execute(input());
+      const [firstSession] = first.sessions;
+      expect(firstSession).toBeDefined();
+      if (!firstSession) return;
+      await sessions.softDelete(firstSession.id, new Date('2026-01-02T00:00:00Z'), USER);
 
       await build(PLANS.essentiel, 500).execute(input());
       // The cancelled date stays gone from live reads.

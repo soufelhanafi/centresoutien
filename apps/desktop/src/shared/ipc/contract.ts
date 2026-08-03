@@ -1188,16 +1188,25 @@ export const ipcContract = {
   // `from`/`to` with `to >= from`), validated once and reused by any future
   // calendar "generate" action. centerCode/device/user are injected in main,
   // never sent from the renderer. Gated by `core.calendar.week` in the use case;
-  // idempotent — re-running over the same window persists no duplicates. Returns
-  // the generated window as envelope-stripped `sessionViewSchema` rows.
+  // idempotent — re-running over the same window persists no duplicates.
+  // `sessions` is the generated window as envelope-stripped `sessionViewSchema`
+  // rows — on a re-run these mix this call's batch id with older ones already
+  // stored on pre-existing dates. `generationBatchId` is this call's OWN run tag
+  // (null if it materialized nothing), the only reliable id an "undo what I just
+  // generated" action can pass straight to `session.undoGenerationBatch` below.
   'session.generate': {
     request: generateSessionsSchema,
-    response: z.object({ sessions: z.array(sessionViewSchema) }),
+    response: z.object({
+      generationBatchId: z.string().nullable(),
+      sessions: z.array(sessionViewSchema),
+    }),
   },
-  // Bulk undo of one generator run (SOU-160). Every session `session.generate`
-  // materializes in one call shares the returned row's `generationBatchId`, so
-  // the renderer's "Undo this batch" action passes that id straight back here.
-  // Bulk-cancels (soft-deletes) every live session of the batch that hasn't yet
+  // Bulk undo of one generator run (SOU-160). The renderer's "Undo this batch"
+  // action passes back the `generationBatchId` `session.generate` returned for
+  // that call (NOT a `generationBatchId` read off an individual row in its
+  // `sessions` array — on a re-run those mix this call's tag with older ones
+  // already stored on pre-existing dates). Bulk-cancels (soft-deletes) every
+  // live session of the batch that hasn't yet
   // occurred — a session whose civil `date` has already passed is left alone
   // and counted in `skippedOccurredCount`. There is no per-session invoiced
   // state to guard against: billing is monthly per subscription, never per

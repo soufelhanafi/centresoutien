@@ -1192,14 +1192,14 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     },
     'session.generate': async (request) => {
       const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
-      const sessions = await deps.generateSessions.execute({
+      const { generationBatchId, sessions } = await deps.generateSessions.execute({
         centerCode,
         recurringSessionId: request.recurringSessionId as WeeklyRecurringSessionId,
         range: { start: request.from, end: request.to },
         deviceOrigin,
         updatedBy,
       });
-      return { sessions: sessions.map(toSessionView) };
+      return { generationBatchId, sessions: sessions.map(toSessionView) };
     },
     'session.undoGenerationBatch': async (request) => {
       const { centerCode, updatedBy } = deps.envelopeContext();

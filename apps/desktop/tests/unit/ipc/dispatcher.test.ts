@@ -243,25 +243,28 @@ const stubListWeekSessions: ListWeekSessionsUseCase = {
 // context and one materialized occurrence so the handler can prove it maps the
 // request (from/to → range) and strips the envelope to `sessionViewSchema`.
 const stubGenerateSessions: GenerateAndPersistSessionsUseCase = {
-  execute: async (input) => [
-    {
-      id: 'ses_00000000000000000000000001' as SessionId,
-      centerCode: input.centerCode,
-      deviceOrigin: input.deviceOrigin,
-      createdAt: new Date('2026-07-29T10:00:00Z'),
-      updatedAt: new Date('2026-07-29T10:00:00Z'),
-      updatedBy: input.updatedBy,
-      deletedAt: null,
-      version: 0,
-      recurringSessionId: input.recurringSessionId,
-      generationBatchId: 'gen_00000000000000000000000001' as GenerationBatchId,
-      roomId: 'rom_00000000000000000000000001' as RoomId,
-      teacherId: null,
-      date: input.range.start,
-      start: '09:00' as TimeOfDay,
-      end: '10:00' as TimeOfDay,
-    },
-  ],
+  execute: async (input) => ({
+    generationBatchId: 'gen_00000000000000000000000001' as GenerationBatchId,
+    sessions: [
+      {
+        id: 'ses_00000000000000000000000001' as SessionId,
+        centerCode: input.centerCode,
+        deviceOrigin: input.deviceOrigin,
+        createdAt: new Date('2026-07-29T10:00:00Z'),
+        updatedAt: new Date('2026-07-29T10:00:00Z'),
+        updatedBy: input.updatedBy,
+        deletedAt: null,
+        version: 0,
+        recurringSessionId: input.recurringSessionId,
+        generationBatchId: 'gen_00000000000000000000000001' as GenerationBatchId,
+        roomId: 'rom_00000000000000000000000001' as RoomId,
+        teacherId: null,
+        date: input.range.start,
+        start: '09:00' as TimeOfDay,
+        end: '10:00' as TimeOfDay,
+      },
+    ],
+  }),
 };
 
 // Stub bulk-undo (SOU-160) — the sentinel batch id throws
@@ -486,6 +489,7 @@ describe('createIpcDispatcher', () => {
         to: '2026-01-31',
       }),
     ).resolves.toEqual({
+      generationBatchId: 'gen_00000000000000000000000001',
       sessions: [
         {
           id: 'ses_00000000000000000000000001',
