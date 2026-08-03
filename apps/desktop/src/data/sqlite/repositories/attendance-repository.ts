@@ -7,7 +7,10 @@ import type {
   AttendanceSummary,
   CenterCode,
   DeviceId,
+  GroupId,
+  GroupSheetData,
   SessionId,
+  StudentAttendanceReading,
   StudentId,
   UserId,
   DateRange,
@@ -187,5 +190,77 @@ export class SqliteAttendanceRepository implements AttendanceRepository {
     const summary = emptySummary();
     for (const row of rows) summary[row.status as AttendanceStatus] = row.count;
     return summary;
+  }
+
+  async listForStudent(studentId: StudentId, range: DateRange): Promise<readonly StudentAttendanceReading[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT s.id AS session_id, s.date AS date, s.group_id AS group_id,
+                ar.status AS status, ar.note AS note
+           FROM attendance_records ar
+           JOIN sessions s ON s.id = ar.session_id
+          WHERE ar.student_id = ?
+            AND ar.deleted_at IS NULL
+            AND s.deleted_at IS NULL
+            AND s.date BETWEEN ? AND ?
+          ORDER BY s.date, s.id`,
+      )
+      .all(studentId, range.start, range.end) as {
+      session_id: string;
+      date: string;
+      group_id: string | null;
+      status: string;
+      note: string | null;
+    }[];
+
+    return rows.map((row) => ({
+      sessionId: row.session_id as SessionId,
+      date: row.date,
+      groupId: row.group_id as GroupId | null,
+      status: row.status as AttendanceStatus,
+      note: row.note,
+    }));
+  }
+
+  async sheetForGroup(groupId: GroupId, range: DateRange): Promise<GroupSheetData> {
+    const sessions = this.db
+      .prepare(
+        `SELECT id AS id, date AS date
+           FROM sessions
+          WHERE group_id = ?
+            AND deleted_at IS NULL
+            AND date BETWEEN ? AND ?
+          ORDER BY date, id`,
+      )
+      .all(groupId, range.start, range.end) as { id: string; date: string }[];
+
+    const cells = this.db
+      .prepare(
+        `SELECT ar.student_id AS student_id, ar.session_id AS session_id,
+                ar.status AS status, s.date AS date
+           FROM attendance_records ar
+           JOIN sessions s ON s.id = ar.session_id
+          WHERE s.group_id = ?
+            AND ar.deleted_at IS NULL
+            AND s.deleted_at IS NULL
+            AND s.date BETWEEN ? AND ?
+          ORDER BY s.date, ar.student_id`,
+      )
+      .all(groupId, range.start, range.end) as {
+      student_id: string;
+      session_id: string;
+      status: string;
+      date: string;
+    }[];
+
+    return {
+      sessions: sessions.map((row) => ({ sessionId: row.id as SessionId, date: row.date })),
+      cells: cells.map((row) => ({
+        studentId: row.student_id as StudentId,
+        sessionId: row.session_id as SessionId,
+        date: row.date,
+        status: row.status as AttendanceStatus,
+      })),
+    };
   }
 }
