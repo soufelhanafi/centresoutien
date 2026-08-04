@@ -1344,10 +1344,7 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       }
     },
     'admin.securityQuestions.bank': async () => ({ keys: [...SECURITY_QUESTION_KEYS] }),
-    'admin.securityQuestions.exists': async () => {
-      if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
-      return { exists: await deps.securityQuestionsExist() };
-    },
+    'admin.securityQuestions.exists': async () => ({ exists: await deps.securityQuestionsExist() }),
     'admin.securityQuestions.set': async (request) => {
       if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
       const username = await deps.adminUsername();
