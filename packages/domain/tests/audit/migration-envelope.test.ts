@@ -26,6 +26,8 @@ const LOCAL_TABLES = [
   'device_sessions',
   'recovery_codes',
   'auth_audit_log',
+  'security_questions',
+  'security_question_lockout',
 ];
 
 interface ColumnDef {
