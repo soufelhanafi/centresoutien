@@ -117,20 +117,26 @@ describe('SqliteAdminAccountRepository', () => {
     });
   });
 
-  describe('migration 0031 backfill (SOU-153)', () => {
+  describe('migration 0034 backfill (SOU-153)', () => {
     it('backfills username_normalized to match normalizeUsername for a pre-existing non-ASCII username', async () => {
       // Separate temp DB (the shared `dir`/`db` from beforeEach is already
-      // migrated to head) so we can apply migrations up to 0030 only, seed a
-      // pre-SOU-153 row by hand, then run 0031 and inspect the backfill. Guards
-      // against SQL's ASCII-only LOWER() silently diverging from the domain's
-      // Unicode-aware normalizeUsername for an existing accented username.
-      const preDir = mkdtempSync(join(tmpdir(), 'cs-admin-pre31-'));
+      // migrated to head) so we can apply every migration before this one, seed
+      // a pre-SOU-153 row by hand, then run just this migration and inspect the
+      // backfill. Guards against SQL's ASCII-only LOWER() silently diverging
+      // from the domain's Unicode-aware normalizeUsername for an existing
+      // accented username. Looked up by filename (not a hardcoded version) so
+      // a future renumbering — this migration has already collided with two
+      // others once (SOU-153/154/160 all originally shipped as "0031") —
+      // can't silently make this test apply the wrong migration.
+      const preDir = mkdtempSync(join(tmpdir(), 'cs-admin-pre-normalize-'));
       const migrations = loadMigrations(REAL_MIGRATIONS);
-      const upTo30 = migrations.filter((m) => m.version <= 30);
-      const only31 = migrations.filter((m) => m.version === 31);
+      const thisMigration = migrations.find((m) => m.name.includes('admin_account_username_normalized'));
+      if (!thisMigration) throw new Error('admin_account_username_normalized migration not found');
+      const upToBeforeThis = migrations.filter((m) => m.version < thisMigration.version);
+      const onlyThis = [thisMigration];
 
       const preDb = openDatabase({ centreId: 'C1', key: KEY, dir: preDir });
-      applyMigrations(preDb, upTo30);
+      applyMigrations(preDb, upToBeforeThis);
 
       const rawUsername = 'Étudiante';
       preDb
@@ -146,7 +152,7 @@ describe('SqliteAdminAccountRepository', () => {
           updated_at: AT.toISOString(),
         });
 
-      applyMigrations(preDb, only31);
+      applyMigrations(preDb, onlyThis);
 
       const row = preDb
         .prepare('SELECT username_normalized FROM admin_accounts WHERE id = ?')
