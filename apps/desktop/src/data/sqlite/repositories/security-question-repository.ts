@@ -35,6 +35,9 @@ export class SqliteSecurityQuestionRepository implements SecurityQuestionReposit
   async saveAll(questions: readonly SecurityQuestion[]): Promise<void> {
     const insert = this.db.prepare(INSERT_SQL);
     const tx = this.db.transaction(() => {
+      // Hard delete intentional: security_questions is device-local, never synced,
+      // and superseded answer hashes should not be retained. History is preserved
+      // via the append-only auth_audit_log entry the caller records around this call.
       this.db.prepare('DELETE FROM security_questions').run();
       for (const question of questions) {
         insert.run({
