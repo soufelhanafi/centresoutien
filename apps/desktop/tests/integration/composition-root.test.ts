@@ -522,7 +522,7 @@ describe('composition root', () => {
   // + `GenerateAndPersistSessions` seam manual booking uses, and materializing
   // real dated Session rows — not a mock at any layer.
   it('wires the session.generator.preview and .commit channels end-to-end', async () => {
-    const container = build();
+    const container = build('premium'); // mode: 'auto' requires planning.random-auto
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
 
     const { id: subjectId } = await dispatch('subject.create', {
@@ -556,6 +556,7 @@ describe('composition root', () => {
     expect(preview.conflicts).toEqual([]);
 
     const commit = await dispatch('session.generator.commit', {
+      mode: config.mode,
       proposals: preview.proposals.map(({ groupId: id, blocks }) => ({ groupId: id, blocks })),
       range: config.range,
     });
@@ -593,7 +594,7 @@ describe('composition root', () => {
   // A stale preview must never silently overwrite a slot someone else booked in
   // the meantime — the commit re-runs the composite conflict check for real.
   it('rejects session.generator.commit when the room is already booked at write time', async () => {
-    const container = build();
+    const container = build('premium'); // mode: 'auto' requires planning.random-auto
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
 
     const { id: subjectId } = await dispatch('subject.create', {
@@ -625,6 +626,7 @@ describe('composition root', () => {
 
     await expect(
       dispatch('session.generator.commit', {
+        mode: 'auto',
         proposals: [{ groupId, blocks: [{ dayOfWeek: 1, start: '09:00', end: '10:00', roomId }] }],
         range: { startDate: '2026-09-01', endDate: '2026-09-30' },
       }),
