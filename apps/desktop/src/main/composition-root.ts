@@ -660,7 +660,7 @@ export function buildContainer(options: ContainerOptions): Container {
     ids,
   );
 
-  const securityQuestionRepo = new SqliteSecurityQuestionRepository(db);
+  const securityQuestionRepo = new SqliteSecurityQuestionRepository(db, clock);
   const setSecurityQuestions = new SetSecurityQuestions(
     securityQuestionRepo,
     auditLogRepo,

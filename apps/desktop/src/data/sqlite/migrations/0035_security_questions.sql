@@ -14,8 +14,10 @@
 -- First ships in: v2.x (SOU-155).
 --
 -- LOCAL infra tables — like admin_accounts, recovery_codes, and auth_lockout,
--- no sync envelope (no center_code / device_origin / version / deleted_at)
--- and never leave the device: auth is device-local, not synced.
+-- no sync envelope (no center_code / device_origin / version) and never leave
+-- the device: auth is device-local, not synced. `deleted_at` is still present
+-- because CLAUDE.md §13 forbids hard deletes everywhere, sync or not — re-setup
+-- soft-deletes the previous set and inserts a fresh one instead of DELETE FROM.
 
 CREATE TABLE security_questions (
   id            TEXT PRIMARY KEY,       -- ULID with 'secq_' prefix
@@ -23,10 +25,13 @@ CREATE TABLE security_questions (
   answer_hash   TEXT NOT NULL,          -- Argon2id PHC string
   created_at    TEXT NOT NULL,          -- ISO-8601 UTC
   updated_at    TEXT NOT NULL,          -- ISO-8601 UTC
+  deleted_at    TEXT,                   -- ISO-8601 UTC; NULL = active (soft delete only)
   CHECK (id LIKE 'secq\_%' ESCAPE '\')
 );
 
-CREATE UNIQUE INDEX ux_security_questions_question_key ON security_questions(question_key);
+CREATE UNIQUE INDEX ux_security_questions_question_key
+  ON security_questions(question_key)
+  WHERE deleted_at IS NULL;
 
 CREATE TABLE security_question_lockout (
   id              INTEGER PRIMARY KEY CHECK (id = 1),  -- singleton
