@@ -39,7 +39,6 @@ import {
   weeklyHoursSchema,
   loginInputSchema,
   centerProfileSchema,
-  PASSWORD_MAX,
   CENTER_LOGO_PATH_MAX,
   TEACHER_PAYOUT_STATUSES,
   TEACHER_PAYROLL_RULE_KINDS,
@@ -1538,11 +1537,10 @@ export const ipcContract = {
     response: z.object({ savedPath: z.string().nullable() }),
   },
   // Auth (SOU-26). `admin.exists` drives first-run detection; `admin.create`
-  // reuses the domain credential schema (password policy enforced here too);
-  // `admin.verify` is a bare presence check — login must not reject an existing
-  // account just because the password policy later tightened. It only bounds
-  // length (a correct password can never exceed `PASSWORD_MAX`, so a longer
-  // input is always wrong) to keep unbounded strings off the Argon2 path.
+  // reuses the domain credential schema (password policy enforced here too).
+  // Password verification is reachable only through `auth.login`, which routes
+  // every attempt through the lockout throttle — the bare `admin.verify` channel
+  // was removed in SOU-97 to close a throttle-bypass surface.
   'admin.exists': {
     request: z.object({}),
     response: z.object({ exists: z.boolean() }),
@@ -1550,13 +1548,6 @@ export const ipcContract = {
   'admin.create': {
     request: adminCredentialsSchema,
     response: z.object({ id: z.string() }),
-  },
-  'admin.verify': {
-    request: z.object({
-      username: z.string().trim().min(1),
-      password: z.string().min(1).max(PASSWORD_MAX),
-    }),
-    response: z.object({ valid: z.boolean() }),
   },
   // Password change (SOU-31 settings page). Single-admin app: no username in
   // the request. Reuses the domain's own `changeAdminPasswordSchema` so the

@@ -34,7 +34,6 @@ import {
   type CreateSubjectUseCase,
   type CreateParentUseCase,
   type CreateAdminAccountUseCase,
-  type VerifyAdminPasswordUseCase,
   type CreateGroupUseCase,
   type ListGroupsUseCase,
   type ListGroupsWithCountsUseCase,
@@ -59,6 +58,7 @@ import {
   type StoreCenterLogoUseCase,
   type ReadCenterLogoUseCase,
 } from '../../../src/main/ipc/handlers';
+import { isIpcChannel } from '../../../src/shared/ipc/contract';
 import type { IpcHandlers } from '../../../src/shared/ipc/contract';
 
 // Throwaway test password assembled from fragments (secret-scan friendly).
@@ -117,10 +117,6 @@ const stubCreateAdminAccount: CreateAdminAccountUseCase = {
     updatedAt: new Date('2026-07-29T10:00:00Z'),
   }),
 };
-const stubVerifyAdminPassword: VerifyAdminPasswordUseCase = {
-  execute: async (input) => input.password === PASS,
-};
-
 // Stub login use case — locked when the password is 'locked', wrong when it is
 // 'nope', otherwise success. Enough to exercise all three response shapes.
 const LOCKED_UNTIL_MS = new Date('2026-07-29T10:15:00Z').getTime();
@@ -411,7 +407,6 @@ const dispatch = createIpcDispatcher(
     envelopeContext: () => context,
     adminExists: async () => false,
     createAdminAccount: stubCreateAdminAccount,
-    verifyAdminPassword: stubVerifyAdminPassword,
     attemptLogin: stubAttemptLogin,
     deviceSessions: stubDeviceSessions,
     getCenterProfile: stubGetCenter,
@@ -641,13 +636,14 @@ describe('createIpcDispatcher', () => {
     ).rejects.toThrow();
   });
 
-  it('runs admin.verify and returns validity', async () => {
+  // SOU-97: the bare `admin.verify` channel was removed so a locked console
+  // cannot be probed for a password bypassing the lockout throttle. Password
+  // verification is reachable only through the throttled `auth.login` path.
+  it('no longer exposes an admin.verify channel', async () => {
+    expect(isIpcChannel('admin.verify')).toBe(false);
     await expect(
-      dispatch('admin.verify', { username: 'directrice', password: PASS }),
-    ).resolves.toEqual({ valid: true });
-    await expect(
-      dispatch('admin.verify', { username: 'directrice', password: 'nope' }),
-    ).resolves.toEqual({ valid: false });
+      dispatch('admin.verify' as never, { username: 'directrice', password: PASS }),
+    ).rejects.toThrow();
   });
 
   it('serializes auth.login success', async () => {
