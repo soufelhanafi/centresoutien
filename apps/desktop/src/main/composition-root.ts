@@ -73,6 +73,10 @@ import {
   GenerateRecoveryCodes,
   VerifyRecoveryCode,
   ResetPasswordWithRecoveryCode,
+  SetSecurityQuestions,
+  VerifySecurityAnswers,
+  RequestPasswordResetViaSecurityQuestions,
+  SecurityQuestionThrottlePolicy,
   SaveCenterHours,
   GetCenterHours,
   AttemptLogin,
@@ -145,8 +149,10 @@ import { SqliteAttendanceRepository } from '../data/sqlite/repositories/attendan
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SqliteRecoveryCodeRepository } from '../data/sqlite/repositories/recovery-code-repository';
+import { SqliteSecurityQuestionRepository } from '../data/sqlite/repositories/security-question-repository';
 import { SqliteAuthAuditLogRepository } from '../data/sqlite/repositories/auth-audit-log-repository';
 import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-throttle-store';
+import { SqliteSecurityQuestionThrottleStore } from '../data/sqlite/repositories/security-question-throttle-store';
 import { SqliteDeviceSessionStore } from '../data/sqlite/repositories/device-session-store';
 import { SqliteCenterRepository } from '../data/sqlite/repositories/center-repository';
 import { FsLogoStore } from '../data/fs/logo-store';
@@ -654,6 +660,30 @@ export function buildContainer(options: ContainerOptions): Container {
     ids,
   );
 
+  const securityQuestionRepo = new SqliteSecurityQuestionRepository(db);
+  const setSecurityQuestions = new SetSecurityQuestions(
+    securityQuestionRepo,
+    auditLogRepo,
+    hasher,
+    clock,
+    ids,
+  );
+  const verifySecurityAnswers = new VerifySecurityAnswers(
+    securityQuestionRepo,
+    new SqliteSecurityQuestionThrottleStore(db),
+    new SecurityQuestionThrottlePolicy(),
+    auditLogRepo,
+    hasher,
+    clock,
+    ids,
+  );
+  const requestPasswordResetViaSecurityQuestions = new RequestPasswordResetViaSecurityQuestions(
+    verifySecurityAnswers,
+    auditLogRepo,
+    clock,
+    ids,
+  );
+
   // Locale preference (SOU-31): a plain userData-file adapter, not a domain
   // port — see LocalePreferenceStore's doc for why. `options.dir` is the same
   // userData directory the center DB files and the logo store live under.
@@ -783,6 +813,10 @@ export function buildContainer(options: ContainerOptions): Container {
     verifyRecoveryCode,
     resetPasswordWithRecoveryCode,
     countRemainingRecoveryCodes: () => recoveryCodeRepo.countUnconsumed(),
+    setSecurityQuestions,
+    verifySecurityAnswers,
+    requestPasswordResetViaSecurityQuestions,
+    securityQuestionsExist: () => securityQuestionRepo.exists(),
     getCenterProfile,
     saveCenterProfile,
     storeCenterLogo,
