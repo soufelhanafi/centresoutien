@@ -49,3 +49,10 @@ export class NotAuthenticatedError extends DomainError {
     super('Not authenticated.');
   }
 }
+
+/** Thrown when the security-questions reset path is used before any questions have been set. */
+export class NoSecurityQuestionsSetError extends DomainError {
+  constructor() {
+    super('No security questions have been set for this account.');
+  }
+}

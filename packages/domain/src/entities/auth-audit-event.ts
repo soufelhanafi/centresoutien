@@ -8,7 +8,11 @@ export type AuthAuditEventType =
   | 'recovery-codes-generated'
   | 'recovery-code-consumed'
   | 'recovery-code-failed'
-  | 'password-reset-via-recovery-code';
+  | 'password-reset-via-recovery-code'
+  | 'security-questions-set'
+  | 'security-questions-answer-failed'
+  | 'security-questions-verified'
+  | 'security-questions-reset-blocked-pending-confirmation';
 
 /**
  * Immutable log of security-relevant auth events for CNDP/Loi 09-08
