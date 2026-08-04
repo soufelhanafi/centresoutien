@@ -62,7 +62,6 @@ export {
   NoRecoveryCodesError,
   InvalidRecoveryCodeError,
   NotAuthenticatedError,
-  NoSecurityQuestionsSetError,
 } from './errors/auth-errors';
 export { StudentNotFoundError, StudentVersionConflictError } from './errors/student-errors';
 export {

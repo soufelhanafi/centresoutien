@@ -10,7 +10,6 @@ import {
   type VerifySecurityAnswersInput,
 } from '../schemas/security-question';
 import { normalizeSecurityAnswer } from '../policies/security-answer-normalization';
-import { NoSecurityQuestionsSetError } from '../errors/auth-errors';
 import {
   AUTH_AUDIT_EVENT_ID_PREFIX,
   type AuthAuditEvent,
@@ -51,8 +50,11 @@ export class VerifySecurityAnswers {
     const lockedUntil = this.throttlePolicy.lockActiveUntil(state, now);
     if (lockedUntil !== null) return { outcome: 'locked-out', lockedUntil };
 
+    // No stored questions falls through to the same invalid-answer/locked-out
+    // path as a wrong answer (allCorrect stays false, loop below is a no-op) —
+    // never a distinct thrown error, so an unauthenticated caller on the
+    // reset entry point can't enumerate "not configured" vs "wrong answer".
     const stored = await this.questions.findAll();
-    if (stored.length === 0) throw new NoSecurityQuestionsSetError();
 
     const answerByKey = new Map(answers.map((a) => [a.questionKey, a.answer]));
     let allCorrect = stored.length === answerByKey.size;

@@ -8,7 +8,6 @@ import { SecurityQuestionThrottlePolicy } from '../../../src/policies/security-q
 import { fakeHasher } from '../fakes/hasher';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
-import { NoSecurityQuestionsSetError } from '../../../src/errors/auth-errors';
 
 const CORRECT_ANSWERS = {
   answers: [
@@ -139,11 +138,12 @@ describe('VerifySecurityAnswers', () => {
   });
 
   describe('no questions configured', () => {
-    it('throws NoSecurityQuestionsSetError', async () => {
+    it('returns invalid-answer, same as a wrong answer, and registers the throttle attempt', async () => {
       const emptyRepo = new InMemorySecurityQuestionRepository();
+      const emptyThrottle = new InMemorySecurityQuestionThrottleStore();
       const fresh = new VerifySecurityAnswers(
         emptyRepo,
-        new InMemorySecurityQuestionThrottleStore(),
+        emptyThrottle,
         new SecurityQuestionThrottlePolicy(),
         new InMemoryAuthAuditLogRepository(),
         hasher,
@@ -151,9 +151,11 @@ describe('VerifySecurityAnswers', () => {
         fakeIds(),
       );
 
-      await expect(fresh.execute('admin', CORRECT_ANSWERS)).rejects.toBeInstanceOf(
-        NoSecurityQuestionsSetError,
-      );
+      const result = await fresh.execute('admin', CORRECT_ANSWERS);
+
+      expect(result).toEqual({ outcome: 'invalid-answer', remainingAttempts: 2 });
+      const state = await emptyThrottle.get();
+      expect(state.failedAttempts).toBe(1);
     });
   });
 });
