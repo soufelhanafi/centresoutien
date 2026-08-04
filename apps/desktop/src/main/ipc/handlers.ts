@@ -1204,14 +1204,23 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     },
     'session.generate': async (request) => {
       const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
-      const { generationBatchId, sessions } = await deps.generateSessions.execute({
+      const { generationBatchId, sessions, skippedHolidays } = await deps.generateSessions.execute({
         centerCode,
         recurringSessionId: request.recurringSessionId as WeeklyRecurringSessionId,
         range: { start: request.from, end: request.to },
         deviceOrigin,
         updatedBy,
+        overrideHolidayDates: request.overrideHolidayDates ?? [],
       });
-      return { generationBatchId, sessions: sessions.map(toSessionView) };
+      return {
+        generationBatchId,
+        sessions: sessions.map(toSessionView),
+        skippedHolidays: skippedHolidays.map((skipped) => ({
+          date: skipped.date,
+          holidayId: skipped.holiday.id,
+          holidayName: skipped.holiday.name,
+        })),
+      };
     },
     'session.undoGenerationBatch': async (request) => {
       const { centerCode, updatedBy } = deps.envelopeContext();

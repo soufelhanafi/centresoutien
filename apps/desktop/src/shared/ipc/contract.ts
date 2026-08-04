@@ -280,6 +280,16 @@ const teacherAttributionBreakdownEntrySchema = z.object({
   amountMad: z.number().int(),
 });
 
+// One date `session.generate` skipped for falling on a holiday (SOU-161),
+// alongside the matched holiday's id + bilingual name — mirrors the payload
+// `SessionOnHolidayError` already carries, so the renderer can reuse the same
+// localization. Never blocks the run; every other date still materializes.
+const generatedSkippedHolidaySchema = z.object({
+  date: z.string(),
+  holidayId: z.string(),
+  holidayName: z.object({ fr: z.string(), ar: z.string() }),
+});
+
 // The presentation projection of a Holiday across the IPC boundary — the sync
 // envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized,
 // exactly like `roomViewSchema`. `archived` is derived from `deletedAt != null` in
@@ -1196,11 +1206,17 @@ export const ipcContract = {
   // stored on pre-existing dates. `generationBatchId` is this call's OWN run tag
   // (null if it materialized nothing), the only reliable id an "undo what I just
   // generated" action can pass straight to `session.undoGenerationBatch` below.
+  // `overrideHolidayDates` (SOU-161) names dates to materialize despite a
+  // configured holiday; every other holiday date in the window is skipped and
+  // reported in `skippedHolidays` instead of failing the run.
   'session.generate': {
     request: generateSessionsSchema,
     response: z.object({
       generationBatchId: z.string().nullable(),
       sessions: z.array(sessionViewSchema),
+      // Dates this run skipped for falling on a holiday (SOU-161), unless named
+      // in the request's `overrideHolidayDates`. Empty when nothing was skipped.
+      skippedHolidays: z.array(generatedSkippedHolidaySchema),
     }),
   },
   // Bulk undo of one generator run (SOU-160). The renderer's "Undo this batch"

@@ -264,6 +264,7 @@ const stubGenerateSessions: GenerateAndPersistSessionsUseCase = {
         end: '10:00' as TimeOfDay,
       },
     ],
+    skippedHolidays: [],
   }),
 };
 
@@ -502,6 +503,7 @@ describe('createIpcDispatcher', () => {
           end: '10:00',
         },
       ],
+      skippedHolidays: [],
     });
   });
 
