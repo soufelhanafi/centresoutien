@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useController, useWatch } from 'react-hook-form';
 import { Lock } from 'lucide-react';
-import { Button, FormItem, FormLabel, cn } from '@centresoutien/ui';
+import { Button, Label, cn } from '@centresoutien/ui';
 import type { GeneratorFormControl } from '../../lib/planning/session-generator-schema';
 import { useFeature } from '../../hooks/use-feature';
 import { GeneratorWeekdayPicker } from './generator-weekday-picker';
@@ -26,18 +26,18 @@ export function GeneratorPatternFields({ control }: { control: GeneratorFormCont
 
   return (
     <div className="space-y-4">
-      <FormItem>
-        <FormLabel>{t('planning.generator.weekdayPool')}</FormLabel>
+      <div className="space-y-2">
+        <Label>{t('planning.generator.weekdayPool')}</Label>
         <GeneratorWeekdayPicker
           value={poolController.field.value}
           onChange={poolController.field.onChange}
           ariaLabel={t('planning.generator.weekdayPool')}
         />
         {poolError ? <p className="text-sm font-medium text-destructive">{t(`errors.${poolError}`)}</p> : null}
-      </FormItem>
+      </div>
 
-      <FormItem>
-        <FormLabel>{t('planning.generator.mode.label')}</FormLabel>
+      <div className="space-y-2">
+        <Label>{t('planning.generator.mode.label')}</Label>
         <div role="group" aria-label={t('planning.generator.mode.label')} className="flex gap-2">
           {(['auto', 'custom'] as const).map((value) => {
             const locked = value === 'auto' && !hasRandomAuto;
@@ -59,7 +59,7 @@ export function GeneratorPatternFields({ control }: { control: GeneratorFormCont
           })}
         </div>
         <p className="text-sm text-muted-foreground">{t(`planning.generator.mode.${mode}Hint`)}</p>
-      </FormItem>
+      </div>
 
       {mode === 'auto' ? (
         <GeneratorNumberField
@@ -69,15 +69,15 @@ export function GeneratorPatternFields({ control }: { control: GeneratorFormCont
           min={1}
         />
       ) : (
-        <FormItem>
-          <FormLabel>{t('planning.generator.pickedWeekdays')}</FormLabel>
+        <div className="space-y-2">
+          <Label>{t('planning.generator.pickedWeekdays')}</Label>
           <GeneratorWeekdayPicker
             value={pickedController.field.value}
             onChange={pickedController.field.onChange}
             ariaLabel={t('planning.generator.pickedWeekdays')}
           />
           {pickedError ? <p className="text-sm font-medium text-destructive">{t(`errors.${pickedError}`)}</p> : null}
-        </FormItem>
+        </div>
       )}
 
       <div className="flex flex-wrap gap-4">

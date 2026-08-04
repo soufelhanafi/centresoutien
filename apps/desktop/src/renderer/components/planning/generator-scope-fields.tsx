@@ -6,6 +6,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -122,8 +123,8 @@ function ScopeField({
   const errorCode = ids.fieldState.error?.message;
 
   return (
-    <FormItem>
-      <FormLabel>{label}</FormLabel>
+    <div className="space-y-2">
+      <Label>{label}</Label>
       <GeneratorScopePicker
         allValue={all.field.value as boolean}
         onAllChange={all.field.onChange}
@@ -136,6 +137,6 @@ function ScopeField({
       {!all.field.value && errorCode ? (
         <p className="text-sm font-medium text-destructive">{t(`errors.${errorCode}`)}</p>
       ) : null}
-    </FormItem>
+    </div>
   );
 }

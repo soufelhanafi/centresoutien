@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useController, useWatch } from 'react-hook-form';
-import { Button, FormControl, FormField, FormItem, FormLabel, Input, cn } from '@centresoutien/ui';
+import { Button, FormControl, FormField, FormItem, FormLabel, Input, Label, cn } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
 import type { GeneratorFormControl } from '../../lib/planning/session-generator-schema';
 import { GeneratorNumberField } from './generator-number-field';
@@ -19,8 +19,8 @@ export function GeneratorRangeFields({ control }: { control: GeneratorFormContro
 
   return (
     <div className="space-y-4">
-      <FormItem>
-        <FormLabel>{t('planning.generator.range.label')}</FormLabel>
+      <div className="space-y-2">
+        <Label>{t('planning.generator.range.label')}</Label>
         <div role="group" aria-label={t('planning.generator.range.label')} className="flex gap-2">
           {(['dates', 'count'] as const).map((value) => (
             <Button
@@ -35,7 +35,7 @@ export function GeneratorRangeFields({ control }: { control: GeneratorFormContro
             </Button>
           ))}
         </div>
-      </FormItem>
+      </div>
 
       <div className="flex flex-wrap gap-4">
         <FormField
