@@ -111,6 +111,9 @@ import type {
   GenerateRecoveryCodes,
   VerifyRecoveryCode,
   ResetPasswordWithRecoveryCode,
+  SetSecurityQuestions,
+  VerifySecurityAnswers,
+  RequestPasswordResetViaSecurityQuestions,
   DeviceSessionService,
   GetCenterProfile,
   SaveCenterProfile,
@@ -132,6 +135,7 @@ import {
   TeacherNotFoundError,
   HolidayNotFoundError,
   NotAuthenticatedError,
+  SECURITY_QUESTION_KEYS,
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import type { LocalePreference } from '../infra/locale-preference-store';
@@ -234,6 +238,12 @@ export type AttemptLoginUseCase = Pick<AttemptLogin, 'execute'>;
 export type GenerateRecoveryCodesUseCase = Pick<GenerateRecoveryCodes, 'execute'>;
 export type VerifyRecoveryCodeUseCase = Pick<VerifyRecoveryCode, 'execute'>;
 export type ResetPasswordWithRecoveryCodeUseCase = Pick<ResetPasswordWithRecoveryCode, 'execute'>;
+export type SetSecurityQuestionsUseCase = Pick<SetSecurityQuestions, 'execute'>;
+export type VerifySecurityAnswersUseCase = Pick<VerifySecurityAnswers, 'execute'>;
+export type RequestPasswordResetViaSecurityQuestionsUseCase = Pick<
+  RequestPasswordResetViaSecurityQuestions,
+  'execute'
+>;
 export type DeviceSessions = Pick<DeviceSessionService, 'isAuthenticated' | 'forget'>;
 export type GetCenterProfileUseCase = Pick<GetCenterProfile, 'execute'>;
 export type SaveCenterProfileUseCase = Pick<SaveCenterProfile, 'execute'>;
@@ -634,6 +644,10 @@ export type HandlerDeps = BackupHandlerDeps &
   verifyRecoveryCode: VerifyRecoveryCodeUseCase;
   resetPasswordWithRecoveryCode: ResetPasswordWithRecoveryCodeUseCase;
   countRemainingRecoveryCodes: () => Promise<number>;
+  setSecurityQuestions: SetSecurityQuestionsUseCase;
+  verifySecurityAnswers: VerifySecurityAnswersUseCase;
+  requestPasswordResetViaSecurityQuestions: RequestPasswordResetViaSecurityQuestionsUseCase;
+  securityQuestionsExist: () => Promise<boolean>;
   getCenterProfile: GetCenterProfileUseCase;
   saveCenterProfile: SaveCenterProfileUseCase;
   storeCenterLogo: StoreCenterLogoUseCase;
@@ -1325,6 +1339,29 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       switch (result.outcome) {
         case 'success':
           return { outcome: 'success' };
+        case 'locked-out':
+          return { outcome: 'locked-out', lockedUntilMs: result.lockedUntil };
+      }
+    },
+    'admin.securityQuestions.bank': async () => ({ keys: [...SECURITY_QUESTION_KEYS] }),
+    'admin.securityQuestions.exists': async () => {
+      if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
+      return { exists: await deps.securityQuestionsExist() };
+    },
+    'admin.securityQuestions.set': async (request) => {
+      if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
+      const username = await deps.adminUsername();
+      await deps.setSecurityQuestions.execute(username, request);
+      return { ok: true };
+    },
+    'auth.resetWithSecurityQuestions': async (request) => {
+      const username = await deps.adminUsername();
+      const result = await deps.requestPasswordResetViaSecurityQuestions.execute(username, request);
+      switch (result.outcome) {
+        case 'confirmation-required':
+          return { outcome: 'confirmation-required' };
+        case 'invalid-answer':
+          return { outcome: 'invalid-answer', remainingAttempts: result.remainingAttempts };
         case 'locked-out':
           return { outcome: 'locked-out', lockedUntilMs: result.lockedUntil };
       }

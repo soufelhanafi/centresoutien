@@ -44,6 +44,9 @@ export { normalizeNaturalKey } from './policies/natural-key';
 // Username case-insensitive matching (SOU-153)
 export { normalizeUsername } from './policies/username-normalization';
 
+// Security-questions answer normalization (SOU-155)
+export { normalizeSecurityAnswer } from './policies/security-answer-normalization';
+
 // Repository ports
 export type { SoftDeletableRepository } from './repositories/soft-deletable';
 
@@ -172,6 +175,14 @@ export {
 } from './schemas/recovery-code';
 export type { RecoveryCodeString, ResetPasswordWithRecoveryCodeInput as ResetPasswordWithCodeSchemaInput } from './schemas/recovery-code';
 export {
+  setSecurityQuestionsSchema,
+  verifySecurityAnswersSchema,
+  SECURITY_ANSWER_MIN,
+  SECURITY_ANSWER_MAX,
+  SECURITY_QUESTIONS_COUNT,
+} from './schemas/security-question';
+export type { SetSecurityQuestionsInput, VerifySecurityAnswersInput } from './schemas/security-question';
+export {
   parentInputSchema,
   PARENT_NAME_MAX,
   PARENT_PHONE_MAX,
@@ -269,6 +280,8 @@ export { ADMIN_ACCOUNT_ID_PREFIX } from './entities/admin-account';
 export type { AdminAccount, AdminAccountId } from './entities/admin-account';
 export { RECOVERY_CODE_ID_PREFIX } from './entities/recovery-code';
 export type { RecoveryCode, RecoveryCodeId } from './entities/recovery-code';
+export { SECURITY_QUESTION_ID_PREFIX, SECURITY_QUESTION_KEYS } from './entities/security-question';
+export type { SecurityQuestion, SecurityQuestionId, SecurityQuestionKey } from './entities/security-question';
 export { AUTH_AUDIT_EVENT_ID_PREFIX } from './entities/auth-audit-event';
 export type { AuthAuditEvent, AuthAuditEventId, AuthAuditEventType } from './entities/auth-audit-event';
 export {
@@ -355,6 +368,11 @@ export {
   MAX_FAILED_ATTEMPTS,
   LOCKOUT_DURATION_MS,
 } from './policies/login-throttle-policy';
+export {
+  SecurityQuestionThrottlePolicy,
+  MAX_FAILED_SECURITY_ANSWER_ATTEMPTS,
+  SECURITY_QUESTION_LOCKOUT_DURATION_MS,
+} from './policies/security-question-throttle-policy';
 
 // Repository & service ports
 export type {
@@ -373,8 +391,10 @@ export type { AdminAccountRepository } from './ports/admin-account-repository';
 export type { PasswordHasher } from './ports/password-hasher';
 export type { SecureRandom } from './ports/secure-random';
 export type { RecoveryCodeRepository } from './ports/recovery-code-repository';
+export type { SecurityQuestionRepository } from './ports/security-question-repository';
 export type { AuthAuditLogRepository } from './ports/auth-audit-log-repository';
 export type { LoginThrottleStore } from './ports/login-throttle-store';
+export type { SecurityQuestionThrottleStore } from './ports/security-question-throttle-store';
 export type { DeviceSessionStore } from './ports/device-session-store';
 export type { CenterRepository } from './ports/center-repository';
 export type { LogoStore } from './ports/logo-store';
@@ -776,6 +796,11 @@ export { VerifyRecoveryCode } from './use-cases/verify-recovery-code';
 export type { VerifyRecoveryCodeInput, VerifyRecoveryCodeResult } from './use-cases/verify-recovery-code';
 export { ResetPasswordWithRecoveryCode } from './use-cases/reset-password-with-recovery-code';
 export type { ResetPasswordWithRecoveryCodeInput, ResetPasswordWithRecoveryCodeResult } from './use-cases/reset-password-with-recovery-code';
+export { SetSecurityQuestions } from './use-cases/set-security-questions';
+export { VerifySecurityAnswers } from './use-cases/verify-security-answers';
+export type { VerifySecurityAnswersResult } from './use-cases/verify-security-answers';
+export { RequestPasswordResetViaSecurityQuestions } from './use-cases/request-password-reset-via-security-questions';
+export type { RequestPasswordResetViaSecurityQuestionsResult } from './use-cases/request-password-reset-via-security-questions';
 
 // Formula CRUD use cases (SOU-62).
 export { CreateFormula } from './use-cases/create-formula';

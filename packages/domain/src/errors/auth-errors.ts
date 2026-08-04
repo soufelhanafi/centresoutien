@@ -49,3 +49,4 @@ export class NotAuthenticatedError extends DomainError {
     super('Not authenticated.');
   }
 }
+

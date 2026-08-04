@@ -23,12 +23,21 @@ beforeEach(() => {
 });
 
 describe('Settings page — tabs', () => {
-  it('lists all seven tabs in French and switches between password, language, and plan', async () => {
+  it('lists all eight tabs in French and switches between password, language, and plan', async () => {
     await i18n.changeLanguage('fr');
     const user = userEvent.setup();
     renderPage();
 
-    for (const label of ['Profil', 'Horaires', 'Vacances', 'Mot de passe', 'Langue', 'Formule', 'Sauvegarde']) {
+    for (const label of [
+      'Profil',
+      'Horaires',
+      'Vacances',
+      'Mot de passe',
+      'Questions de sécurité',
+      'Langue',
+      'Formule',
+      'Sauvegarde',
+    ]) {
       expect(screen.getByRole('tab', { name: label })).toBeInTheDocument();
     }
 
@@ -42,11 +51,20 @@ describe('Settings page — tabs', () => {
     expect(await screen.findByText('Votre formule')).toBeInTheDocument();
   });
 
-  it('lists all seven tabs in Arabic', async () => {
+  it('lists all eight tabs in Arabic', async () => {
     await i18n.changeLanguage('ar');
     renderPage();
 
-    for (const label of ['الملف الشخصي', 'المواعيد', 'العطل', 'كلمة المرور', 'اللغة', 'الباقة', 'النسخ الاحتياطي']) {
+    for (const label of [
+      'الملف الشخصي',
+      'المواعيد',
+      'العطل',
+      'كلمة المرور',
+      'أسئلة الأمان',
+      'اللغة',
+      'الباقة',
+      'النسخ الاحتياطي',
+    ]) {
       expect(screen.getByRole('tab', { name: label })).toBeInTheDocument();
     }
     await i18n.changeLanguage('fr');
