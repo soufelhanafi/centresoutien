@@ -31,6 +31,18 @@ export function formatMonth(value: string, locale: string): string {
   return new Intl.DateTimeFormat(bcp47(locale), { year: 'numeric', month: 'long' }).format(date);
 }
 
+/**
+ * Last calendar day of a `YYYY-MM` month — the display-only due date of a
+ * monthly invoice (billing is monthly, CLAUDE.md §7, so the month's end is the
+ * implicit deadline). Falls back to the raw string.
+ */
+export function formatMonthEnd(value: string, locale: string): string {
+  const date = new Date(`${value}-01T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  return new Intl.DateTimeFormat(bcp47(locale), { year: 'numeric', month: 'long', day: 'numeric' }).format(lastDay);
+}
+
 /** Formats an integer MAD centimes amount as currency (CLAUDE.md §8: never hand-formatted). */
 export function formatMoneyMad(amountCentimes: number, locale: string): string {
   return new Intl.NumberFormat(bcp47(locale), { style: 'currency', currency: 'MAD' }).format(

@@ -14,24 +14,30 @@ export function InvoicePaymentPanel({ invoice }: { invoice: InvoiceListItemView 
   // on both draft and issued invoices — only `cancelled` blocks recording a payment.
   const canRecordPayment = invoice.status !== 'cancelled' && invoice.outstandingMad > 0;
 
-  const rows: [string, number][] = [
-    [t('invoices.detail.payment.total'), invoice.totalMad],
-    [t('invoices.detail.payment.netPaid'), invoice.netPaidMad],
-    [t('invoices.detail.payment.outstanding'), invoice.outstandingMad],
-  ];
-
   return (
-    <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+    <div className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-sm">
       <h2 className="text-sm font-semibold text-foreground">{t('invoices.detail.payment.panelTitle')}</h2>
-      <dl className="space-y-1.5">
-        {rows.map(([label, amount]) => (
-          <div key={label} className="flex items-center justify-between text-sm">
-            <dt className="text-muted-foreground">{label}</dt>
-            <dd>
-              <Numeric>{formatMoneyMad(amount, i18n.language)}</Numeric>
-            </dd>
-          </div>
-        ))}
+      <dl className="space-y-2.5">
+        <div className="flex items-center justify-between text-sm">
+          <dt className="text-muted-foreground">{t('invoices.detail.payment.total')}</dt>
+          <dd>
+            <Numeric>{formatMoneyMad(invoice.totalMad, i18n.language)}</Numeric>
+          </dd>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <dt className="text-muted-foreground">{t('invoices.detail.payment.netPaid')}</dt>
+          <dd>
+            <Numeric>{formatMoneyMad(invoice.netPaidMad, i18n.language)}</Numeric>
+          </dd>
+        </div>
+        <div className="flex items-center justify-between border-t border-border pt-2.5 text-sm font-semibold">
+          <dt className="text-foreground">{t('invoices.detail.payment.outstanding')}</dt>
+          <dd>
+            <Numeric className="font-semibold text-foreground">
+              {formatMoneyMad(invoice.outstandingMad, i18n.language)}
+            </Numeric>
+          </dd>
+        </div>
       </dl>
 
       {canRecordPayment && (

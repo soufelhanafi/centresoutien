@@ -10,3 +10,9 @@ export function formatDateLabel(value: string, locale: 'fr' | 'ar'): string {
   const dateLocale = locale === 'ar' ? 'ar-MA' : 'fr-MA';
   return new Intl.DateTimeFormat(dateLocale, { year: 'numeric', month: 'long', day: 'numeric' }).format(date);
 }
+
+/** Same rendering as {@link formatDateLabel} for an already-parsed `Date` (e.g. the invoice's `issuedAt`). */
+export function formatDateObjectLabel(value: Date, locale: 'fr' | 'ar'): string {
+  const dateLocale = locale === 'ar' ? 'ar-MA' : 'fr-MA';
+  return new Intl.DateTimeFormat(dateLocale, { year: 'numeric', month: 'long', day: 'numeric' }).format(value);
+}

@@ -1630,7 +1630,15 @@
         "regular": "عادي",
         "examPrep": "تحضير امتحان"
       },
-      "subtotal": "المجموع الفرعي: {{amount}}",
+      "documentTitle": "فاتورة",
+      "number": "رقم {{number}}",
+      "issuedOn": "أُصدرت في {{date}}",
+      "billedTo": "مفوترة إلى",
+      "period": "الفترة",
+      "dueDate": "تاريخ الاستحقاق",
+      "lineDescription": "البيان",
+      "lineAmount": "المبلغ",
+      "subtotal": "المجموع الفرعي",
       "total": "المجموع",
       "payment": {
         "panelTitle": "الدفع",
