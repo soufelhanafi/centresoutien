@@ -23,6 +23,7 @@ const LOCAL_ENTITY_FILES = [
   'auth-audit-event.ts',
   'device-session.ts',
   'recovery-code.ts',
+  'security-question.ts',
 ];
 
 const HELPER_FILES = ['envelope.ts', 'write.ts'];
