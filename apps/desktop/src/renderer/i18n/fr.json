@@ -1588,7 +1588,15 @@
         "regular": "Régulier",
         "examPrep": "Prépa examen"
       },
-      "subtotal": "Sous-total : {{amount}}",
+      "documentTitle": "Facture",
+      "number": "N° {{number}}",
+      "issuedOn": "Émise le {{date}}",
+      "billedTo": "Facturé à",
+      "period": "Période",
+      "dueDate": "Échéance",
+      "lineDescription": "Description",
+      "lineAmount": "Montant",
+      "subtotal": "Sous-total",
       "total": "Total",
       "payment": {
         "panelTitle": "Paiement",
