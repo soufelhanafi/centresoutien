@@ -47,17 +47,13 @@ export function GeneratorPatternFields({ control }: { control: GeneratorFormCont
                 type="button"
                 variant={mode === value ? 'default' : 'outline'}
                 aria-pressed={mode === value}
+                aria-label={locked ? t('planning.generator.mode.autoLocked') : undefined}
                 disabled={locked}
                 onClick={() => modeController.field.onChange(value)}
                 className={cn('flex-1', mode === value && 'font-semibold')}
               >
                 {t(`planning.generator.mode.${value}`)}
-                {locked ? (
-                  <Lock
-                    className="h-3.5 w-3.5"
-                    aria-label={t('planning.generator.mode.autoLocked')}
-                  />
-                ) : null}
+                {locked ? <Lock className="h-3.5 w-3.5" aria-hidden="true" /> : null}
               </Button>
             );
           })}

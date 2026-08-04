@@ -180,7 +180,8 @@
     "student-subscription-not-found": "هذا الاشتراك غير موجود.",
     "student-not-found": "هذا التلميذ غير موجود.",
     "infeasible-generator-config": "يتعذّر وضع هذه الحصص بهذا الحد الأدنى للفارق على الأيام المختارة. قلّل الفارق أو أضف أياماً.",
-    "no-rooms-configured": "لا توجد قاعة مهيّأة لهذا المركز."
+    "no-rooms-configured": "لا توجد قاعة مهيّأة لهذا المركز.",
+    "pool-smaller-than-sessions": "عدد الحصص في الأسبوع يتجاوز عدد الأيام المتاحة."
   },
   "groups": {
     "title": "المجموعات",
