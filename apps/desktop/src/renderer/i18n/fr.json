@@ -1305,7 +1305,8 @@
         "auto": "Automatique",
         "custom": "Manuel",
         "autoHint": "Le système répartit les séances sur les jours éligibles.",
-        "customHint": "Vous choisissez les jours ; le système valide l'écart minimum."
+        "customHint": "Vous choisissez les jours ; le système valide l'écart minimum.",
+        "autoLocked": "Automatique (offre Premium)"
       },
       "sessionsPerWeek": "Séances par semaine",
       "pickedWeekdays": "Jours choisis",

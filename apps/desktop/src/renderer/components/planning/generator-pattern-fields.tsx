@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { useController, useWatch } from 'react-hook-form';
+import { Lock } from 'lucide-react';
 import { Button, FormItem, FormLabel, cn } from '@centresoutien/ui';
 import type { GeneratorFormControl } from '../../lib/planning/session-generator-schema';
+import { useFeature } from '../../hooks/use-feature';
 import { GeneratorWeekdayPicker } from './generator-weekday-picker';
 import { GeneratorNumberField } from './generator-number-field';
 
@@ -14,6 +16,7 @@ import { GeneratorNumberField } from './generator-number-field';
  */
 export function GeneratorPatternFields({ control }: { control: GeneratorFormControl }) {
   const { t } = useTranslation();
+  const hasRandomAuto = useFeature('planning.random-auto');
   const mode = useWatch({ control, name: 'mode' });
   const modeController = useController({ control, name: 'mode' });
   const poolController = useController({ control, name: 'weekdayPool' });
@@ -36,18 +39,28 @@ export function GeneratorPatternFields({ control }: { control: GeneratorFormCont
       <FormItem>
         <FormLabel>{t('planning.generator.mode.label')}</FormLabel>
         <div role="group" aria-label={t('planning.generator.mode.label')} className="flex gap-2">
-          {(['auto', 'custom'] as const).map((value) => (
-            <Button
-              key={value}
-              type="button"
-              variant={mode === value ? 'default' : 'outline'}
-              aria-pressed={mode === value}
-              onClick={() => modeController.field.onChange(value)}
-              className={cn('flex-1', mode === value && 'font-semibold')}
-            >
-              {t(`planning.generator.mode.${value}`)}
-            </Button>
-          ))}
+          {(['auto', 'custom'] as const).map((value) => {
+            const locked = value === 'auto' && !hasRandomAuto;
+            return (
+              <Button
+                key={value}
+                type="button"
+                variant={mode === value ? 'default' : 'outline'}
+                aria-pressed={mode === value}
+                disabled={locked}
+                onClick={() => modeController.field.onChange(value)}
+                className={cn('flex-1', mode === value && 'font-semibold')}
+              >
+                {t(`planning.generator.mode.${value}`)}
+                {locked ? (
+                  <Lock
+                    className="h-3.5 w-3.5"
+                    aria-label={t('planning.generator.mode.autoLocked')}
+                  />
+                ) : null}
+              </Button>
+            );
+          })}
         </div>
         <p className="text-sm text-muted-foreground">{t(`planning.generator.mode.${mode}Hint`)}</p>
       </FormItem>

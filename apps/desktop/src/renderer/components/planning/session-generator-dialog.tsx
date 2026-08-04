@@ -16,6 +16,7 @@ import {
 import { useSessionFormOptions } from '../../hooks/planning/use-session-form-options';
 import { usePreviewSchedule } from '../../hooks/planning/use-preview-schedule';
 import { useCommitSchedule } from '../../hooks/planning/use-commit-schedule';
+import { useFeature } from '../../hooks/use-feature';
 import {
   EMPTY_GENERATOR_FORM,
   toGeneratorConfig,
@@ -53,11 +54,17 @@ export function SessionGeneratorDialog({
   const options = useSessionFormOptions();
   const preview = usePreviewSchedule();
   const commit = useCommitSchedule();
+  const hasRandomAuto = useFeature('planning.random-auto');
 
   const [step, setStep] = useState<'config' | 'preview'>('config');
   const [previewErrorCode, setPreviewErrorCode] = useState<GeneratorErrorCode | null>(null);
   const [range, setRange] = useState<GeneratorRange | null>(null);
-  const defaultValues = useMemo<GeneratorFormValues>(() => ({ ...EMPTY_GENERATOR_FORM, startDate: today() }), []);
+  // Pro (no `planning.random-auto`) opens straight into Custom mode — Auto is
+  // visible-but-locked, never the pre-selected default for a plan that can't use it.
+  const defaultValues = useMemo<GeneratorFormValues>(
+    () => ({ ...EMPTY_GENERATOR_FORM, startDate: today(), mode: hasRandomAuto ? 'auto' : 'custom' }),
+    [hasRandomAuto],
+  );
 
   const close = (next: boolean) => {
     if (!next) {

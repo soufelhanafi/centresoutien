@@ -4,6 +4,7 @@ import { Plus, CalendarDays, Wand2 } from 'lucide-react';
 import { Button, ErrorState } from '@centresoutien/ui';
 import { useWeekSessions } from '../../hooks/planning/use-week-sessions';
 import { useTeachers } from '../../hooks/teacher/use-teachers';
+import { useFeature } from '../../hooks/use-feature';
 import { localizedName } from '../../lib/teachers/localized-name';
 import { PlannerToolbar } from '../../components/planning/planner-toolbar';
 import { PlannerGrid } from '../../components/planning/planner-grid';
@@ -31,6 +32,7 @@ import { deriveTimeRange } from '../../lib/planning/time-range';
  */
 export function PlannerPage() {
   const { t, i18n } = useTranslation();
+  const canGenerate = useFeature('planning.custom-grid') || useFeature('planning.random-auto');
   const query = useWeekSessions();
   // The teacher filter reads the live *active* roster (SOU-118 / SOU-37), so an
   // archived teacher drops from the picker even while their past sessions render.
@@ -66,10 +68,12 @@ export function PlannerPage() {
         </div>
         <div className="flex items-center gap-2">
           <ScheduleExportDialog />
-          <Button variant="secondary" onClick={() => setGenerating(true)}>
-            <Wand2 className="h-4 w-4" aria-hidden="true" />
-            {t('planning.generator.trigger')}
-          </Button>
+          {canGenerate ? (
+            <Button variant="secondary" onClick={() => setGenerating(true)}>
+              <Wand2 className="h-4 w-4" aria-hidden="true" />
+              {t('planning.generator.trigger')}
+            </Button>
+          ) : null}
           <Button onClick={() => setCreating(true)}>
             <Plus className="h-4 w-4" aria-hidden="true" />
             {t('planning.form.new')}
