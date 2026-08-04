@@ -40,6 +40,12 @@ import {
   CENTER_LOGO_PATH_MAX,
   TEACHER_PAYOUT_STATUSES,
   TEACHER_PAYROLL_RULE_KINDS,
+  hasIdPrefix,
+  isCalendarDate,
+  GROUP_ID_PREFIX,
+  ROOM_ID_PREFIX,
+  TEACHER_ID_PREFIX,
+  TIME_OF_DAY_REGEX,
 } from '@centresoutien/domain';
 
 /** The center profile as it crosses the IPC boundary — envelope dates stay in main. */
@@ -466,6 +472,141 @@ const sessionViewSchema = z.object({
   date: z.string(),
   start: z.string(),
   end: z.string(),
+});
+
+// The auto-session-generator's request-side building blocks (SOU-161): the
+// preview channel accepts the domain's own `SessionGeneratorConfig` shape, and
+// the commit channel accepts back the exact `GroupScheduleProposal[]` the
+// preview produced — both validated here (renderer input is untrusted) rather
+// than trusted as pre-shaped domain values.
+const generatorGroupRef = z
+  .string()
+  .refine((value) => hasIdPrefix(value, GROUP_ID_PREFIX), { message: 'invalid-id' });
+const generatorRoomRef = z
+  .string()
+  .refine((value) => hasIdPrefix(value, ROOM_ID_PREFIX), { message: 'invalid-id' });
+const generatorTeacherRef = z
+  .string()
+  .refine((value) => hasIdPrefix(value, TEACHER_ID_PREFIX), { message: 'invalid-id' });
+const generatorWeekday = z
+  .number()
+  .int({ message: 'invalid-weekday' })
+  .min(0, { message: 'invalid-weekday' })
+  .max(6, { message: 'invalid-weekday' });
+const generatorTimeString = z.string().regex(TIME_OF_DAY_REGEX, { message: 'invalid-time' });
+const generatorCalendarDate = z.string().refine(isCalendarDate, { message: 'invalid-date' });
+
+const sessionGeneratorScopeSchema = z.object({
+  groups: z.union([z.literal('all'), z.array(generatorGroupRef)]),
+  teachers: z.union([z.literal('all'), z.array(generatorTeacherRef)]),
+});
+
+// `{ startDate, endDate }` names both bounds outright; `{ startDate,
+// occurrenceCount }` is resolved to a concrete end date per template by the
+// domain (`resolveGeneratorMaterializationRange`) — a holiday inside the window
+// still counts toward the span, so the count is a sizing target, not a
+// guarantee, exactly like `GenerateSessions`'s own holiday-skip semantics.
+const sessionGeneratorRangeSchema = z.union([
+  z.object({ startDate: generatorCalendarDate, endDate: generatorCalendarDate }),
+  z.object({ startDate: generatorCalendarDate, occurrenceCount: z.number().int().positive() }),
+]);
+
+const sessionGeneratorConfigBaseSchema = z.object({
+  scope: sessionGeneratorScopeSchema,
+  kind: z.enum(['regular', 'exam-prep']),
+  weekdayPool: z.array(generatorWeekday),
+  sessionsPerWeek: z.number().int().positive(),
+  minGapDays: z.number().int().nonnegative(),
+  sessionDurationMinutes: z.number().int().positive(),
+  range: sessionGeneratorRangeSchema,
+});
+
+// `auto` has the engine propose the weekday set; `custom` supplies the admin's
+// own `pickedWeekdays` — mirrors `SessionGeneratorConfig`'s own two-variant shape.
+const sessionGeneratorConfigSchema = z.discriminatedUnion('mode', [
+  sessionGeneratorConfigBaseSchema.extend({ mode: z.literal('auto') }),
+  sessionGeneratorConfigBaseSchema.extend({
+    mode: z.literal('custom'),
+    pickedWeekdays: z.array(generatorWeekday),
+  }),
+]);
+
+// The preview response's proposal shape: loosely validated (main-generated
+// data, not renderer input) — mirrors `GroupScheduleProposal` field-for-field,
+// with the block's `WeeklyBlock` flattened alongside its assigned `roomId`.
+const generatedBlockProposalViewSchema = z.object({
+  dayOfWeek: generatorWeekday,
+  start: z.string(),
+  end: z.string(),
+  roomId: z.string(),
+});
+
+const weekdayGapViewSchema = z.object({
+  fromDay: generatorWeekday,
+  toDay: generatorWeekday,
+  gapDays: z.number().int(),
+});
+
+const groupScheduleProposalViewSchema = z.object({
+  groupId: z.string(),
+  blocks: z.array(generatedBlockProposalViewSchema),
+  gapViolations: z.array(weekdayGapViewSchema),
+});
+
+// The commit request's proposal shape: the renderer echoes back exactly what
+// `session.generator.preview` returned, so every id/time/weekday is
+// re-validated here — `gapViolations` is not accepted back (it was informational
+// only; the domain re-derives nothing from it) and the use case's own re-run of
+// `assertScheduleFree` at write time is the real conflict authority, not this
+// shape check.
+const generatedBlockProposalInputSchema = z.object({
+  dayOfWeek: generatorWeekday,
+  start: generatorTimeString,
+  end: generatorTimeString,
+  roomId: generatorRoomRef,
+});
+
+const groupScheduleProposalInputSchema = z.object({
+  groupId: generatorGroupRef,
+  blocks: z.array(generatedBlockProposalInputSchema).min(1),
+});
+
+const scheduledSessionRefViewSchema = z.object({
+  id: z.string(),
+  roomId: z.string(),
+  dayOfWeek: generatorWeekday,
+  start: z.string(),
+  end: z.string(),
+});
+
+// A generator run's non-blocking conflicts (SOU-161): a block whose `end` runs
+// past the center's closing time, or a room double-booked at an overlapping
+// weekday+time — either against the real committed schedule or a sibling
+// proposal in the same run. Mirrors `GeneratedScheduleConflict`; never thrown,
+// always returned alongside `proposals` for the admin to review.
+const generatedScheduleConflictViewSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('hours'),
+    groupId: z.string(),
+    dayOfWeek: generatorWeekday,
+    reason: z.enum(['closed', 'before-open', 'after-close']),
+    open: z.string().nullable(),
+    close: z.string().nullable(),
+  }),
+  z.object({
+    kind: z.literal('room'),
+    groupId: z.string(),
+    roomId: z.string(),
+    dayOfWeek: generatorWeekday,
+    conflicts: z.array(scheduledSessionRefViewSchema),
+  }),
+]);
+
+const committedGeneratedTemplateViewSchema = z.object({
+  groupId: z.string(),
+  recurringSessionId: z.string(),
+  generationBatchId: z.string().nullable(),
+  skippedHolidays: z.array(generatedSkippedHolidaySchema),
 });
 
 // The presentation projection of one roll-call outcome across the IPC boundary
@@ -1332,6 +1473,45 @@ export const ipcContract = {
   'weeklySession.delete': {
     request: z.object({ id: z.string() }),
     response: z.object({ ok: z.literal(true) }),
+  },
+  // Auto-session-generator dry-run preview (SOU-158 engine, SOU-159 config popup,
+  // this ticket's IPC seam). The request is the domain's own `SessionGeneratorConfig`
+  // shape; the use case resolves `scope` into concrete groups/teachers/rooms/hours
+  // and reads the real committed schedule itself — the renderer sends no ids beyond
+  // the scope it picked. Zero persistence: `proposals` is a proposal the admin may
+  // discard or echo back to `session.generator.commit` below, and `conflicts`
+  // (SOU-161) never blocks — every proposal is still returned even when it clashes,
+  // so the popup can show the warning and let the admin decide. centerCode is
+  // injected in main, never sent from the renderer. Gated by `core.calendar.week`.
+  'session.generator.preview': {
+    request: sessionGeneratorConfigSchema,
+    response: z.object({
+      proposals: z.array(groupScheduleProposalViewSchema),
+      conflicts: z.array(generatedScheduleConflictViewSchema),
+    }),
+  },
+  // Bulk-commits a confirmed preview (SOU-161): `proposals` is the exact
+  // `session.generator.preview` response's `proposals` array echoed back — every
+  // id/time/weekday is re-validated at this boundary (renderer input is
+  // untrusted) and the use case re-runs the SOU-55 composite conflict check at
+  // write time against the LIVE schedule, never trusting the preview's staleness
+  // (another device could have booked a slot since). One `WeeklyRecurringSession`
+  // per block across every proposal, each immediately materialized into dated
+  // occurrences over `range` via the same `GenerateAndPersistSessions` seam
+  // `session.generate` uses — `templates` reports one row per committed block
+  // (its own `recurringSessionId`, that block's own `generationBatchId`, and any
+  // dates it skipped for a holiday), so the renderer can show a per-block summary
+  // and then refetch `session.week` for the grid (mirrors `weeklySession.create`).
+  // A conflict partway through the batch aborts the rest — already-committed
+  // blocks stay committed; nothing here is transactional. centerCode/device/user
+  // are injected in main, never sent from the renderer. Gated by
+  // `core.calendar.week`.
+  'session.generator.commit': {
+    request: z.object({
+      proposals: z.array(groupScheduleProposalInputSchema).min(1),
+      range: sessionGeneratorRangeSchema,
+    }),
+    response: z.object({ templates: z.array(committedGeneratedTemplateViewSchema) }),
   },
   // Weekly schedule print/PDF export (SOU-107): renders the planner grid's full
   // live week (the same rows `session.week` returns) to the same bilingual

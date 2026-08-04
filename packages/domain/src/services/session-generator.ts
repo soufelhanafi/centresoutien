@@ -9,6 +9,7 @@ import type { ScheduledSessionRef } from '../errors/scheduling-errors';
 import type { DayHours } from '../policies/session-conflict-policy';
 import { weeklyBlockFromOpen, type WeeklyBlock } from '../value-objects/weekly-block';
 import { gapViolations, satisfiesMinGap, type WeekdayGap } from '../policies/weekday-gap';
+import { endDateAfterWeekdayOccurrences, type DateRange } from '../value-objects/date-range';
 import {
   detectGeneratedScheduleConflicts,
   type GeneratedScheduleConflict,
@@ -109,6 +110,27 @@ export type SessionGenerationInput = {
   readonly centerHours: readonly DayHours[];
   readonly existingSchedule: readonly ScheduledSessionRef[];
 };
+
+/**
+ * Resolves a run's {@link SessionGeneratorRange} to the concrete `[start, end]`
+ * window one committed template (single-weekday, `weekday`) materializes over.
+ * The `{ startDate, endDate }` variant passes straight through — it already
+ * names both bounds. The `{ startDate, occurrenceCount }` variant is converted
+ * per template via {@link endDateAfterWeekdayOccurrences}: two templates
+ * committed from the same run can land on different weekdays, so each gets its
+ * own end date computed from its own weekday's distance to `startDate` — never
+ * one shared end date guessed from the first template alone.
+ */
+export function resolveGeneratorMaterializationRange(
+  range: SessionGeneratorRange,
+  weekday: WeekdayIndex,
+): DateRange {
+  if ('endDate' in range) return { start: range.startDate, end: range.endDate };
+  return {
+    start: range.startDate,
+    end: endDateAfterWeekdayOccurrences(range.startDate, weekday, range.occurrenceCount),
+  };
+}
 
 /** A block awaiting a room, still tagged with the group and teacher it belongs to. */
 type UnroomedProposal = {

@@ -96,6 +96,15 @@ import type {
   CreateWeeklyRecurringSession,
   UpdateWeeklyRecurringSession,
   CancelWeeklyRecurringSession,
+  PreviewGeneratedSchedule,
+  CommitGeneratedSchedule,
+  SessionGeneratorConfig,
+  SessionGeneratorScope,
+  GroupScheduleProposal,
+  GeneratedScheduleConflict,
+  CommittedGeneratedTemplate,
+  WeekdayIndex,
+  TimeOfDay,
   RecordSessionAttendance,
   AttendanceRecord,
   Session,
@@ -133,7 +142,7 @@ import {
   HolidayNotFoundError,
   NotAuthenticatedError,
 } from '@centresoutien/domain';
-import type { IpcHandlers } from '../../shared/ipc/contract';
+import type { IpcHandlers, IpcRequest } from '../../shared/ipc/contract';
 import type { LocalePreference } from '../infra/locale-preference-store';
 import { createBackupHandlers, type BackupHandlerDeps } from './backup-handlers';
 import { createDialogHandlers } from './dialog-handlers';
@@ -222,6 +231,8 @@ export type UndoGenerationBatchUseCase = Pick<UndoGenerationBatch, 'execute'>;
 export type CreateWeeklyRecurringSessionUseCase = Pick<CreateWeeklyRecurringSession, 'execute'>;
 export type UpdateWeeklyRecurringSessionUseCase = Pick<UpdateWeeklyRecurringSession, 'execute'>;
 export type CancelWeeklyRecurringSessionUseCase = Pick<CancelWeeklyRecurringSession, 'execute'>;
+export type PreviewGeneratedScheduleUseCase = Pick<PreviewGeneratedSchedule, 'execute'>;
+export type CommitGeneratedScheduleUseCase = Pick<CommitGeneratedSchedule, 'execute'>;
 export type RecordSessionAttendanceUseCase = Pick<RecordSessionAttendance, 'execute'>;
 export type GetStudentAttendanceReportUseCase = Pick<GetStudentAttendanceReport, 'execute'>;
 export type GetGroupAttendanceSheetUseCase = Pick<GetGroupAttendanceSheet, 'execute'>;
@@ -511,6 +522,97 @@ function toSessionView(session: Session) {
   };
 }
 
+/**
+ * Widens the IPC boundary's `session.generator.preview` request (plain strings/
+ * numbers, already Zod-validated) to the domain's own branded
+ * `SessionGeneratorConfig` — the same widening `student.setGuardians` already
+ * does for `guardianIds as ParentId[]`. `kind` and `weekdayPool`'s element type
+ * are plain literal unions in the domain (not branded), so only the scope's id
+ * arrays and the weekday numbers need a cast.
+ */
+function toSessionGeneratorConfig(
+  request: IpcRequest<'session.generator.preview'>,
+): SessionGeneratorConfig {
+  const scope: SessionGeneratorScope = {
+    groups: request.scope.groups === 'all' ? 'all' : (request.scope.groups as GroupId[]),
+    teachers: request.scope.teachers === 'all' ? 'all' : (request.scope.teachers as TeacherId[]),
+  };
+  const base = {
+    scope,
+    kind: request.kind,
+    weekdayPool: request.weekdayPool as WeekdayIndex[],
+    sessionsPerWeek: request.sessionsPerWeek,
+    minGapDays: request.minGapDays,
+    sessionDurationMinutes: request.sessionDurationMinutes,
+    range: request.range,
+  };
+  return request.mode === 'auto'
+    ? { ...base, mode: 'auto' }
+    : { ...base, mode: 'custom', pickedWeekdays: request.pickedWeekdays as WeekdayIndex[] };
+}
+
+/** Project one generator run's proposed group schedule to its boundary DTO:
+ *  the block's `WeeklyBlock` flattened alongside its assigned `roomId`. */
+function toGroupScheduleProposalView(proposal: GroupScheduleProposal) {
+  return {
+    groupId: proposal.groupId,
+    blocks: proposal.blocks.map((scheduled) => ({
+      dayOfWeek: scheduled.block.dayOfWeek,
+      start: scheduled.block.start,
+      end: scheduled.block.end,
+      roomId: scheduled.roomId,
+    })),
+    gapViolations: proposal.gapViolations.map((gap) => ({
+      fromDay: gap.fromDay,
+      toDay: gap.toDay,
+      gapDays: gap.gapDays,
+    })),
+  };
+}
+
+/** Project one non-blocking generator conflict to its boundary DTO: the
+ *  thrown-error-shaped domain value is flattened to plain structured data,
+ *  since it never actually crosses the boundary as a thrown error here. */
+function toGeneratedScheduleConflictView(conflict: GeneratedScheduleConflict) {
+  if (conflict.kind === 'hours') {
+    return {
+      kind: 'hours' as const,
+      groupId: conflict.groupId,
+      dayOfWeek: conflict.error.dayOfWeek,
+      reason: conflict.error.reason,
+      open: conflict.error.open,
+      close: conflict.error.close,
+    };
+  }
+  return {
+    kind: 'room' as const,
+    groupId: conflict.groupId,
+    roomId: conflict.error.roomId,
+    dayOfWeek: conflict.error.dayOfWeek,
+    conflicts: conflict.error.conflicts.map((ref) => ({
+      id: ref.id,
+      roomId: ref.roomId,
+      dayOfWeek: ref.dayOfWeek,
+      start: ref.start,
+      end: ref.end,
+    })),
+  };
+}
+
+/** Project one committed generator template to its boundary DTO. */
+function toCommittedGeneratedTemplateView(template: CommittedGeneratedTemplate) {
+  return {
+    groupId: template.groupId,
+    recurringSessionId: template.recurringSessionId,
+    generationBatchId: template.generationBatchId,
+    skippedHolidays: template.skippedHolidays.map((skipped) => ({
+      date: skipped.date,
+      holidayId: skipped.holiday.id,
+      holidayName: skipped.holiday.name,
+    })),
+  };
+}
+
 /** Project one roll-call outcome to its boundary DTO: envelope stripped, `note`
  *  omitted (out of scope this ticket — always `null` in the domain). */
 function toAttendanceRecordView(record: AttendanceRecord) {
@@ -620,6 +722,8 @@ export type HandlerDeps = BackupHandlerDeps &
   createWeeklySession: CreateWeeklyRecurringSessionUseCase;
   updateWeeklySession: UpdateWeeklyRecurringSessionUseCase;
   cancelWeeklySession: CancelWeeklyRecurringSessionUseCase;
+  previewGeneratedSchedule: PreviewGeneratedScheduleUseCase;
+  commitGeneratedSchedule: CommitGeneratedScheduleUseCase;
   saveCenterHours: SaveCenterHoursUseCase;
   getCenterHours: GetCenterHoursUseCase;
   envelopeContext: () => EnvelopeContext;
@@ -1275,6 +1379,40 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         updatedBy,
       });
       return { ok: true };
+    },
+    'session.generator.preview': async (request) => {
+      const { centerCode } = deps.envelopeContext();
+      const result = await deps.previewGeneratedSchedule.execute({
+        centerCode,
+        config: toSessionGeneratorConfig(request),
+      });
+      return {
+        proposals: result.proposals.map(toGroupScheduleProposalView),
+        conflicts: result.conflicts.map(toGeneratedScheduleConflictView),
+      };
+    },
+    'session.generator.commit': async (request) => {
+      const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
+      const proposals: GroupScheduleProposal[] = request.proposals.map((proposal) => ({
+        groupId: proposal.groupId as GroupId,
+        blocks: proposal.blocks.map((scheduled) => ({
+          block: {
+            dayOfWeek: scheduled.dayOfWeek as WeekdayIndex,
+            start: scheduled.start as TimeOfDay,
+            end: scheduled.end as TimeOfDay,
+          },
+          roomId: scheduled.roomId as RoomId,
+        })),
+        gapViolations: [],
+      }));
+      const result = await deps.commitGeneratedSchedule.execute({
+        centerCode,
+        deviceOrigin,
+        updatedBy,
+        proposals,
+        range: request.range,
+      });
+      return { templates: result.templates.map(toCommittedGeneratedTemplateView) };
     },
     'centerHours.get': async () => {
       const week = await deps.getCenterHours.execute({

@@ -19,7 +19,13 @@ export { WEEKDAYS, isWeekdayIndex } from './value-objects/weekday';
 export type { WeeklyBlock } from './value-objects/weekly-block';
 export { weeklyBlockFromOpen } from './value-objects/weekly-block';
 export type { DateRange } from './value-objects/date-range';
-export { weekdayOf, eachDateInRange, daysBetween } from './value-objects/date-range';
+export {
+  weekdayOf,
+  eachDateInRange,
+  daysBetween,
+  addDays,
+  endDateAfterWeekdayOccurrences,
+} from './value-objects/date-range';
 export { monthsEndingAt, monthDateRange, monthsBetween, previousMonth } from './value-objects/month';
 export type { GuardianRelation } from './value-objects/guardian-relation';
 export { GUARDIAN_RELATIONS, isGuardianRelation } from './value-objects/guardian-relation';
@@ -444,7 +450,11 @@ export type {
 // Domain services
 export { DeviceSessionService } from './services/device-session-service';
 export { MonthlyFeeAttributionService } from './services/monthly-fee-attribution-service';
-export { SessionGenerator, assignRoomsToBlocks } from './services/session-generator';
+export {
+  SessionGenerator,
+  assignRoomsToBlocks,
+  resolveGeneratorMaterializationRange,
+} from './services/session-generator';
 export type {
   SessionGeneratorConfig,
   SessionGeneratorScope,
@@ -722,6 +732,14 @@ export { UpdateWeeklyRecurringSession } from './use-cases/update-weekly-recurrin
 export type { UpdateWeeklyRecurringSessionInput } from './use-cases/update-weekly-recurring-session';
 export { CancelWeeklyRecurringSession } from './use-cases/cancel-weekly-recurring-session';
 export type { CancelWeeklyRecurringSessionInput } from './use-cases/cancel-weekly-recurring-session';
+export { PreviewGeneratedSchedule } from './use-cases/preview-generated-schedule';
+export type { PreviewGeneratedScheduleInput } from './use-cases/preview-generated-schedule';
+export { CommitGeneratedSchedule } from './use-cases/commit-generated-schedule';
+export type {
+  CommitGeneratedScheduleInput,
+  CommitGeneratedScheduleResult,
+  CommittedGeneratedTemplate,
+} from './use-cases/commit-generated-schedule';
 export { UpdateRoom } from './use-cases/update-room';
 export type { UpdateRoomInput } from './use-cases/update-room';
 export { RestoreRoom } from './use-cases/restore-room';
