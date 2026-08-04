@@ -60,7 +60,7 @@ jobs:
       # Runner is this machine's real display (macOS, no Xvfb equivalent) —
       # CS_E2E_HIDDEN keeps the Electron window off-screen instead (window.ts).
       - name: E2E (Electron, FR + AR)
-        run: CS_E2E_HIDDEN=1 pnpm --filter @centresoutien/desktop test:e2e
+        run: pnpm --filter @centresoutien/desktop test:e2e:visible
 
       # On failure, keep the Playwright traces/screenshots so a flake or a
       # headless-only failure can be inspected without re-running locally.
