@@ -5,9 +5,14 @@ import type { EntityId } from '../value-objects/ids';
 import type { GroupId, GroupKind } from '../entities/group';
 import type { TeacherId } from '../entities/teacher';
 import type { RoomId } from '../entities/room';
+import type { ScheduledSessionRef } from '../errors/scheduling-errors';
 import type { DayHours } from '../policies/session-conflict-policy';
 import { weeklyBlockFromOpen, type WeeklyBlock } from '../value-objects/weekly-block';
 import { gapViolations, satisfiesMinGap, type WeekdayGap } from '../policies/weekday-gap';
+import {
+  detectGeneratedScheduleConflicts,
+  type GeneratedScheduleConflict,
+} from '../policies/generated-schedule-conflicts';
 import { InfeasibleGeneratorConfigError, NoRoomsConfiguredError } from '../errors/session-generator-errors';
 
 /** Which groups and teachers the run targets; the caller resolves `'all'` to concrete ids. */
@@ -70,8 +75,19 @@ export type GroupScheduleProposal = {
   readonly gapViolations: readonly WeekdayGap[];
 };
 
+/**
+ * `conflicts` (SOU-161) never blocks — every proposal in `proposals` is still
+ * fully returned even when it clashes. It surfaces two things the room-picking
+ * and weekday-placement steps can't see on their own: a block whose `end` runs
+ * past the center's closing time, and a room double-booked at an overlapping
+ * weekday+time — either against `SessionGenerationInput.existingSchedule` or
+ * against a sibling proposal generated in this same run. The caller (the
+ * SOU-159 preview) decides what to do with a non-empty list; nothing here ever
+ * throws for a conflict.
+ */
 export type SessionGeneratorResult = {
   readonly proposals: readonly GroupScheduleProposal[];
+  readonly conflicts: readonly GeneratedScheduleConflict[];
 };
 
 /**
@@ -80,7 +96,10 @@ export type SessionGeneratorResult = {
  * out of this pure engine), the teacher staffing each group (nullable and typed
  * `EntityId` rather than `TeacherId`, mirroring `Group.teacherId` — the Teacher
  * entity's brand isn't wired through here yet), the pool of rooms the run may
- * assign from, and the center's opening hours per weekday.
+ * assign from, the center's opening hours per weekday, and the real,
+ * already-committed schedule (SOU-161) the caller pre-scoped to same-center,
+ * non-soft-deleted, active refs — used only to detect room conflicts, never to
+ * change what gets generated.
  */
 export type SessionGenerationInput = {
   readonly config: SessionGeneratorConfig;
@@ -88,6 +107,7 @@ export type SessionGenerationInput = {
   readonly teacherByGroup: ReadonlyMap<GroupId, EntityId | null>;
   readonly rooms: readonly RoomId[];
   readonly centerHours: readonly DayHours[];
+  readonly existingSchedule: readonly ScheduledSessionRef[];
 };
 
 /** A block awaiting a room, still tagged with the group and teacher it belongs to. */
@@ -193,8 +213,11 @@ function linkBackToBackChains(entries: readonly UnroomedBlock[]): ReadonlyMap<Un
  * `start`), the later block reuses the earlier block's room instead of
  * drawing a fresh one, so the teacher never has to switch rooms between
  * consecutive classes. This reasoning is **intra-batch only** — it never reads
- * the real, already-committed schedule; checking a generated room against
- * sessions that exist outside this run is SOU-161.
+ * the real, already-committed schedule; a room draw here can still land on
+ * one already occupied by an existing session or by another group's proposal
+ * in this same run. Catching that is a separate pass, {@link
+ * detectGeneratedScheduleConflicts} (SOU-161) — it never changes the picked
+ * room, only reports the clash for the caller to act on.
  *
  * Randomization runs through the injected {@link RandomPort}, never
  * `Math.random()`, so a seeded fake makes every test deterministic. Each
@@ -202,15 +225,19 @@ function linkBackToBackChains(entries: readonly UnroomedBlock[]): ReadonlyMap<Un
  * different days rather than stacking them all on the same pattern.
  *
  * Scope is deliberately narrow: no persistence, no ids, no writes, and **no
- * center-hours-overrun or holiday checks** — those are SOU-161. It reads
- * center hours only to place each block's start at the day's opening time and
- * to drop weekdays the center is closed on.
+ * holiday check** — a weekly pattern carries no concrete date, so skipping
+ * holiday dates only makes sense once a pattern is materialized into dated
+ * occurrences ({@link GenerateSessions}). What this engine *does* detect
+ * (SOU-161, via {@link detectGeneratedScheduleConflicts}) is a center-hours
+ * overrun and a room double-booked either against the real committed schedule
+ * or against a sibling proposal in the same run — both reported as
+ * non-blocking `conflicts`, never thrown.
  */
 export class SessionGenerator {
   constructor(private readonly random: RandomPort) {}
 
   generate(input: SessionGenerationInput): SessionGeneratorResult {
-    const { config, groups, teacherByGroup, rooms, centerHours } = input;
+    const { config, groups, teacherByGroup, rooms, centerHours, existingSchedule } = input;
     const openByWeekday = this.openTimeByWeekday(centerHours);
     const eligiblePool = [...new Set(config.weekdayPool)].filter((day) => openByWeekday.has(day));
 
@@ -229,7 +256,17 @@ export class SessionGenerator {
       })),
       gapViolations: proposal.gapViolations,
     }));
-    return { proposals };
+
+    const candidates = proposals.flatMap((proposal) =>
+      proposal.blocks.map((scheduled) => ({
+        groupId: proposal.groupId,
+        block: scheduled.block,
+        roomId: scheduled.roomId,
+      })),
+    );
+    const conflicts = detectGeneratedScheduleConflicts(candidates, existingSchedule, centerHours);
+
+    return { proposals, conflicts };
   }
 
   private autoProposal(

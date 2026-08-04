@@ -482,6 +482,11 @@ export type {
   CompositeSessionCandidate,
   ConflictCheckContext,
 } from './policies/composite-session-conflicts';
+export { detectGeneratedScheduleConflicts } from './policies/generated-schedule-conflicts';
+export type {
+  GeneratedBlockCandidate,
+  GeneratedScheduleConflict,
+} from './policies/generated-schedule-conflicts';
 export { buildStudentNaturalKey, buildTeacherNaturalKey } from './policies/natural-key';
 export { INVOICE_STATUS_TRANSITIONS, canTransitionInvoice } from './policies/invoice-status';
 export { invoiceTotalMad } from './policies/invoice-total';
@@ -696,9 +701,16 @@ export type { GetDashboardBasicSummaryInput } from './use-cases/get-dashboard-ba
 export { GetDashboardAdvancedSummary } from './use-cases/get-dashboard-advanced-summary';
 export type { GetDashboardAdvancedSummaryInput } from './use-cases/get-dashboard-advanced-summary';
 export { GenerateSessions } from './use-cases/generate-sessions';
-export type { GenerateSessionsInput } from './use-cases/generate-sessions';
+export type {
+  GenerateSessionsInput,
+  GenerateSessionsResult,
+  SkippedHolidayOccurrence,
+} from './use-cases/generate-sessions';
 export { GenerateAndPersistSessions } from './use-cases/generate-and-persist-sessions';
-export type { GenerateAndPersistSessionsInput } from './use-cases/generate-and-persist-sessions';
+export type {
+  GenerateAndPersistSessionsInput,
+  GenerateAndPersistSessionsResult,
+} from './use-cases/generate-and-persist-sessions';
 export { UndoGenerationBatch } from './use-cases/undo-generation-batch';
 export type {
   UndoGenerationBatchInput,

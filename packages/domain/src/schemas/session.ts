@@ -33,6 +33,10 @@ export const generateSessionsSchema = z
     recurringSessionId: recurringRef,
     from: calendarDate,
     to: calendarDate,
+    // Dates to materialize despite falling on a holiday (SOU-161). Optional —
+    // omitting it (or sending an empty array) skips every holiday date, exactly
+    // as before this field existed.
+    overrideHolidayDates: z.array(calendarDate).optional(),
   })
   .refine((v) => v.to >= v.from, { message: 'end-before-start', path: ['to'] });
 

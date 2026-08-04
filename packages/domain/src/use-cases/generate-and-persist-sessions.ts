@@ -2,7 +2,7 @@ import type { SessionRepository } from '../ports/session-repository';
 import type { WeeklyRecurringSessionRepository } from '../ports/weekly-recurring-session-repository';
 import type { HolidayRepository } from '../ports/holiday-repository';
 import type { PlanPolicy } from '../plans/plan-policy';
-import type { GenerateSessions } from './generate-sessions';
+import type { GenerateSessions, SkippedHolidayOccurrence } from './generate-sessions';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import type { DateRange } from '../value-objects/date-range';
 import type { GenerationBatchId, Session } from '../entities/session';
@@ -20,6 +20,8 @@ export type GenerateAndPersistSessionsInput = {
   deviceOrigin: DeviceId;
   /** User running the generation — the `updatedBy` of the fresh rows. */
   updatedBy: UserId;
+  /** Dates to materialize despite falling on a holiday (SOU-161). Defaults to none. */
+  overrideHolidayDates?: readonly string[];
 };
 
 export type GenerateAndPersistSessionsResult = {
@@ -34,6 +36,8 @@ export type GenerateAndPersistSessionsResult = {
   generationBatchId: GenerationBatchId | null;
   /** Persisted truth for the requested window: real stored ids, tombstones excluded. */
   sessions: readonly Session[];
+  /** Every date this run skipped for falling on a holiday (SOU-161), straight from the generator. */
+  skippedHolidays: readonly SkippedHolidayOccurrence[];
 };
 
 /**
@@ -83,12 +87,13 @@ export class GenerateAndPersistSessions {
     }
 
     const holidays = await this.holidays.listActive(input.centerCode);
-    const generated = this.generator.execute({
+    const { sessions: generated, skippedHolidays } = this.generator.execute({
       recurring,
       holidays,
       range: input.range,
       deviceOrigin: input.deviceOrigin,
       updatedBy: input.updatedBy,
+      ...(input.overrideHolidayDates !== undefined ? { overrideHolidayDates: input.overrideHolidayDates } : {}),
     });
 
     await this.sessions.upsertMany(generated);
@@ -97,6 +102,6 @@ export class GenerateAndPersistSessions {
     // `null` only when the run made zero occurrences.
     const generationBatchId = generated[0]?.generationBatchId ?? null;
     const sessions = await this.sessions.listForRange(input.centerCode, input.range);
-    return { generationBatchId, sessions };
+    return { generationBatchId, sessions, skippedHolidays };
   }
 }
