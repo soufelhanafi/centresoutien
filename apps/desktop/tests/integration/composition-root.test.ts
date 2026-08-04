@@ -118,7 +118,7 @@ describe('composition root', () => {
     second.dispose();
   });
 
-  it('creates an admin account that survives a restart and then verifies (SOU-26)', async () => {
+  it('creates an admin account that survives a restart and then authenticates (SOU-26)', async () => {
     const first = build();
     const dispatch1 = createIpcDispatcher(createHandlers(first.handlerDeps));
 
@@ -134,12 +134,18 @@ describe('composition root', () => {
     const second = build();
     const dispatch2 = createIpcDispatcher(createHandlers(second.handlerDeps));
     expect(await dispatch2('admin.exists', {})).toEqual({ exists: true });
-    expect(await dispatch2('admin.verify', { username: 'directrice', password: PASS })).toEqual({
-      valid: true,
-    });
-    expect(await dispatch2('admin.verify', { username: 'directrice', password: WRONG })).toEqual({
-      valid: false,
-    });
+    // SOU-97 removed the bare `admin.verify` channel; the credential check is
+    // exercised only through the throttled `auth.login` path.
+    expect(
+      await dispatch2('auth.login', { username: 'directrice', password: PASS, rememberDevice: false }),
+    ).toEqual({ outcome: 'success' });
+    expect(
+      await dispatch2('auth.login', {
+        username: 'directrice',
+        password: WRONG,
+        rememberDevice: false,
+      }),
+    ).toMatchObject({ outcome: 'invalid-credentials' });
     second.dispose();
   });
 

@@ -805,7 +805,6 @@ export function buildContainer(options: ContainerOptions): Container {
       return account?.username ?? '';
     },
     createAdminAccount,
-    verifyAdminPassword,
     changeAdminPassword,
     attemptLogin,
     deviceSessions,

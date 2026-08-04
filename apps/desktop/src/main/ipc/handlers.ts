@@ -102,7 +102,6 @@ import type {
   WeeklyRecurringSessionId,
   GenerationBatchId,
   CreateAdminAccount,
-  VerifyAdminPassword,
   ChangeAdminPassword,
   SaveCenterHours,
   GetCenterHours,
@@ -230,7 +229,6 @@ export type RecordSessionAttendanceUseCase = Pick<RecordSessionAttendance, 'exec
 export type GetStudentAttendanceReportUseCase = Pick<GetStudentAttendanceReport, 'execute'>;
 export type GetGroupAttendanceSheetUseCase = Pick<GetGroupAttendanceSheet, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
-export type VerifyAdminPasswordUseCase = Pick<VerifyAdminPassword, 'execute'>;
 export type ChangeAdminPasswordUseCase = Pick<ChangeAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
 export type GetCenterHoursUseCase = Pick<GetCenterHours, 'execute'>;
@@ -636,7 +634,6 @@ export type HandlerDeps = BackupHandlerDeps &
   adminExists: AdminExists;
   adminUsername: () => Promise<string>;
   createAdminAccount: CreateAdminAccountUseCase;
-  verifyAdminPassword: VerifyAdminPasswordUseCase;
   changeAdminPassword: ChangeAdminPasswordUseCase;
   attemptLogin: AttemptLoginUseCase;
   deviceSessions: DeviceSessions;
@@ -1296,9 +1293,6 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       const account = await deps.createAdminAccount.execute(request);
       return { id: account.id };
     },
-    'admin.verify': async (request) => ({
-      valid: await deps.verifyAdminPassword.execute(request),
-    }),
     'admin.changePassword': async (request) => {
       await deps.changeAdminPassword.execute(request);
       return { ok: true };
