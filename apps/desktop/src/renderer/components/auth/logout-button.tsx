@@ -2,11 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@centresoutien/ui';
 import { useLogout } from '../../hooks/auth/use-logout';
 
-/**
- * Signs the device out (SOU-27), returning to the login screen. Its own component
- * so it stays inside the app's `QueryClientProvider` — the mutation touches the
- * query cache, which the top-level `App` body is not wrapped by.
- */
+/** Signs the device out (SOU-27), returning to the login screen. */
 export function LogoutButton() {
   const { t } = useTranslation();
   const logout = useLogout();

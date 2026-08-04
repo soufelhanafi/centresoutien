@@ -26,7 +26,12 @@ export type DeviceSession = {
   readonly expiresAt: number;
 };
 
-/** How long a remembered device stays authenticated: 30 days. */
+/**
+ * How long a remembered device stays authenticated: 30 days. "Remember this
+ * device" persists across restarts until explicit logout, but this TTL is a
+ * deliberate hard cap — a device left untouched for 30 days re-prompts for the
+ * password rather than staying trusted forever. Not a bug; a security backstop.
+ */
 export const DEVICE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** True while the session has not yet reached its `expiresAt` instant. */
