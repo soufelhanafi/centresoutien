@@ -9,6 +9,7 @@ import { createHandlers } from '../../src/main/ipc/handlers';
 import { openDatabase } from '../../src/data/sqlite/db';
 import { SqliteSubjectRepository } from '../../src/data/sqlite/repositories/subject-repository';
 import { SqliteParentRepository } from '../../src/data/sqlite/repositories/parent-repository';
+import { SqliteSessionRepository } from '../../src/data/sqlite/repositories/session-repository';
 
 const KEY = 'passphrase-under-test';
 // Throwaway test credentials assembled from fragments so no literal password
@@ -513,5 +514,124 @@ describe('composition root', () => {
     expect(deactivated.formula).toMatchObject({ id, active: false, isImmutable: true });
 
     second.dispose();
+  });
+
+  // The SOU-158/159 auto-session-generator engine, wired end-to-end (SOU-161):
+  // resolving `scope: 'all'` against the real group/room/center-hours repos,
+  // committing the confirmed proposal through the same `CreateWeeklyRecurringSession`
+  // + `GenerateAndPersistSessions` seam manual booking uses, and materializing
+  // real dated Session rows — not a mock at any layer.
+  it('wires the session.generator.preview and .commit channels end-to-end', async () => {
+    const container = build('premium'); // mode: 'auto' requires planning.random-auto
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+
+    const { id: subjectId } = await dispatch('subject.create', {
+      name: { fr: 'Mathématiques', ar: 'الرياضيات' },
+    });
+    const { id: roomId } = await dispatch('room.create', { name: 'Salle A', capacity: 20 });
+    const { id: groupId } = await dispatch('group.create', {
+      subjectId,
+      teacherId: null,
+      roomId,
+      level: '2ème Bac',
+      capacity: 15,
+      kind: 'regular',
+    });
+
+    const config = {
+      scope: { groups: 'all' as const, teachers: 'all' as const },
+      kind: 'regular' as const,
+      weekdayPool: [1],
+      sessionsPerWeek: 1,
+      minGapDays: 1,
+      sessionDurationMinutes: 60,
+      range: { startDate: '2026-09-01', endDate: '2026-09-30' },
+      mode: 'auto' as const,
+    };
+
+    const preview = await dispatch('session.generator.preview', config);
+    expect(preview.proposals).toHaveLength(1);
+    expect(preview.proposals[0]).toMatchObject({ groupId });
+    expect(preview.proposals[0]?.blocks).toEqual([{ dayOfWeek: 1, start: '09:00', end: '10:00', roomId }]);
+    expect(preview.conflicts).toEqual([]);
+
+    const commit = await dispatch('session.generator.commit', {
+      mode: config.mode,
+      proposals: preview.proposals.map(({ groupId: id, blocks }) => ({ groupId: id, blocks })),
+      range: config.range,
+    });
+    expect(commit.templates).toHaveLength(1);
+    const template = commit.templates[0]!;
+    expect(template.groupId).toBe(groupId);
+    expect(template.recurringSessionId).toMatch(/^wrs_/);
+    expect(template.generationBatchId).toMatch(/^gen_/);
+    expect(template.skippedHolidays).toEqual([]);
+
+    const week = await dispatch('session.week', {});
+    expect(week.sessions).toHaveLength(1);
+    expect(week.sessions[0]).toMatchObject({
+      id: template.recurringSessionId,
+      dayOfWeek: 1,
+      roomId,
+      groupId,
+      kind: 'regular',
+    });
+
+    container.dispose();
+
+    // Reopen the same encrypted file to prove the dated occurrences were really
+    // persisted, not merely echoed back by the handler.
+    const db = openDatabase({ centreId: 'C1', key: KEY, dir });
+    const materialized = await new SqliteSessionRepository(db).listForRange('CS-CASA-001' as CenterCode, {
+      start: '2026-09-01',
+      end: '2026-09-30',
+    });
+    db.close();
+    expect(materialized.length).toBeGreaterThan(0);
+    expect(materialized.every((s) => s.recurringSessionId === template.recurringSessionId)).toBe(true);
+  });
+
+  // A stale preview must never silently overwrite a slot someone else booked in
+  // the meantime — the commit re-runs the composite conflict check for real.
+  it('rejects session.generator.commit when the room is already booked at write time', async () => {
+    const container = build('premium'); // mode: 'auto' requires planning.random-auto
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+
+    const { id: subjectId } = await dispatch('subject.create', {
+      name: { fr: 'Mathématiques', ar: 'الرياضيات' },
+    });
+    const { id: roomId } = await dispatch('room.create', { name: 'Salle A', capacity: 20 });
+    const { id: groupId } = await dispatch('group.create', {
+      subjectId,
+      teacherId: null,
+      roomId,
+      level: '2ème Bac',
+      capacity: 15,
+      kind: 'regular',
+    });
+
+    // Another device books the exact same room/day/time by hand, after the
+    // (never-sent) preview would have been generated.
+    await dispatch('weeklySession.create', {
+      roomId,
+      teacherId: null,
+      groupId: null,
+      dayOfWeek: 1,
+      start: '09:00',
+      end: '10:00',
+      active: true,
+      validFrom: null,
+      validTo: null,
+    });
+
+    await expect(
+      dispatch('session.generator.commit', {
+        mode: 'auto',
+        proposals: [{ groupId, blocks: [{ dayOfWeek: 1, start: '09:00', end: '10:00', roomId }] }],
+        range: { startDate: '2026-09-01', endDate: '2026-09-30' },
+      }),
+    ).rejects.toThrow();
+
+    container.dispose();
   });
 });

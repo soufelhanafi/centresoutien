@@ -159,6 +159,19 @@ describe('GenerateAndPersistSessions', () => {
       );
       expect(datesOf((await useCase.execute(input())).sessions)).toContain('2026-01-15');
     });
+
+    it('reports skipped holiday dates alongside the persisted sessions (SOU-161)', async () => {
+      await holidays.save(holiday({ startDate: '2026-01-15', endDate: '2026-01-15' }));
+      const result = await useCase.execute(input());
+      expect(result.skippedHolidays).toEqual([{ date: '2026-01-15', holiday: expect.objectContaining({ id: 'hol_00000000000000000000000001' }) }]);
+    });
+
+    it('persists a session on a date explicitly overridden despite the holiday', async () => {
+      await holidays.save(holiday({ startDate: '2026-01-15', endDate: '2026-01-15' }));
+      const result = await useCase.execute(input({ overrideHolidayDates: ['2026-01-15'] }));
+      expect(datesOf(result.sessions)).toContain('2026-01-15');
+      expect(result.skippedHolidays).toEqual([]);
+    });
   });
 
   describe('idempotent re-run', () => {

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { weekdayOf, eachDateInRange, daysBetween } from '../../../src/value-objects/date-range';
+import {
+  weekdayOf,
+  eachDateInRange,
+  daysBetween,
+  addDays,
+  endDateAfterWeekdayOccurrences,
+} from '../../../src/value-objects/date-range';
+import type { WeekdayIndex } from '../../../src/value-objects/weekday';
 
 describe('weekdayOf', () => {
   // 2026-01-01 is a Thursday (index 4); the rest of the week follows.
@@ -80,5 +87,62 @@ describe('daysBetween', () => {
 
   it('rolls over a year boundary', () => {
     expect(daysBetween('2026-12-31', '2027-01-01')).toBe(1);
+  });
+});
+
+describe('addDays', () => {
+  it('returns the same date for a zero shift', () => {
+    expect(addDays('2026-01-01', 0)).toBe('2026-01-01');
+  });
+
+  it('steps forward across a non-leap February (2026 has 28 days)', () => {
+    expect(addDays('2026-02-27', 2)).toBe('2026-03-01');
+  });
+
+  it('steps forward across a leap February (2028 has 29 days)', () => {
+    expect(addDays('2028-02-28', 2)).toBe('2028-03-01');
+  });
+
+  it('steps forward across a year boundary', () => {
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+  });
+
+  it('steps backward across a year boundary', () => {
+    expect(addDays('2027-01-01', -1)).toBe('2026-12-31');
+  });
+
+  it('steps backward across a month boundary', () => {
+    expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
+  });
+});
+
+describe('endDateAfterWeekdayOccurrences', () => {
+  // 2026-01-01 is a Thursday (weekday 4); January's Thursdays are 01, 08, 15, 22, 29.
+  const THURSDAY = 4 as WeekdayIndex;
+  const MONDAY = 1 as WeekdayIndex;
+
+  it('returns the start date itself when it already falls on the target weekday and count is 1', () => {
+    expect(endDateAfterWeekdayOccurrences('2026-01-01', THURSDAY, 1)).toBe('2026-01-01');
+  });
+
+  it('walks 7 days per occurrence once on the target weekday', () => {
+    expect(endDateAfterWeekdayOccurrences('2026-01-01', THURSDAY, 5)).toBe('2026-01-29');
+  });
+
+  it('finds the first occurrence forward when the start date is not on the target weekday', () => {
+    expect(endDateAfterWeekdayOccurrences('2026-01-01', MONDAY, 1)).toBe('2026-01-05');
+  });
+
+  it('combines the forward search with the weekly step for counts beyond 1', () => {
+    expect(endDateAfterWeekdayOccurrences('2026-01-01', MONDAY, 3)).toBe('2026-01-19');
+  });
+
+  it('throws for a non-positive occurrence count', () => {
+    expect(() => endDateAfterWeekdayOccurrences('2026-01-01', THURSDAY, 0)).toThrow(RangeError);
+    expect(() => endDateAfterWeekdayOccurrences('2026-01-01', THURSDAY, -1)).toThrow(RangeError);
+  });
+
+  it('throws for a non-integer occurrence count', () => {
+    expect(() => endDateAfterWeekdayOccurrences('2026-01-01', THURSDAY, 1.5)).toThrow(RangeError);
   });
 });

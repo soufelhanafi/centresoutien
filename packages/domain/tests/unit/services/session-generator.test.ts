@@ -7,6 +7,7 @@ import {
   type UnroomedBlock,
 } from '../../../src/services/session-generator';
 import { InfeasibleGeneratorConfigError, NoRoomsConfiguredError } from '../../../src/errors/session-generator-errors';
+import type { ScheduledSessionRef } from '../../../src/errors/scheduling-errors';
 import { satisfiesMinGap } from '../../../src/policies/weekday-gap';
 import type { DayHours } from '../../../src/policies/session-conflict-policy';
 import type { GroupId, GroupKind } from '../../../src/entities/group';
@@ -70,6 +71,7 @@ function input(
     hours?: readonly DayHours[];
     teacherByGroup?: ReadonlyMap<GroupId, EntityId | null>;
     rooms?: readonly RoomId[];
+    existingSchedule?: readonly ScheduledSessionRef[];
   } = {},
 ): SessionGenerationInput {
   return {
@@ -78,6 +80,7 @@ function input(
     teacherByGroup: options.teacherByGroup ?? new Map(),
     rooms: options.rooms ?? [ROOM_A],
     centerHours: options.hours ?? centerHours(),
+    existingSchedule: options.existingSchedule ?? [],
   };
 }
 

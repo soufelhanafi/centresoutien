@@ -67,6 +67,9 @@ import {
   CreateWeeklyRecurringSession,
   UpdateWeeklyRecurringSession,
   CancelWeeklyRecurringSession,
+  SessionGenerator,
+  PreviewGeneratedSchedule,
+  CommitGeneratedSchedule,
   CreateAdminAccount,
   VerifyAdminPassword,
   ChangeAdminPassword,
@@ -166,6 +169,7 @@ import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
 import { NodeSecureRandom } from './infra/node-secure-random';
+import { NodeRandomPort } from './infra/node-random-port';
 import { LocalePreferenceStore, type LocalePreference } from './infra/locale-preference-store';
 import {
   createHandlers,
@@ -624,6 +628,30 @@ export function buildContainer(options: ContainerOptions): Container {
   );
   const cancelWeeklySession = new CancelWeeklyRecurringSession(sessionRepo, clock, plan);
 
+  // Auto-session-generator seam (SOU-161): the SOU-158 pure engine, wired for
+  // the SOU-159 config-popup preview and its bulk commit. `previewGeneratedSchedule`
+  // is a read-only dry run — it resolves `config.scope` against the same
+  // `groupRepo`/`roomRepo`/`centerHoursRepo` other calendar use cases already use
+  // and reads the real schedule off `sessionRepo` for the SOU-161 conflict pass,
+  // but persists nothing. `commitGeneratedSchedule` reuses `createWeeklySession`
+  // and `generateSessions` (defined above) verbatim per confirmed block, so a
+  // committed slot gets the exact same envelope, plan gate, and conflict
+  // re-check as one booked by hand.
+  const commitGeneratedSchedule = new CommitGeneratedSchedule(
+    groupRepo,
+    createWeeklySession,
+    generateSessions,
+    plan,
+  );
+  const previewGeneratedSchedule = new PreviewGeneratedSchedule(
+    groupRepo,
+    roomRepo,
+    centerHoursRepo,
+    sessionRepo,
+    new SessionGenerator(new NodeRandomPort()),
+    plan,
+  );
+
   const hasher = new Argon2PasswordHasher();
   const adminRepo = new SqliteAdminAccountRepository(db);
   const createAdminAccount = new CreateAdminAccount(adminRepo, hasher, clock, ids);
@@ -796,6 +824,8 @@ export function buildContainer(options: ContainerOptions): Container {
     createWeeklySession,
     updateWeeklySession,
     cancelWeeklySession,
+    previewGeneratedSchedule,
+    commitGeneratedSchedule,
     saveCenterHours,
     getCenterHours,
     envelopeContext: () => context,

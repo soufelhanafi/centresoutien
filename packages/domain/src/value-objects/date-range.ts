@@ -90,6 +90,68 @@ export function daysBetween(from: string, to: string): number {
 }
 
 /**
+ * `date` shifted forward by `days` whole civil days (negative shifts backward) —
+ * pure integer arithmetic with month/year rollover, no `Date`, no timezone, no
+ * DST. Backs {@link endDateAfterWeekdayOccurrences}, which needs to walk forward
+ * by an arbitrary day count rather than one day at a time.
+ */
+export function addDays(date: string, days: number): string {
+  let { year, month, day } = parts(date);
+  let remaining = days;
+  while (remaining > 0) {
+    day += 1;
+    if (day > daysInMonth(year, month)) {
+      day = 1;
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+    remaining -= 1;
+  }
+  while (remaining < 0) {
+    day -= 1;
+    if (day < 1) {
+      month -= 1;
+      if (month < 1) {
+        month = 12;
+        year -= 1;
+      }
+      day = daysInMonth(year, month);
+    }
+    remaining += 1;
+  }
+  return format(year, month, day);
+}
+
+/**
+ * The end date of a window starting at `startDate` that contains exactly
+ * `occurrenceCount` civil dates falling on `weekday` — the first being
+ * `startDate` itself or the next later date on that weekday, the rest one
+ * week apart. Backs the session generator's `{ startDate, occurrenceCount }`
+ * range variant (SOU-161): each weekly-recurring-session template is
+ * single-weekday, so converting an occurrence count to a concrete
+ * `[start, end]` materialization window is computed once per template's own
+ * weekday, independent of the caller's other templates. A holiday inside the
+ * window still counts toward the day span here — {@link GenerateSessions}
+ * skips it when materializing, so the occurrence count is a sizing target, not
+ * a guaranteed count, exactly like its own holiday-skip semantics.
+ */
+export function endDateAfterWeekdayOccurrences(
+  startDate: string,
+  weekday: WeekdayIndex,
+  occurrenceCount: number,
+): string {
+  if (!Number.isInteger(occurrenceCount) || occurrenceCount < 1) {
+    throw new RangeError(`occurrenceCount must be a positive integer, got ${occurrenceCount}.`);
+  }
+  const offsetToFirstOccurrence = (weekday - weekdayOf(startDate) + 7) % 7;
+  const offsetToLastOccurrence = offsetToFirstOccurrence + 7 * (occurrenceCount - 1);
+  return addDays(startDate, offsetToLastOccurrence);
+}
+
+/**
  * Every civil date in `[start, end]`, inclusive, in chronological order; empty
  * when `end < start`. Steps one civil day at a time with month/year rollover —
  * no `Date`, no timezone, no DST — so a day is always exactly one increment and

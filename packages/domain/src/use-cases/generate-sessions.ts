@@ -26,17 +26,36 @@ export type GenerateSessionsInput = {
   deviceOrigin: DeviceId;
   /** User running the generation — the `updatedBy` of the fresh rows. */
   updatedBy: UserId;
+  /**
+   * Dates (SOU-161) the caller has explicitly chosen to materialize *despite*
+   * falling on a holiday — the "unless explicitly overridden" carve-out. Every
+   * other holiday date is still skipped. Defaults to none: without this, every
+   * holiday date is skipped, exactly as before this field existed.
+   */
+  overrideHolidayDates?: readonly string[];
+};
+
+/** One date the run would have materialized if it weren't a holiday. */
+export type SkippedHolidayOccurrence = {
+  readonly date: string;
+  readonly holiday: HolidayOccurrence;
+};
+
+export type GenerateSessionsResult = {
+  readonly sessions: readonly Session[];
+  /** Every date skipped for falling on a holiday, in ascending date order (SOU-161). */
+  readonly skippedHolidays: readonly SkippedHolidayOccurrence[];
 };
 
 /**
  * Materializes concrete dated {@link Session} rows from a
  * {@link WeeklyRecurringSession} template over a date range, skipping any date
- * that falls on a Holiday, any date outside the template's `[validFrom, validTo]`
- * validity window, and every date when the template is paused (`active === false`).
- * Pure and deterministic: it reads no clock or id
- * source of its own — both are injected — and touches no repository, so given
- * the same inputs (and a deterministic `Clock` / `IdGenerator`) it returns the
- * same set every time.
+ * that falls on a Holiday (unless explicitly overridden, see below), any date
+ * outside the template's `[validFrom, validTo]` validity window, and every date
+ * when the template is paused (`active === false`). Pure and deterministic: it
+ * reads no clock or id source of its own — both are injected — and touches no
+ * repository, so given the same inputs (and a deterministic `Clock` /
+ * `IdGenerator`) it returns the same result every time.
  *
  * Two properties this determinism buys, both covered by the unit tests:
  * - **Holiday skipping never shifts subsequent sessions.** Each session's `date`
@@ -46,6 +65,13 @@ export type GenerateSessionsInput = {
  *   `(recurringSessionId, date)` pairs are a set. Re-running over the same window
  *   yields the same pairs; the persistence-level upsert (SOU-129) uses that key to
  *   discard the duplicate rows a re-run's fresh ULIDs would otherwise create.
+ *
+ * **Holiday override (SOU-161).** A date in `overrideHolidayDates` still
+ * materializes a session even though it falls on a holiday — the "unless
+ * explicitly overridden" carve-out. Every other holiday date is skipped and
+ * reported back in `skippedHolidays` (result, not thrown) so a caller building
+ * a preview can show which occurrences were dropped and let the admin build the
+ * override list from that.
  *
  * Every occurrence a single `execute()` call materializes shares one fresh
  * {@link GenerationBatchId} (SOU-160), minted once via the injected `ids` before
@@ -68,12 +94,14 @@ export class GenerateSessions {
     private readonly ids: IdGenerator,
   ) {}
 
-  execute(input: GenerateSessionsInput): readonly Session[] {
-    const { recurring, holidays, range } = input;
+  execute(input: GenerateSessionsInput): GenerateSessionsResult {
+    const { recurring, holidays, range, overrideHolidayDates = [] } = input;
+    const overrides = new Set(overrideHolidayDates);
     const sessions: Session[] = [];
+    const skippedHolidays: SkippedHolidayOccurrence[] = [];
     // A paused template (SOU-52 `active` toggle) materializes nothing — the slot is
     // still on the grid but produces no dated occurrences until it is resumed.
-    if (!recurring.active) return sessions;
+    if (!recurring.active) return { sessions, skippedHolidays };
     const generationBatchId = this.ids.next(GENERATION_BATCH_ID_PREFIX) as GenerationBatchId;
     for (const date of eachDateInRange(range)) {
       if (weekdayOf(date) !== recurring.dayOfWeek) continue;
@@ -82,10 +110,14 @@ export class GenerateSessions {
       // string comparisons below are chronological.
       if (recurring.validFrom !== null && date < recurring.validFrom) continue;
       if (recurring.validTo !== null && date > recurring.validTo) continue;
-      if (holidayOn(date, holidays) !== null) continue;
+      const holiday = holidayOn(date, holidays);
+      if (holiday !== null && !overrides.has(date)) {
+        skippedHolidays.push({ date, holiday });
+        continue;
+      }
       sessions.push(this.materialize(recurring, date, input, generationBatchId));
     }
-    return sessions;
+    return { sessions, skippedHolidays };
   }
 
   private materialize(
