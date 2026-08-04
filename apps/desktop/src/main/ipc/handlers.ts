@@ -1409,6 +1409,7 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
         centerCode,
         deviceOrigin,
         updatedBy,
+        mode: request.mode,
         proposals,
         range: request.range,
       });

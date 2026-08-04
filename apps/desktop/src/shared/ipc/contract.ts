@@ -1482,7 +1482,8 @@ export const ipcContract = {
   // discard or echo back to `session.generator.commit` below, and `conflicts`
   // (SOU-161) never blocks — every proposal is still returned even when it clashes,
   // so the popup can show the warning and let the admin decide. centerCode is
-  // injected in main, never sent from the renderer. Gated by `core.calendar.week`.
+  // injected in main, never sent from the renderer. Gated per `config.mode` on
+  // `planning.custom-grid` (Pro) or `planning.random-auto` (Premium).
   'session.generator.preview': {
     request: sessionGeneratorConfigSchema,
     response: z.object({
@@ -1504,10 +1505,12 @@ export const ipcContract = {
   // and then refetch `session.week` for the grid (mirrors `weeklySession.create`).
   // A conflict partway through the batch aborts the rest — already-committed
   // blocks stay committed; nothing here is transactional. centerCode/device/user
-  // are injected in main, never sent from the renderer. Gated by
-  // `core.calendar.week`.
+  // are injected in main, never sent from the renderer. `mode` is the same
+  // `custom`/`auto` the preview call was gated on — re-sent here since this is
+  // the write path, gated on `planning.custom-grid` / `planning.random-auto`.
   'session.generator.commit': {
     request: z.object({
+      mode: z.enum(['auto', 'custom']),
       proposals: z.array(groupScheduleProposalInputSchema).min(1),
       range: sessionGeneratorRangeSchema,
     }),

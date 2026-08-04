@@ -105,7 +105,7 @@ describe('PreviewGeneratedSchedule', () => {
   let recurrences: InMemoryWeeklyRecurringSessionRepository;
   let useCase: PreviewGeneratedSchedule;
 
-  function build(plan: Plan = PLANS.essentiel): PreviewGeneratedSchedule {
+  function build(plan: Plan = PLANS.premium): PreviewGeneratedSchedule {
     return new PreviewGeneratedSchedule(
       groups,
       rooms,
@@ -237,7 +237,35 @@ describe('PreviewGeneratedSchedule', () => {
   });
 
   describe('plan gating', () => {
-    it('throws PlanFeatureUnavailableError when the plan lacks core.calendar.week', async () => {
+    it('throws PlanFeatureUnavailableError for auto mode on a plan without planning.random-auto (Essentiel)', async () => {
+      await expect(
+        build(PLANS.essentiel).execute(input(autoConfig({ mode: 'auto' }))),
+      ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
+    });
+
+    it('throws PlanFeatureUnavailableError for auto mode on Pro (Premium-only)', async () => {
+      await expect(
+        build(PLANS.pro).execute(input(autoConfig({ mode: 'auto' }))),
+      ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
+    });
+
+    it('throws PlanFeatureUnavailableError for custom mode on a plan without planning.custom-grid (Essentiel)', async () => {
+      await expect(
+        build(PLANS.essentiel).execute(
+          input(autoConfig({ mode: 'custom', pickedWeekdays: [MON] })),
+        ),
+      ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
+    });
+
+    it('allows custom mode on Pro (does not require planning.random-auto)', async () => {
+      const g1 = makeGroup();
+      await groups.save(g1);
+      await expect(
+        build(PLANS.pro).execute(input(autoConfig({ mode: 'custom', pickedWeekdays: [MON] }))),
+      ).resolves.toBeDefined();
+    });
+
+    it('rejects a plan with an empty feature set outright', async () => {
       const planWithout: Plan = {
         id: 'essentiel',
         features: new Set<FeatureFlag>(),

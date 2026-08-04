@@ -28,8 +28,10 @@ export type PreviewGeneratedScheduleInput = {
  * {@link SessionGenerator.generate}'s conflict pass (SOU-161) can compare
  * against it. Zero persistence — the returned {@link SessionGeneratorResult} is
  * a proposal the caller may discard or hand to {@link CommitGeneratedSchedule}.
- * Gated by `core.calendar.week`, the same flag every other calendar read/write
- * channel uses.
+ * Gated per `config.mode` on the flag that mode is actually sold under —
+ * `planning.custom-grid` (Pro) for `custom`, `planning.random-auto` (Premium)
+ * for `auto` — never on `core.calendar.week`, which every plan holds and would
+ * leave this paid capability free on Essentiel.
  */
 export class PreviewGeneratedSchedule {
   constructor(
@@ -42,8 +44,8 @@ export class PreviewGeneratedSchedule {
   ) {}
 
   async execute(input: PreviewGeneratedScheduleInput): Promise<SessionGeneratorResult> {
-    this.plan.require('core.calendar.week');
     const { centerCode, config } = input;
+    this.plan.require(config.mode === 'auto' ? 'planning.random-auto' : 'planning.custom-grid');
 
     const scopedGroups = this.resolveScopedGroups(await this.groups.listActive(centerCode), config);
     const teacherByGroup = new Map<GroupId, EntityId | null>(

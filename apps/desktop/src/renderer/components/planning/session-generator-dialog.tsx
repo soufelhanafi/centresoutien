@@ -59,6 +59,7 @@ export function SessionGeneratorDialog({
   const [step, setStep] = useState<'config' | 'preview'>('config');
   const [previewErrorCode, setPreviewErrorCode] = useState<GeneratorErrorCode | null>(null);
   const [range, setRange] = useState<GeneratorRange | null>(null);
+  const [mode, setMode] = useState<'auto' | 'custom' | null>(null);
   // Pro (no `planning.random-auto`) opens straight into Custom mode — Auto is
   // visible-but-locked, never the pre-selected default for a plan that can't use it.
   const defaultValues = useMemo<GeneratorFormValues>(
@@ -70,6 +71,7 @@ export function SessionGeneratorDialog({
     if (!next) {
       setStep('config');
       setPreviewErrorCode(null);
+      setMode(null);
       preview.reset();
       commit.reset();
     }
@@ -82,6 +84,7 @@ export function SessionGeneratorDialog({
     try {
       await preview.mutateAsync(config);
       setRange(config.range);
+      setMode(config.mode);
       setStep('preview');
     } catch (error) {
       const code = mapGeneratorError(error);
@@ -91,11 +94,11 @@ export function SessionGeneratorDialog({
   };
 
   const runCommit = async () => {
-    if (preview.data === undefined || range === null) return;
+    if (preview.data === undefined || range === null || mode === null) return;
     const proposals = toCommitProposals(preview.data.proposals);
     if (proposals.length === 0) return;
     try {
-      const result = await commit.mutateAsync({ proposals, range });
+      const result = await commit.mutateAsync({ mode, proposals, range });
       const created = result.templates.length;
       const skipped = result.templates.reduce((sum, template) => sum + template.skippedHolidays.length, 0);
       toast.success(t('planning.generator.commitSuccess', { count: created }));

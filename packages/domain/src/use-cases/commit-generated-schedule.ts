@@ -18,6 +18,8 @@ export type CommitGeneratedScheduleInput = {
   centerCode: CenterCode;
   deviceOrigin: DeviceId;
   updatedBy: UserId;
+  /** The same run's `config.mode` the preview was gated on — re-asserted here, since commit is the write path that actually matters. */
+  mode: 'auto' | 'custom';
   /** The proposals the admin confirmed from a {@link PreviewGeneratedSchedule} run — echoed back verbatim. */
   proposals: readonly GroupScheduleProposal[];
   /** The same run's materialization window; resolved per template below. */
@@ -69,6 +71,10 @@ export type CommitGeneratedScheduleResult = {
  * window per template via {@link resolveGeneratorMaterializationRange}, since
  * every template is single-weekday and the same occurrence count lands on a
  * different end date depending on which weekday the template sits on.
+ *
+ * Gated per `input.mode` on `planning.custom-grid` (Pro) or `planning.random-auto`
+ * (Premium) — this is the write path, so it re-asserts the same tier
+ * {@link PreviewGeneratedSchedule} gated on rather than trusting the preview call.
  */
 export class CommitGeneratedSchedule {
   constructor(
@@ -79,7 +85,7 @@ export class CommitGeneratedSchedule {
   ) {}
 
   async execute(input: CommitGeneratedScheduleInput): Promise<CommitGeneratedScheduleResult> {
-    this.plan.require('core.calendar.week');
+    this.plan.require(input.mode === 'auto' ? 'planning.random-auto' : 'planning.custom-grid');
     const { centerCode, deviceOrigin, updatedBy, proposals, range } = input;
 
     const templates: CommittedGeneratedTemplate[] = [];

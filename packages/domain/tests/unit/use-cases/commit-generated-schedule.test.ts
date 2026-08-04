@@ -73,7 +73,7 @@ describe('CommitGeneratedSchedule', () => {
   let holidays: InMemoryHolidayRepository;
   let useCase: CommitGeneratedSchedule;
 
-  function build(plan: Plan = PLANS.essentiel, seed = 1): CommitGeneratedSchedule {
+  function build(plan: Plan = PLANS.premium, seed = 1): CommitGeneratedSchedule {
     const clock = fakeClock('2026-08-01T00:00:00Z');
     const ids = fakeIds(seed);
     const policy = new PlanPolicy(plan);
@@ -93,6 +93,7 @@ describe('CommitGeneratedSchedule', () => {
       centerCode: CENTER,
       deviceOrigin: DEVICE,
       updatedBy: USER,
+      mode: 'custom',
       proposals: [],
       range: { startDate: '2026-09-01', endDate: '2026-09-30' },
       ...overrides,
@@ -287,7 +288,44 @@ describe('CommitGeneratedSchedule', () => {
   });
 
   describe('plan gating', () => {
-    it('throws PlanFeatureUnavailableError when the plan lacks core.calendar.week, persisting nothing', async () => {
+    it('throws PlanFeatureUnavailableError for custom mode on a plan without planning.custom-grid (Essentiel), persisting nothing', async () => {
+      const group = makeGroup();
+      await groups.save(group);
+
+      await expect(
+        build(PLANS.essentiel).execute(
+          input({ mode: 'custom', proposals: [proposal(group.id, [block(MON, '09:00', '10:30')])] }),
+        ),
+      ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
+
+      expect(await recurrences.listRefsForDay(CENTER, MON)).toEqual([]);
+    });
+
+    it('throws PlanFeatureUnavailableError for auto mode on Pro (Premium-only), persisting nothing', async () => {
+      const group = makeGroup();
+      await groups.save(group);
+
+      await expect(
+        build(PLANS.pro).execute(
+          input({ mode: 'auto', proposals: [proposal(group.id, [block(MON, '09:00', '10:30')])] }),
+        ),
+      ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
+
+      expect(await recurrences.listRefsForDay(CENTER, MON)).toEqual([]);
+    });
+
+    it('allows custom mode on Pro (does not require planning.random-auto)', async () => {
+      const group = makeGroup();
+      await groups.save(group);
+
+      await expect(
+        build(PLANS.pro).execute(
+          input({ mode: 'custom', proposals: [proposal(group.id, [block(MON, '09:00', '10:30')])] }),
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    it('rejects a plan with an empty feature set outright', async () => {
       const planWithout: Plan = {
         id: 'essentiel',
         features: new Set<FeatureFlag>(),
