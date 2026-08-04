@@ -178,7 +178,9 @@
     "teacher-payout-already-paid": "Ce versement est déjà marqué payé.",
     "too-many-active-subscriptions": "Cet élève a déjà un abonnement actif de ce type sur cette période.",
     "student-subscription-not-found": "Cet abonnement est introuvable.",
-    "student-not-found": "Cet élève est introuvable."
+    "student-not-found": "Cet élève est introuvable.",
+    "infeasible-generator-config": "Impossible de placer ces séances avec cet écart minimum sur les jours choisis. Réduisez l'écart ou ajoutez des jours.",
+    "no-rooms-configured": "Aucune salle n'est configurée pour ce centre."
   },
   "groups": {
     "title": "Groupes",
@@ -1268,6 +1270,73 @@
       "exportSuccess": "Planning exporté",
       "exportError": "L'export du planning a échoué.",
       "cancel": "Annuler"
+    },
+    "generator": {
+      "trigger": "Générer",
+      "title": "Générer des séances",
+      "configDescription": "Configurez la génération automatique des séances récurrentes.",
+      "previewDescription": "Vérifiez ce qui sera créé avant de confirmer. Rien n'est enregistré à ce stade.",
+      "previewAction": "Aperçu",
+      "previewing": "Calcul en cours…",
+      "back": "Retour",
+      "commitAction": "Générer les séances",
+      "committing": "Génération…",
+      "commitSuccess": "{{count}} créneau(x) récurrent(s) créé(s).",
+      "commitSkipped": "{{count}} date(s) ignorée(s) car jour férié.",
+      "error": "La génération a échoué. Réessayez.",
+      "optionsError": {
+        "title": "Chargement impossible",
+        "body": "Les groupes, enseignants ou salles n'ont pas pu être chargés."
+      },
+      "kind": {
+        "label": "Type de séances"
+      },
+      "scope": {
+        "groups": "Groupes",
+        "allGroups": "Tous les groupes",
+        "noGroups": "Aucun groupe pour ce type.",
+        "teachers": "Enseignants",
+        "allTeachers": "Tous les enseignants",
+        "noTeachers": "Aucun enseignant disponible."
+      },
+      "weekdayPool": "Jours éligibles",
+      "mode": {
+        "label": "Mode",
+        "auto": "Automatique",
+        "custom": "Manuel",
+        "autoHint": "Le système répartit les séances sur les jours éligibles.",
+        "customHint": "Vous choisissez les jours ; le système valide l'écart minimum."
+      },
+      "sessionsPerWeek": "Séances par semaine",
+      "pickedWeekdays": "Jours choisis",
+      "minGapDays": "Écart minimum (jours)",
+      "duration": "Durée (minutes)",
+      "range": {
+        "label": "Période",
+        "dates": "Dates",
+        "count": "Nombre de séances",
+        "startDate": "Date de début",
+        "endDate": "Date de fin",
+        "occurrenceCount": "Nombre d'occurrences"
+      },
+      "preview": {
+        "summary": "≈ {{sessions}} séance(s) sur {{groups}} groupe(s).",
+        "estimateHint": "Estimation : les jours fériés seront ignorés lors de la génération.",
+        "conflictsBanner": "{{count}} conflit(s) détecté(s). Vérifiez avant de générer.",
+        "blockCount": "{{count}} créneau(x)",
+        "noBlocks": "Aucun créneau proposé.",
+        "emptyTitle": "Aucune séance à créer",
+        "emptyBody": "La configuration ne produit aucun créneau. Ajustez les paramètres."
+      },
+      "warnings": {
+        "hours": {
+          "closed": "{{day}} : le centre est fermé.",
+          "before-open": "{{day}} : le créneau commence avant l'ouverture.",
+          "after-close": "{{day}} : le créneau dépasse l'heure de fermeture."
+        },
+        "room": "Salle {{room}} déjà occupée le {{day}}.",
+        "gap": "Écart inférieur au minimum ({{count}} jour(s))."
+      }
     }
   },
   "settings": {

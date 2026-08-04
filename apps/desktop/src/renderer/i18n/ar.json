@@ -178,7 +178,9 @@
     "teacher-payout-already-paid": "تم تعليم هذا الاستحقاق كمدفوع بالفعل.",
     "too-many-active-subscriptions": "هذا التلميذ لديه بالفعل اشتراك نشط من هذا النوع خلال هذه الفترة.",
     "student-subscription-not-found": "هذا الاشتراك غير موجود.",
-    "student-not-found": "هذا التلميذ غير موجود."
+    "student-not-found": "هذا التلميذ غير موجود.",
+    "infeasible-generator-config": "يتعذّر وضع هذه الحصص بهذا الحد الأدنى للفارق على الأيام المختارة. قلّل الفارق أو أضف أياماً.",
+    "no-rooms-configured": "لا توجد قاعة مهيّأة لهذا المركز."
   },
   "groups": {
     "title": "المجموعات",
@@ -1306,6 +1308,73 @@
       "exportSuccess": "تم تصدير الجدول",
       "exportError": "فشل تصدير الجدول.",
       "cancel": "إلغاء"
+    },
+    "generator": {
+      "trigger": "توليد",
+      "title": "توليد الحصص",
+      "configDescription": "اضبط التوليد التلقائي للحصص الأسبوعية المتكررة.",
+      "previewDescription": "تحقق مما سيُنشأ قبل التأكيد. لا يُحفظ شيء في هذه المرحلة.",
+      "previewAction": "معاينة",
+      "previewing": "جارٍ الحساب…",
+      "back": "رجوع",
+      "commitAction": "توليد الحصص",
+      "committing": "جارٍ التوليد…",
+      "commitSuccess": "تم إنشاء {{count}} موعد متكرر.",
+      "commitSkipped": "تم تجاهل {{count}} تاريخ بسبب العطلة.",
+      "error": "فشل التوليد. حاول مرة أخرى.",
+      "optionsError": {
+        "title": "تعذّر التحميل",
+        "body": "تعذّر تحميل المجموعات أو الأساتذة أو القاعات."
+      },
+      "kind": {
+        "label": "نوع الحصص"
+      },
+      "scope": {
+        "groups": "المجموعات",
+        "allGroups": "كل المجموعات",
+        "noGroups": "لا توجد مجموعة لهذا النوع.",
+        "teachers": "الأساتذة",
+        "allTeachers": "كل الأساتذة",
+        "noTeachers": "لا يوجد أستاذ متاح."
+      },
+      "weekdayPool": "الأيام المتاحة",
+      "mode": {
+        "label": "الوضع",
+        "auto": "تلقائي",
+        "custom": "يدوي",
+        "autoHint": "يوزّع النظام الحصص على الأيام المتاحة.",
+        "customHint": "تختار الأيام ويتحقق النظام من الحد الأدنى للفارق."
+      },
+      "sessionsPerWeek": "حصص في الأسبوع",
+      "pickedWeekdays": "الأيام المختارة",
+      "minGapDays": "الحد الأدنى للفارق (أيام)",
+      "duration": "المدة (دقائق)",
+      "range": {
+        "label": "الفترة",
+        "dates": "تواريخ",
+        "count": "عدد الحصص",
+        "startDate": "تاريخ البداية",
+        "endDate": "تاريخ النهاية",
+        "occurrenceCount": "عدد التكرارات"
+      },
+      "preview": {
+        "summary": "≈ {{sessions}} حصة على {{groups}} مجموعة.",
+        "estimateHint": "تقدير: ستُتجاهل أيام العطل عند التوليد.",
+        "conflictsBanner": "تم رصد {{count}} تعارض. تحقق قبل التوليد.",
+        "blockCount": "{{count}} موعد",
+        "noBlocks": "لا يوجد موعد مقترح.",
+        "emptyTitle": "لا توجد حصص لإنشائها",
+        "emptyBody": "لا ينتج عن هذا الضبط أي موعد. عدّل الإعدادات."
+      },
+      "warnings": {
+        "hours": {
+          "closed": "{{day}}: المركز مغلق.",
+          "before-open": "{{day}}: يبدأ الموعد قبل الافتتاح.",
+          "after-close": "{{day}}: يتجاوز الموعد وقت الإغلاق."
+        },
+        "room": "القاعة {{room}} مشغولة يوم {{day}}.",
+        "gap": "الفارق أقل من الحد الأدنى ({{count}} يوم)."
+      }
     }
   },
   "settings": {
