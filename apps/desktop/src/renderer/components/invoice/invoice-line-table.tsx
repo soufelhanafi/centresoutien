@@ -4,22 +4,45 @@ import type { InvoiceListItemView } from '../../lib/invoices/invoice-view';
 import { formatMoneyMad } from '../../lib/format';
 import { InvoiceLineGroup } from './invoice-line-group';
 
-/** The invoice's lines, grouped regular then exam-prep, with the grand total (CLAUDE.md §7). */
+/** The invoice's lines in a document-style table: column headers, one tbody per
+ *  kind (regular then exam-prep, CLAUDE.md §7), and the grand total footer. */
 export function InvoiceLineTable({ invoice }: { invoice: InvoiceListItemView }) {
   const { t, i18n } = useTranslation();
   const regularLines = invoice.lines.filter((line) => line.kind === 'regular');
   const examPrepLines = invoice.lines.filter((line) => line.kind === 'exam-prep');
 
   return (
-    <div className="space-y-4 rounded-xl border border-border bg-card p-4">
-      <InvoiceLineGroup kind="regular" lines={regularLines} />
-      <InvoiceLineGroup kind="exam-prep" lines={examPrepLines} />
-      <div className="flex items-center justify-between border-t border-border pt-3">
-        <span className="text-sm font-semibold text-foreground">{t('invoices.detail.total')}</span>
-        <Numeric className="text-sm font-semibold text-foreground">
-          {formatMoneyMad(invoice.totalMad, i18n.language)}
-        </Numeric>
-      </div>
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-border">
+            <th
+              scope="col"
+              className="px-6 py-3.5 text-start text-xs font-medium uppercase tracking-wider text-muted-foreground"
+            >
+              {t('invoices.detail.lineDescription')}
+            </th>
+            <th
+              scope="col"
+              className="px-6 py-3.5 text-end text-xs font-medium uppercase tracking-wider text-muted-foreground"
+            >
+              {t('invoices.detail.lineAmount')}
+            </th>
+          </tr>
+        </thead>
+        <InvoiceLineGroup kind="regular" lines={regularLines} />
+        <InvoiceLineGroup kind="exam-prep" lines={examPrepLines} />
+        <tfoot>
+          <tr className="border-t-2 border-border bg-muted/40">
+            <td className="px-6 py-4 text-base font-semibold text-foreground">{t('invoices.detail.total')}</td>
+            <td className="px-6 py-4 text-end">
+              <Numeric className="text-base font-semibold text-foreground">
+                {formatMoneyMad(invoice.totalMad, i18n.language)}
+              </Numeric>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   );
 }

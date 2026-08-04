@@ -33,6 +33,9 @@ import {
   changeAdminPasswordSchema,
   recoveryCodeSchema,
   resetPasswordWithRecoveryCodeSchema,
+  setSecurityQuestionsSchema,
+  verifySecurityAnswersSchema,
+  SECURITY_QUESTION_KEYS,
   weeklyHoursSchema,
   loginInputSchema,
   centerProfileSchema,
@@ -1627,6 +1630,40 @@ export const ipcContract = {
     }),
     response: z.discriminatedUnion('outcome', [
       z.object({ outcome: z.literal('success') }),
+      z.object({
+        outcome: z.literal('locked-out'),
+        lockedUntilMs: z.number().int().nonnegative(),
+      }),
+    ]),
+  },
+  // Security questions (SOU-155), the tertiary reset path for no recovery
+  // code + no internet. `admin.securityQuestions.bank` is the fixed key list
+  // the settings-page picker renders (question text is UI i18n copy, keyed by
+  // these strings — never sent over IPC). Answering all three correctly only
+  // starts a reset: `auth.resetWithSecurityQuestions` never returns
+  // `'success'` today — `'confirmation-required'` is the only non-throttled
+  // outcome, because completing the reset needs the SOU-157 email-relay
+  // confirmation step, which doesn't exist yet.
+  'admin.securityQuestions.bank': {
+    request: z.object({}),
+    response: z.object({ keys: z.array(z.enum(SECURITY_QUESTION_KEYS)) }),
+  },
+  'admin.securityQuestions.exists': {
+    request: z.object({}),
+    response: z.object({ exists: z.boolean() }),
+  },
+  'admin.securityQuestions.set': {
+    request: setSecurityQuestionsSchema,
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'auth.resetWithSecurityQuestions': {
+    request: verifySecurityAnswersSchema,
+    response: z.discriminatedUnion('outcome', [
+      z.object({ outcome: z.literal('confirmation-required') }),
+      z.object({
+        outcome: z.literal('invalid-answer'),
+        remainingAttempts: z.number().int().nonnegative(),
+      }),
       z.object({
         outcome: z.literal('locked-out'),
         lockedUntilMs: z.number().int().nonnegative(),
