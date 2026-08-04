@@ -51,11 +51,12 @@ function readMigration(filename: string): string {
 
 function extractCreateTables(sql: string): TableDef[] {
   const tables: TableDef[] = [];
-  const re = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)\s*\(([\s\S]*?)\);/gi;
+  const noComments = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const re = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:`(\w+)`|"(\w+)"|\[(\w+)\]|(\w+))\s*\(([\s\S]*?)\);/gi;
   let match;
-  while ((match = re.exec(sql)) !== null) {
-    const name = match[1]!;
-    const body = match[2]!;
+  while ((match = re.exec(noComments)) !== null) {
+    const name = match[1] ?? match[2] ?? match[3] ?? match[4]!;
+    const body = match[5]!;
     const columns = extractColumns(body);
     tables.push({ name, columns, raw: match[0]! });
   }
@@ -64,10 +65,11 @@ function extractCreateTables(sql: string): TableDef[] {
 
 function extractColumns(createBody: string): ColumnDef[] {
   const columns: ColumnDef[] = [];
-  const lines = createBody.split('\n');
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('--')) continue;
+  const merged = createBody.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+  const parts = merged.split(',');
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
     if (/^(?:CHECK|UNIQUE|PRIMARY|FOREIGN|CONSTRAINT)/i.test(trimmed)) continue;
 
     const colMatch = trimmed.match(/^(\w+)\s+(.+)$/);
@@ -99,7 +101,9 @@ function hasAutoincrement(sql: string): boolean {
 }
 
 function hasHardDelete(sql: string): boolean {
-  const noComments = sql.replace(/--.*$/gm, '');
+  const noComments = sql
+    .replace(/--.*$/gm, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '');
   return /\bDELETE\s+FROM\b/i.test(noComments);
 }
 

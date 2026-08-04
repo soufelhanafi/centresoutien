@@ -4,7 +4,13 @@ import { describe, expect, test } from 'vitest';
 
 const ENTITIES_DIR = resolve(__dirname, '../../src/entities');
 
-const SYNC_ENVELOPE_FIELDS = [
+/**
+ * Envelope fields that MUST NOT appear in local (non-synced) entities.
+ * `createdAt` and `updatedAt` are excluded — local entities legitimately carry
+ * those timestamps (e.g. AdminAccount, RecoveryCode, DeviceSession). Adding
+ * them here would produce false positives.
+ */
+const SYNC_ONLY_ENVELOPE_FIELDS = [
   'centerCode',
   'deviceOrigin',
   'updatedBy',
@@ -23,39 +29,39 @@ const HELPER_FILES = ['envelope.ts', 'write.ts'];
 
 function entityFiles(): string[] {
   return readdirSync(ENTITIES_DIR).filter(
-    (f) => f.endsWith('.ts') && !HELPER_FILES.includes(f),
+    (filename) => filename.endsWith('.ts') && !HELPER_FILES.includes(filename),
   );
-}
-
-function readEntitySource(filename: string): string {
-  return readFileSync(resolve(ENTITIES_DIR, filename), 'utf-8');
-}
-
-function referencesEnvelope(source: string): boolean {
-  return source.includes('EntityEnvelope');
-}
-
-function definesULIDPrefix(source: string): boolean {
-  return /_ID_PREFIX\s*=\s*'[a-z]+'/.test(source);
-}
-
-function definesBrandedType(source: string): boolean {
-  return source.includes('Brand<string,');
-}
-
-function hasBrandedReadonlyId(source: string): boolean {
-  return /readonly\s+id\s*:\s*\w+Id\b/.test(source);
 }
 
 function stripComments(source: string): string {
   return source
-    .replace(/\/\*[\s\S]*?\*\//g, '') // block comments
-    .replace(/\/\/.*$/gm, ''); // line comments
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
 }
 
-function definesBannedSyncFields(source: string): boolean {
-  const clean = stripComments(source);
-  return SYNC_ENVELOPE_FIELDS.some((field) =>
+function readEntitySourceClean(filename: string): string {
+  const raw = readFileSync(resolve(ENTITIES_DIR, filename), 'utf-8');
+  return stripComments(raw);
+}
+
+function referencesEnvelope(clean: string): boolean {
+  return clean.includes('EntityEnvelope');
+}
+
+function definesULIDPrefix(clean: string): boolean {
+  return /_ID_PREFIX\s*=\s*'[a-z]+'/.test(clean);
+}
+
+function definesBrandedType(clean: string): boolean {
+  return clean.includes('Brand<string,');
+}
+
+function hasBrandedReadonlyId(clean: string): boolean {
+  return /readonly\s+id\s*:\s*\w+Id\b/.test(clean);
+}
+
+function definesBannedSyncFields(clean: string): boolean {
+  return SYNC_ONLY_ENVELOPE_FIELDS.some((field) =>
     new RegExp(`\\b${field}\\b`).test(clean),
   );
 }
@@ -66,55 +72,43 @@ describe('Sync-safe entity envelope audit', () => {
   test('every entity file is either synced or local', () => {
     expect(files.length).toBeGreaterThan(0);
 
-    for (const f of files) {
-      const source = readEntitySource(f);
-      if (LOCAL_ENTITY_FILES.includes(f)) {
+    for (const filename of files) {
+      const clean = readEntitySourceClean(filename);
+      if (LOCAL_ENTITY_FILES.includes(filename)) {
         expect(
-          !referencesEnvelope(source),
-          `${f} is local but references EntityEnvelope`,
+          !referencesEnvelope(clean),
+          `${filename} is local but references EntityEnvelope`,
         ).toBe(true);
       } else {
         expect(
-          referencesEnvelope(source),
-          `${f} must reference EntityEnvelope (import or extend)`,
+          referencesEnvelope(clean),
+          `${filename} must reference EntityEnvelope (import or extend)`,
         ).toBe(true);
       }
     }
   });
 
   describe('synced entities', () => {
-    const syncedFiles = files.filter((f) => !LOCAL_ENTITY_FILES.includes(f));
+    const syncedFiles = files.filter((filename) => !LOCAL_ENTITY_FILES.includes(filename));
 
     for (const filename of syncedFiles) {
-      const source = readEntitySource(filename);
+      const clean = readEntitySourceClean(filename);
 
       describe(filename, () => {
         test('defines a ULID prefix constant', () => {
-          expect(
-            definesULIDPrefix(source),
-            `${filename} must define an _ID_PREFIX constant`,
-          ).toBe(true);
+          expect(definesULIDPrefix(clean)).toBe(true);
         });
 
         test('defines at least one branded ID type', () => {
-          expect(
-            definesBrandedType(source),
-            `${filename} must define Brand<string, ...>`,
-          ).toBe(true);
+          expect(definesBrandedType(clean)).toBe(true);
         });
 
         test('has readonly id with branded Id type', () => {
-          expect(
-            hasBrandedReadonlyId(source),
-            `${filename} must have readonly id: SomeId`,
-          ).toBe(true);
+          expect(hasBrandedReadonlyId(clean)).toBe(true);
         });
 
         test('references EntityEnvelope', () => {
-          expect(
-            referencesEnvelope(source),
-            `${filename} must reference EntityEnvelope`,
-          ).toBe(true);
+          expect(referencesEnvelope(clean)).toBe(true);
         });
       });
     }
@@ -122,30 +116,27 @@ describe('Sync-safe entity envelope audit', () => {
 
   describe('local entities (no sync envelope)', () => {
     for (const filename of LOCAL_ENTITY_FILES) {
-      const source = readEntitySource(filename);
+      const clean = readEntitySourceClean(filename);
 
       describe(filename, () => {
         test('does not reference EntityEnvelope', () => {
-          expect(referencesEnvelope(source)).toBe(false);
+          expect(referencesEnvelope(clean)).toBe(false);
         });
 
-        test('does not define sync envelope fields', () => {
-          expect(
-            definesBannedSyncFields(source),
-            `${filename} must not have centerCode, deviceOrigin, updatedBy, deletedAt, or version`,
-          ).toBe(false);
+        test('does not define sync-only envelope fields', () => {
+          expect(definesBannedSyncFields(clean)).toBe(false);
         });
 
         test('defines a branded ID type', () => {
-          expect(definesBrandedType(source)).toBe(true);
+          expect(definesBrandedType(clean)).toBe(true);
         });
 
         test('defines a ULID prefix', () => {
-          expect(definesULIDPrefix(source)).toBe(true);
+          expect(definesULIDPrefix(clean)).toBe(true);
         });
 
         test('has readonly id with branded Id type', () => {
-          expect(hasBrandedReadonlyId(source)).toBe(true);
+          expect(hasBrandedReadonlyId(clean)).toBe(true);
         });
       });
     }

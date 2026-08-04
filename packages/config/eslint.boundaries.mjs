@@ -57,10 +57,23 @@ export const domainBoundaries = [
   },
   // Domain test files (audit tools, etc.) may read source and migration files
   // from disk — they're infrastructure that verifies invariants, not Domain logic.
+  // node:fs and node:path are allowed; all other domain restrictions still apply.
   {
     files: ['packages/domain/tests/**/*.ts'],
     rules: {
-      'no-restricted-imports': 'off',
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            ...domainForbiddenModules,
+            ...nodeBuiltins.filter((m) => m !== 'fs' && m !== 'path').flatMap((m) => [
+              { name: m, message: `Domain must not touch Node builtins (${m}). Inject a port instead.` },
+              { name: `node:${m}`, message: `Domain must not touch Node builtins (node:${m}). Inject a port instead.` },
+            ]),
+          ],
+          patterns: domainForbiddenPatterns,
+        },
+      ],
     },
   },
   // Presentation (renderer) must not reach the Data layer or SQLite directly —
