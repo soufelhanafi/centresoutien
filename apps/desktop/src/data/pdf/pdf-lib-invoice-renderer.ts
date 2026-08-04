@@ -1,13 +1,14 @@
 import { PDFDocument, StandardFonts, PageSizes, type PDFFont, type PDFPage } from 'pdf-lib';
 import type { InvoicePdfRenderer, InvoicePdfInput } from '@centresoutien/domain';
 import { patchedFontkit } from './patched-fontkit';
-import { InvoicePdfWriter, PAGE_MARGIN, BRAND_TEAL, MUTED_GRAY } from './invoice-pdf-writer';
+import { InvoicePdfWriter, PAGE_MARGIN } from './invoice-pdf-writer';
 import { invoicePdfLabels } from './invoice-pdf-labels';
 import { amiriBoldBytes, amiriRegularBytes } from './pdf-fonts';
-import { drawInvoiceMeta, drawLineSection, drawTotals, drawFooter } from './invoice-pdf-sections';
+import { drawHeaderBlock, drawBillTo, drawLineSection, drawTotals, drawFooter } from './invoice-pdf-sections';
 import type { PdfRenderContext } from './invoice-pdf-context';
 
-const LOGO_BOX = 50;
+const LOGO_BOX = 44;
+const LOGO_TEXT_GAP = 14;
 
 /**
  * `pdf-lib`-based {@link InvoicePdfRenderer} (SOU-69) — real embedded-font A4
@@ -28,8 +29,12 @@ export class PdfLibInvoiceRenderer implements InvoicePdfRenderer {
     const writer = new InvoicePdfWriter({ page, locale: input.locale, regularFont, boldFont });
     const ctx: PdfRenderContext = { writer, labels: invoicePdfLabels(input.locale), locale: input.locale };
 
-    await this.drawHeader(pdfDoc, page, ctx, input);
-    drawInvoiceMeta(ctx, input);
+    if (input.center.logoBytes && (await this.drawLogo(pdfDoc, page, input.center.logoBytes, input.locale))) {
+      writer.startInset = LOGO_BOX + LOGO_TEXT_GAP;
+    }
+    drawHeaderBlock(ctx, input);
+    writer.startInset = 0;
+    drawBillTo(ctx, input);
     drawLineSection(ctx, {
       title: ctx.labels.regularSection,
       lines: input.regularLines,
@@ -71,45 +76,25 @@ export class PdfLibInvoiceRenderer implements InvoicePdfRenderer {
     return [regular, bold] as const;
   }
 
-  private async drawHeader(
-    pdfDoc: PDFDocument,
-    page: PDFPage,
-    ctx: PdfRenderContext,
-    input: InvoicePdfInput,
-  ): Promise<void> {
-    if (input.center.logoBytes) await this.drawLogo(pdfDoc, page, input.center.logoBytes, input.locale);
-    ctx.writer.text(input.center.name, { size: 16, bold: true, color: BRAND_TEAL });
-    ctx.writer.text(input.center.address, { size: 9, color: MUTED_GRAY });
-    // Known cosmetic quirk on the `ar` locale: Amiri's default OpenType
-    // features insert a small extra gap around a bare "." immediately
-    // followed by a Latin letter (e.g. "….ma") — harmless, the email still
-    // reads correctly, and not worth widening this adapter's font-per-run
-    // complexity to chase for one secondary contact line.
-    ctx.writer.text(`${input.center.phone} · ${input.center.email}`, { size: 9, color: MUTED_GRAY });
-    ctx.writer.moveDown(6);
-    ctx.writer.hr();
-  }
-
   /** Best-effort: an unreadable or unsupported logo format never blocks the PDF.
-   *  Anchored to the header text's trailing edge — the start (left) in French,
-   *  the end (right) in Arabic — so it never overlaps the right-anchored AR header. */
+   *  Anchored to the header's start edge — left in French, right in Arabic —
+   *  beside the center identity block; returns whether anything was drawn so the
+   *  caller can indent the text clear of it. */
   private async drawLogo(
     pdfDoc: PDFDocument,
     page: PDFPage,
     bytes: Uint8Array,
     locale: 'fr' | 'ar',
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
       const image = await pdfDoc.embedPng(bytes).catch(() => pdfDoc.embedJpg(bytes));
       const { width, height } = image.scaleToFit(LOGO_BOX, LOGO_BOX);
-      page.drawImage(image, {
-        x: locale === 'ar' ? PAGE_MARGIN : page.getWidth() - PAGE_MARGIN - width,
-        y: page.getHeight() - PAGE_MARGIN - height,
-        width,
-        height,
-      });
+      const x = locale === 'ar' ? page.getWidth() - PAGE_MARGIN - width : PAGE_MARGIN;
+      page.drawImage(image, { x, y: page.getHeight() - PAGE_MARGIN - height, width, height });
+      return true;
     } catch {
       // Corrupt bytes / unsupported format — the invoice still prints without a logo.
+      return false;
     }
   }
 }
