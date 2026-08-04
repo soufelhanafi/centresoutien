@@ -38,7 +38,7 @@ export function SessionBlock({ session, style, onSelect }: SessionBlockProps) {
         color: color.foreground,
         borderInlineStartColor: color.border,
       }}
-      className="absolute flex flex-col gap-0.5 overflow-hidden rounded-md border-s-[3px] p-1.5 text-start text-xs shadow-sm ring-offset-background transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+      className="absolute flex flex-col gap-0.5 overflow-hidden rounded-md border-s-[3px] p-1.5 text-start text-xs leading-none shadow-sm ring-offset-background transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
     >
       <span className="flex items-center justify-between gap-1">
         <span className="truncate font-semibold">{subject}</span>

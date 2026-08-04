@@ -11,7 +11,6 @@ import {
   closeExportDialog,
   filterOptions,
   exportDisabled,
-  stubSaveDialog,
   stubOpenPath,
   freshExportDir,
   exportPath,
