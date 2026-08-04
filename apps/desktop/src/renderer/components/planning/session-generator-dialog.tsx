@@ -112,7 +112,10 @@ export function SessionGeneratorDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col">
+      <DialogContent
+        className="flex max-h-[85vh] max-w-2xl flex-col"
+        closeLabel={t('planning.form.cancel')}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarCog className="h-5 w-5" aria-hidden="true" />
