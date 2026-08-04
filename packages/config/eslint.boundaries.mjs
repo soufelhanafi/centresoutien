@@ -55,6 +55,14 @@ export const domainBoundaries = [
       ],
     },
   },
+  // Domain test files (audit tools, etc.) may read source and migration files
+  // from disk — they're infrastructure that verifies invariants, not Domain logic.
+  {
+    files: ['packages/domain/tests/**/*.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
+    },
+  },
   // Presentation (renderer) must not reach the Data layer or SQLite directly —
   // all data access goes through Domain use cases via the IPC bridge.
   // Ready for when the renderer/data layers land (SOU-15 / SOU-18).
