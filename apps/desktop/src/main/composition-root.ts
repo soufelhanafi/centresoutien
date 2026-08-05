@@ -94,6 +94,9 @@ import {
   SaveBackupConfig,
   RestoreBackup,
   RunScheduledBackup,
+  ExportBackup,
+  PreviewImportBackup,
+  ApplyImportBackup,
   CreateTeacherPayrollRule,
   CloseTeacherPayrollRule,
   ReplaceTeacherPayrollRule,
@@ -132,6 +135,7 @@ import type {
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
+import { SqliteChangeLogWriter } from '../data/sqlite/change-log/sqlite-change-log-writer';
 import { SqliteFormulaRepository } from '../data/sqlite/repositories/formula-repository';
 import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
@@ -161,6 +165,9 @@ import { SqliteCenterRepository } from '../data/sqlite/repositories/center-repos
 import { FsLogoStore } from '../data/fs/logo-store';
 import { SqliteBackupAdapter } from '../data/sqlite/repositories/backup-adapter';
 import { SqliteBackupConfigStore } from '../data/sqlite/repositories/backup-config-store';
+import { SqliteBackupStore } from '../data/sqlite/repositories/backup-store';
+import { ExcelBackupAdapter } from '../data/excel/backup-excel-adapter';
+import { DialogPathRegistry } from './ipc/dialog-path-registry';
 import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
@@ -258,7 +265,12 @@ export function buildContainer(options: ContainerOptions): Container {
   const activePlanId = resolvePlanId(db, options.planId);
   const plan = new PlanPolicy(PLANS[activePlanId]);
 
-  const subjectRepo = new SqliteSubjectRepository(db);
+  // The acting laptop, resolved once — stamped on every change_log row (SOU-79)
+  // and carried in the envelope context below.
+  const deviceOrigin = resolveDeviceOrigin(db, ids);
+  const changeLog = new SqliteChangeLogWriter(db, clock, deviceOrigin);
+
+  const subjectRepo = new SqliteSubjectRepository(db, changeLog);
   const createSubject = new CreateSubject(subjectRepo, clock, ids, plan);
   const listSubjects = new ListSubjects(subjectRepo, plan);
   const getSubject = new GetSubject(subjectRepo, plan);
@@ -729,15 +741,41 @@ export function buildContainer(options: ContainerOptions): Container {
 
   const context: EnvelopeContext = {
     centerCode: options.centerCode,
-    deviceOrigin: resolveDeviceOrigin(db, ids),
+    deviceOrigin,
     updatedBy: DEV_USER,
   };
   const centerContext: CenterContext = { ...context, seedPlan: activePlanId };
+
+  // Excel backup engine (SOU-44) — data-level export/import, complementing the
+  // byte-level snapshot above. `SqliteBackupStore` is tenant-scoped to the open
+  // center DB; `ExcelBackupAdapter` is a pure file translator. ApplyImportBackup
+  // mints fresh ULIDs + envelopes for id-less people rows from the device context.
+  // The store shares the SOU-79 `changeLog` writer so every restored row is
+  // appended to the change log inside the apply transaction (a restore is an
+  // edit the sync feed must see).
+  const backupStore = new SqliteBackupStore(db, options.centerCode, changeLog);
+  const backupExcelAdapter = new ExcelBackupAdapter();
+  // Dialog-issued path tokens (SOU-44 M3): the backup channels never accept a
+  // renderer-supplied path — only paths the user picked in a native dialog,
+  // resolved here from the token the dialog handlers issued.
+  const dialogPaths = new DialogPathRegistry();
+  const exportBackup = new ExportBackup(backupStore, backupExcelAdapter, plan);
+  const previewImportBackup = new PreviewImportBackup(backupStore, backupExcelAdapter, plan);
+  const applyImportBackup = new ApplyImportBackup(
+    backupStore,
+    backupExcelAdapter,
+    plan,
+    clock,
+    ids,
+    context.deviceOrigin,
+    context.updatedBy,
+  );
 
   const handlerDeps: HandlerDeps = {
     appVersion: options.appVersion,
     activePlanId: () => plan.activePlanId(),
     setActivePlan: (planId) => plan.setActivePlan(PLANS[planId]),
+    dialogPaths,
     createSubject,
     archiveSubject,
     listSubjects,
@@ -857,6 +895,9 @@ export function buildContainer(options: ContainerOptions): Container {
     getBackupConfig,
     saveBackupConfig,
     restoreBackup,
+    exportBackup,
+    previewImportBackup,
+    applyImportBackup,
     activeCenterCode: () => options.centerCode,
     centerCode: () => options.centerCode,
     updatedBy: () => context.updatedBy,

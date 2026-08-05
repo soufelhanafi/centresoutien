@@ -8,6 +8,7 @@ import { createIpcDispatcher } from '../../src/main/ipc/dispatcher';
 import { createHandlers } from '../../src/main/ipc/handlers';
 import { openDatabase } from '../../src/data/sqlite/db';
 import { SqliteSubjectRepository } from '../../src/data/sqlite/repositories/subject-repository';
+import { changeLogWriterForTest } from './helpers/change-log';
 import { SqliteParentRepository } from '../../src/data/sqlite/repositories/parent-repository';
 import { SqliteSessionRepository } from '../../src/data/sqlite/repositories/session-repository';
 
@@ -50,7 +51,9 @@ describe('composition root', () => {
 
     // Reopen the same encrypted file to prove it was actually persisted.
     const db = openDatabase({ centreId: 'C1', key: KEY, dir });
-    const saved = await new SqliteSubjectRepository(db).findById(id as SubjectId);
+    const saved = await new SqliteSubjectRepository(db, changeLogWriterForTest(db)).findById(
+      id as SubjectId,
+    );
     db.close();
 
     expect(saved?.name).toEqual({ fr: 'Mathématiques', ar: 'الرياضيات' });

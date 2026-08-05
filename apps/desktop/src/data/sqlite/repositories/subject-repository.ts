@@ -9,7 +9,9 @@ import type {
   DeviceId,
   EntityId,
   UserId,
+  ChangeLogWriter,
 } from '@centresoutien/domain';
+import { toEntityId } from '@centresoutien/domain';
 
 /** The `subjects` table row shape as SQLite returns it. */
 type SubjectRow = {
@@ -106,23 +108,34 @@ const LIST_GROUP_REFERENCES_SQL = `
  * (the sync feed) includes them. Identity columns are never rewritten on upsert.
  */
 export class SqliteSubjectRepository implements SubjectRepository {
-  constructor(private readonly db: DB) {}
+  constructor(
+    private readonly db: DB,
+    private readonly changeLog: ChangeLogWriter,
+  ) {}
 
   async save(subject: Subject): Promise<void> {
-    this.db.prepare(SAVE_SQL).run({
-      id: subject.id,
-      center_code: subject.centerCode,
-      device_origin: subject.deviceOrigin,
-      created_at: subject.createdAt.toISOString(),
-      updated_at: subject.updatedAt.toISOString(),
-      updated_by: subject.updatedBy,
-      deleted_at: subject.deletedAt ? subject.deletedAt.toISOString() : null,
-      version: subject.version,
-      name_fr: subject.name.fr,
-      name_ar: subject.name.ar,
-      code: subject.code,
-      active: subject.active ? 1 : 0,
-    });
+    this.db.transaction(() => {
+      this.db.prepare(SAVE_SQL).run({
+        id: subject.id,
+        center_code: subject.centerCode,
+        device_origin: subject.deviceOrigin,
+        created_at: subject.createdAt.toISOString(),
+        updated_at: subject.updatedAt.toISOString(),
+        updated_by: subject.updatedBy,
+        deleted_at: subject.deletedAt ? subject.deletedAt.toISOString() : null,
+        version: subject.version,
+        name_fr: subject.name.fr,
+        name_ar: subject.name.ar,
+        code: subject.code,
+        active: subject.active ? 1 : 0,
+      });
+      this.changeLog.record({
+        entityType: 'subjects',
+        entityId: toEntityId(subject.id),
+        centerCode: subject.centerCode,
+        intent: 'upsert',
+      });
+    })();
   }
 
   async findById(id: SubjectId): Promise<Subject | null> {
@@ -143,9 +156,21 @@ export class SqliteSubjectRepository implements SubjectRepository {
 
   async softDelete(id: SubjectId, at: Date, by: UserId): Promise<void> {
     const iso = at.toISOString();
-    this.db
-      .prepare('UPDATE subjects SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?')
-      .run(iso, iso, by, id);
+    this.db.transaction(() => {
+      const row = this.db
+        .prepare('SELECT center_code FROM subjects WHERE id = ?')
+        .get(id) as { center_code: string } | undefined;
+      if (!row) return;
+      this.db
+        .prepare('UPDATE subjects SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?')
+        .run(iso, iso, by, id);
+      this.changeLog.record({
+        entityType: 'subjects',
+        entityId: toEntityId(id),
+        centerCode: row.center_code as CenterCode,
+        intent: 'delete',
+      });
+    })();
   }
 
   async listChangedSince(cursor: Date): Promise<readonly Subject[]> {
