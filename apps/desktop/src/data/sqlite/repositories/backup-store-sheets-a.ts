@@ -91,6 +91,7 @@ export const SHEET_SQL_A: Readonly<
   formulas: {
     table: 'formulas',
     conflict: 'skip',
+    readOnlyColumns: ['isImmutable'],
     columns: [
       ...ENVELOPE_COLUMNS,
       ['name_fr', 'name_fr'],

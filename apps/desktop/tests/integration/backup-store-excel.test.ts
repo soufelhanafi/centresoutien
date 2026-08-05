@@ -108,6 +108,21 @@ describe('SqliteBackupStore + ExcelBackupAdapter round-trip', () => {
     expect(rooms[0]!['centerCode']).toBe(CENTER);
   });
 
+  it('refuses to apply a row belonging to another center', async () => {
+    const store = new SqliteBackupStore(db, CENTER);
+    const otherCenterRoom = await (async () => {
+      seedCenterRows(OTHER_CENTER);
+      const otherStore = new SqliteBackupStore(db, OTHER_CENTER);
+      const rows = await otherStore.readAllRows('rooms');
+      return rows[0]!;
+    })();
+
+    await expect(store.applyRows([{ sheetName: 'rooms', rows: [otherCenterRoom] }])).rejects.toThrow(
+      /another center|CS-RABAT-002/,
+    );
+    expect(await store.readAllRows('rooms')).toHaveLength(0);
+  });
+
   it('applying an existing payment id is a no-op, not an append-only violation', async () => {
     seedCenterRows(CENTER);
     const store = new SqliteBackupStore(db, CENTER);
