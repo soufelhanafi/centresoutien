@@ -6,7 +6,7 @@ import { CENTER, validBackupRow, validId } from './helpers';
 
 const CENTER_CODE = CENTER as CenterCode;
 
-function classify(sheet: 'parents' | 'students' | 'rooms', row: BackupRow, existing: BackupRow[] = []) {
+function classify(sheet: 'parents' | 'students' | 'rooms' | 'payments', row: BackupRow, existing: BackupRow[] = []) {
   const spec = findBackupSheet(sheet)!;
   const existingIds = new Set(existing.map((r) => r['id'] as string));
   const existingNaturalKeys = new Set(
@@ -43,6 +43,26 @@ describe('classifyImportRow', () => {
     it('rejects an id-carrying row with an incomplete envelope', () => {
       const row = validBackupRow('rooms', {}, ['createdAt', 'updatedBy']);
       expect(classify('rooms', row)).toEqual({ status: 'invalid', reason: 'incomplete-envelope' });
+    });
+
+    it('rejects an id-carrying row missing the tombstone column (deletedAt)', () => {
+      const row = validBackupRow('rooms', {}, ['deletedAt']);
+      expect(classify('rooms', row)).toEqual({ status: 'invalid', reason: 'incomplete-envelope' });
+    });
+  });
+
+  describe('restore-conflict skip sheets', () => {
+    it('classifies an existing id on the payments sheet as a duplicate, never updated', () => {
+      const row = validBackupRow('payments');
+      expect(classify('payments', row, [row])).toEqual({
+        status: 'duplicate',
+        reason: 'already-exists',
+      });
+    });
+
+    it('classifies a new id on the payments sheet as created', () => {
+      const row = validBackupRow('payments', { id: 'pay_01HWAAAAAAAAAAAAAAAAAAAAAB' });
+      expect(classify('payments', row)).toEqual({ status: 'created', reason: null });
     });
   });
 

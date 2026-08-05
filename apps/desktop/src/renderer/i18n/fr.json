@@ -1540,7 +1540,7 @@
         "importPickAnother": "Choisir un autre fichier",
         "importSubtitle": "Importe un fichier Excel après un aperçu des modifications.",
         "importTitle": "Importer",
-        "missingSheetsBody": "Ce fichier ne contient pas : {{sheets}}. Ces données ne seront ni exportées ni restaurées.",
+        "missingSheetsBody": "Ce fichier ne contient pas : {{sheets}}. Ces données ne seront pas restaurées.",
         "missingSheetsTitle": "Feuilles absentes",
         "noApplicable": "Ce fichier ne contient aucune ligne à importer.",
         "reason": {
@@ -1551,6 +1551,8 @@
           "natural-key-required": "Une clé naturelle est requise pour créer une personne.",
           "id-required": "Un identifiant est requis pour cette feuille.",
           "natural-key-exists": "Un enregistrement avec cette clé naturelle existe déjà.",
+          "already-exists": "Cette ligne correspond à un enregistrement existant qui sera laissé tel quel.",
+          "unknown": "Raison inconnue.",
           "missing-field": "Champ manquant : {{field}}",
           "bad-type": "Valeur invalide pour le champ {{field}}"
         },

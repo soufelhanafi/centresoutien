@@ -39,7 +39,8 @@ function CountChip({ label, value, tone }: { label: string; value: number; tone:
 
 type ExcelBackupPreviewProps = {
   preview: BackupImportPreviewDto;
-  filePath: string;
+  /** The dialog-issued token for the picked workbook — apply reuses it. */
+  pathToken: string;
   onRepick: () => void;
 };
 
@@ -49,7 +50,7 @@ type ExcelBackupPreviewProps = {
  * when at least one row is actionable (created/updated); duplicates and
  * invalid rows are surfaced but skipped on commit.
  */
-export function ExcelBackupPreview({ preview, filePath, onRepick }: ExcelBackupPreviewProps) {
+export function ExcelBackupPreview({ preview, pathToken, onRepick }: ExcelBackupPreviewProps) {
   const { t } = useTranslation();
   const apply = useExcelBackupApply();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -60,7 +61,7 @@ export function ExcelBackupPreview({ preview, filePath, onRepick }: ExcelBackupP
   const onConfirm = async () => {
     setConfirmOpen(false);
     try {
-      await apply.mutateAsync({ filePath });
+      await apply.mutateAsync({ pathToken });
     } catch {
       toast.error(t('settings.backup.excel.importError'));
     }

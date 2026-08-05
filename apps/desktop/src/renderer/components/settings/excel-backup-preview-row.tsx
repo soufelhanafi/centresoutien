@@ -26,11 +26,13 @@ const SIMPLE_REASON_TOKENS = new Set([
   'natural-key-required',
   'id-required',
   'natural-key-exists',
+  'already-exists',
 ]);
 
 /** Map a stable classification token to an i18n key. Tokens may carry a field
- *  suffix (`missing-field:capacity`); unknown tokens fall back to raw display. */
-function reasonLookup(reason: string): { key: string; params?: Record<string, string> } | null {
+ *  suffix (`missing-field:capacity`); unknown tokens fall back to a generic
+ *  "unknown reason" label, never raw token soup. */
+function reasonLookup(reason: string): { key: string; params?: Record<string, string> } {
   const separator = reason.indexOf(':');
   const token = separator === -1 ? reason : reason.slice(0, separator);
   const field = separator === -1 ? '' : reason.slice(separator + 1).trim();
@@ -43,7 +45,7 @@ function reasonLookup(reason: string): { key: string; params?: Record<string, st
     return mapped;
   }
   if (SIMPLE_REASON_TOKENS.has(token)) return { key: `${REASON_KEY_PREFIX}.${token}` };
-  return null;
+  return { key: `${REASON_KEY_PREFIX}.unknown` };
 }
 
 /** One workbook row's verdict: sheet, Excel row number, status badge, reason. */
@@ -67,7 +69,7 @@ export function ExcelBackupPreviewRow({ row }: { row: BackupImportRowReport }) {
         </Badge>
       </DataTableCell>
       <DataTableCell className="break-words">
-        {reason ? (reason.params ? t(reason.key, reason.params) : t(reason.key)) : row.reason ?? <span className="text-muted-foreground">—</span>}
+        {reason ? (reason.params ? t(reason.key, reason.params) : t(reason.key)) : <span className="text-muted-foreground">—</span>}
       </DataTableCell>
     </DataTableRow>
   );

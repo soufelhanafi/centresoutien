@@ -49,6 +49,15 @@ export type BackupSheetSpec = {
   peopleLike: boolean;
   /** Column name carrying the natural key; set exactly when `peopleLike`. */
   naturalKeyColumn: string | null;
+  /**
+   * Restore semantics: `upsert` rewrites the non-identity columns of an existing
+   * id on apply; `skip` leaves an existing id untouched. `skip` is reserved for
+   * tables whose rows must never be rewritten in place — `payments`
+   * (append-only, UPDATE trigger) and `formulas` (immutable once billed). The
+   * classifier mirrors it so the preview reports a replayed existing payment as
+   * a duplicate (never `updated`), keeping preview and apply in lockstep.
+   */
+  restoreConflict: 'upsert' | 'skip';
   /** Domain columns, in workbook header order. */
   columns: readonly BackupColumn[];
 };

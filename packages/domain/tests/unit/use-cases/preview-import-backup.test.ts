@@ -23,8 +23,8 @@ describe('PreviewImportBackup', () => {
     useCase = new PreviewImportBackup(store, excel, new PlanPolicy(PLANS.pro));
   });
 
-  function seedWorkbook(sheets: BackupWorkbook['sheets']): void {
-    excel.writeWorkbook(PATH, { sheets });
+  async function seedWorkbook(sheets: BackupWorkbook['sheets']): Promise<void> {
+    await excel.writeWorkbook(PATH, { sheets });
   }
 
   it('classifies a mixed workbook: created, updated, duplicate, invalid', async () => {
@@ -38,7 +38,7 @@ describe('PreviewImportBackup', () => {
     const dupParent = validBackupRow('parents', { id: undefined, naturalKey: `${CENTER}::dupe::x` }, ['id', 'createdAt', 'updatedAt', 'updatedBy', 'deviceOrigin', 'version']);
     const invalidRoom = validBackupRow('rooms', { id: 'not-an-id' });
 
-    seedWorkbook([
+    await seedWorkbook([
       {
         name: 'rooms',
         columns: ['id', 'centerCode', 'createdAt', 'name', 'capacity', 'active'],
@@ -64,16 +64,56 @@ describe('PreviewImportBackup', () => {
   });
 
   it('reports unknown sheets without failing', async () => {
-    seedWorkbook([{ name: 'mystery-sheet', columns: ['a'], rows: [{ a: 'x' }] }]);
+    await seedWorkbook([{ name: 'mystery-sheet', columns: ['a'], rows: [{ a: 'x' }] }]);
     const preview = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
     expect(preview.unknownSheets).toEqual(['mystery-sheet']);
     expect(preview.counts).toEqual({ created: 0, updated: 0, duplicate: 0, invalid: 0 });
   });
 
+  it('reports an existing id on a skip sheet as a duplicate, not updated (SOU-44 M2)', async () => {
+    const existingPayment = validBackupRow('payments');
+    store.seed('payments', [existingPayment]);
+
+    await seedWorkbook([
+      {
+        name: 'payments',
+        columns: ['id', 'centerCode', 'amountMad', 'invoiceId', 'kind', 'method', 'paidOn'],
+        rows: [{ ...existingPayment, amountMad: 9999 }],
+      },
+    ]);
+
+    const preview = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+    expect(preview.counts).toEqual({ created: 0, updated: 0, duplicate: 1, invalid: 0 });
+    const row = preview.rows[0]!;
+    expect(row.status).toBe('duplicate');
+    expect(row.reason).toBe('already-exists');
+  });
+
+  it('marks a second id-less row with the same naturalKey in one workbook as a duplicate', async () => {
+    const sharedNaturalKey = `${CENTER}::same-person::x`;
+    const row = (name: string) =>
+      validBackupRow(
+        'parents',
+        { id: undefined, naturalKey: sharedNaturalKey, name },
+        ['id', 'createdAt', 'updatedAt', 'updatedBy', 'deviceOrigin', 'version'],
+      );
+
+    await seedWorkbook([
+      {
+        name: 'parents',
+        columns: ['id', 'centerCode', 'naturalKey', 'name', 'phone'],
+        rows: [row('Premier'), row('Doublon')],
+      },
+    ]);
+
+    const preview = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+    expect(preview.counts).toEqual({ created: 1, updated: 0, duplicate: 1, invalid: 0 });
+  });
+
   it('does not write anything during a preview', async () => {
     const existingRoom = validBackupRow('rooms');
     store.seed('rooms', [existingRoom]);
-    seedWorkbook([
+    await seedWorkbook([
       {
         name: 'rooms',
         columns: ['id', 'centerCode', 'createdAt', 'name', 'capacity', 'active'],
@@ -93,7 +133,7 @@ describe('PreviewImportBackup', () => {
 
   it('is locked on a plan without io.excel.import', async () => {
     useCase = new PreviewImportBackup(store, excel, new PlanPolicy(PLANS.essentiel));
-    seedWorkbook([{ name: 'rooms', columns: ['id'], rows: [] }]);
+    await seedWorkbook([{ name: 'rooms', columns: ['id'], rows: [] }]);
     await expect(
       useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode }),
     ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);

@@ -54,7 +54,13 @@ export class ApplyImportBackup {
       const sheet = byName.get(spec.name);
       if (sheet === undefined) continue;
 
+      // Working copies of the DB snapshot: as a row is classified as
+      // created/updated, its id / naturalKey joins the index, so a second row in
+      // the SAME workbook that would land on it classifies as `duplicate` (the
+      // preview sees the same thing, keeping preview and apply in lockstep).
       const index = existing.get(spec.name);
+      const knownIds = new Set(index?.ids ?? EMPTY_IDS);
+      const knownNaturalKeys = new Set(index?.naturalKeys ?? EMPTY_IDS);
       const rowsToApply: BackupRow[] = [];
 
       for (const row of sheet.rows) {
@@ -62,14 +68,18 @@ export class ApplyImportBackup {
         const classification = classifyImportRow({
           spec,
           row,
-          existingIds: index?.ids ?? EMPTY_IDS,
-          existingNaturalKeys: index?.naturalKeys ?? EMPTY_IDS,
+          existingIds: knownIds,
+          existingNaturalKeys: knownNaturalKeys,
           centerCode: input.centerCode,
         });
         counts[classification.status] += 1;
 
         if (classification.status === 'created' || classification.status === 'updated') {
           rowsToApply.push(this.prepareRow(spec, row, input.centerCode));
+          if (typeof row['id'] === 'string') knownIds.add(row['id']);
+          const naturalKeyColumn = spec.naturalKeyColumn ?? 'naturalKey';
+          const naturalKey = row[naturalKeyColumn];
+          if (typeof naturalKey === 'string' && naturalKey.length > 0) knownNaturalKeys.add(naturalKey);
         }
       }
 

@@ -11,19 +11,22 @@ const XLSX_EXTENSIONS = ['xlsx'] as const;
 /**
  * Import half of the Excel backup card (SOU-44): pick a workbook, dry-run it,
  * then hand the report to `ExcelBackupPreview` which owns the apply step.
- * `centerCode` is injected in main — the renderer only sends the file path.
+ * `centerCode` is injected in main; the renderer sends the dialog token, never
+ * a raw path.
  */
 export function ExcelBackupImportSection({ locked }: { locked: boolean }) {
   const { t } = useTranslation();
   const preview = useExcelBackupPreview();
   const [filePath, setFilePath] = useState<string | null>(null);
+  const [pathToken, setPathToken] = useState<string | null>(null);
 
   const onPick = async () => {
-    const path = await selectFile(XLSX_EXTENSIONS);
-    if (!path) return;
-    setFilePath(path);
+    const picked = await selectFile(XLSX_EXTENSIONS);
+    if (!picked.path || !picked.token) return;
+    setFilePath(picked.path);
+    setPathToken(picked.token);
     preview.reset();
-    preview.mutate({ filePath: path });
+    preview.mutate({ pathToken: picked.token });
   };
 
   const content = (
@@ -55,8 +58,8 @@ export function ExcelBackupImportSection({ locked }: { locked: boolean }) {
           </p>
         )}
 
-        {preview.isSuccess && preview.data && filePath && (
-          <ExcelBackupPreview preview={preview.data.preview} filePath={filePath} onRepick={onPick} />
+        {preview.isSuccess && preview.data && filePath && pathToken && (
+          <ExcelBackupPreview preview={preview.data.preview} pathToken={pathToken} onRepick={onPick} />
         )}
       </div>
     </section>

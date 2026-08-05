@@ -46,9 +46,19 @@ describe('backup workbook registry', () => {
         expect(spec.columns.some((candidate) => candidate.name === column)).toBe(true);
       }
       expect(spec.peopleLike).toBe(spec.naturalKeyColumn !== null);
+      const hasNaturalKey = spec.columns.some((column) => column.name === 'naturalKey');
+      expect(hasNaturalKey).toBe(spec.peopleLike);
       if (spec.peopleLike) {
         expect(spec.columns.some((column) => column.name === spec.naturalKeyColumn)).toBe(true);
       }
+    }
+  });
+
+  it('marks exactly the append-only / immutable sheets as restoreConflict skip', () => {
+    const skipSheets = new Set(BACKUP_SHEETS.filter((spec) => spec.restoreConflict === 'skip').map((spec) => spec.name));
+    expect(skipSheets).toEqual(new Set(['payments', 'formulas']));
+    for (const spec of BACKUP_SHEETS) {
+      expect(spec.restoreConflict).toMatch(/^(upsert|skip)$/);
     }
   });
 

@@ -36,15 +36,15 @@ describe('ApplyImportBackup', () => {
     );
   });
 
-  function seedWorkbook(sheets: BackupWorkbook['sheets']): void {
-    excel.writeWorkbook(PATH, { sheets });
+  async function seedWorkbook(sheets: BackupWorkbook['sheets']): Promise<void> {
+    await excel.writeWorkbook(PATH, { sheets });
   }
 
   it('applies created + updated rows atomically across sheets in dependency order', async () => {
     const existingRoom = validBackupRow('rooms');
     store.seed('rooms', [existingRoom]);
 
-    seedWorkbook([
+    await seedWorkbook([
       {
         name: 'rooms',
         columns: ['id', 'centerCode', 'createdAt', 'name', 'capacity', 'active'],
@@ -69,7 +69,7 @@ describe('ApplyImportBackup', () => {
     const existingRoom = validBackupRow('rooms');
     store.seed('rooms', [existingRoom]);
 
-    seedWorkbook([
+    await seedWorkbook([
       {
         name: 'rooms',
         columns: ['id', 'centerCode', 'createdAt', 'name', 'capacity', 'active'],
@@ -91,7 +91,7 @@ describe('ApplyImportBackup', () => {
       ['id', 'createdAt', 'updatedAt', 'updatedBy', 'deviceOrigin', 'version'],
     );
 
-    seedWorkbook([
+    await seedWorkbook([
       {
         name: 'parents',
         columns: ['id', 'centerCode', 'naturalKey', 'name', 'phone'],
@@ -118,7 +118,7 @@ describe('ApplyImportBackup', () => {
     const dupParent = validBackupRow('parents', { id: undefined, naturalKey: `${CENTER}::dupe::x` }, ['id', 'createdAt', 'updatedAt', 'updatedBy', 'deviceOrigin', 'version']);
     const badRoom = validBackupRow('rooms', { id: 'not-an-id' });
 
-    seedWorkbook([
+    await seedWorkbook([
       {
         name: 'parents',
         columns: ['id', 'centerCode', 'naturalKey', 'name', 'phone'],
@@ -139,15 +139,57 @@ describe('ApplyImportBackup', () => {
   });
 
   it('does not call applyRows when nothing is applicable', async () => {
-    seedWorkbook([{ name: 'mystery-sheet', columns: ['a'], rows: [{ a: 'x' }] }]);
+    await seedWorkbook([{ name: 'mystery-sheet', columns: ['a'], rows: [{ a: 'x' }] }]);
     const result = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
     expect(result.counts).toEqual({ created: 0, updated: 0, duplicate: 0, invalid: 0 });
     expect(store.applied).toHaveLength(0);
   });
 
+  it('classifies an existing id on a skip sheet (payments) as a duplicate, never updated (SOU-44 M2)', async () => {
+    const existingPayment = validBackupRow('payments');
+    store.seed('payments', [existingPayment]);
+
+    // Same id, tampered amount — the apply is a no-op, so the preview must not
+    // claim it as an "updated" row (preview and apply stay in lockstep).
+    await seedWorkbook([
+      {
+        name: 'payments',
+        columns: ['id', 'centerCode', 'amountMad', 'invoiceId', 'kind', 'method', 'paidOn'],
+        rows: [{ ...existingPayment, amountMad: 9999 }],
+      },
+    ]);
+
+    const result = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+    expect(result.counts).toEqual({ created: 0, updated: 0, duplicate: 1, invalid: 0 });
+    expect(store.applied).toHaveLength(0);
+    expect(store.allRows('payments')[0]!['amountMad']).toBe(1);
+  });
+
+  it('marks a second id-less row with the same naturalKey in one workbook as a duplicate', async () => {
+    const sharedNaturalKey = `${CENTER}::same-person::x`;
+    const row = (name: string) =>
+      validBackupRow(
+        'parents',
+        { id: undefined, naturalKey: sharedNaturalKey, name },
+        ['id', 'createdAt', 'updatedAt', 'updatedBy', 'deviceOrigin', 'version'],
+      );
+
+    await seedWorkbook([
+      {
+        name: 'parents',
+        columns: ['id', 'centerCode', 'naturalKey', 'name', 'phone'],
+        rows: [row('Premier'), row('Doublon')],
+      },
+    ]);
+
+    const result = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+    expect(result.counts).toEqual({ created: 1, updated: 0, duplicate: 1, invalid: 0 });
+    expect(store.allRows('parents')).toHaveLength(1);
+  });
+
   it('wraps a store failure in BackupImportApplyError (atomic rollback)', async () => {
     store.applyError = new Error('UNIQUE constraint failed');
-    seedWorkbook([
+    await seedWorkbook([
       {
         name: 'rooms',
         columns: ['id', 'centerCode', 'name', 'capacity', 'active'],
@@ -162,14 +204,14 @@ describe('ApplyImportBackup', () => {
 
   it('is locked on a plan without io.excel.import', async () => {
     useCase = new ApplyImportBackup(store, excel, new PlanPolicy(PLANS.essentiel), fakeClock(), fakeIds(), DEVICE, USER);
-    seedWorkbook([{ name: 'rooms', columns: ['id'], rows: [] }]);
+    await seedWorkbook([{ name: 'rooms', columns: ['id'], rows: [] }]);
     await expect(
       useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode }),
     ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
   });
 
   it('iterates known sheets in the registry (dependency) order', async () => {
-    seedWorkbook([
+    await seedWorkbook([
       {
         name: 'parents',
         columns: ['id', 'centerCode', 'naturalKey', 'name', 'phone'],

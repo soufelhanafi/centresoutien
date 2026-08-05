@@ -48,15 +48,26 @@ export class PreviewImportBackup {
         continue;
       }
       const index = existing.get(spec.name);
+      // Working copies that grow as rows are classified — a second row in the
+      // same workbook landing on an already-classified id / naturalKey is a
+      // duplicate, exactly as apply sees it (preview and apply in lockstep).
+      const knownIds = new Set(index?.ids ?? EMPTY_IDS);
+      const knownNaturalKeys = new Set(index?.naturalKeys ?? EMPTY_IDS);
       for (const [offset, row] of sheet.rows.entries()) {
         const classification = classifyImportRow({
           spec,
           row,
-          existingIds: index?.ids ?? EMPTY_IDS,
-          existingNaturalKeys: index?.naturalKeys ?? EMPTY_IDS,
+          existingIds: knownIds,
+          existingNaturalKeys: knownNaturalKeys,
           centerCode: input.centerCode,
         });
         counts[classification.status] += 1;
+        if (classification.status === 'created' || classification.status === 'updated') {
+          if (typeof row['id'] === 'string') knownIds.add(row['id']);
+          const naturalKeyColumn = spec.naturalKeyColumn ?? 'naturalKey';
+          const naturalKey = row[naturalKeyColumn];
+          if (typeof naturalKey === 'string' && naturalKey.length > 0) knownNaturalKeys.add(naturalKey);
+        }
         rows.push({
           sheetName: spec.name,
           // Header is row 1, so the first data row is row 2 — matches Excel.

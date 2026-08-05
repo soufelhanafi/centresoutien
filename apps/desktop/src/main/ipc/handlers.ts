@@ -1532,7 +1532,7 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     },
     ...createBackupHandlers(deps),
     ...createBackupExcelHandlers(deps),
-    ...createDialogHandlers(),
+    ...createDialogHandlers(deps.dialogPaths),
     ...createInvoiceHandlers(deps),
     ...createOverdueInvoiceHandlers(deps),
     ...createPayslipHandlers(deps),

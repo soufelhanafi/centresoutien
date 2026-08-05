@@ -29,11 +29,10 @@ export function ExcelBackupExportSection({ locked }: { locked: boolean }) {
 
   const onExport = async () => {
     const slug = t('settings.backup.excel.defaultFileNameSlug');
-    const path = await selectSaveFile(`centresoutien-${slug}-${backupDateStamp()}.xlsx`, XLSX_EXTENSIONS);
-    if (!path) return;
-    setSavedPath(path);
+    const picked = await selectSaveFile(`centresoutien-${slug}-${backupDateStamp()}.xlsx`, XLSX_EXTENSIONS);
+    if (!picked.path || !picked.token) return;
     try {
-      const result = await exportMutation.mutateAsync({ filePath: path });
+      const result = await exportMutation.mutateAsync({ pathToken: picked.token });
       setSavedPath(result.filePath);
       toast.success(t('settings.backup.excel.exportSuccess'));
     } catch {

@@ -1578,7 +1578,7 @@
         "importPickAnother": "اختيار ملف آخر",
         "importSubtitle": "استيراد ملف Excel بعد معاينة التغييرات.",
         "importTitle": "استيراد",
-        "missingSheetsBody": "لا يحتوي هذا الملف على: {{sheets}}. لن يتم تصدير أو استعادة هذه البيانات.",
+        "missingSheetsBody": "لا يحتوي هذا الملف على: {{sheets}}. لن يتم استعادة هذه البيانات.",
         "missingSheetsTitle": "أوراق مفقودة",
         "noApplicable": "لا يحتوي هذا الملف على أي سطر قابل للاستيراد.",
         "reason": {
@@ -1589,6 +1589,8 @@
           "natural-key-required": "المفتاح الطبيعي مطلوب لإنشاء شخص.",
           "id-required": "المعرّف مطلوب لهذه الورقة.",
           "natural-key-exists": "يوجد سجل بهذا المفتاح الطبيعي بالفعل.",
+          "already-exists": "هذا السطر يطابق سجلًا موجودًا وسيُترك كما هو.",
+          "unknown": "سبب غير معروف.",
           "missing-field": "حقل مفقود: {{field}}",
           "bad-type": "قيمة غير صالحة للحقل {{field}}"
         },

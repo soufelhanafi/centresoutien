@@ -77,6 +77,9 @@ export function validateBackupRow(
  * Rules (KICKOFF SOU-44):
  * - row `id` present and matching the sheet's prefix → `updated` if the id
  *   already exists, else `created`.
+ * - an existing id on a `restoreConflict: 'skip'` sheet (append-only `payments`,
+ *   immutable `formulas`) is `duplicate` — the apply leaves it untouched, so the
+ *   preview must never report it as `updated` (preview and apply in lockstep).
  * - row `id` absent: only people-like sheets may create — `created` (fresh ULID +
  *   envelope at apply) unless a live row already carries the same `naturalKey`,
  *   which is `duplicate` (merged by the sync engine, never by backup restore).
@@ -113,7 +116,7 @@ export function classifyImportRow(input: {
       return { status: 'invalid', reason: 'incomplete-envelope' };
     }
     return existingIds.has(id)
-      ? { status: 'updated', reason: null }
+      ? classifyExistingIdRow(spec)
       : { status: 'created', reason: null };
   }
 
@@ -130,12 +133,40 @@ export function classifyImportRow(input: {
     : { status: 'created', reason: null };
 }
 
-/** The envelope fields an id-carrying row must bring back with it. */
-const REQUIRED_ENVELOPE_FIELDS = ['deviceOrigin', 'createdAt', 'updatedAt', 'updatedBy', 'version'] as const;
+/**
+ * An id that already exists: on a `restoreConflict: 'skip'` sheet the apply is a
+ * no-op (append-only / immutable), so the row is a replay — a `duplicate`, never
+ * an `updated`. On an `upsert` sheet the row is a genuine restore edit.
+ */
+function classifyExistingIdRow(spec: BackupSheetSpec): RowClassification {
+  return spec.restoreConflict === 'skip'
+    ? { status: 'duplicate', reason: 'already-exists' }
+    : { status: 'updated', reason: null };
+}
+
+/**
+ * The envelope fields an id-carrying row must bring back with it. `deletedAt` is
+ * required too (a tombstone must round-trip), but it is the one nullable member —
+ * a live row legitimately carries `deletedAt: null`.
+ */
+const REQUIRED_ENVELOPE_FIELDS: readonly { name: string; nullable: boolean }[] = [
+  { name: 'deviceOrigin', nullable: false },
+  { name: 'createdAt', nullable: false },
+  { name: 'updatedAt', nullable: false },
+  { name: 'updatedBy', nullable: false },
+  { name: 'deletedAt', nullable: true },
+  { name: 'version', nullable: false },
+];
 
 function hasCompleteEnvelope(row: BackupRow): boolean {
-  return REQUIRED_ENVELOPE_FIELDS.every((field) => {
-    const value = row[field];
-    return typeof value === 'string' || typeof value === 'number';
-  });
+  for (const { name, nullable } of REQUIRED_ENVELOPE_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(row, name)) return false;
+    const value = row[name];
+    if (value === null || value === undefined) {
+      if (!nullable) return false;
+      continue;
+    }
+    if (typeof value !== 'string' && typeof value !== 'number') return false;
+  }
+  return true;
 }

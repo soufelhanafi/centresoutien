@@ -28,8 +28,11 @@ export const BOOLEAN_COLUMNS = new Set(['whatsappOptIn', 'active', 'isImmutable'
  *  workbook (ULIDs contain no commas, so the join is unambiguous). */
 export const JSON_ID_COLUMNS = new Set(['guardianIds', 'subjectIds']);
 
-/** Columns never rewritten on an upsert conflict — identity, not state. */
-export const IDENTITY_COLUMNS = new Set(['id', 'center_code', 'device_origin', 'created_at']);
+/** Columns never rewritten on an upsert conflict — identity, not state.
+ *  `version` is the hub-assigned optimistic-concurrency counter: a restore
+ *  updates the fields + stamps updatedAt but must never fabricate a fresh
+ *  version, or it could clobber a newer local revision on the next sync. */
+export const IDENTITY_COLUMNS = new Set(['id', 'center_code', 'device_origin', 'created_at', 'version']);
 
 export function toSqlValue(domainColumn: string, value: unknown): unknown {
   if (value === null || value === undefined) return null;

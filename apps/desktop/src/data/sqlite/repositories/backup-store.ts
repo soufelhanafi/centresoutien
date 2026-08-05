@@ -1,5 +1,13 @@
 import type { Database as DB } from 'better-sqlite3';
-import type { BackupRow, BackupSheetName, BackupSheetWrite, BackupStore } from '@centresoutien/domain';
+import type {
+  BackupRow,
+  BackupSheetName,
+  BackupSheetWrite,
+  BackupStore,
+  CenterCode,
+  ChangeLogWriter,
+} from '@centresoutien/domain';
+import { toEntityId } from '@centresoutien/domain';
 import {
   fromSqlValue,
   IDENTITY_COLUMNS,
@@ -21,11 +29,17 @@ const SHEET_SQL: Readonly<Record<BackupSheetName, SheetSqlConfig>> = {
  * whole import. Table and column names are hard-coded in the sheet configs
  * (never interpolated from the workbook); the only runtime inputs are bound as
  * parameters.
+ *
+ * Every row this adapter actually writes is also appended to the {@link
+ * ChangeLogWriter} (SOU-79) inside the same transaction, so a restore converges
+ * on the sync feed exactly like any other edit — a replayed row (INSERT … ON
+ * CONFLICT DO NOTHING that skipped) records nothing.
  */
 export class SqliteBackupStore implements BackupStore {
   constructor(
     private readonly db: DB,
     private readonly centerCode: string,
+    private readonly changeLog: ChangeLogWriter,
   ) {}
 
   async readAllRows(sheetName: BackupSheetName): Promise<readonly BackupRow[]> {
@@ -49,14 +63,30 @@ export class SqliteBackupStore implements BackupStore {
       for (const sheet of writes) {
         const config = SHEET_SQL[sheet.sheetName];
         for (const row of sheet.rows) {
-          this.upsertRow(config, row);
+          if (this.upsertRow(config, row)) {
+            const id = row['id'];
+            if (typeof id === 'string') {
+              this.changeLog.record({
+                entityType: config.table,
+                entityId: toEntityId(id),
+                centerCode: row['centerCode'] as CenterCode,
+                intent: 'upsert',
+              });
+            }
+          }
         }
       }
     });
     run(sheets);
   }
 
-  private upsertRow(config: SheetSqlConfig, row: BackupRow): void {
+  /**
+   * Writes one row; returns true when the write actually happened (an insert or
+   * an in-place update) and false when it was a no-op replay (an existing id on
+   * a `conflict: 'skip'` sheet, or a row carrying only read-only columns). Only
+   * real writes are logged to the change log.
+   */
+  private upsertRow(config: SheetSqlConfig, row: BackupRow): boolean {
     // Tenancy defense-in-depth: the domain classifies wrong-center rows before
     // they ever reach the store, but a direct adapter call must not be able to
     // write another center's rows into this DB (a cross-tenant write is
@@ -71,7 +101,7 @@ export class SqliteBackupStore implements BackupStore {
       ([domainColumn]) => row[domainColumn] !== undefined && !readOnly.has(domainColumn),
     );
     const sqlColumns = present.map(([, sql]) => sql);
-    if (sqlColumns.length === 0) return;
+    if (sqlColumns.length === 0) return false;
 
     const params: Record<string, unknown> = {};
     for (const [domainColumn, sqlColumn] of present) {
@@ -82,16 +112,17 @@ export class SqliteBackupStore implements BackupStore {
     const insert = `INSERT INTO ${config.table} (${sqlColumns.join(', ')}) VALUES (${placeholders})`;
 
     if (config.conflict === 'skip') {
-      this.db.prepare(`${insert} ON CONFLICT(id) DO NOTHING`).run(params);
-      return;
+      const result = this.db.prepare(`${insert} ON CONFLICT(id) DO NOTHING`).run(params);
+      return result.changes > 0;
     }
 
     const updateColumns = sqlColumns.filter((column) => !IDENTITY_COLUMNS.has(column));
     if (updateColumns.length === 0) {
-      this.db.prepare(`${insert} ON CONFLICT(id) DO NOTHING`).run(params);
-      return;
+      const result = this.db.prepare(`${insert} ON CONFLICT(id) DO NOTHING`).run(params);
+      return result.changes > 0;
     }
     const setClause = updateColumns.map((column) => `${column} = excluded.${column}`).join(', ');
     this.db.prepare(`${insert} ON CONFLICT(id) DO UPDATE SET ${setClause}`).run(params);
+    return true;
   }
 }

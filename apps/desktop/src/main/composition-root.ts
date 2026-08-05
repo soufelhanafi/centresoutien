@@ -167,6 +167,7 @@ import { SqliteBackupAdapter } from '../data/sqlite/repositories/backup-adapter'
 import { SqliteBackupConfigStore } from '../data/sqlite/repositories/backup-config-store';
 import { SqliteBackupStore } from '../data/sqlite/repositories/backup-store';
 import { ExcelBackupAdapter } from '../data/excel/backup-excel-adapter';
+import { DialogPathRegistry } from './ipc/dialog-path-registry';
 import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
@@ -749,8 +750,15 @@ export function buildContainer(options: ContainerOptions): Container {
   // byte-level snapshot above. `SqliteBackupStore` is tenant-scoped to the open
   // center DB; `ExcelBackupAdapter` is a pure file translator. ApplyImportBackup
   // mints fresh ULIDs + envelopes for id-less people rows from the device context.
-  const backupStore = new SqliteBackupStore(db, options.centerCode);
+  // The store shares the SOU-79 `changeLog` writer so every restored row is
+  // appended to the change log inside the apply transaction (a restore is an
+  // edit the sync feed must see).
+  const backupStore = new SqliteBackupStore(db, options.centerCode, changeLog);
   const backupExcelAdapter = new ExcelBackupAdapter();
+  // Dialog-issued path tokens (SOU-44 M3): the backup channels never accept a
+  // renderer-supplied path — only paths the user picked in a native dialog,
+  // resolved here from the token the dialog handlers issued.
+  const dialogPaths = new DialogPathRegistry();
   const exportBackup = new ExportBackup(backupStore, backupExcelAdapter, plan);
   const previewImportBackup = new PreviewImportBackup(backupStore, backupExcelAdapter, plan);
   const applyImportBackup = new ApplyImportBackup(
@@ -767,6 +775,7 @@ export function buildContainer(options: ContainerOptions): Container {
     appVersion: options.appVersion,
     activePlanId: () => plan.activePlanId(),
     setActivePlan: (planId) => plan.setActivePlan(PLANS[planId]),
+    dialogPaths,
     createSubject,
     archiveSubject,
     listSubjects,

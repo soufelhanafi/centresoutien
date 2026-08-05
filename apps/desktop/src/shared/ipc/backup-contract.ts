@@ -72,21 +72,24 @@ export const backupIpcContract = {
     request: backupConfigInputSchema,
     response: z.object({ config: backupConfigViewSchema }),
   },
-  // Excel backup engine (SOU-44). `filePath` is chosen by the renderer via a
-  // save/open dialog; `centerCode` and the device context are injected in main.
+  // Excel backup engine (SOU-44). `pathToken` is a one-time handle main issued
+  // from a native save/open dialog (dialog.selectFile / selectSaveFile) — the
+  // renderer never sends a raw filesystem path, and main revalidates the token
+  // + `.xlsx` suffix on every call (SOU-44 M3). `centerCode` and the device
+  // context are injected in main.
   'backup.excel.export': {
-    request: z.object({ filePath: z.string().trim().min(1) }),
+    request: z.object({ pathToken: z.string().trim().min(1) }),
     response: z.object({
       filePath: z.string(),
       counts: z.record(z.string(), z.number().int().nonnegative()),
     }),
   },
   'backup.excel.preview': {
-    request: z.object({ filePath: z.string().trim().min(1) }),
+    request: z.object({ pathToken: z.string().trim().min(1) }),
     response: z.object({ preview: backupImportPreviewViewSchema }),
   },
   'backup.excel.apply': {
-    request: z.object({ filePath: z.string().trim().min(1) }),
+    request: z.object({ pathToken: z.string().trim().min(1) }),
     response: z.object({
       counts: backupImportCountsSchema,
       totalRows: z.number().int().nonnegative(),

@@ -59,7 +59,7 @@ describe('Excel backup card — export', () => {
   });
 
   it('picks a path, exports over IPC, and shows the per-sheet summary', async () => {
-    mockSelectSaveFile.mockResolvedValue('/tmp/centre.xlsx');
+    mockSelectSaveFile.mockResolvedValue({ token: 'token-export', path: '/tmp/centre.xlsx' });
     const invoke = vi.fn(async (channel: string) => {
       if (channel === 'backup.excel.export') {
         return { filePath: '/tmp/centre.xlsx', counts: { students: 2, parents: 1 } };
@@ -73,7 +73,7 @@ describe('Excel backup card — export', () => {
     await user.click(screen.getByRole('button', { name: 'Exporter la sauvegarde Excel' }));
 
     await waitFor(() =>
-      expect(invoke).toHaveBeenCalledWith('backup.excel.export', { filePath: '/tmp/centre.xlsx' }),
+      expect(invoke).toHaveBeenCalledWith('backup.excel.export', { pathToken: 'token-export' }),
     );
     expect(screen.getByText('Fichier :')).toBeInTheDocument();
     expect(screen.getByText('/tmp/centre.xlsx')).toBeInTheDocument();
@@ -82,7 +82,7 @@ describe('Excel backup card — export', () => {
   });
 
   it('surfaces a localized error when the export fails', async () => {
-    mockSelectSaveFile.mockResolvedValue('/tmp/centre.xlsx');
+    mockSelectSaveFile.mockResolvedValue({ token: 'token-export', path: '/tmp/centre.xlsx' });
     window.api.invoke = vi.fn(async () => {
       throw new Error('boom');
     });
@@ -108,13 +108,13 @@ describe('Excel backup card — import preview and apply', () => {
       counts: { created: 1, updated: 1, duplicate: 1, invalid: 1 },
       rows: [
         { sheetName: 'students', rowNumber: 2, status: 'created', reason: null },
-        { sheetName: 'students', rowNumber: 3, status: 'invalid', reason: 'missing centerCode' },
+        { sheetName: 'students', rowNumber: 3, status: 'invalid', reason: 'missing-field:centerCode' },
       ],
     },
   };
 
   it('picks a file, renders counts, unknown-sheet notice and the row table', async () => {
-    mockSelectFile.mockResolvedValue('/tmp/backup.xlsx');
+    mockSelectFile.mockResolvedValue({ token: 'token-import', path: '/tmp/backup.xlsx' });
     window.api.invoke = vi.fn(async (channel: string) => {
       if (channel === 'backup.excel.preview') return previewResponse;
       return { reply: 'pong' };
@@ -136,11 +136,11 @@ describe('Excel backup card — import preview and apply', () => {
     expect(screen.getAllByText('students').length).toBe(2);
     expect(screen.getByText('Créée')).toBeInTheDocument();
     expect(screen.getByText('Invalide')).toBeInTheDocument();
-    expect(screen.getByText('missing centerCode')).toBeInTheDocument();
+    expect(screen.getByText('Champ manquant : centerCode')).toBeInTheDocument();
   });
 
   it('localizes classification reason tokens via the reason.* keys', async () => {
-    mockSelectFile.mockResolvedValue('/tmp/backup.xlsx');
+    mockSelectFile.mockResolvedValue({ token: 'token-import', path: '/tmp/backup.xlsx' });
     window.api.invoke = vi.fn(async (channel: string) => {
       if (channel === 'backup.excel.preview') {
         return {
@@ -151,6 +151,7 @@ describe('Excel backup card — import preview and apply', () => {
             rows: [
               { sheetName: 'students', rowNumber: 2, status: 'invalid', reason: 'wrong-center' },
               { sheetName: 'students', rowNumber: 3, status: 'invalid', reason: 'missing-field:phone' },
+              { sheetName: 'students', rowNumber: 4, status: 'invalid', reason: 'some-future-token' },
             ],
           },
         };
@@ -164,10 +165,11 @@ describe('Excel backup card — import preview and apply', () => {
 
     expect(await screen.findByText('Cette ligne appartient à un autre centre.')).toBeInTheDocument();
     expect(screen.getByText('Champ manquant : phone')).toBeInTheDocument();
+    expect(screen.getByText('Raison inconnue.')).toBeInTheDocument();
   });
 
   it('offers apply only when rows are actionable, then commits over IPC', async () => {
-    mockSelectFile.mockResolvedValue('/tmp/backup.xlsx');
+    mockSelectFile.mockResolvedValue({ token: 'token-import', path: '/tmp/backup.xlsx' });
     const invoke = vi.fn(async (channel: string) => {
       if (channel === 'backup.excel.preview') return previewResponse;
       if (channel === 'backup.excel.apply') {
@@ -188,13 +190,13 @@ describe('Excel backup card — import preview and apply', () => {
     await user.click(screen.getByRole('button', { name: 'Importer' }));
 
     await waitFor(() =>
-      expect(invoke).toHaveBeenCalledWith('backup.excel.apply', { filePath: '/tmp/backup.xlsx' }),
+      expect(invoke).toHaveBeenCalledWith('backup.excel.apply', { pathToken: 'token-import' }),
     );
     expect(await screen.findByText('Import terminé : 1 ligne créée, 1 lignes mises à jour.')).toBeInTheDocument();
   });
 
   it('skips the apply button when no row is actionable', async () => {
-    mockSelectFile.mockResolvedValue('/tmp/backup.xlsx');
+    mockSelectFile.mockResolvedValue({ token: 'token-import', path: '/tmp/backup.xlsx' });
     window.api.invoke = vi.fn(async (channel: string) => {
       if (channel === 'backup.excel.preview') {
         return {
