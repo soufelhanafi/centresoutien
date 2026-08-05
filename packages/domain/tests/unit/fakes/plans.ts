@@ -1,10 +1,10 @@
 import { PLANS, type FeatureFlag, type Plan, type PlanLimits } from '../../../src/plans/plans';
 
-const UNLIMITED: PlanLimits = {
+const unlimited = (): PlanLimits => ({
   maxStudents: 'unlimited',
   maxTeachers: 'unlimited',
   maxRooms: 'unlimited',
-};
+});
 
 /**
  * A plan that grants every feature except `flag`, with unlimited limits.
@@ -18,7 +18,7 @@ export function planWithoutFeature(flag: FeatureFlag): Plan {
   return {
     id: 'essentiel',
     features: new Set([...PLANS.premium.features].filter((f) => f !== flag)),
-    limits: UNLIMITED,
+    limits: unlimited(),
   };
 }
 
@@ -27,6 +27,6 @@ export function planWithLimits(limits: Partial<PlanLimits>): Plan {
   return {
     id: 'essentiel',
     features: new Set(PLANS.premium.features),
-    limits: { ...UNLIMITED, ...limits },
+    limits: { ...unlimited(), ...limits },
   };
 }

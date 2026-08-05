@@ -25,19 +25,46 @@ describe('PLANS registry', () => {
   });
 
   it('ships every non-multi-center feature in every tier', () => {
+    // The complete FeatureFlag set minus org.multi-center. Listing it in full (not a
+    // sample) means dropping any shared flag from a tier fails this test.
     const everywhere: FeatureFlag[] = [
+      'core.rooms',
+      'core.teachers',
       'core.students',
+      'core.groups',
+      'core.subjects',
+      'core.formulas',
+      'core.calendar.week',
+      'core.invoicing',
       'core.parents',
+      'core.attendance',
+      'settings.center-hours',
+      'settings.holidays',
+      'dashboard.basic',
+      'core.invoicing.partial-paid',
+      'core.invoice-template.customize',
+      'core.exam-prep',
       'payroll.teacher',
+      'payroll.teacher.fixed',
+      'payroll.teacher.percentage',
+      'io.excel.export',
       'io.excel.import',
-      'sync.multi-device',
-      'sync.conflict-resolution',
+      'io.excel.sync',
+      'planning.custom-grid',
       'dashboard.advanced',
       'planning.random-auto',
+      'sync.multi-device',
+      'sync.cloud',
+      'sync.conflict-resolution',
+      'limits.students.unlimited',
+      'limits.teachers.unlimited',
     ];
-    for (const flag of everywhere) {
-      for (const id of ids) expect(PLANS[id].features.has(flag)).toBe(true);
+    expect(everywhere).not.toContain('org.multi-center');
+    for (const id of ids) {
+      for (const flag of everywhere) expect(PLANS[id].features.has(flag)).toBe(true);
     }
+    // essentiel/pro carry exactly this set — no more, no less.
+    expect(PLANS.essentiel.features.size).toBe(everywhere.length);
   });
 
   it('sets unlimited limits on all three tiers', () => {

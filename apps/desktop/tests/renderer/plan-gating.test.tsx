@@ -10,7 +10,7 @@ beforeEach(() => {
 
 function GatedDemo() {
   return (
-    <FeatureGate feature="sync.multi-device" fallback={<span>locked</span>}>
+    <FeatureGate feature="org.multi-center" fallback={<span>locked</span>}>
       <span>unlocked</span>
     </FeatureGate>
   );

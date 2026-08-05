@@ -105,12 +105,12 @@ describe('CreateRoom', () => {
   });
 
   describe('maxRooms limit', () => {
-    function cappedTo(maxRooms: number): CreateRoom {
+    function createRoomUseCaseWithLimit(maxRooms: number): CreateRoom {
       return new CreateRoom(rooms, fakeClock(), fakeIds(), new PlanPolicy(planWithLimits({ maxRooms })));
     }
 
     it('rejects the create that would exceed the plan cap (cap: 1 room)', async () => {
-      const capped = cappedTo(1);
+      const capped = createRoomUseCaseWithLimit(1);
       // fakeIds() yields distinct ids per call, so the first create is a real row.
       await capped.execute(validInput({ name: 'Salle A' }));
 
@@ -121,7 +121,7 @@ describe('CreateRoom', () => {
     });
 
     it('counts only live rooms — an archived room frees a slot under the cap', async () => {
-      const capped = cappedTo(1);
+      const capped = createRoomUseCaseWithLimit(1);
       const first = await capped.execute(validInput({ name: 'Salle A' }));
       await rooms.softDelete(first.id, new Date('2026-07-30T00:00:00Z'), USER);
 
@@ -132,7 +132,7 @@ describe('CreateRoom', () => {
     });
 
     it('enforces the cap at whatever maximum the plan sets (cap: 5 rooms)', async () => {
-      const capped = cappedTo(5);
+      const capped = createRoomUseCaseWithLimit(5);
       for (let i = 0; i < 5; i += 1) {
         await capped.execute(validInput({ name: `Salle ${i}` }));
       }

@@ -97,28 +97,28 @@ const sharedFeatures: readonly FeatureFlag[] = [
 
 const premiumFeatures: readonly FeatureFlag[] = [...sharedFeatures, 'org.multi-center'];
 
-const unlimitedLimits: PlanLimits = {
+const unlimitedLimits = (): PlanLimits => ({
   maxStudents: 'unlimited',
   maxTeachers: 'unlimited',
   maxRooms: 'unlimited',
-};
+});
 
 const essentiel: Plan = {
   id: 'essentiel',
   features: new Set(sharedFeatures),
-  limits: unlimitedLimits,
+  limits: unlimitedLimits(),
 };
 
 const pro: Plan = {
   id: 'pro',
   features: new Set(sharedFeatures),
-  limits: unlimitedLimits,
+  limits: unlimitedLimits(),
 };
 
 const premium: Plan = {
   id: 'premium',
   features: new Set(premiumFeatures),
-  limits: unlimitedLimits,
+  limits: unlimitedLimits(),
 };
 
 export const PLANS: Readonly<Record<PlanId, Plan>> = { essentiel, pro, premium };
