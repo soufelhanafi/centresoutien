@@ -133,6 +133,10 @@
     "admin-account-not-found": "Ce compte administrateur est introuvable. Contactez le support.",
     "security-answer-too-short": "La réponse est trop courte",
     "security-answer-too-long": "La réponse est trop longue",
+    "security-question-required": "Choisissez une question",
+    "security-answer-required": "Saisissez une réponse",
+    "recovery-code-invalid-format": "Format de code invalide (attendu : XXXX-XXXX-XXXX-XXXX)",
+    "recovery-code-invalid-group": "Groupe de code invalide",
     "security-questions-must-be-exactly-three": "Choisissez exactement trois questions",
     "security-questions-must-be-distinct": "Choisissez trois questions différentes",
     "invalid-time": "Heure invalide",
@@ -1556,6 +1560,26 @@
       "errorTitle": "Impossible de vérifier la session",
       "errorBody": "La vérification de la session a échoué.",
       "retry": "Réessayer"
+    },
+    "forgot": {
+      "link": "Mot de passe oublié ?",
+      "title": "Réinitialiser le mot de passe",
+      "back": "Retour",
+      "backToLogin": "Retour à la connexion",
+      "error": "L'opération a échoué. Vérifiez votre connexion et réessayez.",
+      "recovery": {
+        "codeLabel": "Code de récupération",
+        "newPassword": "Nouveau mot de passe",
+        "confirmPassword": "Confirmer le mot de passe",
+        "submit": "Réinitialiser le mot de passe",
+        "submitting": "Réinitialisation…"
+      },
+      "success": {
+        "recovery": {
+          "title": "Mot de passe réinitialisé",
+          "body": "Connectez-vous avec votre nouveau mot de passe."
+        }
+      }
     }
   },
   "wizard": {
