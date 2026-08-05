@@ -4,6 +4,7 @@ import type { AuthAuditLogRepository } from '../ports/auth-audit-log-repository'
 import type { PasswordHasher } from '../ports/password-hasher';
 import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
+import type { DeviceSessionService } from '../services/device-session-service';
 import { resetPasswordWithRecoveryCodeSchema } from '../schemas/recovery-code';
 import { AdminAccountNotFoundError } from '../errors/auth-errors';
 import {
@@ -30,6 +31,7 @@ export class ResetPasswordWithRecoveryCode {
     private readonly codeRepo: RecoveryCodeRepository,
     private readonly auditLog: AuthAuditLogRepository,
     private readonly hasher: PasswordHasher,
+    private readonly deviceSessions: DeviceSessionService,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
   ) {}
@@ -72,6 +74,17 @@ export class ResetPasswordWithRecoveryCode {
       metadata: {},
     };
     await this.auditLog.record(resetEvent);
+
+    await this.deviceSessions.forget();
+
+    const sessionInvalidatedEvent: AuthAuditEvent = {
+      id: this.ids.next(AUTH_AUDIT_EVENT_ID_PREFIX) as AuthAuditEventId,
+      eventType: 'device-session-invalidated-after-reset',
+      username,
+      timestamp: now,
+      metadata: {},
+    };
+    await this.auditLog.record(sessionInvalidatedEvent);
 
     return { outcome: 'success' };
   }

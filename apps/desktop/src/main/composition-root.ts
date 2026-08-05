@@ -678,12 +678,14 @@ export function buildContainer(options: ContainerOptions): Container {
     clock,
     ids,
   );
+  const deviceSessions = new DeviceSessionService(new SqliteDeviceSessionStore(db), clock, ids);
   const resetPasswordWithRecoveryCode = new ResetPasswordWithRecoveryCode(
     verifyRecoveryCode,
     adminRepo,
     recoveryCodeRepo,
     auditLogRepo,
     hasher,
+    deviceSessions,
     clock,
     ids,
   );
@@ -717,7 +719,6 @@ export function buildContainer(options: ContainerOptions): Container {
   // userData directory the center DB files and the logo store live under.
   const localePreferences = new LocalePreferenceStore(options.dir);
 
-  const deviceSessions = new DeviceSessionService(new SqliteDeviceSessionStore(db), clock, ids);
   const attemptLogin = new AttemptLogin(
     verifyAdminPassword,
     new SqliteLoginThrottleStore(db),
