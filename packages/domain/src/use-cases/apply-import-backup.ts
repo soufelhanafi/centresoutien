@@ -57,7 +57,7 @@ export class ApplyImportBackup {
       const index = existing.get(spec.name);
       const rowsToApply: BackupRow[] = [];
 
-      for (const [offset, row] of sheet.rows.entries()) {
+      for (const row of sheet.rows) {
         totalRows += 1;
         const classification = classifyImportRow({
           spec,

@@ -43,7 +43,7 @@ export function validateBackupRow(
       continue;
     }
     if (value === null || value === undefined) {
-      if (column.type === 'string-or-null') continue;
+      if (column.type === 'string-or-null' || column.optional) continue;
       reasons.push(`bad-type:${column.name}`);
       continue;
     }
@@ -101,6 +101,11 @@ export function classifyImportRow(input: {
     if (typeof id !== 'string' || !hasIdPrefix(id, spec.idPrefix)) {
       return { status: 'invalid', reason: 'invalid-id' };
     }
+    // An id-carrying row restores an existing entity, so its envelope must be
+    // complete — id-less rows get a fresh envelope minted at apply instead.
+    if (!hasCompleteEnvelope(row)) {
+      return { status: 'invalid', reason: 'incomplete-envelope' };
+    }
     return existingIds.has(id)
       ? { status: 'updated', reason: null }
       : { status: 'created', reason: null };
@@ -117,4 +122,14 @@ export function classifyImportRow(input: {
   return existingNaturalKeys.has(naturalKey)
     ? { status: 'duplicate', reason: 'natural-key-exists' }
     : { status: 'created', reason: null };
+}
+
+/** The envelope fields an id-carrying row must bring back with it. */
+const REQUIRED_ENVELOPE_FIELDS = ['deviceOrigin', 'createdAt', 'updatedAt', 'updatedBy', 'version'] as const;
+
+function hasCompleteEnvelope(row: BackupRow): boolean {
+  return REQUIRED_ENVELOPE_FIELDS.every((field) => {
+    const value = row[field];
+    return typeof value === 'string' || typeof value === 'number';
+  });
 }

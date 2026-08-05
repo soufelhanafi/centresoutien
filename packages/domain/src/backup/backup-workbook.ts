@@ -59,15 +59,22 @@ export type BackupSheetSpec = {
   columns: readonly BackupColumn[];
 };
 
+/**
+ * The shared envelope columns. `id` and every envelope column except
+ * `centerCode` is optional on import: an id-less people-like row is created
+ * fresh (the apply mints the whole envelope), while an id-carrying row must
+ * bring its envelope (see {@link classifyImportRow}'s `incomplete-envelope`
+ * check). `centerCode` is always required — it is the tenant marker.
+ */
 export const BACKUP_ENVELOPE_COLUMNS: readonly BackupColumn[] = [
   { name: 'id', type: 'string', optional: true },
   { name: 'centerCode', type: 'string' },
-  { name: 'deviceOrigin', type: 'string' },
-  { name: 'createdAt', type: 'string' },
-  { name: 'updatedAt', type: 'string' },
-  { name: 'updatedBy', type: 'string' },
-  { name: 'deletedAt', type: 'string-or-null' },
-  { name: 'version', type: 'number' },
+  { name: 'deviceOrigin', type: 'string', optional: true },
+  { name: 'createdAt', type: 'string', optional: true },
+  { name: 'updatedAt', type: 'string', optional: true },
+  { name: 'updatedBy', type: 'string', optional: true },
+  { name: 'deletedAt', type: 'string-or-null', optional: true },
+  { name: 'version', type: 'number', optional: true },
 ];
 
 const NATURAL_KEY_COLUMN: BackupColumn = { name: 'naturalKey', type: 'string', optional: true };
