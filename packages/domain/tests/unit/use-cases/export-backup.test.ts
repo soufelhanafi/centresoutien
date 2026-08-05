@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ExportBackup } from '../../../src/use-cases/export-backup';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS } from '../../../src/plans/plans';
+import { planWithoutFeature } from '../fakes/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
 import { BackupFileWriteError } from '../../../src/errors/backup-errors';
 import { BACKUP_SHEET_NAMES, sheetColumnNames, findBackupSheet } from '../../../src/backup/backup-workbook';
@@ -57,7 +58,7 @@ describe('ExportBackup', () => {
   });
 
   it('is locked on a plan without io.excel.export', async () => {
-    useCase = new ExportBackup(store, excel, new PlanPolicy(PLANS.essentiel));
+    useCase = new ExportBackup(store, excel, new PlanPolicy(planWithoutFeature('io.excel.export')));
     await expect(useCase.execute({ filePath: '/tmp/backup.xlsx' })).rejects.toBeInstanceOf(
       PlanFeatureUnavailableError,
     );

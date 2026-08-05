@@ -6,6 +6,7 @@ import { PLANS } from '@centresoutien/domain';
 import { ExcelBackupCard } from '../../../src/renderer/components/settings/excel-backup-card';
 import { usePlanStore } from '../../../src/renderer/stores/plan-store';
 import i18n from '../../../src/renderer/i18n/config';
+import { planWithout } from '../fakes/plan';
 import { selectFile, selectSaveFile } from '../../../src/renderer/lib/settings/dialog';
 
 vi.mock('../../../src/renderer/lib/settings/dialog', () => ({
@@ -34,7 +35,7 @@ afterEach(() => {
 describe('Excel backup card — plan gating', () => {
   it('shows the standard lock treatment on Essentiel (no export/import)', async () => {
     await i18n.changeLanguage('fr');
-    usePlanStore.setState({ planId: 'essentiel', plan: PLANS.essentiel });
+    usePlanStore.setState({ planId: 'essentiel', plan: planWithout('io.excel.export', 'io.excel.import') });
     renderCard();
 
     expect(screen.getAllByText('Sauvegarde Excel').length).toBeGreaterThan(0);
@@ -238,7 +239,7 @@ describe('Excel backup card — Arabic (RTL)', () => {
   });
 
   it('shows the Arabic lock message on Essentiel', async () => {
-    usePlanStore.setState({ planId: 'essentiel', plan: PLANS.essentiel });
+    usePlanStore.setState({ planId: 'essentiel', plan: planWithout('io.excel.export', 'io.excel.import') });
     renderCard();
 
     expect(screen.getByText('غير متاح في خطتك')).toBeInTheDocument();
