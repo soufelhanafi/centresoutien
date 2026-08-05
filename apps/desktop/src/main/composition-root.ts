@@ -94,6 +94,9 @@ import {
   SaveBackupConfig,
   RestoreBackup,
   RunScheduledBackup,
+  ExportBackup,
+  PreviewImportBackup,
+  ApplyImportBackup,
   CreateTeacherPayrollRule,
   CloseTeacherPayrollRule,
   ReplaceTeacherPayrollRule,
@@ -161,6 +164,8 @@ import { SqliteCenterRepository } from '../data/sqlite/repositories/center-repos
 import { FsLogoStore } from '../data/fs/logo-store';
 import { SqliteBackupAdapter } from '../data/sqlite/repositories/backup-adapter';
 import { SqliteBackupConfigStore } from '../data/sqlite/repositories/backup-config-store';
+import { SqliteBackupStore } from '../data/sqlite/repositories/backup-store';
+import { ExcelBackupAdapter } from '../data/excel/backup-excel-adapter';
 import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
@@ -733,6 +738,24 @@ export function buildContainer(options: ContainerOptions): Container {
   };
   const centerContext: CenterContext = { ...context, seedPlan: activePlanId };
 
+  // Excel backup engine (SOU-44) — data-level export/import, complementing the
+  // byte-level snapshot above. `SqliteBackupStore` is tenant-scoped to the open
+  // center DB; `ExcelBackupAdapter` is a pure file translator. ApplyImportBackup
+  // mints fresh ULIDs + envelopes for id-less people rows from the device context.
+  const backupStore = new SqliteBackupStore(db, options.centerCode);
+  const backupExcelAdapter = new ExcelBackupAdapter();
+  const exportBackup = new ExportBackup(backupStore, backupExcelAdapter, plan);
+  const previewImportBackup = new PreviewImportBackup(backupStore, backupExcelAdapter, plan);
+  const applyImportBackup = new ApplyImportBackup(
+    backupStore,
+    backupExcelAdapter,
+    plan,
+    clock,
+    ids,
+    context.deviceOrigin,
+    context.updatedBy,
+  );
+
   const handlerDeps: HandlerDeps = {
     appVersion: options.appVersion,
     activePlanId: () => plan.activePlanId(),
@@ -856,6 +879,9 @@ export function buildContainer(options: ContainerOptions): Container {
     getBackupConfig,
     saveBackupConfig,
     restoreBackup,
+    exportBackup,
+    previewImportBackup,
+    applyImportBackup,
     activeCenterCode: () => options.centerCode,
     centerCode: () => options.centerCode,
     updatedBy: () => context.updatedBy,

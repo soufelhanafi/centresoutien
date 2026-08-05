@@ -148,6 +148,7 @@ import {
 import type { IpcHandlers, IpcRequest } from '../../shared/ipc/contract';
 import type { LocalePreference } from '../infra/locale-preference-store';
 import { createBackupHandlers, type BackupHandlerDeps } from './backup-handlers';
+import { createBackupExcelHandlers, type BackupExcelHandlerDeps } from './backup-excel-handlers';
 import { createDialogHandlers } from './dialog-handlers';
 import { createInvoiceHandlers, type InvoiceHandlerDeps } from './invoice-handlers';
 import {
@@ -647,6 +648,7 @@ function toWeekView(week: readonly CenterHours[]) {
  * handler delegates to a pre-wired domain use case; it adds no business logic.
  */
 export type HandlerDeps = BackupHandlerDeps &
+  BackupExcelHandlerDeps &
   InvoiceHandlerDeps &
   OverdueInvoiceHandlerDeps &
   PayslipHandlerDeps &
@@ -1526,6 +1528,7 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       return { ok: true };
     },
     ...createBackupHandlers(deps),
+    ...createBackupExcelHandlers(deps),
     ...createDialogHandlers(),
     ...createInvoiceHandlers(deps),
     ...createOverdueInvoiceHandlers(deps),
