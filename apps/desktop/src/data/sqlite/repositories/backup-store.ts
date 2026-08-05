@@ -57,7 +57,19 @@ export class SqliteBackupStore implements BackupStore {
   }
 
   private upsertRow(config: SheetSqlConfig, row: BackupRow): void {
-    const present = config.columns.filter(([domainColumn]) => row[domainColumn] !== undefined);
+    // Tenancy defense-in-depth: the domain classifies wrong-center rows before
+    // they ever reach the store, but a direct adapter call must not be able to
+    // write another center's rows into this DB (a cross-tenant write is
+    // unrecoverable corruption).
+    if (row['centerCode'] !== this.centerCode) {
+      throw new Error(
+        `refusing to write a row for center ${row['centerCode'] ?? '(missing)'} into ${this.centerCode}`,
+      );
+    }
+    const readOnly = new Set(config.readOnlyColumns ?? []);
+    const present = config.columns.filter(
+      ([domainColumn]) => row[domainColumn] !== undefined && !readOnly.has(domainColumn),
+    );
     const sqlColumns = present.map(([, sql]) => sql);
     if (sqlColumns.length === 0) return;
 
