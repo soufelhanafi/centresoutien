@@ -43,6 +43,14 @@ export { applyWrite } from './entities/write';
 
 // Sync
 export { diffChangedFields } from './sync/change-log';
+export { resolveChangeLogOp } from './sync/change-log-writer';
+export type {
+  ChangeLogOp,
+  ChangeLogIntent,
+  ChangeLogEntry,
+  ChangeLogRecordInput,
+  ChangeLogWriter,
+} from './sync/change-log-writer';
 
 // Duplicate-matching policy (people-like naturalKey)
 export { normalizeNaturalKey } from './policies/natural-key';
