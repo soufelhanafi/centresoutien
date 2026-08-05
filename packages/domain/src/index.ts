@@ -9,7 +9,7 @@ export const DOMAIN_PACKAGE = '@centresoutien/domain' as const;
 // Value objects
 export type { Brand } from './value-objects/brand';
 export type { CenterCode, DeviceId, UserId, EntityId } from './value-objects/ids';
-export { ULID_REGEX, isUlid, hasIdPrefix } from './value-objects/ids';
+export { ULID_REGEX, isUlid, hasIdPrefix, toEntityId } from './value-objects/ids';
 export type { PhoneNumber, PhoneRegion } from './value-objects/phone-number';
 export { normalizePhone, InvalidPhoneNumberError } from './value-objects/phone-number';
 export type { TimeOfDay } from './value-objects/time-of-day';
@@ -43,6 +43,14 @@ export { applyWrite } from './entities/write';
 
 // Sync
 export { diffChangedFields } from './sync/change-log';
+export { resolveChangeLogOp } from './sync/change-log-writer';
+export type {
+  ChangeLogOp,
+  ChangeLogIntent,
+  ChangeLogEntry,
+  ChangeLogRecordInput,
+  ChangeLogWriter,
+} from './sync/change-log-writer';
 
 // Duplicate-matching policy (people-like naturalKey)
 export { normalizeNaturalKey } from './policies/natural-key';

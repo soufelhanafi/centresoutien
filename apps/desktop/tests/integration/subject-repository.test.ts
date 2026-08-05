@@ -7,6 +7,7 @@ import type { Subject, SubjectId, CenterCode, DeviceId, UserId } from '@centreso
 import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../../src/data/sqlite/repositories/subject-repository';
+import { changeLogWriterForTest } from './helpers/change-log';
 
 const KEY = 'passphrase-under-test';
 const REAL_MIGRATIONS = join(import.meta.dirname, '../../src/data/sqlite/migrations');
@@ -19,7 +20,7 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'cs-subj-'));
   db = openDatabase({ centreId: 'C1', key: KEY, dir });
   runMigrations(db, REAL_MIGRATIONS);
-  repo = new SqliteSubjectRepository(db);
+  repo = new SqliteSubjectRepository(db, changeLogWriterForTest(db));
 });
 afterEach(() => {
   db.close();
