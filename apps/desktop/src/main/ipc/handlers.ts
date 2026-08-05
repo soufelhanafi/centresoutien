@@ -1493,6 +1493,9 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
       await deps.setSecurityQuestions.execute(username, request);
       return { ok: true };
     },
+    // TODO(SOU-167): channel is intentionally inert in the MVP — the security-Q
+    // reset UI is descoped and this use case can only return confirmation-required
+    // (never writes a password) until the SOU-157 email-confirmation step exists.
     'auth.resetWithSecurityQuestions': async (request) => {
       const username = await deps.adminUsername();
       const result = await deps.requestPasswordResetViaSecurityQuestions.execute(username, request);

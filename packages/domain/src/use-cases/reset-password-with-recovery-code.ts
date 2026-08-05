@@ -75,16 +75,18 @@ export class ResetPasswordWithRecoveryCode {
     };
     await this.auditLog.record(resetEvent);
 
-    await this.deviceSessions.forget();
+    const sessionInvalidated = await this.deviceSessions.forget();
 
-    const sessionInvalidatedEvent: AuthAuditEvent = {
-      id: this.ids.next(AUTH_AUDIT_EVENT_ID_PREFIX) as AuthAuditEventId,
-      eventType: 'device-session-invalidated-after-reset',
-      username,
-      timestamp: now,
-      metadata: {},
-    };
-    await this.auditLog.record(sessionInvalidatedEvent);
+    if (sessionInvalidated) {
+      const sessionInvalidatedEvent: AuthAuditEvent = {
+        id: this.ids.next(AUTH_AUDIT_EVENT_ID_PREFIX) as AuthAuditEventId,
+        eventType: 'device-session-invalidated-after-reset',
+        username,
+        timestamp: now,
+        metadata: {},
+      };
+      await this.auditLog.record(sessionInvalidatedEvent);
+    }
 
     return { outcome: 'success' };
   }

@@ -121,7 +121,13 @@ describe('ResetPasswordWithRecoveryCode', () => {
     expect(await deviceSessionStore.getCurrent()).toBeNull();
   });
 
-  it('records a device-session-invalidated audit event on success', async () => {
+  it('records a device-session-invalidated audit event when a session was cleared', async () => {
+    await deviceSessionStore.save({
+      id: 'ses_1' as DeviceSessionId,
+      createdAt: clock.now().getTime(),
+      expiresAt: clock.now().getTime() + 1_000_000,
+    });
+
     await useCase.execute({
       recoveryCode: validCode(),
       newPassword: 'NewPass1',
@@ -130,6 +136,18 @@ describe('ResetPasswordWithRecoveryCode', () => {
 
     const events = auditLog.list();
     expect(events.some((e) => e.eventType === 'device-session-invalidated-after-reset')).toBe(true);
+  });
+
+  it('does not record a device-session-invalidated event when no session was remembered', async () => {
+    await useCase.execute({
+      recoveryCode: validCode(),
+      newPassword: 'NewPass1',
+      username: 'admin',
+    });
+
+    const events = auditLog.list();
+    expect(events.some((e) => e.eventType === 'device-session-invalidated-after-reset')).toBe(false);
+    expect(events.some((e) => e.eventType === 'password-reset-via-recovery-code')).toBe(true);
   });
 
   it('does not clear the device session when the code is invalid', async () => {
