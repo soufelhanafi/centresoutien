@@ -17,23 +17,26 @@ function renderFlow(onClose = vi.fn()) {
   return { onClose };
 }
 
-function setOnline(value: boolean) {
-  Object.defineProperty(window.navigator, 'onLine', { configurable: true, value });
-}
-
 afterEach(() => {
   vi.restoreAllMocks();
-  setOnline(true);
 });
 
 describe('ForgotPasswordFlow — French', () => {
+  it('renders the recovery-code form directly, without a method chooser', () => {
+    renderFlow();
+
+    expect(screen.getByLabelText('Code de récupération')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Réinitialiser le mot de passe' })).toBeInTheDocument();
+    expect(screen.queryByText(/Questions de sécurité/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Bientôt disponible/)).not.toBeInTheDocument();
+  });
+
   it('resets via a recovery code and lands on the fresh-login notice', async () => {
     const invoke = vi.fn(async () => ({ outcome: 'success' }));
     window.api.invoke = invoke;
     const user = userEvent.setup();
     renderFlow();
 
-    await user.click(screen.getByRole('button', { name: /Code de récupération/ }));
     await user.type(screen.getByLabelText('Code de récupération'), 'ABCD-EFGH-IJKL-MNOP');
     await user.type(screen.getByLabelText('Nouveau mot de passe'), 'Password1');
     await user.type(screen.getByLabelText('Confirmer le mot de passe'), 'Password1');
@@ -48,30 +51,13 @@ describe('ForgotPasswordFlow — French', () => {
     expect(await screen.findByText('Mot de passe réinitialisé')).toBeInTheDocument();
   });
 
-  it('reaches the security-questions path as a last resort', async () => {
-    renderFlow();
+  it('returns to login from the recovery form via the back button', async () => {
     const user = userEvent.setup();
-
-    await user.click(screen.getByRole('button', { name: /Questions de sécurité/ }));
-
-    expect(await screen.findByRole('combobox', { name: 'Question 1' })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Question 3' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Vérifier et continuer' })).toBeInTheDocument();
-  });
-
-  it('offers the email option (disabled) only when online', async () => {
-    setOnline(true);
     const { onClose } = renderFlow();
-    expect(screen.getByText('Bientôt disponible')).toBeInTheDocument();
-    expect(onClose).not.toHaveBeenCalled();
-  });
 
-  it('hides the email option when offline', async () => {
-    setOnline(false);
-    renderFlow();
-    expect(screen.queryByText('Bientôt disponible')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Code de récupération/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Questions de sécurité/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retour' }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -81,7 +67,7 @@ describe('ForgotPasswordFlow — Arabic (RTL)', () => {
     renderFlow();
 
     expect(screen.getByRole('heading', { name: 'إعادة تعيين كلمة المرور' })).toBeInTheDocument();
-    expect(screen.getByText('اختر طريقة استعادة الوصول إلى حسابك.')).toBeInTheDocument();
+    expect(screen.getByLabelText('رمز الاسترداد')).toBeInTheDocument();
 
     await i18n.changeLanguage('fr');
   });
