@@ -65,6 +65,25 @@ describe('ApplyImportBackup', () => {
     expect(store.applied.map((sheet) => sheet.sheetName)).toEqual(['rooms']);
   });
 
+  it('stamps applied rows as edits now so the sync change feed picks them up', async () => {
+    const existingRoom = validBackupRow('rooms');
+    store.seed('rooms', [existingRoom]);
+
+    seedWorkbook([
+      {
+        name: 'rooms',
+        columns: ['id', 'centerCode', 'createdAt', 'name', 'capacity', 'active'],
+        rows: [validBackupRow('rooms', { id: existingRoom['id'], updatedAt: '2020-01-01T00:00:00.000Z', updatedBy: 'usr_old' })],
+      },
+    ]);
+
+    await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+
+    const applied = store.allRows('rooms')[0]!;
+    expect(applied['updatedAt']).toBe('2026-07-28T10:00:00.000Z');
+    expect(applied['updatedBy']).toBe(USER);
+  });
+
   it('mints a fresh ULID + envelope for an id-less people-like row', async () => {
     const newParent = validBackupRow(
       'parents',

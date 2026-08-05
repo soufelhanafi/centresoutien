@@ -47,6 +47,12 @@ export function validateBackupRow(
       reasons.push(`bad-type:${column.name}`);
       continue;
     }
+    if (column.type === 'string-or-null' && typeof value !== 'string') {
+      // A hand-edited nullable cell holding a number would be written into a
+      // TEXT column and re-export as a number where the schema expects a string.
+      reasons.push(`bad-type:${column.name}`);
+      continue;
+    }
     if (column.type === 'number' && typeof value !== 'number') {
       reasons.push(`bad-type:${column.name}`);
       continue;

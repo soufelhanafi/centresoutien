@@ -1,5 +1,5 @@
-import type { BackupColumn, BackupColumnType, BackupSheetSpec } from './backup-workbook';
-import { BACKUP_ENVELOPE_COLUMNS } from './backup-workbook';
+import type { BackupColumn, BackupColumnType, BackupSheetSpec } from './backup-columns';
+import { BACKUP_ENVELOPE_COLUMNS } from './backup-columns';
 
 /** Compact column literal — `name` + `type`, non-optional by default. */
 function c(name: string, type: BackupColumnType): BackupColumn {

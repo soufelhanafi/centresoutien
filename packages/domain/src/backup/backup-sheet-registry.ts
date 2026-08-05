@@ -1,4 +1,4 @@
-import type { BackupSheetName, BackupSheetSpec } from './backup-workbook';
+import type { BackupSheetName, BackupSheetSpec } from './backup-columns';
 import { BACKUP_SHEETS_A } from './backup-sheets-a';
 import { BACKUP_SHEETS_B } from './backup-sheets-b';
 

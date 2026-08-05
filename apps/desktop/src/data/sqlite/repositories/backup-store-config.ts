@@ -12,6 +12,13 @@ export type SheetSqlConfig = {
    * guard).
    */
   conflict: 'upsert' | 'skip';
+  /**
+   * Domain columns that are read/exported but never written by the backup
+   * import — the DB (or its triggers) owns them. `formulas.isImmutable` is the
+   * only one today: immutability is granted solely by the invoice-lines
+   * triggers, so a hand-edited workbook can never fabricate a frozen formula.
+   */
+  readOnlyColumns?: readonly string[];
 };
 
 /** Domain columns whose value is a 0/1 SQLite integer. */

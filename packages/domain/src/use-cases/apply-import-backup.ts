@@ -68,10 +68,8 @@ export class ApplyImportBackup {
         });
         counts[classification.status] += 1;
 
-        if (classification.status === 'created') {
-          rowsToApply.push(this.mintCreatedRow(spec, row, input.centerCode));
-        } else if (classification.status === 'updated') {
-          rowsToApply.push(row);
+        if (classification.status === 'created' || classification.status === 'updated') {
+          rowsToApply.push(this.prepareRow(spec, row, input.centerCode));
         }
       }
 
@@ -92,11 +90,20 @@ export class ApplyImportBackup {
     return { counts, totalRows };
   }
 
-  /** Give an id-less people-like row a fresh ULID + envelope; other created rows
-   *  already carry their full backup envelope and are applied as-is. */
-  private mintCreatedRow(spec: BackupSheetSpec, row: BackupRow, centerCode: CenterCode): BackupRow {
-    if (row['id'] !== null && row['id'] !== undefined) return row;
+  /**
+   * Every applied row is stamped as an edit *now* (updatedAt / updatedBy), for
+   * both created-with-id and updated rows — a restore is a real modification by
+   * the current user, and stamping keeps it visible to the sync change feed
+   * (`updated_at > cursor`) so other laptops of a multi-device center converge
+   * after a restore instead of silently keeping their pre-restore state.
+   * `createdAt` stays historical; id-less people rows additionally get a fresh
+   * ULID + the minted envelope.
+   */
+  private prepareRow(spec: BackupSheetSpec, row: BackupRow, centerCode: CenterCode): BackupRow {
     const now = this.clock.now().toISOString();
+    if (row['id'] !== null && row['id'] !== undefined) {
+      return { ...row, updatedAt: now, updatedBy: this.updatedBy };
+    }
     return {
       ...row,
       id: this.ids.next(spec.idPrefix),
