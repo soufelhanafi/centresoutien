@@ -1,15 +1,16 @@
 const TABLE_IDENTIFIER = /^[a-z][a-z0-9_]*$/;
 
 /**
- * Guards the one place the change-log machinery interpolates an identifier into
- * SQL (SELECT/INSERT into `entity_type`'s table): SQLite cannot bind a table
- * name, so it must be substituted textually. `entity_type` is always a trusted
- * repository constant, never user input — this is defense-in-depth so a stray
- * value can never become an injection vector.
+ * Guards every SQL identifier the change-log machinery interpolates textually
+ * because SQLite cannot bind it: the `entity_type` table name (writer + replay)
+ * and, during replay, each snapshot column name taken from the payload JSON.
+ * These are trusted today (repo constants, `SELECT *` of a local row) — this is
+ * defense-in-depth so a stray or, later, another device's payload can never turn
+ * an identifier into an injection vector once the log feeds sync-apply.
  */
-export function assertTableIdentifier(entityType: string): string {
-  if (!TABLE_IDENTIFIER.test(entityType)) {
-    throw new Error(`change_log: unsafe entity_type identifier "${entityType}"`);
+export function assertSqlIdentifier(identifier: string): string {
+  if (!TABLE_IDENTIFIER.test(identifier)) {
+    throw new Error(`change_log: unsafe SQL identifier "${identifier}"`);
   }
-  return entityType;
+  return identifier;
 }

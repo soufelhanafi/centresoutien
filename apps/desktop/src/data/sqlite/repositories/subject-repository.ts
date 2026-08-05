@@ -11,6 +11,7 @@ import type {
   UserId,
   ChangeLogWriter,
 } from '@centresoutien/domain';
+import { toEntityId } from '@centresoutien/domain';
 
 /** The `subjects` table row shape as SQLite returns it. */
 type SubjectRow = {
@@ -130,7 +131,7 @@ export class SqliteSubjectRepository implements SubjectRepository {
       });
       this.changeLog.record({
         entityType: 'subjects',
-        entityId: subject.id,
+        entityId: toEntityId(subject.id),
         centerCode: subject.centerCode,
         intent: 'upsert',
       });
@@ -156,20 +157,19 @@ export class SqliteSubjectRepository implements SubjectRepository {
   async softDelete(id: SubjectId, at: Date, by: UserId): Promise<void> {
     const iso = at.toISOString();
     this.db.transaction(() => {
-      this.db
-        .prepare('UPDATE subjects SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?')
-        .run(iso, iso, by, id);
       const row = this.db
         .prepare('SELECT center_code FROM subjects WHERE id = ?')
         .get(id) as { center_code: string } | undefined;
-      if (row) {
-        this.changeLog.record({
-          entityType: 'subjects',
-          entityId: id,
-          centerCode: row.center_code as CenterCode,
-          intent: 'delete',
-        });
-      }
+      if (!row) return;
+      this.db
+        .prepare('UPDATE subjects SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?')
+        .run(iso, iso, by, id);
+      this.changeLog.record({
+        entityType: 'subjects',
+        entityId: toEntityId(id),
+        centerCode: row.center_code as CenterCode,
+        intent: 'delete',
+      });
     })();
   }
 
