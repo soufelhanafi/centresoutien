@@ -133,6 +133,10 @@
     "admin-account-not-found": "Ce compte administrateur est introuvable. Contactez le support.",
     "security-answer-too-short": "La réponse est trop courte",
     "security-answer-too-long": "La réponse est trop longue",
+    "security-question-required": "Choisissez une question",
+    "security-answer-required": "Saisissez une réponse",
+    "recovery-code-invalid-format": "Format de code invalide (attendu : XXXX-XXXX-XXXX-XXXX)",
+    "recovery-code-invalid-group": "Groupe de code invalide",
     "security-questions-must-be-exactly-three": "Choisissez exactement trois questions",
     "security-questions-must-be-distinct": "Choisissez trois questions différentes",
     "invalid-time": "Heure invalide",
@@ -1556,6 +1560,64 @@
       "errorTitle": "Impossible de vérifier la session",
       "errorBody": "La vérification de la session a échoué.",
       "retry": "Réessayer"
+    },
+    "forgot": {
+      "link": "Mot de passe oublié ?",
+      "title": "Réinitialiser le mot de passe",
+      "back": "Retour",
+      "backToLogin": "Retour à la connexion",
+      "error": "L'opération a échoué. Vérifiez votre connexion et réessayez.",
+      "chooser": {
+        "subtitle": "Choisissez comment récupérer l'accès à votre compte.",
+        "recovery": {
+          "title": "Code de récupération",
+          "description": "Utilisez l'un des codes générés à la configuration. Fonctionne hors ligne."
+        },
+        "email": {
+          "title": "Réinitialisation par e-mail",
+          "soon": "Bientôt disponible",
+          "description": "Recevez un lien de réinitialisation par e-mail. Nécessite une connexion Internet."
+        },
+        "security": {
+          "title": "Questions de sécurité",
+          "description": "Répondez à vos trois questions de sécurité. Dernier recours sans code ni e-mail."
+        }
+      },
+      "recovery": {
+        "codeLabel": "Code de récupération",
+        "newPassword": "Nouveau mot de passe",
+        "confirmPassword": "Confirmer le mot de passe",
+        "submit": "Réinitialiser le mot de passe",
+        "submitting": "Réinitialisation…"
+      },
+      "security": {
+        "questionLabel": "Question {{number}}",
+        "questionPlaceholder": "Choisissez une question",
+        "answerLabel": "Réponse",
+        "invalidAnswer": "Une ou plusieurs réponses sont incorrectes.",
+        "submit": "Vérifier et continuer",
+        "submitting": "Vérification…"
+      },
+      "questions": {
+        "first-employer": "Quel était votre premier employeur ?",
+        "childhood-street": "Dans quelle rue avez-vous grandi ?",
+        "first-car": "Quelle était votre première voiture ?",
+        "favorite-teacher": "Qui était votre enseignant préféré ?",
+        "birth-city": "Dans quelle ville êtes-vous né(e) ?",
+        "first-phone-last-four": "Quels étaient les quatre derniers chiffres de votre premier numéro de téléphone ?",
+        "first-job-title": "Quel était l'intitulé de votre premier poste ?",
+        "childhood-best-friend": "Qui était votre meilleur(e) ami(e) d'enfance ?"
+      },
+      "success": {
+        "recovery": {
+          "title": "Mot de passe réinitialisé",
+          "body": "Connectez-vous avec votre nouveau mot de passe."
+        },
+        "confirmation": {
+          "title": "Vérifiez votre e-mail",
+          "body": "Nous avons envoyé un lien pour finaliser la réinitialisation. Ouvrez-le pour choisir un nouveau mot de passe."
+        }
+      }
     }
   },
   "wizard": {

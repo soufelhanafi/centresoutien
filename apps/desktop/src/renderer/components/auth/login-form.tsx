@@ -40,7 +40,13 @@ type Feedback =
  * back to the gate. While locked, the whole form is disabled until the countdown
  * elapses.
  */
-export function LoginForm({ onAuthenticated }: { onAuthenticated: () => void }) {
+export function LoginForm({
+  onAuthenticated,
+  onForgotPassword,
+}: {
+  onAuthenticated: () => void;
+  onForgotPassword: () => void;
+}) {
   const { t } = useTranslation();
   const login = useLogin();
   const [feedback, setFeedback] = useState<Feedback>(null);
@@ -142,6 +148,16 @@ export function LoginForm({ onAuthenticated }: { onAuthenticated: () => void }) 
 
         <Button type="submit" disabled={isLocked || login.isPending}>
           {login.isPending ? t('auth.submitting') : t('auth.submit')}
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="self-center"
+          onClick={onForgotPassword}
+        >
+          {t('auth.forgot.link')}
         </Button>
       </form>
     </Form>
