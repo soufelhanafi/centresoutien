@@ -6,12 +6,14 @@ import { PLANS } from '@centresoutien/domain';
 import { ExcelBackupCard } from '../../../src/renderer/components/settings/excel-backup-card';
 import { usePlanStore } from '../../../src/renderer/stores/plan-store';
 import i18n from '../../../src/renderer/i18n/config';
-import { selectFile } from '../../../src/renderer/lib/settings/dialog';
+import { selectFile, selectSaveFile } from '../../../src/renderer/lib/settings/dialog';
 
 vi.mock('../../../src/renderer/lib/settings/dialog', () => ({
   selectFile: vi.fn(),
+  selectSaveFile: vi.fn(),
 }));
 
+const mockSelectSaveFile = vi.mocked(selectSaveFile);
 const mockSelectFile = vi.mocked(selectFile);
 
 function renderCard() {
@@ -57,7 +59,7 @@ describe('Excel backup card — export', () => {
   });
 
   it('picks a path, exports over IPC, and shows the per-sheet summary', async () => {
-    mockSelectFile.mockResolvedValue('/tmp/centre.xlsx');
+    mockSelectSaveFile.mockResolvedValue('/tmp/centre.xlsx');
     const invoke = vi.fn(async (channel: string) => {
       if (channel === 'backup.excel.export') {
         return { filePath: '/tmp/centre.xlsx', counts: { students: 2, parents: 1 } };
@@ -79,7 +81,7 @@ describe('Excel backup card — export', () => {
   });
 
   it('surfaces a localized error when the export fails', async () => {
-    mockSelectFile.mockResolvedValue('/tmp/centre.xlsx');
+    mockSelectSaveFile.mockResolvedValue('/tmp/centre.xlsx');
     window.api.invoke = vi.fn(async () => {
       throw new Error('boom');
     });

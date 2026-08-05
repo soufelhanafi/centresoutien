@@ -13,3 +13,14 @@ export function selectFile(extensions?: readonly string[]): Promise<string | nul
     (result) => result.path,
   );
 }
+
+/** Native Save-As dialog (SOU-44): pre-fills `defaultFileName`, resolves to the
+ *  destination path, or `null` when the user cancels. */
+export function selectSaveFile(defaultFileName: string, extensions?: readonly string[]): Promise<string | null> {
+  return window.api
+    .invoke('dialog.selectSaveFile', {
+      defaultFileName,
+      ...(extensions?.length ? { extensions: [...extensions] } : {}),
+    })
+    .then((result) => result.path);
+}

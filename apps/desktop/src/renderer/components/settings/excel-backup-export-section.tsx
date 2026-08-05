@@ -2,17 +2,25 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, Loader2 } from 'lucide-react';
 import { Button, LockOverlay, toast } from '@centresoutien/ui';
-import { selectFile } from '../../lib/settings/dialog';
+import { selectSaveFile } from '../../lib/settings/dialog';
 import { useExcelBackupExport } from '../../hooks/settings/use-excel-backup-export';
 import { ExcelExportSummary } from './excel-export-summary';
 
 const XLSX_EXTENSIONS = ['xlsx'] as const;
 
+/** Local date (`YYYY-MM-DD`) for the default backup file name. */
+function backupDateStamp(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 /**
- * Export half of the Excel backup card (SOU-44): pick a destination `.xlsx`
- * file, write the whole center dataset, then show the per-sheet row counts.
- * The file picker returns a path (null when cancelled) — `centerCode` is never
- * sent from the renderer.
+ * Export half of the Excel backup card (SOU-44): a native Save-As dialog picks
+ * the destination `.xlsx` (default name `centresoutien-sauvegarde-<date>.xlsx`),
+ * the whole center dataset is written, then the per-sheet row counts are shown.
+ * `centerCode` is never sent from the renderer.
  */
 export function ExcelBackupExportSection({ locked }: { locked: boolean }) {
   const { t } = useTranslation();
@@ -20,7 +28,7 @@ export function ExcelBackupExportSection({ locked }: { locked: boolean }) {
   const [savedPath, setSavedPath] = useState<string | null>(null);
 
   const onExport = async () => {
-    const path = await selectFile(XLSX_EXTENSIONS);
+    const path = await selectSaveFile(`centresoutien-sauvegarde-${backupDateStamp()}.xlsx`, XLSX_EXTENSIONS);
     if (!path) return;
     setSavedPath(path);
     try {
