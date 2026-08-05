@@ -1547,11 +1547,7 @@
       "confirmConfirm": "استعادة",
       "confirmPending": "جارٍ الاستعادة…",
       "excel": {
-        "applyButton_one": "استيراد {{count}} سطر",
-        "applyButton_other": "استيراد {{count}} أسطر",
         "applyPending": "جارٍ الاستيراد…",
-        "applySuccess_one": "اكتمل الاستيراد: تم إنشاء سطر واحد وتحديث {{updated}}.",
-        "applySuccess_other": "اكتمل الاستيراد: تم إنشاء {{created}} أسطر وتحديث {{updated}}.",
         "colReason": "السبب",
         "colRow": "سطر Excel",
         "colSheet": "الورقة",
@@ -1593,8 +1589,6 @@
           "bad-type": "قيمة غير صالحة للحقل {{field}}"
         },
         "skipConflictNote": "بالنسبة للمدفوعات والصيغ، تُترك الأسطر الموجودة مسبقًا كما هي.",
-        "skippedNotice_one": "سيتم تجاهل مكرر واحد و{{invalid}} سطر غير صالح.",
-        "skippedNotice_other": "سيتم تجاهل {{duplicates}} مكررًا و{{invalid}} سطرًا غير صالح.",
         "statusCreated": "تم الإنشاء",
         "statusDuplicate": "مكرر",
         "statusInvalid": "غير صالح",
@@ -1602,7 +1596,24 @@
         "subtitle": "تصدير أو استيراد جميع بيانات المركز (طلاب، معلمون، مجموعات، فواتير…) في ملف Excel.",
         "title": "نسخ احتياطي Excel",
         "unknownSheetsBody": "سيتم تجاهل هذه الأوراق: {{sheets}}",
-        "unknownSheetsTitle": "أوراق غير معروفة"
+        "unknownSheetsTitle": "أوراق غير معروفة",
+        "applySuccess_zero": "اكتمل الاستيراد: لم يتم إنشاء أي سطر وتحديث {{updated}}.",
+        "applySuccess_one": "اكتمل الاستيراد: تم إنشاء سطر واحد وتحديث {{updated}}.",
+        "applySuccess_two": "اكتمل الاستيراد: تم إنشاء سطرين وتحديث {{updated}}.",
+        "applySuccess_few": "اكتمل الاستيراد: تم إنشاء {{created}} أسطر وتحديث {{updated}}.",
+        "applySuccess_many": "اكتمل الاستيراد: تم إنشاء {{created}} سطرًا وتحديث {{updated}}.",
+        "applySuccess_other": "اكتمل الاستيراد: تم إنشاء {{created}} سطرًا وتحديث {{updated}}.",
+        "skippedNotice_zero": "سيتم تجاهل 0 مكررًا و{{invalid}} سطرًا غير صالح.",
+        "skippedNotice_one": "سيتم تجاهل مكرر واحد و{{invalid}} سطرًا غير صالح.",
+        "skippedNotice_two": "سيتم تجاهل مكررين و{{invalid}} سطرًا غير صالح.",
+        "skippedNotice_few": "سيتم تجاهل {{duplicates}} مكررات و{{invalid}} سطرًا غير صالح.",
+        "skippedNotice_many": "سيتم تجاهل {{duplicates}} مكررًا و{{invalid}} سطرًا غير صالح.",
+        "skippedNotice_other": "سيتم تجاهل {{duplicates}} مكررًا و{{invalid}} سطرًا غير صالح.",
+        "applyButton_one": "استيراد {{count}} سطر",
+        "applyButton_two": "استيراد {{count}} سطرين",
+        "applyButton_few": "استيراد {{count}} أسطر",
+        "applyButton_many": "استيراد {{count}} سطرًا",
+        "applyButton_other": "استيراد {{count}} سطرًا"
       }
     }
   },

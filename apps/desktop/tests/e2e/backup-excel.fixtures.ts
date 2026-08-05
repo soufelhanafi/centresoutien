@@ -60,7 +60,7 @@ export const XLS: Record<Locale, BackupSettingsStrings> = {
     colRow: 'Ligne Excel',
     colStatus: 'Statut',
     colReason: 'Raison',
-    applyButton: /Importer \d+ lignes/,
+    applyButton: /Importer \d+ ligne/,
     applySuccessPrefix: 'Import terminé',
     confirmTitle: "Confirmer l'import",
     confirmApply: 'Importer',

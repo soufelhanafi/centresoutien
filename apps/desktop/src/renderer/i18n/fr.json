@@ -1509,11 +1509,7 @@
       "confirmConfirm": "Restaurer",
       "confirmPending": "Restauration…",
       "excel": {
-        "applyButton_one": "Importer {{count}} ligne",
-        "applyButton_other": "Importer {{count}} lignes",
         "applyPending": "Import en cours…",
-        "applySuccess_one": "Import terminé : 1 ligne créée, {{updated}} lignes mises à jour.",
-        "applySuccess_other": "Import terminé : {{created}} lignes créées, {{updated}} lignes mises à jour.",
         "colReason": "Raison",
         "colRow": "Ligne Excel",
         "colSheet": "Feuille",
@@ -1555,8 +1551,6 @@
           "bad-type": "Valeur invalide pour le champ {{field}}"
         },
         "skipConflictNote": "Pour les paiements et formules, les lignes déjà présentes sont laissées telles quelles.",
-        "skippedNotice_one": "1 doublon et {{invalid}} lignes invalides seront ignorés.",
-        "skippedNotice_other": "{{duplicates}} doublons et {{invalid}} lignes invalides seront ignorés.",
         "statusCreated": "Créée",
         "statusDuplicate": "Doublon",
         "statusInvalid": "Invalide",
@@ -1564,7 +1558,13 @@
         "subtitle": "Exportez ou importez toutes les données du centre (élèves, enseignants, groupes, factures…) dans un fichier Excel.",
         "title": "Sauvegarde Excel",
         "unknownSheetsBody": "Ces feuilles seront ignorées : {{sheets}}",
-        "unknownSheetsTitle": "Feuilles non reconnues"
+        "unknownSheetsTitle": "Feuilles non reconnues",
+        "applySuccess_one": "Import terminé : {{created}} ligne créée, {{updated}} lignes mises à jour.",
+        "applySuccess_other": "Import terminé : {{created}} lignes créées, {{updated}} lignes mises à jour.",
+        "skippedNotice_one": "{{duplicates}} doublon et {{invalid}} lignes invalides seront ignorés.",
+        "skippedNotice_other": "{{duplicates}} doublons et {{invalid}} lignes invalides seront ignorés.",
+        "applyButton_one": "Importer {{count}} ligne",
+        "applyButton_other": "Importer {{count}} lignes"
       }
     }
   },
