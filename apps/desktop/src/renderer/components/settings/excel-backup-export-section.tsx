@@ -28,7 +28,8 @@ export function ExcelBackupExportSection({ locked }: { locked: boolean }) {
   const [savedPath, setSavedPath] = useState<string | null>(null);
 
   const onExport = async () => {
-    const path = await selectSaveFile(`centresoutien-sauvegarde-${backupDateStamp()}.xlsx`, XLSX_EXTENSIONS);
+    const slug = t('settings.backup.excel.defaultFileNameSlug');
+    const path = await selectSaveFile(`centresoutien-${slug}-${backupDateStamp()}.xlsx`, XLSX_EXTENSIONS);
     if (!path) return;
     setSavedPath(path);
     try {
@@ -58,8 +59,9 @@ export function ExcelBackupExportSection({ locked }: { locked: boolean }) {
         </Button>
 
         {savedPath && (
-          <p dir="ltr" className="break-all text-sm text-muted-foreground">
-            {t('settings.backup.excel.exportSavedTo', { path: savedPath })}
+          <p className="break-all text-sm text-muted-foreground">
+            {t('settings.backup.excel.exportSavedTo')}
+            <span dir="ltr" className="break-all">{savedPath}</span>
           </p>
         )}
 

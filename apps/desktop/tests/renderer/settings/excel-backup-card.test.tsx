@@ -75,7 +75,8 @@ describe('Excel backup card — export', () => {
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith('backup.excel.export', { filePath: '/tmp/centre.xlsx' }),
     );
-    expect(await screen.findByText('Fichier : /tmp/centre.xlsx')).toBeInTheDocument();
+    expect(screen.getByText('Fichier :')).toBeInTheDocument();
+    expect(screen.getByText('/tmp/centre.xlsx')).toBeInTheDocument();
     expect(screen.getByText('students')).toBeInTheDocument();
     expect(screen.getByText('parents')).toBeInTheDocument();
   });
@@ -130,11 +131,39 @@ describe('Excel backup card — import preview and apply', () => {
 
     expect(screen.getByText('Feuilles non reconnues')).toBeInTheDocument();
     expect(screen.getByText('Ces feuilles seront ignorées : note')).toBeInTheDocument();
+    expect(screen.getByText('Feuilles absentes')).toBeInTheDocument();
 
     expect(screen.getAllByText('students').length).toBe(2);
     expect(screen.getByText('Créée')).toBeInTheDocument();
     expect(screen.getByText('Invalide')).toBeInTheDocument();
     expect(screen.getByText('missing centerCode')).toBeInTheDocument();
+  });
+
+  it('localizes classification reason tokens via the reason.* keys', async () => {
+    mockSelectFile.mockResolvedValue('/tmp/backup.xlsx');
+    window.api.invoke = vi.fn(async (channel: string) => {
+      if (channel === 'backup.excel.preview') {
+        return {
+          preview: {
+            sheets: ['students'],
+            unknownSheets: [],
+            counts: { created: 0, updated: 0, duplicate: 0, invalid: 2 },
+            rows: [
+              { sheetName: 'students', rowNumber: 2, status: 'invalid', reason: 'wrong-center' },
+              { sheetName: 'students', rowNumber: 3, status: 'invalid', reason: 'missing-field:phone' },
+            ],
+          },
+        };
+      }
+      return { reply: 'pong' };
+    });
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(screen.getByRole('button', { name: 'Importer un fichier Excel' }));
+
+    expect(await screen.findByText('Cette ligne appartient à un autre centre.')).toBeInTheDocument();
+    expect(screen.getByText('Champ manquant : phone')).toBeInTheDocument();
   });
 
   it('offers apply only when rows are actionable, then commits over IPC', async () => {
@@ -152,7 +181,7 @@ describe('Excel backup card — import preview and apply', () => {
 
     await user.click(screen.getByRole('button', { name: 'Importer un fichier Excel' }));
     const applyButton = await screen.findByRole('button', { name: 'Importer 2 lignes' });
-    expect(screen.getByText('1 doublons et 1 lignes invalides seront ignorés.')).toBeInTheDocument();
+    expect(screen.getByText('1 doublon et 1 lignes invalides seront ignorés.')).toBeInTheDocument();
 
     await user.click(applyButton);
     expect(await screen.findByText("Confirmer l'import")).toBeInTheDocument();
@@ -161,7 +190,7 @@ describe('Excel backup card — import preview and apply', () => {
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith('backup.excel.apply', { filePath: '/tmp/backup.xlsx' }),
     );
-    expect(await screen.findByText('Import terminé : 1 lignes créées, 1 lignes mises à jour.')).toBeInTheDocument();
+    expect(await screen.findByText('Import terminé : 1 ligne créée, 1 lignes mises à jour.')).toBeInTheDocument();
   });
 
   it('skips the apply button when no row is actionable', async () => {
