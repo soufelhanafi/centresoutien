@@ -23,6 +23,7 @@ import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-r
 import { InMemoryWeeklyRecurringSessionRepository } from '../fakes/in-memory-weekly-recurring-session-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeRandom } from '../fakes/random';
+import { planWithoutFeature } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
@@ -237,21 +238,15 @@ describe('PreviewGeneratedSchedule', () => {
   });
 
   describe('plan gating', () => {
-    it('throws PlanFeatureUnavailableError for auto mode on a plan without planning.random-auto (Essentiel)', async () => {
+    it('throws PlanFeatureUnavailableError for auto mode when the plan lacks planning.random-auto', async () => {
       await expect(
-        build(PLANS.essentiel).execute(input(autoConfig({ mode: 'auto' }))),
+        build(planWithoutFeature('planning.random-auto')).execute(input(autoConfig({ mode: 'auto' }))),
       ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
     });
 
-    it('throws PlanFeatureUnavailableError for auto mode on Pro (Premium-only)', async () => {
+    it('throws PlanFeatureUnavailableError for custom mode when the plan lacks planning.custom-grid', async () => {
       await expect(
-        build(PLANS.pro).execute(input(autoConfig({ mode: 'auto' }))),
-      ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
-    });
-
-    it('throws PlanFeatureUnavailableError for custom mode on a plan without planning.custom-grid (Essentiel)', async () => {
-      await expect(
-        build(PLANS.essentiel).execute(
+        build(planWithoutFeature('planning.custom-grid')).execute(
           input(autoConfig({ mode: 'custom', pickedWeekdays: [MON] })),
         ),
       ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);

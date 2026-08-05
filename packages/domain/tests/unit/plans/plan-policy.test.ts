@@ -1,24 +1,38 @@
 import { describe, expect, it } from 'vitest';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
-import { PLANS } from '../../../src/plans/plans';
+import type { Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError, PlanLimitExceededError } from '../../../src/errors/plan-errors';
 
-const essentiel = new PlanPolicy(PLANS.essentiel);
-const premium = new PlanPolicy(PLANS.premium);
+// Synthetic fixtures keep these mechanics tests independent of the live tier
+// configuration in plans.ts — registry membership is asserted in plans.test.ts.
+const locked: Plan = {
+  id: 'essentiel',
+  features: new Set(['core.students']),
+  limits: { maxStudents: 50, maxTeachers: 2, maxRooms: 1 },
+};
+
+const unlocked: Plan = {
+  id: 'premium',
+  features: new Set(['core.students', 'payroll.teacher', 'sync.multi-device', 'dashboard.advanced']),
+  limits: { maxStudents: 'unlimited', maxTeachers: 'unlimited', maxRooms: 'unlimited' },
+};
+
+const lockedPolicy = new PlanPolicy(locked);
+const unlockedPolicy = new PlanPolicy(unlocked);
 
 describe('PlanPolicy.has / require', () => {
   it('has() reflects the plan feature set', () => {
-    expect(essentiel.has('core.students')).toBe(true);
-    expect(essentiel.has('payroll.teacher')).toBe(false);
+    expect(lockedPolicy.has('core.students')).toBe(true);
+    expect(lockedPolicy.has('payroll.teacher')).toBe(false);
   });
 
   it('require() is a no-op when the feature is present', () => {
-    expect(() => premium.require('sync.multi-device')).not.toThrow();
+    expect(() => unlockedPolicy.require('sync.multi-device')).not.toThrow();
   });
 
   it('require() throws PlanFeatureUnavailableError carrying the flag and plan', () => {
     try {
-      essentiel.require('payroll.teacher');
+      lockedPolicy.require('payroll.teacher');
       throw new Error('should have thrown');
     } catch (err) {
       expect(err).toBeInstanceOf(PlanFeatureUnavailableError);
@@ -32,26 +46,26 @@ describe('PlanPolicy.has / require', () => {
 
 describe('PlanPolicy.setActivePlan', () => {
   it('activePlanId() reflects the plan the policy was built with', () => {
-    expect(new PlanPolicy(PLANS.essentiel).activePlanId()).toBe('essentiel');
+    expect(new PlanPolicy(locked).activePlanId()).toBe('essentiel');
   });
 
   it('setActivePlan swaps the active plan so gating follows the new tier', () => {
-    const policy = new PlanPolicy(PLANS.essentiel);
+    const policy = new PlanPolicy(locked);
     expect(policy.has('payroll.teacher')).toBe(false);
     expect(() => policy.require('payroll.teacher')).toThrow(PlanFeatureUnavailableError);
 
-    policy.setActivePlan(PLANS.pro);
+    policy.setActivePlan(unlocked);
 
-    expect(policy.activePlanId()).toBe('pro');
+    expect(policy.activePlanId()).toBe('premium');
     expect(policy.has('payroll.teacher')).toBe(true);
     expect(() => policy.require('payroll.teacher')).not.toThrow();
   });
 
   it('setActivePlan back to a lower tier re-locks the feature', () => {
-    const policy = new PlanPolicy(PLANS.premium);
+    const policy = new PlanPolicy(unlocked);
     expect(policy.has('dashboard.advanced')).toBe(true);
 
-    policy.setActivePlan(PLANS.essentiel);
+    policy.setActivePlan(locked);
 
     expect(policy.has('dashboard.advanced')).toBe(false);
     expect(() => policy.require('dashboard.advanced')).toThrow(PlanFeatureUnavailableError);
@@ -60,23 +74,23 @@ describe('PlanPolicy.setActivePlan', () => {
 
 describe('PlanPolicy limits', () => {
   it('limit() returns the configured cap', () => {
-    expect(essentiel.limit('maxStudents')).toBe(50);
-    expect(premium.limit('maxStudents')).toBe('unlimited');
+    expect(lockedPolicy.limit('maxStudents')).toBe(50);
+    expect(unlockedPolicy.limit('maxStudents')).toBe('unlimited');
   });
 
   it('requireBelowLimit allows up to but not including the cap', () => {
-    expect(() => essentiel.requireBelowLimit('maxStudents', 49)).not.toThrow();
-    expect(() => essentiel.requireBelowLimit('maxStudents', 50)).toThrow(PlanLimitExceededError);
-    expect(() => essentiel.requireBelowLimit('maxStudents', 51)).toThrow(PlanLimitExceededError);
+    expect(() => lockedPolicy.requireBelowLimit('maxStudents', 49)).not.toThrow();
+    expect(() => lockedPolicy.requireBelowLimit('maxStudents', 50)).toThrow(PlanLimitExceededError);
+    expect(() => lockedPolicy.requireBelowLimit('maxStudents', 51)).toThrow(PlanLimitExceededError);
   });
 
   it('requireBelowLimit never throws on an unlimited cap', () => {
-    expect(() => premium.requireBelowLimit('maxStudents', 10_000)).not.toThrow();
+    expect(() => unlockedPolicy.requireBelowLimit('maxStudents', 10_000)).not.toThrow();
   });
 
   it('PlanLimitExceededError carries the key, cap, and current count', () => {
     try {
-      essentiel.requireBelowLimit('maxTeachers', 2);
+      lockedPolicy.requireBelowLimit('maxTeachers', 2);
       throw new Error('should have thrown');
     } catch (err) {
       expect(err).toBeInstanceOf(PlanLimitExceededError);

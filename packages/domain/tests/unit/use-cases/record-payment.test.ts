@@ -15,6 +15,7 @@ import { InMemoryInvoiceRepository } from '../fakes/in-memory-invoice-repository
 import { InMemoryPaymentRepository } from '../fakes/in-memory-payment-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import { planWithoutFeature } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const OTHER_CENTER = 'CS-RABAT-002' as CenterCode;
@@ -144,9 +145,12 @@ describe('RecordPayment', () => {
   });
 
   describe('partial payment — Pro-gated', () => {
-    it('throws PlanFeatureUnavailableError on Essentiel for a below-balance amount and appends nothing', async () => {
+    it('throws PlanFeatureUnavailableError when the plan lacks partial-paid for a below-balance amount and appends nothing', async () => {
       await expect(
-        build(PLANS.essentiel).execute({ ...baseInput(), amountMad: 20000 }),
+        build(planWithoutFeature('core.invoicing.partial-paid')).execute({
+          ...baseInput(),
+          amountMad: 20000,
+        }),
       ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
       expect(payments.all()).toHaveLength(0);
     });

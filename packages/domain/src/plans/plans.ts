@@ -55,7 +55,14 @@ export type Plan = {
   limits: PlanLimits;
 };
 
-const essentielFeatures: readonly FeatureFlag[] = [
+/**
+ * MVP tier collapse (SOU-83): every feature ships in every tier except
+ * `org.multi-center`, which requires the cloud hub and stays Premium-only.
+ * `essentiel` and `pro` are deliberately identical for now — tiering is
+ * configuration, so re-splitting later is an edit to these arrays alone.
+ * Limits are `unlimited` on all three tiers.
+ */
+const sharedFeatures: readonly FeatureFlag[] = [
   'core.rooms',
   'core.teachers',
   'core.students',
@@ -69,10 +76,6 @@ const essentielFeatures: readonly FeatureFlag[] = [
   'settings.center-hours',
   'settings.holidays',
   'dashboard.basic',
-];
-
-const proFeatures: readonly FeatureFlag[] = [
-  ...essentielFeatures,
   'core.invoicing.partial-paid',
   'core.invoice-template.customize',
   'core.exam-prep',
@@ -83,36 +86,39 @@ const proFeatures: readonly FeatureFlag[] = [
   'io.excel.import',
   'io.excel.sync',
   'planning.custom-grid',
-];
-
-const premiumFeatures: readonly FeatureFlag[] = [
-  ...proFeatures,
   'dashboard.advanced',
   'planning.random-auto',
   'sync.multi-device',
   'sync.cloud',
   'sync.conflict-resolution',
-  'org.multi-center',
   'limits.students.unlimited',
   'limits.teachers.unlimited',
 ];
 
+const premiumFeatures: readonly FeatureFlag[] = [...sharedFeatures, 'org.multi-center'];
+
+const unlimitedLimits: PlanLimits = {
+  maxStudents: 'unlimited',
+  maxTeachers: 'unlimited',
+  maxRooms: 'unlimited',
+};
+
 const essentiel: Plan = {
   id: 'essentiel',
-  features: new Set(essentielFeatures),
-  limits: { maxStudents: 50, maxTeachers: 2, maxRooms: 1 },
+  features: new Set(sharedFeatures),
+  limits: unlimitedLimits,
 };
 
 const pro: Plan = {
   id: 'pro',
-  features: new Set(proFeatures),
-  limits: { maxStudents: 300, maxTeachers: 10, maxRooms: 5 },
+  features: new Set(sharedFeatures),
+  limits: unlimitedLimits,
 };
 
 const premium: Plan = {
   id: 'premium',
   features: new Set(premiumFeatures),
-  limits: { maxStudents: 'unlimited', maxTeachers: 'unlimited', maxRooms: 'unlimited' },
+  limits: unlimitedLimits,
 };
 
 export const PLANS: Readonly<Record<PlanId, Plan>> = { essentiel, pro, premium };

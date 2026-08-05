@@ -26,6 +26,7 @@ import { InMemorySessionRepository } from '../fakes/in-memory-session-repository
 import { InMemoryHolidayRepository } from '../fakes/in-memory-holiday-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import { planWithoutFeature } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const OTHER_CENTER = 'CS-RABAT-002' as CenterCode;
@@ -288,12 +289,12 @@ describe('CommitGeneratedSchedule', () => {
   });
 
   describe('plan gating', () => {
-    it('throws PlanFeatureUnavailableError for custom mode on a plan without planning.custom-grid (Essentiel), persisting nothing', async () => {
+    it('throws PlanFeatureUnavailableError for custom mode when the plan lacks planning.custom-grid, persisting nothing', async () => {
       const group = makeGroup();
       await groups.save(group);
 
       await expect(
-        build(PLANS.essentiel).execute(
+        build(planWithoutFeature('planning.custom-grid')).execute(
           input({ mode: 'custom', proposals: [proposal(group.id, [block(MON, '09:00', '10:30')])] }),
         ),
       ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
@@ -301,12 +302,12 @@ describe('CommitGeneratedSchedule', () => {
       expect(await recurrences.listRefsForDay(CENTER, MON)).toEqual([]);
     });
 
-    it('throws PlanFeatureUnavailableError for auto mode on Pro (Premium-only), persisting nothing', async () => {
+    it('throws PlanFeatureUnavailableError for auto mode when the plan lacks planning.random-auto, persisting nothing', async () => {
       const group = makeGroup();
       await groups.save(group);
 
       await expect(
-        build(PLANS.pro).execute(
+        build(planWithoutFeature('planning.random-auto')).execute(
           input({ mode: 'auto', proposals: [proposal(group.id, [block(MON, '09:00', '10:30')])] }),
         ),
       ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);

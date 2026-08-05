@@ -16,6 +16,7 @@ import { InMemoryFormulaRepository } from '../fakes/in-memory-formula-repository
 import { InMemorySubjectRepository } from '../fakes/in-memory-subject-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import { planWithoutFeature } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
@@ -211,8 +212,14 @@ describe('UpdateFormula', () => {
       );
     });
 
-    it('rejects switching to exam-prep on Essentiel', async () => {
+    it('rejects switching to exam-prep when the plan lacks core.exam-prep', async () => {
       const original = await seed();
+      useCase = new UpdateFormula(
+        formulas,
+        subjects,
+        fakeClock(EDITED_AT),
+        new PlanPolicy(planWithoutFeature('core.exam-prep')),
+      );
       await expect(
         useCase.execute(updateInput(original.id, { kind: 'exam-prep' })),
       ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);

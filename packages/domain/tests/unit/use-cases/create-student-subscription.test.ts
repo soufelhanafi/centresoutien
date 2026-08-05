@@ -16,6 +16,7 @@ import { InMemoryStudentSubscriptionRepository } from '../fakes/in-memory-studen
 import { InMemoryStudentRepository } from '../fakes/in-memory-student-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import { planWithoutFeature } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const OTHER_CENTER = 'CS-RABAT-002' as CenterCode;
@@ -209,9 +210,11 @@ describe('CreateStudentSubscription', () => {
       expect((await subscriptions.listLiveByStudent(STUDENT_ID)).length).toBe(0);
     });
 
-    it('throws PlanFeatureUnavailableError for an exam-prep subscription on Essentiel (no core.exam-prep)', async () => {
+    it('throws PlanFeatureUnavailableError for an exam-prep subscription when the plan lacks core.exam-prep', async () => {
       await expect(
-        build(PLANS.essentiel).execute(validInput({ kind: 'exam-prep', subjectIds: [SUBJECT_MATH] })),
+        build(planWithoutFeature('core.exam-prep')).execute(
+          validInput({ kind: 'exam-prep', subjectIds: [SUBJECT_MATH] }),
+        ),
       ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
     });
 
