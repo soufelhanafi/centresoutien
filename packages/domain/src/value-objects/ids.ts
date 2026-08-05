@@ -18,6 +18,16 @@ export type UserId = Brand<string, 'UserId'>; // last editor, shown in the confl
 export type EntityId = Brand<string, 'EntityId'>;
 
 /**
+ * Widen any entity's concrete branded id (SubjectId, StudentId, …) to the
+ * generic {@link EntityId}. The one audited spot where the specific brand is
+ * erased — for storing an id in a type-agnostic place like the change_log key,
+ * which is keyed by `(entityType, entityId)` and cannot know each entity's brand.
+ */
+export function toEntityId(id: string): EntityId {
+  return id as EntityId;
+}
+
+/**
  * Canonical 26-char ULID in Crockford base32 (excludes I, L, O, U). Anchored,
  * uppercase-only — the exact form the `ulid` package emits.
  */
