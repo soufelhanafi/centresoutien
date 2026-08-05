@@ -17,6 +17,7 @@ import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../../src/data/sqlite/repositories/subject-repository';
 import { SqliteGroupRepository } from '../../src/data/sqlite/repositories/group-repository';
+import { changeLogWriterForTest } from './helpers/change-log';
 
 const KEY = 'passphrase-under-test';
 const REAL_MIGRATIONS = join(import.meta.dirname, '../../src/data/sqlite/migrations');
@@ -38,7 +39,7 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'cs-subj-inuse-'));
   db = openDatabase({ centreId: 'C1', key: KEY, dir });
   runMigrations(db, REAL_MIGRATIONS);
-  subjects = new SqliteSubjectRepository(db);
+  subjects = new SqliteSubjectRepository(db, changeLogWriterForTest(db));
   groups = new SqliteGroupRepository(db);
 });
 afterEach(() => {

@@ -132,6 +132,7 @@ import type {
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
+import { SqliteChangeLogWriter } from '../data/sqlite/change-log/sqlite-change-log-writer';
 import { SqliteFormulaRepository } from '../data/sqlite/repositories/formula-repository';
 import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
@@ -258,7 +259,12 @@ export function buildContainer(options: ContainerOptions): Container {
   const activePlanId = resolvePlanId(db, options.planId);
   const plan = new PlanPolicy(PLANS[activePlanId]);
 
-  const subjectRepo = new SqliteSubjectRepository(db);
+  // The acting laptop, resolved once — stamped on every change_log row (SOU-79)
+  // and carried in the envelope context below.
+  const deviceOrigin = resolveDeviceOrigin(db, ids);
+  const changeLog = new SqliteChangeLogWriter(db, clock, deviceOrigin);
+
+  const subjectRepo = new SqliteSubjectRepository(db, changeLog);
   const createSubject = new CreateSubject(subjectRepo, clock, ids, plan);
   const listSubjects = new ListSubjects(subjectRepo, plan);
   const getSubject = new GetSubject(subjectRepo, plan);
@@ -728,7 +734,7 @@ export function buildContainer(options: ContainerOptions): Container {
 
   const context: EnvelopeContext = {
     centerCode: options.centerCode,
-    deviceOrigin: resolveDeviceOrigin(db, ids),
+    deviceOrigin,
     updatedBy: DEV_USER,
   };
   const centerContext: CenterContext = { ...context, seedPlan: activePlanId };

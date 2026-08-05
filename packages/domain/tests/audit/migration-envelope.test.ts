@@ -30,6 +30,13 @@ const LOCAL_TABLES = [
   'security_question_lockout',
 ];
 
+// Append-only infrastructure ledgers: tenant-scoped (center_code) but NOT
+// entities. They carry their own bookkeeping (revision/op/device_id/created_at)
+// instead of the entity envelope, have no ULID `id` and no soft delete, and are
+// never hub-versioned — so the envelope + TEXT-PK entity rules do not apply
+// (SOU-79). Exempted explicitly, distinct from device-local LOCAL_TABLES.
+const LEDGER_TABLES = ['change_log'];
+
 interface ColumnDef {
   name: string;
   definition: string;
@@ -153,7 +160,7 @@ describe('Migration sync-safe audit', () => {
 
   describe('synced table envelope columns', () => {
     for (const { table, filename } of allTables) {
-      if (LOCAL_TABLES.includes(table.name)) continue;
+      if (LOCAL_TABLES.includes(table.name) || LEDGER_TABLES.includes(table.name)) continue;
       const hasCenterCode = hasColumn(table, 'center_code');
       if (!hasCenterCode) continue;
 
@@ -172,7 +179,7 @@ describe('Migration sync-safe audit', () => {
 
   describe('no INTEGER PRIMARY KEY on entity tables', () => {
     for (const { table, filename } of allTables) {
-      if (LOCAL_TABLES.includes(table.name)) continue;
+      if (LOCAL_TABLES.includes(table.name) || LEDGER_TABLES.includes(table.name)) continue;
       test(`${table.name} (${filename}) has TEXT PRIMARY KEY id`, () => {
         expect(
           hasIntegerPrimaryKey(table),
