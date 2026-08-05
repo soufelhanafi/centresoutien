@@ -51,6 +51,9 @@ export type {
   ChangeLogRecordInput,
   ChangeLogWriter,
 } from './sync/change-log-writer';
+export { serializeChangeLogPayload, deserializeChangeLogPayload } from './sync/change-log-payload';
+export type { ChangeLogPayload, ChangeLogPayloadUpcaster } from './sync/change-log-payload';
+export { CURRENT_CHANGE_LOG_PAYLOAD_VERSION } from './sync/change-log-payload';
 
 // Duplicate-matching policy (people-like naturalKey)
 export { normalizeNaturalKey } from './policies/natural-key';

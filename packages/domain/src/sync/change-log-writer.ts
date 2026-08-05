@@ -5,6 +5,9 @@ import type { CenterCode, DeviceId, EntityId } from '../value-objects/ids';
  * row per repository write. The log is the causal record from which the whole
  * database can be rebuilt (replay = ordered upserts of `payload`) and, later,
  * the feed the sync engine reads to apply changes on other devices.
+ *
+ * `payload` carries a versioned serialization of the DOMAIN entity (SOU-170) —
+ * see `change-log-payload.ts` — never the physical row.
  */
 export type ChangeLogOp = 'create' | 'update' | 'delete';
 
@@ -22,7 +25,8 @@ export type ChangeLogEntry = {
   entityId: EntityId;
   revision: number;
   op: ChangeLogOp;
-  /** Full entity snapshot as JSON, so replay is an ordered upsert per row. */
+  /** Versioned serialization of the domain entity (SOU-170), so replay and
+   *  cross-device sync-apply upcast it instead of upserting a physical row. */
   payload: string;
   /** The laptop that made this write (the acting device, not the row's origin). */
   deviceId: DeviceId;
@@ -33,12 +37,17 @@ export type ChangeLogEntry = {
 /** What a repository hands the writer for one write. `entityId` is the opaque
  *  ULID key as the generic {@link EntityId} brand — a repo passes its specific
  *  branded id (SubjectId, StudentId, …) cast to it, keeping a brand on the seam
- *  while the log stays entity-type-erased. `entityType` names the entity. */
+ *  while the log stays entity-type-erased. `entityType` names the entity.
+ *  `entity` is the DOMAIN entity the repo just persisted (the tombstoned shape
+ *  for a soft delete) — the writer serializes it as the versioned `payload`.
+ *  Never pass a physical SQLite row: the payload must be the portable domain
+ *  shape (SOU-170). */
 export type ChangeLogRecordInput = {
   entityType: string;
   entityId: EntityId;
   centerCode: CenterCode;
   intent: ChangeLogIntent;
+  entity: unknown;
 };
 
 /**
@@ -49,7 +58,9 @@ export type ChangeLogRecordInput = {
  *
  * The implementation assigns `revision` as a per-`(entityType, entityId)`
  * monotonic counter (`MAX + 1`), stamps the acting `deviceId` and a UTC
- * `createdAt` from the Clock, and snapshots the just-written row as `payload`.
+ * `createdAt` from the Clock, and serializes the passed domain entity as a
+ * versioned `payload` (SOU-170) — never a physical row snapshot, so the log
+ * survives schema evolution and cross-device sync-apply.
  * It is intentionally append-only: there is no update or delete method, and the
  * table's triggers reject those at the DB layer as a safety net.
  */

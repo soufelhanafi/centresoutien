@@ -134,8 +134,32 @@ describe('change_log — writer semantics', () => {
     expect(row?.device_id).toBe(ACTING_DEVICE);
     expect(row?.created_at).toBe(AT.toISOString());
     expect(row?.center_code).toBe(CENTER);
-    // The snapshot preserves the row's own creator, distinct from the acting device.
-    expect(JSON.parse(row!.payload).device_origin).toBe(ROW_ORIGIN);
+  });
+
+  it('stores the versioned DOMAIN entity, not the physical snake_case row (SOU-170)', async () => {
+    await repo.save(makeSubject());
+    const [row] = logRows(db);
+    const payload = JSON.parse(row!.payload) as {
+      version: number;
+      entity: {
+        deviceOrigin: string;
+        name: { fr: string; ar: string };
+        active: boolean;
+        createdAt: string;
+        updatedAt: string;
+        version: number;
+      };
+    };
+    expect(payload.version).toBe(1);
+    // CamelCase domain shape with nested bilingual fields and real booleans —
+    // none of the physical `name_fr`/`name_ar`/`active AS 0/1` row shape.
+    expect(payload.entity.deviceOrigin).toBe(ROW_ORIGIN);
+    expect(payload.entity.name).toEqual({ fr: 'Mathématiques', ar: 'الرياضيات' });
+    expect(payload.entity.active).toBe(true);
+    expect(payload.entity.createdAt).toBe(AT.toISOString());
+    expect(payload.entity.updatedAt).toBe(AT.toISOString());
+    expect(payload.entity.version).toBe(0);
+    expect(JSON.stringify(payload)).not.toContain('name_fr');
   });
 
   it('rolls back the log append and the entity write together (single transaction)', async () => {
@@ -170,6 +194,39 @@ describe('change_log — replay rebuilds DB state', () => {
       expect(rebuilt).toEqual(sourceSubjects);
       // Replay upserts directly — it must not append new log rows.
       expect(logRows(target)).toHaveLength(logRows(db).length);
+    } finally {
+      target.close();
+      rmSync(targetDir, { recursive: true, force: true });
+    }
+  });
+
+  it('replays a payload written under an older schema onto a migrated table (additive column)', async () => {
+    await repo.save(makeSubject({ id: S1 }));
+    await repo.save(makeSubject({ id: S2, code: 'PC' }));
+
+    const targetDir = mkdtempSync(join(tmpdir(), 'cs-changelog-migrated-'));
+    const target = openDatabase({ centreId: 'C2', key: KEY, dir: targetDir });
+    try {
+      runMigrations(target, REAL_MIGRATIONS);
+      // A future additive migration lands after the payloads were written.
+      target.prepare(
+        "ALTER TABLE subjects ADD COLUMN subject_color TEXT NOT NULL DEFAULT 'rouge'",
+      ).run();
+      copyChangeLog(db, target);
+
+      replayChangeLog(target);
+
+      // Old payloads still reconstruct the rows; the new column falls back to
+      // its DEFAULT because the payload (domain shape) never names it.
+      const rebuilt = target.prepare('SELECT * FROM subjects ORDER BY id').all() as {
+        id: string;
+        name_fr: string;
+        subject_color: string;
+      }[];
+      expect(rebuilt).toHaveLength(2);
+      expect(rebuilt[0]?.name_fr).toBe('Mathématiques');
+      expect(rebuilt[0]?.subject_color).toBe('rouge');
+      expect(rebuilt[1]?.id).toBe(S2);
     } finally {
       target.close();
       rmSync(targetDir, { recursive: true, force: true });
