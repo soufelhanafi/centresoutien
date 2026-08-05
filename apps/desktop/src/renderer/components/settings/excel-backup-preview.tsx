@@ -11,6 +11,7 @@ import {
   toast,
 } from '@centresoutien/ui';
 import type { BackupImportPreviewDto } from '../../../shared/ipc/backup-contract';
+import { BACKUP_SHEET_NAMES } from '@centresoutien/domain';
 import { useExcelBackupApply } from '../../hooks/settings/use-excel-backup-apply';
 import { ExcelBackupApplyDialog } from './excel-backup-apply-dialog';
 import { ExcelBackupPreviewRow } from './excel-backup-preview-row';
@@ -72,6 +73,7 @@ export function ExcelBackupPreview({ preview, filePath, onRepick }: ExcelBackupP
           <CheckCircle2 className="size-4 text-primary" aria-hidden="true" />
           <p className="text-sm font-medium text-foreground">
             {t('settings.backup.excel.applySuccess', {
+              count: apply.data.counts.created,
               created: apply.data.counts.created,
               updated: apply.data.counts.updated,
             })}
@@ -83,6 +85,11 @@ export function ExcelBackupPreview({ preview, filePath, onRepick }: ExcelBackupP
       </div>
     );
   }
+
+  // Sheets this app knows but the picked file does not carry — the "full
+  // backup" promise only covers the sheets present, so make the gap visible
+  // instead of letting a restore happen silently.
+  const missingSheets = BACKUP_SHEET_NAMES.filter((name) => !preview.sheets.includes(name));
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -100,6 +107,17 @@ export function ExcelBackupPreview({ preview, filePath, onRepick }: ExcelBackupP
           </p>
           <p className="text-sm text-foreground">
             {t('settings.backup.excel.unknownSheetsBody', { sheets: preview.unknownSheets.join(', ') })}
+          </p>
+        </div>
+      )}
+
+      {missingSheets.length > 0 && (
+        <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-card px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {t('settings.backup.excel.missingSheetsTitle')}
+          </p>
+          <p className="text-sm text-foreground">
+            {t('settings.backup.excel.missingSheetsBody', { sheets: missingSheets.join(', ') })}
           </p>
         </div>
       )}
@@ -131,11 +149,13 @@ export function ExcelBackupPreview({ preview, filePath, onRepick }: ExcelBackupP
           {skipped > 0 && (
             <p className="text-sm text-muted-foreground">
               {t('settings.backup.excel.skippedNotice', {
+                count: preview.counts.duplicate,
                 duplicates: preview.counts.duplicate,
                 invalid: preview.counts.invalid,
               })}
             </p>
           )}
+          <p className="text-xs text-muted-foreground">{t('settings.backup.excel.skipConflictNote')}</p>
           <Button type="button" onClick={() => setConfirmOpen(true)} disabled={apply.isPending}>
             {apply.isPending ? (
               <>
