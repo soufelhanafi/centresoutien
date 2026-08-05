@@ -35,9 +35,16 @@ export class DeviceSessionService {
     return session;
   }
 
-  /** Drop any remembered session (logout, or a login that opted out). */
-  async forget(): Promise<void> {
+  /**
+   * Drop any remembered session (logout, or a login that opted out). Returns
+   * whether a session actually existed, so a caller can record an invalidation
+   * only when one really happened.
+   */
+  async forget(): Promise<boolean> {
+    const session = await this.sessions.getCurrent();
+    if (session === null) return false;
     await this.sessions.clear();
+    return true;
   }
 
   /**

@@ -5,6 +5,9 @@ import { InMemoryRecoveryCodeRepository } from '../fakes/in-memory-recovery-code
 import { InMemoryAuthAuditLogRepository } from '../fakes/in-memory-auth-audit-log-repository';
 import { InMemoryAdminAccountRepository } from '../fakes/in-memory-admin-account-repository';
 import { InMemoryLoginThrottleStore } from '../fakes/in-memory-login-throttle-store';
+import { InMemoryDeviceSessionStore } from '../fakes/in-memory-device-session-store';
+import { DeviceSessionService } from '../../../src/services/device-session-service';
+import type { DeviceSessionId } from '../../../src/entities/device-session';
 import { LoginThrottlePolicy } from '../../../src/policies/login-throttle-policy';
 import { fakeHasher } from '../fakes/hasher';
 import { fakeClock } from '../fakes/clock';
@@ -21,6 +24,7 @@ describe('ResetPasswordWithRecoveryCode', () => {
   let accounts: InMemoryAdminAccountRepository;
   let codes: InMemoryRecoveryCodeRepository;
   let auditLog: InMemoryAuthAuditLogRepository;
+  let deviceSessionStore: InMemoryDeviceSessionStore;
   let useCase: ResetPasswordWithRecoveryCode;
   const hasher = fakeHasher();
   const clock = fakeClock('2026-08-03T10:00:00Z');
@@ -29,6 +33,7 @@ describe('ResetPasswordWithRecoveryCode', () => {
     accounts = new InMemoryAdminAccountRepository();
     codes = new InMemoryRecoveryCodeRepository();
     auditLog = new InMemoryAuthAuditLogRepository();
+    deviceSessionStore = new InMemoryDeviceSessionStore();
 
     accounts.save({
       id: 'adm_1' as AdminAccountId,
@@ -53,6 +58,7 @@ describe('ResetPasswordWithRecoveryCode', () => {
       codes,
       auditLog,
       hasher,
+      new DeviceSessionService(deviceSessionStore, clock, fakeIds()),
       clock,
       fakeIds(),
     );
@@ -98,6 +104,71 @@ describe('ResetPasswordWithRecoveryCode', () => {
     expect(events.some((e) => e.eventType === 'password-reset-via-recovery-code')).toBe(true);
   });
 
+  it('invalidates the remembered device session on a successful reset', async () => {
+    await deviceSessionStore.save({
+      id: 'ses_1' as DeviceSessionId,
+      createdAt: clock.now().getTime(),
+      expiresAt: clock.now().getTime() + 1_000_000,
+    });
+
+    await useCase.execute({
+      recoveryCode: validCode(),
+      newPassword: 'NewPass1',
+      username: 'admin',
+    });
+
+    expect(deviceSessionStore.clearCount).toBe(1);
+    expect(await deviceSessionStore.getCurrent()).toBeNull();
+  });
+
+  it('records a device-session-invalidated audit event when a session was cleared', async () => {
+    await deviceSessionStore.save({
+      id: 'ses_1' as DeviceSessionId,
+      createdAt: clock.now().getTime(),
+      expiresAt: clock.now().getTime() + 1_000_000,
+    });
+
+    await useCase.execute({
+      recoveryCode: validCode(),
+      newPassword: 'NewPass1',
+      username: 'admin',
+    });
+
+    const events = auditLog.list();
+    expect(events.some((e) => e.eventType === 'device-session-invalidated-after-reset')).toBe(true);
+  });
+
+  it('does not record a device-session-invalidated event when no session was remembered', async () => {
+    await useCase.execute({
+      recoveryCode: validCode(),
+      newPassword: 'NewPass1',
+      username: 'admin',
+    });
+
+    const events = auditLog.list();
+    expect(events.some((e) => e.eventType === 'device-session-invalidated-after-reset')).toBe(false);
+    expect(events.some((e) => e.eventType === 'password-reset-via-recovery-code')).toBe(true);
+  });
+
+  it('does not clear the device session when the code is invalid', async () => {
+    await deviceSessionStore.save({
+      id: 'ses_1' as DeviceSessionId,
+      createdAt: clock.now().getTime(),
+      expiresAt: clock.now().getTime() + 1_000_000,
+    });
+
+    await expect(
+      useCase.execute({
+        recoveryCode: 'ZZZZ-ZZZZ-ZZZZ-ZZZZ',
+        newPassword: 'NewPass1',
+        username: 'admin',
+      }),
+    ).rejects.toBeInstanceOf(InvalidRecoveryCodeError);
+
+    expect(deviceSessionStore.clearCount).toBe(0);
+    expect(await deviceSessionStore.getCurrent()).not.toBeNull();
+  });
+
   it('throws InvalidRecoveryCodeError for a wrong code', async () => {
     await expect(
       useCase.execute({
@@ -125,6 +196,7 @@ describe('ResetPasswordWithRecoveryCode', () => {
       codes,
       auditLog,
       hasher,
+      new DeviceSessionService(deviceSessionStore, clock, fakeIds()),
       clock,
       fakeIds(),
     );

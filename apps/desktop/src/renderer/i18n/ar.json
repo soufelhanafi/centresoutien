@@ -133,6 +133,10 @@
     "admin-account-not-found": "تعذّر العثور على حساب المسؤول. اتصل بالدعم.",
     "security-answer-too-short": "الإجابة قصيرة جدًا",
     "security-answer-too-long": "الإجابة طويلة جدًا",
+    "security-question-required": "اختر سؤالاً",
+    "security-answer-required": "أدخل إجابة",
+    "recovery-code-invalid-format": "صيغة الرمز غير صحيحة (المتوقع: XXXX-XXXX-XXXX-XXXX)",
+    "recovery-code-invalid-group": "مجموعة الرمز غير صحيحة",
     "security-questions-must-be-exactly-three": "اختر ثلاثة أسئلة بالضبط",
     "security-questions-must-be-distinct": "اختر ثلاثة أسئلة مختلفة",
     "invalid-time": "وقت غير صالح",
@@ -1598,6 +1602,26 @@
       "errorTitle": "تعذّر التحقق من الجلسة",
       "errorBody": "فشل التحقق من الجلسة.",
       "retry": "إعادة المحاولة"
+    },
+    "forgot": {
+      "link": "هل نسيت كلمة المرور؟",
+      "title": "إعادة تعيين كلمة المرور",
+      "back": "رجوع",
+      "backToLogin": "العودة إلى تسجيل الدخول",
+      "error": "فشلت العملية. تحقّق من اتصالك وأعد المحاولة.",
+      "recovery": {
+        "codeLabel": "رمز الاسترداد",
+        "newPassword": "كلمة المرور الجديدة",
+        "confirmPassword": "تأكيد كلمة المرور",
+        "submit": "إعادة تعيين كلمة المرور",
+        "submitting": "جارٍ إعادة التعيين…"
+      },
+      "success": {
+        "recovery": {
+          "title": "تمت إعادة تعيين كلمة المرور",
+          "body": "سجّل الدخول باستخدام كلمة المرور الجديدة."
+        }
+      }
     }
   },
   "wizard": {

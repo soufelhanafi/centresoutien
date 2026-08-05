@@ -9,6 +9,7 @@ export type AuthAuditEventType =
   | 'recovery-code-consumed'
   | 'recovery-code-failed'
   | 'password-reset-via-recovery-code'
+  | 'device-session-invalidated-after-reset'
   | 'security-questions-set'
   | 'security-questions-answer-failed'
   | 'security-questions-verified'
