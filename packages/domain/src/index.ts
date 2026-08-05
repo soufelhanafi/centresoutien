@@ -416,6 +416,27 @@ export type { LogoStore } from './ports/logo-store';
 export type { BackupPort, BackupFileInfo, BackupVerification } from './ports/backup-port';
 export type { BackupConfigStore, BackupConfig } from './ports/backup-config-store';
 export { DEFAULT_BACKUP_RETENTION_COUNT } from './ports/backup-config-store';
+// Excel backup workbook (SOU-44) — data-level export/import, distinct from the
+// byte-level BackupPort above. The workbook contract (sheets, columns, import
+// order) lives in `backup/` and is the portable format a future web restore reuses.
+export type { BackupExcelPort } from './ports/backup-excel-port';
+export type { BackupStore, BackupSheetWrite } from './ports/backup-store';
+export type {
+  BackupCellValue,
+  BackupRow,
+  BackupSheet,
+  BackupWorkbook,
+  BackupColumnType,
+  BackupColumn,
+  BackupSheetSpec,
+  BackupSheetName,
+} from './backup/backup-workbook';
+export { BACKUP_ENVELOPE_COLUMNS, BACKUP_SHEET_NAMES, BACKUP_SHEETS, sheetColumnNames, findBackupSheet } from './backup/backup-workbook';
+export { validateBackupRow, classifyImportRow } from './backup/classify-rows';
+export type { ImportRowStatus, RowClassification } from './backup/classify-rows';
+export type { BackupImportCounts, BackupImportRowReport, BackupImportPreview, BackupImportApplyResult } from './backup/import-reports';
+export { emptyImportCounts } from './backup/import-reports';
+export { BackupFileReadError, BackupFileWriteError, BackupImportApplyError } from './errors/backup-errors';
 export type { ParentRepository } from './ports/parent-repository';
 export type { RoomRepository } from './ports/room-repository';
 export type { TeacherRepository } from './ports/teacher-repository';
@@ -817,6 +838,13 @@ export type {
 } from './use-cases/restore-backup';
 export { RunScheduledBackup } from './use-cases/run-scheduled-backup';
 export type { RunScheduledBackupInput } from './use-cases/run-scheduled-backup';
+// Excel backup engine (SOU-44)
+export { ExportBackup } from './use-cases/export-backup';
+export type { ExportBackupInput, ExportBackupResult } from './use-cases/export-backup';
+export { PreviewImportBackup } from './use-cases/preview-import-backup';
+export type { PreviewImportBackupInput } from './use-cases/preview-import-backup';
+export { ApplyImportBackup } from './use-cases/apply-import-backup';
+export type { ApplyImportBackupInput } from './use-cases/apply-import-backup';
 export { SaveCenterHours } from './use-cases/save-center-hours';
 export type { SaveCenterHoursInput } from './use-cases/save-center-hours';
 export { GetCenterHours } from './use-cases/get-center-hours';

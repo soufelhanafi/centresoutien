@@ -1,0 +1,131 @@
+import {
+  BACKUP_SHEETS,
+  type BackupRow,
+  type BackupSheetSpec,
+} from '../backup/backup-workbook';
+import { classifyImportRow } from '../backup/classify-rows';
+import { emptyImportCounts, type BackupImportApplyResult } from '../backup/import-reports';
+import { buildExistingIndex, readBackupWorkbook } from '../backup/import-context';
+import type { BackupStore, BackupSheetWrite } from '../ports/backup-store';
+import type { BackupExcelPort } from '../ports/backup-excel-port';
+import type { IdGenerator } from '../ports/id-generator';
+import type { Clock } from '../ports/clock';
+import type { PlanPolicy } from '../plans/plan-policy';
+import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
+import { BackupImportApplyError } from '../errors/backup-errors';
+
+export type ApplyImportBackupInput = {
+  filePath: string;
+  centerCode: CenterCode;
+};
+
+/**
+ * Atomic backup restore (SOU-44): re-parses the workbook, re-classifies every
+ * row (same rules as {@link PreviewImportBackup}), and applies the `created` +
+ * `updated` rows in the registry's dependency order in **one transaction** —
+ * any failure rolls the whole import back. Duplicates and invalid rows are
+ * skipped (they are never silently merged or repaired by a backup restore; the
+ * sync engine owns merging). A people-like row without an `id` is created fresh
+ * with a new ULID + envelope. Gated on Pro+ `io.excel.import`.
+ */
+export class ApplyImportBackup {
+  constructor(
+    private readonly store: BackupStore,
+    private readonly excel: BackupExcelPort,
+    private readonly plan: PlanPolicy,
+    private readonly clock: Clock,
+    private readonly ids: IdGenerator,
+    private readonly deviceOrigin: DeviceId,
+    private readonly updatedBy: UserId,
+  ) {}
+
+  async execute(input: ApplyImportBackupInput): Promise<BackupImportApplyResult> {
+    this.plan.require('io.excel.import');
+
+    const workbook = await readBackupWorkbook(this.excel, input.filePath);
+    const existing = await buildExistingIndex(this.store);
+    const byName = new Map(workbook.sheets.map((sheet) => [sheet.name, sheet]));
+
+    const counts = emptyImportCounts();
+    const sheetsToApply: BackupSheetWrite[] = [];
+    let totalRows = 0;
+
+    for (const spec of BACKUP_SHEETS) {
+      const sheet = byName.get(spec.name);
+      if (sheet === undefined) continue;
+
+      // Working copies of the DB snapshot: as a row is classified as
+      // created/updated, its id / naturalKey joins the index, so a second row in
+      // the SAME workbook that would land on it classifies as `duplicate` (the
+      // preview sees the same thing, keeping preview and apply in lockstep).
+      const index = existing.get(spec.name);
+      const knownIds = new Set(index?.ids ?? EMPTY_IDS);
+      const knownNaturalKeys = new Set(index?.naturalKeys ?? EMPTY_IDS);
+      const rowsToApply: BackupRow[] = [];
+
+      for (const row of sheet.rows) {
+        totalRows += 1;
+        const classification = classifyImportRow({
+          spec,
+          row,
+          existingIds: knownIds,
+          existingNaturalKeys: knownNaturalKeys,
+          centerCode: input.centerCode,
+        });
+        counts[classification.status] += 1;
+
+        if (classification.status === 'created' || classification.status === 'updated') {
+          rowsToApply.push(this.prepareRow(spec, row, input.centerCode));
+          if (typeof row['id'] === 'string') knownIds.add(row['id']);
+          const naturalKeyColumn = spec.naturalKeyColumn ?? 'naturalKey';
+          const naturalKey = row[naturalKeyColumn];
+          if (typeof naturalKey === 'string' && naturalKey.length > 0) knownNaturalKeys.add(naturalKey);
+        }
+      }
+
+      if (rowsToApply.length > 0) {
+        sheetsToApply.push({ sheetName: spec.name, rows: rowsToApply });
+      }
+    }
+
+    if (sheetsToApply.length > 0) {
+      try {
+        await this.store.applyRows(sheetsToApply);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new BackupImportApplyError('*', 0, detail);
+      }
+    }
+
+    return { counts, totalRows };
+  }
+
+  /**
+   * Every applied row is stamped as an edit *now* (updatedAt / updatedBy), for
+   * both created-with-id and updated rows — a restore is a real modification by
+   * the current user, and stamping keeps it visible to the sync change feed
+   * (`updated_at > cursor`) so other laptops of a multi-device center converge
+   * after a restore instead of silently keeping their pre-restore state.
+   * `createdAt` stays historical; id-less people rows additionally get a fresh
+   * ULID + the minted envelope.
+   */
+  private prepareRow(spec: BackupSheetSpec, row: BackupRow, centerCode: CenterCode): BackupRow {
+    const now = this.clock.now().toISOString();
+    if (row['id'] !== null && row['id'] !== undefined) {
+      return { ...row, updatedAt: now, updatedBy: this.updatedBy };
+    }
+    return {
+      ...row,
+      id: this.ids.next(spec.idPrefix),
+      centerCode,
+      deviceOrigin: this.deviceOrigin,
+      createdAt: now,
+      updatedAt: now,
+      updatedBy: this.updatedBy,
+      deletedAt: null,
+      version: 0,
+    };
+  }
+}
+
+const EMPTY_IDS: ReadonlySet<string> = new Set();

@@ -5,7 +5,18 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/out/**', '**/node_modules/**', '**/coverage/**'] },
+  {
+    // Stale agent worktree scratch (`.claude/worktrees/**`) is gitignored and
+    // owned by separate git worktrees — linting it would fail CI on files that
+    // are not part of the repo.
+    ignores: [
+      '**/dist/**',
+      '**/out/**',
+      '**/node_modules/**',
+      '**/coverage/**',
+      '.claude/worktrees/**',
+    ],
+  },
   ...base,
   ...domainBoundaries,
   ...rtlLogicalProperties,

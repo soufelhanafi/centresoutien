@@ -34,8 +34,8 @@ export function RestoreBackupCard() {
   const [restarting, setRestarting] = useState(false);
 
   const onPick = async () => {
-    const path = await selectFile(BACKUP_FILE_EXTENSIONS);
-    if (path) setSelectedPath(path);
+    const picked = await selectFile(BACKUP_FILE_EXTENSIONS);
+    if (picked?.path) setSelectedPath(picked.path);
   };
 
   const onConfirm = async () => {

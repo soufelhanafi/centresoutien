@@ -26,6 +26,7 @@
     "arabic-persian-reshaper": "^1.0.1",
     "better-sqlite3-multiple-ciphers": "^12.11.1",
     "bidi-js": "^1.0.3",
+    "exceljs": "^4.4.0",
     "i18next": "^26.3.6",
     "lucide-react": "^1.27.0",
     "pdf-lib": "^1.17.1",
