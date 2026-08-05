@@ -1,5 +1,5 @@
 import type { Database as DB } from 'better-sqlite3';
-import { assertTableIdentifier } from './table-identifier';
+import { assertSqlIdentifier } from './table-identifier';
 
 type ChangeLogReplayRow = {
   entity_type: string;
@@ -25,7 +25,7 @@ export function replayChangeLog(db: DB): void {
 
   const upsert = db.transaction((entries: ChangeLogReplayRow[]) => {
     for (const entry of entries) {
-      const table = assertTableIdentifier(entry.entity_type);
+      const table = assertSqlIdentifier(entry.entity_type);
       const snapshot = JSON.parse(entry.payload) as Record<string, unknown>;
       upsertSnapshot(db, table, snapshot);
     }
@@ -34,7 +34,7 @@ export function replayChangeLog(db: DB): void {
 }
 
 function upsertSnapshot(db: DB, table: string, snapshot: Record<string, unknown>): void {
-  const columns = Object.keys(snapshot);
+  const columns = Object.keys(snapshot).map(assertSqlIdentifier);
   const insertColumns = columns.join(', ');
   const insertValues = columns.map((column) => `@${column}`).join(', ');
   const updates = columns

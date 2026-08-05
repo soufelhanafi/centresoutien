@@ -31,12 +31,12 @@ export type ChangeLogEntry = {
 };
 
 /** What a repository hands the writer for one write. `entityId` is the opaque
- *  ULID key — typed `string` so any entity's specific branded id (SubjectId,
- *  StudentId, …) is accepted; the log is entity-type-erased. `entityType` names
- *  the entity. */
+ *  ULID key as the generic {@link EntityId} brand — a repo passes its specific
+ *  branded id (SubjectId, StudentId, …) cast to it, keeping a brand on the seam
+ *  while the log stays entity-type-erased. `entityType` names the entity. */
 export type ChangeLogRecordInput = {
   entityType: string;
-  entityId: string;
+  entityId: EntityId;
   centerCode: CenterCode;
   intent: ChangeLogIntent;
 };

@@ -1,7 +1,7 @@
 import type { Database as DB } from 'better-sqlite3';
 import type { Clock, DeviceId, ChangeLogWriter, ChangeLogRecordInput } from '@centresoutien/domain';
 import { resolveChangeLogOp } from '@centresoutien/domain';
-import { assertTableIdentifier } from './table-identifier';
+import { assertSqlIdentifier } from './table-identifier';
 
 const NEXT_REVISION_SQL = `
   SELECT COALESCE(MAX(revision), 0) + 1 AS next
@@ -22,6 +22,11 @@ const INSERT_SQL = `
  * commit or roll back together. The just-written row is snapshotted by reading
  * it back from its table (`entity_type` is the table name), which guarantees the
  * `payload` is exactly the persisted state for both upserts and soft deletes.
+ *
+ * TODO(SOU-170): payload is the physical row shape (snake_case), so old log rows
+ * won't replay across a column rename/drop and cross-device sync-apply (SOU-80+)
+ * can't upsert a vN payload onto a vM schema. Version the payload / serialize
+ * from the domain entity before the log becomes the sync-apply surface.
  */
 export class SqliteChangeLogWriter implements ChangeLogWriter {
   constructor(
@@ -31,7 +36,7 @@ export class SqliteChangeLogWriter implements ChangeLogWriter {
   ) {}
 
   record(input: ChangeLogRecordInput): void {
-    const table = assertTableIdentifier(input.entityType);
+    const table = assertSqlIdentifier(input.entityType);
     const row = this.db
       .prepare(`SELECT * FROM ${table} WHERE id = ?`)
       .get(input.entityId) as Record<string, unknown> | undefined;
