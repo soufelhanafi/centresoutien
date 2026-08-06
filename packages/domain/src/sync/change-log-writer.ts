@@ -37,17 +37,20 @@ export type ChangeLogEntry = {
 /** What a repository hands the writer for one write. `entityId` is the opaque
  *  ULID key as the generic {@link EntityId} brand — a repo passes its specific
  *  branded id (SubjectId, StudentId, …) cast to it, keeping a brand on the seam
- *  while the log stays entity-type-erased. `entityType` names the entity.
+ *  while the log stays entity-type-erased. `entityType` names the entity (the
+ *  physical table name — the mapper registry resolves on it, SOU-170).
  *  `entity` is the DOMAIN entity the repo just persisted (the tombstoned shape
  *  for a soft delete) — the writer serializes it as the versioned `payload`.
  *  Never pass a physical SQLite row: the payload must be the portable domain
- *  shape (SOU-170). */
+ *  shape. It stays a plain object (not a specific entity type) because the port
+ *  is entity-type-erased and backup-restore logs its flat logical rows; a
+ *  scalar/array can no longer slip through. */
 export type ChangeLogRecordInput = {
   entityType: string;
   entityId: EntityId;
   centerCode: CenterCode;
   intent: ChangeLogIntent;
-  entity: unknown;
+  entity: Record<string, unknown>;
 };
 
 /**

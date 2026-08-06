@@ -232,6 +232,86 @@ describe('change_log — replay rebuilds DB state', () => {
       rmSync(targetDir, { recursive: true, force: true });
     }
   });
+
+  it('replays a multi-word backup sheet via the table-name fallback (SOU-170 B1)', () => {
+    // `entity_type` is the PHYSICAL TABLE name (`student_subscriptions`), which
+    // diverges from the sheet name (`student-subscriptions`) — the fallback must
+    // resolve on the table name or this row aborts the whole replay.
+    const subscription: Record<string, unknown> = {
+      id: 'sbs_00000000000000000000000001',
+      centerCode: CENTER,
+      deviceOrigin: ROW_ORIGIN,
+      createdAt: AT.toISOString(),
+      updatedAt: AT.toISOString(),
+      updatedBy: USER,
+      deletedAt: null,
+      version: 1,
+      studentId: 'stu_00000000000000000000000001',
+      formulaId: 'fml_00000000000000000000000001',
+      kind: 'regular',
+      subjectIds: 'sub_00000000000000000000000001,sub_00000000000000000000000002',
+      startMonth: '2026-09',
+      endMonth: null,
+    };
+    insertLogRow(db, 'student_subscriptions', subscription);
+
+    replayChangeLog(db);
+
+    const row = db
+      .prepare('SELECT * FROM student_subscriptions WHERE id = ?')
+      .get(subscription['id']) as Record<string, unknown>;
+    expect(row['student_id']).toBe('stu_00000000000000000000000001');
+    expect(row['subject_ids']).toBe(
+      '["sub_00000000000000000000000001","sub_00000000000000000000000002"]',
+    );
+    expect(row['kind']).toBe('regular');
+    expect(row['start_month']).toBe('2026-09');
+  });
+
+  it('throws on an entityType with no registered mapper rather than guessing', () => {
+    insertLogRow(db, 'not_a_known_table', { id: 'xx_00000000000000000000000001' });
+
+    expect(() => replayChangeLog(db)).toThrow(/no entity→row mapper registered for "not_a_known_table"/);
+  });
+
+  it('applies the upcaster chain before mapping on replay', () => {
+    // A hypothetical old payload shape (flat `name_fr`/`name_ar`), written at
+    // version 1; the upcaster migrates it to the nested domain Subject the
+    // current mapper expects.
+    const flatSubject: Record<string, unknown> = {
+      id: S1,
+      centerCode: CENTER,
+      deviceOrigin: ROW_ORIGIN,
+      createdAt: AT.toISOString(),
+      updatedAt: AT.toISOString(),
+      updatedBy: USER,
+      deletedAt: null,
+      version: 1,
+      name_fr: 'Ancien',
+      name_ar: 'قديم',
+      code: null,
+      active: true,
+    };
+    insertLogRow(db, 'subjects', flatSubject, 1);
+
+    replayChangeLog(db, [
+      (entity) => {
+        const row = entity as Record<string, unknown>;
+        return {
+          ...row,
+          name: { fr: row['name_fr'], ar: row['name_ar'] },
+          active: row['active'] === true || row['active'] === 1,
+        };
+      },
+    ]);
+
+    const rebuilt = db
+      .prepare('SELECT * FROM subjects WHERE id = ?')
+      .get(S1) as Record<string, unknown>;
+    expect(rebuilt['name_fr']).toBe('Ancien');
+    expect(rebuilt['name_ar']).toBe('قديم');
+    expect(rebuilt['active']).toBe(1);
+  });
 });
 
 function copyChangeLog(source: DB, target: DB): void {
@@ -241,4 +321,25 @@ function copyChangeLog(source: DB, target: DB): void {
      VALUES (@entity_type, @entity_id, @revision, @op, @payload, @device_id, @created_at, @center_code)`,
   );
   for (const row of logRows(source)) insert.run(row);
+}
+
+function insertLogRow(
+  db: DB,
+  entityType: string,
+  entity: Record<string, unknown>,
+  revision = 1,
+): void {
+  db.prepare(
+    `INSERT INTO change_log
+       (entity_type, entity_id, revision, op, payload, device_id, created_at, center_code)
+     VALUES (?, ?, ?, 'create', ?, ?, ?, ?)`,
+  ).run(
+    entityType,
+    entity['id'],
+    revision,
+    JSON.stringify({ version: 1, entity }),
+    ACTING_DEVICE,
+    AT.toISOString(),
+    CENTER,
+  );
 }

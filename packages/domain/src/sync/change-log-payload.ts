@@ -60,20 +60,19 @@ export function deserializeChangeLogPayload(
   try {
     payload = JSON.parse(raw) as ChangeLogPayload;
   } catch {
-    throw new Error("change_log: payload is not valid JSON");
+    throw new Error('change_log: payload is not valid JSON');
   }
   if (
-    typeof payload !== "object" ||
+    typeof payload !== 'object' ||
     payload === null ||
-    typeof payload.version !== "number" ||
+    typeof payload.version !== 'number' ||
+    !Number.isSafeInteger(payload.version) ||
     payload.version < 1 ||
-    !("entity" in payload) ||
+    !('entity' in payload) ||
     payload.entity === null ||
-    typeof payload.entity !== "object"
+    typeof payload.entity !== 'object'
   ) {
-    throw new Error(
-      "change_log: malformed payload envelope (expected { version, entity })",
-    );
+    throw new Error('change_log: malformed payload envelope (expected { version, entity })');
   }
 
   const newestKnown = upcasters.length + 1;

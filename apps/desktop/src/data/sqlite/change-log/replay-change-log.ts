@@ -52,6 +52,12 @@ export function replayChangeLog(
 }
 
 function upsertSnapshot(db: DB, table: string, snapshot: Record<string, unknown>): void {
+  // Replay-into-empty semantics: the upsert rewrites every non-`id` column,
+  // including the envelope (center_code, device_origin, created_at, version).
+  // Correct ONLY for rebuilding an empty table from the log. If SOU-80's
+  // sync-apply ever reuses this, it must exclude IDENTITY_COLUMNS (see
+  // backup-store-config) so an applied payload cannot clobber a newer local
+  // revision — do not copy this function as-is into the apply path.
   const columns = Object.keys(snapshot).map(assertSqlIdentifier);
   const insertColumns = columns.join(', ');
   const insertValues = columns.map((column) => `@${column}`).join(', ');

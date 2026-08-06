@@ -55,6 +55,11 @@ Concretely:
   upcaster is refused, not applied blind. There are zero upcasters today (v1
   identity); the seam is the documented place a future entity-shape change is
   absorbed.
+- **`entity_type` is the physical table name.** Writers log the SQLite table
+  name (`student_subscriptions`), not the workbook sheet name
+  (`student-subscriptions`); the replay/apply mapper registry resolves on the
+  table name. This convention is load-bearing for the mapper lookup — a sheet
+  name in `entity_type` would fail to resolve.
 - **One canonical shape per entityType.** The backup-restore path (SOU-44) logs
   the same canonical shapes: its flat logical rows for sheets with no
   repository writer yet, and the converted domain `Subject` for `subjects`
