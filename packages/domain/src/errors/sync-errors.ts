@@ -21,3 +21,20 @@ export class SchemaTooOldError extends DomainError {
     );
   }
 }
+
+/**
+ * Thrown when the hub reports a push `accepted` but omits the assigned version
+ * for an entity that was pushed — a contract violation, not a retryable race.
+ * Silently skipping it would leave the write pending forever and re-pushed on
+ * every cycle, so the protocol is treated as broken the moment it happens.
+ * `entityKey` is a composite `{entityType}:{entityId}` (ULIDs only, no PII).
+ */
+export class SyncProtocolError extends DomainError {
+  readonly code = 'sync-protocol';
+
+  constructor(readonly entityKey: string) {
+    super(
+      `Sync protocol violation: hub accepted the push but returned no version for "${entityKey}".`,
+    );
+  }
+}

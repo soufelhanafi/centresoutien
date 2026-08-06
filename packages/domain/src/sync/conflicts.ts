@@ -54,6 +54,13 @@ export type DeleteVsEdit = {
   readonly theirs: ConflictSide;
 };
 
+/** Stable duplicate reason tokens — the renderer maps each to a localized label. */
+export type DuplicateReason =
+  | 'same-name-phone'
+  | 'shared-phone'
+  | 'shared-guardian'
+  | 'separated-family';
+
 /**
  * Two live records in the same center probably name the same person — the
  * duplicate-detection tier of the resolve step. Parents/teachers anchor on the
@@ -71,8 +78,7 @@ export type ProbableDuplicate = {
   /** The record that would be retired into `keptId`. */
   readonly candidateId: EntityId;
   readonly tier: 'exact' | 'fuzzy';
-  /** Stable token the renderer maps to a localized reason: same-name-phone, shared-phone, shared-guardian, separated-family. */
-  readonly reason: string;
+  readonly reason: DuplicateReason;
 };
 
 export type SyncConflict = FieldClash | DeleteVsEdit | ProbableDuplicate;
@@ -80,8 +86,11 @@ export type SyncConflict = FieldClash | DeleteVsEdit | ProbableDuplicate;
 /** A stable identity for de-duplicating repeated conflict detections across retries. */
 export function conflictKey(conflict: SyncConflict): string {
   switch (conflict.kind) {
-    case 'field-clash':
-      return `field-clash:${conflict.entityType}:${conflict.entityId}:${conflict.fields.join(',')}`;
+    case 'field-clash': {
+      // Sort so equivalent clashes key identically regardless of field order.
+      const fields = [...conflict.fields].sort().join(',');
+      return `field-clash:${conflict.entityType}:${conflict.entityId}:${fields}`;
+    }
     case 'delete-vs-edit':
       return `delete-vs-edit:${conflict.entityType}:${conflict.entityId}`;
     case 'probable-duplicate':

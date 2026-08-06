@@ -84,38 +84,42 @@ export type PushResult =
   | {
       readonly status: 'rejected-stale';
       /**
-       * Everything the hub has accepted since this device's cursor — the device
-       * re-resolves against it. The device's cursor is NOT advanced by a
-       * rejection, so the next pull re-delivers it (idempotent via version skip).
+       * The device's cursor is NOT advanced by a rejection, so the next pull
+       * re-delivers everything since it and the device re-resolves (idempotent
+       * via version skip). The hub carries no payload here — it is a dumb
+       * mailbox and the device never trusts a second-hand feed.
        */
-      readonly freshChanges: readonly HubChange[];
       readonly cursor: SyncCursor;
     };
 
 export interface SyncHubPort {
   /**
-   * Everything the hub accepted since `cursor` (from 0 when null). The hub
-   * advances and returns the device's new cursor. The device's own local cursor
-   * is the source of truth — the hub additionally tracks one cursor per
-   * `(deviceId, centreId)` for its own bookkeeping: serving the fresh feed on a
-   * rejected push, and compacting the change feed no further than the oldest
-   * live cursor.
+   * Everything the hub accepted since `cursor` (from 0 when null — a fresh
+   * install always starts at the head, never at a stored per-device cursor).
+   * The hub advances and returns the device's new cursor. The device's own
+   * local cursor is the source of truth — the hub additionally tracks one
+   * cursor per `(deviceId, centreId)` for its own bookkeeping (feed compaction
+   * no further than the oldest live cursor).
+   *
+   * Transport errors (an unreachable HTTP hub) reject this call and propagate
+   * out of the sync engine unchanged — SOU-81 adds a transport status to
+   * `SyncResult` when the embedded hub lands.
    */
   pullChanges(centreId: CenterCode, cursor: SyncCursor | null, deviceId: DeviceId): Promise<ChangeBatch>;
 
   /**
-   * Apply `changes` iff every entity's `baseVersion` equals the hub's current
-   * canonical version — checked for the WHOLE batch first, atomically, so two
-   * simultaneous syncs can never both win. A stale push is rejected whole and
-   * the device re-runs pull → resolve → push (one cheap retry loop serializes
-   * concurrent syncs without locks). `schemaVersion` is the device's; the hub
-   * rejects a device older than itself with `SchemaTooOldError`.
+   * Apply `changes` iff every entity's `baseVersion` (carried on the
+   * `LocalChange` itself) equals the hub's current canonical version — checked
+   * for the WHOLE batch first, atomically, so two simultaneous syncs can never
+   * both win. A stale push is rejected whole and the device re-runs
+   * pull → resolve → push (one cheap retry loop serializes concurrent syncs
+   * without locks). `schemaVersion` is the device's; the hub rejects a device
+   * older than itself with `SchemaTooOldError`.
    */
   pushChanges(input: {
     centreId: CenterCode;
     deviceId: DeviceId;
     changes: readonly LocalChange[];
-    baseVersions: Readonly<Record<string, number>>;
     schemaVersion: number;
   }): Promise<PushResult>;
 

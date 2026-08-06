@@ -4,6 +4,7 @@ import type { Student } from '../entities/student';
 import type { Teacher } from '../entities/teacher';
 import type { CenterCode, EntityId } from '../value-objects/ids';
 import { toEntityId } from '../value-objects/ids';
+import type { DuplicateReason } from './conflicts';
 
 /**
  * Duplicate matching at sync time (SOU-80 §4 / `sync-safe-entities` step 3), run
@@ -16,12 +17,19 @@ import { toEntityId } from '../value-objects/ids';
  *
  * The matcher only *detects*: it never writes, never repoints dependents, and
  * never removes a record. Detection keyed on the SAME name normalization the
- * write path stamps (`normalizeNameForMatch`), so "Mohamed" / "Mohammed" /
- * "محمد" collide exactly where the naturalKey would.
+ * write path stamps (`normalizeNameForMatch`), so diacritic / case / spacing
+ * variants collide exactly where the naturalKey would. There is no
+ * transliteration or consonant folding: "Mohamed", "Mohammed", and "محمد"
+ * remain DISTINCT keys — a shared phone still flags them fuzzy, never exact.
  */
 
 export const PEOPLE_ENTITY_TYPES = ['parents', 'teachers', 'students'] as const;
 export type PeopleEntityType = (typeof PEOPLE_ENTITY_TYPES)[number];
+
+/** Narrowing guard for `PEOPLE_ENTITY_TYPES` — type-safe membership check. */
+export function isPeopleEntityType(entityType: string): entityType is PeopleEntityType {
+  return (PEOPLE_ENTITY_TYPES as readonly string[]).includes(entityType);
+}
 
 /** Typed reads the matcher needs — implemented by the local sync store's adapter. */
 export type DuplicateMatchSource = {
@@ -35,7 +43,7 @@ export type DuplicateMatch = {
   readonly tier: 'exact' | 'fuzzy';
   readonly candidateId: EntityId;
   /** Stable token mapped to a localized reason in the popup. */
-  readonly reason: string;
+  readonly reason: DuplicateReason;
 };
 
 /**

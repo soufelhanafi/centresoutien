@@ -43,7 +43,7 @@ export function makeEngine(input: {
   deviceId: DeviceId;
   updatedBy: UserId;
   userCanResolve?: boolean;
-  maxRetries?: number;
+  maxAttempts?: number;
   plan?: PlanPolicy;
 }): SyncEngine {
   return new SyncEngine({
@@ -55,7 +55,7 @@ export function makeEngine(input: {
     updatedBy: input.updatedBy,
     centreId: CENTER,
     userCanResolve: input.userCanResolve ?? true,
-    ...(input.maxRetries !== undefined ? { maxRetries: input.maxRetries } : {}),
+    ...(input.maxAttempts !== undefined ? { maxAttempts: input.maxAttempts } : {}),
   });
 }
 

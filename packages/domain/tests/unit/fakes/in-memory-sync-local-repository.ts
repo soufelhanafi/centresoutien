@@ -52,7 +52,7 @@ export class InMemorySyncLocalRepository implements LocalSyncRepository {
     const pending: LocalPendingChange = {
       entityType: input.entityType,
       entityId: input.entityId,
-      deviceId: this.deviceId,
+      deviceId: input.deviceId,
       baseVersion: input.baseVersion,
       op: input.op,
       entity: input.entity,

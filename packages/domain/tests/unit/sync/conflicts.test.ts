@@ -39,8 +39,13 @@ describe('conflictKey', () => {
   });
 
   it('keys delete-vs-edit by type and entity (direction-independent — one tab)', () => {
-    const mineDeleted: DeleteVsEdit = { kind: 'delete-vs-edit', entityType: 'students', entityId: S1, mine: side, theirs: { ...side, op: 'delete' } };
-    expect(conflictKey(mineDeleted)).toBe('delete-vs-edit:students:stu_00000000000000000000000001');
+    // theirs deleted, mine edited.
+    const theirsDeleted: DeleteVsEdit = { kind: 'delete-vs-edit', entityType: 'students', entityId: S1, mine: side, theirs: { ...side, op: 'delete' } };
+    // mine deleted, theirs edited — the reversed conflict, same one tab.
+    const mineDeleted: DeleteVsEdit = { ...theirsDeleted, mine: { ...side, op: 'delete' }, theirs: side };
+
+    expect(conflictKey(theirsDeleted)).toBe('delete-vs-edit:students:stu_00000000000000000000000001');
+    expect(conflictKey(mineDeleted)).toBe(conflictKey(theirsDeleted));
   });
 
   it('keys probable duplicates by type and the kept/candidate pair', () => {

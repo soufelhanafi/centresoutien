@@ -151,6 +151,45 @@ describe('resolveInboundChange', () => {
     expect(outcome.entity.level).toBe('1 Bac');
   });
 
+  it('never raises a clash on the envelope version, even when BOTH sides list it', () => {
+    // Regression: envelope fields are engine-managed, so even a hostile/invalid
+    // change log that lists `version` on both sides must merge cleanly — the
+    // clash detector filters envelope fields out before comparing values.
+    const outcome = resolveInboundChange({
+      entityType: 'students',
+      entityId: STUDENT,
+      local: local({ changedFields: ['version', 'phone'], entity: { id: STUDENT, phone: '0666666666', version: 1 } }),
+      inbound: inbound({ changedFields: ['version', 'level'], entity: { id: STUDENT, level: '1 Bac', version: 99 } }),
+    });
+
+    expect(outcome.kind).toBe('merged');
+    if (outcome.kind !== 'merged') return;
+    expect(outcome.entity.version).toBe(1); // engine-assigned base, not 99
+    expect(outcome.entity.phone).toBe('0666666666');
+    expect(outcome.entity.level).toBe('1 Bac');
+    expect(outcome.changedFields).toEqual(['phone', 'level']); // envelope excluded
+  });
+
+  it('never lets wire field names pollute the merged object prototype', () => {
+    const outcome = resolveInboundChange({
+      entityType: 'students',
+      entityId: STUDENT,
+      local: local({ changedFields: ['phone'], entity: { id: STUDENT, phone: '0666666666' } }),
+      // A hostile/invalid change log names prototype-sensitive keys.
+      inbound: inbound({
+        changedFields: ['__proto__', 'constructor', 'prototype'],
+        entity: Object.assign({ id: STUDENT, phone: '0666666666' }, { ['__proto__']: { polluted: true }, constructor: 'evil', prototype: 'evil' }),
+      }),
+    });
+
+    expect(outcome.kind).toBe('merged');
+    if (outcome.kind !== 'merged') return;
+    expect(Object.getPrototypeOf(outcome.entity)).toBe(Object.prototype);
+    expect((outcome.entity as { polluted?: unknown }).polluted).toBeUndefined();
+    expect(outcome.entity.constructor).not.toBe('evil');
+    expect(outcome.entity.phone).toBe('0666666666'); // domain fields merge as usual
+  });
+
   it('both deleted is agreement, not a conflict — takes the canonical tombstone', () => {
     const outcome = resolveInboundChange({
       entityType: 'students',

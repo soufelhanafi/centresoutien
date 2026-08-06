@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { MAX_SYNC_RETRIES } from '../../../src/sync/sync-engine';
+import { MAX_SYNC_ATTEMPTS } from '../../../src/sync/sync-engine';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { planWithoutFeature } from '../fakes/plans';
-import { SchemaTooOldError } from '../../../src/errors/sync-errors';
+import { SchemaTooOldError, SyncProtocolError } from '../../../src/errors/sync-errors';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
 import { SCHEMA_VERSION } from '../../../src/sync/schema-version';
 import type { SyncHubPort, SyncCursor, ChangeBatch, PushResult, LocalChange } from '../../../src/ports/sync-hub-port';
@@ -25,11 +25,11 @@ describe('SyncEngine — concurrency, retries, and robustness', () => {
     const a = new InMemorySyncLocalRepository(clock, DEV_A);
 
     a.writeLocal('students', S1, studentEntity(S1), ['name'], USER_A);
-    const rejecting = new AlwaysRejectHub(hub, MAX_SYNC_RETRIES);
+    const rejecting = new AlwaysRejectHub(hub);
     const result = await makeEngine({ hub: rejecting, local: a, clock, deviceId: DEV_A, updatedBy: USER_A }).run(matcherFor(a));
 
     expect(result.status).toBe('retries-exhausted');
-    expect(rejecting.pushCalls).toBe(MAX_SYNC_RETRIES);
+    expect(rejecting.pushCalls).toBe(MAX_SYNC_ATTEMPTS);
     // The edit is still safe locally — nothing was lost, nothing was clobbered.
     expect(a.entity('students', S1)).toBeDefined();
   });
@@ -53,7 +53,7 @@ describe('SyncEngine — concurrency, retries, and robustness', () => {
     b.writeLocal('students', S1, studentEntity(S1, { phone: '0677777777' }), ['phone'], USER_B);
     b.writeLocal('students', S4, studentEntity(S4), ['name'], USER_B);
 
-    const rejecting = new AlwaysRejectHub(hub, 3);
+    const rejecting = new AlwaysRejectHub(hub);
     const result = await makeEngine({ hub: rejecting, local: b, clock, deviceId: DEV_B, updatedBy: USER_B }).run(matcherFor(b));
 
     expect(result.status).toBe('retries-exhausted');
@@ -64,17 +64,20 @@ describe('SyncEngine — concurrency, retries, and robustness', () => {
     expect(result.conflicts[0].kind).toBe('field-clash');
   });
 
-  it('a zero-retry config surfaces retries-exhausted immediately without touching the hub', async () => {
+  it('a zero-attempt config surfaces retries-exhausted immediately without touching the hub', async () => {
     const clock = fakeClock('2026-08-01T10:00:00Z');
     const hub = new InMemorySyncHub(clock);
     const a = new InMemorySyncLocalRepository(clock, DEV_A);
     a.writeLocal('students', S1, studentEntity(S1), ['name'], USER_A);
 
-    const result = await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A, maxRetries: 0 }).run(matcherFor(a));
+    const result = await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A, maxAttempts: 0 }).run(matcherFor(a));
 
     expect(result.status).toBe('retries-exhausted');
     expect(result.cursor).toBeNull();
     expect(a.getCursor()).toEqual({ seq: 0 }); // defensive cursor fallback
+    // The hub was never contacted: no feed writes, no per-device cursor stored.
+    expect(hub.feed(CENTER)).toHaveLength(0);
+    expect(await hub.getCursor(DEV_A, CENTER)).toBeNull();
   });
 
   it('device clock skew is flagged but never stops the sync — versions still decide', async () => {
@@ -138,7 +141,6 @@ describe('SyncEngine — concurrency, retries, and robustness', () => {
         centreId: CENTER,
         deviceId: DEV_A,
         changes: [],
-        baseVersions: {},
         schemaVersion: SCHEMA_VERSION,
       }),
     ).rejects.toBeInstanceOf(SchemaTooOldError);
@@ -168,14 +170,19 @@ describe('SyncEngine — concurrency, retries, and robustness', () => {
         at: clock.now(),
         updatedBy: USER_C,
       }],
-      baseVersions: {},
     });
 
     const result = await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A }).run(matcherFor(a));
 
     expect(result.status).toBe('synced');
     expect(result.applied).toBe(1);
-    expect(a.entity('students', S1)?.level).toBe('3AC');
+    const applied = a.entity('students', S1);
+    expect(applied).toBeDefined();
+    if (!applied) return;
+    expect(applied.level).toBe('3AC');
+    // Additive migrations are lossless: the device keeps what it does not
+    // understand, so a later push never erases another device's data.
+    expect(applied.futuristicField).toBe(true);
   });
 
   it('unauthorized resolver: safe merges still apply, clashes are queued, nothing else written', async () => {
@@ -218,15 +225,28 @@ describe('SyncEngine — concurrency, retries, and robustness', () => {
     await expect(engine.run(matcherFor(a))).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
     expect(hub.feed(CENTER)).toHaveLength(0);
   });
+
+  it('an accepted push that omits a version is a protocol violation, not a silent skip', async () => {
+    const clock = fakeClock('2026-08-01T10:00:00Z');
+    const hub = new InMemorySyncHub(clock);
+    const a = new InMemorySyncLocalRepository(clock, DEV_A);
+    a.writeLocal('students', S1, studentEntity(S1), ['name'], USER_A);
+
+    // A misbehaving hub that reports accepted but returns no assigned versions.
+    const malformed = new MissingVersionHub(hub);
+    const engine = makeEngine({ hub: malformed, local: a, clock, deviceId: DEV_A, updatedBy: USER_A });
+
+    await expect(engine.run(matcherFor(a))).rejects.toBeInstanceOf(SyncProtocolError);
+    // The write stays pending locally — nothing was lost, nothing mis-marked synced.
+    expect(a.isBlocked('students', S1)).toBe(false);
+    expect(a.entity('students', S1)).toBeDefined();
+  });
 });
 
-/** A hub that rejects every push — forces the retry cap. */
+/** A hub that rejects every push — forces the attempt cap. */
 class AlwaysRejectHub implements SyncHubPort {
   pushCalls = 0;
-  constructor(
-    private readonly inner: SyncHubPort,
-    private readonly maxRetries: number,
-  ) {}
+  constructor(private readonly inner: SyncHubPort) {}
 
   pullChanges(centreId: CenterCode, cursor: SyncCursor | null, deviceId: DeviceId): Promise<ChangeBatch> {
     return this.inner.pullChanges(centreId, cursor, deviceId);
@@ -240,12 +260,33 @@ class AlwaysRejectHub implements SyncHubPort {
     centreId: CenterCode;
     deviceId: DeviceId;
     changes: readonly LocalChange[];
-    baseVersions: Readonly<Record<string, number>>;
     schemaVersion: number;
   }): Promise<PushResult> {
     this.pushCalls++;
     void input;
-    void this.maxRetries;
-    return { status: 'rejected-stale', freshChanges: [], cursor: { seq: 0 } };
+    return { status: 'rejected-stale', cursor: { seq: 0 } };
+  }
+}
+
+/** A hub that reports `accepted` but returns no assigned versions — protocol break. */
+class MissingVersionHub implements SyncHubPort {
+  constructor(private readonly inner: SyncHubPort) {}
+
+  pullChanges(centreId: CenterCode, cursor: SyncCursor | null, deviceId: DeviceId): Promise<ChangeBatch> {
+    return this.inner.pullChanges(centreId, cursor, deviceId);
+  }
+
+  getCursor(deviceId: DeviceId, centreId: CenterCode): Promise<SyncCursor | null> {
+    return this.inner.getCursor(deviceId, centreId);
+  }
+
+  async pushChanges(input: {
+    centreId: CenterCode;
+    deviceId: DeviceId;
+    changes: readonly LocalChange[];
+    schemaVersion: number;
+  }): Promise<PushResult> {
+    void input;
+    return { status: 'accepted', versions: {}, cursor: { seq: 0 } };
   }
 }

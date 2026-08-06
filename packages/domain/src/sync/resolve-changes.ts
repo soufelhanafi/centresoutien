@@ -4,7 +4,7 @@ import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import type { SyncConflict } from './conflicts';
 import { conflictKey } from './conflicts';
 import type { DuplicateMatcher } from './duplicate-matcher';
-import { PEOPLE_ENTITY_TYPES } from './duplicate-matcher';
+import { isPeopleEntityType } from './duplicate-matcher';
 import { resolveInboundChange, type ResolveOutcome } from './merge';
 import type { LocalPendingChange, LocalSyncRepository } from './sync-local-repository';
 
@@ -79,9 +79,10 @@ export class ChangeResolver {
     local: LocalPendingChange | null,
     outcome: Extract<ResolveOutcome, { kind: 'merged' }>,
   ): Parameters<LocalSyncRepository['upsertPending']>[0] {
-    const merged = { ...outcome.entity } as Record<string, unknown>;
+    const now = this.clock.now();
+    const merged = { ...outcome.entity };
     merged['version'] = outcome.baseVersion;
-    merged['updatedAt'] = this.clock.now();
+    merged['updatedAt'] = now;
     merged['updatedBy'] = this.updatedBy;
     return {
       entityType: change.entityType,
@@ -92,7 +93,7 @@ export class ChangeResolver {
       baseVersion: outcome.baseVersion,
       op: local?.op ?? 'update',
       updatedBy: this.updatedBy,
-      at: this.clock.now(),
+      at: now,
     };
   }
 
@@ -100,13 +101,17 @@ export class ChangeResolver {
    * Flag probable duplicates for inbound creates of people-like entities. The
    * matcher only detects (parents-first, phone anchor; students, name+guardian);
    * executing a merge is the Merge use cases' job (SOU-92).
+   *
+   * Detection iterates the batch in feed order today. When SOU-92 wires actual
+   * merges, inbound people creates must be processed parents → teachers →
+   * students so cross-entity resolution can rely on parents being settled first.
    */
   private detectDuplicates(
     change: HubChange,
     conflicts: SyncConflict[],
     matcher: DuplicateMatcher,
   ): void {
-    if (change.op !== 'create' || !PEOPLE_ENTITY_TYPES.includes(change.entityType as never)) {
+    if (change.op !== 'create' || !isPeopleEntityType(change.entityType)) {
       return;
     }
     for (const match of matcher.match({
@@ -115,6 +120,8 @@ export class ChangeResolver {
       entity: change.entity,
       selfId: change.entityId,
     })) {
+      // keptId = the pre-existing record that stays; candidateId = this newer
+      // inbound record that would be retired into it once SOU-92 merges.
       this.pushUniqueConflict(conflicts, {
         kind: 'probable-duplicate',
         entityType: change.entityType,
@@ -127,7 +134,8 @@ export class ChangeResolver {
   }
 
   private pushUniqueConflict(conflicts: SyncConflict[], conflict: SyncConflict): void {
-    if (conflicts.some((existing) => conflictKey(existing) === conflictKey(conflict))) return;
+    const key = conflictKey(conflict);
+    if (conflicts.some((existing) => conflictKey(existing) === key)) return;
     conflicts.push(conflict);
   }
 }

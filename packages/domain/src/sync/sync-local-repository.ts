@@ -9,6 +9,11 @@ import type { DeviceId, EntityId, UserId } from '../value-objects/ids';
  * engine only ever talks to this interface, so the same engine drives a laptop
  * and the future web app ("laptop N+1").
  *
+ * Each instance is bound to exactly ONE center (its SQLite store). Cursors and
+ * pending changes are per-center by construction — if an implementation ever
+ * serves multiple centers it must key its state by `centerCode` so data cannot
+ * mix across tenants (see `multi-center-tenancy`).
+ *
  * `entity` values are DOMAIN-shape snapshots (the versioned change_log payload),
  * so the adapter decides schema mapping on apply — the domain engine never sees
  * a physical SQLite row.

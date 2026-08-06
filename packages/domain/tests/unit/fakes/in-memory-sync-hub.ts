@@ -66,7 +66,9 @@ export class InMemorySyncHub implements SyncHubPort {
     deviceId: DeviceId,
   ): Promise<ChangeBatch> {
     const key = this.cursorKey(deviceId, centreId);
-    const start = cursor?.seq ?? this.cursors.get(key)?.seq ?? 0;
+    // A null cursor always means "from the head" — never a stored per-device
+    // cursor, so a fresh install replays the whole feed (SOU-80 §3).
+    const start = cursor?.seq ?? 0;
     const feed = this.feedOf(centreId);
     const changes = feed.filter((change) => change.seq > start);
     const nextCursor = { seq: feed.length };
@@ -83,7 +85,6 @@ export class InMemorySyncHub implements SyncHubPort {
     centreId: CenterCode;
     deviceId: DeviceId;
     changes: readonly LocalChange[];
-    baseVersions: Readonly<Record<string, number>>;
     schemaVersion: number;
   }): Promise<PushResult> {
     if (input.schemaVersion < this.schemaVersion) {
@@ -93,17 +94,13 @@ export class InMemorySyncHub implements SyncHubPort {
     const feed = this.feedOf(input.centreId);
 
     // Atomic version check across the WHOLE batch before touching anything:
-    // two simultaneous syncs can never both win.
+    // two simultaneous syncs can never both win. The base is on each change.
     for (const change of input.changes) {
-      const base = input.baseVersions[entityKey(change.entityType, change.entityId)] ?? 0;
+      const base = change.baseVersion;
       const current = this.canonicalVersion(input.centreId, change.entityType, change.entityId);
       if (base !== current) {
         const deviceCursor = this.cursors.get(this.cursorKey(input.deviceId, input.centreId))?.seq ?? 0;
-        return {
-          status: 'rejected-stale',
-          freshChanges: feed.filter((entry) => entry.seq > deviceCursor),
-          cursor: { seq: deviceCursor },
-        };
+        return { status: 'rejected-stale', cursor: { seq: deviceCursor } };
       }
     }
 

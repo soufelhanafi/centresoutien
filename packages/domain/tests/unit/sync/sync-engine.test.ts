@@ -222,6 +222,32 @@ describe('SyncEngine — pull → resolve → push', () => {
     expect(fresh.entity('students', S1)).toBeDefined();
   });
 
+  it('a device that lost its local cursor re-pulls the WHOLE feed, never a delta from its old hub cursor', async () => {
+    const clock = fakeClock('2026-08-01T10:00:00Z');
+    const hub = new InMemorySyncHub(clock);
+    const a = new InMemorySyncLocalRepository(clock, DEV_A);
+    const b = new InMemorySyncLocalRepository(clock, DEV_B);
+
+    // B syncs S1 once — the hub stores a per-device cursor for B at seq 1.
+    a.writeLocal('students', S1, studentEntity(S1), ['name'], USER_A);
+    await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A }).run(matcherFor(a));
+    await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B }).run(matcherFor(b));
+
+    // A pushes more while B is "offline".
+    a.writeLocal('students', S2, studentEntity(S2), ['name'], USER_A);
+    await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A }).run(matcherFor(a));
+
+    // B's local cursor is lost (fresh local DB). A null cursor must replay from
+    // the head — the stored per-device hub cursor is NOT a shortcut to skip it.
+    const reset = new InMemorySyncLocalRepository(clock, DEV_B);
+    const result = await makeEngine({ hub, local: reset, clock, deviceId: DEV_B, updatedBy: USER_B }).run(matcherFor(reset));
+
+    expect(result.status).toBe('synced');
+    expect(result.applied).toBe(2); // S1 AND S2 — the whole feed, not the delta
+    expect(reset.entity('students', S1)).toBeDefined();
+    expect(reset.entity('students', S2)).toBeDefined();
+  });
+
   it('duplicate parents detected at sync, parents-first by E.164 phone', async () => {
     const clock = fakeClock('2026-08-01T10:00:00Z');
     const hub = new InMemorySyncHub(clock);
@@ -296,7 +322,6 @@ class ConcurrentPushHub implements SyncHubPort {
           at: this.clock.now(),
           updatedBy: USER_C,
         }],
-        baseVersions: { [`students:${S1}`]: 1 },
       });
     }
     return this.inner.pushChanges(input);

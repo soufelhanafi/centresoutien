@@ -55,7 +55,7 @@ export { serializeChangeLogPayload, deserializeChangeLogPayload } from './sync/c
 export type { ChangeLogPayload, ChangeLogPayloadUpcaster } from './sync/change-log-payload';
 export { CURRENT_CHANGE_LOG_PAYLOAD_VERSION } from './sync/change-log-payload';
 export { SCHEMA_VERSION } from './sync/schema-version';
-export { SchemaTooOldError } from './errors/sync-errors';
+export { SchemaTooOldError, SyncProtocolError } from './errors/sync-errors';
 export { resolveInboundChange } from './sync/merge';
 export type { ResolveOutcome } from './sync/merge';
 export { conflictKey } from './sync/conflicts';
@@ -65,14 +65,15 @@ export type {
   FieldClash,
   DeleteVsEdit,
   ProbableDuplicate,
+  DuplicateReason,
 } from './sync/conflicts';
-export { DuplicateMatcher, PEOPLE_ENTITY_TYPES } from './sync/duplicate-matcher';
+export { DuplicateMatcher, PEOPLE_ENTITY_TYPES, isPeopleEntityType } from './sync/duplicate-matcher';
 export type {
   DuplicateMatch,
   DuplicateMatchSource,
   PeopleEntityType,
 } from './sync/duplicate-matcher';
-export { SyncEngine, MAX_SYNC_RETRIES, CLOCK_SKEW_THRESHOLD_MS } from './sync/sync-engine';
+export { SyncEngine, MAX_SYNC_ATTEMPTS, CLOCK_SKEW_THRESHOLD_MS } from './sync/sync-engine';
 export type { SyncEngineInput, SyncResult } from './sync/sync-engine';
 export { ChangeResolver } from './sync/resolve-changes';
 export type { LocalSyncRepository, LocalPendingChange, LocalEntityState } from './sync/sync-local-repository';

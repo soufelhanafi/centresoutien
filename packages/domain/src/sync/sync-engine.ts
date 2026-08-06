@@ -1,7 +1,7 @@
 import type { Clock } from '../ports/clock';
 import { entityKey, type SyncCursor, type SyncHubPort } from '../ports/sync-hub-port';
 import type { PlanPolicy } from '../plans/plan-policy';
-import { SchemaTooOldError } from '../errors/sync-errors';
+import { SchemaTooOldError, SyncProtocolError } from '../errors/sync-errors';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import type { SyncConflict } from './conflicts';
 import type { DuplicateMatcher } from './duplicate-matcher';
@@ -17,17 +17,23 @@ import type { LocalSyncRepository } from './sync-local-repository';
  * 2. Resolve locally (`ChangeResolver`): non-overlapping field edits auto-merge
  *    silently, delete-vs-edit and same-field clashes go to a human, probable
  *    duplicates are flagged.
- * 3. Push with `baseVersions`. The hub accepts iff each base equals its current
- *    canonical version, then assigns a fresh `version`. A stale push is rejected
- *    whole and the cycle re-runs — one cheap retry loop (capped) serializes
- *    concurrent syncs without locks. Resolution always happens on the device
- *    that syncs second; the others converge on their next pull.
+ * 3. Push. Each `LocalChange` carries the canonical `baseVersion` it was written
+ *    on; the hub accepts iff every base equals its current canonical version,
+ *    then assigns a fresh `version`. A stale push is rejected whole and the
+ *    cycle re-runs — one cheap retry loop (capped at `MAX_SYNC_ATTEMPTS`)
+ *    serializes concurrent syncs without locks. Resolution always happens on the
+ *    device that syncs second; the others converge on their next pull.
  *
  * Ordering truth is `version` + the hub's atomic push check, never wall clocks.
  * A device whose clock is absurdly ahead is flagged (`deviceClockSkew`), and its
  * data still syncs — decided by versions, not timestamps.
+ *
+ * Transport failures (an unreachable HTTP hub) reject out of `run` and are not
+ * retried here: SOU-81 adds a transport status to `SyncResult` when the embedded
+ * hub lands, and `SchemaTooOldError` / `PlanFeatureUnavailableError` always
+ * propagate unchanged.
  */
-export const MAX_SYNC_RETRIES = 5;
+export const MAX_SYNC_ATTEMPTS = 5;
 export const CLOCK_SKEW_THRESHOLD_MS = 15 * 60 * 1000;
 
 export type SyncEngineInput = {
@@ -46,7 +52,8 @@ export type SyncEngineInput = {
    * inbox for an admin (`queued`).
    */
   userCanResolve: boolean;
-  maxRetries?: number;
+  /** Total pull→resolve→push attempts before giving up (default `MAX_SYNC_ATTEMPTS`). */
+  maxAttempts?: number;
 };
 
 export type SyncResult = {
@@ -71,7 +78,7 @@ export class SyncEngine {
   private readonly updatedBy: UserId;
   private readonly centreId: CenterCode;
   private readonly userCanResolve: boolean;
-  private readonly maxRetries: number;
+  private readonly maxAttempts: number;
   private readonly resolver: ChangeResolver;
 
   constructor(input: SyncEngineInput) {
@@ -83,7 +90,7 @@ export class SyncEngine {
     this.updatedBy = input.updatedBy;
     this.centreId = input.centreId;
     this.userCanResolve = input.userCanResolve;
-    this.maxRetries = input.maxRetries ?? MAX_SYNC_RETRIES;
+    this.maxAttempts = input.maxAttempts ?? MAX_SYNC_ATTEMPTS;
     this.resolver = new ChangeResolver(input.local, input.clock, input.deviceId, input.updatedBy, input.centreId);
   }
 
@@ -101,7 +108,7 @@ export class SyncEngine {
     // shortcut to skip pulls, or a fresh install could silently miss data.
     let cursor = this.local.getCursor();
 
-    for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+    for (let attempt = 0; attempt < this.maxAttempts; attempt++) {
       const batch = await this.hub.pullChanges(this.centreId, cursor, this.deviceId);
       if (batch.schemaVersion > SCHEMA_VERSION) {
         // Too old to write. Pull is additive-safe, but a too-old device cannot
@@ -157,25 +164,21 @@ export class SyncEngine {
       return { status: 'accepted', cursor: noopCursor, pushed: 0 };
     }
 
-    const baseVersions: Record<string, number> = {};
-    for (const change of pending) {
-      baseVersions[entityKey(change.entityType, change.entityId)] = change.baseVersion;
-    }
-
     const result = await this.hub.pushChanges({
       centreId: this.centreId,
       deviceId: this.deviceId,
       changes: pending,
-      baseVersions,
       schemaVersion: SCHEMA_VERSION,
     });
 
     if (result.status === 'accepted') {
       for (const change of pending) {
-        const assigned = result.versions[entityKey(change.entityType, change.entityId)];
-        if (assigned !== undefined) {
-          this.local.markSynced(change.entityType, change.entityId, assigned);
-        }
+        const key = entityKey(change.entityType, change.entityId);
+        const assigned = result.versions[key];
+        // An `accepted` push MUST assign a version for every pushed entity; a
+        // missing one would leave the write pending and re-pushed every cycle.
+        if (assigned === undefined) throw new SyncProtocolError(key);
+        this.local.markSynced(change.entityType, change.entityId, assigned);
       }
       return { status: 'accepted', cursor: result.cursor, pushed: pending.length };
     }

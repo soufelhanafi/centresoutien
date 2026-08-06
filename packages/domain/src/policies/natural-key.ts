@@ -7,12 +7,14 @@ const NON_NAME_CHARS = /[^\p{L}\p{N}\s]/gu; // keep letters + numbers + spacing
 const CONTACT_NOISE = /[\s\-()]/g;
 
 /**
- * The name slot of a `naturalKey` / sync match: diacritic-stripped (NFKD +
- * `\p{Mn}`), lower-cased, punctuation-collapsed, whitespace → `-`. Latin and
- * Arabic letters are both preserved, so "Mohamed" / "Mohammed" / "محمد" normalize
- * onto one key. Exported so the sync duplicate matcher runs the *exact* same
- * normalization the write path stamps (`sync-safe-entities`: a matcher that
- * normalizes differently from the saver can never collide).
+ * The name slot of a `naturalKey` / sync match: NFKD-normalized, combining marks
+ * stripped, lower-cased, punctuation removed, whitespace collapsed to `-`. Latin
+ * and Arabic letters are preserved. It is NOT transliteration and does NOT fold
+ * consonants: "Mohamed", "Mohammed", and "محمد" remain DISTINCT keys — only
+ * diacritic / case / spacing variants collide. Exported so the sync duplicate
+ * matcher runs the *exact* same normalization the write path stamps
+ * (`sync-safe-entities`: a matcher that normalizes differently from the saver
+ * can never collide).
  */
 export function normalizeNameForMatch(fullName: string): string {
   return fullName

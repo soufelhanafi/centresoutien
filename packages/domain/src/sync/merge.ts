@@ -1,3 +1,4 @@
+import { ENVELOPE_FIELD_NAMES } from '../entities/envelope';
 import { valuesEqual } from './change-log';
 import type { HubChange, LocalChange } from '../ports/sync-hub-port';
 import type { EntityId } from '../value-objects/ids';
@@ -34,13 +35,14 @@ export type ResolveOutcome =
 
 export function resolveInboundChange(input: {
   entityType: string;
-  entityId: string;
+  entityId: EntityId;
   local: LocalChange | null;
   inbound: HubChange;
 }): ResolveOutcome {
   const { local, inbound } = input;
   if (local === null) {
-    return { kind: 'apply', entity: inbound.entity as Record<string, unknown>, version: inbound.version };
+    // Copy, never alias: the stored snapshot must not share the hub feed object.
+    return { kind: 'apply', entity: { ...inbound.entity }, version: inbound.version };
   }
 
   const mineDeleted = local.op === 'delete';
@@ -49,7 +51,7 @@ export function resolveInboundChange(input: {
   if (mineDeleted && theirsDeleted) {
     // Both tombstoned — the hub's tombstone is canonical. No conflict: two
     // devices deleting the same record is agreement, not a misunderstanding.
-    return { kind: 'apply', entity: inbound.entity as Record<string, unknown>, version: inbound.version };
+    return { kind: 'apply', entity: { ...inbound.entity }, version: inbound.version };
   }
 
   if (mineDeleted !== theirsDeleted) {
@@ -58,27 +60,45 @@ export function resolveInboundChange(input: {
     return { kind: 'conflict', conflict: deleteVsEdit({ ...input, local }) };
   }
 
-  const overlap = local.changedFields.filter((field) => inbound.changedFields.includes(field));
-  const clashFields = overlap.filter(
-    (field) => !valuesEqual(local.entity[field], inbound.entity[field]),
+  // Envelope bookkeeping is engine-managed; only domain fields can merge or clash.
+  const mineFields = domainFields(local.changedFields);
+  const theirsFields = domainFields(inbound.changedFields);
+
+  const clashFields = mineFields.filter(
+    (field) => theirsFields.includes(field) && !valuesEqual(local.entity[field], inbound.entity[field]),
   );
 
   if (clashFields.length > 0) {
     return { kind: 'conflict', conflict: fieldClash({ ...input, local }, clashFields) };
   }
 
-  const merged = { ...local.entity } as Record<string, unknown>;
-  for (const field of inbound.changedFields) {
-    if (field === 'version') continue; // envelope — the engine re-stamps it
+  const merged = { ...local.entity };
+  for (const field of theirsFields) {
+    if (PROTOTYPE_KEYS.has(field)) continue; // never let the wire touch the object's prototype
     merged[field] = inbound.entity[field];
   }
   return {
     kind: 'merged',
     entity: merged,
-    changedFields: Array.from(new Set([...local.changedFields, ...inbound.changedFields])),
+    // The union is the exact set of fields this merged write changes vs the
+    // common base (each side's change log is relative to that base). Downstream
+    // clash detection re-checks by value, so including a field only one side
+    // changed to a different value still surfaces a real clash — never a
+    // fabricated one. Envelope fields never appear (the write path excludes
+    // them); they are engine-managed.
+    changedFields: Array.from(new Set([...mineFields, ...theirsFields])),
     baseVersion: inbound.version,
   };
 }
+
+/** Envelope bookkeeping is engine-managed — it can neither merge nor clash. */
+function domainFields(fields: readonly string[]): readonly string[] {
+  const envelope = ENVELOPE_FIELD_NAMES as readonly string[];
+  return fields.filter((field) => !envelope.includes(field));
+}
+
+/** Wire field names that would alter the object's prototype on assignment. */
+const PROTOTYPE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 function side(input: { local: LocalChange; inbound: HubChange }, which: 'mine' | 'theirs') {
   const mine = input.local;
@@ -106,13 +126,13 @@ function side(input: { local: LocalChange; inbound: HubChange }, which: 'mine' |
 }
 
 function fieldClash(
-  input: { entityType: string; entityId: string; local: LocalChange; inbound: HubChange },
+  input: { entityType: string; entityId: EntityId; local: LocalChange; inbound: HubChange },
   fields: readonly string[],
 ): SyncConflict {
   return {
     kind: 'field-clash',
     entityType: input.entityType,
-    entityId: input.entityId as EntityId,
+    entityId: input.entityId,
     version: input.inbound.version,
     fields,
     mine: side(input, 'mine'),
@@ -122,14 +142,14 @@ function fieldClash(
 
 function deleteVsEdit(input: {
   entityType: string;
-  entityId: string;
+  entityId: EntityId;
   local: LocalChange;
   inbound: HubChange;
 }): SyncConflict {
   return {
     kind: 'delete-vs-edit',
     entityType: input.entityType,
-    entityId: input.entityId as EntityId,
+    entityId: input.entityId,
     mine: side(input, 'mine'),
     theirs: side(input, 'theirs'),
   };
