@@ -20,22 +20,34 @@ export function LicenseActivationForm({ onActivated }: { onActivated?: () => voi
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState('');
   const [result, setResult] = useState<LicenseActivateResult | null>(null);
+  const [threw, setThrew] = useState(false);
 
   const onImportClick = () => fileInputRef.current?.click();
+
+  const clearFeedback = () => {
+    setResult(null);
+    setThrew(false);
+  };
 
   const onFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
     setText(await file.text());
-    setResult(null);
+    clearFeedback();
   };
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const outcome = await activate.mutateAsync(text);
-    setResult(outcome);
-    if (outcome.status === 'activated') onActivated?.();
+    try {
+      const outcome = await activate.mutateAsync(text);
+      setResult(outcome);
+      setThrew(false);
+      if (outcome.status === 'activated') onActivated?.();
+    } catch {
+      setResult(null);
+      setThrew(true);
+    }
   };
 
   return (
@@ -49,7 +61,7 @@ export function LicenseActivationForm({ onActivated }: { onActivated?: () => voi
           value={text}
           onChange={(event) => {
             setText(event.target.value);
-            setResult(null);
+            clearFeedback();
           }}
           placeholder={t('license.form.placeholder')}
           className="font-mono text-xs"
@@ -89,6 +101,12 @@ export function LicenseActivationForm({ onActivated }: { onActivated?: () => voi
       {result?.status === 'rejected' && (
         <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-destructive">
           <p className="text-sm">{t(`license.reasons.${result.reason}`)}</p>
+        </div>
+      )}
+
+      {threw && (
+        <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-destructive">
+          <p className="text-sm">{t('license.form.errorGeneric')}</p>
         </div>
       )}
     </form>
