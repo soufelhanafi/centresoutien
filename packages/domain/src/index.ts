@@ -704,7 +704,18 @@ export { ArchiveParent } from './use-cases/archive-parent';
 export type { ArchiveParentInput } from './use-cases/archive-parent';
 export { MergeParents } from './use-cases/merge-parents';
 export type { MergeParentsInput } from './use-cases/merge-parents';
-export { MergeStudents, repointStudentDependents } from './use-cases/merge-students';
+export { MergeStudents } from './use-cases/merge-students';
+export {
+  repointStudentDependents,
+  absorbMissingStudentFields,
+  computeStudentMergeUnit,
+} from './policies/merge-students-policy';
+export type { StudentMergeUnit } from './policies/merge-students-policy';
+export {
+  reconcileOverlappingSubscriptions,
+  buildMergeStudentsNote,
+} from './policies/merge-subscription-reconciliation';
+export type { SubscriptionReconciliation } from './policies/merge-subscription-reconciliation';
 export type { MergeStudentsInput } from './use-cases/merge-students';
 export { ListParentChildren } from './use-cases/list-parent-children';
 export type { ListParentChildrenInput } from './use-cases/list-parent-children';
