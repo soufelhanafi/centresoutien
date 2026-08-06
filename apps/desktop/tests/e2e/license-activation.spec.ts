@@ -96,7 +96,9 @@ test('S3 — pasting a garbage / non-vendor key → translated invalid-signature
 
   await expect(win.getByText(L.reasonInvalid)).toBeVisible();
   await assertHardLocked(win, L); // rejection keeps the gate; no dismiss into the app
-  expect((await licenseStatus(win)).plan).toBe('essentiel'); // nothing was written
+  const after = await licenseStatus(win);
+  expect(after.status).toBe('missing'); // rejected key was never persisted
+  expect(after.plan).toBe('essentiel'); // nothing was written
 
   await win.screenshot({ path: `test-results/sou104-S3-invalid-form-${locale()}.png` });
 });

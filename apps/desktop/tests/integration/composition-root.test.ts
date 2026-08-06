@@ -1039,5 +1039,64 @@ describe('composition root', () => {
 
       container.dispose();
     });
+
+    // CodeRabbit SOU-104: the bootstrap channels are open only *until* setup is
+    // complete. On an already-configured center (an admin exists) whose license has
+    // since lapsed, the wizard never runs again — so `admin.create` / `center.save`
+    // / its logo channels must NOT stay reachable, or an unlicensed process could
+    // still mint an admin or rewrite the center profile. `isSetupComplete` closes
+    // them once an admin exists, while the fresh-install bootstrap still succeeds.
+    it('closes the wizard bootstrap channels once setup is complete, even while restricted', async () => {
+      const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+      const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+      // Signed but wrong-center → verifiable yet non-active, so restriction stays on
+      // throughout (no license rewrite happens in this test).
+      writeFileSync(
+        licensePath(),
+        signedLicenseFile(nonActiveClaims({ centerCode: 'CS-RABAT-999' }), privateKey),
+      );
+      const container = build(
+        'essentiel',
+        new Ed25519LicenseAdapter({ filePath: licensePath(), publicKey: publicPem }),
+      );
+      const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps), {
+        isRestricted: container.isRestricted,
+        isSetupComplete: container.isSetupComplete,
+      });
+
+      // Fresh install: no admin yet → bootstrap is open so setup can proceed.
+      expect((await dispatch('license.status', {})).status).toBe('wrong-center');
+      expect(await dispatch('admin.exists', {})).toEqual({ exists: false });
+      await dispatch('center.save', {
+        name: 'Centre Al Ilm',
+        address: '12 Rue Mohammed V',
+        phone: '0522-000000',
+        email: 'contact@alilm.ma',
+        logoPath: null,
+      });
+      await dispatch('admin.create', { username: 'directrice', password: PASS });
+
+      // Setup is now complete (an admin exists). The gate re-reads that state and the
+      // bootstrap mutations close — while the routing read (`admin.exists`) and the
+      // activation surface stay open so the user can still fix the license.
+      expect(await dispatch('admin.exists', {})).toEqual({ exists: true });
+      await expect(
+        dispatch('center.save', {
+          name: 'Tampered',
+          address: 'x',
+          phone: '0522-000000',
+          email: 'x@y.ma',
+          logoPath: null,
+        }),
+      ).rejects.toThrow(/license-restricted/);
+      await expect(
+        dispatch('admin.create', { username: 'intruder', password: PASS }),
+      ).rejects.toThrow(/license-restricted/);
+      expect((await dispatch('license.activate', { license: 'not-a-license' })).reason).toBe(
+        'invalid-signature',
+      );
+
+      container.dispose();
+    });
   });
 });

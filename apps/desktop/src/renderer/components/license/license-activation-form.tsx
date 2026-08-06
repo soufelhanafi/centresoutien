@@ -20,13 +20,13 @@ export function LicenseActivationForm({ onActivated }: { onActivated?: () => voi
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState('');
   const [result, setResult] = useState<LicenseActivateResult | null>(null);
-  const [threw, setThrew] = useState(false);
+  const [hasActivationError, setHasActivationError] = useState(false);
 
   const onImportClick = () => fileInputRef.current?.click();
 
   const clearFeedback = () => {
     setResult(null);
-    setThrew(false);
+    setHasActivationError(false);
   };
 
   const onFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,15 +39,17 @@ export function LicenseActivationForm({ onActivated }: { onActivated?: () => voi
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    let outcome: LicenseActivateResult;
     try {
-      const outcome = await activate.mutateAsync(text);
-      setResult(outcome);
-      setThrew(false);
-      if (outcome.status === 'activated') onActivated?.();
+      outcome = await activate.mutateAsync(text);
     } catch {
       setResult(null);
-      setThrew(true);
+      setHasActivationError(true);
+      return;
     }
+    setResult(outcome);
+    setHasActivationError(false);
+    if (outcome.status === 'activated') onActivated?.();
   };
 
   return (
@@ -104,7 +106,7 @@ export function LicenseActivationForm({ onActivated }: { onActivated?: () => voi
         </div>
       )}
 
-      {threw && (
+      {hasActivationError && (
         <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-destructive">
           <p className="text-sm">{t('license.form.errorGeneric')}</p>
         </div>

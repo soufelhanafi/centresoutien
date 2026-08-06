@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import type { Database as DB } from 'better-sqlite3';
+import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   PLANS,
@@ -134,6 +135,7 @@ import type {
   Clock,
   LicensePort,
   LicenseBindingContext,
+  LicenseVerification,
   IdGenerator,
   RoomReferencePort,
   SubjectReferencePort,
@@ -260,9 +262,10 @@ export type Container = {
   subscriptionReference: StudentSubscriptionReferencePort;
   /**
    * The embedded hub's {@link SyncHubPort} client (SOU-90) for the open center —
-   * the seam the sync engine (SOU-81) will drive. Always an HTTP client bound to
-   * the hub host's own `127.0.0.1` when the hub is enabled, so the hub laptop is
-   * never special-cased. Null when the hub is disabled.
+   * the seam the sync engine (SOU-81) will drive. An HTTP client pointed at the
+   * hub's own listening interface (`bindHost`, the LAN address the server binds),
+   * so the hub laptop reaches its own server through the same port as every peer
+   * and is never special-cased. Null when the hub is disabled.
    */
   syncHub: SyncHubPort | null;
   /** Read once, synchronously, before the window opens — see `LocalePreferenceStore`. */
@@ -274,8 +277,43 @@ export type Container = {
    * server-side hard lock that supersedes the deferred SOU-173.
    */
   isRestricted: () => boolean;
+  /**
+   * The trusted first-run state (SOU-104): `true` once an admin account exists —
+   * the durable marker that setup finished. Passed to `registerIpc` so the
+   * restricted-mode gate closes the wizard's bootstrap channels on an already
+   * configured center whose license later lapses, while still allowing them on a
+   * fresh install where the wizard has yet to create the center + admin.
+   */
+  isSetupComplete: () => boolean;
   dispose: () => void;
 };
+
+/**
+ * A cheap fingerprint of the license file, changing whenever activation rewrites
+ * it (atomic temp+rename bumps mtime; a different license changes the size too).
+ * `null` when the file is absent — a fresh install before any activation. Lets the
+ * restricted-mode gate skip the Ed25519 read+verify on the synchronous IPC path
+ * (SOU-104 perf) and re-verify only when the file actually changed; a `stat` is
+ * orders of magnitude cheaper than a signature check on every dispatch.
+ */
+function licenseFileFingerprint(filePath: string): string | null {
+  try {
+    const stat = statSync(filePath);
+    return `${stat.mtimeMs}:${stat.size}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether an admin account has been created — the durable marker that the
+ * first-run wizard finished (see `restricted-mode.ts`). A trivial indexed probe;
+ * mirrors `SqliteAdminAccountRepository.exists`, read synchronously here because
+ * the restricted-mode dispatch gate is synchronous.
+ */
+function adminAccountExists(db: DB): boolean {
+  return db.prepare('SELECT 1 FROM admin_accounts LIMIT 1').get() !== undefined;
+}
 
 /** Read the device's stable origin id, generating and persisting it on first run. */
 function resolveDeviceOrigin(db: DB, ids: IdGenerator): DeviceId {
@@ -369,17 +407,41 @@ export function buildContainer(options: ContainerOptions): Container {
   // SOU-173. Until the license resolves to `active`, the IPC dispatcher answers
   // only `license.status` / `license.activate` — every other channel is rejected
   // with `LicenseRestrictedError`, so the lock no longer lives only in the renderer.
-  // Evaluated LIVE on each guarded call (`license.verify()` re-reads the file), so a
-  // successful `license.activate` — which rewrites that same file and flips the plan
-  // — unblocks the other channels in the same process with no restart. A dev build
-  // with no injected license keeps the `CS_LICENSE_*` / `options.planId` override
-  // ergonomics (never restricted); tests inject `options.license`, exercising the
-  // real production lock.
+  // Evaluated LIVE on each guarded call, so a successful `license.activate` — which
+  // rewrites the license file and flips the plan — unblocks the other channels in
+  // the same process with no restart. The expensive half (file read + Ed25519
+  // verify) is cached and re-run only when the file's fingerprint changes; the
+  // cheap, clock-dependent half (expiry) is recomputed every call, so a license
+  // that lapses mid-session still restricts without a rewrite. A dev build with no
+  // injected license keeps the `CS_LICENSE_*` / `options.planId` override ergonomics
+  // (never restricted); tests inject `options.license`, exercising the real lock.
   const devOverrideActive = import.meta.env.DEV && options.license === undefined;
+  let cachedFingerprint: string | null = licenseFileFingerprint(licenseFilePath);
+  let cachedVerification = license.verify();
+  const verifyLicenseCached = (): LicenseVerification => {
+    const fingerprint = licenseFileFingerprint(licenseFilePath);
+    if (fingerprint !== cachedFingerprint) {
+      cachedFingerprint = fingerprint;
+      cachedVerification = license.verify();
+    }
+    return cachedVerification;
+  };
   const isRestricted = (): boolean =>
     devOverrideActive
       ? false
-      : isRestrictedMode(resolveActivePlan(license.verify(), clock.now(), licenseBinding).status);
+      : isRestrictedMode(resolveActivePlan(verifyLicenseCached(), clock.now(), licenseBinding).status);
+
+  // The trusted first-run state for the restricted-mode gate: an admin account is
+  // the wizard's last durable artifact (its step progress is otherwise ephemeral),
+  // so its existence means setup is complete and the wizard's bootstrap channels
+  // must close under restriction. Monotonic (false→true once; no hard delete), so
+  // it is memoized to true forever and never re-queries after — no per-call DB hit
+  // on the steady-state path.
+  let setupComplete = adminAccountExists(db);
+  const isSetupComplete = (): boolean => {
+    if (!setupComplete) setupComplete = adminAccountExists(db);
+    return setupComplete;
+  };
 
   // License activation (SOU-104): the activation screen's two channels. `activate`
   // verifies a pasted/imported envelope, checks it binds to this machine + center
@@ -886,7 +948,7 @@ export function buildContainer(options: ContainerOptions): Container {
       console.error('[hub] failed to start on port', hubConfig.port, error);
     });
     syncHub = new HttpSyncHubClient({
-      baseUrl: `http://127.0.0.1:${hubConfig.port}`,
+      baseUrl: `http://${hubConfig.bindHost}:${hubConfig.port}`,
       token: hubConfig.token,
     });
   }
@@ -1072,6 +1134,7 @@ export function buildContainer(options: ContainerOptions): Container {
     subscriptionReference,
     syncHub,
     isRestricted,
+    isSetupComplete,
     readLocalePreference: () => localePreferences.read(),
     // `db.open` guards against a double-close: a successful restore (SOU-102)
     // already closed this handle as part of its file swap, and `will-quit`

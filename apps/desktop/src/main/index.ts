@@ -121,6 +121,7 @@ app.whenReady().then(() => {
   }
   registerIpc(ipcMain, createHandlers(container.handlerDeps), {
     isRestricted: container.isRestricted,
+    isSetupComplete: container.isSetupComplete,
   });
   // `CS_LOCALE` (dev override) wins over the persisted preference (SOU-31); the
   // language tab writes that preference via `preferences.locale.set`, read

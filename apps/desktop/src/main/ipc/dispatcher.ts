@@ -7,17 +7,21 @@ import type {
   IpcResponse,
 } from '../../shared/ipc/contract';
 import { encodeDomainError } from '../../shared/ipc/domain-error';
-import { RESTRICTED_MODE_ALLOWED_CHANNELS } from './restricted-mode';
+import { isRestrictedModeChannelAllowed } from './restricted-mode';
 
 /**
  * Options for {@link createIpcDispatcher}. `isRestricted` is the live restricted-
  * mode gate (SOU-104): consulted per call, not a startup snapshot, so a successful
  * `license.activate` starts unblocking the other channels in the same process with
- * no restart. Omitted in unit tests and the pure dispatcher tests, where no license
- * lock applies.
+ * no restart. `isSetupComplete` is the trusted first-run state (an admin account
+ * exists): once complete, the wizard's bootstrap channels close under restriction
+ * so an unlicensed, already-configured center can no longer reach them. Both are
+ * omitted in unit tests and the pure dispatcher tests; a missing `isSetupComplete`
+ * is treated as "not complete", preserving the fresh-install bootstrap allowance.
  */
 export type IpcDispatcherOptions = {
   readonly isRestricted?: () => boolean;
+  readonly isSetupComplete?: () => boolean;
 };
 
 /**
@@ -52,7 +56,10 @@ export function createIpcDispatcher(
       throw new Error(`Unknown IPC channel: ${String(channel)}`);
     }
     try {
-      if (options.isRestricted?.() && !RESTRICTED_MODE_ALLOWED_CHANNELS.has(channel)) {
+      if (
+        options.isRestricted?.() &&
+        !isRestrictedModeChannelAllowed(channel, options.isSetupComplete?.() ?? false)
+      ) {
         throw new LicenseRestrictedError(channel);
       }
       const method = ipcContract[channel];
