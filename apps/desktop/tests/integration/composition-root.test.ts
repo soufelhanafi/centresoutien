@@ -966,6 +966,51 @@ describe('composition root', () => {
       },
     );
 
+    // Fresh install: no license (it cannot exist before the center does) and no
+    // center yet. The first-run wizard's bootstrap channels must succeed so the
+    // user can create the center + admin and reach activation, while every
+    // business channel stays locked. Regression guard for the deadlock the guard's
+    // first cut caused (license.status/activate-only bricked setup).
+    it('permits the first-run bootstrap (admin + center), blocks business, then unblocks after activate', async () => {
+      const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+      const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+      const container = build(
+        'essentiel',
+        new Ed25519LicenseAdapter({ filePath: licensePath(), publicKey: publicPem }),
+      );
+      const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps), {
+        isRestricted: container.isRestricted,
+      });
+
+      // License is missing and no center exists — the true fresh-install state.
+      expect((await dispatch('license.status', {})).status).toBe('missing');
+
+      // The wizard's bootstrap channels all answer under restricted mode.
+      expect(await dispatch('admin.exists', {})).toEqual({ exists: false });
+      expect(await dispatch('center.get', {})).toEqual({ center: null });
+      const saved = await dispatch('center.save', {
+        name: 'Centre Al Ilm',
+        address: '12 Rue Mohammed V',
+        phone: '0522-000000',
+        email: 'contact@alilm.ma',
+        logoPath: null,
+      });
+      expect(saved.center).toMatchObject({ name: 'Centre Al Ilm' });
+      const admin = await dispatch('admin.create', { username: 'directrice', password: PASS });
+      expect(admin.id).toMatch(/^adm_/);
+
+      // …but a business channel is still hard-locked while unlicensed.
+      await expect(dispatch('student.list', { search: '' })).rejects.toThrow(/license-restricted/);
+
+      // Now that the center exists, its license can be activated — and the business
+      // channel unblocks live in the same process.
+      const raw = signedLicenseFile(nonActiveClaims({}), privateKey);
+      expect((await dispatch('license.activate', { license: raw })).status).toBe('activated');
+      expect((await dispatch('student.list', { search: '' })).students).toEqual([]);
+
+      container.dispose();
+    });
+
     it('unblocks the other channels in the same process after a successful activate — no restart', async () => {
       const { publicKey, privateKey } = generateKeyPairSync('ed25519');
       const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
