@@ -99,4 +99,8 @@ describe('isLicenseExpired', () => {
   it('past expiry is expired', () => {
     expect(isLicenseExpired(claims({ expiresAt: '2000-01-01T00:00:00.000Z' }), NOW)).toBe(true);
   });
+
+  it('an unparsable expiry fails closed (treated as expired, never fail-open)', () => {
+    expect(isLicenseExpired(claims({ expiresAt: 'not-a-date' }), NOW)).toBe(true);
+  });
 });

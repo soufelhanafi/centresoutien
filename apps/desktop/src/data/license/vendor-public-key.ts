@@ -7,8 +7,9 @@
  * PLACEHOLDER: replaced with the real production key at release. Until then no
  * license file verifies against it, so every install resolves to `essentiel`
  * (dev builds override the plan via `CS_PLAN` → `setActivePlan`, not a file).
- * The composition root can also override this at startup via
- * `CS_LICENSE_PUBLIC_KEY` for integration/E2E of the active-license path.
+ * A packaged build always uses this key; the `CS_LICENSE_PUBLIC_KEY` override is
+ * DEV-only, and integration tests inject a test-keypair adapter via
+ * `ContainerOptions.license` instead.
  */
 export const VENDOR_LICENSE_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEATYe5usQkXXDK9YuldxzGI4kR0CcM4ezmCt70gi1slc4=

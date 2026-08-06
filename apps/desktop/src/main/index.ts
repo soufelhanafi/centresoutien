@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { join } from 'node:path';
 import { app, dialog, BrowserWindow, ipcMain } from 'electron';
 import { PLANS } from '@centresoutien/domain';
@@ -8,8 +9,16 @@ import { createHandlers } from './ipc/handlers';
 import { createMainWindow } from './window';
 import { DATABASE_SCHEMA_AHEAD_MESSAGE, DatabaseSchemaAheadOfAppError } from '../data/sqlite/migration-runner';
 
-/** Active plan: from the license later; for now a dev override, default Essentiel. */
+/**
+ * The startup plan fallback used when no valid license resolves. The `CS_PLAN`
+ * env override is a local-dev ergonomic only, DEV-gated the same way `plan.set`
+ * and the `CS_LICENSE_*` overrides are (SOU-98): `import.meta.env.DEV` is a
+ * build-time constant electron-vite replaces with `false` in a packaged build,
+ * so production always falls back to `essentiel` and a user cannot self-upgrade
+ * by setting the variable.
+ */
 function activePlanId(): PlanId {
+  if (!import.meta.env.DEV) return 'essentiel';
   const requested = process.env['CS_PLAN'];
   return requested && requested in PLANS ? (requested as PlanId) : 'essentiel';
 }

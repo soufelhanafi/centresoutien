@@ -214,6 +214,11 @@ export type ContainerOptions = {
    *  the app must relaunch to reopen it. Kept out of composition-root/handlers
    *  so they stay Electron-free, mirroring `appVersion`. */
   scheduleRestart: () => void;
+  /** Test-only injection seam (SOU-98): integration tests pass a real
+   *  {@link Ed25519LicenseAdapter} built from a test keypair + written license
+   *  file instead of relying on the DEV-only `CS_LICENSE_*` env overrides, which
+   *  a production build never reads. Undefined in production. */
+  license?: LicensePort;
 };
 
 export type Container = {
@@ -264,10 +269,22 @@ export function buildContainer(options: ContainerOptions): Container {
 
   const clock = new SystemClock();
   const ids = new UlidIdGenerator();
-  const license = new Ed25519LicenseAdapter({
-    filePath: process.env['CS_LICENSE_FILE'] ?? join(options.dir, 'license.json'),
-    publicKey: process.env['CS_LICENSE_PUBLIC_KEY'] ?? VENDOR_LICENSE_PUBLIC_KEY_PEM,
-  });
+  // Trust anchor + license path are fixed in a packaged build so a user cannot
+  // point them at a self-signed keypair to self-upgrade (SOU-98). The
+  // `CS_LICENSE_*` env overrides exist purely for local-dev ergonomics and are
+  // DEV-gated the same way `plan.set` is — `import.meta.env.DEV` is a build-time
+  // constant electron-vite replaces with `false` in production, tree-shaking the
+  // override path out. Tests inject through `options.license`, never the env.
+  const license =
+    options.license ??
+    new Ed25519LicenseAdapter({
+      filePath: import.meta.env.DEV
+        ? (process.env['CS_LICENSE_FILE'] ?? join(options.dir, 'license.json'))
+        : join(options.dir, 'license.json'),
+      publicKey: import.meta.env.DEV
+        ? (process.env['CS_LICENSE_PUBLIC_KEY'] ?? VENDOR_LICENSE_PUBLIC_KEY_PEM)
+        : VENDOR_LICENSE_PUBLIC_KEY_PEM,
+    });
   const activePlanId = resolveStartupPlanId(license, clock, options.planId);
   const plan = new PlanPolicy(PLANS[activePlanId]);
 

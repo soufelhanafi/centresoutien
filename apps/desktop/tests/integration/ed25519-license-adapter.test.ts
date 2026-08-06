@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -51,6 +51,16 @@ function adapter(publicKey = VENDOR_PEM): Ed25519LicenseAdapter {
 describe('Ed25519LicenseAdapter.verify', () => {
   it('returns "missing" when the file is absent', () => {
     expect(adapter().verify()).toEqual({ status: 'missing' });
+  });
+
+  it('returns "missing" without throwing when the path is unreadable (EISDIR)', () => {
+    // A directory at the license path forces a non-ENOENT read error; verify()
+    // must swallow it and report the expected offline state, never throw and
+    // break startup (LicensePort contract). chmod is avoided — CI-as-root ignores it.
+    mkdirSync(filePath);
+    const port = adapter();
+    expect(() => port.verify()).not.toThrow();
+    expect(port.verify()).toEqual({ status: 'missing' });
   });
 
   it('returns "valid" with parsed claims for a genuine vendor-signed license', () => {

@@ -45,13 +45,16 @@ export class Ed25519LicenseAdapter implements LicensePort {
     return { status: 'valid', claims: parsed.data };
   }
 
-  /** File contents, or null when the file is absent. Any other read error surfaces. */
+  /**
+   * File contents, or null when the file cannot be read. An absent, unreadable, or
+   * permission-denied license is an expected offline state, never a startup failure —
+   * `LicensePort` guarantees `verify()` never throws.
+   */
   private readFile(): string | null {
     try {
       return readFileSync(this.options.filePath, 'utf8');
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
-      throw error;
+    } catch {
+      return null;
     }
   }
 

@@ -23,10 +23,16 @@ export type LicenseResolution = {
   readonly error: LicenseError | null;
 };
 
-/** A license is expired when it carries an expiry at or before "now". */
+/**
+ * A license is expired when it carries an expiry at or before "now". A non-null
+ * but unparsable `expiresAt` fails closed (treated as expired) — a garbage expiry
+ * must never read as "still valid" and grant a tier.
+ */
 export function isLicenseExpired(claims: LicenseClaims, now: Date): boolean {
   if (claims.expiresAt === null) return false;
-  return Date.parse(claims.expiresAt) <= now.getTime();
+  const expiresAt = Date.parse(claims.expiresAt);
+  if (Number.isNaN(expiresAt)) return true;
+  return expiresAt <= now.getTime();
 }
 
 /**

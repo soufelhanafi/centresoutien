@@ -3,8 +3,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateKeyPairSync, sign as signBytes, type KeyObject } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { CenterCode, LicenseClaims, ParentId, PlanId, SubjectId } from '@centresoutien/domain';
+import type {
+  CenterCode,
+  LicenseClaims,
+  LicensePort,
+  ParentId,
+  PlanId,
+  SubjectId,
+} from '@centresoutien/domain';
 import { buildContainer } from '../../src/main/composition-root';
+import { Ed25519LicenseAdapter } from '../../src/data/license/ed25519-license-adapter';
 import { createIpcDispatcher } from '../../src/main/ipc/dispatcher';
 import { createHandlers } from '../../src/main/ipc/handlers';
 import { openDatabase } from '../../src/data/sqlite/db';
@@ -25,11 +33,9 @@ beforeEach(() => {
 });
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
-  delete process.env['CS_LICENSE_FILE'];
-  delete process.env['CS_LICENSE_PUBLIC_KEY'];
 });
 
-function build(planId: PlanId = 'essentiel') {
+function build(planId: PlanId = 'essentiel', license?: LicensePort) {
   return buildContainer({
     centreId: 'C1',
     centerCode: 'CS-CASA-001' as CenterCode,
@@ -38,6 +44,7 @@ function build(planId: PlanId = 'essentiel') {
     planId,
     appVersion: () => '2.0.0',
     scheduleRestart: () => {},
+    ...(license ? { license } : {}),
   });
 }
 
@@ -49,17 +56,19 @@ function signedLicenseFile(claims: LicenseClaims, privateKey: KeyObject): string
 }
 
 /**
- * Write a genuine, test-keypair-signed `license.json` and point the composition
- * root at it (and its verifying public key) through the CS_LICENSE_* overrides.
+ * Write a genuine, test-keypair-signed `license.json` and return a real
+ * {@link Ed25519LicenseAdapter} that verifies it against the matching public key.
+ * Injected through `ContainerOptions.license` (the test seam), not the DEV-only
+ * `CS_LICENSE_*` env overrides a production build never reads (SOU-98).
  */
-function installSignedLicense(claims: LicenseClaims): void {
+function installSignedLicense(claims: LicenseClaims): LicensePort {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
   const licensePath = join(dir, 'license.json');
   writeFileSync(licensePath, signedLicenseFile(claims, privateKey));
-  process.env['CS_LICENSE_FILE'] = licensePath;
-  process.env['CS_LICENSE_PUBLIC_KEY'] = publicKey
-    .export({ type: 'spki', format: 'pem' })
-    .toString();
+  return new Ed25519LicenseAdapter({
+    filePath: licensePath,
+    publicKey: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+  });
 }
 
 describe('composition root', () => {
@@ -303,7 +312,7 @@ describe('composition root', () => {
   it('resolves the active plan to premium from a real signed, unexpired license (SOU-98)', async () => {
     // A genuine vendor-signed license verified against its own public key must
     // win over the dev override — even when that override is the lowest tier.
-    installSignedLicense({
+    const license = installSignedLicense({
       plan: 'premium',
       issuedAt: '2026-01-01T00:00:00.000Z',
       expiresAt: '2099-01-01T00:00:00.000Z',
@@ -311,7 +320,7 @@ describe('composition root', () => {
       centerCode: 'CS-CASA-001',
     });
 
-    const container = build('essentiel');
+    const container = build('essentiel', license);
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
     expect(await dispatch('plan.get', {})).toEqual({ planId: 'premium' });
     expect((await dispatch('center.save', { name: 'C', address: '', phone: '', email: '', logoPath: null })).center).toMatchObject({ plan: 'premium' });
@@ -321,7 +330,7 @@ describe('composition root', () => {
   it('falls back to essentiel when the genuine signed license is expired (SOU-98)', async () => {
     // Signature is valid but expiry is in the past — the license no longer grants
     // its tier, so the plan drops to the dev/startup fallback.
-    installSignedLicense({
+    const license = installSignedLicense({
       plan: 'premium',
       issuedAt: '2000-01-01T00:00:00.000Z',
       expiresAt: '2000-01-02T00:00:00.000Z',
@@ -329,7 +338,7 @@ describe('composition root', () => {
       centerCode: 'CS-CASA-001',
     });
 
-    const container = build('essentiel');
+    const container = build('essentiel', license);
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
     expect(await dispatch('plan.get', {})).toEqual({ planId: 'essentiel' });
     container.dispose();
