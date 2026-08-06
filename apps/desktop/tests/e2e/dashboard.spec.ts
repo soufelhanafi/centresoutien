@@ -108,12 +108,12 @@ test('Scenario 3 — quick actions navigate to Students / Invoicing / Planning',
 });
 
 // ---------------------------------------------------------------------------
-// Scenario 4 — Avancé is locked on Essentiel and Pro (the flag is Premium-only):
-// the tab shows a lock overlay with the "reserved for a higher plan" copy and a
-// "view plans" affordance, and no chart/widget data is exposed underneath.
+// Scenario 4 — Avancé is available on every tier (SOU-83 MVP tier collapse:
+// dashboard.advanced ships in all plans). The tab opens straight to the real
+// widgets, with no lock overlay or upgrade teaser in the way.
 // ---------------------------------------------------------------------------
 for (const plan of ['essentiel', 'pro'] as const) {
-  test(`Scenario 4 — Avancé is locked on the ${plan} plan`, async () => {
+  test(`Scenario 4 — Avancé is available on the ${plan} plan`, async () => {
     const L = STR[locale()];
     live = await boot(locale(), plan);
     const win = live.win;
@@ -121,21 +121,13 @@ for (const plan of ['essentiel', 'pro'] as const) {
 
     await win.getByRole('tab', { name: L.tabs.advanced }).click();
     await win.waitForTimeout(500);
-    await win.screenshot({ path: `test-results/dashboard-advanced-locked-${plan}-${locale()}.png` });
+    await win.screenshot({ path: `test-results/dashboard-advanced-${plan}-${locale()}.png` });
 
-    await expect(win.getByText(L.tabs.advanced).last()).toBeVisible();
-    await expect(win.getByText(L.lockedShort)).toBeVisible();
     expect(await pageCrashed(win)).toBe(false);
-
-    // No REAL widget heading (exact match) leaks under the lock overlay — only
-    // the generic teaser sentence (which happens to share a leading phrase with
-    // the revenue-trend heading) is present, and it is marked inert/aria-hidden.
-    await expect(win.getByText(L.widgets.revenueTrend, { exact: true })).toHaveCount(0);
-    await expect(win.getByText(L.widgets.subjectBreakdown, { exact: true })).toHaveCount(0);
-    await expect(win.getByText(L.lockedTeaser, { exact: true })).toBeVisible();
-    const teaser = win.getByText(L.lockedTeaser, { exact: true }).locator('xpath=ancestor::div[@aria-hidden="true"][1]');
-    await expect(teaser).toHaveAttribute('aria-hidden', 'true');
-    await expect(teaser).toHaveAttribute('inert', '');
+    await expect(win.getByText(L.widgets.revenueTrend, { exact: true })).toBeVisible();
+    await expect(win.getByText(L.widgets.subjectBreakdown, { exact: true })).toBeVisible();
+    await expect(win.getByText(L.lockedShort)).toHaveCount(0);
+    await expect(win.getByText(L.lockedTeaser, { exact: true })).toHaveCount(0);
   });
 }
 

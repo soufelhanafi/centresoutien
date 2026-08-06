@@ -90,7 +90,7 @@ test('Scenario 1 — export a full backup, then import the same file: preview sh
   await win.screenshot({ path: `test-results/backup-excel-import-applied-${loc}.png` });
 });
 
-test('Scenario 2 — on Essentiel the Excel backup card is locked (no export/import action)', async () => {
+test('Scenario 2 — on Essentiel the Excel backup card is active (SOU-83 tier collapse)', async () => {
   test.setTimeout(90_000);
   const loc = locale();
   const t = XLS[loc];
@@ -101,13 +101,14 @@ test('Scenario 2 — on Essentiel the Excel backup card is locked (no export/imp
 
   const panel = await gotoBackupTab(win, loc);
 
+  // io.excel.export/import ship in every tier now, so the card is unlocked:
+  // no LockOverlay copy, and the export/import controls are live.
   await expect(win.getByText(t.excelTitle).first()).toBeVisible();
-  await expect(win.getByText(t.locked)).toBeVisible();
+  await expect(win.getByText(t.locked)).toHaveCount(0);
+  await expect(panel.getByRole('button', { name: t.importButton, exact: true })).toBeEnabled();
 
-  // Lock must be EFFECTIVE, not cosmetic: the export/import controls may still
-  // be present in the DOM (covered by the LockOverlay), so assert black-box
-  // that a click can never reach the native Save-As / Open dialog.
-  let saveCalls = 0;
+  // Effective, not cosmetic: clicking export actually reaches the native
+  // Save-As dialog (the gate no longer swallows the click).
   await app.evaluate(async ({ dialog }) => {
     const d = dialog as unknown as { __saveCalls: number; showSaveDialog: (o: unknown) => unknown };
     d.__saveCalls = 0;
@@ -116,13 +117,12 @@ test('Scenario 2 — on Essentiel the Excel backup card is locked (no export/imp
       return { canceled: true, filePath: undefined };
     }) as never;
   });
-  const exportBtn = panel.locator('button', { hasText: t.exportButton });
-  if (await exportBtn.count()) {
-    await exportBtn.first().click({ force: true }).catch(() => {});
-  }
+  await panel.getByRole('button', { name: t.exportButton, exact: true }).click();
   await win.waitForTimeout(500);
-  saveCalls = await app.evaluate(({ dialog }) => (dialog as unknown as { __saveCalls: number }).__saveCalls ?? 0);
-  expect(saveCalls).toBe(0);
+  const saveCalls = await app.evaluate(
+    ({ dialog }) => (dialog as unknown as { __saveCalls: number }).__saveCalls ?? 0,
+  );
+  expect(saveCalls, 'export on Essentiel must reach the native Save-As dialog').toBeGreaterThan(0);
 
-  await win.screenshot({ path: `test-results/backup-excel-essentiel-locked-${loc}.png` });
+  await win.screenshot({ path: `test-results/backup-excel-essentiel-active-${loc}.png` });
 });

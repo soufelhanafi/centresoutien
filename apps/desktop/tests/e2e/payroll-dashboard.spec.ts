@@ -52,41 +52,21 @@ async function assertMounted(win: Page, L: (typeof STR)[Locale]): Promise<void> 
 }
 
 // ---------------------------------------------------------------------------
-// Scenario 1 — Essentiel plan: the LockOverlay shows, not the dashboard.
+// Scenario 1 — Essentiel plan reaches the payroll dashboard (SOU-83 MVP tier
+// collapse: payroll.teacher ships in every plan, so there is no LockOverlay).
 // ---------------------------------------------------------------------------
-test('Scenario 1 — Essentiel plan shows the LockOverlay instead of the dashboard', async () => {
+test('Scenario 1 — Essentiel plan reaches the payroll dashboard, not a LockOverlay', async () => {
   const L = STR[locale()];
   live = await boot(locale(), { plan: 'essentiel', month: MONTH, teachers: [] });
   const win = live.win;
 
-  // On Essentiel the sidebar renders the payroll entry as a disabled, non-
-  // navigating `<button>` (its accessible name includes the "PRO" badge, e.g.
-  // "PaiePRO") rather than a link — clicking it is a no-op by design. Route
-  // to the page directly, the same way a stale bookmark or deep link would,
-  // to prove the route-level gate itself (not just the sidebar affordance).
-  await win.evaluate(() => {
-    window.location.hash = '#/payroll';
-  });
-  await win.waitForTimeout(500);
-
-  // "Paie"/"أجور الأساتذة" also appears in the (aria-hidden) blurred content
-  // behind the overlay and in the sidebar's disabled nav button, so scope the
-  // title assertion to the lock card itself, found via its unique body copy.
-  const lockedBodyText = win.getByText(L.lockedBody, { exact: true });
-  await expect(lockedBodyText).toBeVisible();
-  const lockCard = lockedBodyText.locator('xpath=..');
-  await expect(lockCard).toContainText(L.lockedTitle);
-
-  // The blurred dashboard behind the overlay is `inert` (removed from the
-  // accessibility tree, so `getByRole` cannot see it) — assert its disabled
-  // state directly on the DOM instead, confirming the underlying controls
-  // are truly non-interactive, not just visually dimmed.
-  const bulkButtonDisabled = await win.evaluate((label) => {
-    const button = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes(label));
-    return button?.disabled ?? null;
-  }, L.bulkMarkPaidButton);
-  expect(bulkButtonDisabled, 'the bulk action behind the lock overlay must be disabled, not merely blurred').toBe(true);
-  await win.screenshot({ path: shot('essentiel-lock') });
+  // The sidebar now renders payroll as a real navigating link on every tier,
+  // and the page mounts its own dashboard heading (assertMounted) with no lock
+  // card in the way.
+  await gotoPayroll(win, L);
+  await assertMounted(win, L);
+  await expect(win.getByText(L.lockedBody, { exact: true })).toHaveCount(0);
+  await win.screenshot({ path: shot('essentiel-unlocked') });
 });
 
 // ---------------------------------------------------------------------------
