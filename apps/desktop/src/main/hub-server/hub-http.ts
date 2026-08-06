@@ -1,18 +1,16 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { CenterCode, LocalChange } from '@centresoutien/domain';
+import { z } from 'zod';
+import type { CenterCode, DeviceId, EntityId, LocalChange, UserId } from '@centresoutien/domain';
 
 /**
  * HTTP plumbing for the embedded hub server (SOU-90): route parsing, request
- * bodies, and the wire ↔ {@link LocalChange} mapping. Kept out of `hub-server.ts`
- * so the request handlers stay readable and the file stays under the size
- * ceiling.
+ * bodies, wire validation, and the wire ↔ {@link LocalChange} mapping. Kept out
+ * of `hub-server.ts` so the request handlers stay readable and the file stays
+ * under the size ceiling.
  */
 export type HubRouteAction = 'pull' | 'push' | 'cursor';
 
 export type HubRoute = { centreId: CenterCode; action: HubRouteAction };
-
-/** Wire shape of {@link LocalChange} — dates arrive as ISO strings, not Date. */
-export type WireLocalChange = Omit<LocalChange, 'at'> & { at: string };
 
 /**
  * Hard cap on a hub request body. A center's batch is small (per-entity JSON);
@@ -20,6 +18,40 @@ export type WireLocalChange = Omit<LocalChange, 'at'> & { at: string };
  * with an unbounded upload.
  */
 export const MAX_REQUEST_BODY_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Boundary validation (SOU-90 review Major 1). The renderer-input-via-IPC rule
+ * applies here too: a token-holding but buggy/hostile LAN device is untrusted,
+ * so every field that lands in a store query is Zod-validated BEFORE use. A
+ * malformed payload is a deterministic 400, never a write into the canonical
+ * store or a 500.
+ */
+const wireChangeSchema = z.object({
+  entityType: z.string().min(1),
+  entityId: z.string().min(1),
+  deviceId: z.string().min(1),
+  baseVersion: z.number().int().nonnegative(),
+  op: z.enum(['create', 'update', 'delete']),
+  entity: z.record(z.string(), z.unknown()),
+  changedFields: z.array(z.string()),
+  seq: z.number().int(),
+  at: z.string().min(1),
+  updatedBy: z.string().min(1),
+});
+
+/** Wire shape of {@link LocalChange} — dates arrive as ISO strings, not Date. */
+export type WireLocalChange = z.infer<typeof wireChangeSchema>;
+
+export const pullBodySchema = z.object({
+  deviceId: z.string().min(1),
+  cursor: z.object({ seq: z.number().int().nonnegative() }).nullish(),
+});
+
+export const pushBodySchema = z.object({
+  deviceId: z.string().min(1),
+  schemaVersion: z.number().int().nonnegative(),
+  changes: z.array(wireChangeSchema),
+});
 
 export function parseRoute(req: IncomingMessage): HubRoute | null {
   if (req.url === undefined) return null;
@@ -34,15 +66,15 @@ export function parseRoute(req: IncomingMessage): HubRoute | null {
 export function toLocalChange(change: WireLocalChange): LocalChange {
   return {
     entityType: change.entityType,
-    entityId: change.entityId,
-    deviceId: change.deviceId,
+    entityId: change.entityId as EntityId,
+    deviceId: change.deviceId as DeviceId,
     baseVersion: change.baseVersion,
     op: change.op,
     entity: change.entity,
     changedFields: change.changedFields,
     seq: change.seq,
     at: new Date(change.at),
-    updatedBy: change.updatedBy,
+    updatedBy: change.updatedBy as UserId,
   };
 }
 
@@ -61,8 +93,10 @@ export function readJsonBody(req: IncomingMessage): Promise<unknown> {
     req.on('data', (chunk: Buffer) => {
       total += chunk.length;
       if (total > MAX_REQUEST_BODY_BYTES) {
-        // Stop reading but do NOT destroy the socket — the handler must be able
-        // to answer 413. Any further data is ignored; the promise is settled.
+        // Reject but do NOT destroy/pause the socket — the handler must be able
+        // to answer 413 promptly. Memory stays bounded (we stop appending past
+        // the cap) and Node closes the connection after the response because
+        // the request body was never fully consumed.
         if (!rejected) {
           rejected = true;
           reject(new HubBodyTooLargeError());

@@ -268,6 +268,11 @@ describe('SyncEngine — pull → resolve → push', () => {
     );
     expect(result.status).toBe('synced');
 
+    // B's cursor must NOT have advanced past S3 (the gap row) — the accepted
+    // push kept it at B's last consumed position (seq 1) so the next pull
+    // re-delivers S3.
+    expect(b.getCursor()).toEqual({ seq: 1 });
+
     // B's next sync re-delivers the gap row and B converges on S3.
     await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B }).run(matcherFor(b));
     expect(b.entity('students', S3)).toBeDefined();
@@ -380,7 +385,6 @@ class GapPushHub implements SyncHubPort {
     centreId: CenterCode;
     deviceId: DeviceId;
     changes: readonly LocalChange[];
-    baseVersions: Readonly<Record<string, number>>;
     schemaVersion: number;
   }): Promise<PushResult> {
     if (!this.injected && input.changes.length > 0) {

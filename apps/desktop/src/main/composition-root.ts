@@ -236,9 +236,11 @@ export type ContainerOptions = {
    * hub's canonical store, starts the HTTP listener, and wires the HTTP
    * `SyncHubPort` client for this center. Absent by default — designating a
    * laptop as hub (and its real config UX) is a later ticket; for now `index.ts`
-   * opts in via `CS_HUB_ENABLED`/`CS_HUB_PORT`/`CS_HUB_TOKEN`.
+   * opts in via `CS_HUB_ENABLED`/`CS_HUB_TOKEN`. `bindHost` selects the LAN
+   * interface the listener serves (SOU-90 review Major 2 — never expose the hub
+   * beyond the local network).
    */
-  hubServer?: { port: number; token: string };
+  hubServer?: { port: number; token: string; bindHost?: string };
 };
 
 export type Container = {
@@ -799,7 +801,7 @@ export function buildContainer(options: ContainerOptions): Container {
     hubStore = SqliteHubStore.open({ centreId: options.centreId, key: options.key, dir: options.dir }, clock);
     applyMigrations(hubStore.db, toMigrations(hubMigrationFiles));
     hubStore.registerCenter(options.centerCode, hubConfig.token, clock.now());
-    hubServerInstance = new HubServer(hubStore, hubConfig.port);
+    hubServerInstance = new HubServer(hubStore, hubConfig.port, hubConfig.bindHost);
     void hubServerInstance.start().catch((error: unknown) => {
       console.error('[hub] failed to start on port', hubConfig.port, error);
     });
@@ -990,10 +992,15 @@ export function buildContainer(options: ContainerOptions): Container {
     readLocalePreference: () => localePreferences.read(),
     // `db.open` guards against a double-close: a successful restore (SOU-102)
     // already closed this handle as part of its file swap, and `will-quit`
-    // still calls `dispose()` during the scheduled relaunch.
+    // still calls `dispose()` during the scheduled relaunch. The hub store is
+    // closed only AFTER the listener has stopped, so an in-flight request can
+    // never hit a half-closed canonical store.
     dispose: () => {
-      if (hubServerInstance) void hubServerInstance.stop();
-      if (hubStore) hubStore.close();
+      if (hubServerInstance && hubStore) {
+        void hubServerInstance.stop().finally(() => hubStore?.close());
+      } else if (hubStore) {
+        hubStore.close();
+      }
       if (db.open) db.close();
     },
   };

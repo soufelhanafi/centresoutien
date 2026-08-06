@@ -12,9 +12,10 @@ import {
   HubBadRequest,
   HubBodyTooLargeError,
   parseRoute,
+  pullBodySchema,
+  pushBodySchema,
   readJsonBody,
   toLocalChange,
-  type WireLocalChange,
 } from './hub-http';
 
 /**
@@ -27,14 +28,17 @@ import {
  *  - GET  /hub/v1/:centreId/cursor?deviceId=…                   → { cursor }
  *
  * It is a dumb versioned mailbox, exactly like the store it fronts: it
- * authenticates (per-center pairing token), routes, and serializes. All the
- * accept/reject semantics live in `SqliteHubStore`; any merge or resolution
- * logic that ever shows up here is an architecture violation.
+ * authenticates (per-center pairing token), routes, validates the wire shape,
+ * and serializes. All the accept/reject semantics live in `SqliteHubStore`; any
+ * merge or resolution logic that ever shows up here is an architecture
+ * violation.
  *
- * Security: per-center pairing token checked on every request, never exposed
- * beyond the local network. The hub laptop reaches its own hub over
- * `127.0.0.1` through the SAME `SyncHubPort` client as every other device —
- * this server has no special lane for its own machine.
+ * Security: per-center pairing token checked on every request, LAN-only bind
+ * (the host interface is explicit — loopback in tests, the center's LAN
+ * interface in production), never exposed beyond the local network. The hub
+ * laptop reaches its own hub over `127.0.0.1` through the SAME `SyncHubPort`
+ * client as every other device — this server has no special lane for its own
+ * machine.
  */
 export class HubServer {
   private readonly server: HttpServer;
@@ -42,6 +46,7 @@ export class HubServer {
   constructor(
     private readonly store: SqliteHubStore,
     private readonly listenPort: number,
+    private readonly bindHost: string = '0.0.0.0',
   ) {
     this.server = createServer((req, res) => {
       void this.handle(req, res);
@@ -65,11 +70,16 @@ export class HubServer {
       };
       const onListening = (): void => {
         this.server.off('error', onError);
+        const bound = this.server.address();
+        console.info(
+          '[hub] listening on',
+          typeof bound === 'object' && bound !== null ? `${bound.address}:${bound.port}` : 'unknown',
+        );
         resolve(this.port());
       };
       this.server.once('error', onError);
       this.server.once('listening', onListening);
-      this.server.listen(this.listenPort);
+      this.server.listen(this.listenPort, this.bindHost);
     });
   }
 
@@ -143,35 +153,31 @@ export class HubServer {
 
   private async handlePull(req: IncomingMessage, res: ServerResponse, centreId: CenterCode): Promise<void> {
     if (!expectMethod(req, res, 'POST')) return;
-    const body = (await readJsonBody(req)) as { cursor?: { seq?: number } | null; deviceId?: string };
-    if (typeof body.deviceId !== 'string' || body.deviceId.length === 0) {
+    const parsed = pullBodySchema.safeParse(await readJsonBody(req));
+    if (!parsed.success) {
       this.send(res, 400, { error: 'bad-request' });
       return;
     }
-    const cursor = body.cursor?.seq !== undefined && body.cursor.seq !== null ? { seq: body.cursor.seq } : null;
-    this.send(res, 200, this.store.pull(centreId, cursor, body.deviceId as DeviceId));
+    const cursor = parsed.data.cursor ?? null;
+    this.send(res, 200, this.store.pull(centreId, cursor, parsed.data.deviceId as DeviceId));
   }
 
   private async handlePush(req: IncomingMessage, res: ServerResponse, centreId: CenterCode): Promise<void> {
     if (!expectMethod(req, res, 'POST')) return;
-    const body = (await readJsonBody(req)) as {
-      deviceId?: string;
-      schemaVersion?: number;
-      changes?: WireLocalChange[];
-    };
-    if (typeof body.deviceId !== 'string' || body.deviceId.length === 0 || body.changes === undefined) {
+    const parsed = pushBodySchema.safeParse(await readJsonBody(req));
+    if (!parsed.success) {
       this.send(res, 400, { error: 'bad-request' });
       return;
     }
-    const changes: readonly LocalChange[] = body.changes.map(toLocalChange);
+    const changes: readonly LocalChange[] = parsed.data.changes.map(toLocalChange);
     this.send(
       res,
       200,
       this.store.push({
         centreId,
-        deviceId: body.deviceId as DeviceId,
+        deviceId: parsed.data.deviceId as DeviceId,
         changes,
-        schemaVersion: body.schemaVersion ?? 0,
+        schemaVersion: parsed.data.schemaVersion,
       }),
     );
   }
@@ -180,7 +186,7 @@ export class HubServer {
     if (!expectMethod(req, res, 'GET')) return;
     const url = new URL(req.url ?? '', 'http://localhost');
     const deviceId = url.searchParams.get('deviceId');
-    if (deviceId === null) {
+    if (deviceId === null || deviceId.length === 0) {
       this.send(res, 400, { error: 'bad-request' });
       return;
     }

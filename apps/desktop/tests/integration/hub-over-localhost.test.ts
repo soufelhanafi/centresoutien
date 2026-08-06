@@ -55,7 +55,7 @@ beforeEach(async () => {
   clock = { now: () => AT };
   store = new SqliteHubStore(db, clock);
   store.registerCenter(CENTER, TOKEN, AT);
-  server = new HubServer(store, 0);
+  server = new HubServer(store, 0, '127.0.0.1');
   await server.start();
 });
 
@@ -296,6 +296,17 @@ describe('embedded hub over localhost (SOU-90)', () => {
     expect(response.status).toBe(413);
   });
 
+  it('rejects a malformed push payload with 400, never writing it to the store', async () => {
+    const response = await fetch(`http://127.0.0.1:${server.port()}/hub/v1/${CENTER}/push`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-hub-token': TOKEN },
+      // `changes` entries must be shaped wire changes — this one is not.
+      body: JSON.stringify({ deviceId: DEV_A, schemaVersion: SCHEMA_VERSION, changes: [{ nope: 1 }] }),
+    });
+    expect(response.status).toBe(400);
+    expect(store.canonicalVersion(CENTER, 'students', S1)).toBe(0);
+  });
+
   it('survives a hub restart without losing feed, cursors, or canonical state', async () => {
     const devA = device(DEV_A, USER_A);
     devA.write('students', S1, student(S1), ['phone'], USER_A);
@@ -303,7 +314,7 @@ describe('embedded hub over localhost (SOU-90)', () => {
 
     // Stop the listener and start a fresh one over the same canonical store file.
     await server.stop();
-    server = new HubServer(store, 0);
+    server = new HubServer(store, 0, '127.0.0.1');
     await server.start();
 
     // The hub's per-device cursor bookkeeping survived the restart.

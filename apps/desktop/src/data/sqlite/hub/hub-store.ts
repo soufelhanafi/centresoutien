@@ -127,6 +127,12 @@ export class SqliteHubStore {
    * than the hub throws `SchemaTooOldError` — never silently written.
    */
   push(input: PushInput): PushResult {
+    // A device NEWER than the hub is stopped upstream, not here: the engine
+    // compares the hub's schemaVersion (returned on every pull) against its own
+    // and throws SchemaTooOldError before it ever pushes. The hub stores entity
+    // snapshots as opaque JSON, so a newer shape would be harmless — the
+    // handshake still guarantees only devices that understand the hub's shapes
+    // write to it.
     if (input.schemaVersion < SCHEMA_VERSION) {
       throw new SchemaTooOldError(input.schemaVersion, SCHEMA_VERSION);
     }
