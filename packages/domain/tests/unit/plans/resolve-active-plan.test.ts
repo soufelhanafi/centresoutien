@@ -9,6 +9,8 @@ import {
   LicenseExpiredError,
   LicenseMissingError,
   LicenseSignatureInvalidError,
+  LicenseWrongCenterError,
+  LicenseWrongMachineError,
 } from '../../../src/errors/license-errors';
 
 const NOW = new Date('2026-08-06T00:00:00.000Z');
@@ -20,6 +22,8 @@ function claims(overrides: Partial<LicenseClaims> = {}): LicenseClaims {
     expiresAt: null,
     machineId: null,
     centerCode: null,
+    centersAllowed: null,
+    founderDiscountExpiresAt: null,
     ...overrides,
   };
 }
@@ -84,6 +88,41 @@ describe('resolveActivePlan — no usable license', () => {
     expect(res.plan).toBe(PLANS.essentiel);
     expect(res.claims).toBeNull();
     expect(res.error).toBeInstanceOf(LicenseSignatureInvalidError);
+  });
+});
+
+describe('resolveActivePlan — binding enforcement (SOU-104)', () => {
+  const BINDING = { machineId: 'machine-A', centerCode: 'CS-CASA-001' };
+
+  it('resolves the tier when machine + center match the binding', () => {
+    const res = resolveActivePlan(
+      valid(claims({ machineId: 'machine-A', centerCode: 'CS-CASA-001' })),
+      NOW,
+      BINDING,
+    );
+    expect(res.status).toBe('active');
+    expect(res.plan).toBe(PLANS.premium);
+  });
+
+  it('falls back to essentiel + wrong-machine when the license is bound to another machine', () => {
+    const res = resolveActivePlan(valid(claims({ machineId: 'machine-B' })), NOW, BINDING);
+    expect(res.status).toBe('wrong-machine');
+    expect(res.plan).toBe(PLANS.essentiel);
+    expect(res.error).toBeInstanceOf(LicenseWrongMachineError);
+    expect(res.claims?.plan).toBe('premium');
+  });
+
+  it('falls back to essentiel + wrong-center when the license is bound to another center', () => {
+    const res = resolveActivePlan(valid(claims({ centerCode: 'CS-RABAT-002' })), NOW, BINDING);
+    expect(res.status).toBe('wrong-center');
+    expect(res.plan).toBe(PLANS.essentiel);
+    expect(res.error).toBeInstanceOf(LicenseWrongCenterError);
+  });
+
+  it('ignores binding entirely when no binding context is supplied (SOU-98 behavior)', () => {
+    const res = resolveActivePlan(valid(claims({ machineId: 'machine-B' })), NOW);
+    expect(res.status).toBe('active');
+    expect(res.plan).toBe(PLANS.premium);
   });
 });
 
