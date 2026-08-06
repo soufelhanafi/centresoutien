@@ -1,7 +1,6 @@
 import type { Database as DB } from 'better-sqlite3';
 import type { Clock, DeviceId, ChangeLogWriter, ChangeLogRecordInput } from '@centresoutien/domain';
-import { resolveChangeLogOp } from '@centresoutien/domain';
-import { assertSqlIdentifier } from './table-identifier';
+import { resolveChangeLogOp, serializeChangeLogPayload } from '@centresoutien/domain';
 
 const NEXT_REVISION_SQL = `
   SELECT COALESCE(MAX(revision), 0) + 1 AS next
@@ -19,14 +18,11 @@ const INSERT_SQL = `
 /**
  * SQLite {@link ChangeLogWriter} (SOU-79). A repository calls `record` from
  * inside its own write transaction, so the log append and the entity write
- * commit or roll back together. The just-written row is snapshotted by reading
- * it back from its table (`entity_type` is the table name), which guarantees the
- * `payload` is exactly the persisted state for both upserts and soft deletes.
- *
- * TODO(SOU-170): payload is the physical row shape (snake_case), so old log rows
- * won't replay across a column rename/drop and cross-device sync-apply (SOU-80+)
- * can't upsert a vN payload onto a vM schema. Version the payload / serialize
- * from the domain entity before the log becomes the sync-apply surface.
+ * commit or roll back together. The caller hands the writer the DOMAIN entity
+ * it just persisted (the tombstoned shape for a soft delete); the writer
+ * serializes it as a versioned payload (SOU-170) — never a physical row — so
+ * old log rows keep replaying across schema migrations and, later, a device at
+ * a different schema version can upcast before sync-apply.
  */
 export class SqliteChangeLogWriter implements ChangeLogWriter {
   constructor(
@@ -36,16 +32,6 @@ export class SqliteChangeLogWriter implements ChangeLogWriter {
   ) {}
 
   record(input: ChangeLogRecordInput): void {
-    const table = assertSqlIdentifier(input.entityType);
-    const row = this.db
-      .prepare(`SELECT * FROM ${table} WHERE id = ?`)
-      .get(input.entityId) as Record<string, unknown> | undefined;
-    if (!row) {
-      throw new Error(
-        `change_log: no ${input.entityType} row for id ${input.entityId} to snapshot`,
-      );
-    }
-
     const { next } = this.db.prepare(NEXT_REVISION_SQL).get(input.entityType, input.entityId) as {
       next: number;
     };
@@ -56,7 +42,7 @@ export class SqliteChangeLogWriter implements ChangeLogWriter {
       entity_id: input.entityId,
       revision: next,
       op,
-      payload: JSON.stringify(row),
+      payload: serializeChangeLogPayload(input.entity),
       device_id: this.deviceId,
       created_at: this.clock.now().toISOString(),
       center_code: input.centerCode,

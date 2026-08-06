@@ -134,6 +134,7 @@ export class SqliteSubjectRepository implements SubjectRepository {
         entityId: toEntityId(subject.id),
         centerCode: subject.centerCode,
         intent: 'upsert',
+        entity: subject,
       });
     })();
   }
@@ -158,8 +159,8 @@ export class SqliteSubjectRepository implements SubjectRepository {
     const iso = at.toISOString();
     this.db.transaction(() => {
       const row = this.db
-        .prepare('SELECT center_code FROM subjects WHERE id = ?')
-        .get(id) as { center_code: string } | undefined;
+        .prepare('SELECT * FROM subjects WHERE id = ?')
+        .get(id) as SubjectRow | undefined;
       if (!row) return;
       this.db
         .prepare('UPDATE subjects SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?')
@@ -169,6 +170,8 @@ export class SqliteSubjectRepository implements SubjectRepository {
         entityId: toEntityId(id),
         centerCode: row.center_code as CenterCode,
         intent: 'delete',
+        // The tombstoned domain entity — exactly the persisted state after the UPDATE.
+        entity: { ...fromRow(row), deletedAt: at, updatedAt: at, updatedBy: by },
       });
     })();
   }
