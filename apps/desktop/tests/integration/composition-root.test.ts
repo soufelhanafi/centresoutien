@@ -1,8 +1,9 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { generateKeyPairSync, sign as signBytes, type KeyObject } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { CenterCode, ParentId, PlanId, SubjectId } from '@centresoutien/domain';
+import type { CenterCode, LicenseClaims, ParentId, PlanId, SubjectId } from '@centresoutien/domain';
 import { buildContainer } from '../../src/main/composition-root';
 import { createIpcDispatcher } from '../../src/main/ipc/dispatcher';
 import { createHandlers } from '../../src/main/ipc/handlers';
@@ -24,6 +25,8 @@ beforeEach(() => {
 });
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
+  delete process.env['CS_LICENSE_FILE'];
+  delete process.env['CS_LICENSE_PUBLIC_KEY'];
 });
 
 function build(planId: PlanId = 'essentiel') {
@@ -36,6 +39,27 @@ function build(planId: PlanId = 'essentiel') {
     appVersion: () => '2.0.0',
     scheduleRestart: () => {},
   });
+}
+
+/** base64(JSON claims) is the signed byte string — mirrors the vendor signer. */
+function signedLicenseFile(claims: LicenseClaims, privateKey: KeyObject): string {
+  const claimsB64 = Buffer.from(JSON.stringify(claims), 'utf8').toString('base64');
+  const signature = signBytes(null, Buffer.from(claimsB64, 'utf8'), privateKey).toString('base64');
+  return JSON.stringify({ claims: claimsB64, signature });
+}
+
+/**
+ * Write a genuine, test-keypair-signed `license.json` and point the composition
+ * root at it (and its verifying public key) through the CS_LICENSE_* overrides.
+ */
+function installSignedLicense(claims: LicenseClaims): void {
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  const licensePath = join(dir, 'license.json');
+  writeFileSync(licensePath, signedLicenseFile(claims, privateKey));
+  process.env['CS_LICENSE_FILE'] = licensePath;
+  process.env['CS_LICENSE_PUBLIC_KEY'] = publicKey
+    .export({ type: 'spki', format: 'pem' })
+    .toString();
 }
 
 describe('composition root', () => {
@@ -274,6 +298,41 @@ describe('composition root', () => {
     expect(await dispatch2('plan.get', {})).toEqual({ planId: 'essentiel' });
     expect((await dispatch2('center.get', {})).center).toMatchObject({ plan: 'essentiel' });
     second.dispose();
+  });
+
+  it('resolves the active plan to premium from a real signed, unexpired license (SOU-98)', async () => {
+    // A genuine vendor-signed license verified against its own public key must
+    // win over the dev override — even when that override is the lowest tier.
+    installSignedLicense({
+      plan: 'premium',
+      issuedAt: '2026-01-01T00:00:00.000Z',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      machineId: null,
+      centerCode: 'CS-CASA-001',
+    });
+
+    const container = build('essentiel');
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+    expect(await dispatch('plan.get', {})).toEqual({ planId: 'premium' });
+    expect((await dispatch('center.save', { name: 'C', address: '', phone: '', email: '', logoPath: null })).center).toMatchObject({ plan: 'premium' });
+    container.dispose();
+  });
+
+  it('falls back to essentiel when the genuine signed license is expired (SOU-98)', async () => {
+    // Signature is valid but expiry is in the past — the license no longer grants
+    // its tier, so the plan drops to the dev/startup fallback.
+    installSignedLicense({
+      plan: 'premium',
+      issuedAt: '2000-01-01T00:00:00.000Z',
+      expiresAt: '2000-01-02T00:00:00.000Z',
+      machineId: null,
+      centerCode: 'CS-CASA-001',
+    });
+
+    const container = build('essentiel');
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+    expect(await dispatch('plan.get', {})).toEqual({ planId: 'essentiel' });
+    container.dispose();
   });
 
   it('persists a stable device origin across container rebuilds', async () => {

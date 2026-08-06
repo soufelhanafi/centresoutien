@@ -743,6 +743,11 @@ export const ipcContract = {
   // Dev plan switcher (SOU) — swaps the domain's active plan so the PlanPolicy
   // gate and the renderer's cosmetic mirror stay in sync. Without it, flipping a
   // UI feature on would fire gated reads the domain still rejects.
+  // DEV-ONLY (SOU-98): this entry types the dev bridge, but the main process
+  // never wires the handler in a production build — `createHandlers` omits it and
+  // `registerIpc` skips absent channels, so an `invoke('plan.set', …)` from a
+  // packaged renderer hits no `ipcMain.handle` and is rejected. It exists here so
+  // the dev switcher stays typed; it grants no runtime capability in production.
   'plan.set': {
     request: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
     response: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
@@ -1796,6 +1801,15 @@ export type IpcResponse<C extends IpcChannel> = z.infer<IpcContract[C]['response
 export type IpcHandlers = {
   [C in IpcChannel]: (request: IpcRequest<C>) => IpcResponse<C> | Promise<IpcResponse<C>>;
 };
+
+/**
+ * The handler map actually built and wired at runtime. `plan.set` is a dev-only
+ * switcher (see its contract entry): production builds omit its handler, so it is
+ * optional here. Everything else is mandatory. `registerIpc` skips any channel
+ * whose handler is absent, so a channel with no handler is never reachable.
+ */
+export type RegisterableIpcHandlers = Omit<IpcHandlers, 'plan.set'> &
+  Partial<Pick<IpcHandlers, 'plan.set'>>;
 
 export function isIpcChannel(value: string): value is IpcChannel {
   return Object.prototype.hasOwnProperty.call(ipcContract, value);

@@ -26,7 +26,7 @@ export type LicenseResolution = {
 /** A license is expired when it carries an expiry at or before "now". */
 export function isLicenseExpired(claims: LicenseClaims, now: Date): boolean {
   if (claims.expiresAt === null) return false;
-  return new Date(claims.expiresAt).getTime() <= now.getTime();
+  return Date.parse(claims.expiresAt) <= now.getTime();
 }
 
 /**
