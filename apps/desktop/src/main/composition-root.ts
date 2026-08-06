@@ -135,11 +135,15 @@ import type {
   SubjectReferencePort,
   TeacherReferencePort,
   StudentSubscriptionReferencePort,
+  SyncHubPort,
 } from '@centresoutien/domain';
 import { Ed25519LicenseAdapter } from '../data/license/ed25519-license-adapter';
 import { VENDOR_LICENSE_PUBLIC_KEY_PEM } from '../data/license/vendor-public-key';
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
+import { SqliteHubStore } from '../data/sqlite/hub/hub-store';
+import { HubServer } from './hub-server/hub-server';
+import { HttpSyncHubClient } from '../data/sync/http-sync-hub-client';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
 import { SqliteChangeLogWriter } from '../data/sqlite/change-log/sqlite-change-log-writer';
 import { SqliteFormulaRepository } from '../data/sqlite/repositories/formula-repository';
@@ -199,6 +203,14 @@ const migrationFiles = import.meta.glob('../data/sqlite/migrations/*.sql', {
   eager: true,
 }) as Record<string, string>;
 
+// The embedded hub's canonical store has its own migration chain (SOU-90) — a
+// separate SQLCipher file per center, so its `_schema_migrations` is distinct.
+const hubMigrationFiles = import.meta.glob('../data/sqlite/hub/migrations/*.sql', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
 // TODO(auth): real editor identity arrives with user accounts. Until then every
 // write is attributed to a single local placeholder user.
 const DEV_USER = 'usr_local-device' as UserId;
@@ -219,6 +231,14 @@ export type ContainerOptions = {
    *  file instead of relying on the DEV-only `CS_LICENSE_*` env overrides, which
    *  a production build never reads. Undefined in production. */
   license?: LicensePort;
+  /**
+   * Embedded LAN hub (SOU-90): when present, the composition root opens the
+   * hub's canonical store, starts the HTTP listener, and wires the HTTP
+   * `SyncHubPort` client for this center. Absent by default — designating a
+   * laptop as hub (and its real config UX) is a later ticket; for now `index.ts`
+   * opts in via `CS_HUB_ENABLED`/`CS_HUB_PORT`/`CS_HUB_TOKEN`.
+   */
+  hubServer?: { port: number; token: string };
 };
 
 export type Container = {
@@ -229,6 +249,13 @@ export type Container = {
    * persistence + IPC. Nothing consumes it yet on this branch.
    */
   subscriptionReference: StudentSubscriptionReferencePort;
+  /**
+   * The embedded hub's {@link SyncHubPort} client (SOU-90) for the open center —
+   * the seam the sync engine (SOU-81) will drive. Always an HTTP client bound to
+   * the hub host's own `127.0.0.1` when the hub is enabled, so the hub laptop is
+   * never special-cased. Null when the hub is disabled.
+   */
+  syncHub: SyncHubPort | null;
   /** Read once, synchronously, before the window opens — see `LocalePreferenceStore`. */
   readLocalePreference: () => LocalePreference | null;
   dispose: () => void;
@@ -757,6 +784,31 @@ export function buildContainer(options: ContainerOptions): Container {
   // userData directory the center DB files and the logo store live under.
   const localePreferences = new LocalePreferenceStore(options.dir);
 
+  // Embedded LAN hub (SOU-90). When enabled, the hub host's own replica syncs
+  // to itself over localhost through the SAME SyncHubPort client as every other
+  // device — this container never special-cases the hub machine. The listener
+  // binds the configured port (fire-and-forget, like the scheduled backup): a
+  // failed bind (port in use) is logged, never fatal, and the sync page (SOU-81)
+  // surfaces hub health. Real hub designation/setup UX is a later ticket; the
+  // option is wired here so the seam exists before its consumer.
+  let hubServerInstance: HubServer | null = null;
+  let hubStore: SqliteHubStore | null = null;
+  let syncHub: SyncHubPort | null = null;
+  const hubConfig = options.hubServer;
+  if (hubConfig) {
+    hubStore = SqliteHubStore.open({ centreId: options.centreId, key: options.key, dir: options.dir }, clock);
+    applyMigrations(hubStore.db, toMigrations(hubMigrationFiles));
+    hubStore.registerCenter(options.centerCode, hubConfig.token, clock.now());
+    hubServerInstance = new HubServer(hubStore, hubConfig.port);
+    void hubServerInstance.start().catch((error: unknown) => {
+      console.error('[hub] failed to start on port', hubConfig.port, error);
+    });
+    syncHub = new HttpSyncHubClient({
+      baseUrl: `http://127.0.0.1:${hubConfig.port}`,
+      token: hubConfig.token,
+    });
+  }
+
   const attemptLogin = new AttemptLogin(
     verifyAdminPassword,
     new SqliteLoginThrottleStore(db),
@@ -934,11 +986,14 @@ export function buildContainer(options: ContainerOptions): Container {
   return {
     handlerDeps,
     subscriptionReference,
+    syncHub,
     readLocalePreference: () => localePreferences.read(),
     // `db.open` guards against a double-close: a successful restore (SOU-102)
     // already closed this handle as part of its file swap, and `will-quit`
     // still calls `dispose()` during the scheduled relaunch.
     dispose: () => {
+      if (hubServerInstance) void hubServerInstance.stop();
+      if (hubStore) hubStore.close();
       if (db.open) db.close();
     },
   };

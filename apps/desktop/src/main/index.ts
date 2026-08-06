@@ -64,7 +64,24 @@ app.whenReady().then(() => {
       planId: activePlanId(),
       appVersion: () => app.getVersion(),
       scheduleRestart,
+      // Embedded LAN hub (SOU-90): designated-laptop opt-in until the sync
+      // setup ticket lands real configuration. The pairing token is REQUIRED —
+      // a LAN-facing listener with a known default token would defeat the
+      // whole pairing model. The hub host's own replica still syncs through
+      // the same SyncHubPort client (over localhost), so these env vars only
+      // decide WHO serves — never how the hub machine syncs.
+      ...(process.env['CS_HUB_ENABLED'] === '1' && process.env['CS_HUB_TOKEN']
+        ? {
+            hubServer: {
+              port: Number(process.env['CS_HUB_PORT'] ?? '4747'),
+              token: process.env['CS_HUB_TOKEN'],
+            },
+          }
+        : {}),
     });
+    if (process.env['CS_HUB_ENABLED'] === '1' && !process.env['CS_HUB_TOKEN']) {
+      console.warn('[hub] CS_HUB_ENABLED=1 but no CS_HUB_TOKEN set — hub is NOT serving.');
+    }
   } catch (error) {
     // A center DB migrated by a newer app build, then reopened after a rollback
     // (SOU-128): refuse to open rather than silently no-op pending migrations
