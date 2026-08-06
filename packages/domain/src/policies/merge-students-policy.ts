@@ -4,7 +4,6 @@ import type {
 } from '../entities/student-subscription';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import { toEntityId } from '../value-objects/ids';
-import { newEnvelope } from '../entities/envelope';
 import type { StudentDependents } from '../ports/merge-students-unit-of-work';
 import type { MergeLogEntry, MergeLogReason } from '../entities/merge-log';
 import {
@@ -55,32 +54,58 @@ export function computeStudentMergeUnit(input: {
     updatedBy: input.updatedBy,
   });
   const droppedGuardianIds = loser.guardianIds.filter((id) => !winner.guardianIds.includes(id));
-  const mergeLog: MergeLogEntry = {
-    ...newEnvelope(
-      {
-        centerCode: input.centerCode,
-        deviceOrigin: input.deviceOrigin,
-        updatedBy: input.updatedBy,
-      },
-      { now: () => now },
-    ),
-    createdAt: now,
-    updatedAt: now,
-    id: input.mergeLogId,
-    entityType: 'students',
-    loserId: toEntityId(loser.id),
-    winnerId: toEntityId(winner.id),
+  const mergeLog = buildStudentMergeLog({
+    centerCode: input.centerCode,
+    deviceOrigin: input.deviceOrigin,
+    updatedBy: input.updatedBy,
+    now,
+    mergeLogId: input.mergeLogId,
+    loserId: loser.id,
+    winnerId: winner.id,
     reason: input.reason,
     note: buildMergeStudentsNote({
       closedSubscriptionIds: reconciliation.closedSubscriptionIds,
       droppedGuardianIds,
     }),
-  };
+  });
   return {
     winner: absorbedWinner,
     loser: tombstonedLoser,
     repointed: { ...repointed, subscriptions: reconciliation.subscriptions },
     mergeLog,
+  };
+}
+
+/**
+ * Builds the audit log entry for a student merge. The envelope timestamps come
+ * straight from the caller's single `now` — no separate clock read, so the
+ * entry's `createdAt`/`updatedAt` are guaranteed identical on a fresh row.
+ */
+function buildStudentMergeLog(input: {
+  centerCode: CenterCode;
+  deviceOrigin: DeviceId;
+  updatedBy: UserId;
+  now: Date;
+  mergeLogId: MergeLogEntry['id'];
+  loserId: StudentId;
+  winnerId: StudentId;
+  reason: MergeLogReason;
+  note: string | null;
+}): MergeLogEntry {
+  return {
+    centerCode: input.centerCode,
+    deviceOrigin: input.deviceOrigin,
+    createdAt: input.now,
+    updatedAt: input.now,
+    updatedBy: input.updatedBy,
+    deletedAt: null,
+    version: 0,
+    id: input.mergeLogId,
+    entityType: 'students',
+    loserId: toEntityId(input.loserId),
+    winnerId: toEntityId(input.winnerId),
+    reason: input.reason,
+    note: input.note,
   };
 }
 

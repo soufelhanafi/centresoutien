@@ -82,7 +82,7 @@ export class InMemoryMergeStudentsUnitOfWork implements MergeStudentsUnitOfWork 
     }
   }
 
-  private snapshot(): Record<string, readonly unknown[]> {
+  private snapshot(): MergeStudentsSnapshot {
     return {
       students: this.students.all(),
       enrollments: this.enrollments.all(),
@@ -93,29 +93,33 @@ export class InMemoryMergeStudentsUnitOfWork implements MergeStudentsUnitOfWork 
     };
   }
 
-  private async restore(snap: Record<string, readonly unknown[]>): Promise<void> {
-    const students = snap['students'] as readonly Student[];
+  private async restore(snap: MergeStudentsSnapshot): Promise<void> {
     this.students.clear();
-    for (const row of students) await this.students.save(row);
+    for (const row of snap.students) await this.students.save(row);
 
-    const enrollments = snap['enrollments'] as readonly Enrollment[];
     this.enrollments.clear();
-    for (const row of enrollments) await this.enrollments.save(row);
+    for (const row of snap.enrollments) await this.enrollments.save(row);
 
-    const subscriptions = snap['subscriptions'] as readonly StudentSubscription[];
     this.subscriptions.clear();
-    for (const row of subscriptions) await this.subscriptions.save(row);
+    for (const row of snap.subscriptions) await this.subscriptions.save(row);
 
-    const attendance = snap['attendance'] as readonly AttendanceRecord[];
     this.attendance.clear();
-    for (const row of attendance) await this.attendance.save(row);
+    for (const row of snap.attendance) await this.attendance.save(row);
 
-    const invoices = snap['invoices'] as readonly Invoice[];
     this.invoices.clear();
-    for (const row of invoices) await this.invoices.save(row);
+    for (const row of snap.invoices) await this.invoices.save(row);
 
-    const logs = snap['logs'] as readonly MergeLogEntry[];
     this.mergeLogs.clear();
-    for (const row of logs) await this.mergeLogs.record(row);
+    for (const row of snap.logs) await this.mergeLogs.record(row);
   }
 }
+
+/** The full pre-commit state of the repositories the unit of work writes to. */
+type MergeStudentsSnapshot = {
+  readonly students: readonly Student[];
+  readonly enrollments: readonly Enrollment[];
+  readonly subscriptions: readonly StudentSubscription[];
+  readonly attendance: readonly AttendanceRecord[];
+  readonly invoices: readonly Invoice[];
+  readonly logs: readonly MergeLogEntry[];
+};

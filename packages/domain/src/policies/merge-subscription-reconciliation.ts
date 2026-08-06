@@ -48,11 +48,20 @@ export function reconcileOverlappingSubscriptions(input: {
   now: Date;
   updatedBy: UserId;
 }): SubscriptionReconciliation {
-  const winnerOpen = input.winnerSubscriptions.filter((s) => s.endMonth === null);
+  // Any winner sub whose coverage extends into the merge month or later is
+  // billable there — an open sub (endMonth null) OR a closed one whose
+  // endMonth is still in the future (M-1). Both must block a same-kind
+  // loser-origin duplicate.
+  const winnerBillable = input.winnerSubscriptions.filter(
+    (s) => s.endMonth === null || s.endMonth >= input.mergeMonth,
+  );
   const closedSubscriptionIds: StudentSubscriptionId[] = [];
   const subscriptions = input.repointedSubscriptions.map((sub) => {
-    if (sub.endMonth !== null) return sub;
-    const overlappingWinner = earliestSameKindWinner(winnerOpen, sub);
+    // A loser-origin sub closed before the merge month is history — untouched.
+    // One still billable at/after the merge month (open, or closed with a
+    // future endMonth) must be reconciled against the winner's billable subs.
+    if (sub.endMonth !== null && sub.endMonth < input.mergeMonth) return sub;
+    const overlappingWinner = earliestSameKindWinner(winnerBillable, sub);
     if (overlappingWinner === null) return sub;
     closedSubscriptionIds.push(sub.id);
     const coverageStart =
@@ -68,10 +77,11 @@ export function reconcileOverlappingSubscriptions(input: {
 }
 
 /**
- * The same-kind open winner subscription whose range overlaps `sub`, preferring
- * the earliest start — the one that begins billing first and therefore defines
- * when the loser-origin duplicate must stop. `null` when no winner sub of the
- * same kind overlaps (kinds differ, or ranges are disjoint).
+ * The same-kind billable winner subscription whose range overlaps `sub`,
+ * preferring the earliest start — the one that begins billing first and
+ * therefore defines when the loser-origin duplicate must stop. Billable means
+ * open (`endMonth` null) or closed with a future endMonth (M-1). `null` when no
+ * winner sub of the same kind overlaps (kinds differ, or ranges are disjoint).
  */
 function earliestSameKindWinner(
   winnerOpen: readonly StudentSubscription[],

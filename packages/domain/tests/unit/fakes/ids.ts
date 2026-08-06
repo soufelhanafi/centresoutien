@@ -7,6 +7,7 @@ import type { IdGenerator } from '../../../src/ports/id-generator';
 export function fakeIds(seed = 1): IdGenerator {
   let n = seed;
   return {
-    next: (prefix: string) => `${prefix}_${String(n++).padStart(26, '0')}`,
+    next: <T extends string = string>(prefix: string) =>
+      `${prefix}_${String(n++).padStart(26, '0')}` as T,
   };
 }

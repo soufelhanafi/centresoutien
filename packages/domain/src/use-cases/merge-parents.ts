@@ -126,7 +126,7 @@ export class MergeParents {
       ),
       createdAt: now,
       updatedAt: now,
-      id: this.ids.next(MERGE_LOG_ID_PREFIX) as MergeLogId,
+      id: this.ids.next<MergeLogId>(MERGE_LOG_ID_PREFIX),
       entityType: 'parents',
       loserId: toEntityId(input.loserId),
       winnerId: toEntityId(input.winnerId),

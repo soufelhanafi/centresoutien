@@ -81,7 +81,7 @@ export class MergeStudents {
       deviceOrigin: input.deviceOrigin,
       updatedBy: input.updatedBy,
       reason: input.reason ?? 'manual',
-      mergeLogId: this.ids.next(MERGE_LOG_ID_PREFIX) as MergeLogId,
+      mergeLogId: this.ids.next<MergeLogId>(MERGE_LOG_ID_PREFIX),
       now,
     });
 

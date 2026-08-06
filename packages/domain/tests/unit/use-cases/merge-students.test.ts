@@ -318,6 +318,36 @@ describe('MergeStudents', () => {
       expect(mergeLogs.all()[0]?.note).toBeNull();
     });
 
+    it('M-1: a winner closed-but-future-active sub still blocks a same-kind loser sub — never double-bills', async () => {
+      await students.save(makeStudent(WINNER));
+      await students.save(makeStudent(LOSER));
+      // Winner holds a CLOSED regular sub that is still billable through 2026-12
+      // (endMonth in the future, inclusive) — previously invisible to the
+      // reconciler because it anchored only on endMonth === null.
+      const winnerClosedSub = makeSubscription('sbs_00000000000000000000000006' as StudentSubscriptionId, WINNER, {
+        startMonth: '2026-01',
+        endMonth: '2026-12',
+      });
+      const loserOpenSub = makeSubscription('sbs_00000000000000000000000007' as StudentSubscriptionId, LOSER, {
+        startMonth: '2026-06',
+      });
+      await subscriptions.save(winnerClosedSub);
+      await subscriptions.save(loserOpenSub);
+
+      await useCase.execute(validInput());
+
+      const winnerSubs = subscriptions.all().filter((s) => s.studentId === WINNER);
+      // Exactly ONE billable regular sub in every month from the merge month
+      // (2026-07) through the winner's closed sub's end (2026-12).
+      for (const month of ['2026-07', '2026-08', '2026-09', '2026-10', '2026-11', '2026-12']) {
+        expect(activeCountInMonth(winnerSubs, month)).toBe(1);
+      }
+      // The loser-origin duplicate was closed before the merge month.
+      const closedLoserOrigin = winnerSubs.find((s) => s.id === loserOpenSub.id);
+      expect(closedLoserOrigin?.endMonth).toBe('2026-06');
+      expect(mergeLogs.all()[0]?.note).toContain(loserOpenSub.id);
+    });
+
     it('a loser-origin subscription starting in the merge month is cancelled entirely — it must never bill a month the winner covers', async () => {
       await students.save(makeStudent(WINNER));
       await students.save(makeStudent(LOSER));
