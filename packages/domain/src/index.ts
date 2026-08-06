@@ -123,6 +123,7 @@ export {
   NotAuthenticatedError,
 } from './errors/auth-errors';
 export { StudentNotFoundError, StudentVersionConflictError } from './errors/student-errors';
+export { MergeSameEntityError } from './errors/merge-errors';
 export {
   DuplicateParentError,
   ParentNotFoundError,
@@ -398,6 +399,13 @@ export { SESSION_ID_PREFIX, GENERATION_BATCH_ID_PREFIX } from './entities/sessio
 export type { Session, SessionId, GenerationBatchId } from './entities/session';
 export { ATTENDANCE_RECORD_ID_PREFIX, ATTENDANCE_STATUSES } from './entities/attendance-record';
 export type { AttendanceRecord, AttendanceRecordId, AttendanceStatus } from './entities/attendance-record';
+export { MERGE_LOG_ID_PREFIX } from './entities/merge-log';
+export type {
+  MergeLogEntry,
+  MergeLogId,
+  MergeLogEntityType,
+  MergeLogReason,
+} from './entities/merge-log';
 
 // Read models (denormalized, envelope-free — never persisted)
 export type { WeeklySessionView } from './read-models/weekly-session-view';
@@ -483,6 +491,7 @@ export type { BackupImportCounts, BackupImportRowReport, BackupImportPreview, Ba
 export { emptyImportCounts } from './backup/import-reports';
 export { BackupFileReadError, BackupFileWriteError, BackupImportApplyError } from './errors/backup-errors';
 export type { ParentRepository } from './ports/parent-repository';
+export type { MergeLogRepository } from './ports/merge-log-repository';
 export type { RoomRepository } from './ports/room-repository';
 export type { TeacherRepository } from './ports/teacher-repository';
 // Teacher in-use guard — DECLARED CONTRACT ONLY; real adapter lands with Groups
