@@ -115,14 +115,36 @@ describe('DuplicateMatcher — parents (E.164 phone anchor)', () => {
     const matcher = new DuplicateMatcher(
       source({ findTeachersByPhone: () => [teacher('tch_A', 'Salma Bennani', '+212700000002')] }),
     );
+    // The teacher helper stamps name as `{ fr, ar }`, so a matching inbound must
+    // use the same bilingual shape — a raw String() would have "matched" any two
+    // records ("[object Object]"), which is exactly the bug the regression test
+    // below guards against.
     const matches = matcher.match({
       entityType: 'teachers',
       centerCode: CENTER,
-      entity: { id: 'tch_B', name: { fr: 'Salma', ar: 'سلمى' }, phone: '+212700000002' },
+      entity: { id: 'tch_B', name: { fr: 'Salma Bennani', ar: 'Salma Bennani' }, phone: '+212700000002' },
       selfId: SELF,
     });
 
     expect(matches[0]).toEqual({ tier: 'exact', candidateId: asEntity('tch_A'), reason: 'same-name-phone' });
+  });
+
+  it('two teachers sharing a phone but with DIFFERENT names → fuzzy, never exact', () => {
+    // Regression (SOU-80 review): teacher `name` is a `{ fr, ar }` object, so a
+    // raw String() would be "[object Object]" on both sides and collapse every
+    // shared-phone pair into an "exact" match. The bilingual normalization must
+    // keep the shared-phone fuzzy tier reachable.
+    const matcher = new DuplicateMatcher(
+      source({ findTeachersByPhone: () => [teacher('tch_A', 'Salma Bennani', '+212700000002')] }),
+    );
+    const matches = matcher.match({
+      entityType: 'teachers',
+      centerCode: CENTER,
+      entity: { id: 'tch_B', name: { fr: 'Karim', ar: 'كريم' }, phone: '+212700000002' },
+      selfId: SELF,
+    });
+
+    expect(matches[0]).toEqual({ tier: 'fuzzy', candidateId: asEntity('tch_A'), reason: 'shared-phone' });
   });
 });
 

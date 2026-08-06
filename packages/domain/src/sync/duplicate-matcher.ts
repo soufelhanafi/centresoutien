@@ -38,6 +38,20 @@ export type DuplicateMatch = {
   readonly reason: string;
 };
 
+/**
+ * Normalize a person name for matching whether it is a plain string (Parent)
+ * or the bilingual `{ fr, ar }` object (Teacher). A raw `String()` of the
+ * object would be `"[object Object]"` on both sides and make every shared-phone
+ * teacher an "exact" match — the `shared-phone` fuzzy tier must stay reachable.
+ */
+function normalizePersonName(raw: unknown): string {
+  if (typeof raw === 'object' && raw !== null) {
+    const bilingual = raw as { fr?: unknown; ar?: unknown };
+    return normalizeNameForMatch(`${String(bilingual.fr ?? '')} ${String(bilingual.ar ?? '')}`);
+  }
+  return normalizeNameForMatch(String(raw ?? ''));
+}
+
 export class DuplicateMatcher {
   constructor(private readonly source: DuplicateMatchSource) {}
 
@@ -65,7 +79,7 @@ export class DuplicateMatcher {
     kind: 'parents' | 'teachers',
   ): readonly DuplicateMatch[] {
     const phone = String(input.entity['phone'] ?? '');
-    const name = normalizeNameForMatch(String(input.entity['name'] ?? ''));
+    const name = normalizePersonName(input.entity['name']);
     const find = kind === 'parents'
       ? (c: CenterCode, p: string) => this.source.findParentsByPhone(c, p)
       : (c: CenterCode, p: string) => this.source.findTeachersByPhone(c, p);
@@ -73,7 +87,7 @@ export class DuplicateMatcher {
     const matches: DuplicateMatch[] = [];
     for (const person of find(input.centerCode, phone)) {
       if (toEntityId(person.id) === input.selfId) continue;
-      const sameName = normalizeNameForMatch(String((person as { name: unknown }).name ?? '')) === name;
+      const sameName = normalizePersonName((person as { name: unknown }).name) === name;
       matches.push(
         sameName
           ? { tier: 'exact', candidateId: toEntityId(person.id), reason: 'same-name-phone' }
