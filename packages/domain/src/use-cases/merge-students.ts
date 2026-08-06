@@ -4,6 +4,7 @@ import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
 import type { PlanPolicy } from '../plans/plan-policy';
 import { toEntityId, type CenterCode, type DeviceId, type UserId } from '../value-objects/ids';
+import { previousMonth } from '../value-objects/month';
 import { newEnvelope } from '../entities/envelope';
 import { StudentNotFoundError } from '../errors/student-errors';
 import { MergeSameEntityError } from '../errors/merge-errors';
@@ -47,8 +48,10 @@ export type MergeStudentsInput = {
  *
  * A merge never leaves the winner with two active same-kind subscriptions: a
  * re-pointed loser-origin subscription that duplicates a live winner one of the
- * same kind is closed at the merge month (close-and-reopen, CLAUDE.md §7), and
- * both that closure and any detached guardian links are recorded in the log note.
+ * same kind is closed at the month BEFORE the merge month — `endMonth` is
+ * inclusive, so a merge-month close would still bill it (close-and-reopen,
+ * CLAUDE.md §7). Both that closure and any detached guardian links are recorded
+ * in the log note.
  *
  * Gated by `sync.conflict-resolution` — merging is settling a duplicate, so only
  * users authorized to resolve conflicts may run it. The whole merge is one
@@ -83,14 +86,14 @@ export class MergeStudents {
       updatedBy: input.updatedBy,
     };
     const dependents = await this.unitOfWork.listDependents(input.centerCode, input.loserId);
-    const activeSubscriptions = await this.unitOfWork.listActiveSubscriptions(input.centerCode, [
+    const liveSubscriptions = await this.unitOfWork.listActiveSubscriptions(input.centerCode, [
       input.winnerId,
       input.loserId,
     ]);
     const repointed = repointStudentDependents(dependents, input.loserId, winner.id, now, input.updatedBy);
     const reconciliation = reconcileOverlappingSubscriptions({
       repointedSubscriptions: repointed.subscriptions,
-      winnerSubscriptions: activeSubscriptions.filter((s) => s.studentId === winner.id),
+      winnerSubscriptions: liveSubscriptions.filter((s) => s.studentId === winner.id),
       mergeMonth: now.toISOString().slice(0, 7),
       now,
       updatedBy: input.updatedBy,
@@ -205,17 +208,27 @@ export type SubscriptionReconciliation = {
 };
 
 /**
- * Closes the re-pointed loser-origin subscriptions that duplicate a live winner
- * subscription of the same kind (CLAUDE.md §7, M3). Re-pointing the loser's
- * open (`endMonth: null`) subscription onto a winner who already holds an open
- * same-kind one would leave the winner with two — the at-most-one-active-per-kind
- * invariant is violated and the monthly invoice generator bills twice. Per the
- * close-and-reopen rule the loser-origin row is capped at the merge month (an
- * inverted range is a zero-month cancellation and is allowed by the derived
- * status rule), never edited in place otherwise, and stays a closed row pointing
- * at the winner for history. Non-overlapping kinds (winner `regular`, loser
- * `exam-prep`) both survive active. Purely additive to the input — loser-origin
- * rows that don't overlap pass through untouched.
+ * Reconciles the re-pointed loser-origin subscriptions against the winner's own
+ * live subscriptions so the winner never ends up with two billable subscriptions
+ * of the same kind in any month from the merge month on (CLAUDE.md §7, M3).
+ * Re-pointing the loser's open (`endMonth: null`) subscription onto a winner who
+ * already holds an open same-kind one would violate the at-most-one-active-per-kind
+ * invariant and make the monthly invoice generator bill twice.
+ *
+ * The loser-origin duplicate is closed via the close-and-reopen convention
+ * (cap `endMonth`, never edited in place otherwise), and stays a closed row
+ * pointing at the winner for history. Non-overlapping kinds (winner `regular`,
+ * loser `exam-prep`) both survive active. Purely additive to the input — rows
+ * that are already closed or don't overlap pass through untouched.
+ *
+ * **Why the cap lands before the merge month.** `endMonth` is inclusive — a row
+ * capped AT the merge month stays active and billed for it, leaving the winner
+ * with two invoice lines that month. The duplicate is therefore capped at the
+ * month BEFORE the merge month. A cap that lands before the duplicate's own
+ * start month is an inverted range — the zero-month full cancellation the
+ * derived-status rule permits (same convention as `CloseStudentSubscription`) —
+ * so a duplicate that starts in the merge month is cancelled entirely rather
+ * than billed once.
  */
 export function reconcileOverlappingSubscriptions(input: {
   repointedSubscriptions: readonly StudentSubscription[];
@@ -235,7 +248,12 @@ export function reconcileOverlappingSubscriptions(input: {
     );
     if (!duplicates) return sub;
     closedSubscriptionIds.push(sub.id);
-    return { ...sub, endMonth: input.mergeMonth, updatedAt: input.now, updatedBy: input.updatedBy };
+    return {
+      ...sub,
+      endMonth: previousMonth(input.mergeMonth),
+      updatedAt: input.now,
+      updatedBy: input.updatedBy,
+    };
   });
   return { subscriptions, closedSubscriptionIds };
 }
