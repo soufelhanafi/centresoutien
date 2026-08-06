@@ -26,6 +26,7 @@ import { InMemoryInvoiceRepository } from '../fakes/in-memory-invoice-repository
 import { InMemoryPaymentRepository } from '../fakes/in-memory-payment-repository';
 import { InMemoryMergeLogRepository } from '../fakes/in-memory-merge-log-repository';
 import { InMemoryMergeStudentsUnitOfWork } from '../fakes/in-memory-merge-students-unit-of-work';
+import { isSubscriptionActiveInMonth } from '../../../src/policies/student-subscription-policy';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 import { planWithoutFeature } from '../fakes/plans';
@@ -123,6 +124,13 @@ function makePayment(id: PaymentId, invoiceId: InvoiceId): Payment {
     reversesPaymentId: null,
     note: null,
   };
+}
+
+function activeCountInMonth(
+  subs: readonly StudentSubscription[],
+  month: string,
+): number {
+  return subs.filter((s) => isSubscriptionActiveInMonth(s, month)).length;
 }
 
 function validInput(overrides: Partial<MergeStudentsInput> = {}): MergeStudentsInput {
@@ -254,12 +262,16 @@ describe('MergeStudents', () => {
       expect(open).toHaveLength(1);
       expect(open[0]?.id).toBe(winnerSub.id);
 
-      // The loser-origin one is closed at the merge month (2026-07), re-pointed,
-      // and recorded in the log note — nothing is dropped silently.
+      // The loser-origin one is capped at the month BEFORE the merge month
+      // (2026-06) — endMonth is inclusive, so closing at 2026-07 would still
+      // bill the merge month and double-bill the winner. It stays a closed row
+      // pointing at the winner for history and is recorded in the log note.
       const closedLoserOrigin = winnerSubs.find((s) => s.id === loserSub.id);
       expect(closedLoserOrigin?.studentId).toBe(WINNER);
-      expect(closedLoserOrigin?.endMonth).toBe('2026-07');
+      expect(closedLoserOrigin?.endMonth).toBe('2026-06');
       expect(mergeLogs.all()[0]?.note).toContain(loserSub.id);
+      // The merge month bills exactly ONE sub on the winner — never two.
+      expect(activeCountInMonth(winnerSubs, '2026-07')).toBe(1);
     });
 
     it('keeps both active subscriptions when the kinds do not overlap (winner regular, loser exam-prep)', async () => {
@@ -304,6 +316,69 @@ describe('MergeStudents', () => {
       const preserved = winnerSubs.find((s) => s.id === closedLoserSub.id);
       expect(preserved?.endMonth).toBe('2026-05');
       expect(mergeLogs.all()[0]?.note).toBeNull();
+    });
+
+    it('a loser-origin subscription starting in the merge month is cancelled entirely — it must never bill a month the winner covers', async () => {
+      await students.save(makeStudent(WINNER));
+      await students.save(makeStudent(LOSER));
+      const winnerSub = makeSubscription('sbs_00000000000000000000000006' as StudentSubscriptionId, WINNER, {
+        startMonth: '2026-06',
+      });
+      const loserSub = makeSubscription('sbs_00000000000000000000000007' as StudentSubscriptionId, LOSER, {
+        startMonth: '2026-07',
+      });
+      await subscriptions.save(winnerSub);
+      await subscriptions.save(loserSub);
+
+      await useCase.execute(validInput());
+
+      const winnerSubs = subscriptions.all().filter((s) => s.studentId === WINNER);
+      // endMonth (2026-06) lands BEFORE startMonth (2026-07) — the derived-status
+      // rule reads this as active for zero months: a full cancellation for the
+      // merge month, the same convention CloseStudentSubscription permits.
+      const cancelled = winnerSubs.find((s) => s.id === loserSub.id);
+      expect(cancelled?.studentId).toBe(WINNER);
+      expect(cancelled?.endMonth).toBe('2026-06');
+      expect(isSubscriptionActiveInMonth(cancelled!, '2026-07')).toBe(false);
+      // Exactly ONE billable sub for the merge month — the winner's open one.
+      expect(activeCountInMonth(winnerSubs, '2026-07')).toBe(1);
+      expect(mergeLogs.all()[0]?.note).toContain(loserSub.id);
+    });
+
+    it('keeps the actively-billing loser-origin sub until the future-starting winner sub takes over — no gap, no overlap', async () => {
+      await students.save(makeStudent(WINNER));
+      await students.save(makeStudent(LOSER));
+      const winnerSub = makeSubscription('sbs_00000000000000000000000006' as StudentSubscriptionId, WINNER, {
+        startMonth: '2026-09',
+      });
+      const loserSub = makeSubscription('sbs_00000000000000000000000007' as StudentSubscriptionId, LOSER, {
+        startMonth: '2026-03',
+      });
+      await subscriptions.save(winnerSub);
+      await subscriptions.save(loserSub);
+
+      await useCase.execute(validInput());
+
+      const winnerSubs = subscriptions.all().filter((s) => s.studentId === WINNER);
+      const winnerAfter = winnerSubs.find((s) => s.id === winnerSub.id);
+      const loserAfter = winnerSubs.find((s) => s.id === loserSub.id);
+      // The future-starting (pre-enrolled) winner sub is kept open; the loser
+      // sub that is billing NOW is capped at the month before the winner starts,
+      // so coverage hands over without a billing gap and without overlap.
+      expect(winnerAfter?.endMonth).toBeNull();
+      expect(loserAfter?.endMonth).toBe('2026-08');
+
+      // Exactly one billable sub in every month from the merge month through the
+      // winner's first term — the loser covers 07 + 08, the winner 09 onward.
+      expect(activeCountInMonth(winnerSubs, '2026-07')).toBe(1);
+      expect(activeCountInMonth(winnerSubs, '2026-08')).toBe(1);
+      expect(activeCountInMonth(winnerSubs, '2026-09')).toBe(1);
+      expect(activeCountInMonth(winnerSubs, '2026-10')).toBe(1);
+      expect(isSubscriptionActiveInMonth(loserAfter!, '2026-08')).toBe(true);
+      expect(isSubscriptionActiveInMonth(loserAfter!, '2026-09')).toBe(false);
+      expect(isSubscriptionActiveInMonth(winnerAfter!, '2026-08')).toBe(false);
+      expect(isSubscriptionActiveInMonth(winnerAfter!, '2026-09')).toBe(true);
+      expect(mergeLogs.all()[0]?.note).toContain(loserSub.id);
     });
   });
 
