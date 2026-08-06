@@ -33,6 +33,16 @@ export type LicenseResolution = {
 };
 
 /**
+ * The hard-lock decision (SOU-104): any license status other than `active` puts
+ * the app in restricted mode, where the IPC boundary answers only the license
+ * status/activation channels. This is the single authority the main-process guard
+ * consults; the renderer's `LicenseGate` is cosmetic on top of the same rule.
+ */
+export function isRestrictedMode(status: LicenseStatus): boolean {
+  return status !== 'active';
+}
+
+/**
  * A license is expired when it carries an expiry at or before "now". A non-null
  * but unparsable `expiresAt` fails closed (treated as expired) — a garbage expiry
  * must never read as "still valid" and grant a tier.

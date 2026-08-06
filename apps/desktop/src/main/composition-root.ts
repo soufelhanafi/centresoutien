@@ -5,6 +5,7 @@ import {
   PLANS,
   PlanPolicy,
   resolveActivePlan,
+  isRestrictedMode,
   ActivateLicense,
   GetLicenseStatus,
   CreateSubject,
@@ -237,6 +238,13 @@ export type Container = {
   subscriptionReference: StudentSubscriptionReferencePort;
   /** Read once, synchronously, before the window opens — see `LocalePreferenceStore`. */
   readLocalePreference: () => LocalePreference | null;
+  /**
+   * The live restricted-mode gate (SOU-104): `true` while the license is non-active,
+   * so the IPC dispatcher answers only `license.status` / `license.activate`. Passed
+   * to `registerIpc`; re-evaluated per call, never a startup snapshot. This is the
+   * server-side hard lock that supersedes the deferred SOU-173.
+   */
+  isRestricted: () => boolean;
   dispose: () => void;
 };
 
@@ -327,6 +335,22 @@ export function buildContainer(options: ContainerOptions): Container {
     import.meta.env.DEV,
   );
   const plan = new PlanPolicy(PLANS[activePlanId]);
+
+  // The server-side restricted-mode hard lock (SOU-104), superseding the deferred
+  // SOU-173. Until the license resolves to `active`, the IPC dispatcher answers
+  // only `license.status` / `license.activate` — every other channel is rejected
+  // with `LicenseRestrictedError`, so the lock no longer lives only in the renderer.
+  // Evaluated LIVE on each guarded call (`license.verify()` re-reads the file), so a
+  // successful `license.activate` — which rewrites that same file and flips the plan
+  // — unblocks the other channels in the same process with no restart. A dev build
+  // with no injected license keeps the `CS_LICENSE_*` / `options.planId` override
+  // ergonomics (never restricted); tests inject `options.license`, exercising the
+  // real production lock.
+  const devOverrideActive = import.meta.env.DEV && options.license === undefined;
+  const isRestricted = (): boolean =>
+    devOverrideActive
+      ? false
+      : isRestrictedMode(resolveActivePlan(license.verify(), clock.now(), licenseBinding).status);
 
   // License activation (SOU-104): the activation screen's two channels. `activate`
   // verifies a pasted/imported envelope, checks it binds to this machine + center
@@ -992,6 +1016,7 @@ export function buildContainer(options: ContainerOptions): Container {
   return {
     handlerDeps,
     subscriptionReference,
+    isRestricted,
     readLocalePreference: () => localePreferences.read(),
     // `db.open` guards against a double-close: a successful restore (SOU-102)
     // already closed this handle as part of its file swap, and `will-quit`

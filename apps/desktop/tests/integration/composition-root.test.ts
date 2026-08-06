@@ -862,4 +862,182 @@ describe('composition root', () => {
 
     container.dispose();
   });
+
+  // SOU-104 server-side hard lock: the restricted-mode confinement is enforced at
+  // the IPC boundary, not only in the renderer's LicenseGate. Until the license
+  // resolves to `active`, only `license.status` + `license.activate` answer; every
+  // other channel is rejected with `LicenseRestrictedError`. Supersedes SOU-173.
+  describe('restricted-mode IPC hard lock (SOU-104)', () => {
+    const licensePath = () => join(dir, licenseFileNameForCenter(CENTER));
+
+    // Build a container whose injected adapter resolves to a non-active status,
+    // wired through a dispatcher that consults the live restricted-mode gate.
+    function buildRestricted(writeLicense: (privateKey: KeyObject) => void) {
+      const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+      const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+      writeLicense(privateKey);
+      const container = build(
+        'essentiel',
+        new Ed25519LicenseAdapter({ filePath: licensePath(), publicKey: publicPem }),
+      );
+      const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps), {
+        isRestricted: container.isRestricted,
+      });
+      return { container, dispatch };
+    }
+
+    const nonActiveClaims = (overrides: Partial<LicenseClaims>): LicenseClaims => ({
+      plan: 'premium',
+      issuedAt: '2026-01-01T00:00:00.000Z',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      machineId: null,
+      centerCode: 'CS-CASA-001',
+      centersAllowed: null,
+      founderDiscountExpiresAt: null,
+      ...overrides,
+    });
+
+    const scenarios: ReadonlyArray<{
+      readonly name: string;
+      readonly status: string;
+      readonly write: (privateKey: KeyObject) => void;
+    }> = [
+      { name: 'missing', status: 'missing', write: () => {} },
+      {
+        name: 'invalid-signature',
+        status: 'invalid-signature',
+        write: () => writeFileSync(licensePath(), 'not-a-license-envelope'),
+      },
+      {
+        name: 'expired',
+        status: 'expired',
+        write: (privateKey) =>
+          writeFileSync(
+            licensePath(),
+            signedLicenseFile(
+              nonActiveClaims({
+                issuedAt: '2000-01-01T00:00:00.000Z',
+                expiresAt: '2000-01-02T00:00:00.000Z',
+              }),
+              privateKey,
+            ),
+          ),
+      },
+      {
+        name: 'wrong-machine',
+        status: 'wrong-machine',
+        write: (privateKey) =>
+          writeFileSync(
+            licensePath(),
+            signedLicenseFile(nonActiveClaims({ machineId: 'some-other-laptop' }), privateKey),
+          ),
+      },
+      {
+        name: 'wrong-center',
+        status: 'wrong-center',
+        write: (privateKey) =>
+          writeFileSync(
+            licensePath(),
+            signedLicenseFile(nonActiveClaims({ centerCode: 'CS-RABAT-999' }), privateKey),
+          ),
+      },
+    ];
+
+    it.each(scenarios)(
+      'blocks non-license channels but allows license.status + license.activate under a $name license',
+      async ({ status, write }) => {
+        const { container, dispatch } = buildRestricted(write);
+
+        // license.status is reachable and reports the non-active state.
+        expect((await dispatch('license.status', {})).status).toBe(status);
+
+        // A normal data channel is hard-locked at the boundary — the domain gate
+        // and the handler never run; the restricted error surfaces instead.
+        await expect(dispatch('student.list', { search: '' })).rejects.toThrow(/license-restricted/);
+
+        // license.activate is reachable too (a bad envelope is rejected on its own
+        // merits, NOT swallowed by the restricted lock).
+        expect(await dispatch('license.activate', { license: 'not-a-license' })).toEqual({
+          status: 'rejected',
+          reason: 'invalid-signature',
+        });
+
+        container.dispose();
+      },
+    );
+
+    // Fresh install: no license (it cannot exist before the center does) and no
+    // center yet. The first-run wizard's bootstrap channels must succeed so the
+    // user can create the center + admin and reach activation, while every
+    // business channel stays locked. Regression guard for the deadlock the guard's
+    // first cut caused (license.status/activate-only bricked setup).
+    it('permits the first-run bootstrap (admin + center), blocks business, then unblocks after activate', async () => {
+      const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+      const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+      const container = build(
+        'essentiel',
+        new Ed25519LicenseAdapter({ filePath: licensePath(), publicKey: publicPem }),
+      );
+      const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps), {
+        isRestricted: container.isRestricted,
+      });
+
+      // License is missing and no center exists — the true fresh-install state.
+      expect((await dispatch('license.status', {})).status).toBe('missing');
+
+      // The wizard's bootstrap channels all answer under restricted mode.
+      expect(await dispatch('admin.exists', {})).toEqual({ exists: false });
+      expect(await dispatch('center.get', {})).toEqual({ center: null });
+      const saved = await dispatch('center.save', {
+        name: 'Centre Al Ilm',
+        address: '12 Rue Mohammed V',
+        phone: '0522-000000',
+        email: 'contact@alilm.ma',
+        logoPath: null,
+      });
+      expect(saved.center).toMatchObject({ name: 'Centre Al Ilm' });
+      const admin = await dispatch('admin.create', { username: 'directrice', password: PASS });
+      expect(admin.id).toMatch(/^adm_/);
+
+      // …but a business channel is still hard-locked while unlicensed.
+      await expect(dispatch('student.list', { search: '' })).rejects.toThrow(/license-restricted/);
+
+      // Now that the center exists, its license can be activated — and the business
+      // channel unblocks live in the same process.
+      const raw = signedLicenseFile(nonActiveClaims({}), privateKey);
+      expect((await dispatch('license.activate', { license: raw })).status).toBe('activated');
+      expect((await dispatch('student.list', { search: '' })).students).toEqual([]);
+
+      container.dispose();
+    });
+
+    it('unblocks the other channels in the same process after a successful activate — no restart', async () => {
+      const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+      const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+      const container = build(
+        'essentiel',
+        new Ed25519LicenseAdapter({ filePath: licensePath(), publicKey: publicPem }),
+      );
+      const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps), {
+        isRestricted: container.isRestricted,
+      });
+
+      // Restricted at first: student.list is locked, status reads missing.
+      await expect(dispatch('student.list', { search: '' })).rejects.toThrow(/license-restricted/);
+      expect((await dispatch('license.status', {})).status).toBe('missing');
+
+      const raw = signedLicenseFile(
+        nonActiveClaims({ centersAllowed: 3 }),
+        privateKey,
+      );
+      expect((await dispatch('license.activate', { license: raw })).status).toBe('activated');
+
+      // The very same dispatcher/process now answers the previously-blocked
+      // channel — the gate re-read the freshly persisted license, no rebuild.
+      expect((await dispatch('student.list', { search: '' })).students).toEqual([]);
+      expect((await dispatch('license.status', {})).status).toBe('active');
+
+      container.dispose();
+    });
+  });
 });
