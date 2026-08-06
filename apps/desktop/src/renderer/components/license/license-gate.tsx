@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@centresoutien/ui';
@@ -6,18 +6,15 @@ import { useLicenseStatus } from '../../hooks/license/use-license-status';
 import { LicenseActivationScreen } from './license-activation-screen';
 
 /**
- * Shows the activation screen at first run after the wizard (SOU-104), then hands
- * off to the app. It intercepts only the `missing` state — a device that has
- * never been activated — and lets the user activate or continue in restricted
- * mode. Any installed license (active, or a restricted invalid/expired one) flows
- * straight through; those are managed from the Settings tab, never blocking use.
- * A successful activation flips the status to `active` and the gate opens on its
- * own; skipping dismisses the screen for the session.
+ * Hard license lock (SOU-104): the app is unreachable until a valid license is
+ * active. Every non-active state — missing, restricted, invalid signature,
+ * expired, wrong machine, wrong center — renders ONLY the activation screen,
+ * never the children and never a skip-into-app path. A successful activation
+ * flips the status to `active` and the gate opens on its own.
  */
 export function LicenseGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { data, isPending, isError, refetch } = useLicenseStatus();
-  const [dismissed, setDismissed] = useState(false);
 
   if (isPending) {
     return (
@@ -41,8 +38,8 @@ export function LicenseGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (data.status === 'missing' && !dismissed) {
-    return <LicenseActivationScreen status={data} onDone={() => setDismissed(true)} />;
+  if (data.status !== 'active') {
+    return <LicenseActivationScreen status={data} />;
   }
 
   return <>{children}</>;

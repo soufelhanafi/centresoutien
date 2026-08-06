@@ -1,24 +1,17 @@
 import { useTranslation } from 'react-i18next';
-import { Button, Card, CardContent } from '@centresoutien/ui';
+import { Card, CardContent } from '@centresoutien/ui';
 import { LanguageToggle } from '../language-toggle';
 import { LicenseStatusSummary } from './license-status-summary';
 import { LicenseActivationForm } from './license-activation-form';
 import type { LicenseStatusView } from '../../lib/license/license-contract';
 
 /**
- * Full-screen activation page (SOU-104), shown by {@link LicenseGate} at first
- * run after the wizard. Mirrors the login screen's centered card so onboarding
- * feels like one product. Activation is optional: the user may continue in the
- * clearly-labeled restricted mode (Essentiel fallback) and activate later from
- * Settings. `onDone` advances the gate on either a successful activation or skip.
+ * Full-screen activation page (SOU-104), the only screen {@link LicenseGate}
+ * renders until a valid license activates. Mirrors the login screen's centered
+ * card so onboarding feels like one product. There is no skip: a successful
+ * activation invalidates the license-status query, flipping the gate to the app.
  */
-export function LicenseActivationScreen({
-  status,
-  onDone,
-}: {
-  status: LicenseStatusView;
-  onDone: () => void;
-}) {
+export function LicenseActivationScreen({ status }: { status: LicenseStatusView }) {
   const { t } = useTranslation();
 
   return (
@@ -38,11 +31,7 @@ export function LicenseActivationScreen({
           </header>
 
           <LicenseStatusSummary status={status} />
-          <LicenseActivationForm onActivated={onDone} />
-
-          <Button type="button" variant="ghost" onClick={onDone} className="self-center">
-            {t('license.gate.skip')}
-          </Button>
+          <LicenseActivationForm />
         </CardContent>
       </Card>
     </main>

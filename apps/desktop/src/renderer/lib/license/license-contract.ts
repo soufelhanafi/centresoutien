@@ -1,52 +1,18 @@
-import type { PlanId } from '@centresoutien/domain';
+import type { IpcResponse } from '../../../shared/ipc/contract';
 
 /**
- * The presentation contract for license activation (SOU-104). These are the IPC
- * DTO shapes the domain-backend published for the `license.status` and
- * `license.activate` channels — not domain entities, so they live renderer-side
- * as the stand-in until those channels merge (branch `feature/SOU-104-domain`).
- * `PlanId` is imported from the domain, never re-declared.
- *
- * The whole UI depends only on {@link LicenseApi}; the concrete adapter (mock
- * today, IPC after integration) is swapped in one place — see `license-api.ts`.
+ * The presentation contract for license activation (SOU-104). The DTO shapes are
+ * DERIVED from the shared IPC contract — the single source of truth for both ends
+ * of the `license.status` / `license.activate` channels — never hand-copied. Only
+ * the local {@link LicenseApi} seam interface lives here, so the concrete adapter
+ * (the preload passthrough) is swapped in one place — see `license-api.ts`.
  */
 
-export type LicenseStatusValue =
-  | 'active'
-  | 'missing'
-  | 'invalid-signature'
-  | 'expired'
-  | 'wrong-machine'
-  | 'wrong-center';
-
-export type LicenseRejectionReason =
-  | 'malformed'
-  | 'invalid-signature'
-  | 'wrong-machine'
-  | 'wrong-center'
-  | 'expired';
-
-/** Current license state — drives the activation screen and the Settings tab. */
-export type LicenseStatusView = {
-  status: LicenseStatusValue;
-  plan: PlanId;
-  restricted: boolean;
-  expiresAt: string | null;
-  centersAllowed: number | null;
-  founderDiscountExpiresAt: string | null;
-  founderDiscountExpired: boolean;
-};
+/** Current license state — drives the activation gate and the Settings tab. */
+export type LicenseStatusView = IpcResponse<'license.status'>;
 
 /** Outcome of a paste/import activation attempt. Branch the UI on the union tag. */
-export type LicenseActivateResult =
-  | {
-      status: 'activated';
-      plan: PlanId;
-      expiresAt: string | null;
-      centersAllowed: number | null;
-      founderDiscount: { expiresAt: string | null; expired: boolean };
-    }
-  | { status: 'rejected'; reason: LicenseRejectionReason };
+export type LicenseActivateResult = IpcResponse<'license.activate'>;
 
 export interface LicenseApi {
   status(): Promise<LicenseStatusView>;
