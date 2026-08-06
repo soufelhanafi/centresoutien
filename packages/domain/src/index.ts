@@ -105,34 +105,14 @@ export { DomainError, PlanFeatureUnavailableError, PlanLimitExceededError } from
 export type { LicenseClaims, LicenseVerification } from './plans/license';
 export type { LicenseStatus, LicenseResolution } from './plans/resolve-active-plan';
 export { resolveActivePlan, isLicenseExpired } from './plans/resolve-active-plan';
-export type { LicensePort, LicenseStorePort, MachineIdentity } from './ports/license-port';
+export type { LicensePort } from './ports/license-port';
 export { licenseFileSchema, licenseClaimsSchema } from './schemas/license';
 export type { LicenseFileInput } from './schemas/license';
-// License activation (SOU-104): the binding + founder-discount rules layered on
-// SOU-98's signature check, plus the activation/status use cases the renderer's
-// activation screen drives through IPC.
-export {
-  evaluateLicenseBinding,
-  isFounderDiscountExpired,
-} from './plans/license-activation';
-export type {
-  LicenseBindingContext,
-  LicenseRejectionReason,
-  LicenseActivationResult,
-  FounderDiscountView,
-} from './plans/license-activation';
-export { ActivateLicense } from './use-cases/activate-license';
-export type { ActivateLicenseInput } from './use-cases/activate-license';
-export { GetLicenseStatus } from './use-cases/get-license-status';
-export type { LicenseStatusView } from './use-cases/get-license-status';
 export {
   LicenseError,
   LicenseMissingError,
   LicenseSignatureInvalidError,
   LicenseExpiredError,
-  LicenseWrongMachineError,
-  LicenseWrongCenterError,
-  LicenseMalformedError,
 } from './errors/license-errors';
 export {
   AdminAccountAlreadyExistsError,

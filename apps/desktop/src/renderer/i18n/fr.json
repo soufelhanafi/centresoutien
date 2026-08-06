@@ -1359,8 +1359,7 @@
       "language": "Langue",
       "appearance": "Apparence",
       "plan": "Formule",
-      "backup": "Sauvegarde",
-      "license": "Licence"
+      "backup": "Sauvegarde"
     },
     "center": {
       "title": "Profil du centre",
@@ -1573,10 +1572,6 @@
         "applyButton_one": "Importer {{count}} ligne",
         "applyButton_other": "Importer {{count}} lignes"
       }
-    },
-    "license": {
-      "title": "Licence",
-      "subtitle": "Consultez l’état de votre licence, activez ou changez de formule."
     }
   },
   "centerHours": {
@@ -1936,52 +1931,6 @@
     "print": {
       "title": "Liste des impayés — relances téléphoniques",
       "generatedOn": "Générée le {{date}}"
-    }
-  },
-  "license": {
-    "title": "Activation de la licence",
-    "subtitle": "Saisissez votre clé ou importez votre fichier de licence pour activer votre formule.",
-    "gate": {
-      "loading": "Vérification de la licence…",
-      "errorTitle": "Impossible de vérifier la licence",
-      "errorBody": "Une erreur est survenue lors de la lecture de la licence. Réessayez.",
-      "retry": "Réessayer"
-    },
-    "status": {
-      "expiresAtLabel": "Expire le",
-      "noExpiry": "Sans expiration",
-      "centersAllowedLabel": "Centres autorisés",
-      "centersUnlimited": "Illimité",
-      "restrictedTitle": "Mode restreint",
-      "restrictedBody": "L’application fonctionne avec la formule Essentiel jusqu’à l’activation d’une licence valide.",
-      "values": {
-        "active": "Licence active",
-        "missing": "Aucune licence",
-        "invalid-signature": "Signature invalide",
-        "expired": "Licence expirée",
-        "wrong-machine": "Licence liée à un autre appareil",
-        "wrong-center": "Licence liée à un autre centre"
-      }
-    },
-    "founder": {
-      "expiredTitle": "Réduction fondateur expirée",
-      "expiredBody": "Votre formule reste active ; seule la réduction fondateur a pris fin."
-    },
-    "form": {
-      "label": "Clé ou contenu du fichier de licence",
-      "placeholder": "Collez ici votre clé de licence…",
-      "import": "Importer un fichier",
-      "activate": "Activer",
-      "activating": "Activation…",
-      "successTitle": "Licence activée",
-      "successBody": "Votre formule est maintenant active."
-    },
-    "reasons": {
-      "malformed": "Licence illisible. Vérifiez la clé collée ou le fichier importé.",
-      "invalid-signature": "Signature invalide : cette licence a été modifiée ou est falsifiée.",
-      "wrong-machine": "Cette licence est liée à un autre appareil.",
-      "wrong-center": "Cette licence est liée à un autre centre.",
-      "expired": "Cette licence a expiré."
     }
   }
 }
