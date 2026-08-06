@@ -67,7 +67,10 @@ export function subjectBackupRowToEntity(row: BackupRow): Subject {
  * Fallback mapper for backup-sheet entityTypes whose payload is the FLAT logical
  * workbook row (what {@link SqliteBackupStore} logs), not a domain entity with
  * nested/typed fields. Each column pair from the sheet config converts one
- * logical value to its physical SQLite value. If a repository ever logs a real
+ * logical value to its physical SQLite value. `readOnlyColumns` are skipped so
+ * replay can never write DB-owned columns the backup-store itself refuses to
+ * write (e.g. `formulas.is_immutable` is granted solely by the invoice-lines
+ * trigger — a replay must not fabricate it). If a repository ever logs a real
  * domain entity for one of these types, it must register an explicit mapper
  * (and upcast any flat payloads) instead of relying on this — the flat shape
  * cannot represent a nested bilingual `name`, for example.
@@ -76,6 +79,7 @@ function sheetLogicalRowToRow(config: SheetSqlConfig, entity: unknown): Record<s
   const source = (entity ?? {}) as Record<string, unknown>;
   const row: Record<string, unknown> = {};
   for (const [domainColumn, sqlColumn] of config.columns) {
+    if (config.readOnlyColumns?.includes(domainColumn)) continue;
     row[sqlColumn] = toSqlValue(domainColumn, source[domainColumn]);
   }
   return row;

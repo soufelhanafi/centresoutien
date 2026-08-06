@@ -142,6 +142,36 @@ describe('getChangeLogEntityToRowMapper', () => {
       expect(row).toMatchObject(expectedPhysicalSubset);
     },
   );
+
+  it('never writes readOnly columns on replay (formulas is_immutable is DB-owned)', () => {
+    const mapper = getChangeLogEntityToRowMapper('formulas');
+    expect(mapper).toBeDefined();
+
+    // The flat payload may carry `isImmutable` (from the workbook), but the
+    // backup-store itself refuses to write it — replay must too, so a replayed
+    // row cannot fabricate a frozen formula.
+    const row = mapper!({
+      id: 'fml_01',
+      centerCode: 'CS-CASA-001',
+      deviceOrigin: 'dev_1',
+      createdAt: ISO,
+      updatedAt: ISO,
+      updatedBy: 'usr_1',
+      deletedAt: null,
+      version: 1,
+      name_fr: 'Math',
+      name_ar: 'رياضيات',
+      subjectIds: 'sub_1',
+      priceMad: 20000,
+      kind: 'regular',
+      isImmutable: true,
+      active: true,
+    });
+
+    expect(row['is_immutable']).toBeUndefined();
+    expect(row['name_fr']).toBe('Math');
+    expect(row['active']).toBe(1);
+  });
 });
 
 describe('subjectBackupRowToEntity', () => {
