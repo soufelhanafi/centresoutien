@@ -14,6 +14,7 @@ import {
   type MergeLogReason,
 } from '../entities/merge-log';
 import type { Student, StudentId } from '../entities/student';
+import type { ParentId } from '../entities/parent';
 import type {
   StudentSubscription,
   StudentSubscriptionId,
@@ -97,6 +98,7 @@ export class MergeStudents {
     const droppedGuardianIds = loser.guardianIds.filter((id) => !winner.guardianIds.includes(id));
     const mergeLog = this.buildMergeLog(input, now, {
       closedSubscriptionIds: reconciliation.closedSubscriptionIds,
+      droppedGuardianIds,
     });
 
     await this.unitOfWork.commit({
@@ -121,6 +123,7 @@ export class MergeStudents {
     now: Date,
     noteContent: {
       closedSubscriptionIds: readonly StudentSubscriptionId[];
+      droppedGuardianIds: readonly ParentId[];
     },
   ): MergeLogEntry {
     return {
@@ -238,14 +241,22 @@ export function reconcileOverlappingSubscriptions(input: {
 }
 
 /**
- * The single audit-note builder for a student merge (M3): the closed duplicate
- * subscriptions are recorded here, in one string, so nothing the merge discards
- * is silent. Dev-facing policy note (French, matching the domain's working
- * language) — never rendered directly. `null` when there is nothing to record.
+ * The single audit-note builder for a student merge (M3 + M4): both the closed
+ * duplicate subscriptions and the detached guardian links are recorded here, in
+ * one string, so nothing the merge discards is silent. Dev-facing policy note
+ * (French, matching the domain's working language) — never rendered directly.
+ * `null` when there is nothing to record.
  */
 export function buildMergeStudentsNote(input: {
   closedSubscriptionIds: readonly StudentSubscriptionId[];
+  droppedGuardianIds: readonly ParentId[];
 }): string | null {
-  if (input.closedSubscriptionIds.length === 0) return null;
-  return `abonnements doublons fermés: ${input.closedSubscriptionIds.join(', ')}`;
+  const parts: string[] = [];
+  if (input.closedSubscriptionIds.length > 0) {
+    parts.push(`abonnements doublons fermés: ${input.closedSubscriptionIds.join(', ')}`);
+  }
+  if (input.droppedGuardianIds.length > 0) {
+    parts.push(`gardiens détachés: ${input.droppedGuardianIds.join(', ')}`);
+  }
+  return parts.length > 0 ? parts.join('; ') : null;
 }

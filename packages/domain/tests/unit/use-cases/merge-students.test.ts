@@ -307,6 +307,23 @@ describe('MergeStudents', () => {
     });
   });
 
+  describe('detached guardian links (M4)', () => {
+    it('keeps the conservative winner-only guardian list and records the loser’s extra guardians in the note', async () => {
+      const EXTRA_GUARDIAN = 'prt_0000000000000000000000000H' as ParentId;
+      await students.save(makeStudent(WINNER));
+      await students.save(makeStudent(LOSER, { guardianIds: [GUARDIAN, EXTRA_GUARDIAN] }));
+
+      await useCase.execute(validInput());
+
+      const savedWinner = students.all().find((s) => s.id === WINNER);
+      // Winner-only list is untouched — never unioned (separated-family safety).
+      expect(savedWinner?.guardianIds).toEqual([GUARDIAN]);
+      expect(mergeLogs.all()[0]?.note).toContain(EXTRA_GUARDIAN);
+      // The shared guardian is not reported as detached.
+      expect(mergeLogs.all()[0]?.note).not.toContain(GUARDIAN);
+    });
+  });
+
   describe('payments are never merged or re-pointed', () => {
     it('the merge unit carries exactly the four dependent kinds — payments have no seat', async () => {
       await students.save(makeStudent(WINNER));
