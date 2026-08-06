@@ -1,6 +1,6 @@
 import type { MergeParentsUnitOfWork, MergeParentsUnit } from '../../../src/ports/merge-parents-unit-of-work';
-import type { Parent, ParentId } from '../../../src/entities/parent';
-import type { Student, StudentId } from '../../../src/entities/student';
+import type { Parent } from '../../../src/entities/parent';
+import type { Student } from '../../../src/entities/student';
 import type { InMemoryParentRepository } from './in-memory-parent-repository';
 import type { InMemoryStudentRepository } from './in-memory-student-repository';
 import type { InMemoryMergeLogRepository } from './in-memory-merge-log-repository';
