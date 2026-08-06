@@ -20,6 +20,8 @@ const CLAIMS: LicenseClaims = {
   expiresAt: '2027-01-01T00:00:00.000Z',
   machineId: null,
   centerCode: 'CS-CASA-001',
+  centersAllowed: null,
+  founderDiscountExpiresAt: null,
 };
 
 let dir: string;
@@ -106,5 +108,40 @@ describe('Ed25519LicenseAdapter.verify', () => {
     );
     const result = adapter().verify();
     expect(result.status).toBe('valid');
+  });
+
+  it('backfills SOU-104 claim fields as null for a pre-SOU-104 signed license', () => {
+    // Sign a claim set WITHOUT centersAllowed / founderDiscountExpiresAt — the
+    // signature covers only the bytes signed, so the newer optional fields default
+    // to null rather than reading as tampered.
+    const legacy = {
+      plan: 'pro' as const,
+      issuedAt: '2026-01-01T00:00:00.000Z',
+      expiresAt: null,
+      machineId: null,
+      centerCode: 'CS-CASA-001',
+    };
+    writeLicense(claimsEnvelope(legacy, vendor.privateKey));
+    const result = adapter().verify();
+    expect(result).toEqual({
+      status: 'valid',
+      claims: { ...legacy, centersAllowed: null, founderDiscountExpiresAt: null },
+    });
+  });
+});
+
+describe('Ed25519LicenseAdapter.verifyContent', () => {
+  it('verifies a genuine envelope supplied as text without touching the disk', () => {
+    const raw = JSON.stringify(claimsEnvelope(CLAIMS, vendor.privateKey));
+    expect(adapter().verifyContent(raw)).toEqual({ status: 'valid', claims: CLAIMS });
+  });
+
+  it('returns invalid-signature for a non-vendor-signed envelope', () => {
+    const raw = JSON.stringify(claimsEnvelope(CLAIMS, attacker.privateKey));
+    expect(adapter().verifyContent(raw)).toEqual({ status: 'invalid-signature' });
+  });
+
+  it('returns invalid-signature for non-JSON text (never throws)', () => {
+    expect(adapter().verifyContent('not a license')).toEqual({ status: 'invalid-signature' });
   });
 });

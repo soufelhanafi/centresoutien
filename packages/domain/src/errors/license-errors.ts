@@ -31,3 +31,43 @@ export class LicenseExpiredError extends LicenseError {
     super(`License expired on ${expiresAt}.`);
   }
 }
+
+/**
+ * The signature is valid but the license is bound to a different machine than the
+ * one running the app. Honest-user enforcement (CLAUDE.md §5quater): a Premium
+ * license copied to a second laptop must not grant its tier there.
+ */
+export class LicenseWrongMachineError extends LicenseError {
+  constructor(
+    readonly expectedMachineId: string,
+    readonly actualMachineId: string,
+  ) {
+    super('License is bound to a different machine.');
+  }
+}
+
+/**
+ * The signature is valid but the license is bound to a different center than the
+ * one open. The center is the tenant (CLAUDE.md §5ter): a license issued for one
+ * center never activates another.
+ */
+export class LicenseWrongCenterError extends LicenseError {
+  constructor(
+    readonly expectedCenterCode: string,
+    readonly actualCenterCode: string,
+  ) {
+    super('License is bound to a different center.');
+  }
+}
+
+/**
+ * The supplied text is not a well-formed license envelope at all — empty input,
+ * non-JSON, or a shape that fails structural validation before any signature
+ * check. Distinct from {@link LicenseSignatureInvalidError}, which means a
+ * well-formed envelope whose signature does not verify.
+ */
+export class LicenseMalformedError extends LicenseError {
+  constructor() {
+    super('The provided license file is not readable.');
+  }
+}

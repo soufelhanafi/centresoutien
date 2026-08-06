@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateKeyPairSync, sign as signBytes, type KeyObject } from 'node:crypto';
@@ -341,6 +341,81 @@ describe('composition root', () => {
     const container = build('essentiel', license);
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
     expect(await dispatch('plan.get', {})).toEqual({ planId: 'essentiel' });
+    container.dispose();
+  });
+
+  it('activates a supplied license end-to-end: verifies, persists, flips the plan (SOU-104)', async () => {
+    const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+    const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+    const licensePath = join(dir, 'license.json');
+    const adapter = () => new Ed25519LicenseAdapter({ filePath: licensePath, publicKey: publicPem });
+
+    const container = build('essentiel', adapter());
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+
+    expect(await dispatch('plan.get', {})).toEqual({ planId: 'essentiel' });
+    expect((await dispatch('license.status', {})).status).toBe('missing');
+
+    const raw = signedLicenseFile(
+      {
+        plan: 'premium',
+        issuedAt: '2026-01-01T00:00:00.000Z',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        machineId: null,
+        centerCode: 'CS-CASA-001',
+        centersAllowed: 3,
+        founderDiscountExpiresAt: null,
+      },
+      privateKey,
+    );
+
+    const result = await dispatch('license.activate', { license: raw });
+    expect(result).toMatchObject({ status: 'activated', plan: 'premium', centersAllowed: 3 });
+    expect(await dispatch('plan.get', {})).toEqual({ planId: 'premium' });
+    expect(await dispatch('license.status', {})).toMatchObject({
+      status: 'active',
+      plan: 'premium',
+      restricted: false,
+      centersAllowed: 3,
+    });
+    container.dispose();
+
+    // The write survives a restart: a fresh container reads premium off disk.
+    const rebuilt = build('essentiel', adapter());
+    const dispatch2 = createIpcDispatcher(createHandlers(rebuilt.handlerDeps));
+    expect(await dispatch2('plan.get', {})).toEqual({ planId: 'premium' });
+    rebuilt.dispose();
+  });
+
+  it('rejects a wrong-center license, leaving the plan and disk untouched (SOU-104)', async () => {
+    const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+    const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+    const licensePath = join(dir, 'license.json');
+    const container = build(
+      'essentiel',
+      new Ed25519LicenseAdapter({ filePath: licensePath, publicKey: publicPem }),
+    );
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+
+    const raw = signedLicenseFile(
+      {
+        plan: 'premium',
+        issuedAt: '2026-01-01T00:00:00.000Z',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        machineId: null,
+        centerCode: 'CS-RABAT-999',
+        centersAllowed: null,
+        founderDiscountExpiresAt: null,
+      },
+      privateKey,
+    );
+
+    expect(await dispatch('license.activate', { license: raw })).toEqual({
+      status: 'rejected',
+      reason: 'wrong-center',
+    });
+    expect(await dispatch('plan.get', {})).toEqual({ planId: 'essentiel' });
+    expect(existsSync(licensePath)).toBe(false);
     container.dispose();
   });
 
