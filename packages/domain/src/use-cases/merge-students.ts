@@ -86,7 +86,7 @@ export class MergeStudents {
       updatedBy: input.updatedBy,
     };
     const dependents = await this.unitOfWork.listDependents(input.centerCode, input.loserId);
-    const liveSubscriptions = await this.unitOfWork.listActiveSubscriptions(input.centerCode, [
+    const liveSubscriptions = await this.unitOfWork.listLiveSubscriptions(input.centerCode, [
       input.winnerId,
       input.loserId,
     ]);

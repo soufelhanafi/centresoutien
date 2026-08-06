@@ -40,14 +40,15 @@ export interface MergeStudentsUnitOfWork {
   /** Every live dependent row of the loser student that a merge must re-point. */
   listDependents(centerCode: CenterCode, loserId: StudentId): Promise<StudentDependents>;
   /**
-   * Every live (non-tombstoned) subscription held by the given students — the
-   * BOTH-sides read `MergeStudents` needs to reconcile active subscriptions
-   * after re-pointing: re-pointing the loser's live subscription onto a winner
-   * who already holds an open same-kind subscription would violate the
-   * at-most-one-active-per-kind invariant and bill twice (CLAUDE.md §7). The use
-   * case closes the loser-origin duplicates in the same unit as the merge.
+   * Every live (non-tombstoned) subscription held by the given students,
+   * INCLUDING already-closed ones (`endMonth` set) — the caller filters for open
+   * rows. This is the BOTH-sides read `MergeStudents` needs to reconcile active
+   * subscriptions after re-pointing: re-pointing the loser's live subscription
+   * onto a winner who already holds an open same-kind subscription would violate
+   * the at-most-one-active-per-kind invariant and bill twice (CLAUDE.md §7). The
+   * use case closes the loser-origin duplicates in the same unit as the merge.
    */
-  listActiveSubscriptions(
+  listLiveSubscriptions(
     centerCode: CenterCode,
     studentIds: readonly StudentId[],
   ): Promise<readonly StudentSubscription[]>;

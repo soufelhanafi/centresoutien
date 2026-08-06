@@ -53,7 +53,7 @@ export class InMemoryMergeStudentsUnitOfWork implements MergeStudentsUnitOfWork 
     };
   }
 
-  async listActiveSubscriptions(
+  async listLiveSubscriptions(
     centerCode: CenterCode,
     studentIds: readonly StudentId[],
   ): Promise<readonly StudentSubscription[]> {
