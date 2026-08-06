@@ -493,6 +493,11 @@ export { BackupFileReadError, BackupFileWriteError, BackupImportApplyError } fro
 export type { ParentRepository } from './ports/parent-repository';
 export type { MergeLogRepository } from './ports/merge-log-repository';
 export type { MergeParentsUnitOfWork, MergeParentsUnit } from './ports/merge-parents-unit-of-work';
+export type {
+  MergeStudentsUnitOfWork,
+  MergeStudentsUnit,
+  StudentDependents,
+} from './ports/merge-students-unit-of-work';
 export type { RoomRepository } from './ports/room-repository';
 export type { TeacherRepository } from './ports/teacher-repository';
 // Teacher in-use guard — DECLARED CONTRACT ONLY; real adapter lands with Groups
@@ -699,6 +704,8 @@ export { ArchiveParent } from './use-cases/archive-parent';
 export type { ArchiveParentInput } from './use-cases/archive-parent';
 export { MergeParents } from './use-cases/merge-parents';
 export type { MergeParentsInput } from './use-cases/merge-parents';
+export { MergeStudents, repointStudentDependents } from './use-cases/merge-students';
+export type { MergeStudentsInput } from './use-cases/merge-students';
 export { ListParentChildren } from './use-cases/list-parent-children';
 export type { ListParentChildrenInput } from './use-cases/list-parent-children';
 export { CreateRoom } from './use-cases/create-room';
