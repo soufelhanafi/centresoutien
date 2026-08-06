@@ -1945,11 +1945,9 @@
       "loading": "Vérification de la licence…",
       "errorTitle": "Impossible de vérifier la licence",
       "errorBody": "Une erreur est survenue lors de la lecture de la licence. Réessayez.",
-      "retry": "Réessayer",
-      "skip": "Continuer en mode restreint"
+      "retry": "Réessayer"
     },
     "status": {
-      "planLabel": "Formule",
       "expiresAtLabel": "Expire le",
       "noExpiry": "Sans expiration",
       "centersAllowedLabel": "Centres autorisés",

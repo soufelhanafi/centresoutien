@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, ShieldAlert } from 'lucide-react';
 import { Badge, PlanBadge } from '@centresoutien/ui';
-import { formatDate } from '../../lib/format';
+import { bcp47, formatDate } from '../../lib/format';
 import type { LicenseStatusView } from '../../lib/license/license-contract';
 
 /**
@@ -41,7 +41,7 @@ export function LicenseStatusSummary({ status }: { status: LicenseStatusView }) 
           <dd className="text-sm font-semibold text-foreground">
             {status.centersAllowed === null
               ? t('license.status.centersUnlimited')
-              : new Intl.NumberFormat(i18n.language).format(status.centersAllowed)}
+              : new Intl.NumberFormat(bcp47(i18n.language)).format(status.centersAllowed)}
           </dd>
         </div>
       </dl>
