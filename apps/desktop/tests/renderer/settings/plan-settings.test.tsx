@@ -10,14 +10,16 @@ describe('Plan settings — French', () => {
     await i18n.changeLanguage('fr');
   });
 
-  it('shows the Essentiel badge, its numeric limits, and only its own features', () => {
+  it('shows the Essentiel badge, unlimited limits, and every feature except Multi-centres', () => {
+    // SOU-83 MVP collapse: Essentiel now carries every feature and unlimited limits;
+    // org.multi-center (Multi-centres) is the only flag it still lacks.
     usePlanStore.setState({ planId: 'essentiel', plan: PLANS.essentiel });
     render(<PlanSettings />);
 
     expect(screen.getByText('ESSENTIEL')).toBeInTheDocument();
-    expect(screen.getByText('50')).toBeInTheDocument();
+    expect(screen.getAllByText('Illimité').length).toBeGreaterThan(0);
     expect(screen.getByText('Gestion des salles')).toBeInTheDocument();
-    expect(screen.queryByText('Paiements partiels')).not.toBeInTheDocument();
+    expect(screen.getByText('Paiements partiels')).toBeInTheDocument();
     expect(screen.queryByText('Multi-centres')).not.toBeInTheDocument();
   });
 

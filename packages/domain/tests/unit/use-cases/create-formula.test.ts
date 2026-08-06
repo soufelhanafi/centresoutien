@@ -10,6 +10,7 @@ import { InMemoryFormulaRepository } from '../fakes/in-memory-formula-repository
 import { InMemorySubjectRepository } from '../fakes/in-memory-subject-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import { planWithoutFeature } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
@@ -166,7 +167,14 @@ describe('CreateFormula', () => {
       expect(formulas.all()).toHaveLength(0);
     });
 
-    it('rejects an exam-prep formula on Essentiel (lacks core.exam-prep)', async () => {
+    it('rejects an exam-prep formula when the plan lacks core.exam-prep', async () => {
+      useCase = new CreateFormula(
+        formulas,
+        subjects,
+        fakeClock(),
+        fakeIds(),
+        new PlanPolicy(planWithoutFeature('core.exam-prep')),
+      );
       await expect(useCase.execute(validInput({ kind: 'exam-prep' }))).rejects.toBeInstanceOf(
         PlanFeatureUnavailableError,
       );

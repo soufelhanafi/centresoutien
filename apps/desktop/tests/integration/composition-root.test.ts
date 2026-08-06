@@ -395,15 +395,17 @@ describe('composition root', () => {
     container.dispose();
   });
 
-  // maxRooms is enforced in the domain (Essentiel cap = 1). The second create must
-  // fail through the wired path, not just in a unit test.
-  it('enforces the Essentiel maxRooms limit through the wired create channel', async () => {
+  // Since the SOU-83 MVP collapse every live tier has unlimited room limits, so the
+  // wired create channel no longer caps. The limit-exceeded path is still enforced in
+  // the domain and covered by CreateRoom's unit tests against a synthetic capped plan.
+  it('does not cap room creation on the wired channel (unlimited limits across tiers)', async () => {
     const container = build('essentiel');
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
 
-    await dispatch('room.create', { name: 'Salle A', capacity: 10 });
-    await expect(dispatch('room.create', { name: 'Salle B', capacity: 10 })).rejects.toThrow();
-    expect((await dispatch('room.list', { scope: 'active' })).rooms).toHaveLength(1);
+    for (const name of ['Salle A', 'Salle B', 'Salle C']) {
+      await dispatch('room.create', { name, capacity: 10 });
+    }
+    expect((await dispatch('room.list', { scope: 'active' })).rooms).toHaveLength(3);
 
     container.dispose();
   });

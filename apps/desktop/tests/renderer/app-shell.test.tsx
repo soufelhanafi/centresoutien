@@ -13,6 +13,7 @@ import { Sidebar } from '../../src/renderer/components/shell/sidebar';
 import { NAV_MODULES } from '../../src/renderer/app/nav-items';
 import { usePlanStore } from '../../src/renderer/stores/plan-store';
 import i18n from '../../src/renderer/i18n/config';
+import { planWithout } from './fakes/plan';
 
 // A throwaway router whose routes mirror NAV_MODULES so the sidebar's <Link>s
 // resolve. We render the Sidebar, not the app router, to test gating in isolation.
@@ -49,7 +50,13 @@ describe('Sidebar — plan-gated navigation', () => {
     expect(screen.getByRole('link', { name: 'Facturation' })).toBeInTheDocument();
   });
 
-  it('shows gated modules as locked (non-link) affordances on Essentiel', async () => {
+  it('shows gated modules as locked (non-link) affordances when the plan lacks them', async () => {
+    act(() => {
+      usePlanStore.setState({
+        planId: 'essentiel',
+        plan: planWithout('payroll.teacher', 'sync.multi-device'),
+      });
+    });
     renderSidebar();
     expect(screen.queryByRole('link', { name: /Paie/ })).not.toBeInTheDocument();
     const payroll = await screen.findByRole('button', { name: /Paie/ });

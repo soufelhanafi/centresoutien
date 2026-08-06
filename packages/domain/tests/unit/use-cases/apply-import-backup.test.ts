@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ApplyImportBackup } from '../../../src/use-cases/apply-import-backup';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS } from '../../../src/plans/plans';
+import { planWithoutFeature } from '../fakes/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
 import { BackupImportApplyError } from '../../../src/errors/backup-errors';
 import type { BackupWorkbook } from '../../../src/backup/backup-workbook';
@@ -203,7 +204,7 @@ describe('ApplyImportBackup', () => {
   });
 
   it('is locked on a plan without io.excel.import', async () => {
-    useCase = new ApplyImportBackup(store, excel, new PlanPolicy(PLANS.essentiel), fakeClock(), fakeIds(), DEVICE, USER);
+    useCase = new ApplyImportBackup(store, excel, new PlanPolicy(planWithoutFeature('io.excel.import')), fakeClock(), fakeIds(), DEVICE, USER);
     await seedWorkbook([{ name: 'rooms', columns: ['id'], rows: [] }]);
     await expect(
       useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode }),

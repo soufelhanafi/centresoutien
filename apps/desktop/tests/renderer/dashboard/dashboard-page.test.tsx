@@ -15,6 +15,7 @@ import { useDashboardViewStore } from '../../../src/renderer/stores/dashboard-vi
 import { usePlanStore } from '../../../src/renderer/stores/plan-store';
 import { studentsModule, invoicingModule, planningModule } from '../../../src/renderer/app/nav-items';
 import i18n from '../../../src/renderer/i18n/config';
+import { planWithout } from '../fakes/plan';
 
 // A throwaway router with dummy targets for the quick-action <Link>s so they
 // resolve — we're testing the dashboard, not routing to those pages.
@@ -64,6 +65,9 @@ describe('DashboardPage — Basique / Avancé toggle', () => {
   });
 
   it('locks the Avancé pane on a plan without dashboard.advanced', async () => {
+    act(() => {
+      usePlanStore.setState({ planId: 'essentiel', plan: planWithout('dashboard.advanced') });
+    });
     const user = userEvent.setup();
     renderDashboard();
 

@@ -7,6 +7,7 @@ import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/id
 import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import { planWithLimits } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
@@ -104,35 +105,48 @@ describe('CreateRoom', () => {
   });
 
   describe('maxRooms limit', () => {
-    it('rejects the create that would exceed the plan cap (Essentiel: 1 room)', async () => {
-      // fakeIds() yields distinct ids per call, so the first create is a real row.
-      await useCase.execute(validInput({ name: 'Salle A' }));
+    function createRoomUseCaseWithLimit(maxRooms: number): CreateRoom {
+      return new CreateRoom(rooms, fakeClock(), fakeIds(), new PlanPolicy(planWithLimits({ maxRooms })));
+    }
 
-      await expect(useCase.execute(validInput({ name: 'Salle B' }))).rejects.toBeInstanceOf(
+    it('rejects the create that would exceed the plan cap (cap: 1 room)', async () => {
+      const capped = createRoomUseCaseWithLimit(1);
+      // fakeIds() yields distinct ids per call, so the first create is a real row.
+      await capped.execute(validInput({ name: 'Salle A' }));
+
+      await expect(capped.execute(validInput({ name: 'Salle B' }))).rejects.toBeInstanceOf(
         PlanLimitExceededError,
       );
       expect(rooms.all()).toHaveLength(1);
     });
 
     it('counts only live rooms — an archived room frees a slot under the cap', async () => {
-      const first = await useCase.execute(validInput({ name: 'Salle A' }));
+      const capped = createRoomUseCaseWithLimit(1);
+      const first = await capped.execute(validInput({ name: 'Salle A' }));
       await rooms.softDelete(first.id, new Date('2026-07-30T00:00:00Z'), USER);
 
       // With the only room tombstoned, the live count is 0 again — create succeeds.
-      const second = await useCase.execute(validInput({ name: 'Salle B' }));
+      const second = await capped.execute(validInput({ name: 'Salle B' }));
       expect(second.name).toBe('Salle B');
       expect(await rooms.countActive(CENTER)).toBe(1);
     });
 
-    it('does not cap higher tiers the same way (Pro: 5 rooms)', async () => {
-      useCase = new CreateRoom(rooms, fakeClock(), fakeIds(), new PlanPolicy(PLANS.pro));
+    it('enforces the cap at whatever maximum the plan sets (cap: 5 rooms)', async () => {
+      const capped = createRoomUseCaseWithLimit(5);
       for (let i = 0; i < 5; i += 1) {
-        await useCase.execute(validInput({ name: `Salle ${i}` }));
+        await capped.execute(validInput({ name: `Salle ${i}` }));
       }
-      await expect(useCase.execute(validInput({ name: 'Salle 6' }))).rejects.toBeInstanceOf(
+      await expect(capped.execute(validInput({ name: 'Salle 6' }))).rejects.toBeInstanceOf(
         PlanLimitExceededError,
       );
       expect(rooms.all()).toHaveLength(5);
+    });
+
+    it('never caps on an unlimited plan', async () => {
+      for (let i = 0; i < 12; i += 1) {
+        await useCase.execute(validInput({ name: `Salle ${i}` }));
+      }
+      expect(rooms.all()).toHaveLength(12);
     });
   });
 });

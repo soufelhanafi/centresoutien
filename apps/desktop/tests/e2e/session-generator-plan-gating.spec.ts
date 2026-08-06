@@ -3,9 +3,9 @@ import { boot, gotoPlanning, STR, type Launched, type Locale } from './planning-
 import { GENERATOR_STR } from './session-generator.fixtures';
 
 /**
- * SOU-159 — AC1: the "Générer des séances" toolbar entry is plan-gated
- * behind `planning.custom-grid` (Pro) / `planning.random-auto` (Premium).
- * Essentiel has neither flag, so the button must not render at all.
+ * SOU-159 — AC1: the "Générer des séances" toolbar entry is gated behind
+ * `planning.custom-grid` / `planning.random-auto`. Per the SOU-83 MVP tier
+ * collapse every tier grants those flags, so the button renders on all plans.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -16,16 +16,7 @@ test.afterEach(async () => {
   live = null;
 });
 
-test('Essentiel plan — no generator button on the planner toolbar', async () => {
-  const L = STR[locale()];
-  live = await boot(locale(), { rooms: [{ name: 'Salle A' }] }, 'essentiel');
-  const win = live.win;
-  await gotoPlanning(win, L);
-
-  await expect(win.getByRole('button', { name: GENERATOR_STR[locale()].trigger, exact: true })).toHaveCount(0);
-});
-
-for (const plan of ['pro', 'premium'] as const) {
+for (const plan of ['essentiel', 'pro', 'premium'] as const) {
   test(`${plan} plan — generator button is visible on the planner toolbar`, async () => {
     const L = STR[locale()];
     live = await boot(locale(), { rooms: [{ name: 'Salle A' }] }, plan);

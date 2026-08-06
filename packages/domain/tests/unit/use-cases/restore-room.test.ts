@@ -11,6 +11,7 @@ import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/id
 import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import { planWithLimits } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const OTHER_CENTER = 'CS-RABAT-002' as CenterCode;
@@ -88,12 +89,13 @@ describe('RestoreRoom', () => {
   });
 
   describe('maxRooms limit', () => {
-    it('rejects a restore that would exceed the plan cap (Essentiel: 1 live room)', async () => {
-      // Fill the single Essentiel slot with a different live room, then try to
-      // restore the archived one — that would make 2 live rooms on a 1-room plan.
+    it('rejects a restore that would exceed the plan cap (cap: 1 live room)', async () => {
+      // Fill the single slot with a different live room, then try to restore the
+      // archived one — that would make 2 live rooms on a 1-room plan.
       // Seed the id generator well past ROOM_ID so the new room gets a distinct id
       // (fakeIds(1) would mint ROOM_ID itself and clobber the tombstone).
-      const create = new CreateRoom(rooms, fakeClock(), fakeIds(500), new PlanPolicy(PLANS.essentiel));
+      const cappedPlan = planWithLimits({ maxRooms: 1 });
+      const create = new CreateRoom(rooms, fakeClock(), fakeIds(500), new PlanPolicy(cappedPlan));
       await create.execute({
         name: 'Salle B',
         capacity: 10,
@@ -101,6 +103,7 @@ describe('RestoreRoom', () => {
         deviceOrigin: DEVICE,
         updatedBy: USER,
       });
+      useCase = new RestoreRoom(rooms, fakeClock('2026-07-31T09:00:00Z'), new PlanPolicy(cappedPlan));
 
       await expect(
         useCase.execute({ centerCode: CENTER, roomId: ROOM_ID, updatedBy: RESTORER }),

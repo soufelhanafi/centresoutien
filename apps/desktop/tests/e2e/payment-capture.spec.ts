@@ -87,11 +87,11 @@ test('Scenario 2 — partial payment on Pro sets status to partial with the corr
 });
 
 // ---------------------------------------------------------------------------
-// Scenario 3 — Partial payment attempt on Essentiel is blocked/upsold, not
-// silently accepted: the amount field is disabled and pre-filled with the
-// full outstanding balance, with an explanatory upsell message.
+// Scenario 3 — Partial payment on Essentiel (SOU-83 MVP tier collapse:
+// `core.invoicing.partial-paid` ships in every plan). The amount field is
+// freely editable, there is no upsell lock, and a partial amount is accepted.
 // ---------------------------------------------------------------------------
-test('Scenario 3 — Essentiel locks the amount field to the full balance with an upsell message', async () => {
+test('Scenario 3 — Essentiel accepts a partial payment with an editable amount field', async () => {
   const L = PAY_STR[locale()];
   live = await boot(locale(), 'essentiel');
   const win = live.win;
@@ -101,21 +101,16 @@ test('Scenario 3 — Essentiel locks the amount field to the full balance with a
 
   const dialog = await openRecordPaymentDialog(win, L);
   const amountInput = dialog.locator('input[name="amountMad"]');
-  await expect(amountInput).toBeDisabled();
-  await expect(amountInput).toHaveValue('200');
-  await expect(dialog.getByText(L.payment.partialLocked)).toBeVisible();
-  await win.screenshot({ path: `test-results/payment-capture-essentiel-locked-${locale()}.png` });
+  await expect(amountInput).toBeEnabled();
+  await expect(dialog.getByText(L.payment.partialLocked)).toHaveCount(0);
 
-  // Domain-level guard, not just UI cosmetics: a direct IPC call attempting
-  // a partial amount on Essentiel must also be rejected (SOU-101 KICKOFF —
-  // `core.invoicing.partial-paid` is a Pro+ feature flag).
-  const err = await tryInvoke(win, 'payment.record', {
-    invoiceId: seeded.invoiceId,
-    amountMad: 8000,
-    method: 'cash',
-    paidOn: '2026-08-02',
-  });
-  expect(err, 'a partial payment.record call on Essentiel must be rejected by the domain, not just hidden in the UI').not.toBeNull();
+  await fillPaymentForm(dialog, { amountMad: '80' });
+  await submitPaymentForm(win, dialog, L);
+
+  await expect(win.getByText(L.status.partiallyPaid).first()).toBeVisible();
+  const bodyText = await win.evaluate(() => document.body.innerText);
+  expect(bodyText, 'outstanding must read 120.00 (200 - 80)').toMatch(/120[,.]00/);
+  await win.screenshot({ path: `test-results/payment-capture-partial-essentiel-${locale()}.png` });
 });
 
 // ---------------------------------------------------------------------------

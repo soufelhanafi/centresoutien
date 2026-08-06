@@ -10,6 +10,7 @@ import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/id
 import type { PhoneNumber } from '../../../src/value-objects/phone-number';
 import { InMemoryTeacherRepository } from '../fakes/in-memory-teacher-repository';
 import { fakeClock } from '../fakes/clock';
+import { planWithLimits } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const OTHER_CENTER = 'CS-RABAT-002' as CenterCode;
@@ -94,9 +95,14 @@ describe('RestoreTeacher', () => {
   });
 
   describe('maxTeachers limit', () => {
-    it('rejects a restore that would exceed the plan cap (Essentiel: 2 live teachers)', async () => {
-      // Fill both Essentiel slots with distinct live teachers, then try to restore
-      // the archived one — that would make 3 live teachers on a 2-teacher plan.
+    it('rejects a restore that would exceed the plan cap (cap: 2 live teachers)', async () => {
+      // Fill both slots with distinct live teachers, then try to restore the
+      // archived one — that would make 3 live teachers on a 2-teacher plan.
+      useCase = new RestoreTeacher(
+        teachers,
+        fakeClock('2026-07-31T09:00:00Z'),
+        new PlanPolicy(planWithLimits({ maxTeachers: 2 })),
+      );
       await teachers.save(
         seededTeacher({
           id: 'tch_00000000000000000000000002' as TeacherId,

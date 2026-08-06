@@ -6,10 +6,12 @@ import { STR, boot, type Launched, type Locale } from './app-shell.fixtures';
  * driven through the running packaged app only. Runs under both the `fr`
  * and `ar` Playwright projects.
  *
- * Critical-only per SOU-142: this is the canonical plan-lock E2E for the
- * whole app — one proof that the lock mechanism works end-to-end. Per-feature
- * gating correctness is a domain unit test (PlanPolicy) + a component test
- * (useFeature). Do not add a lock-verification E2E per gated feature.
+ * SOU-83 MVP tier collapse: every plan now grants every module flag except
+ * `org.multi-center` (which has no desktop surface), so no sidebar entry is
+ * locked in-app. This scenario proves the previously Pro-gated payroll entry
+ * is now a live, navigating link on Essentiel. Lock-affordance rendering is
+ * still covered at the component level (useFeature + LockOverlay) via a
+ * synthetic plan that drops the flag.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -27,24 +29,22 @@ async function waitForShell(win: Page, L: (typeof STR)[Locale]): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Scenario 6 — a locked entry shows an upgrade affordance and never navigates.
+// Scenario 6 — the previously Pro-gated payroll entry is a live link on
+// Essentiel and navigates (no lock affordance, no upgrade badge).
 // ---------------------------------------------------------------------------
-test('Scenario 6 — locked entry is inert (no navigation) and shows the upgrade affordance', async () => {
+test('Scenario 6 — the payroll entry is unlocked on Essentiel and navigates', async () => {
   const L = STR[locale()];
   live = await boot(locale(), 'essentiel');
   const win = live.win;
   await waitForShell(win, L);
   const nav = win.getByRole('navigation', { name: L.navAria });
 
-  const payroll = nav.getByRole('button').filter({ hasText: L.nav.payroll });
-  await expect(payroll).toHaveAttribute('aria-disabled', 'true');
-  await expect(payroll).toHaveAttribute('title', L.lockedTitle);
-  // Plan badge present (PRO for a Pro-gated entry).
-  await expect(payroll.getByText('PRO', { exact: true })).toBeVisible();
+  const payroll = nav.getByRole('link', { name: L.nav.payroll, exact: true });
+  await expect(payroll).toBeVisible();
+  await expect(payroll).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(nav.getByText('PRO', { exact: true })).toHaveCount(0);
 
-  const hashBefore = await win.evaluate(() => location.hash);
-  await payroll.click({ force: true });
-  // Still on the dashboard route; the disabled entry did not navigate.
-  expect(await win.evaluate(() => location.hash)).toBe(hashBefore);
-  await expect(win.getByRole('heading', { level: 1, name: L.dashboardHeading })).toBeVisible();
+  await payroll.click();
+  await win.waitForTimeout(400);
+  expect(await win.evaluate(() => location.hash)).toContain('payroll');
 });

@@ -15,12 +15,13 @@ describe('useOptionalFeature', () => {
   });
 
   it('returns false when the active plan lacks the flag', () => {
-    const { result } = renderHook(() => useOptionalFeature('sync.multi-device'));
+    // org.multi-center is the only flag not granted by every live tier (SOU-83 collapse).
+    const { result } = renderHook(() => useOptionalFeature('org.multi-center'));
     expect(result.current).toBe(false);
   });
 
   it('tracks plan switches live', () => {
-    const { result } = renderHook(() => useOptionalFeature('sync.multi-device'));
+    const { result } = renderHook(() => useOptionalFeature('org.multi-center'));
     expect(result.current).toBe(false);
 
     act(() => {

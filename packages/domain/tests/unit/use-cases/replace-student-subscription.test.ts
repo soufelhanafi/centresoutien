@@ -21,6 +21,7 @@ import { InMemoryStudentSubscriptionRepository } from '../fakes/in-memory-studen
 import { InMemoryStudentRepository } from '../fakes/in-memory-student-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import { planWithoutFeature } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const OTHER_CENTER = 'CS-RABAT-002' as CenterCode;
@@ -306,7 +307,7 @@ describe('ReplaceStudentSubscription', () => {
         students,
         fakeClock(),
         fakeIds(),
-        new PlanPolicy(PLANS.essentiel),
+        new PlanPolicy(planWithoutFeature('core.exam-prep')),
       );
       await expect(
         useCase.execute({

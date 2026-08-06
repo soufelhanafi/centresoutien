@@ -197,6 +197,8 @@ Presentation calls IPC → IPC handler calls the pre-wired use case → use case
 
 The application is sold in three tiers: **Essentiel**, **Pro**, **Premium**. Every version is the same binary; features are gated at runtime by the active plan.
 
+> **MVP tier collapse (SOU-83).** For the MVP, tiering is deliberately flat: **every feature flag ships in all three tiers except `org.multi-center`**, which needs the cloud hub and stays Premium-only. `essentiel` and `pro` are identical, and **all limits (`maxStudents` / `maxTeachers` / `maxRooms`) are `unlimited` on every tier**. The `// core` / `// pro` / `// premium` groupings in the `FeatureFlag` union below label each flag's *intended* future tier, not its current membership — the live membership is whatever `plans.ts` sets, and re-splitting later is an edit to those arrays alone. Any "(Pro+)" / "Premium-only" phrasing elsewhere in this file describes that future intent, not the shipped MVP.
+
 ### Plan configuration
 
 `packages/domain/src/plans/plans.ts` is the single source of truth:
@@ -260,7 +262,7 @@ export type Plan = {
 
 ### Limits
 
-Limits are enforced in the same policy layer. Adding a student when `maxStudents` is reached throws `PlanLimitExceededError` from the use case, and the UI shows the upgrade CTA.
+Limits are enforced in the same policy layer: `PlanPolicy.requireBelowLimit` throws `PlanLimitExceededError` from the use case when the active count reaches the cap, and the UI shows the upgrade CTA. The gate is permanent, but per the MVP collapse above every tier's caps are currently `unlimited`, so no live plan trips it today — tightening a cap later is a one-line change in `plans.ts`.
 
 ---
 

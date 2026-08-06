@@ -10,6 +10,7 @@ import type { SubjectId } from '../../../src/entities/subject';
 import { InMemoryTeacherRepository } from '../fakes/in-memory-teacher-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import { planWithLimits } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
@@ -139,8 +140,13 @@ describe('CreateTeacher', () => {
       expect(teachers.all()).toHaveLength(0);
     });
 
-    it('throws PlanLimitExceededError once maxTeachers is reached (Essentiel caps at 2)', async () => {
-      useCase = new CreateTeacher(teachers, fakeClock(), fakeIds(), new PlanPolicy(PLANS.essentiel));
+    it('throws PlanLimitExceededError once maxTeachers is reached (cap: 2)', async () => {
+      useCase = new CreateTeacher(
+        teachers,
+        fakeClock(),
+        fakeIds(),
+        new PlanPolicy(planWithLimits({ maxTeachers: 2 })),
+      );
       await useCase.execute(validInput({ name: { fr: 'T One', ar: 'واحد' }, phone: '0611111111' }));
       await useCase.execute(validInput({ name: { fr: 'T Two', ar: 'اثنان' }, phone: '0622222222' }));
 

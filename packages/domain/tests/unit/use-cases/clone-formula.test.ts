@@ -11,6 +11,7 @@ import { InMemoryFormulaRepository } from '../fakes/in-memory-formula-repository
 import { InMemorySubjectRepository } from '../fakes/in-memory-subject-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import { planWithoutFeature } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
@@ -200,9 +201,16 @@ describe('CloneFormula', () => {
       ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
     });
 
-    it('rejects cloning an exam-prep source on Essentiel', async () => {
+    it('rejects cloning an exam-prep source when the plan lacks core.exam-prep', async () => {
       const source = makeFormula({ kind: 'exam-prep' });
       await formulas.save(source);
+      useCase = new CloneFormula(
+        formulas,
+        subjects,
+        fakeClock(),
+        fakeIds(2),
+        new PlanPolicy(planWithoutFeature('core.exam-prep')),
+      );
       await expect(
         useCase.execute({ centerCode: CENTER, sourceId: source.id, deviceOrigin: DEVICE, updatedBy: USER }),
       ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);

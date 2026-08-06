@@ -17,6 +17,7 @@ import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
 import { InMemorySubjectRepository } from '../fakes/in-memory-subject-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import { planWithoutFeature } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const OTHER_CENTER = 'CS-RABAT-002' as CenterCode;
@@ -131,9 +132,9 @@ describe('CreateGroup', () => {
       expect(group.kind).toBe('exam-prep');
     });
 
-    it('rejects an exam-prep group on Essentiel (lacks core.exam-prep)', async () => {
+    it('rejects an exam-prep group when the plan lacks core.exam-prep', async () => {
       await expect(
-        build(PLANS.essentiel).execute(validInput({ kind: 'exam-prep' })),
+        build(planWithoutFeature('core.exam-prep')).execute(validInput({ kind: 'exam-prep' })),
       ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
       expect(groups.all()).toHaveLength(0);
     });
