@@ -177,6 +177,21 @@ describe('normalizeNameForMatch — Arabic↔Latin transliteration (SOU-92)', ()
     expect(normalizeNameForMatch('Ali')).not.toBe(normalizeNameForMatch('Ala'));
   });
 
+  it('distinct Moroccan geminated surnames stay distinct (no blanket doubled-consonant fold)', () => {
+    expect(normalizeNameForMatch('Allami')).not.toBe(normalizeNameForMatch('Alami'));
+    expect(normalizeNameForMatch('Bennani')).not.toBe(normalizeNameForMatch('Benani'));
+    expect(normalizeNameForMatch('Allal')).not.toBe(normalizeNameForMatch('Alal'));
+    expect(normalizeNameForMatch('El Allami')).not.toBe(normalizeNameForMatch('El Alami'));
+  });
+
+  it('Mohamed/Mohammed/محمد still collapse onto the canonical "mohamed" key', () => {
+    // The blanket doubled-consonant fold is gone; the curated `mohammed →
+    // mohamed` variant is what keeps this ticket's collision (M2 regression).
+    expect(normalizeNameForMatch('Mohammed')).toBe('mohamed');
+    expect(normalizeNameForMatch('محمد')).toBe('mohamed');
+    expect(normalizeNameForMatch('Mohammed')).toBe(normalizeNameForMatch('Mohamed'));
+  });
+
   it('keeps the parent phone anchor untouched in the naturalKey (no vowel-stripping of the contact)', () => {
     const key = normalizeNaturalKey({
       centerCode: CENTER,
