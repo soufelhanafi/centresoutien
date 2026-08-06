@@ -5,6 +5,7 @@ import type { SyncConflict } from './conflicts';
 import { conflictKey } from './conflicts';
 import type { DuplicateMatcher } from './duplicate-matcher';
 import { isPeopleEntityType } from './duplicate-matcher';
+import { ImmutableDivergenceError } from '../errors/sync-errors';
 import { resolveInboundChange, type ResolveOutcome } from './merge';
 import type { LocalPendingChange, LocalSyncRepository } from './sync-local-repository';
 
@@ -68,6 +69,11 @@ export class ChangeResolver {
         this.local.blockPending(change.entityType, change.entityId);
         this.pushUniqueConflict(conflicts, outcome.conflict);
         break;
+      case 'immutable-divergence':
+        // Locked decisions never fork and never get a popup: block the pending
+        // write and abort the whole sync loudly rather than apply anything.
+        this.local.blockPending(change.entityType, change.entityId);
+        throw new ImmutableDivergenceError(change.entityType, change.entityId);
     }
 
     this.detectDuplicates(change, conflicts, matcher);

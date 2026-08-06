@@ -3,6 +3,7 @@ import { valuesEqual } from './change-log';
 import type { HubChange, LocalChange } from '../ports/sync-hub-port';
 import type { EntityId } from '../value-objects/ids';
 import type { SyncConflict } from './conflicts';
+import { isImmutableEntityType } from './immutable-entities';
 
 /**
  * The resolve step of pull → resolve → push (SOU-80 §3), one inbound hub change
@@ -31,7 +32,17 @@ export type ResolveOutcome =
       readonly baseVersion: number;
     }
   /** Same-field clash or delete-vs-edit — nothing applied, nothing pushed. */
-  | { readonly kind: 'conflict'; readonly conflict: SyncConflict };
+  | { readonly kind: 'conflict'; readonly conflict: SyncConflict }
+  /**
+   * A real edit on an immutable entity — its locked decision (pricing, amount)
+   * cannot fork across devices. Never a popup: the engine blocks the pending
+   * write and aborts the sync so the hub's canonical state wins instead.
+   */
+  | {
+      readonly kind: 'immutable-divergence';
+      readonly entityType: string;
+      readonly entityId: EntityId;
+    };
 
 export function resolveInboundChange(input: {
   entityType: string;
@@ -54,15 +65,24 @@ export function resolveInboundChange(input: {
     return { kind: 'apply', entity: { ...inbound.entity }, version: inbound.version };
   }
 
+  // Envelope bookkeeping is engine-managed; only domain fields can merge or clash.
+  const mineFields = domainFields(local.changedFields);
+  const theirsFields = domainFields(inbound.changedFields);
+
+  // Immutable entities carry locked decisions (formula price, invoice/payout
+  // amounts) that must never fork across devices. A real edit on either side is
+  // divergence — no merge, no popup (a popup choice on immutable data would
+  // itself let one device override a locked value). This also preempts
+  // delete-vs-edit on an immutable entity: the edit side is divergence.
+  if (isImmutableEntityType(input.entityType) && (mineFields.length > 0 || theirsFields.length > 0)) {
+    return { kind: 'immutable-divergence', entityType: input.entityType, entityId: input.entityId };
+  }
+
   if (mineDeleted !== theirsDeleted) {
     // One deleted, the other edited — a real-world misunderstanding, never
     // auto-resolved in either direction (dedicated popup tab).
     return { kind: 'conflict', conflict: deleteVsEdit({ ...input, local }) };
   }
-
-  // Envelope bookkeeping is engine-managed; only domain fields can merge or clash.
-  const mineFields = domainFields(local.changedFields);
-  const theirsFields = domainFields(inbound.changedFields);
 
   const clashFields = mineFields.filter(
     (field) => theirsFields.includes(field) && !valuesEqual(local.entity[field], inbound.entity[field]),
