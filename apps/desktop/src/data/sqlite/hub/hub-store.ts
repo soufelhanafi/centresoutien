@@ -46,12 +46,26 @@ const UPSERT_CENTER_SQL = `
 `;
 
 /** The hub side of one push — everything the atomic accept-or-reject needs. */
-type PushInput = {
+export type PushInput = {
   centreId: CenterCode;
   deviceId: DeviceId;
   changes: readonly LocalChange[];
   schemaVersion: number;
 };
+
+/**
+ * The hub-store surface the HTTP server depends on. Keeps {@link HubServer}
+ * decoupled from the SQLite adapter (SOU-90 review): the server gets an
+ * interface, the composition root injects the concrete store.
+ */
+export interface HubStorePort {
+  registerCenter(centreId: CenterCode, token: string, now: Date): void;
+  tokenFor(centreId: CenterCode): string | null;
+  pull(centreId: CenterCode, cursor: SyncCursor | null, deviceId: DeviceId): ChangeBatch;
+  push(input: PushInput): PushResult;
+  cursorFor(deviceId: DeviceId, centreId: CenterCode): SyncCursor | null;
+  close(): void;
+}
 
 /**
  * SQLite canonical store for the embedded hub (SOU-90). Implements the hub
@@ -66,8 +80,16 @@ type PushInput = {
  * DB), so the canonical store honors the same tenancy + encryption rules as the
  * replicas it feeds.
  */
-export class SqliteHubStore {
+export class SqliteHubStore implements HubStorePort {
   readonly db: DB;
+
+  /**
+   * The single tenant this file serves, bound on the first tenant-scoped call.
+   * One SQLCipher file per center: a caller that opens `hub-<centreId>.db` but
+   * then pushes a DIFFERENT centreId is a cross-tenant write (unrecoverable
+   * corruption) and must be refused, not silently stored.
+   */
+  private boundCentreId: CenterCode | null = null;
 
   constructor(
     db: DB,
@@ -89,11 +111,13 @@ export class SqliteHubStore {
 
   /** (Re)store the LAN pairing token for a center — idempotent, called at hub start. */
   registerCenter(centreId: CenterCode, token: string, now: Date): void {
+    this.assertCentre(centreId);
     this.db.prepare(UPSERT_CENTER_SQL).run(centreId, token, now.toISOString());
   }
 
   /** The center's current pairing token, or null when the hub does not host it. */
   tokenFor(centreId: CenterCode): string | null {
+    this.assertCentre(centreId);
     const row = this.db
       .prepare('SELECT pairing_token FROM hub_center WHERE centre_id = ?')
       .get(centreId) as { pairing_token: string } | undefined;
@@ -107,6 +131,7 @@ export class SqliteHubStore {
    * truth; the hub's copy is for retention/compaction decisions.
    */
   pull(centreId: CenterCode, cursor: SyncCursor | null, deviceId: DeviceId): ChangeBatch {
+    this.assertCentre(centreId);
     const start = cursor?.seq ?? 0;
     const rows = this.db.prepare(SELECT_FEED_AFTER_SQL).all(centreId, start) as HubFeedRow[];
     const nextCursor = this.feedHead(centreId);
@@ -127,6 +152,7 @@ export class SqliteHubStore {
    * than the hub throws `SchemaTooOldError` — never silently written.
    */
   push(input: PushInput): PushResult {
+    this.assertCentre(input.centreId);
     // A device NEWER than the hub is stopped upstream, not here: the engine
     // compares the hub's schemaVersion (returned on every pull) against its own
     // and throws SchemaTooOldError before it ever pushes. The hub stores entity
@@ -215,6 +241,7 @@ export class SqliteHubStore {
 
   /** The hub's bookkeeping cursor for a device — null when it has never synced. */
   cursorFor(deviceId: DeviceId, centreId: CenterCode): SyncCursor | null {
+    this.assertCentre(centreId);
     const row = this.db.prepare('SELECT seq FROM hub_cursor WHERE device_id = ? AND centre_id = ?').get(
       deviceId,
       centreId,
@@ -224,6 +251,7 @@ export class SqliteHubStore {
 
   /** Test probe: the canonical version of an entity, or 0 when never pushed. */
   canonicalVersion(centreId: CenterCode, entityType: string, entityId: string): number {
+    this.assertCentre(centreId);
     const row = this.db
       .prepare('SELECT version FROM hub_entity WHERE centre_id = ? AND entity_type = ? AND entity_id = ?')
       .get(centreId, entityType, entityId) as { version: number } | undefined;
@@ -232,6 +260,19 @@ export class SqliteHubStore {
 
   close(): void {
     if (this.db.open) this.db.close();
+  }
+
+  /** Bind the file to its first tenant and refuse every other centreId. */
+  private assertCentre(centreId: CenterCode): void {
+    if (this.boundCentreId === null) {
+      this.boundCentreId = centreId;
+      return;
+    }
+    if (this.boundCentreId !== centreId) {
+      throw new Error(
+        `Hub store is bound to center ${this.boundCentreId}; refusing ${centreId} — one SQLCipher file per center.`,
+      );
+    }
   }
 
   private setCursor(deviceId: DeviceId, centreId: CenterCode, cursor: SyncCursor): void {

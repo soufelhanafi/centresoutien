@@ -6,7 +6,7 @@ import {
   type DeviceId,
   type LocalChange,
 } from '@centresoutien/domain';
-import type { SqliteHubStore } from '../../data/sqlite/hub/hub-store';
+import type { HubStorePort } from '../../data/sqlite/hub/hub-store';
 import {
   expectMethod,
   HubBadRequest,
@@ -44,7 +44,7 @@ export class HubServer {
   private readonly server: HttpServer;
 
   constructor(
-    private readonly store: SqliteHubStore,
+    private readonly store: HubStorePort,
     private readonly listenPort: number,
     private readonly bindHost: string = '0.0.0.0',
   ) {

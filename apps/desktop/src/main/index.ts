@@ -31,12 +31,13 @@ let container: Container | null = null;
  * missing config disables the hub rather than serving on a guessed value. The
  * pairing token is REQUIRED (a LAN-facing listener with a known default token
  * would defeat the whole pairing model), the port must be a valid TCP port, and
- * `CS_HUB_BIND_HOST` selects the LAN interface the listener serves (never
- * expose the hub beyond the local network). The hub host's own replica still
+ * `CS_HUB_BIND_HOST` selects the LAN interface the listener serves — REQUIRED
+ * and non-wildcard (`0.0.0.0`/`::` disable the hub): never expose the hub
+ * beyond the local network. The hub host's own replica still
  * syncs through the same SyncHubPort client (over localhost), so these env vars
  * only decide WHO serves — never how the hub machine syncs.
  */
-function resolveHubConfig(): { port: number; token: string; bindHost?: string } | null {
+function resolveHubConfig(): { port: number; token: string; bindHost: string } | null {
   if (process.env['CS_HUB_ENABLED'] !== '1') return null;
   const token = process.env['CS_HUB_TOKEN'];
   if (!token) {
@@ -50,12 +51,13 @@ function resolveHubConfig(): { port: number; token: string; bindHost?: string } 
     return null;
   }
   const bindHost = process.env['CS_HUB_BIND_HOST'];
-  if (!bindHost) {
+  if (!bindHost || bindHost === '0.0.0.0' || bindHost === '::') {
     console.warn(
-      '[hub] no CS_HUB_BIND_HOST set — the hub binds all interfaces. Set it to the center LAN interface to limit exposure.',
+      `[hub] CS_HUB_BIND_HOST must be an explicit non-wildcard LAN interface (got ${JSON.stringify(bindHost ?? '')}) — hub is NOT serving.`,
     );
+    return null;
   }
-  return { port, token, ...(bindHost ? { bindHost } : {}) };
+  return { port, token, bindHost };
 }
 
 /**

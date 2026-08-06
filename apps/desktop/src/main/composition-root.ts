@@ -238,9 +238,9 @@ export type ContainerOptions = {
    * laptop as hub (and its real config UX) is a later ticket; for now `index.ts`
    * opts in via `CS_HUB_ENABLED`/`CS_HUB_TOKEN`. `bindHost` selects the LAN
    * interface the listener serves (SOU-90 review Major 2 — never expose the hub
-   * beyond the local network).
+   * beyond the local network); it is REQUIRED and must be a non-wildcard host.
    */
-  hubServer?: { port: number; token: string; bindHost?: string };
+  hubServer?: { port: number; token: string; bindHost: string };
 };
 
 export type Container = {

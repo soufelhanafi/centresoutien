@@ -6,6 +6,7 @@ import type { Database as DB } from 'better-sqlite3';
 import {
   SCHEMA_VERSION,
   SchemaTooOldError,
+  type CenterCode,
   type Clock,
   type DeviceId,
   type EntityId,
@@ -352,5 +353,15 @@ describe('embedded hub over localhost (SOU-90)', () => {
     });
     expect(() => db.prepare('DELETE FROM hub_feed').run()).toThrow(/append-only/);
     expect(() => db.prepare("UPDATE hub_feed SET op = 'delete'").run()).toThrow(/append-only/);
+  });
+
+  it('refuses a second center on a store already bound to one', async () => {
+    store.registerCenter(CENTER, TOKEN, AT);
+    expect(() => store.tokenFor('CS-OTHER-999' as CenterCode)).toThrow(/bound to center CS-CASA-001/);
+    expect(() =>
+      store.pull('CS-OTHER-999' as CenterCode, null, DEV_A),
+    ).toThrow(/bound to center CS-CASA-001/);
+    // The bound center keeps working — the guard only rejects a different tenant.
+    expect(store.tokenFor(CENTER)).toBe(TOKEN);
   });
 });
