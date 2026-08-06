@@ -97,6 +97,18 @@ describe('GetLicenseStatus', () => {
     });
   });
 
+  it('reports restricted wrong-center when the installed license is bound to another center', () => {
+    license.setInstalled({
+      status: 'valid',
+      claims: claims({ centerCode: 'CS-RABAT-999' }),
+    });
+    expect(useCase.execute()).toMatchObject({
+      status: 'wrong-center',
+      plan: 'essentiel',
+      restricted: true,
+    });
+  });
+
   it('flags a lapsed founder discount on an otherwise active license', () => {
     license.setInstalled({
       status: 'valid',
