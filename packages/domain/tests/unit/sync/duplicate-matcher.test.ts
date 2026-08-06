@@ -211,3 +211,80 @@ describe('DuplicateMatcher — students (name + guardian)', () => {
     expect(matches).toHaveLength(0);
   });
 });
+
+describe('DuplicateMatcher — parents-before-students ordering (SOU-92)', () => {
+  it('detects a parent duplicate independently of any student, before students are ever matched', () => {
+    // A second laptop created the same guardian again. The parent is the anchor
+    // of the hierarchy: its duplicate is surfaced FIRST, while the student layer
+    // has nothing to match yet (guardians settle before dependents).
+    const matcher = new DuplicateMatcher(
+      source({ findParentsByPhone: () => [parent('prt_A', 'Mohamed', '+212600000001')] }),
+    );
+    const parentMatches = matcher.match({
+      entityType: 'parents',
+      centerCode: CENTER,
+      entity: { id: 'prt_B', name: 'Mohamed', phone: '+212600000001' },
+      selfId: SELF,
+    });
+    expect(parentMatches[0]).toEqual({ tier: 'exact', candidateId: asEntity('prt_A'), reason: 'same-name-phone' });
+
+    // A student is only matchable on a SETTLED guardian id. Before the parent
+    // merge above folds prt_B into prt_A, a same-name student carrying prt_B
+    // cannot match the local one carrying prt_A as an EXACT duplicate — the same
+    // birth date only earns the separated-family fuzzy flag, never exact.
+    const matcher2 = new DuplicateMatcher(
+      source({
+        findStudentsByName: () => [student('stu_A', 'Yassine Alaoui', '2010-01-15', ['prt_A'])],
+      }),
+    );
+    const unmatched = matcher2.match({
+      entityType: 'students',
+      centerCode: CENTER,
+      entity: {
+        id: 'stu_B',
+        name: { fr: 'Yassine', ar: 'ياسين' },
+        birthDate: '2010-01-15',
+        guardianIds: ['prt_B'],
+      },
+      selfId: SELF,
+    });
+    expect(unmatched[0]).toEqual({
+      tier: 'fuzzy',
+      candidateId: asEntity('stu_A'),
+      reason: 'separated-family',
+    });
+
+    // Once the parent merge lands and both records carry prt_A, the same student
+    // becomes an exact match — parents-first ordering is what makes this safe.
+    const matcher3 = new DuplicateMatcher(
+      source({
+        findStudentsByName: () => [student('stu_A', 'Yassine Alaoui', '2010-01-15', ['prt_A'])],
+      }),
+    );
+    const matched = matcher3.match({
+      entityType: 'students',
+      centerCode: CENTER,
+      entity: {
+        id: 'stu_C',
+        name: { fr: 'Yassine', ar: 'ياسين' },
+        birthDate: '2010-01-15',
+        guardianIds: ['prt_A'],
+      },
+      selfId: SELF,
+    });
+    expect(matched[0]).toEqual({ tier: 'exact', candidateId: asEntity('stu_A'), reason: 'shared-guardian' });
+  });
+
+  it('Arabic↔Latin transliteration reaches the matcher — "محمد" and "Mohamed" collide exactly', () => {
+    const matcher = new DuplicateMatcher(
+      source({ findParentsByPhone: () => [parent('prt_A', 'Mohamed', '+212600000001')] }),
+    );
+    const matches = matcher.match({
+      entityType: 'parents',
+      centerCode: CENTER,
+      entity: { id: 'prt_B', name: 'محمد', phone: '+212600000001' },
+      selfId: SELF,
+    });
+    expect(matches[0]).toEqual({ tier: 'exact', candidateId: asEntity('prt_A'), reason: 'same-name-phone' });
+  });
+});
