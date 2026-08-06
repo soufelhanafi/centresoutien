@@ -44,4 +44,9 @@ export abstract class InMemorySoftDeletableRepository<
   all(): readonly T[] {
     return [...this.rows.values()].map((row) => structuredClone(row));
   }
+
+  /** test-only convenience — used by the merge unit-of-work fakes to restore a snapshot. */
+  clear(): void {
+    this.rows.clear();
+  }
 }
