@@ -12,10 +12,11 @@ export type CenterId = Brand<string, 'CenterId'>;
  * center, CLAUDE.md §5ter). Holds identity, address, contact, and logo shown in
  * Settings and on the invoice PDF header.
  *
- * `plan` is stored here as the **interim** source the gate reads from (SOU-28
- * done-when). SOU-98 moves plan authority to a tamper-evident license file and
- * demotes this field to a display-only mirror — until then it is seeded once at
- * creation and never edited through the profile form.
+ * `plan` is a **display-only mirror** (SOU-98): plan authority lives in the
+ * tamper-evident license file, resolved at startup by `resolveActivePlan` and
+ * enforced by `PlanPolicy`. This field is never read by the gate — it is seeded
+ * once at creation and refreshed from the resolved license at startup, so a user
+ * editing it in their DB cannot self-upgrade. Never edited through the profile form.
  *
  * Carries the full sync envelope so name/address/logo/contact converge across
  * the center's laptops. Not people-like, so no `naturalKey`. Never hard-deleted.

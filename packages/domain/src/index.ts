@@ -72,6 +72,21 @@ export type { PlanId, FeatureFlag, PlanLimits, Plan } from './plans/plans';
 export { PLANS } from './plans/plans';
 export { PlanPolicy } from './plans/plan-policy';
 export { DomainError, PlanFeatureUnavailableError, PlanLimitExceededError } from './errors/plan-errors';
+// License-as-plan-source (SOU-98): the tamper-evident plan authority. The adapter
+// (data) verifies the Ed25519 signature; the domain owns what a verified license
+// means. `PlanPolicy` is built from `resolveActivePlan`, never from `center.plan`.
+export type { LicenseClaims, LicenseVerification } from './plans/license';
+export type { LicenseStatus, LicenseResolution } from './plans/resolve-active-plan';
+export { resolveActivePlan, isLicenseExpired } from './plans/resolve-active-plan';
+export type { LicensePort } from './ports/license-port';
+export { licenseFileSchema, licenseClaimsSchema } from './schemas/license';
+export type { LicenseFileInput } from './schemas/license';
+export {
+  LicenseError,
+  LicenseMissingError,
+  LicenseSignatureInvalidError,
+  LicenseExpiredError,
+} from './errors/license-errors';
 export {
   AdminAccountAlreadyExistsError,
   AdminAccountNotFoundError,
