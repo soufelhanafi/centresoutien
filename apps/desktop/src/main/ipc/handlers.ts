@@ -1,6 +1,8 @@
 /// <reference types="vite/client" />
 import type {
   PlanId,
+  GetLicenseStatus,
+  ActivateLicense,
   CreateSubject,
   ArchiveSubject,
   ListSubjects,
@@ -167,6 +169,8 @@ import {
 } from './attendance-reporting-handlers';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
+export type GetLicenseStatusUseCase = Pick<GetLicenseStatus, 'execute'>;
+export type ActivateLicenseUseCase = Pick<ActivateLicense, 'execute'>;
 export type CreateSubjectUseCase = Pick<CreateSubject, 'execute'>;
 export type ArchiveSubjectUseCase = Pick<ArchiveSubject, 'execute'>;
 export type ListSubjectsUseCase = Pick<ListSubjects, 'execute'>;
@@ -661,6 +665,8 @@ export type HandlerDeps = BackupHandlerDeps &
   appVersion: () => string;
   activePlanId: () => PlanId;
   setActivePlan: (planId: PlanId) => void;
+  getLicenseStatus: GetLicenseStatusUseCase;
+  activateLicense: ActivateLicenseUseCase;
   createSubject: CreateSubjectUseCase;
   archiveSubject: ArchiveSubjectUseCase;
   listSubjects: ListSubjectsUseCase;
@@ -769,6 +775,8 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     'plan.get': () => ({
       planId: deps.activePlanId(),
     }),
+    'license.status': () => deps.getLicenseStatus.execute(),
+    'license.activate': (request) => deps.activateLicense.execute({ rawLicense: request.license }),
     'subject.create': async (request) => {
       const subject = await deps.createSubject.execute({ ...request, ...deps.envelopeContext() });
       return { id: subject.id };
