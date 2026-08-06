@@ -145,6 +145,25 @@ describe('normalizeNameForMatch — Arabic↔Latin transliteration (SOU-92)', ()
     expect(normalizeNameForMatch('Mohammed')).toBe('mohamed');
   });
 
+  it.each([
+    // Hamza-initial names: U+0623/U+0625 decompose under NFKD to alef + a
+    // combining hamza (Mn), which the mark-strip removes BEFORE the dictionary
+    // lookup. The composed spelling and the informal hamza-less spelling must
+    // both still hit their transliteration entry (M1 regression).
+    ['أحمد', 'ahmed'],
+    ['أمين', 'amine'],
+    ['أمينة', 'amina'],
+  ])('hamza-initial "%s" transliterates to "%s" after NFKD strips the combining hamza', (arabic, latin) => {
+    expect(normalizeNameForMatch(arabic)).toBe(latin);
+  });
+
+  it('hamza-less informal spelling collides with the composed form and with the Latin spelling', () => {
+    expect(normalizeNameForMatch('احمد')).toBe(normalizeNameForMatch('أحمد'));
+    expect(normalizeNameForMatch('احمد')).toBe(normalizeNameForMatch('Ahmed'));
+    expect(normalizeNameForMatch('امين')).toBe(normalizeNameForMatch('أمين'));
+    expect(normalizeNameForMatch('امين')).toBe(normalizeNameForMatch('Amine'));
+  });
+
   it('is idempotent — running it twice never changes the key', () => {
     const inputs = ['Mohammed El Amrani', 'محمد العلوي', 'Yassine', 'Fatima-Zahra'];
     for (const input of inputs) {

@@ -27,7 +27,7 @@ const ARTICLE_FOLD = [/\bel\s+/g, /\bal\s+/g] as const;
  * table is additive; extend it with new names only when their French spelling is
  * standard enough to be unambiguous.
  */
-const ARABIC_TO_LATIN_NAME: Readonly<Record<string, string>> = {
+const ARABIC_TO_LATIN_NAME_RAW: Readonly<Record<string, string>> = {
   'محمد': 'mohamed',
   'أحمد': 'ahmed',
   'فاطمة': 'fatima',
@@ -41,8 +41,22 @@ const ARABIC_TO_LATIN_NAME: Readonly<Record<string, string>> = {
   'أمينة': 'amina',
 };
 
+/**
+ * The lookup map is keyed on the same NFKD + combining-mark-strip + lowercase
+ * form the matcher normalizes names to BEFORE the dictionary runs (M1): a key
+ * like `أحمد` decomposes to `ا` + combining hamza (Mn), the mark strip removes
+ * it, so the live word is `احمد`. Keying the map on that stripped form makes
+ * the composed `أحمد` and the informal hamza-less `احمد` both hit their entry.
+ */
+const ARABIC_TO_LATIN_NAME = new Map(
+  Object.entries(ARABIC_TO_LATIN_NAME_RAW).map(([key, latin]) => [
+    key.normalize('NFKD').replace(COMBINING_MARKS, '').toLowerCase(),
+    latin,
+  ]),
+);
+
 function transliterateArabicWords(name: string): string {
-  return name.replace(ARABIC_WORD, (word) => ARABIC_TO_LATIN_NAME[word] ?? word);
+  return name.replace(ARABIC_WORD, (word) => ARABIC_TO_LATIN_NAME.get(word) ?? word);
 }
 
 /**
