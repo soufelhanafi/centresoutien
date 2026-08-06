@@ -5,6 +5,8 @@ import {
   PLANS,
   PlanPolicy,
   resolveActivePlan,
+  ActivateLicense,
+  GetLicenseStatus,
   CreateSubject,
   ArchiveSubject,
   ListSubjects,
@@ -130,6 +132,7 @@ import type {
   UserId,
   Clock,
   LicensePort,
+  LicenseBindingContext,
   IdGenerator,
   RoomReferencePort,
   SubjectReferencePort,
@@ -137,6 +140,8 @@ import type {
   StudentSubscriptionReferencePort,
 } from '@centresoutien/domain';
 import { Ed25519LicenseAdapter } from '../data/license/ed25519-license-adapter';
+import { FsLicenseStore } from '../data/license/fs-license-store';
+import { FileMachineIdentity } from '../data/license/file-machine-identity';
 import { VENDOR_LICENSE_PUBLIC_KEY_PEM } from '../data/license/vendor-public-key';
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
@@ -253,8 +258,13 @@ function resolveDeviceOrigin(db: DB, ids: IdGenerator): DeviceId {
  * `essentiel`. The user-editable `center.plan` row is never consulted, so
  * editing the DB can no longer self-upgrade.
  */
-function resolveStartupPlanId(license: LicensePort, clock: Clock, devFallback: PlanId): PlanId {
-  const resolution = resolveActivePlan(license.verify(), clock.now());
+function resolveStartupPlanId(
+  license: LicensePort,
+  clock: Clock,
+  binding: LicenseBindingContext,
+  devFallback: PlanId,
+): PlanId {
+  const resolution = resolveActivePlan(license.verify(), clock.now(), binding);
   return resolution.status === 'active' ? resolution.plan.id : devFallback;
 }
 
@@ -275,18 +285,43 @@ export function buildContainer(options: ContainerOptions): Container {
   // DEV-gated the same way `plan.set` is — `import.meta.env.DEV` is a build-time
   // constant electron-vite replaces with `false` in production, tree-shaking the
   // override path out. Tests inject through `options.license`, never the env.
+  const licenseFilePath = import.meta.env.DEV
+    ? (process.env['CS_LICENSE_FILE'] ?? join(options.dir, 'license.json'))
+    : join(options.dir, 'license.json');
   const license =
     options.license ??
     new Ed25519LicenseAdapter({
-      filePath: import.meta.env.DEV
-        ? (process.env['CS_LICENSE_FILE'] ?? join(options.dir, 'license.json'))
-        : join(options.dir, 'license.json'),
+      filePath: licenseFilePath,
       publicKey: import.meta.env.DEV
         ? (process.env['CS_LICENSE_PUBLIC_KEY'] ?? VENDOR_LICENSE_PUBLIC_KEY_PEM)
         : VENDOR_LICENSE_PUBLIC_KEY_PEM,
     });
-  const activePlanId = resolveStartupPlanId(license, clock, options.planId);
+  // Machine-scoped id (SOU-104) — the anchor for the license's machine binding.
+  // A file beside the center DBs, not inside one, so every center on this laptop
+  // shares it. The activation flow and startup resolution both check against it.
+  const machineIdentity = new FileMachineIdentity(options.dir);
+  const licenseBinding: LicenseBindingContext = {
+    machineId: machineIdentity.machineId(),
+    centerCode: options.centerCode,
+  };
+  const activePlanId = resolveStartupPlanId(license, clock, licenseBinding, options.planId);
   const plan = new PlanPolicy(PLANS[activePlanId]);
+
+  // License activation (SOU-104): the activation screen's two channels. `activate`
+  // verifies a pasted/imported envelope, checks it binds to this machine + center
+  // and hasn't expired, then persists it and flips the live plan; `status` reports
+  // the installed license's resolved state for the screen + Settings. The store
+  // writes to the same fixed `licenseFilePath` the startup adapter reads.
+  const licenseStore = new FsLicenseStore(licenseFilePath);
+  const activateLicense = new ActivateLicense(
+    license,
+    licenseStore,
+    machineIdentity,
+    clock,
+    plan,
+    options.centerCode,
+  );
+  const getLicenseStatus = new GetLicenseStatus(license, machineIdentity, clock, options.centerCode);
 
   // The acting laptop, resolved once — stamped on every change_log row (SOU-79)
   // and carried in the envelope context below.
@@ -801,6 +836,8 @@ export function buildContainer(options: ContainerOptions): Container {
     appVersion: options.appVersion,
     activePlanId: () => plan.activePlanId(),
     setActivePlan: (planId) => plan.setActivePlan(PLANS[planId]),
+    getLicenseStatus,
+    activateLicense,
     dialogPaths,
     createSubject,
     archiveSubject,
