@@ -21,3 +21,6 @@ coverage/
 
 # Self-hosted GitHub Actions runner (local install, holds live credentials)
 actions-runner/
+
+# graphify generated knowledge graph (regenerate via: graphify update .)
+graphify-out/

@@ -1,6 +1,11 @@
 import { DomainError } from '@centresoutien/domain';
 import { ipcContract, isIpcChannel } from '../../shared/ipc/contract';
-import type { IpcChannel, IpcHandlers, IpcRequest, IpcResponse } from '../../shared/ipc/contract';
+import type {
+  IpcChannel,
+  RegisterableIpcHandlers,
+  IpcRequest,
+  IpcResponse,
+} from '../../shared/ipc/contract';
 import { encodeDomainError } from '../../shared/ipc/domain-error';
 
 /**
@@ -23,7 +28,7 @@ function domainErrorCode(error: DomainError): string {
  * renderer can resolve a specific localized message across the IPC bridge.
  * Pure and Electron-free, so it unit-tests without launching the app.
  */
-export function createIpcDispatcher(handlers: IpcHandlers) {
+export function createIpcDispatcher(handlers: RegisterableIpcHandlers) {
   return async function dispatch<C extends IpcChannel>(
     channel: C,
     rawRequest: unknown,
@@ -33,7 +38,12 @@ export function createIpcDispatcher(handlers: IpcHandlers) {
     }
     const method = ipcContract[channel];
     const request = method.request.parse(rawRequest) as IpcRequest<C>;
-    const handler = handlers[channel] as (req: IpcRequest<C>) => IpcResponse<C> | Promise<IpcResponse<C>>;
+    const handler = handlers[channel] as
+      | ((req: IpcRequest<C>) => IpcResponse<C> | Promise<IpcResponse<C>>)
+      | undefined;
+    if (!handler) {
+      throw new Error(`No handler registered for IPC channel: ${String(channel)}`);
+    }
     let response: IpcResponse<C>;
     try {
       response = await handler(request);

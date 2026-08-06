@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import type {
   PlanId,
   CreateSubject,
@@ -145,7 +146,7 @@ import {
   NotAuthenticatedError,
   SECURITY_QUESTION_KEYS,
 } from '@centresoutien/domain';
-import type { IpcHandlers, IpcRequest } from '../../shared/ipc/contract';
+import type { RegisterableIpcHandlers, IpcRequest } from '../../shared/ipc/contract';
 import type { LocalePreference } from '../infra/locale-preference-store';
 import { createBackupHandlers, type BackupHandlerDeps } from './backup-handlers';
 import { createBackupExcelHandlers, type BackupExcelHandlerDeps } from './backup-excel-handlers';
@@ -759,8 +760,8 @@ export type HandlerDeps = BackupHandlerDeps &
   saveLocalePreference: (locale: LocalePreference) => void;
 };
 
-export function createHandlers(deps: HandlerDeps): IpcHandlers {
-  return {
+export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
+  const handlers: RegisterableIpcHandlers = {
     'app.ping': (request) => ({
       reply: `pong: ${request.message}`,
       appVersion: deps.appVersion(),
@@ -768,10 +769,6 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     'plan.get': () => ({
       planId: deps.activePlanId(),
     }),
-    'plan.set': (request) => {
-      deps.setActivePlan(request.planId);
-      return { planId: deps.activePlanId() };
-    },
     'subject.create': async (request) => {
       const subject = await deps.createSubject.execute({ ...request, ...deps.envelopeContext() });
       return { id: subject.id };
@@ -1542,4 +1539,19 @@ export function createHandlers(deps: HandlerDeps): IpcHandlers {
     ...createScheduleHandlers(deps),
     ...createAttendanceReportingHandlers(deps),
   };
+
+  // Dev-only plan switcher (SOU-98): `import.meta.env.DEV` is a build-time
+  // constant electron-vite statically replaces with `false` in a production
+  // build, so this block — and with it any runtime path that mutates PlanPolicy
+  // — is tree-shaken out of the packaged main bundle. In production `plan.set`
+  // is never added, `registerIpc` skips the unwired channel, and a packaged
+  // renderer's `invoke('plan.set', …)` hits no `ipcMain.handle` and is rejected.
+  if (import.meta.env.DEV) {
+    handlers['plan.set'] = (request) => {
+      deps.setActivePlan(request.planId);
+      return { planId: deps.activePlanId() };
+    };
+  }
+
+  return handlers;
 }

@@ -1,9 +1,18 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { generateKeyPairSync, sign as signBytes, type KeyObject } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { CenterCode, ParentId, PlanId, SubjectId } from '@centresoutien/domain';
+import type {
+  CenterCode,
+  LicenseClaims,
+  LicensePort,
+  ParentId,
+  PlanId,
+  SubjectId,
+} from '@centresoutien/domain';
 import { buildContainer } from '../../src/main/composition-root';
+import { Ed25519LicenseAdapter } from '../../src/data/license/ed25519-license-adapter';
 import { createIpcDispatcher } from '../../src/main/ipc/dispatcher';
 import { createHandlers } from '../../src/main/ipc/handlers';
 import { openDatabase } from '../../src/data/sqlite/db';
@@ -26,7 +35,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function build(planId: PlanId = 'essentiel') {
+function build(planId: PlanId = 'essentiel', license?: LicensePort) {
   return buildContainer({
     centreId: 'C1',
     centerCode: 'CS-CASA-001' as CenterCode,
@@ -35,6 +44,30 @@ function build(planId: PlanId = 'essentiel') {
     planId,
     appVersion: () => '2.0.0',
     scheduleRestart: () => {},
+    ...(license ? { license } : {}),
+  });
+}
+
+/** base64(JSON claims) is the signed byte string — mirrors the vendor signer. */
+function signedLicenseFile(claims: LicenseClaims, privateKey: KeyObject): string {
+  const claimsB64 = Buffer.from(JSON.stringify(claims), 'utf8').toString('base64');
+  const signature = signBytes(null, Buffer.from(claimsB64, 'utf8'), privateKey).toString('base64');
+  return JSON.stringify({ claims: claimsB64, signature });
+}
+
+/**
+ * Write a genuine, test-keypair-signed `license.json` and return a real
+ * {@link Ed25519LicenseAdapter} that verifies it against the matching public key.
+ * Injected through `ContainerOptions.license` (the test seam), not the DEV-only
+ * `CS_LICENSE_*` env overrides a production build never reads (SOU-98).
+ */
+function installSignedLicense(claims: LicenseClaims): LicensePort {
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  const licensePath = join(dir, 'license.json');
+  writeFileSync(licensePath, signedLicenseFile(claims, privateKey));
+  return new Ed25519LicenseAdapter({
+    filePath: licensePath,
+    publicKey: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
   });
 }
 
@@ -257,19 +290,58 @@ describe('composition root', () => {
     second.dispose();
   });
 
-  it('reads the active plan from the saved center row, not the build override (SOU-28 interim gate)', async () => {
-    // Build as 'pro' and save — the row is seeded 'pro'.
+  it('resolves the active plan from the license/dev override, never the editable center row (SOU-98)', async () => {
+    // No license file present → the plan falls back to the build/dev override.
+    // Build as 'pro' and save; the row is seeded 'pro' as a display mirror.
     const first = build('pro');
     const dispatch1 = createIpcDispatcher(createHandlers(first.handlerDeps));
     await dispatch1('center.save', { name: 'Centre Pro', address: '', phone: '', email: '', logoPath: null });
     expect(await dispatch1('plan.get', {})).toEqual({ planId: 'pro' });
     first.dispose();
 
-    // Rebuild with a *different* override — the stored plan still wins.
+    // Rebuild with a lower override. Under SOU-28 the stored 'pro' row would have
+    // won (self-upgrade hole); under SOU-98 the gate ignores center.plan, so the
+    // override wins and the display mirror is rewritten to match.
     const second = build('essentiel');
     const dispatch2 = createIpcDispatcher(createHandlers(second.handlerDeps));
-    expect(await dispatch2('plan.get', {})).toEqual({ planId: 'pro' });
+    expect(await dispatch2('plan.get', {})).toEqual({ planId: 'essentiel' });
+    expect((await dispatch2('center.get', {})).center).toMatchObject({ plan: 'essentiel' });
     second.dispose();
+  });
+
+  it('resolves the active plan to premium from a real signed, unexpired license (SOU-98)', async () => {
+    // A genuine vendor-signed license verified against its own public key must
+    // win over the dev override — even when that override is the lowest tier.
+    const license = installSignedLicense({
+      plan: 'premium',
+      issuedAt: '2026-01-01T00:00:00.000Z',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      machineId: null,
+      centerCode: 'CS-CASA-001',
+    });
+
+    const container = build('essentiel', license);
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+    expect(await dispatch('plan.get', {})).toEqual({ planId: 'premium' });
+    expect((await dispatch('center.save', { name: 'C', address: '', phone: '', email: '', logoPath: null })).center).toMatchObject({ plan: 'premium' });
+    container.dispose();
+  });
+
+  it('falls back to essentiel when the genuine signed license is expired (SOU-98)', async () => {
+    // Signature is valid but expiry is in the past — the license no longer grants
+    // its tier, so the plan drops to the dev/startup fallback.
+    const license = installSignedLicense({
+      plan: 'premium',
+      issuedAt: '2000-01-01T00:00:00.000Z',
+      expiresAt: '2000-01-02T00:00:00.000Z',
+      machineId: null,
+      centerCode: 'CS-CASA-001',
+    });
+
+    const container = build('essentiel', license);
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+    expect(await dispatch('plan.get', {})).toEqual({ planId: 'essentiel' });
+    container.dispose();
   });
 
   it('persists a stable device origin across container rebuilds', async () => {
