@@ -344,6 +344,42 @@ describe('MergeStudents', () => {
       expect(activeCountInMonth(winnerSubs, '2026-07')).toBe(1);
       expect(mergeLogs.all()[0]?.note).toContain(loserSub.id);
     });
+
+    it('keeps the actively-billing loser-origin sub until the future-starting winner sub takes over — no gap, no overlap', async () => {
+      await students.save(makeStudent(WINNER));
+      await students.save(makeStudent(LOSER));
+      const winnerSub = makeSubscription('sbs_00000000000000000000000006' as StudentSubscriptionId, WINNER, {
+        startMonth: '2026-09',
+      });
+      const loserSub = makeSubscription('sbs_00000000000000000000000007' as StudentSubscriptionId, LOSER, {
+        startMonth: '2026-03',
+      });
+      await subscriptions.save(winnerSub);
+      await subscriptions.save(loserSub);
+
+      await useCase.execute(validInput());
+
+      const winnerSubs = subscriptions.all().filter((s) => s.studentId === WINNER);
+      const winnerAfter = winnerSubs.find((s) => s.id === winnerSub.id);
+      const loserAfter = winnerSubs.find((s) => s.id === loserSub.id);
+      // The future-starting (pre-enrolled) winner sub is kept open; the loser
+      // sub that is billing NOW is capped at the month before the winner starts,
+      // so coverage hands over without a billing gap and without overlap.
+      expect(winnerAfter?.endMonth).toBeNull();
+      expect(loserAfter?.endMonth).toBe('2026-08');
+
+      // Exactly one billable sub in every month from the merge month through the
+      // winner's first term — the loser covers 07 + 08, the winner 09 onward.
+      expect(activeCountInMonth(winnerSubs, '2026-07')).toBe(1);
+      expect(activeCountInMonth(winnerSubs, '2026-08')).toBe(1);
+      expect(activeCountInMonth(winnerSubs, '2026-09')).toBe(1);
+      expect(activeCountInMonth(winnerSubs, '2026-10')).toBe(1);
+      expect(isSubscriptionActiveInMonth(loserAfter!, '2026-08')).toBe(true);
+      expect(isSubscriptionActiveInMonth(loserAfter!, '2026-09')).toBe(false);
+      expect(isSubscriptionActiveInMonth(winnerAfter!, '2026-08')).toBe(false);
+      expect(isSubscriptionActiveInMonth(winnerAfter!, '2026-09')).toBe(true);
+      expect(mergeLogs.all()[0]?.note).toContain(loserSub.id);
+    });
   });
 
   describe('detached guardian links (M4)', () => {

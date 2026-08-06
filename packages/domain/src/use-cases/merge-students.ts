@@ -48,10 +48,10 @@ export type MergeStudentsInput = {
  *
  * A merge never leaves the winner with two active same-kind subscriptions: a
  * re-pointed loser-origin subscription that duplicates a live winner one of the
- * same kind is closed at the month BEFORE the merge month — `endMonth` is
- * inclusive, so a merge-month close would still bill it (close-and-reopen,
- * CLAUDE.md §7). Both that closure and any detached guardian links are recorded
- * in the log note.
+ * same kind is closed so it never bills a month the winner covers — before the
+ * merge month when the winner already bills it, or at the winner's start when
+ * the winner begins later (close-and-reopen, CLAUDE.md §7). Both that closure
+ * and any detached guardian links are recorded in the log note.
  *
  * Gated by `sync.conflict-resolution` — merging is settling a duplicate, so only
  * users authorized to resolve conflicts may run it. The whole merge is one
@@ -221,14 +221,18 @@ export type SubscriptionReconciliation = {
  * loser `exam-prep`) both survive active. Purely additive to the input — rows
  * that are already closed or don't overlap pass through untouched.
  *
- * **Why the cap lands before the merge month.** `endMonth` is inclusive — a row
- * capped AT the merge month stays active and billed for it, leaving the winner
- * with two invoice lines that month. The duplicate is therefore capped at the
- * month BEFORE the merge month. A cap that lands before the duplicate's own
- * start month is an inverted range — the zero-month full cancellation the
- * derived-status rule permits (same convention as `CloseStudentSubscription`) —
- * so a duplicate that starts in the merge month is cancelled entirely rather
- * than billed once.
+ * **Which sub is closed, and at what month.** `endMonth` is inclusive, so the
+ * retired row must never bill any month the kept coverage is already billing.
+ * The kept coverage starts at the LATER of the merge month and the winner sub's
+ * start — pre-merge months are two separate students' history and are left alone.
+ * The loser-origin duplicate is capped at `previousMonth` of that coverage start:
+ * when the winner already bills at the merge month the loser-origin closes before
+ * the merge month (never double-bills it), and when the winner starts later the
+ * loser-origin keeps billing until the month before the winner takes over (no
+ * billing gap, no overlap). A cap that lands before the loser-origin's own start
+ * month is an inverted range — the zero-month full cancellation the derived-status
+ * rule permits (same convention as `CloseStudentSubscription`) — so a duplicate
+ * that starts in the merge month is cancelled entirely rather than billed once.
  */
 export function reconcileOverlappingSubscriptions(input: {
   repointedSubscriptions: readonly StudentSubscription[];
@@ -241,21 +245,42 @@ export function reconcileOverlappingSubscriptions(input: {
   const closedSubscriptionIds: StudentSubscriptionId[] = [];
   const subscriptions = input.repointedSubscriptions.map((sub) => {
     if (sub.endMonth !== null) return sub;
-    const duplicates = winnerOpen.some(
-      (w) =>
-        w.kind === sub.kind &&
-        subscriptionRangesOverlap(sub.startMonth, sub.endMonth, w.startMonth, w.endMonth),
-    );
-    if (!duplicates) return sub;
+    const overlappingWinner = earliestSameKindWinner(winnerOpen, sub);
+    if (overlappingWinner === null) return sub;
     closedSubscriptionIds.push(sub.id);
+    const coverageStart =
+      overlappingWinner.startMonth > input.mergeMonth ? overlappingWinner.startMonth : input.mergeMonth;
     return {
       ...sub,
-      endMonth: previousMonth(input.mergeMonth),
+      endMonth: previousMonth(coverageStart),
       updatedAt: input.now,
       updatedBy: input.updatedBy,
     };
   });
   return { subscriptions, closedSubscriptionIds };
+}
+
+/**
+ * The same-kind open winner subscription whose range overlaps `sub`, preferring
+ * the earliest start — the one that begins billing first and therefore defines
+ * when the loser-origin duplicate must stop. `null` when no winner sub of the
+ * same kind overlaps (kinds differ, or ranges are disjoint).
+ */
+function earliestSameKindWinner(
+  winnerOpen: readonly StudentSubscription[],
+  sub: StudentSubscription,
+): StudentSubscription | null {
+  let earliest: StudentSubscription | null = null;
+  for (const winner of winnerOpen) {
+    if (winner.kind !== sub.kind) continue;
+    if (!subscriptionRangesOverlap(sub.startMonth, sub.endMonth, winner.startMonth, winner.endMonth)) {
+      continue;
+    }
+    if (earliest === null || winner.startMonth < earliest.startMonth) {
+      earliest = winner;
+    }
+  }
+  return earliest;
 }
 
 /**
