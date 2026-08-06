@@ -275,8 +275,8 @@ describe('SyncEngine — pull → resolve → push', () => {
 
     // B's next sync re-delivers the gap row and B converges on S3.
     await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B }).run(matcherFor(b));
-    // Stored entities carry the hub-assigned envelope version; assert the data
-    // without pinning that counter to the feed order.
+    // Stored entities carry hub envelope fields (version, updatedAt, updatedBy)
+    // the bare fixture omits; assert the data, not engine bookkeeping.
     expect(b.entity('students', S3)).toMatchObject(studentEntity(S3));
     expect(b.entity('students', S2)).toMatchObject(studentEntity(S2));
   });
