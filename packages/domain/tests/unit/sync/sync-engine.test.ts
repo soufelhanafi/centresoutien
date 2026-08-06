@@ -275,8 +275,10 @@ describe('SyncEngine — pull → resolve → push', () => {
 
     // B's next sync re-delivers the gap row and B converges on S3.
     await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B }).run(matcherFor(b));
-    expect(b.entity('students', S3)).toEqual(studentEntity(S3));
-    expect(b.entity('students', S2)).toEqual(studentEntity(S2));
+    // Stored entities carry the hub-assigned envelope version; assert the data
+    // without pinning that counter to the feed order.
+    expect(b.entity('students', S3)).toMatchObject(studentEntity(S3));
+    expect(b.entity('students', S2)).toMatchObject(studentEntity(S2));
   });
 
   it('duplicate parents detected at sync, parents-first by E.164 phone', async () => {
