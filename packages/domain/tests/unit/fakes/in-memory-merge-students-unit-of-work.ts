@@ -53,6 +53,16 @@ export class InMemoryMergeStudentsUnitOfWork implements MergeStudentsUnitOfWork 
     };
   }
 
+  async listActiveSubscriptions(
+    centerCode: CenterCode,
+    studentIds: readonly StudentId[],
+  ): Promise<readonly StudentSubscription[]> {
+    void centerCode;
+    return this.subscriptions
+      .all()
+      .filter((s) => s.deletedAt === null && studentIds.includes(s.studentId));
+  }
+
   async commit(unit: MergeStudentsUnit): Promise<void> {
     this.commits += 1;
     this.lastUnit = unit;

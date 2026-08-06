@@ -70,7 +70,11 @@ function makeEnrollment(id: EnrollmentId, studentId: StudentId): Enrollment {
   };
 }
 
-function makeSubscription(id: StudentSubscriptionId, studentId: StudentId): StudentSubscription {
+function makeSubscription(
+  id: StudentSubscriptionId,
+  studentId: StudentId,
+  overrides: Partial<StudentSubscription> = {},
+): StudentSubscription {
   return {
     id,
     ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, clock),
@@ -80,6 +84,7 @@ function makeSubscription(id: StudentSubscriptionId, studentId: StudentId): Stud
     subjectIds: [SUBJECT],
     startMonth: '2026-09',
     endMonth: null,
+    ...overrides,
   };
 }
 
@@ -224,6 +229,98 @@ describe('MergeStudents', () => {
       await students.save(makeStudent(LOSER));
       await useCase.execute(validInput({ reason: 'separated-family' }));
       expect(mergeLogs.all()[0]?.reason).toBe('separated-family');
+    });
+  });
+
+  describe('subscription reconciliation (M3)', () => {
+    it('closes the loser-origin active subscription when it duplicates a live winner subscription of the same kind', async () => {
+      await students.save(makeStudent(WINNER));
+      await students.save(makeStudent(LOSER));
+      const winnerSub = makeSubscription('sbs_00000000000000000000000006' as StudentSubscriptionId, WINNER, {
+        startMonth: '2026-06',
+      });
+      const loserSub = makeSubscription('sbs_00000000000000000000000007' as StudentSubscriptionId, LOSER, {
+        startMonth: '2026-06',
+      });
+      await subscriptions.save(winnerSub);
+      await subscriptions.save(loserSub);
+
+      await useCase.execute(validInput());
+
+      // Exactly ONE open regular subscription survives on the winner — the
+      // invariant is never violated by a merge (double-billing guard).
+      const winnerSubs = subscriptions.all().filter((s) => s.studentId === WINNER);
+      const open = winnerSubs.filter((s) => s.endMonth === null);
+      expect(open).toHaveLength(1);
+      expect(open[0]?.id).toBe(winnerSub.id);
+
+      // The loser-origin one is closed at the merge month (2026-07), re-pointed,
+      // and recorded in the log note — nothing is dropped silently.
+      const closedLoserOrigin = winnerSubs.find((s) => s.id === loserSub.id);
+      expect(closedLoserOrigin?.studentId).toBe(WINNER);
+      expect(closedLoserOrigin?.endMonth).toBe('2026-07');
+      expect(mergeLogs.all()[0]?.note).toContain(loserSub.id);
+    });
+
+    it('keeps both active subscriptions when the kinds do not overlap (winner regular, loser exam-prep)', async () => {
+      await students.save(makeStudent(WINNER));
+      await students.save(makeStudent(LOSER));
+      const winnerSub = makeSubscription('sbs_00000000000000000000000006' as StudentSubscriptionId, WINNER, {
+        kind: 'regular',
+        startMonth: '2026-06',
+      });
+      const loserSub = makeSubscription('sbs_00000000000000000000000007' as StudentSubscriptionId, LOSER, {
+        kind: 'exam-prep',
+        startMonth: '2026-06',
+      });
+      await subscriptions.save(winnerSub);
+      await subscriptions.save(loserSub);
+
+      await useCase.execute(validInput());
+
+      const winnerSubs = subscriptions.all().filter((s) => s.studentId === WINNER);
+      const open = winnerSubs.filter((s) => s.endMonth === null);
+      expect(open).toHaveLength(2);
+      expect(open.map((s) => s.id)).toEqual(expect.arrayContaining([winnerSub.id, loserSub.id]));
+      expect(mergeLogs.all()[0]?.note).toBeNull();
+    });
+
+    it('a loser-origin subscription that is already closed is never touched by reconciliation', async () => {
+      await students.save(makeStudent(WINNER));
+      await students.save(makeStudent(LOSER));
+      const winnerSub = makeSubscription('sbs_00000000000000000000000006' as StudentSubscriptionId, WINNER, {
+        startMonth: '2026-06',
+      });
+      const closedLoserSub = makeSubscription('sbs_00000000000000000000000007' as StudentSubscriptionId, LOSER, {
+        startMonth: '2025-09',
+        endMonth: '2026-05',
+      });
+      await subscriptions.save(winnerSub);
+      await subscriptions.save(closedLoserSub);
+
+      await useCase.execute(validInput());
+
+      const winnerSubs = subscriptions.all().filter((s) => s.studentId === WINNER);
+      const preserved = winnerSubs.find((s) => s.id === closedLoserSub.id);
+      expect(preserved?.endMonth).toBe('2026-05');
+      expect(mergeLogs.all()[0]?.note).toBeNull();
+    });
+  });
+
+  describe('detached guardian links (M4)', () => {
+    it('keeps the conservative winner-only guardian list and records the loser’s extra guardians in the note', async () => {
+      const EXTRA_GUARDIAN = 'prt_0000000000000000000000000H' as ParentId;
+      await students.save(makeStudent(WINNER));
+      await students.save(makeStudent(LOSER, { guardianIds: [GUARDIAN, EXTRA_GUARDIAN] }));
+
+      await useCase.execute(validInput());
+
+      const savedWinner = students.all().find((s) => s.id === WINNER);
+      // Winner-only list is untouched — never unioned (separated-family safety).
+      expect(savedWinner?.guardianIds).toEqual([GUARDIAN]);
+      expect(mergeLogs.all()[0]?.note).toContain(EXTRA_GUARDIAN);
+      // The shared guardian is not reported as detached.
+      expect(mergeLogs.all()[0]?.note).not.toContain(GUARDIAN);
     });
   });
 
