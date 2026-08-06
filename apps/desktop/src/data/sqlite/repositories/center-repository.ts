@@ -107,4 +107,18 @@ export class SqliteCenterRepository implements CenterRepository {
       .all(cursor.toISOString()) as CenterRow[];
     return rows.map(fromRow);
   }
+
+  /**
+   * Refreshes the display-only `plan` mirror from the license-resolved plan
+   * (SOU-98). Deliberately NOT part of {@link CenterRepository}: it bypasses the
+   * envelope, `version`, and change log because the plan is a per-device
+   * license fact, not a synced profile edit — mirroring it through `save` would
+   * bump the row and let one laptop's license overwrite another's. No-op when no
+   * center row exists yet (first run seeds `plan` via SaveCenterProfile instead).
+   */
+  writePlanMirror(planId: PlanId): void {
+    this.db
+      .prepare("UPDATE center SET plan = ? WHERE deleted_at IS NULL AND plan <> ?")
+      .run(planId, planId);
+  }
 }

@@ -79,6 +79,25 @@ describe('SqliteCenterRepository', () => {
     expect(found?.version).toBe(4);
   });
 
+  describe('writePlanMirror (SOU-98 display-only mirror)', () => {
+    it('no-ops before any center row exists', () => {
+      expect(() => repo.writePlanMirror('premium')).not.toThrow();
+    });
+
+    it('updates the plan column without touching the sync envelope', async () => {
+      await repo.save(makeCenter({ plan: 'essentiel', version: 3 }));
+
+      repo.writePlanMirror('premium');
+
+      const found = await repo.get();
+      expect(found?.plan).toBe('premium');
+      // The mirror is a local display fact — it must not bump version/updatedAt,
+      // which would make one laptop's license overwrite another's profile row.
+      expect(found?.version).toBe(3);
+      expect(found?.updatedAt).toEqual(AT);
+    });
+  });
+
   describe('listChangedSince (sync feed)', () => {
     it('returns the row when updated after the cursor, else empty', async () => {
       await repo.save(makeCenter({ updatedAt: new Date('2026-07-20T00:00:00Z') }));

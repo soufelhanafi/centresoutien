@@ -1,8 +1,10 @@
 /// <reference types="vite/client" />
 import type { Database as DB } from 'better-sqlite3';
+import { join } from 'node:path';
 import {
   PLANS,
   PlanPolicy,
+  resolveActivePlan,
   CreateSubject,
   ArchiveSubject,
   ListSubjects,
@@ -126,12 +128,16 @@ import type {
   CenterCode,
   DeviceId,
   UserId,
+  Clock,
+  LicensePort,
   IdGenerator,
   RoomReferencePort,
   SubjectReferencePort,
   TeacherReferencePort,
   StudentSubscriptionReferencePort,
 } from '@centresoutien/domain';
+import { Ed25519LicenseAdapter } from '../data/license/ed25519-license-adapter';
+import { VENDOR_LICENSE_PUBLIC_KEY_PEM } from '../data/license/vendor-public-key';
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
@@ -235,20 +241,16 @@ function resolveDeviceOrigin(db: DB, ids: IdGenerator): DeviceId {
 }
 
 /**
- * The active plan, read once at startup from the center row (SOU-28 interim gate
- * source). Falls back to `fallback` (the dev/license override) before the center
- * profile has ever been saved. SOU-98 replaces this with a tamper-evident
- * license file — until then this is honest-user enforcement, as CLAUDE.md §5quater
- * accepts for the desktop tier.
+ * The active plan, resolved once at startup from the tamper-evident license file
+ * (SOU-98). A verified, unexpired license yields its tier; any other state
+ * (missing / bad-signature / expired) falls back to `devFallback` — the
+ * dev/startup override in `options.planId`, which production leaves at
+ * `essentiel`. The user-editable `center.plan` row is never consulted, so
+ * editing the DB can no longer self-upgrade.
  */
-function resolvePlanId(db: DB, fallback: PlanId): PlanId {
-  const row = db.prepare('SELECT plan FROM center WHERE deleted_at IS NULL LIMIT 1').get() as
-    | { plan: string }
-    | undefined;
-  if (row && (row.plan === 'essentiel' || row.plan === 'pro' || row.plan === 'premium')) {
-    return row.plan;
-  }
-  return fallback;
+function resolveStartupPlanId(license: LicensePort, clock: Clock, devFallback: PlanId): PlanId {
+  const resolution = resolveActivePlan(license.verify(), clock.now());
+  return resolution.status === 'active' ? resolution.plan.id : devFallback;
 }
 
 /**
@@ -262,7 +264,11 @@ export function buildContainer(options: ContainerOptions): Container {
 
   const clock = new SystemClock();
   const ids = new UlidIdGenerator();
-  const activePlanId = resolvePlanId(db, options.planId);
+  const license = new Ed25519LicenseAdapter({
+    filePath: process.env['CS_LICENSE_FILE'] ?? join(options.dir, 'license.json'),
+    publicKey: process.env['CS_LICENSE_PUBLIC_KEY'] ?? VENDOR_LICENSE_PUBLIC_KEY_PEM,
+  });
+  const activePlanId = resolveStartupPlanId(license, clock, options.planId);
   const plan = new PlanPolicy(PLANS[activePlanId]);
 
   // The acting laptop, resolved once — stamped on every change_log row (SOU-79)
@@ -535,6 +541,9 @@ export function buildContainer(options: ContainerOptions): Container {
   );
 
   const centerRepo = new SqliteCenterRepository(db);
+  // Refresh the display-only `center.plan` mirror from the license-resolved plan
+  // (SOU-98). No-op until the profile exists; the gate never reads this column.
+  centerRepo.writePlanMirror(activePlanId);
   const getCenterProfile = new GetCenterProfile(centerRepo);
   const saveCenterProfile = new SaveCenterProfile(centerRepo, clock, ids);
   const logoStore = new FsLogoStore(options.dir, ids);

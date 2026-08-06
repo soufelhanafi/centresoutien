@@ -257,18 +257,22 @@ describe('composition root', () => {
     second.dispose();
   });
 
-  it('reads the active plan from the saved center row, not the build override (SOU-28 interim gate)', async () => {
-    // Build as 'pro' and save — the row is seeded 'pro'.
+  it('resolves the active plan from the license/dev override, never the editable center row (SOU-98)', async () => {
+    // No license file present → the plan falls back to the build/dev override.
+    // Build as 'pro' and save; the row is seeded 'pro' as a display mirror.
     const first = build('pro');
     const dispatch1 = createIpcDispatcher(createHandlers(first.handlerDeps));
     await dispatch1('center.save', { name: 'Centre Pro', address: '', phone: '', email: '', logoPath: null });
     expect(await dispatch1('plan.get', {})).toEqual({ planId: 'pro' });
     first.dispose();
 
-    // Rebuild with a *different* override — the stored plan still wins.
+    // Rebuild with a lower override. Under SOU-28 the stored 'pro' row would have
+    // won (self-upgrade hole); under SOU-98 the gate ignores center.plan, so the
+    // override wins and the display mirror is rewritten to match.
     const second = build('essentiel');
     const dispatch2 = createIpcDispatcher(createHandlers(second.handlerDeps));
-    expect(await dispatch2('plan.get', {})).toEqual({ planId: 'pro' });
+    expect(await dispatch2('plan.get', {})).toEqual({ planId: 'essentiel' });
+    expect((await dispatch2('center.get', {})).center).toMatchObject({ plan: 'essentiel' });
     second.dispose();
   });
 
