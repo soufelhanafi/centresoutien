@@ -21,7 +21,7 @@ export function diffChangedFields<T extends object>(prev: T, next: T): string[] 
   return changed;
 }
 
-function valuesEqual(a: unknown, b: unknown): boolean {
+export function valuesEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
   if (Array.isArray(a) && Array.isArray(b)) {

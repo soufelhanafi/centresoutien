@@ -42,7 +42,7 @@ export type { WriteContext, WriteResult } from './entities/write';
 export { applyWrite } from './entities/write';
 
 // Sync
-export { diffChangedFields } from './sync/change-log';
+export { diffChangedFields, valuesEqual } from './sync/change-log';
 export { resolveChangeLogOp } from './sync/change-log-writer';
 export type {
   ChangeLogOp,
@@ -54,9 +54,36 @@ export type {
 export { serializeChangeLogPayload, deserializeChangeLogPayload } from './sync/change-log-payload';
 export type { ChangeLogPayload, ChangeLogPayloadUpcaster } from './sync/change-log-payload';
 export { CURRENT_CHANGE_LOG_PAYLOAD_VERSION } from './sync/change-log-payload';
+export { SCHEMA_VERSION } from './sync/schema-version';
+export { SchemaTooOldError, SyncProtocolError } from './errors/sync-errors';
+export { resolveInboundChange } from './sync/merge';
+export type { ResolveOutcome } from './sync/merge';
+export { conflictKey } from './sync/conflicts';
+export type {
+  SyncConflict,
+  ConflictSide,
+  FieldClash,
+  DeleteVsEdit,
+  ProbableDuplicate,
+  DuplicateReason,
+} from './sync/conflicts';
+export { DuplicateMatcher, PEOPLE_ENTITY_TYPES, isPeopleEntityType } from './sync/duplicate-matcher';
+export type {
+  DuplicateMatch,
+  DuplicateMatchSource,
+  PeopleEntityType,
+} from './sync/duplicate-matcher';
+export { SyncEngine, MAX_SYNC_ATTEMPTS, CLOCK_SKEW_THRESHOLD_MS } from './sync/sync-engine';
+export type { SyncEngineInput, SyncResult } from './sync/sync-engine';
+export { ChangeResolver } from './sync/resolve-changes';
+export type { LocalSyncRepository, LocalPendingChange, LocalEntityState } from './sync/sync-local-repository';
+
+// Sync hub port (wire types + the swappable seam)
+export type { SyncHubPort, SyncCursor, HubChange, ChangeBatch, LocalChange, PushResult } from './ports/sync-hub-port';
+export { entityKey } from './ports/sync-hub-port';
 
 // Duplicate-matching policy (people-like naturalKey)
-export { normalizeNaturalKey } from './policies/natural-key';
+export { normalizeNaturalKey, normalizeNameForMatch } from './policies/natural-key';
 
 // Username case-insensitive matching (SOU-153)
 export { normalizeUsername } from './policies/username-normalization';
