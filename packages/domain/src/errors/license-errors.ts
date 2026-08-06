@@ -71,3 +71,18 @@ export class LicenseMalformedError extends LicenseError {
     super('The provided license file is not readable.');
   }
 }
+
+/**
+ * The operation was refused because the license is not active — the app is in
+ * restricted mode (SOU-104). While restricted, the only operations reachable are
+ * checking the license status and activating a license; every other one is a hard
+ * lock enforced server-side at the IPC boundary, not merely hidden in the UI. Its
+ * stable `code` lets the renderer tell this rejection apart from a plan-feature
+ * gate and route the user back to the activation screen.
+ */
+export class LicenseRestrictedError extends LicenseError {
+  readonly code = 'license-restricted';
+  constructor(readonly operation: string) {
+    super(`Operation "${operation}" is unavailable until the license is activated.`);
+  }
+}

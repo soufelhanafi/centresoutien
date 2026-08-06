@@ -104,7 +104,7 @@ export { DomainError, PlanFeatureUnavailableError, PlanLimitExceededError } from
 // means. `PlanPolicy` is built from `resolveActivePlan`, never from `center.plan`.
 export type { LicenseClaims, LicenseVerification } from './plans/license';
 export type { LicenseStatus, LicenseResolution } from './plans/resolve-active-plan';
-export { resolveActivePlan, isLicenseExpired } from './plans/resolve-active-plan';
+export { resolveActivePlan, isLicenseExpired, isRestrictedMode } from './plans/resolve-active-plan';
 export type { LicensePort, LicenseStorePort, MachineIdentity } from './ports/license-port';
 export { licenseFileSchema, licenseClaimsSchema } from './schemas/license';
 export type { LicenseFileInput } from './schemas/license';
@@ -133,6 +133,7 @@ export {
   LicenseWrongMachineError,
   LicenseWrongCenterError,
   LicenseMalformedError,
+  LicenseRestrictedError,
 } from './errors/license-errors';
 export {
   AdminAccountAlreadyExistsError,
