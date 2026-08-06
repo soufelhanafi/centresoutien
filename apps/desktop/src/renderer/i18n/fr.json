@@ -1974,7 +1974,8 @@
       "activate": "Activer",
       "activating": "Activation…",
       "successTitle": "Licence activée",
-      "successBody": "Votre formule est maintenant active."
+      "successBody": "Votre formule est maintenant active.",
+      "errorGeneric": "L’activation a échoué, réessayez."
     },
     "reasons": {
       "malformed": "Licence illisible. Vérifiez la clé collée ou le fichier importé.",
