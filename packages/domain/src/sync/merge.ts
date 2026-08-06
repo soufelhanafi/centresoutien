@@ -3,7 +3,7 @@ import { valuesEqual } from './change-log';
 import type { HubChange, LocalChange } from '../ports/sync-hub-port';
 import type { EntityId } from '../value-objects/ids';
 import type { SyncConflict } from './conflicts';
-import { isImmutableEntityType } from './immutable-entities';
+import { IMMUTABLE_ENTITY_PROTECTED_FIELDS, isImmutableEntityType } from './immutable-entities';
 
 /**
  * The resolve step of pull → resolve → push (SOU-80 §3), one inbound hub change
@@ -70,11 +70,23 @@ export function resolveInboundChange(input: {
   const theirsFields = domainFields(inbound.changedFields);
 
   // Immutable entities carry locked decisions (formula price, invoice/payout
-  // amounts) that must never fork across devices. A real edit on either side is
-  // divergence — no merge, no popup (a popup choice on immutable data would
-  // itself let one device override a locked value). This also preempts
-  // delete-vs-edit on an immutable entity: the edit side is divergence.
-  if (isImmutableEntityType(input.entityType) && (mineFields.length > 0 || theirsFields.length > 0)) {
+  // amounts and status) that must never fork across devices. An edit touching
+  // one of the type's protected fields is divergence — no merge, no popup (a
+  // popup choice on locked data would itself let one device override it). This
+  // also preempts delete-vs-edit on a protected edit: the edit side is
+  // divergence. Documented mutable fields on these entities (Formula.name /
+  // Formula.active, TeacherPayout.notes) are ordinary data — they merge and
+  // clash like any other field.
+  if (
+    isImmutableEntityType(input.entityType) &&
+    touchesProtectedField(
+      local,
+      inbound,
+      mineFields,
+      theirsFields,
+      IMMUTABLE_ENTITY_PROTECTED_FIELDS[input.entityType],
+    )
+  ) {
     return { kind: 'immutable-divergence', entityType: input.entityType, entityId: input.entityId };
   }
 
@@ -115,6 +127,27 @@ export function resolveInboundChange(input: {
 function domainFields(fields: readonly string[]): readonly string[] {
   const envelope = ENVELOPE_FIELD_NAMES as readonly string[];
   return fields.filter((field) => !envelope.includes(field));
+}
+
+/**
+ * Whether either side changed a protected field on an immutable entity. Both
+ * sides changing the same protected field to an identical value is agreement,
+ * not divergence — it merges cleanly like any other same-value field.
+ */
+function touchesProtectedField(
+  local: LocalChange,
+  inbound: HubChange,
+  mine: readonly string[],
+  theirs: readonly string[],
+  protectedFields: ReadonlySet<string>,
+): boolean {
+  for (const field of new Set([...mine, ...theirs])) {
+    if (!protectedFields.has(field)) continue;
+    const bothAgree =
+      mine.includes(field) && theirs.includes(field) && valuesEqual(local.entity[field], inbound.entity[field]);
+    if (!bothAgree) return true;
+  }
+  return false;
 }
 
 /** Wire field names that would alter the object's prototype on assignment. */

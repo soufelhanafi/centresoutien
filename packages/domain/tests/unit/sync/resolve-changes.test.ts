@@ -94,7 +94,7 @@ describe('ChangeResolver — immutable-entity divergence aborts the sync', () =>
   it('blocks the pending write and throws ImmutableDivergenceError, pushing no conflict', () => {
     const local = new InMemorySyncLocalRepository(clock, DEV_A);
     local.applyInbound('invoices', INVOICE, { id: INVOICE, month: '2026-08', amount: 350, status: 'draft' }, 1);
-    local.writeLocal('invoices', INVOICE, { id: INVOICE, month: '2026-08', amount: 300, status: 'draft' }, ['amount'], USER_A);
+    local.writeLocal('invoices', INVOICE, { id: INVOICE, month: '2026-08', amount: 350, status: 'issued' }, ['status'], USER_A);
 
     const conflicts: SyncConflict[] = [];
     const resolve = () =>
@@ -106,8 +106,8 @@ describe('ChangeResolver — immutable-entity divergence aborts the sync', () =>
             version: 2,
             seq: 1,
             op: 'update',
-            entity: { id: INVOICE, month: '2026-08', amount: 400, status: 'draft' },
-            changedFields: ['amount'],
+            entity: { id: INVOICE, month: '2026-08', amount: 350, status: 'cancelled' },
+            changedFields: ['status'],
             deviceId: DEV_B,
             updatedBy: USER_B,
             deviceSeq: 1,

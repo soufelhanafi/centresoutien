@@ -58,7 +58,8 @@ export { SCHEMA_VERSION } from './sync/schema-version';
 export { SchemaTooOldError, SyncProtocolError, ImmutableDivergenceError } from './errors/sync-errors';
 export { resolveInboundChange } from './sync/merge';
 export type { ResolveOutcome } from './sync/merge';
-export { IMMUTABLE_ENTITY_TYPES, isImmutableEntityType } from './sync/immutable-entities';
+export { IMMUTABLE_ENTITY_PROTECTED_FIELDS, isImmutableEntityType } from './sync/immutable-entities';
+export type { ImmutableEntityType } from './sync/immutable-entities';
 export { conflictKey } from './sync/conflicts';
 export type {
   SyncConflict,

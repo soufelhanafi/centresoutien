@@ -41,11 +41,11 @@ export class SyncProtocolError extends DomainError {
 }
 
 /**
- * Thrown when the resolve step finds a real edit on an immutable entity
- * (invoices, formulas, teacher-payouts) — a locked decision that must never
- * fork across devices. There is no merge and no popup: the pending write is
- * blocked and the whole sync aborts loudly, so the hub's canonical state wins
- * on the next clean sync.
+ * Thrown when the resolve step finds an edit touching a protected field of an
+ * immutable entity (invoices, formulas, teacher_payouts) — a locked decision
+ * that must never fork across devices. There is no merge and no popup: the
+ * pending write is blocked and the whole sync aborts loudly, so the hub's
+ * canonical state wins on the next clean sync.
  */
 export class ImmutableDivergenceError extends DomainError {
   readonly code = 'immutable-divergence';
