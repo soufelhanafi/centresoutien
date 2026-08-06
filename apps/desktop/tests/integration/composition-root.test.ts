@@ -13,6 +13,7 @@ import type {
 } from '@centresoutien/domain';
 import { buildContainer } from '../../src/main/composition-root';
 import { Ed25519LicenseAdapter } from '../../src/data/license/ed25519-license-adapter';
+import { licenseFileNameForCenter } from '../../src/data/license/license-file-path';
 import { createIpcDispatcher } from '../../src/main/ipc/dispatcher';
 import { createHandlers } from '../../src/main/ipc/handlers';
 import { openDatabase } from '../../src/data/sqlite/db';
@@ -22,6 +23,7 @@ import { SqliteParentRepository } from '../../src/data/sqlite/repositories/paren
 import { SqliteSessionRepository } from '../../src/data/sqlite/repositories/session-repository';
 
 const KEY = 'passphrase-under-test';
+const CENTER = 'CS-CASA-001' as CenterCode;
 // Throwaway test credentials assembled from fragments so no literal password
 // string appears in source (secret-scan friendly). Deterministic — not random.
 const PASS = ['Casa', '2026', '!'].join('');
@@ -63,7 +65,7 @@ function signedLicenseFile(claims: LicenseClaims, privateKey: KeyObject): string
  */
 function installSignedLicense(claims: LicenseClaims): LicensePort {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
-  const licensePath = join(dir, 'license.json');
+  const licensePath = join(dir, licenseFileNameForCenter(CENTER));
   writeFileSync(licensePath, signedLicenseFile(claims, privateKey));
   return new Ed25519LicenseAdapter({
     filePath: licensePath,
@@ -347,7 +349,10 @@ describe('composition root', () => {
   it('activates a supplied license end-to-end: verifies, persists, flips the plan (SOU-104)', async () => {
     const { publicKey, privateKey } = generateKeyPairSync('ed25519');
     const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
-    const licensePath = join(dir, 'license.json');
+    // The injected read adapter and the internal FsLicenseStore must resolve the
+    // same per-center path, or an activation write would land where startup never
+    // reads it (SOU-104 M2).
+    const licensePath = join(dir, licenseFileNameForCenter(CENTER));
     const adapter = () => new Ed25519LicenseAdapter({ filePath: licensePath, publicKey: publicPem });
 
     const container = build('essentiel', adapter());
@@ -390,7 +395,7 @@ describe('composition root', () => {
   it('rejects a wrong-center license, leaving the plan and disk untouched (SOU-104)', async () => {
     const { publicKey, privateKey } = generateKeyPairSync('ed25519');
     const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
-    const licensePath = join(dir, 'license.json');
+    const licensePath = join(dir, licenseFileNameForCenter(CENTER));
     const container = build(
       'essentiel',
       new Ed25519LicenseAdapter({ filePath: licensePath, publicKey: publicPem }),
@@ -417,6 +422,71 @@ describe('composition root', () => {
     expect(await dispatch('plan.get', {})).toEqual({ planId: 'essentiel' });
     expect(existsSync(licensePath)).toBe(false);
     container.dispose();
+  });
+
+  it('scopes the license file per center — activating one center never licenses another (SOU-104 M2)', async () => {
+    const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+    const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+    const centerA = 'CS-CASA-001' as CenterCode;
+    const centerB = 'CS-RABAT-002' as CenterCode;
+    const pathA = join(dir, licenseFileNameForCenter(centerA));
+    const pathB = join(dir, licenseFileNameForCenter(centerB));
+
+    const buildCenter = (centreId: string, centerCode: CenterCode, path: string) =>
+      buildContainer({
+        centreId,
+        centerCode,
+        key: KEY,
+        dir,
+        planId: 'essentiel',
+        appVersion: () => '2.0.0',
+        scheduleRestart: () => {},
+        license: new Ed25519LicenseAdapter({ filePath: path, publicKey: publicPem }),
+      });
+
+    const licenseFor = (centerCode: CenterCode) =>
+      signedLicenseFile(
+        {
+          plan: 'premium',
+          issuedAt: '2026-01-01T00:00:00.000Z',
+          expiresAt: '2099-01-01T00:00:00.000Z',
+          machineId: null,
+          centerCode,
+          centersAllowed: null,
+          founderDiscountExpiresAt: null,
+        },
+        privateKey,
+      );
+
+    // Activate center A (writes A's per-center slot).
+    const a1 = buildCenter('A', centerA, pathA);
+    const da1 = createIpcDispatcher(createHandlers(a1.handlerDeps));
+    expect((await da1('license.activate', { license: licenseFor(centerA) })).status).toBe(
+      'activated',
+    );
+    a1.dispose();
+
+    // Center B, opened in the same userData dir, is NOT licensed by A's activation.
+    const b1 = buildCenter('B', centerB, pathB);
+    const db1 = createIpcDispatcher(createHandlers(b1.handlerDeps));
+    expect((await db1('license.status', {})).status).toBe('missing');
+    expect(await db1('plan.get', {})).toEqual({ planId: 'essentiel' });
+
+    // Activating B writes B's own slot, leaving A's file untouched.
+    expect((await db1('license.activate', { license: licenseFor(centerB) })).status).toBe(
+      'activated',
+    );
+    b1.dispose();
+    expect(existsSync(pathA)).toBe(true);
+    expect(existsSync(pathB)).toBe(true);
+
+    // Center A, reopened, still reads its own premium license intact — the
+    // regression the reviewer flagged (B's activation had overwritten A's slot).
+    const a2 = buildCenter('A', centerA, pathA);
+    const da2 = createIpcDispatcher(createHandlers(a2.handlerDeps));
+    expect(await da2('plan.get', {})).toEqual({ planId: 'premium' });
+    expect((await da2('license.status', {})).status).toBe('active');
+    a2.dispose();
   });
 
   it('persists a stable device origin across container rebuilds', async () => {

@@ -759,7 +759,7 @@ export const ipcContract = {
       plan: z.enum(['essentiel', 'pro', 'premium']),
       restricted: z.boolean(),
       expiresAt: z.string().nullable(),
-      centersAllowed: z.number().int().nullable(),
+      centersAllowed: z.number().int().positive().nullable(),
       founderDiscountExpiresAt: z.string().nullable(),
       founderDiscountExpired: z.boolean(),
     }),
@@ -776,7 +776,7 @@ export const ipcContract = {
         status: z.literal('activated'),
         plan: z.enum(['essentiel', 'pro', 'premium']),
         expiresAt: z.string().nullable(),
-        centersAllowed: z.number().int().nullable(),
+        centersAllowed: z.number().int().positive().nullable(),
         founderDiscount: z.object({
           expiresAt: z.string().nullable(),
           expired: z.boolean(),

@@ -142,6 +142,7 @@ import type {
 import { Ed25519LicenseAdapter } from '../data/license/ed25519-license-adapter';
 import { FsLicenseStore } from '../data/license/fs-license-store';
 import { FileMachineIdentity } from '../data/license/file-machine-identity';
+import { licenseFileNameForCenter } from '../data/license/license-file-path';
 import { VENDOR_LICENSE_PUBLIC_KEY_PEM } from '../data/license/vendor-public-key';
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
@@ -252,20 +253,29 @@ function resolveDeviceOrigin(db: DB, ids: IdGenerator): DeviceId {
 
 /**
  * The active plan, resolved once at startup from the tamper-evident license file
- * (SOU-98). A verified, unexpired license yields its tier; any other state
- * (missing / bad-signature / expired) falls back to `devFallback` — the
- * dev/startup override in `options.planId`, which production leaves at
- * `essentiel`. The user-editable `center.plan` row is never consulted, so
- * editing the DB can no longer self-upgrade.
+ * (SOU-98/SOU-104). A verified, unexpired, correctly-bound license yields its
+ * tier; every other state (missing / bad-signature / expired / wrong-machine /
+ * wrong-center) is a HARD LOCK: the renderer, driven by the `license.status` IPC
+ * (`restricted === status !== 'active'`), confines the whole app to the
+ * activation screen, so no gated use case ever runs behind this resolution.
+ *
+ * Because nothing runs behind the lock, a non-active license must NEVER grant a
+ * usable tier in a packaged build — it resolves to `essentiel` purely so
+ * `PlanPolicy` has a `Plan` to construct from, gated shut anyway. The DEV-only
+ * override (`options.planId`, fed by CS_PLAN / CS_LICENSE_*) is honored only when
+ * `isDev`, for local ergonomics; production never self-upgrades from a bad
+ * license. The user-editable `center.plan` row is never consulted either.
  */
-function resolveStartupPlanId(
+export function resolveStartupPlanId(
   license: LicensePort,
   clock: Clock,
   binding: LicenseBindingContext,
   devFallback: PlanId,
+  isDev: boolean,
 ): PlanId {
   const resolution = resolveActivePlan(license.verify(), clock.now(), binding);
-  return resolution.status === 'active' ? resolution.plan.id : devFallback;
+  if (resolution.status === 'active') return resolution.plan.id;
+  return isDev ? devFallback : 'essentiel';
 }
 
 /**
@@ -280,14 +290,19 @@ export function buildContainer(options: ContainerOptions): Container {
   const clock = new SystemClock();
   const ids = new UlidIdGenerator();
   // Trust anchor + license path are fixed in a packaged build so a user cannot
-  // point them at a self-signed keypair to self-upgrade (SOU-98). The
-  // `CS_LICENSE_*` env overrides exist purely for local-dev ergonomics and are
-  // DEV-gated the same way `plan.set` is — `import.meta.env.DEV` is a build-time
-  // constant electron-vite replaces with `false` in production, tree-shaking the
-  // override path out. Tests inject through `options.license`, never the env.
+  // point them at a self-signed keypair to self-upgrade (SOU-98). The path is
+  // scoped per center (SOU-104 M2, CLAUDE.md §5ter) — each center owns its own
+  // license, so a multi-center owner activating center B never clobbers center
+  // A's file. The read (adapter) and write (store) paths share this one value,
+  // so they always agree. The `CS_LICENSE_*` env overrides exist purely for
+  // local-dev ergonomics and are DEV-gated the same way `plan.set` is —
+  // `import.meta.env.DEV` is a build-time constant electron-vite replaces with
+  // `false` in production, tree-shaking the override path out. Tests inject
+  // through `options.license`, never the env.
   const licenseFilePath = import.meta.env.DEV
-    ? (process.env['CS_LICENSE_FILE'] ?? join(options.dir, 'license.json'))
-    : join(options.dir, 'license.json');
+    ? (process.env['CS_LICENSE_FILE'] ??
+      join(options.dir, licenseFileNameForCenter(options.centerCode)))
+    : join(options.dir, licenseFileNameForCenter(options.centerCode));
   const license =
     options.license ??
     new Ed25519LicenseAdapter({
@@ -304,7 +319,13 @@ export function buildContainer(options: ContainerOptions): Container {
     machineId: machineIdentity.machineId(),
     centerCode: options.centerCode,
   };
-  const activePlanId = resolveStartupPlanId(license, clock, licenseBinding, options.planId);
+  const activePlanId = resolveStartupPlanId(
+    license,
+    clock,
+    licenseBinding,
+    options.planId,
+    import.meta.env.DEV,
+  );
   const plan = new PlanPolicy(PLANS[activePlanId]);
 
   // License activation (SOU-104): the activation screen's two channels. `activate`

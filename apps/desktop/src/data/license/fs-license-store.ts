@@ -2,8 +2,9 @@ import { renameSync, writeFileSync } from 'node:fs';
 import type { LicenseStorePort } from '@centresoutien/domain';
 
 /**
- * Writes a validated license envelope to the fixed license path (SOU-104), the
- * same path {@link Ed25519LicenseAdapter} reads at startup. The activation use
+ * Writes a validated license envelope to the per-center license path (SOU-104),
+ * the same path {@link Ed25519LicenseAdapter} reads at startup (both derived from
+ * `licenseFileNameForCenter`, so read + write always agree). The activation use
  * case validates before calling this; the store only persists.
  *
  * The write is atomic — a temp file plus `rename` — so a crash mid-write can never
