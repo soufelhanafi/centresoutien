@@ -3,22 +3,26 @@ import {
   LIC,
   DIRECTION,
   ENVELOPES,
+  SIGNED,
   GARBAGE_KEY,
   freshUserDataDir,
   launch,
   seedConfiguredCenter,
+  gotoLicenseSettings,
+  activateViaForm,
   licenseStatus,
   type Launched,
   type Locale,
 } from './license-activation.fixtures';
 
 /**
- * SOU-104 — License activation & restricted-mode HARD LOCK (black-box).
+ * SOU-104 / SOU-172 — License activation & restricted-mode HARD LOCK (black-box).
  * Runs under both the `fr` (LTR) and `ar` (RTL) Playwright projects.
  *
- * See the fixtures header for the verified injection reality that makes every
- * signature-VALID acceptance state unreachable on the packaged build — those are
- * `test.skip`ped with their reason and covered by domain unit + integration tests.
+ * SOU-172 added a production-surviving, `__CS_E2E__`-gated trust-anchor seam and a
+ * committed test keypair, so the signature-VALID acceptance states (S7–S13) that
+ * were previously `test.skip`ped are now black-box reachable on the dedicated
+ * e2e build. See the fixtures header for how the trust anchor is injected.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -151,24 +155,159 @@ test('S6 — per-center license is isolated: center B does not see center A’s 
   expect(bStatus.restricted).toBe(true);
 });
 
-// ── BLOCKED · signature-VALID acceptance states (not black-box injectable) ────
-// The packaged build embeds a placeholder vendor key (no private key committed)
-// and tree-shakes the DEV CS_LICENSE_PUBLIC_KEY override, so no signature-valid
-// license can be produced or activated in E2E. Verified by runtime probe. These
-// are covered by domain unit + integration tests instead.
-const BLOCKED =
-  'Not black-box verifiable on the packaged build: placeholder vendor key + ' +
-  'DEV key-override tree-shaken → no signature-valid license can be injected. ' +
-  'Covered by domain unit + integration tests.';
-const blocked = (name: string) =>
-  test.skip(name, () => {
-    test.info().annotations.push({ type: 'blocked', description: BLOCKED });
-  });
+// ── signature-VALID acceptance states — reachable via the SOU-172 e2e seam ────
 
-blocked('S7 — valid license → activated, shows plan + centers allowed (read-only)');
-blocked('S8 — expired genuine license → hard-locked "expired" state');
-blocked('S9 — wrong-machine / wrong-center genuine license → hard-locked mismatch state');
-blocked('S10 — expired founder-discount metadata → banner, plan unchanged');
-blocked('S11 — re-activation upgrade Essentiel → Pro → Premium from Settings');
-blocked('S12 — Settings › Licence entry point (only reachable once a valid license is active)');
-blocked('S13 — per-center VALID activation isolation (activate A active → B still restricted)');
+// ── S7 · Valid license → active, app reachable, plan + centers shown read-only
+test('S7 — valid license → activated, shows plan + centers allowed (read-only)', async () => {
+  const L = LIC[locale()];
+  const dir = freshUserDataDir();
+  await seedConfiguredCenter(dir, locale());
+
+  live = await launch(dir, locale(), { license: SIGNED.valid({ plan: 'premium', centersAllowed: 3 }) });
+  const win = live.win;
+
+  const status = await licenseStatus(win);
+  expect(status.status).toBe('active');
+  expect(status.restricted).toBe(false);
+  expect(status.plan).toBe('premium');
+  expect(status.centersAllowed).toBe(3);
+
+  // The gate opened: the app shell — not the activation screen — is on screen.
+  await expect(win.getByText(L.appMarker).first()).toBeVisible();
+  await expect(win.getByText(L.title, { exact: true })).toHaveCount(0);
+
+  // Settings › Licence shows the current plan + centers allowed, read-only.
+  await gotoLicenseSettings(win, locale());
+  await expect(win.getByText(L.statusActive, { exact: true })).toBeVisible();
+  await expect(win.getByText('PREMIUM', { exact: true })).toBeVisible();
+  await expect(win.getByText(L.centersAllowedLabel, { exact: true })).toBeVisible();
+
+  await win.screenshot({ path: `test-results/sou104-S7-valid-active-${locale()}.png` });
+});
+
+// ── S8 · Genuinely expired license (real signature) → hard-lock "expired" ─────
+test('S8 — expired genuine license → hard-locked "expired" state', async () => {
+  const L = LIC[locale()];
+  const dir = freshUserDataDir();
+  await seedConfiguredCenter(dir, locale());
+
+  live = await launch(dir, locale(), { license: SIGNED.expired() });
+  const win = live.win;
+
+  const status = await licenseStatus(win);
+  expect(status.status).toBe('expired');
+  expect(status.restricted).toBe(true);
+
+  await assertHardLocked(win, L);
+  await expect(win.getByText(L.statusExpired, { exact: true })).toBeVisible();
+  await win.screenshot({ path: `test-results/sou104-S8-expired-${locale()}.png` });
+});
+
+// ── S9 · Wrong-machine / wrong-center genuine license → hard-lock mismatch ────
+test('S9 — wrong-machine / wrong-center genuine license → hard-locked mismatch state', async () => {
+  const L = LIC[locale()];
+
+  const machineDir = freshUserDataDir();
+  await seedConfiguredCenter(machineDir, locale());
+  live = await launch(machineDir, locale(), { license: SIGNED.wrongMachine() });
+  let status = await licenseStatus(live.win);
+  expect(status.status).toBe('wrong-machine');
+  expect(status.restricted).toBe(true);
+  await assertHardLocked(live.win, L);
+  await expect(live.win.getByText(L.statusWrongMachine, { exact: true })).toBeVisible();
+  await live.app.close();
+
+  const centerDir = freshUserDataDir();
+  await seedConfiguredCenter(centerDir, locale());
+  live = await launch(centerDir, locale(), { license: SIGNED.wrongCenter() });
+  status = await licenseStatus(live.win);
+  expect(status.status).toBe('wrong-center');
+  expect(status.restricted).toBe(true);
+  await assertHardLocked(live.win, L);
+  await expect(live.win.getByText(L.statusWrongCenter, { exact: true })).toBeVisible();
+});
+
+// ── S10 · Expired founder-discount metadata → banner, plan unchanged ──────────
+test('S10 — expired founder-discount metadata → banner, plan unchanged', async () => {
+  const L = LIC[locale()];
+  const dir = freshUserDataDir();
+  await seedConfiguredCenter(dir, locale());
+
+  live = await launch(dir, locale(), { license: SIGNED.founderExpired() });
+  const win = live.win;
+
+  // The lapsed founder discount is informational — the license stays active.
+  const status = await licenseStatus(win);
+  expect(status.status).toBe('active');
+  expect(status.restricted).toBe(false);
+  expect(status.plan).toBe('premium');
+  expect(status.founderDiscountExpired).toBe(true);
+
+  await gotoLicenseSettings(win, locale());
+  await expect(win.getByText(L.founderExpiredTitle, { exact: true })).toBeVisible();
+  await expect(win.getByText('PREMIUM', { exact: true })).toBeVisible(); // plan unchanged
+  await win.screenshot({ path: `test-results/sou104-S10-founder-expired-${locale()}.png` });
+});
+
+// ── S11 · Re-activation upgrade Essentiel → Pro → Premium from Settings ───────
+test('S11 — re-activation upgrade Essentiel → Pro → Premium from Settings', async () => {
+  const L = LIC[locale()];
+  const dir = freshUserDataDir();
+  await seedConfiguredCenter(dir, locale());
+
+  live = await launch(dir, locale(), { license: SIGNED.valid({ plan: 'essentiel', centersAllowed: 1 }) });
+  const win = live.win;
+  expect((await licenseStatus(win)).plan).toBe('essentiel');
+
+  await gotoLicenseSettings(win, locale());
+
+  await activateViaForm(win, locale(), SIGNED.valid({ plan: 'pro', centersAllowed: 1 }));
+  await expect(win.getByText(L.successTitle, { exact: true })).toBeVisible();
+  await expect.poll(async () => (await licenseStatus(win)).plan).toBe('pro');
+
+  await activateViaForm(win, locale(), SIGNED.valid({ plan: 'premium', centersAllowed: 3 }));
+  await expect(win.getByText(L.successTitle, { exact: true })).toBeVisible();
+  await expect.poll(async () => (await licenseStatus(win)).plan).toBe('premium');
+  expect((await licenseStatus(win)).centersAllowed).toBe(3);
+
+  await win.screenshot({ path: `test-results/sou104-S11-upgrade-${locale()}.png` });
+});
+
+// ── S12 · Settings › Licence entry point (reachable only once active) ─────────
+test('S12 — Settings › Licence entry point (only reachable once a valid license is active)', async () => {
+  const L = LIC[locale()];
+  const dir = freshUserDataDir();
+  await seedConfiguredCenter(dir, locale());
+
+  live = await launch(dir, locale(), { license: SIGNED.valid() });
+  const win = live.win;
+  expect((await licenseStatus(win)).status).toBe('active');
+
+  // Reaching Settings › Licence at all proves the entry point is live once active;
+  // the restricted case has no navigation (asserted by S1/S4's hard lock).
+  await gotoLicenseSettings(win, locale());
+  await expect(win.getByText(L.settingsLicenseTitle, { exact: true }).first()).toBeVisible();
+  await expect(win.getByLabel(L.formLabel)).toBeVisible();
+  await expect(win.getByText(L.statusActive, { exact: true })).toBeVisible();
+});
+
+// ── S13 · Per-center VALID activation isolation (A active → B still restricted)
+test('S13 — per-center VALID activation isolation: activating A leaves B restricted', async () => {
+  const L = LIC[locale()];
+  const dir = freshUserDataDir();
+  const A = 'CS-AAA-001';
+  const B = 'CS-BBB-002';
+
+  await seedConfiguredCenter(dir, locale(), A);
+  live = await launch(dir, locale(), { center: A, license: SIGNED.valid({ centerCode: A }) });
+  expect((await licenseStatus(live.win)).status).toBe('active');
+  await live.app.close();
+
+  // Same laptop dir, switch to center B — its own license file was never written,
+  // so B resolves to `missing` and stays hard-locked, unaffected by A's activation.
+  live = await launch(dir, locale(), { center: B });
+  const bStatus = await licenseStatus(live.win);
+  expect(bStatus.status).toBe('missing');
+  expect(bStatus.restricted).toBe(true);
+  await assertHardLocked(live.win, L);
+});

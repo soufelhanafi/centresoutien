@@ -15,6 +15,11 @@ export default defineWorkspace([
     },
   },
   {
+    // `__CS_E2E__` is the electron-vite build-time flag the composition root's
+    // license trust-anchor seam gates on (SOU-172). Under vitest it defaults to
+    // `false` — matching a normal dev/release build — so the seam's env-override
+    // branch stays compiled out; integration tests inject via `options.license`.
+    define: { __CS_E2E__: 'false' },
     test: {
       name: 'desktop',
       root: './apps/desktop',

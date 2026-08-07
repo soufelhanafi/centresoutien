@@ -369,12 +369,16 @@ export function buildContainer(options: ContainerOptions): Container {
   // scoped per center (SOU-104 M2, CLAUDE.md §5ter) — each center owns its own
   // license, so a multi-center owner activating center B never clobbers center
   // A's file. The read (adapter) and write (store) paths share this one value,
-  // so they always agree. The `CS_LICENSE_*` env overrides exist purely for
-  // local-dev ergonomics and are DEV-gated the same way `plan.set` is —
-  // `import.meta.env.DEV` is a build-time constant electron-vite replaces with
-  // `false` in production, tree-shaking the override path out. Tests inject
-  // through `options.license`, never the env.
-  const licenseFilePath = import.meta.env.DEV
+  // so they always agree. The `CS_LICENSE_*` env overrides are gated behind
+  // `__CS_E2E__` (SOU-172) — a build-time constant electron-vite sets `true` ONLY
+  // for the dedicated `--mode e2e` build and `false` for every dev and release
+  // build. In a release build the whole override branch (env reads + test key
+  // path) is dead-code-eliminated, so the shipped binary always trusts the vendor
+  // key at the fixed per-center path and a determined user cannot swap the trust
+  // anchor — the honest-user security baseline (CLAUDE.md §5quater) holds. The
+  // e2e build injects a committed TEST public key so signature-valid fixtures can
+  // activate; unit + integration tests inject through `options.license` instead.
+  const licenseFilePath = __CS_E2E__
     ? (process.env['CS_LICENSE_FILE'] ??
       join(options.dir, licenseFileNameForCenter(options.centerCode)))
     : join(options.dir, licenseFileNameForCenter(options.centerCode));
@@ -382,7 +386,7 @@ export function buildContainer(options: ContainerOptions): Container {
     options.license ??
     new Ed25519LicenseAdapter({
       filePath: licenseFilePath,
-      publicKey: import.meta.env.DEV
+      publicKey: __CS_E2E__
         ? (process.env['CS_LICENSE_PUBLIC_KEY'] ?? VENDOR_LICENSE_PUBLIC_KEY_PEM)
         : VENDOR_LICENSE_PUBLIC_KEY_PEM,
     });
