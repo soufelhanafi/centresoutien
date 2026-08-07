@@ -144,6 +144,7 @@ import type {
   SyncHubPort,
 } from '@centresoutien/domain';
 import { Ed25519LicenseAdapter } from '../data/license/ed25519-license-adapter';
+import { E2eSyntheticLicense, isPlanId } from '../data/license/e2e-synthetic-license';
 import { FsLicenseStore } from '../data/license/fs-license-store';
 import { FileMachineIdentity } from '../data/license/file-machine-identity';
 import { licenseFileNameForCenter } from '../data/license/license-file-path';
@@ -382,14 +383,30 @@ export function buildContainer(options: ContainerOptions): Container {
     ? (process.env['CS_LICENSE_FILE'] ??
       join(options.dir, licenseFileNameForCenter(options.centerCode)))
     : join(options.dir, licenseFileNameForCenter(options.centerCode));
+  // E2E-only (SOU-172): the dedicated `--mode e2e` build boots ACTIVE on the tier
+  // a spec asks for (`CS_PLAN`) whenever `CS_E2E_LICENSE_PLAN` is present — the
+  // Playwright global-setup sets it for every NON-license spec, so the whole
+  // feature suite runs unlocked exactly as it did before the SOU-104 hard lock.
+  // `license-activation.spec` strips this env, so it still exercises the real
+  // file-based lock via the Ed25519 adapter below. Release builds set `__CS_E2E__`
+  // false, dead-code-eliminating this branch and the synthetic adapter entirely.
+  const e2eUnlockPlan = __CS_E2E__ ? process.env['CS_E2E_LICENSE_PLAN'] : undefined;
   const license =
     options.license ??
-    new Ed25519LicenseAdapter({
-      filePath: licenseFilePath,
-      publicKey: __CS_E2E__
-        ? (process.env['CS_LICENSE_PUBLIC_KEY'] ?? VENDOR_LICENSE_PUBLIC_KEY_PEM)
-        : VENDOR_LICENSE_PUBLIC_KEY_PEM,
-    });
+    (e2eUnlockPlan !== undefined
+      ? new E2eSyntheticLicense(
+          isPlanId(process.env['CS_PLAN'])
+            ? process.env['CS_PLAN']
+            : isPlanId(e2eUnlockPlan)
+              ? e2eUnlockPlan
+              : 'premium',
+        )
+      : new Ed25519LicenseAdapter({
+          filePath: licenseFilePath,
+          publicKey: __CS_E2E__
+            ? (process.env['CS_LICENSE_PUBLIC_KEY'] ?? VENDOR_LICENSE_PUBLIC_KEY_PEM)
+            : VENDOR_LICENSE_PUBLIC_KEY_PEM,
+        }));
   // Machine-scoped id (SOU-104) — the anchor for the license's machine binding.
   // A file beside the center DBs, not inside one, so every center on this laptop
   // shares it. The activation flow and startup resolution both check against it.

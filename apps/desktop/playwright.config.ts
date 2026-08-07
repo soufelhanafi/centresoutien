@@ -4,6 +4,7 @@ import { defineConfig } from '@playwright/test';
 // coverage. The app must be built first (`pnpm build`) so out/main/index.js exists.
 export default defineConfig({
   testDir: './tests/e2e',
+  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: false,
   workers: 1,
   timeout: 30_000,

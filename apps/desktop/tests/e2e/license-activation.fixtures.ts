@@ -172,16 +172,16 @@ export async function launch(
 ): Promise<Launched> {
   const center = opts.center ?? DEFAULT_CENTER;
   if (opts.license !== undefined) writeCenterLicense(dir, center, opts.license);
+  // The e2e build's `__CS_E2E__`-gated seam reads CS_LICENSE_PUBLIC_KEY: inject the
+  // committed TEST key so envelopes signed with `signTest` verify (SOU-172). Strip
+  // the global-setup unlock flag so THIS suite exercises the real file-based hard
+  // lock (missing/invalid/expired/wrong-* → restricted) instead of the synthetic
+  // always-active license the feature suite uses.
+  const env = { ...process.env, CS_LOCALE: locale, CS_CENTER_CODE: center, CS_LICENSE_PUBLIC_KEY: TEST_PUBLIC_KEY_PEM };
+  delete env['CS_E2E_LICENSE_PLAN'];
   const app = await electron.launch({
     args: [MAIN_ENTRY, `--user-data-dir=${dir}`],
-    // The e2e build's `__CS_E2E__`-gated seam reads CS_LICENSE_PUBLIC_KEY: inject
-    // the committed TEST key so envelopes signed with `signTest` verify (SOU-172).
-    env: {
-      ...process.env,
-      CS_LOCALE: locale,
-      CS_CENTER_CODE: center,
-      CS_LICENSE_PUBLIC_KEY: TEST_PUBLIC_KEY_PEM,
-    },
+    env,
   });
   const win = await app.firstWindow();
   await win.waitForLoadState('domcontentloaded');
