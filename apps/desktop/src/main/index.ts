@@ -20,6 +20,17 @@ import {
   resolveCenterKey,
   SafeStorageSecretVault,
 } from './key-store';
+import {
+  DEMO_CENTRE_ID,
+  demoCenterCode,
+  demoCenterSeeded,
+  prepareDemoCenter,
+  readDemoLogoPath,
+  wipeDemoArtefacts,
+} from './demo/demo-center';
+
+/** argv flag that puts the app into demo mode on relaunch (SOU-110). */
+const DEMO_ARG = '--demo';
 
 /**
  * The startup plan fallback used when no valid license resolves. The `CS_PLAN`
@@ -85,6 +96,22 @@ function scheduleRestart(): void {
   }, 300);
 }
 
+/** Relaunch the app with the demo flag appended (enter demo mode, SOU-110). */
+function scheduleRestartIntoDemo(): void {
+  setTimeout(() => {
+    app.relaunch({ args: [...process.argv.slice(1), DEMO_ARG] });
+    app.exit(0);
+  }, 300);
+}
+
+/** Relaunch the app with the demo flag removed (return to the real center). */
+function scheduleRestartIntoReal(): void {
+  setTimeout(() => {
+    app.relaunch({ args: process.argv.slice(1).filter((arg) => arg !== DEMO_ARG) });
+    app.exit(0);
+  }, 300);
+}
+
 /**
  * Electron main entry (SOU-15). Registers the typed IPC handlers, then opens the
  * hardened window. The composition root — wiring domain use cases to the SQLite
@@ -99,13 +126,17 @@ function openWindow(locale: string | undefined): void {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Dev defaults; real center selection, key management, and license-driven plan
-  // arrive with first-run setup and the center switcher.
+  // arrive with first-run setup and the center switcher. Demo mode (SOU-110) is a
+  // fixed centreId ('demo') entered via the `--demo` relaunch flag (or CS_CENTRE=demo
+  // in dev).
   try {
     const hubServer = resolveHubConfig();
     const dir = app.getPath('userData');
-    const centreId = process.env['CS_CENTRE'] ?? 'local';
+    const demoRequested = process.argv.includes(DEMO_ARG) || process.env['CS_CENTRE'] === DEMO_CENTRE_ID;
+    const centreId = demoRequested ? DEMO_CENTRE_ID : (process.env['CS_CENTRE'] ?? 'local');
+    const centerCode = (demoRequested ? demoCenterCode() : (process.env['CS_CENTER_CODE'] ?? 'CS-DEV-001')) as CenterCode;
     // SOU-179: `CS_DB_KEY` is a dev/e2e-only override (same gate as `CS_PLAN`
     // and the `__CS_E2E__` license seam) — a release build never reads it, so
     // no code path can open a center DB with the legacy placeholder key. The
@@ -125,14 +156,46 @@ app.whenReady().then(() => {
     const legacyKeys = devOrE2eKey ? [] : [LEGACY_DEV_DB_KEY];
     ensureDatabaseKeyed(join(dir, centreDbFileName(centreId)), key, legacyKeys);
     ensureDatabaseKeyed(join(dir, hubDbFileName(centreId)), key, legacyKeys);
+
+    // First open of a fresh demo DB (no seeded marker): build + seed it now, so
+    // the window opens onto a fully-populated demo center. `demo.create` from a
+    // real center reuses the same path then relaunches with the flag.
+    if (demoRequested && !demoCenterSeeded(dir, key)) {
+      await prepareDemoCenter({ dir, demoKey: key, appVersion: () => app.getVersion(), scheduleRestart });
+    }
+
     container = buildContainer({
       centreId,
-      centerCode: (process.env['CS_CENTER_CODE'] ?? 'CS-DEV-001') as CenterCode,
+      centerCode,
       key,
       dir,
       planId: activePlanId(),
       appVersion: () => app.getVersion(),
       scheduleRestart,
+      // Demo mode closures (SOU-110): create builds + seeds the demo DB then
+      // relaunches into it; wipe disposes the open demo container, deletes every
+      // demo artefact (logo resolved from the still-open DB first), and relaunches
+      // to the real center. Only wired when the demo centreId is the open one —
+      // but the closures exist regardless so `demo.status` can answer.
+      demo: {
+        isDemoCenter: demoRequested,
+        create: async () => {
+          await prepareDemoCenter({
+            dir,
+            demoKey: resolveCenterKey(new SafeStorageSecretVault(join(dir, KEY_STORE_FILE_NAME)), DEMO_CENTRE_ID),
+            appVersion: () => app.getVersion(),
+            scheduleRestart,
+          });
+          scheduleRestartIntoDemo();
+        },
+        wipe: async () => {
+          const logoPath = container ? readDemoLogoPath(container.db) : null;
+          container?.dispose();
+          container = null;
+          wipeDemoArtefacts(dir, logoPath);
+          scheduleRestartIntoReal();
+        },
+      },
       ...(hubServer ? { hubServer } : {}),
     });
   } catch (error) {

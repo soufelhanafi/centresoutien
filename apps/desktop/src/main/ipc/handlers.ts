@@ -765,6 +765,12 @@ export type HandlerDeps = BackupHandlerDeps &
   readCenterLogo: ReadCenterLogoUseCase;
   centerContext: () => CenterContext;
   saveLocalePreference: (locale: LocalePreference) => void;
+  /** Demo mode (SOU-110) — wired only when `ContainerOptions.demo` is present. */
+  demo: {
+    isDemoCenter: boolean;
+    create: () => Promise<void>;
+    wipe: () => Promise<void>;
+  };
 };
 
 export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
@@ -778,6 +784,19 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     }),
     'license.status': () => deps.getLicenseStatus.execute(),
     'license.activate': (request) => deps.activateLicense.execute({ rawLicense: request.license }),
+    // Demo mode (SOU-110). `demo.status` is a cheap main-process read of the open
+    // centreId (never a DB scan). `demo.create`/`demo.wipe` drive the demo center
+    // orchestration (seeding / artefact deletion) and then schedule an app
+    // relaunch — the response is an ack (`relaunching: true`), not a data payload.
+    'demo.status': () => ({ isDemo: deps.demo.isDemoCenter }),
+    'demo.create': async () => {
+      await deps.demo.create();
+      return { relaunching: true };
+    },
+    'demo.wipe': async () => {
+      await deps.demo.wipe();
+      return { relaunching: true };
+    },
     'subject.create': async (request) => {
       const subject = await deps.createSubject.execute({ ...request, ...deps.envelopeContext() });
       return { id: subject.id };

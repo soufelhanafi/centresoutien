@@ -40,6 +40,16 @@ export const RESTRICTED_MODE_ALWAYS_ALLOWED: ReadonlySet<IpcChannel> = new Set<I
   'license.status',
   'license.activate',
   'admin.exists',
+  // Demo mode (SOU-110) — reachable even on an unlicensed laptop so a
+  // salesperson can demo the product. Safe under restriction: `demo.create`
+  // builds a SEPARATE throwaway DB (its own premium license), `demo.wipe` only
+  // deletes demo artefacts, and `demo.status` is a read of the open centreId —
+  // none of them touches the real center's data, and this is NOT a
+  // `centreId=demo` bypass of the gate (the demo DB itself still resolves its
+  // plan through full license verification).
+  'demo.status',
+  'demo.create',
+  'demo.wipe',
 ]);
 
 export const RESTRICTED_MODE_BOOTSTRAP_CHANNELS: ReadonlySet<IpcChannel> = new Set<IpcChannel>([
