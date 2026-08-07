@@ -1,7 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import {
   STR,
-  adminExists,
   closeInput,
   freshUserDataDir,
   launch,
@@ -27,13 +26,6 @@ import {
 
 const locale = () => test.info().project.name as Locale;
 
-// Copy mirrored from the running UI (discovered via live-DOM inspection), per
-// locale — labels on the time inputs and the Settings tab name.
-const ROW_LABEL: Record<Locale, { open: string; close: string }> = {
-  fr: { open: 'Ouverture', close: 'Fermeture' },
-  ar: { open: 'الفتح', close: 'الإغلاق' },
-};
-
 const HOURS_TAB: Record<Locale, string> = { fr: 'Horaires', ar: 'المواعيد' };
 
 let live: Launched | null = null;
@@ -52,12 +44,12 @@ async function gotoHoursForm(win: Page, L: (typeof STR)[Locale]): Promise<void> 
 
 // ---------------------------------------------------------------------------
 // Scenario 1 — the screen renders in Settings with the sibling component
-// structure: a Card wrapper containing the title, the description, one
-// open/closed toggle + open/close labeled time inputs per weekday, and the
-// save button. Asserted by role/name; the Card container is the observable
-// `bg-card` wrapper. In AR the document direction is `rtl` (mirrored layout).
+// structure: a Card wrapper containing the title and description, and the save
+// button. In AR the document direction is `rtl` (mirrored layout). Per-weekday
+// row detail (toggle, labels, inputs) is exercised at the component level
+// (`center-hours-form.test.tsx`) — the E2E stays on the cross-layer surface.
 // ---------------------------------------------------------------------------
-test('Scenario 1 — renders in Settings with Card wrapper, labeled weekday rows, RTL direction', async () => {
+test('Scenario 1 — renders in Settings with Card wrapper and RTL direction', async () => {
   const L = STR[locale()];
   const dir = freshUserDataDir();
 
@@ -71,45 +63,28 @@ test('Scenario 1 — renders in Settings with Card wrapper, labeled weekday rows
   expect(htmlDir).toBe(L.dir);
 
   // Card wrapper: the hours content sits inside the Card visual container.
-  const tabpanel = win.getByRole('tabpanel').filter({ hasText: L.title });
-  await expect(tabpanel).toBeVisible();
-  const card = tabpanel.locator('[class*="bg-card"]');
+  const card = win.getByTestId('center-hours-card');
   await expect(card).toHaveCount(1);
   await expect(card).toContainText(L.title);
   await expect(card).toContainText(L.description);
-
-  // One toggle + one labeled open/close pair per weekday.
-  for (let day = 0; day < 7; day++) {
-    const dayName = L.weekdays[day]!;
-    await expect(win.getByRole('switch', { name: L.toggleAria(dayName) })).toBeVisible();
-    await expect(openInput(win, day)).toBeVisible();
-    await expect(closeInput(win, day)).toBeVisible();
-  }
-  await expect(tabpanel.getByText(ROW_LABEL[locale()].open, { exact: true })).toHaveCount(7);
-  await expect(tabpanel.getByText(ROW_LABEL[locale()].close, { exact: true })).toHaveCount(7);
-
-  // The toggle is usable: it flips and collapses the day's time inputs.
-  const monday = win.getByRole('switch', { name: L.toggleAria(L.weekdays[1]!) });
-  expect(await monday.getAttribute('aria-checked')).toBe('true');
-  await monday.click();
-  await expect(openInput(win, 1)).toHaveCount(0);
-  await monday.click();
-  await expect(openInput(win, 1)).toBeVisible();
+  await expect(win.getByRole('button', { name: L.save })).toBeVisible();
 
   await win.screenshot({ path: `test-results/center-hours-render-${locale()}.png` });
 });
 
 // ---------------------------------------------------------------------------
 // Scenario 2 — edit weekday times + close a day, save → success toast, values
-// survive navigating away/back AND a full page reload (real data round-trip).
+// survive navigating away to the dashboard and back (real data round-trip).
+// (Full relaunch persistence is already covered by the existing
+// `center-hours-settings.spec.ts`.)
 // ---------------------------------------------------------------------------
-test('Scenario 2 — save shows success toast and values persist across navigation and reload', async () => {
+test('Scenario 2 — save shows success toast and values persist across navigation', async () => {
   const L = STR[locale()];
   const dir = freshUserDataDir();
 
   live = await launch(locale(), dir);
   await passFirstRun(live.win);
-  let win = live.win;
+  const win = live.win;
   await gotoHoursForm(win, L);
 
   // Monday 08:30–17:15; close Sunday.
@@ -124,21 +99,13 @@ test('Scenario 2 — save shows success toast and values persist across navigati
   // Success toast is visible.
   await expect(win.getByText(L.saved)).toBeVisible();
 
-  // Navigate away (dashboard) and back → values retained.
-  await win.getByRole('link', { name: L.settingsNav }).click();
+  // Navigate away to the dashboard (unmounts the form) and back → values kept.
+  await win.getByRole('link', { name: L.dashboardNav }).click();
+  await expect(win.getByRole('heading', { level: 1, name: L.dashboardNav })).toBeVisible();
   await gotoHoursForm(win, L);
   await expect(openInput(win, 1)).toHaveValue('08:30');
   await expect(closeInput(win, 1)).toHaveValue('17:15');
   expect(await win.getByRole('switch', { name: L.toggleAria(L.weekdays[0]!) }).getAttribute('aria-checked')).toBe('false');
-
-  // Full page reload → values still there (persisted, not just React state).
-  await win.reload();
-  await win.waitForLoadState('domcontentloaded');
-  await expect.poll(() => adminExists(win)).toBe(true);
-  win = live.win;
-  await gotoHoursForm(win, L);
-  await expect(openInput(win, 1)).toHaveValue('08:30');
-  await expect(closeInput(win, 1)).toHaveValue('17:15');
   await expect(openInput(win, 0)).toHaveCount(0); // closed day keeps no time inputs
 
   await win.screenshot({ path: `test-results/center-hours-persist-${locale()}.png` });

@@ -36,7 +36,7 @@ export function CenterHoursForm({ initialWeek }: { initialWeek: WeekdayHoursInpu
   });
 
   return (
-    <Card className="w-full max-w-2xl">
+    <Card data-testid="center-hours-card" className="w-full max-w-2xl">
       <CardHeader>
         <CardTitle>{t('centerHours.title')}</CardTitle>
         <CardDescription>{t('centerHours.description')}</CardDescription>
