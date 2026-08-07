@@ -12,6 +12,9 @@ import {
   prepareDemoCenter,
   wipeDemoArtefacts,
 } from '../../src/main/demo/demo-center';
+import { buildContainer } from '../../src/main/composition-root';
+import { createIpcDispatcher } from '../../src/main/ipc/dispatcher';
+import { createHandlers } from '../../src/main/ipc/handlers';
 
 const KEY = 'demo-test-key';
 const NOOP_RESTART = () => {};
@@ -172,5 +175,60 @@ describe('demo seeder (SOU-110)', () => {
     expect(demoCenterSeeded(dir, KEY)).toBe(false);
     await seedInto(dir);
     expect(demoCenterSeeded(dir, KEY)).toBe(true);
+  });
+
+  it('wires the demo IPC surface: status reports the demo center, create/wipe ack relaunch', async () => {
+    await seedInto(dir);
+
+    let created = 0;
+    let wiped = 0;
+    const container = buildContainer({
+      centreId: DEMO_CENTRE_ID,
+      centerCode: DEMO_CENTER_CODE,
+      key: KEY,
+      dir,
+      planId: 'premium',
+      appVersion: () => '2.0.0',
+      scheduleRestart: () => {},
+      demo: {
+        isDemoCenter: true,
+        create: async () => {
+          created += 1;
+        },
+        wipe: async () => {
+          wiped += 1;
+        },
+      },
+    });
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+
+    // demo.status is a cheap read of the open centreId.
+    expect(await dispatch('demo.status', {})).toEqual({ isDemo: true });
+    // demo.create / demo.wipe validate their (empty) payloads and ack relaunch.
+    expect(await dispatch('demo.create', {})).toEqual({ relaunching: true });
+    expect(await dispatch('demo.wipe', {})).toEqual({ relaunching: true });
+    expect(created).toBe(1);
+    expect(wiped).toBe(1);
+    // A non-object payload is rejected (renderer is untrusted).
+    await expect(dispatch('demo.create', 'nope')).rejects.toThrow();
+
+    container.dispose();
+  });
+
+  it('demo.status reports a real center as not-demo', async () => {
+    await seedInto(dir);
+    const container = buildContainer({
+      centreId: 'local',
+      centerCode: 'CS-CASA-001' as never,
+      key: KEY,
+      dir,
+      planId: 'essentiel',
+      appVersion: () => '2.0.0',
+      scheduleRestart: () => {},
+      demo: { isDemoCenter: false, create: async () => {}, wipe: async () => {} },
+    });
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+    expect(await dispatch('demo.status', {})).toEqual({ isDemo: false });
+    container.dispose();
   });
 });

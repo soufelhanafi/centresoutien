@@ -189,7 +189,10 @@ app.whenReady().then(async () => {
           scheduleRestartIntoDemo();
         },
         wipe: async () => {
-          const logoPath = container ? readDemoLogoPath(container.db) : null;
+          // Only the DEMO container's logo belongs to the demo artefacts. If a
+          // wipe ever ran against a real center, `container.db` is the real
+          // center's DB — its logo must never be deleted.
+          const logoPath = demoRequested && container ? readDemoLogoPath(container.db) : null;
           container?.dispose();
           container = null;
           wipeDemoArtefacts(dir, logoPath);
