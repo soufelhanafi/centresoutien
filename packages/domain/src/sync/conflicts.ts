@@ -50,6 +50,8 @@ export type DeleteVsEdit = {
   readonly kind: 'delete-vs-edit';
   readonly entityType: string;
   readonly entityId: EntityId;
+  /** The canonical version both sides were based on when the clash was seen. */
+  readonly version: number;
   readonly mine: ConflictSide;
   readonly theirs: ConflictSide;
 };

@@ -59,3 +59,37 @@ export class ImmutableDivergenceError extends DomainError {
     );
   }
 }
+
+/**
+ * Thrown by `ResolveConflict` when the requested clash is not in the local
+ * "conflits en attente" store — it was already settled, or the renderer asked
+ * for one that was never blocked (including a probable-duplicate, which is
+ * merged via `MergeParents`/`MergeStudents`, never resolved field-by-field).
+ * The renderer maps the stable `conflict-not-found` code to a toast.
+ */
+export class ConflictNotFoundError extends DomainError {
+  readonly code = 'conflict-not-found';
+
+  constructor(
+    readonly entityType: string,
+    readonly entityId: EntityId,
+  ) {
+    super(`No blocked sync conflict for ${entityType} ${entityId}.`);
+  }
+}
+
+/**
+ * Thrown by `ResolveConflict` when a delete-vs-edit clash (which has no fields —
+ * it is a two-way choice between whole snapshots) is asked to resolve per-field.
+ * The popup must never offer per-field controls on the delete-vs-edit tab.
+ */
+export class ConflictNotPerFieldResolvableError extends DomainError {
+  readonly code = 'conflict-not-per-field-resolvable';
+
+  constructor(
+    readonly entityType: string,
+    readonly entityId: EntityId,
+  ) {
+    super(`Delete-vs-edit conflict ${entityType} ${entityId} cannot be resolved per-field.`);
+  }
+}

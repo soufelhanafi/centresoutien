@@ -1,6 +1,7 @@
 import type { Clock } from '../../../src/ports/clock';
 import { entityKey, type SyncCursor } from '../../../src/ports/sync-hub-port';
 import type { ChangeLogOp } from '../../../src/sync/change-log-writer';
+import type { SyncConflict } from '../../../src/sync/conflicts';
 import type {
   LocalEntityState,
   LocalPendingChange,
@@ -34,7 +35,7 @@ export class InMemorySyncLocalRepository implements LocalSyncRepository {
   }
 
   applyInbound(entityType: string, entityId: EntityId, entity: Record<string, unknown>, version: number): void {
-    this.store.set(entityKey(entityType, entityId), { version, entity, pending: null, blocked: false });
+    this.store.set(entityKey(entityType, entityId), { version, entity, pending: null, blocked: false, conflict: null });
   }
 
   upsertPending(input: {
@@ -66,6 +67,7 @@ export class InMemorySyncLocalRepository implements LocalSyncRepository {
       entity: input.entity,
       pending,
       blocked: false,
+      conflict: null,
     });
   }
 
@@ -78,13 +80,53 @@ export class InMemorySyncLocalRepository implements LocalSyncRepository {
       entity: { ...state.entity, version: assignedVersion },
       pending: null,
       blocked: false,
+      conflict: null,
     });
   }
 
-  blockPending(entityType: string, entityId: EntityId): void {
+  blockPending(entityType: string, entityId: EntityId, conflict?: SyncConflict): void {
     const key = entityKey(entityType, entityId);
     const state = this.store.get(key);
-    if (state?.pending) this.store.set(key, { ...state, blocked: true });
+    if (state?.pending) this.store.set(key, { ...state, blocked: true, conflict: conflict ?? null });
+  }
+
+  listBlocked(): readonly SyncConflict[] {
+    return [...this.store.values()]
+      .filter((state) => state.conflict !== null)
+      .map((state) => state.conflict as SyncConflict);
+  }
+
+  resolveBlocked(input: {
+    entityType: string;
+    entityId: EntityId;
+    entity: Record<string, unknown>;
+    changedFields: readonly string[];
+    baseVersion: number;
+    op: ChangeLogOp;
+    updatedBy: UserId;
+    at: Date;
+  }): void {
+    this.seqCounter++;
+    const key = entityKey(input.entityType, input.entityId);
+    const pending: LocalPendingChange = {
+      entityType: input.entityType,
+      entityId: input.entityId,
+      deviceId: this.deviceId,
+      baseVersion: input.baseVersion,
+      op: input.op,
+      entity: input.entity,
+      changedFields: input.changedFields,
+      seq: this.seqCounter,
+      at: input.at,
+      updatedBy: input.updatedBy,
+    };
+    this.store.set(key, {
+      version: input.baseVersion,
+      entity: input.entity,
+      pending,
+      blocked: false,
+      conflict: null,
+    });
   }
 
   listPending(): readonly LocalPendingChange[] {
@@ -123,7 +165,7 @@ export class InMemorySyncLocalRepository implements LocalSyncRepository {
       at: this.clock.now(),
       updatedBy,
     };
-    this.store.set(key, { version: baseVersion, entity: snapshot, pending, blocked: false });
+    this.store.set(key, { version: baseVersion, entity: snapshot, pending, blocked: false, conflict: null });
   }
 
   /** Record a soft-delete write exactly as the change_log adapter would. */
@@ -150,7 +192,7 @@ export class InMemorySyncLocalRepository implements LocalSyncRepository {
       at: this.clock.now(),
       updatedBy,
     };
-    this.store.set(key, { version: baseVersion, entity: snapshot, pending, blocked: false });
+    this.store.set(key, { version: baseVersion, entity: snapshot, pending, blocked: false, conflict: null });
   }
 
   /** Test probe: the current entity snapshot, or null when never seen. */
@@ -186,4 +228,5 @@ type StoredState = {
   entity: Record<string, unknown>;
   pending: LocalPendingChange | null;
   blocked: boolean;
+  conflict: SyncConflict | null;
 };

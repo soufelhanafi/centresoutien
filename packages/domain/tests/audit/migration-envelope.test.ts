@@ -28,6 +28,15 @@ const LOCAL_TABLES = [
   'auth_audit_log',
   'security_questions',
   'security_question_lockout',
+  // Device-local sync bookkeeping (SOU-91): the durable "conflits en attente"
+  // store + the local replica's cursor/entity view. These are NOT synced
+  // entities — they carry no entity envelope (no ULID id, no soft delete, no
+  // hub versioning) because they are never exchanged with the hub. They are
+  // tenant-scoped by center_code, which is why they must be listed here rather
+  // than matching the entity-envelope rule.
+  'sync_local_entity',
+  'sync_local_pending',
+  'sync_cursor',
 ];
 
 // Append-only infrastructure ledgers: tenant-scoped (center_code) but NOT

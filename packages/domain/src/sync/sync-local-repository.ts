@@ -1,6 +1,7 @@
 import type { ChangeLogOp } from './change-log-writer';
 import type { SyncCursor } from '../ports/sync-hub-port';
 import type { DeviceId, EntityId, UserId } from '../value-objects/ids';
+import type { SyncConflict } from './conflicts';
 
 /**
  * The device side of the sync cycle — the local replica's view of "what have I
@@ -74,9 +75,38 @@ export interface LocalSyncRepository {
   /**
    * Freeze a pending write behind an unresolved conflict: it must not be pushed
    * again until a human resolves it (a stale push would silently clobber the
-   * other device's write). The edit itself is preserved, never lost.
+   * other device's write). The edit itself is preserved, never lost, and the
+   * conflict object is stored so the "conflits en attente" inbox can re-surface
+   * it after a restart. `conflict` is optional because the engine also blocks a
+   * write before aborting a sync on an immutable-divergence — that one has no
+   * popup object, it is a loud, non-resolvable failure.
    */
-  blockPending(entityType: string, entityId: EntityId): void;
+  blockPending(entityType: string, entityId: EntityId, conflict?: SyncConflict): void;
+
+  /**
+   * Every unresolved conflict stored on this device, in the order they were
+   * blocked — the durable "conflits en attente" inbox. Re-surfacing blocked
+   * writes after a restart is the resolve-conflict use case's job, which reads
+   * this list.
+   */
+  listBlocked(): readonly SyncConflict[];
+
+  /**
+   * Replace the blocked write for one entity with a fresh pending write (the
+   * human's resolution, e.g. "take their version" / a per-field merge) and
+   * clear the block. The new write carries a fresh change-log revision, so once
+   * pushed it wins deterministically on every device's next pull.
+   */
+  resolveBlocked(input: {
+    entityType: string;
+    entityId: EntityId;
+    entity: Record<string, unknown>;
+    changedFields: readonly string[];
+    baseVersion: number;
+    op: ChangeLogOp;
+    updatedBy: UserId;
+    at: Date;
+  }): void;
 
   /** All pushable pending writes — blocked (conflicted) ones are excluded. */
   listPending(): readonly LocalPendingChange[];

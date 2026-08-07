@@ -40,7 +40,7 @@ describe('conflictKey', () => {
 
   it('keys delete-vs-edit by type and entity (direction-independent — one tab)', () => {
     // theirs deleted, mine edited.
-    const theirsDeleted: DeleteVsEdit = { kind: 'delete-vs-edit', entityType: 'students', entityId: S1, mine: side, theirs: { ...side, op: 'delete' } };
+    const theirsDeleted: DeleteVsEdit = { kind: 'delete-vs-edit', entityType: 'students', entityId: S1, version: 2, mine: side, theirs: { ...side, op: 'delete' } };
     // mine deleted, theirs edited — the reversed conflict, same one tab.
     const mineDeleted: DeleteVsEdit = { ...theirsDeleted, mine: { ...side, op: 'delete' }, theirs: side };
 
