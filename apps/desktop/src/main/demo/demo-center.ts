@@ -26,6 +26,10 @@ export function demoCenterSeeded(dir: string, key: string): boolean {
   try {
     db = openDatabase({ centreId: DEMO_CENTRE_ID, key, dir });
     return demoSeededMarker(db);
+  } catch {
+    // A partial/corrupt demo file (crash before migrations) is NOT seeded —
+    // treat it as fresh and let prepareDemoCenter wipe + reseed it.
+    return false;
   } finally {
     db?.close();
   }
