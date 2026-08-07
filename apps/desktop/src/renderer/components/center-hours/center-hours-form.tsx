@@ -3,7 +3,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
 import { weeklyHoursSchema, type WeekdayHoursInput } from '@centresoutien/domain';
-import { Button, Form } from '@centresoutien/ui';
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Form, toast } from '@centresoutien/ui';
 import { useSaveCenterHours } from '../../hooks/center-hours/use-save-center-hours';
 import { WeekdayHoursRow } from './weekday-hours-row';
 import type { CenterHoursFormValues } from './types';
@@ -26,47 +26,38 @@ export function CenterHoursForm({ initialWeek }: { initialWeek: WeekdayHoursInpu
   });
   const { fields } = useFieldArray({ control: form.control, name: 'week' });
 
-  const onSubmit = form.handleSubmit(
-    async (values) => {
+  const onSubmit = form.handleSubmit(async (values) => {
+    try {
       await save.mutateAsync(values.week);
-    },
-    () => {
-      // A new attempt that fails client validation must clear any stale success
-      // banner, so the user never sees "saved" and an inline error at once.
-      if (save.isSuccess) save.reset();
-    },
-  );
+      toast.success(t('centerHours.saved'));
+    } catch {
+      toast.error(t('centerHours.saveError'));
+    }
+  });
 
   return (
-    <Form {...form}>
-      <form onSubmit={onSubmit} noValidate className="flex w-full max-w-2xl flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">{t('centerHours.title')}</h2>
-          <p className="text-sm text-muted-foreground">{t('centerHours.description')}</p>
-        </div>
+    <Card data-testid="center-hours-card" className="w-full max-w-2xl">
+      <CardHeader>
+        <CardTitle>{t('centerHours.title')}</CardTitle>
+        <CardDescription>{t('centerHours.description')}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4">
+              {fields.map((field, index) => (
+                <WeekdayHoursRow key={field.id} index={index} />
+              ))}
+            </div>
 
-        <div className="flex flex-col gap-4">
-          {fields.map((field, index) => (
-            <WeekdayHoursRow key={field.id} index={index} />
-          ))}
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button type="submit" disabled={save.isPending}>
-            {t('centerHours.save')}
-          </Button>
-          {save.isSuccess && (
-            <span role="status" className="text-sm text-primary">
-              {t('centerHours.saved')}
-            </span>
-          )}
-          {save.isError && (
-            <span role="alert" className="text-sm text-destructive">
-              {t('centerHours.saveError')}
-            </span>
-          )}
-        </div>
-      </form>
-    </Form>
+            <div className="flex items-center gap-3">
+              <Button type="submit" disabled={save.isPending}>
+                {save.isPending ? t('centerHours.saving') : t('centerHours.save')}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
   );
 }

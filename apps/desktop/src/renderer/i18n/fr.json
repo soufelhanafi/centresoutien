@@ -1588,9 +1588,11 @@
     "closeLabel": "Fermeture",
     "toggleLabel": "Ouvert le {{day}}",
     "save": "Enregistrer les horaires",
+    "saving": "Enregistrement…",
     "saved": "Horaires enregistrés",
     "saveError": "L'enregistrement a échoué. Réessayez.",
     "loadError": "Le chargement des horaires a échoué.",
+    "loadErrorBody": "Impossible de récupérer les horaires du centre.",
     "retry": "Réessayer",
     "weekdays": {
       "0": "Dimanche",

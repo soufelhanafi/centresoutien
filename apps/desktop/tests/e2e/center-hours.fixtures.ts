@@ -34,6 +34,7 @@ export const STR: Record<Locale, {
   errCloseBeforeOpen: string;
   errInvalidTime: string;
   settingsNav: string; // sidebar entry that opens the Paramètres screen
+  dashboardNav: string; // sidebar entry that opens the Tableau de bord screen
   dir: 'ltr' | 'rtl';
 }> = {
   fr: {
@@ -50,6 +51,7 @@ export const STR: Record<Locale, {
     errCloseBeforeOpen: "La fermeture doit être après l'ouverture",
     errInvalidTime: 'Heure invalide',
     settingsNav: 'Paramètres',
+    dashboardNav: 'Tableau de bord',
     dir: 'ltr',
   },
   ar: {
@@ -66,6 +68,7 @@ export const STR: Record<Locale, {
     errCloseBeforeOpen: 'يجب أن يكون وقت الإغلاق بعد وقت الفتح',
     errInvalidTime: 'وقت غير صالح',
     settingsNav: 'الإعدادات',
+    dashboardNav: 'لوحة القيادة',
     dir: 'rtl',
   },
 };

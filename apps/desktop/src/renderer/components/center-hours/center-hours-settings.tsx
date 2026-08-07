@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { WEEKDAYS } from '@centresoutien/domain';
 import { Clock } from 'lucide-react';
-import { Button, ErrorState, Skeleton } from '@centresoutien/ui';
+import { Button, Card, CardContent, CardHeader, ErrorState, Skeleton } from '@centresoutien/ui';
 import { useCenterHours } from '../../hooks/center-hours/use-center-hours';
 import { seedWeek } from '../../lib/center-hours';
 import { CenterHoursForm } from './center-hours-form';
@@ -18,12 +18,16 @@ export function CenterHoursSettings() {
 
   if (query.isPending) {
     return (
-      <div aria-busy="true" className="flex w-full max-w-2xl flex-col gap-4">
-        <Skeleton className="h-5 w-48" />
-        {WEEKDAYS.map((day) => (
-          <Skeleton key={day} className="h-12 w-full" />
-        ))}
-      </div>
+      <Card className="w-full max-w-2xl" aria-busy="true">
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {WEEKDAYS.map((day) => (
+            <Skeleton key={day} className="h-12 w-full" />
+          ))}
+        </CardContent>
+      </Card>
     );
   }
 
@@ -33,8 +37,9 @@ export function CenterHoursSettings() {
         className="w-full max-w-2xl"
         icon={<Clock className="h-5 w-5" aria-hidden="true" />}
         title={t('centerHours.loadError')}
+        description={t('centerHours.loadErrorBody')}
         action={
-          <Button variant="secondary" size="sm" onClick={() => void query.refetch()}>
+          <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
             {t('centerHours.retry')}
           </Button>
         }

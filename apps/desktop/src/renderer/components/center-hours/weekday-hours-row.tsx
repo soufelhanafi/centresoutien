@@ -25,7 +25,7 @@ export function WeekdayHoursRow({ index }: { index: number }) {
   };
 
   return (
-    <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:gap-6">
+    <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:gap-6 last:border-b-0">
       <div className="flex items-center gap-3 sm:w-56">
         <Switch
           checked={isOpen}
@@ -41,7 +41,7 @@ export function WeekdayHoursRow({ index }: { index: number }) {
       </div>
 
       {isOpen ? (
-        <div className="flex flex-wrap items-start gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             control={control}
             name={`week.${index}.open`}
@@ -49,7 +49,7 @@ export function WeekdayHoursRow({ index }: { index: number }) {
               <FormItem>
                 <FormLabel>{t('centerHours.openLabel')}</FormLabel>
                 <FormControl>
-                  <Input type="time" {...field} value={field.value ?? ''} />
+                  <Input type="time" dir="ltr" {...field} value={field.value ?? ''} />
                 </FormControl>
                 <FieldMessage />
               </FormItem>
@@ -62,7 +62,7 @@ export function WeekdayHoursRow({ index }: { index: number }) {
               <FormItem>
                 <FormLabel>{t('centerHours.closeLabel')}</FormLabel>
                 <FormControl>
-                  <Input type="time" {...field} value={field.value ?? ''} />
+                  <Input type="time" dir="ltr" {...field} value={field.value ?? ''} />
                 </FormControl>
                 <FieldMessage />
               </FormItem>
