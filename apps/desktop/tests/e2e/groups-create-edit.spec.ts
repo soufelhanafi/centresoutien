@@ -8,9 +8,9 @@ import { STR, boot, gotoGroups, type Launched, type Locale } from './groups.fixt
  * "create a group" flow. Empty-submit/capacity validation and edit-metadata
  * are lower blast-radius UI behavior — unit/component test the form schema
  * instead. Runs under both `fr` (LTR) and `ar` (RTL) projects. The create
- * form's subject/room dropdowns are populated by the real `subject.list` /
- * `room.list` channels (SOU-124), seeded through the public bridge in
- * `boot()`.
+ * form's subject dropdown is populated by the real `subject.list` channel
+ * (SOU-124), seeded through the public bridge in `boot()`. A group carries no
+ * room — rooms attach at session creation (SOU-176).
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -25,10 +25,6 @@ const SUBJECTS = [
   { nameFr: 'Mathématiques', nameAr: 'الرياضيات', code: 'MATH' },
   { nameFr: 'Physique-Chimie', nameAr: 'الفيزياء والكيمياء', code: 'PHYS' },
 ];
-const ROOMS = [
-  { name: 'Salle 1', capacity: 30 },
-  { name: 'Salle 2', capacity: 30 },
-];
 
 async function openCreate(win: Page, L: (typeof STR)[Locale]) {
   await win.getByRole('button', { name: L.newBtn }).first().click();
@@ -37,24 +33,21 @@ async function openCreate(win: Page, L: (typeof STR)[Locale]) {
   return dialog;
 }
 
-/** Fill the create form with a subject + room chosen from the form's own lists. */
+/** Fill the create form with a subject chosen from the form's own list. */
 async function fillValidGroup(win: Page, dialog: ReturnType<Page['getByRole']>, L: (typeof STR)[Locale], level: string) {
   await dialog.getByRole('combobox', { name: L.form.subject }).click();
-  await win.getByRole('option').first().click();
-  await dialog.getByRole('combobox', { name: L.form.room }).click();
   await win.getByRole('option').first().click();
   await dialog.getByLabel(L.form.level, { exact: false }).fill(level);
   await dialog.getByLabel(L.form.capacity, { exact: false }).fill('15');
 }
 
 // ---------------------------------------------------------------------------
-// Happy path — a fully valid group can be created. The subject/room IDs from the
-// form's own dropdowns must be accepted (real ULIDs from `subject.create` /
-// `room.create`).
+// Happy path — a fully valid group can be created. The subject ID from the
+// form's own dropdown must be accepted (a real ULID from `subject.create`).
 // ---------------------------------------------------------------------------
 test('Create succeeds with a valid group (success feedback + row appears)', async () => {
   const L = STR[locale()];
-  live = await boot(locale(), { subjects: SUBJECTS, rooms: ROOMS });
+  live = await boot(locale(), { subjects: SUBJECTS });
   const win = live.win;
   await gotoGroups(win, L);
 
@@ -64,7 +57,7 @@ test('Create succeeds with a valid group (success feedback + row appears)', asyn
 
   await expect(
     dialog.getByText(L.errors.invalidId),
-    'subject/room selected from the form must not be rejected as "Identifiant invalide"',
+    'subject selected from the form must not be rejected as "Identifiant invalide"',
   ).toHaveCount(0);
   await expect(win.getByText(L.form.createSuccess)).toBeVisible();
   await expect(dialog).toBeHidden();
