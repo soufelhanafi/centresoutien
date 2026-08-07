@@ -30,8 +30,8 @@ import type { LocalSyncRepository } from './sync-local-repository';
  *
  * Transport failures (an unreachable HTTP hub) reject out of `run` and are not
  * retried here: SOU-81 adds a transport status to `SyncResult` when the embedded
- * hub lands, and `SchemaTooOldError` / `PlanFeatureUnavailableError` always
- * propagate unchanged.
+ * hub lands, and `SchemaTooOldError` / `ImmutableDivergenceError` /
+ * `PlanFeatureUnavailableError` always propagate unchanged.
  */
 export const MAX_SYNC_ATTEMPTS = 5;
 export const CLOCK_SKEW_THRESHOLD_MS = 15 * 60 * 1000;

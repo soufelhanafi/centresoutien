@@ -3,6 +3,7 @@ import { valuesEqual } from './change-log';
 import type { HubChange, LocalChange } from '../ports/sync-hub-port';
 import type { EntityId } from '../value-objects/ids';
 import type { SyncConflict } from './conflicts';
+import { IMMUTABLE_ENTITY_PROTECTED_FIELDS, isImmutableEntityType } from './immutable-entities';
 
 /**
  * The resolve step of pull → resolve → push (SOU-80 §3), one inbound hub change
@@ -31,7 +32,17 @@ export type ResolveOutcome =
       readonly baseVersion: number;
     }
   /** Same-field clash or delete-vs-edit — nothing applied, nothing pushed. */
-  | { readonly kind: 'conflict'; readonly conflict: SyncConflict };
+  | { readonly kind: 'conflict'; readonly conflict: SyncConflict }
+  /**
+   * A real edit on an immutable entity — its locked decision (pricing, amount)
+   * cannot fork across devices. Never a popup: the engine blocks the pending
+   * write and aborts the sync so the hub's canonical state wins instead.
+   */
+  | {
+      readonly kind: 'immutable-divergence';
+      readonly entityType: string;
+      readonly entityId: EntityId;
+    };
 
 export function resolveInboundChange(input: {
   entityType: string;
@@ -54,15 +65,36 @@ export function resolveInboundChange(input: {
     return { kind: 'apply', entity: { ...inbound.entity }, version: inbound.version };
   }
 
+  // Envelope bookkeeping is engine-managed; only domain fields can merge or clash.
+  const mineFields = domainFields(local.changedFields);
+  const theirsFields = domainFields(inbound.changedFields);
+
+  // Immutable entities carry locked decisions (formula price, invoice/payout
+  // amounts and status) that must never fork across devices. An edit touching
+  // one of the type's protected fields is divergence — no merge, no popup (a
+  // popup choice on locked data would itself let one device override it). This
+  // also preempts delete-vs-edit on a protected edit: the edit side is
+  // divergence. Documented mutable fields on these entities (Formula.name /
+  // Formula.active, TeacherPayout.notes) are ordinary data — they merge and
+  // clash like any other field.
+  if (
+    isImmutableEntityType(input.entityType) &&
+    touchesProtectedField(
+      local,
+      inbound,
+      mineFields,
+      theirsFields,
+      IMMUTABLE_ENTITY_PROTECTED_FIELDS[input.entityType],
+    )
+  ) {
+    return { kind: 'immutable-divergence', entityType: input.entityType, entityId: input.entityId };
+  }
+
   if (mineDeleted !== theirsDeleted) {
     // One deleted, the other edited — a real-world misunderstanding, never
     // auto-resolved in either direction (dedicated popup tab).
     return { kind: 'conflict', conflict: deleteVsEdit({ ...input, local }) };
   }
-
-  // Envelope bookkeeping is engine-managed; only domain fields can merge or clash.
-  const mineFields = domainFields(local.changedFields);
-  const theirsFields = domainFields(inbound.changedFields);
 
   const clashFields = mineFields.filter(
     (field) => theirsFields.includes(field) && !valuesEqual(local.entity[field], inbound.entity[field]),
@@ -95,6 +127,27 @@ export function resolveInboundChange(input: {
 function domainFields(fields: readonly string[]): readonly string[] {
   const envelope = ENVELOPE_FIELD_NAMES as readonly string[];
   return fields.filter((field) => !envelope.includes(field));
+}
+
+/**
+ * Whether either side changed a protected field on an immutable entity. Both
+ * sides changing the same protected field to an identical value is agreement,
+ * not divergence — it merges cleanly like any other same-value field.
+ */
+function touchesProtectedField(
+  local: LocalChange,
+  inbound: HubChange,
+  mine: readonly string[],
+  theirs: readonly string[],
+  protectedFields: ReadonlySet<string>,
+): boolean {
+  for (const field of new Set([...mine, ...theirs])) {
+    if (!protectedFields.has(field)) continue;
+    const bothAgree =
+      mine.includes(field) && theirs.includes(field) && valuesEqual(local.entity[field], inbound.entity[field]);
+    if (!bothAgree) return true;
+  }
+  return false;
 }
 
 /** Wire field names that would alter the object's prototype on assignment. */
