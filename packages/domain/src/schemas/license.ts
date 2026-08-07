@@ -16,27 +16,11 @@ export const licenseFileSchema = z.object({
 
 export type LicenseFileInput = z.infer<typeof licenseFileSchema>;
 
-/**
- * The decoded claim set. `plan` mirrors {@link PlanId}; the tier registry test
- * guards drift. `centersAllowed` / `founderDiscountExpiresAt` are `nullish` +
- * normalized to `null` so a license signed before SOU-104 (whose claim bytes lack
- * these keys) still parses — the signature covers only the bytes that were signed,
- * and an absent optional field is a legitimate "unspecified", not a tamper.
- */
+/** The decoded claim set. `plan` mirrors {@link PlanId}; the tier registry test guards drift. */
 export const licenseClaimsSchema = z.object({
   plan: z.enum(['essentiel', 'pro', 'premium']),
   issuedAt: z.iso.datetime(),
   expiresAt: z.iso.datetime().nullable(),
   machineId: z.string().min(1).nullable(),
   centerCode: z.string().min(1).nullable(),
-  centersAllowed: z
-    .number()
-    .int()
-    .positive()
-    .nullish()
-    .transform((value) => value ?? null),
-  founderDiscountExpiresAt: z.iso
-    .datetime()
-    .nullish()
-    .transform((value) => value ?? null),
 });

@@ -1,23 +1,14 @@
 import { PLANS, type Plan } from './plans';
 import type { LicenseClaims, LicenseVerification } from './license';
-import type { LicenseBindingContext } from './license-activation';
 import {
   type LicenseError,
   LicenseExpiredError,
   LicenseMissingError,
   LicenseSignatureInvalidError,
-  LicenseWrongCenterError,
-  LicenseWrongMachineError,
 } from '../errors/license-errors';
 
-/** The effective license state once signature, binding, *and* expiry are considered. */
-export type LicenseStatus =
-  | 'active'
-  | 'missing'
-  | 'invalid-signature'
-  | 'expired'
-  | 'wrong-machine'
-  | 'wrong-center';
+/** The effective license state once signature *and* expiry are considered. */
+export type LicenseStatus = 'active' | 'missing' | 'invalid-signature' | 'expired';
 
 /**
  * The resolved plan plus why. `plan` is always safe to gate on: an active,
@@ -33,16 +24,6 @@ export type LicenseResolution = {
 };
 
 /**
- * The hard-lock decision (SOU-104): any license status other than `active` puts
- * the app in restricted mode, where the IPC boundary answers only the license
- * status/activation channels. This is the single authority the main-process guard
- * consults; the renderer's `LicenseGate` is cosmetic on top of the same rule.
- */
-export function isRestrictedMode(status: LicenseStatus): boolean {
-  return status !== 'active';
-}
-
-/**
  * A license is expired when it carries an expiry at or before "now". A non-null
  * but unparsable `expiresAt` fails closed (treated as expired) — a garbage expiry
  * must never read as "still valid" and grant a tier.
@@ -56,22 +37,12 @@ export function isLicenseExpired(claims: LicenseClaims, now: Date): boolean {
 
 /**
  * The single authority for the active plan (CLAUDE.md §4). Folds the adapter's
- * signature check together with the machine/center binding and the Clock-driven
- * expiry check, and maps the result to a concrete {@link Plan}. `now` comes from
- * the injected `Clock`, never a bare `new Date()` in a caller. This is what
- * `PlanPolicy` is built from — the user-editable `center.plan` row is never
- * consulted.
- *
- * `binding` is optional for backward compatibility: when omitted, only signature +
- * expiry are considered (SOU-98). When supplied (startup, SOU-104), a signature-
- * valid license bound to a different machine or center resolves to the fallback
- * tier — a license copied off its machine can no longer self-upgrade.
+ * signature check together with the Clock-driven expiry check and maps the result
+ * to a concrete {@link Plan}. `now` comes from the injected `Clock`, never a bare
+ * `new Date()` in a caller. This is what `PlanPolicy` is built from — the
+ * user-editable `center.plan` row is never consulted.
  */
-export function resolveActivePlan(
-  verification: LicenseVerification,
-  now: Date,
-  binding?: LicenseBindingContext,
-): LicenseResolution {
+export function resolveActivePlan(verification: LicenseVerification, now: Date): LicenseResolution {
   if (verification.status === 'missing') {
     return { status: 'missing', plan: PLANS.essentiel, claims: null, error: new LicenseMissingError() };
   }
@@ -85,24 +56,6 @@ export function resolveActivePlan(
   }
 
   const { claims } = verification;
-
-  if (binding && claims.machineId !== null && claims.machineId !== binding.machineId) {
-    return {
-      status: 'wrong-machine',
-      plan: PLANS.essentiel,
-      claims,
-      error: new LicenseWrongMachineError(claims.machineId, binding.machineId),
-    };
-  }
-  if (binding && claims.centerCode !== null && claims.centerCode !== binding.centerCode) {
-    return {
-      status: 'wrong-center',
-      plan: PLANS.essentiel,
-      claims,
-      error: new LicenseWrongCenterError(claims.centerCode, binding.centerCode),
-    };
-  }
-
   if (isLicenseExpired(claims, now)) {
     return {
       status: 'expired',

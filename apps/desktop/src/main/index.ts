@@ -119,10 +119,7 @@ app.whenReady().then(() => {
     // `console.error` below, which only handles `whenReady()` itself rejecting.
     throw error;
   }
-  registerIpc(ipcMain, createHandlers(container.handlerDeps), {
-    isRestricted: container.isRestricted,
-    isSetupComplete: container.isSetupComplete,
-  });
+  registerIpc(ipcMain, createHandlers(container.handlerDeps));
   // `CS_LOCALE` (dev override) wins over the persisted preference (SOU-31); the
   // language tab writes that preference via `preferences.locale.set`, read
   // synchronously here so it survives a restart without waiting on the renderer.
