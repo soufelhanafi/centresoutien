@@ -740,6 +740,54 @@ export const ipcContract = {
     request: z.object({}),
     response: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
   },
+  // License activation (SOU-104). `license.status` reports the installed license's
+  // resolved state (binding + expiry included) for the activation screen and
+  // Settings — `restricted` is the flag the UI labels "mode restreint". Both are
+  // production channels (unlike the dev-only `plan.set`). Envelope metadata dates
+  // cross as ISO strings, never Dates.
+  'license.status': {
+    request: z.object({}),
+    response: z.object({
+      status: z.enum([
+        'active',
+        'missing',
+        'invalid-signature',
+        'expired',
+        'wrong-machine',
+        'wrong-center',
+      ]),
+      plan: z.enum(['essentiel', 'pro', 'premium']),
+      restricted: z.boolean(),
+      expiresAt: z.string().nullable(),
+      centersAllowed: z.number().int().positive().nullable(),
+      founderDiscountExpiresAt: z.string().nullable(),
+      founderDiscountExpired: z.boolean(),
+    }),
+  },
+  // `license.activate` verifies a pasted key / imported file, and on success
+  // persists it + flips the live plan. `license` is the raw envelope text the user
+  // supplied — the only renderer-provided field; machine id + center are injected
+  // in main. A rejection writes nothing and leaves the plan untouched; the UI
+  // branches its states on `reason`.
+  'license.activate': {
+    request: z.object({ license: z.string().min(1) }),
+    response: z.discriminatedUnion('status', [
+      z.object({
+        status: z.literal('activated'),
+        plan: z.enum(['essentiel', 'pro', 'premium']),
+        expiresAt: z.string().nullable(),
+        centersAllowed: z.number().int().positive().nullable(),
+        founderDiscount: z.object({
+          expiresAt: z.string().nullable(),
+          expired: z.boolean(),
+        }),
+      }),
+      z.object({
+        status: z.literal('rejected'),
+        reason: z.enum(['malformed', 'invalid-signature', 'wrong-machine', 'wrong-center', 'expired']),
+      }),
+    ]),
+  },
   // Dev plan switcher (SOU) — swaps the domain's active plan so the PlanPolicy
   // gate and the renderer's cosmetic mirror stay in sync. Without it, flipping a
   // UI feature on would fire gated reads the domain still rejects.
