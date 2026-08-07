@@ -3,19 +3,15 @@ import { UpdateGroup, type UpdateGroupInput } from '../../../src/use-cases/updat
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
-import { RoomNotFoundError } from '../../../src/errors/room-errors';
 import {
   GroupNotFoundError,
-  GroupOverCapacityError,
   GroupSubjectUnavailableError,
 } from '../../../src/errors/group-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Group, GroupId } from '../../../src/entities/group';
-import type { Room, RoomId } from '../../../src/entities/room';
 import type { Subject, SubjectId } from '../../../src/entities/subject';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
-import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
 import { InMemorySubjectRepository } from '../fakes/in-memory-subject-repository';
 import { fakeClock } from '../fakes/clock';
 import { planWithoutFeature } from '../fakes/plans';
@@ -27,7 +23,6 @@ const USER = 'usr_00000000000000000000000001' as UserId;
 const EDITOR = 'usr_00000000000000000000000002' as UserId;
 const GROUP_ID = 'grp_00000000000000000000000001' as GroupId;
 const SUBJECT_ID = 'sub_00000000000000000000000001' as SubjectId;
-const ROOM_ID = 'rom_00000000000000000000000001' as RoomId;
 
 const envelopeClock = fakeClock('2026-07-29T10:00:00Z');
 
@@ -37,21 +32,9 @@ function seededGroup(overrides: Partial<Group> = {}): Group {
     ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
     subjectId: SUBJECT_ID,
     teacherId: null,
-    roomId: ROOM_ID,
     level: '2ème Bac',
     capacity: 15,
     kind: 'regular',
-    active: true,
-    ...overrides,
-  };
-}
-
-function makeRoom(overrides: Partial<Room> = {}): Room {
-  return {
-    id: ROOM_ID,
-    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
-    name: 'Salle A',
-    capacity: 20,
     active: true,
     ...overrides,
   };
@@ -72,7 +55,6 @@ function validInput(overrides: Partial<UpdateGroupInput> = {}): UpdateGroupInput
     id: GROUP_ID,
     subjectId: SUBJECT_ID,
     teacherId: null,
-    roomId: ROOM_ID,
     level: '2ème Bac',
     capacity: 15,
     kind: 'regular',
@@ -84,13 +66,11 @@ function validInput(overrides: Partial<UpdateGroupInput> = {}): UpdateGroupInput
 
 describe('UpdateGroup', () => {
   let groups: InMemoryGroupRepository;
-  let rooms: InMemoryRoomRepository;
   let subjects: InMemorySubjectRepository;
 
   function build(plan: Plan = PLANS.pro): UpdateGroup {
     return new UpdateGroup(
       groups,
-      rooms,
       subjects,
       fakeClock('2026-07-30T09:00:00Z'),
       new PlanPolicy(plan),
@@ -99,10 +79,8 @@ describe('UpdateGroup', () => {
 
   beforeEach(async () => {
     groups = new InMemoryGroupRepository();
-    rooms = new InMemoryRoomRepository();
     subjects = new InMemorySubjectRepository();
     await groups.save(seededGroup());
-    await rooms.save(makeRoom());
     await subjects.save(makeSubject());
   });
 
@@ -133,11 +111,6 @@ describe('UpdateGroup', () => {
       expect(result.updatedBy).toBe(USER); // unchanged — not the editor
       expect(result.updatedAt).toEqual(new Date('2026-07-29T10:00:00Z'));
     });
-
-    it('accepts capacity exactly equal to the room capacity', async () => {
-      const updated = await build().execute(validInput({ capacity: 20 }));
-      expect(updated.capacity).toBe(20);
-    });
   });
 
   describe('exam-prep gating', () => {
@@ -154,38 +127,10 @@ describe('UpdateGroup', () => {
     });
   });
 
-  describe('capacity invariant', () => {
-    it('rejects capacity above the room capacity with GroupOverCapacityError', async () => {
-      await expect(build().execute(validInput({ capacity: 21 }))).rejects.toBeInstanceOf(
-        GroupOverCapacityError,
-      );
-      expect((await groups.findById(GROUP_ID))?.capacity).toBe(15);
-    });
-
+  describe('capacity validation', () => {
     it('rejects a capacity below 1 (schema invariant)', async () => {
       await expect(build().execute(validInput({ capacity: 0 }))).rejects.toThrow();
       expect((await groups.findById(GROUP_ID))?.capacity).toBe(15);
-    });
-  });
-
-  describe('room resolution', () => {
-    it('rejects an unknown room with RoomNotFoundError', async () => {
-      await expect(
-        build().execute(validInput({ roomId: 'rom_00000000000000000000000099' as RoomId })),
-      ).rejects.toBeInstanceOf(RoomNotFoundError);
-    });
-
-    it('rejects re-pointing at a room in another center (tenant scoping)', async () => {
-      const otherRoomId = 'rom_00000000000000000000000003' as RoomId;
-      await rooms.save(makeRoom({ id: otherRoomId, centerCode: OTHER_CENTER }));
-      await expect(build().execute(validInput({ roomId: otherRoomId }))).rejects.toBeInstanceOf(
-        RoomNotFoundError,
-      );
-    });
-
-    it('rejects re-pointing at an archived (tombstoned) room', async () => {
-      await rooms.softDelete(ROOM_ID, new Date('2026-07-30T00:00:00Z'), USER);
-      await expect(build().execute(validInput())).rejects.toBeInstanceOf(RoomNotFoundError);
     });
   });
 

@@ -97,7 +97,6 @@ export const BACKUP_SHEETS_A: readonly BackupSheetSpec[] = [
       ...BACKUP_ENVELOPE_COLUMNS,
       createRequiredColumn('subjectId', 'string'),
       createRequiredColumn('teacherId', 'string-or-null'),
-      createRequiredColumn('roomId', 'string'),
       createRequiredColumn('level', 'string'),
       createRequiredColumn('capacity', 'number'),
       createRequiredColumn('kind', 'string'),

@@ -16,7 +16,6 @@ import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/id
 import type { Group, GroupId } from '../../../src/entities/group';
 import type { Student, StudentId } from '../../../src/entities/student';
 import type { SubjectId } from '../../../src/entities/subject';
-import type { RoomId } from '../../../src/entities/room';
 import type { IdGenerator } from '../../../src/ports/id-generator';
 import { InMemoryEnrollmentRepository } from '../fakes/in-memory-enrollment-repository';
 import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
@@ -35,7 +34,6 @@ const USER = 'usr_00000000000000000000000001' as UserId;
 const STUDENT_ID = 'stu_00000000000000000000000001' as StudentId;
 const GROUP_ID = 'grp_00000000000000000000000002' as GroupId;
 const SUBJECT_ID = 'sub_00000000000000000000000003' as SubjectId;
-const ROOM_ID = 'rom_00000000000000000000000004' as RoomId;
 
 const envelopeClock = fakeClock('2026-01-01T00:00:00Z');
 
@@ -45,7 +43,6 @@ function makeGroup(overrides: Partial<Group> = {}): Group {
     ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
     subjectId: SUBJECT_ID,
     teacherId: null,
-    roomId: ROOM_ID,
     level: '2 Bac SM',
     capacity: 2,
     kind: 'regular',

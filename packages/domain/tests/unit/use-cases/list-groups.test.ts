@@ -6,7 +6,6 @@ import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Group, GroupId } from '../../../src/entities/group';
 import type { SubjectId } from '../../../src/entities/subject';
-import type { RoomId } from '../../../src/entities/room';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
 import { fakeClock } from '../fakes/clock';
@@ -16,7 +15,6 @@ const OTHER_CENTER = 'CS-RABAT-002' as CenterCode;
 const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
 const USER = 'usr_00000000000000000000000001' as UserId;
 const SUBJECT_ID = 'sub_00000000000000000000000001' as SubjectId;
-const ROOM_ID = 'rom_00000000000000000000000001' as RoomId;
 
 const envelopeClock = fakeClock('2026-07-29T10:00:00Z');
 
@@ -28,7 +26,6 @@ function makeGroup(overrides: Partial<Group> = {}): Group {
     ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
     subjectId: SUBJECT_ID,
     teacherId: null,
-    roomId: ROOM_ID,
     level: '2ème Bac',
     capacity: 15,
     kind: 'regular',

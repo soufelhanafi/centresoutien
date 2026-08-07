@@ -141,7 +141,6 @@ export {
 } from './errors/subject-errors';
 export { HolidayNotFoundError } from './errors/holiday-errors';
 export {
-  GroupOverCapacityError,
   GroupSubjectUnavailableError,
   GroupNotFoundError,
 } from './errors/group-errors';

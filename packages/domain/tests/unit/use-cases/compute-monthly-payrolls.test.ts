@@ -17,8 +17,7 @@ import type { Group, GroupId } from '../../../src/entities/group';
 import type { Enrollment, EnrollmentId } from '../../../src/entities/enrollment';
 import type { Payment, PaymentId } from '../../../src/entities/payment';
 import type { SubjectId } from '../../../src/entities/subject';
-import type { PhoneNumber } from '../../../src/value-objects/phone-number';
-import type { RoomId } from '../../../src/entities/room';
+
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryTeacherRepository } from '../fakes/in-memory-teacher-repository';
 import { InMemoryTeacherPayrollRuleRepository } from '../fakes/in-memory-teacher-payroll-rule-repository';
@@ -37,8 +36,6 @@ const USER = 'usr_00000000000000000000000001' as UserId;
 const CLOCK_ISO = '2026-08-01T00:00:00Z';
 const MONTH = '2026-08';
 const MATH = 'sub_00000000000000000000000001' as SubjectId;
-const ROOM = 'rom_00000000000000000000000001' as RoomId;
-
 const ids = fakeIds(1);
 const clock = () => fakeClock(CLOCK_ISO);
 const envelope = () => newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, clock());
@@ -135,7 +132,6 @@ describe('ComputeMonthlyPayrolls', () => {
       ...envelope(),
       subjectId: MATH,
       teacherId: teacherId as unknown as EntityId,
-      roomId: ROOM,
       level: 'college',
       capacity: 20,
       kind: 'regular',

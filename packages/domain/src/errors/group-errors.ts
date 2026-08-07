@@ -1,31 +1,6 @@
 import { DomainError } from './plan-errors';
-import type { RoomId } from '../entities/room';
 import type { SubjectId } from '../entities/subject';
 import type { GroupId } from '../entities/group';
-
-/**
- * Thrown when a group's requested `capacity` exceeds the seat capacity of the room
- * it is scheduled into — you cannot seat more students than the room holds
- * (SOU-48 core invariant). The `CreateGroup` use case reads the room and rejects
- * with this before persisting; the renderer maps the stable `group-over-capacity`
- * code to a localized message and can show both numbers.
- *
- * This guards the ceiling at *definition* time. Blocking the Nth enrollment
- * against a live seat count is the Enrollment issue's job, not this one.
- */
-export class GroupOverCapacityError extends DomainError {
-  readonly code = 'group-over-capacity';
-
-  constructor(
-    readonly roomId: RoomId,
-    readonly capacity: number,
-    readonly roomCapacity: number,
-  ) {
-    super(
-      `Group capacity ${capacity} exceeds room "${roomId}" capacity ${roomCapacity}.`,
-    );
-  }
-}
 
 /** Why a subject cannot back a new group: it has no live row, or it is deactivated. */
 export type GroupSubjectUnavailableReason = 'not-found' | 'inactive';
