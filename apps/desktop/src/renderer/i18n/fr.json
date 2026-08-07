@@ -1983,5 +1983,79 @@
       "wrong-center": "Cette licence est liée à un autre centre.",
       "expired": "Cette licence a expiré."
     }
+  },
+  "sync": {
+    "title": "Synchronisation",
+    "subtitle": "Échangez les modifications avec le hub de votre centre, entre plusieurs ordinateurs.",
+    "runTitle": "Synchroniser maintenant",
+    "runHint": "Récupère les changements des autres ordinateurs, fusionne automatiquement les champs non conflictuels, puis envoie vos propres modifications.",
+    "runNow": "Synchroniser",
+    "lastResult": "Synchronisé : {{applied}} appliquée(s), {{pushed}} envoyée(s), {{conflicts}} conflit(s).",
+    "notPaired": "Ce poste n'est pas encore appairé à un hub. Utilisez le poste désigné pour configurer la synchronisation.",
+    "inboxTitle": "Conflits en attente",
+    "inboxHint": "Les conflits bloqués qui nécessitent une décision humaine.",
+    "inboxEmptyTitle": "Aucun conflit",
+    "inboxEmptyBody": "Tous vos conflits sont résolus. Si la fenêtre s'ouvre à chaque synchronisation, contactez le support.",
+    "inboxListLabel": "Liste des conflits en attente",
+    "openPopup": "Ouvrir la résolution",
+    "loading": "Chargement des conflits…",
+    "error": "Impossible de charger les conflits.",
+    "kinds": {
+      "field-clash": "Champ en conflit",
+      "delete-vs-edit": "Suppression contre modification"
+    },
+    "popup": {
+      "title": "Résolution de conflits",
+      "none": "Aucun conflit à résoudre.",
+      "empty": "Aucun conflit de ce type.",
+      "tab": {
+        "fieldClash": "Champs",
+        "deleteVsEdit": "Suppression vs modification",
+        "duplicates": "Doublons"
+      },
+      "aria": {
+        "fieldClash": "Conflit de champ",
+        "deleteVsEdit": "Suppression contre modification"
+      },
+      "takeMine": "Prendre ma version",
+      "takeTheirs": "Prendre leur version",
+      "perField": "Résolution par champ",
+      "allMine": "Tous mes champs",
+      "allTheirs": "Tous leurs champs",
+      "deleteVsEditTitle": "Suppression contre modification",
+      "deleteVsEditHint": "Un ordinateur a supprimé cet élément pendant qu'un autre le modifiait. Ce n'est jamais résolu automatiquement — choisissez le côté qui fait foi.",
+      "keepMine": "Garder ma version"
+    },
+    "side": {
+      "mine": "Ma version",
+      "theirs": "Leur version",
+      "device": "Appareil",
+      "editedBy": "Modifié par",
+      "when": "Quand",
+      "changedFields": "Champs modifiés",
+      "none": "Aucun"
+    },
+    "entities": {
+      "students": "Élèves",
+      "teachers": "Enseignants",
+      "parents": "Parents",
+      "invoices": "Factures"
+    },
+    "reasons": {
+      "same-name-phone": "Même nom et même téléphone",
+      "shared-phone": "Téléphone partagé",
+      "shared-guardian": "Même tuteur",
+      "separated-family": "Famille séparée"
+    },
+    "tier": {
+      "exact": "Confiance élevée",
+      "fuzzy": "À vérifier"
+    },
+    "duplicate": {
+      "kind": "Doublon probable",
+      "kept": "Conservé :",
+      "candidate": "Doublon :",
+      "mergeHint": "Fusionnez ces enregistrements via les doublons (parents d'abord, puis élèves)."
+    }
   }
 }
