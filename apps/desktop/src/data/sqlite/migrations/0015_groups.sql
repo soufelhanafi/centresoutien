@@ -18,6 +18,11 @@
 -- are chosen at session creation (SOU-176).
 --
 -- Additive-only. No backfill (new table). Logical undo is DROP TABLE groups;
+--
+-- EDIT NOTICE (SOU-176): the original draft of this file carried a NOT NULL
+-- room_id column; it was removed in place BEFORE v2.0.0 ever shipped (no
+-- released build contains it). Local dev/scratch databases created from the old
+-- draft still have the column and will fail every group INSERT — recreate them.
 
 CREATE TABLE groups (
   id            TEXT PRIMARY KEY,             -- ULID with 'grp_' prefix
