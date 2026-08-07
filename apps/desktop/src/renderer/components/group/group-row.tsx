@@ -7,7 +7,7 @@ import { GroupFill } from './group-fill';
 import { GroupRowActions } from './group-row-actions';
 
 /**
- * One group row: bilingual subject + kind badge, level, teacher, room, fill %,
+ * One group row: bilingual subject + kind badge, level, teacher, fill %,
  * actions. Active rows link to the detail page; archived rows show the subject as
  * plain text (their only action is restore), mirroring the Teachers list.
  */
@@ -51,7 +51,6 @@ export function GroupRow({
       <DataTableCell className="text-muted-foreground">
         {group.teacherName ? localizedName(group.teacherName, i18n.language) : t('groups.table.unassigned')}
       </DataTableCell>
-      <DataTableCell className="text-muted-foreground">{group.roomName}</DataTableCell>
       <DataTableCell>
         <GroupFill enrolled={group.enrolledCount} capacity={group.capacity} />
       </DataTableCell>

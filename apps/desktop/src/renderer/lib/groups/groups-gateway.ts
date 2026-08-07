@@ -17,7 +17,7 @@ import { ipcGroupsGateway } from './ipc-groups-gateway';
  *
  * Every method runs on real channels via {@link ipcGroupsGateway}: group
  * definition (`list`/`get`/`formOptions`/`create`/`update`/`archive`/`restore`)
- * maps onto `group.*`, resolving subject/room/teacher names through `subject.list`
+ * maps onto `group.*`, resolving subject/teacher names through `subject.list`
  * (SOU-124) now that it has landed. The enrollment slice maps `roster` →
  * `group.roster` (SOU-127 read model), `enrollableStudents` → `student.list` minus
  * the roster, `addStudent` → `enrollment.create`, `removeStudent` →

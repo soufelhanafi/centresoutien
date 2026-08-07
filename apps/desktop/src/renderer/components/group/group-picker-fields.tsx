@@ -20,10 +20,10 @@ import type { GroupFormInput } from './group-form';
 export const TEACHER_NONE = '__none__';
 
 /**
- * The subject / room / teacher pickers of the group form, driven by the loaded
+ * The subject / teacher pickers of the group form, driven by the loaded
  * {@link GroupFormOptions}. Split out of `group-form.tsx` to keep each file under
  * the size ceiling. The teacher select adds an "unassigned" option that maps to
- * `null`; subject and room are required (validated by `groupInputSchema`).
+ * `null`; subject is required (validated by `groupInputSchema`).
  */
 export function GroupPickerFields({
   control,
@@ -52,31 +52,6 @@ export function GroupPickerFields({
                 {options.subjects.map((subject) => (
                   <SelectItem key={subject.id} value={subject.id}>
                     {localizedName(subject.name, i18n.language)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={control}
-        name="roomId"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t('groups.form.room')}</FormLabel>
-            <Select value={field.value} onValueChange={field.onChange}>
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder={t('groups.form.roomPlaceholder')} />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {options.rooms.map((room) => (
-                  <SelectItem key={room.id} value={room.id}>
-                    {room.name}
                   </SelectItem>
                 ))}
               </SelectContent>

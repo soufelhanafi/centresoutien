@@ -19,7 +19,7 @@ type GroupFormSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultValues: GroupFormInput;
-  /** Subject/room/teacher picker options, or `undefined` while they load. */
+  /** Subject/teacher picker options, or `undefined` while they load. */
   options: GroupFormOptions | undefined;
   pending: boolean;
   onSubmit: (values: GroupInput) => void | Promise<void>;
@@ -28,7 +28,7 @@ type GroupFormSheetProps = {
 /**
  * Presentational shell for the create/edit group drawer. Owns no mutation — the
  * flow wrapper passes `onSubmit` and `pending`. Waits for the picker options
- * before rendering the form (a group can't be created without a subject/room),
+ * before rendering the form (a group can't be created without a subject),
  * showing skeletons meanwhile. Mirrors `TeacherFormSheet`.
  */
 export function GroupFormSheet({

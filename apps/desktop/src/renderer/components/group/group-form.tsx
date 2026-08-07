@@ -21,7 +21,6 @@ export type GroupFormInput = z.input<typeof groupInputSchema>;
 export const EMPTY_GROUP_INPUT: GroupFormInput = {
   subjectId: '',
   teacherId: null,
-  roomId: '',
   level: '',
   capacity: Number.NaN,
   kind: 'regular',
