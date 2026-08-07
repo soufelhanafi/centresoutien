@@ -11,8 +11,9 @@
  * Requires the node-ABI build of the native module:
  *   pnpm rebuild:node
  *
- * Usage:
- *   pnpm db:rekey <file.db> <oldKey> <newKey>
+ * Keys are read from environment variables (never argv — `ps` exposes argv to
+ * every user on the machine, and shell history records it):
+ *   CS_REKEY_OLD_KEY='…' CS_REKEY_NEW_KEY='…' pnpm db:rekey <file.db>
  *
  * No data is deleted: `rekey` rewrites the file in place, and the caller keeps
  * a separate backup if one is wanted.
@@ -22,9 +23,11 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const Database = require('better-sqlite3-multiple-ciphers');
 
-const [file, oldKey, newKey] = process.argv.slice(2);
+const [file] = process.argv.slice(2);
+const oldKey = process.env.CS_REKEY_OLD_KEY;
+const newKey = process.env.CS_REKEY_NEW_KEY;
 if (!file || !oldKey || !newKey) {
-  console.error('usage: node scripts/rekey-db.mjs <file.db> <oldKey> <newKey>');
+  console.error('usage: CS_REKEY_OLD_KEY=… CS_REKEY_NEW_KEY=… node scripts/rekey-db.mjs <file.db>');
   process.exit(2);
 }
 
