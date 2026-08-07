@@ -142,6 +142,7 @@ import type {
   TeacherReferencePort,
   StudentSubscriptionReferencePort,
   SyncHubPort,
+  LocalSyncRepository,
 } from '@centresoutien/domain';
 import { Ed25519LicenseAdapter } from '../data/license/ed25519-license-adapter';
 import { E2eSyntheticLicense, isPlanId } from '../data/license/e2e-synthetic-license';
@@ -149,6 +150,7 @@ import { FsLicenseStore } from '../data/license/fs-license-store';
 import { FileMachineIdentity } from '../data/license/file-machine-identity';
 import { licenseFileNameForCenter } from '../data/license/license-file-path';
 import { VENDOR_LICENSE_PUBLIC_KEY_PEM } from '../data/license/vendor-public-key';
+import { SyncEngine, DuplicateMatcher, ResolveConflict } from '@centresoutien/domain';
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteHubStore } from '../data/sqlite/hub/hub-store';
@@ -156,6 +158,8 @@ import { HubServer } from './hub-server/hub-server';
 import { HttpSyncHubClient } from '../data/sync/http-sync-hub-client';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
 import { SqliteChangeLogWriter } from '../data/sqlite/change-log/sqlite-change-log-writer';
+import { SqliteLocalSyncRepository } from '../data/sqlite/change-log/sqlite-sync-local-repository';
+import { SqliteDuplicateMatchSource } from '../data/sqlite/change-log/sqlite-duplicate-match-source';
 import { SqliteFormulaRepository } from '../data/sqlite/repositories/formula-repository';
 import { SqliteStudentRepository } from '../data/sqlite/repositories/student-repository';
 import { SqliteParentRepository } from '../data/sqlite/repositories/parent-repository';
@@ -979,6 +983,33 @@ export function buildContainer(options: ContainerOptions): Container {
     });
   }
 
+  // Sync engine + conflict resolution (SOU-91). The local sync store and the
+  // duplicate-match source are always wired (they back the "conflits en
+  // attente" inbox even before a hub exists); the engine itself only runs when
+  // a hub is configured, mirroring `syncHub` — `sync.run` then reports a null
+  // result ("not paired") to the renderer instead of failing.
+  const localSyncRepository: LocalSyncRepository = new SqliteLocalSyncRepository(
+    db,
+    clock,
+    deviceOrigin,
+    options.centerCode,
+  );
+  const duplicateMatchSource = new SqliteDuplicateMatchSource(db);
+  const matcher = new DuplicateMatcher(duplicateMatchSource);
+  const syncEngine = syncHub
+    ? new SyncEngine({
+        hub: syncHub,
+        local: localSyncRepository,
+        clock,
+        plan,
+        deviceId: deviceOrigin,
+        updatedBy: DEV_USER,
+        centreId: options.centerCode,
+        userCanResolve: true,
+      })
+    : null;
+  const resolveConflict = new ResolveConflict(localSyncRepository, clock, plan);
+
   const attemptLogin = new AttemptLogin(
     verifyAdminPassword,
     new SqliteLoginThrottleStore(db),
@@ -1153,6 +1184,12 @@ export function buildContainer(options: ContainerOptions): Container {
     updatedBy: () => context.updatedBy,
     dbKey: () => options.key,
     scheduleRestart: options.scheduleRestart,
+    syncEngine,
+    matcher,
+    resolveConflict,
+    listBlockedConflicts: () => localSyncRepository.listBlocked(),
+    localSyncRepository,
+    deviceId: () => deviceOrigin,
   };
 
   return {

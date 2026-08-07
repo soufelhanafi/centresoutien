@@ -163,6 +163,7 @@ import { createDashboardHandlers, type DashboardHandlerDeps } from './dashboard-
 import { createPayrollHandlers, type PayrollHandlerDeps } from './payroll-handlers';
 import { createPaymentReceiptHandlers, type PaymentReceiptHandlerDeps } from './payment-receipt-handlers';
 import { createScheduleHandlers, type ScheduleHandlerDeps } from './schedule-handlers';
+import { createSyncHandlers, type SyncHandlerDeps } from './sync-handlers';
 import {
   createAttendanceReportingHandlers,
   type AttendanceReportingHandlerDeps,
@@ -660,7 +661,8 @@ export type HandlerDeps = BackupHandlerDeps &
   PayrollHandlerDeps &
   PaymentReceiptHandlerDeps &
   ScheduleHandlerDeps &
-  AttendanceReportingHandlerDeps & {
+  AttendanceReportingHandlerDeps &
+  SyncHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
   setActivePlan: (planId: PlanId) => void;
@@ -1545,6 +1547,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     ...createPaymentReceiptHandlers(deps),
     ...createScheduleHandlers(deps),
     ...createAttendanceReportingHandlers(deps),
+    ...createSyncHandlers(deps),
   };
 
   // Dev-only plan switcher (SOU-98): `import.meta.env.DEV` is a build-time
@@ -1558,6 +1561,14 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       deps.setActivePlan(request.planId);
       return { planId: deps.activePlanId() };
     };
+  }
+
+  // E2E-only conflict seed (SOU-91): `__CS_E2E__` is true ONLY in the
+  // `--mode e2e` build (electron.vite.config.ts), so this strip is dead-code in
+  // release builds and the seed channel is unreachable in production — exactly
+  // like the `plan.set` dev switcher above.
+  if (!__CS_E2E__) {
+    delete handlers['sync.test.seedConflict'];
   }
 
   return handlers;

@@ -66,7 +66,7 @@ export class ChangeResolver {
         this.local.upsertPending(this.buildMergedPending(change, local, outcome));
         break;
       case 'conflict':
-        this.local.blockPending(change.entityType, change.entityId);
+        this.local.blockPending(change.entityType, change.entityId, outcome.conflict);
         this.pushUniqueConflict(conflicts, outcome.conflict);
         break;
       case 'immutable-divergence':

@@ -203,6 +203,7 @@ function deleteVsEdit(input: {
     kind: 'delete-vs-edit',
     entityType: input.entityType,
     entityId: input.entityId,
+    version: input.inbound.version,
     mine: side(input, 'mine'),
     theirs: side(input, 'theirs'),
   };

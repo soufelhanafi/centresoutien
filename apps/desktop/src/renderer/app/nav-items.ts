@@ -53,7 +53,7 @@ export const invoicingModule = { id: 'invoicing', path: '/invoicing', icon: Rece
 export const arrearsModule = { id: 'arrears', path: '/arrears', icon: CircleAlert } as const satisfies NavModule;
 export const paymentsModule = { id: 'payments', path: '/payments', icon: Wallet } as const satisfies NavModule;
 export const payrollModule = { id: 'payroll', path: '/payroll', icon: HandCoins, feature: 'payroll.teacher', requiredTier: 'pro' } as const satisfies NavModule;
-export const syncModule = { id: 'sync', path: '/sync', icon: RefreshCw, feature: 'sync.multi-device', requiredTier: 'premium' } as const satisfies NavModule;
+export const syncModule = { id: 'sync', path: '/sync', icon: RefreshCw, feature: 'sync.multi-device' } as const satisfies NavModule;
 export const settingsModule = { id: 'settings', path: '/settings', icon: Settings } as const satisfies NavModule;
 
 /** Sidebar order. Typed as `NavModule` so iteration reads optional fields uniformly. */

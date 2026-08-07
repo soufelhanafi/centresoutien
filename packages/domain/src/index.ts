@@ -78,6 +78,9 @@ export type {
 export { SyncEngine, MAX_SYNC_ATTEMPTS, CLOCK_SKEW_THRESHOLD_MS } from './sync/sync-engine';
 export type { SyncEngineInput, SyncResult } from './sync/sync-engine';
 export { ChangeResolver } from './sync/resolve-changes';
+export { ResolveConflict } from './use-cases/resolve-conflict';
+export type { ConflictResolution, ResolveConflictInput } from './use-cases/resolve-conflict';
+export { ConflictNotFoundError, ConflictNotPerFieldResolvableError } from './errors/sync-errors';
 export type { LocalSyncRepository, LocalPendingChange, LocalEntityState } from './sync/sync-local-repository';
 
 // Sync hub port (wire types + the swappable seam)
