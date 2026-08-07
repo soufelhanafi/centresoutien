@@ -108,14 +108,13 @@ function seedGroup(
 ): void {
   db.prepare(
     `INSERT INTO groups (id, center_code, device_origin, created_at, updated_at, updated_by,
-       deleted_at, version, subject_id, teacher_id, room_id, level, capacity, kind, active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 20, ?, 1)`,
+       deleted_at, version, subject_id, teacher_id, level, capacity, kind, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 20, ?, 1)`,
   ).run(
     id,
     ...env(over.del ?? null),
     over.subjectId,
     over.teacherId ?? null,
-    ROOM_A,
     over.level ?? '2 Bac SM',
     over.kind ?? 'regular',
   );
@@ -319,6 +318,36 @@ describe('SqliteWeeklyRecurringSessionRepository', () => {
       await repo.save(makeSession({ dayOfWeek: 2 as WeekdayIndex, teacherId: null }));
       const refs = await repo.listRefsForDay(CENTER, 2 as WeekdayIndex);
       expect(refs[0]).not.toHaveProperty('teacherId');
+    });
+  });
+
+  describe('listActiveByGroupId / listActiveByRoomId (SOU-176 seat-fit guard)', () => {
+    const GROUP_A = 'grp_00000000000000000000000002' as GroupId;
+
+    it('lists live sessions of one group, same center, tombstones excluded', async () => {
+      await repo.save(makeSession({ groupId: GROUP_A, dayOfWeek: 2 as WeekdayIndex }));
+      await repo.save(makeSession({ groupId: GROUP_A, dayOfWeek: 4 as WeekdayIndex }));
+      const gone = makeSession({ groupId: GROUP_A, dayOfWeek: 5 as WeekdayIndex });
+      await repo.save(gone);
+      await repo.softDelete(gone.id, AT, USER);
+      await repo.save(makeSession({ groupId: null, dayOfWeek: 3 as WeekdayIndex })); // unbound
+      await repo.save(makeSession({ groupId: GROUP_A, dayOfWeek: 1 as WeekdayIndex, centerCode: OTHER_CENTER }));
+
+      const bound = await repo.listActiveByGroupId(CENTER, GROUP_A);
+      expect(bound.map((s) => s.dayOfWeek)).toEqual([2, 4]);
+    });
+
+    it('lists live sessions of one room, same center, tombstones excluded', async () => {
+      await repo.save(makeSession({ roomId: ROOM_A, dayOfWeek: 2 as WeekdayIndex }));
+      await repo.save(makeSession({ roomId: ROOM_A, dayOfWeek: 4 as WeekdayIndex }));
+      const gone = makeSession({ roomId: ROOM_A, dayOfWeek: 5 as WeekdayIndex });
+      await repo.save(gone);
+      await repo.softDelete(gone.id, AT, USER);
+      await repo.save(makeSession({ roomId: ROOM_B, dayOfWeek: 3 as WeekdayIndex })); // other room
+      await repo.save(makeSession({ roomId: ROOM_A, dayOfWeek: 1 as WeekdayIndex, centerCode: OTHER_CENTER }));
+
+      const booked = await repo.listActiveByRoomId(CENTER, ROOM_A);
+      expect(booked.map((s) => s.dayOfWeek)).toEqual([2, 4]);
     });
   });
 

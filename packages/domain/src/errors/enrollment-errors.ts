@@ -7,10 +7,9 @@ import type { SubjectId } from '../entities/subject';
 /**
  * Thrown when a student is enrolled into a group that has already reached its seat
  * ceiling — the number of **live** enrollments equals `Group.capacity`
- * (SOU-121 runtime seat-full guard). Deliberately distinct from SOU-48's
- * `GroupOverCapacityError`, which guards the *definition-time* ceiling
- * (group capacity ≤ room capacity): different concept, different localized
- * message. The renderer maps the stable `group-full` code and can show `capacity`.
+ * (SOU-121 runtime seat-full guard). Rooms are not attached to groups (SOU-176),
+ * so the ceiling is purely the group's own `capacity`. The renderer maps the
+ * stable `group-full` code and can show `capacity`.
  */
 export class GroupFullError extends DomainError {
   readonly code = 'group-full';

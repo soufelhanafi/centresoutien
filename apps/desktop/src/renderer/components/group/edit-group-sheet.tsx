@@ -11,7 +11,6 @@ import type { GroupFormInput } from './group-form';
 function toFormInput(group: GroupRow): GroupFormInput {
   return {
     subjectId: group.subjectId,
-    roomId: group.roomId,
     teacherId: group.teacherId,
     level: group.level,
     capacity: group.capacity,

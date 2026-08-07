@@ -86,9 +86,11 @@ export { entityKey } from './ports/sync-hub-port';
 
 // Duplicate-matching policy (people-like naturalKey)
 export { normalizeNaturalKey, normalizeNameForMatch } from './policies/natural-key';
-
 // Username case-insensitive matching (SOU-153)
 export { normalizeUsername } from './policies/username-normalization';
+
+// Group seat-capacity fit (SOU-176 — rooms attach at session creation)
+export { assertGroupFitsRoom } from './policies/group-seat-capacity';
 
 // Security-questions answer normalization (SOU-155)
 export { normalizeSecurityAnswer } from './policies/security-answer-normalization';
@@ -162,9 +164,9 @@ export {
 } from './errors/subject-errors';
 export { HolidayNotFoundError } from './errors/holiday-errors';
 export {
-  GroupOverCapacityError,
   GroupSubjectUnavailableError,
   GroupNotFoundError,
+  GroupOverCapacityError,
 } from './errors/group-errors';
 export type { GroupSubjectUnavailableReason } from './errors/group-errors';
 export {

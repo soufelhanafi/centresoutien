@@ -256,10 +256,9 @@ export type SeedSubject = { nameFr: string; nameAr: string; code?: string };
 export type SeedRoom = { name: string; capacity: number };
 export type SeedTeacher = { nameFr: string; nameAr: string; phone: string };
 
-/** One group to seed. `subjectIdx`/`roomIdx`/`teacherIdx` index into the seeded lists. */
+/** One group to seed. `subjectIdx`/`teacherIdx` index into the seeded lists. */
 export type SeedGroup = {
   subjectIdx: number;
-  roomIdx: number;
   teacherIdx?: number;
   level: string;
   capacity: number;
@@ -274,10 +273,12 @@ export type CreatedGroup = { id: string; level: string };
 /**
  * Launch, clear the first-run + auth gates, and seed reference data through the
  * public bridge: the admin, then subjects, rooms, teachers, and groups (in that
- * dependency order — a group needs a live subject/room to exist first). A group
- * with `enrolledCount` gets that many students created with a covering
- * subscription and enrolled, so fill % assertions have real data behind them.
- * Returns the created ids/levels so specs can target rows deterministically.
+ * dependency order — a group needs a live subject to exist first). Rooms are
+ * seeded for the session-based specs that share these fixtures; a group no
+ * longer carries a room (SOU-176). A group with `enrolledCount` gets that many
+ * students created with a covering subscription and enrolled, so fill %
+ * assertions have real data behind them. Returns the created ids/levels so specs
+ * can target rows deterministically.
  */
 export async function boot(
   locale: Locale,
@@ -345,7 +346,7 @@ export async function boot(
   }, opts.teachers ?? []);
 
   const groups = await live.win.evaluate(
-    async ({ seed, subjects, rooms, teachers, subStart, enrollMonth }) => {
+    async ({ seed, subjects, teachers, subStart, enrollMonth }) => {
       const api = (window as unknown as { api: Bridge }).api;
       const formulaId = (n: number): string => `fml_01HW${String(n).padStart(22, '0')}`;
       const out: { id: string; level: string }[] = [];
@@ -357,7 +358,6 @@ export async function boot(
         const created = (await api.invoke('group.create', {
           subjectId: subject.id,
           teacherId: g.teacherIdx === undefined ? null : teachers[g.teacherIdx]!.id,
-          roomId: rooms[g.roomIdx]!.id,
           level: g.level,
           capacity: g.capacity,
           kind,

@@ -8,14 +8,16 @@ import type { WeeklyRecurringSessionRepository } from '../../../src/ports/weekly
 import type { ScheduledSessionRef } from '../../../src/errors/scheduling-errors';
 import type { CenterCode } from '../../../src/value-objects/ids';
 import type { WeekdayIndex } from '../../../src/value-objects/weekday';
+import type { GroupId } from '../../../src/entities/group';
+import type { RoomId } from '../../../src/entities/room';
 import { toMinutes } from '../../../src/value-objects/time-of-day';
 
 /**
  * In-memory {@link WeeklyRecurringSessionRepository} for use-case unit tests.
  * Reuses the shared soft-delete base (tombstone-excluding reads, soft delete, no
- * hard delete) and adds the two scheduling reads, upholding the port's ordering
- * contract — weekday then start time — so the use case never has to re-sort and
- * the fake matches what the SQLite adapter's indexes serve.
+ * hard delete) and adds the scheduling + seat-fit reads, upholding the port's
+ * ordering contract — weekday then start time — so the use case never has to
+ * re-sort and the fake matches what the SQLite adapter's indexes serve.
  */
 export class InMemoryWeeklyRecurringSessionRepository
   extends InMemorySoftDeletableRepository<WeeklyRecurringSessionId, WeeklyRecurringSession>
@@ -35,5 +37,19 @@ export class InMemoryWeeklyRecurringSessionRepository
       .filter((row) => row.dayOfWeek === dayOfWeek)
       .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
       .map(toScheduledSessionRef);
+  }
+
+  async listActiveByGroupId(
+    centerCode: CenterCode,
+    groupId: GroupId,
+  ): Promise<readonly WeeklyRecurringSession[]> {
+    return this.live(centerCode).filter((row) => row.groupId === groupId);
+  }
+
+  async listActiveByRoomId(
+    centerCode: CenterCode,
+    roomId: RoomId,
+  ): Promise<readonly WeeklyRecurringSession[]> {
+    return this.live(centerCode).filter((row) => row.roomId === roomId);
   }
 }

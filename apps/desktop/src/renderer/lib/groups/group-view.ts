@@ -7,7 +7,7 @@ import type { GroupDto } from '../../../shared/ipc/contract';
  * alias of the boundary's `groupViewSchema` (the single source of truth in
  * `shared/ipc/contract`), so the renderer shape can never drift from what the
  * `group.*` channels return. The raw view carries ids only; the enriched
- * {@link GroupRow} adds the resolved display names + fill count.
+ * {@link GroupRow} adds the resolved subject/teacher names + fill count.
  */
 export type GroupView = GroupDto;
 
@@ -23,9 +23,6 @@ export type LocalizedName = { readonly fr: string; readonly ar: string };
 /** A subject the group teaches — the picker option and name source. */
 export type SubjectOption = { readonly id: string; readonly name: LocalizedName };
 
-/** A room the group runs in — the picker option and name source. */
-export type RoomOption = { readonly id: string; readonly name: string };
-
 /** A teacher who may staff the group — the picker option and name source. */
 export type TeacherOption = { readonly id: string; readonly name: LocalizedName };
 
@@ -37,29 +34,26 @@ export type StudentOption = {
 };
 
 /**
- * The option lists the create/edit form needs to render its subject / room /
- * teacher pickers. Loaded once through the gateway so the form never talks to
+ * The option lists the create/edit form needs to render its subject / teacher
+ * pickers. Loaded once through the gateway so the form never talks to
  * `window.api` directly.
  */
 export type GroupFormOptions = {
   readonly subjects: readonly SubjectOption[];
-  readonly rooms: readonly RoomOption[];
   readonly teachers: readonly TeacherOption[];
 };
 
 /**
  * A group enriched for display: the raw {@link GroupView} joined with the
- * resolved subject / room / teacher names and the live `enrolledCount` used to
- * derive the fill %. This is the shape the list and detail render. The real
- * enrichment (names + count) is the SOU-127 read model; until it lands the
- * gateway serves it from the mock.
+ * resolved subject / teacher names and the live `enrolledCount` used to derive
+ * the fill %. This is the shape the list and detail render. The real enrichment
+ * (names + count) is the SOU-127 read model; until it lands the gateway serves
+ * it from the mock.
  */
 export type GroupRow = {
   readonly id: string;
   readonly subjectId: string;
   readonly subjectName: LocalizedName;
-  readonly roomId: string;
-  readonly roomName: string;
   readonly teacherId: string | null;
   readonly teacherName: LocalizedName | null;
   readonly level: string;

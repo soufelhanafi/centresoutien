@@ -46,7 +46,6 @@ function makeGroup(overrides: Partial<Group> = {}): Group {
     ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
     subjectId: SUBJECT_ID,
     teacherId: null,
-    roomId: ROOM_A,
     level: '2ème Bac',
     capacity: 15,
     kind: 'regular',

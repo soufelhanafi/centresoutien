@@ -92,7 +92,6 @@ export function GroupDetailHeader({
       </div>
 
       <div className="flex flex-wrap items-end gap-6 rounded-xl border border-border bg-card p-4">
-        <Meta label={t('groups.detail.meta.room')} value={group.roomName} />
         <Meta label={t('groups.detail.meta.teacher')} value={teacher} />
         <Meta label={t('groups.detail.meta.level')} value={group.level} />
         <div className="flex flex-col gap-1">

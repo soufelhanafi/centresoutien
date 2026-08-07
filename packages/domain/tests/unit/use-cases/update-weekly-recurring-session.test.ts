@@ -6,6 +6,9 @@ import {
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
+import { GroupOverCapacityError } from '../../../src/errors/group-errors';
+import { GroupNotFoundError } from '../../../src/errors/group-errors';
+import { RoomNotFoundError } from '../../../src/errors/room-errors';
 import {
   MalformedSessionTimeError,
   RoomConflictError,
@@ -18,11 +21,15 @@ import type {
   WeeklyRecurringSession,
   WeeklyRecurringSessionId,
 } from '../../../src/entities/weekly-recurring-session';
-import type { RoomId } from '../../../src/entities/room';
+import type { Group, GroupId } from '../../../src/entities/group';
+import type { Room, RoomId } from '../../../src/entities/room';
+import type { SubjectId } from '../../../src/entities/subject';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import { InMemoryWeeklyRecurringSessionRepository } from '../fakes/in-memory-weekly-recurring-session-repository';
 import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-repository';
+import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
+import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
 import { fakeClock } from '../fakes/clock';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
@@ -33,6 +40,33 @@ const EDITOR = 'usr_00000000000000000000000002' as UserId;
 const ROOM = 'rom_00000000000000000000000001' as RoomId;
 const ROOM_B = 'rom_00000000000000000000000002' as RoomId;
 const TEACHER = 'tch_00000000000000000000000001' as EntityId;
+const SUBJECT = 'sub_00000000000000000000000001' as SubjectId;
+const GROUP = 'grp_00000000000000000000000001' as GroupId;
+
+function makeGroup(overrides: Partial<Group> = {}): Group {
+  return {
+    id: GROUP,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
+    subjectId: SUBJECT,
+    teacherId: null,
+    level: '2ème Bac',
+    capacity: 15,
+    kind: 'regular',
+    active: true,
+    ...overrides,
+  };
+}
+
+function makeRoom(overrides: Partial<Room> = {}): Room {
+  return {
+    id: ROOM,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
+    name: 'Salle A',
+    capacity: 20,
+    active: true,
+    ...overrides,
+  };
+}
 
 let seq = 0;
 function seededSession(over: Partial<WeeklyRecurringSession> = {}): WeeklyRecurringSession {
@@ -77,15 +111,21 @@ function editInput(
 
 describe('UpdateWeeklyRecurringSession', () => {
   let sessions: InMemoryWeeklyRecurringSessionRepository;
+  let groups: InMemoryGroupRepository;
+  let rooms: InMemoryRoomRepository;
   let hours: InMemoryCenterHoursRepository;
   let clock: ReturnType<typeof fakeClock>;
   let useCase: UpdateWeeklyRecurringSession;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     sessions = new InMemoryWeeklyRecurringSessionRepository();
+    groups = new InMemoryGroupRepository();
+    rooms = new InMemoryRoomRepository();
     hours = new InMemoryCenterHoursRepository();
+    await groups.save(makeGroup());
+    await rooms.save(makeRoom());
     clock = fakeClock('2026-08-01T12:00:00Z');
-    useCase = new UpdateWeeklyRecurringSession(sessions, hours, clock, new PlanPolicy(PLANS.essentiel));
+    useCase = new UpdateWeeklyRecurringSession(sessions, groups, rooms, hours, clock, new PlanPolicy(PLANS.essentiel));
   });
 
   describe('happy path', () => {
@@ -192,10 +232,56 @@ describe('UpdateWeeklyRecurringSession', () => {
         features: new Set<FeatureFlag>(),
         limits: PLANS.essentiel.limits,
       };
-      useCase = new UpdateWeeklyRecurringSession(sessions, hours, clock, new PlanPolicy(planWithout));
+      useCase = new UpdateWeeklyRecurringSession(sessions, groups, rooms, hours, clock, new PlanPolicy(planWithout));
       await expect(useCase.execute(editInput(existing.id))).rejects.toBeInstanceOf(
         PlanFeatureUnavailableError,
       );
+    });
+  });
+
+  describe('seat-fit gate (SOU-176)', () => {
+    it('accepts binding a group to a room that seats it', async () => {
+      const existing = seededSession();
+      await sessions.save(existing);
+      const updated = await useCase.execute(editInput(existing.id, { groupId: GROUP }));
+      expect(updated.groupId).toBe(GROUP);
+    });
+
+    it('rejects binding a group to a room too small for it', async () => {
+      await groups.save(makeGroup({ capacity: 21 }));
+      const existing = seededSession();
+      await sessions.save(existing);
+      await expect(
+        useCase.execute(editInput(existing.id, { groupId: GROUP })),
+      ).rejects.toBeInstanceOf(GroupOverCapacityError);
+    });
+
+    it('rejects moving a bound group to an undersized room', async () => {
+      const existing = seededSession({ groupId: GROUP });
+      await sessions.save(existing);
+      // Room B has capacity 10 (below the group's 15); ROOM (20) fits.
+      await rooms.save(makeRoom({ id: ROOM_B as RoomId, capacity: 10 }));
+      await expect(
+        useCase.execute(editInput(existing.id, { roomId: ROOM_B, groupId: GROUP })),
+      ).rejects.toBeInstanceOf(GroupOverCapacityError);
+    });
+
+    it('rejects a groupId with no live group', async () => {
+      await groups.clear();
+      const existing = seededSession();
+      await sessions.save(existing);
+      await expect(
+        useCase.execute(editInput(existing.id, { groupId: GROUP })),
+      ).rejects.toBeInstanceOf(GroupNotFoundError);
+    });
+
+    it('rejects a room that belongs to another center', async () => {
+      await rooms.save(makeRoom({ centerCode: OTHER_CENTER }));
+      const existing = seededSession();
+      await sessions.save(existing);
+      await expect(
+        useCase.execute(editInput(existing.id, { groupId: GROUP })),
+      ).rejects.toBeInstanceOf(RoomNotFoundError);
     });
   });
 });

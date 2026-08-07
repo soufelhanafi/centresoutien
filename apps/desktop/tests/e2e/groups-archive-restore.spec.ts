@@ -19,15 +19,14 @@ const SUBJECTS = [
   { nameFr: 'Physique-Chimie', nameAr: 'الفيزياء والكيمياء', code: 'PHYS' },
   { nameFr: 'SVT', nameAr: 'علوم الحياة والأرض', code: 'SVT' },
 ];
-const ROOMS = [{ name: 'Salle 1', capacity: 30 }];
 const GROUPS = [
-  { subjectIdx: 0, roomIdx: 0, level: '1 Bac SE', capacity: 10, kind: 'regular' as const },
-  { subjectIdx: 1, roomIdx: 0, level: '3AC', capacity: 10, kind: 'regular' as const },
+  { subjectIdx: 0, level: '1 Bac SE', capacity: 10, kind: 'regular' as const },
+  { subjectIdx: 1, level: '3AC', capacity: 10, kind: 'regular' as const },
 ];
 
 test('Archive a group then restore it', async () => {
   const L = STR[locale()];
-  live = await boot(locale(), { subjects: SUBJECTS, rooms: ROOMS, groups: GROUPS });
+  live = await boot(locale(), { subjects: SUBJECTS, groups: GROUPS });
   const win = live.win;
   await gotoGroups(win, L);
 

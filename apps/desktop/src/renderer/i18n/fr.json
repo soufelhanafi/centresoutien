@@ -164,6 +164,7 @@
     "room-conflict": "La salle est déjà occupée sur ce créneau",
     "teacher-conflict": "L'enseignant a déjà une séance sur ce créneau",
     "invalid-session-validity-range": "La période de validité de la séance est invalide",
+    "group-over-capacity": "Ce groupe compte plus d'élèves que la capacité de cette salle",
     "weekly-recurring-session-not-found": "Cette séance n'existe plus",
     "session-not-found": "Cette séance est introuvable",
     "invalid-code": "Code invalide (majuscules, chiffres, - et _ uniquement)",
@@ -218,7 +219,6 @@
       "subject": "Matière",
       "level": "Niveau",
       "teacher": "Enseignant",
-      "room": "Salle",
       "fill": "Remplissage",
       "actions": "Actions",
       "unassigned": "Non affecté"
@@ -268,12 +268,10 @@
     "form": {
       "createTitle": "Nouveau groupe",
       "editTitle": "Modifier le groupe",
-      "createDescription": "Renseignez la matière, la salle et la capacité du groupe.",
+      "createDescription": "Renseignez la matière, l'enseignant et la capacité du groupe.",
       "editDescription": "Mettez à jour les informations du groupe.",
       "subject": "Matière",
       "subjectPlaceholder": "Choisir une matière",
-      "room": "Salle",
-      "roomPlaceholder": "Choisir une salle",
       "teacher": "Enseignant",
       "teacherPlaceholder": "Choisir un enseignant",
       "teacherNone": "Non affecté",
@@ -297,7 +295,6 @@
       "notFoundBody": "Ce groupe n'existe pas ou a été archivé.",
       "loadError": "Le chargement du groupe a échoué.",
       "meta": {
-        "room": "Salle",
         "teacher": "Enseignant",
         "level": "Niveau",
         "capacity": "Capacité"

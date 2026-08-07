@@ -10,7 +10,6 @@ import type { Payment, PaymentId } from '../../../src/entities/payment';
 import type { SubjectId } from '../../../src/entities/subject';
 import type { StudentId } from '../../../src/entities/student';
 import type { TeacherId } from '../../../src/entities/teacher';
-import type { RoomId } from '../../../src/entities/room';
 import type { EntityId, CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryInvoiceRepository } from '../fakes/in-memory-invoice-repository';
 import { InMemoryPaymentRepository } from '../fakes/in-memory-payment-repository';
@@ -30,7 +29,6 @@ const MATH = 'sub_00000000000000000000000001' as SubjectId;
 const PHYSICS = 'sub_00000000000000000000000002' as SubjectId;
 const TEACHER_MATH = 'tch_00000000000000000000000001' as TeacherId;
 const TEACHER_PHYSICS = 'tch_00000000000000000000000002' as TeacherId;
-const ROOM = 'rom_00000000000000000000000001' as RoomId;
 const STUDENT = 'stu_00000000000000000000000001' as StudentId;
 
 const ids = fakeIds(1);
@@ -58,7 +56,6 @@ describe('MonthlyFeeAttributionService', () => {
     const group: Group = {
       id: (overrides.id ?? (ids.next('grp') as GroupId)) as GroupId,
       ...envelope(),
-      roomId: ROOM,
       level: 'college',
       capacity: 20,
       kind: 'regular',
@@ -361,7 +358,6 @@ describe('MonthlyFeeAttributionService.attributedAmountsByTeacherAndSubject', ()
     const group: Group = {
       id: (overrides.id ?? (ids.next('grp') as GroupId)) as GroupId,
       ...envelope(),
-      roomId: ROOM,
       level: 'college',
       capacity: 20,
       kind: 'regular',

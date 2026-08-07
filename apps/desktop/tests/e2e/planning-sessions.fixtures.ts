@@ -119,6 +119,7 @@ export const STR: Record<
       outsideHours: "La séance est en dehors des horaires d'ouverture du centre",
       roomConflict: 'La salle est déjà occupée sur ce créneau',
       teacherConflict: "L'enseignant a déjà une séance sur ce créneau",
+      seatCapacity: "Ce groupe compte plus d'élèves que la capacité de cette salle",
     },
   },
   ar: {
@@ -158,6 +159,7 @@ export const STR: Record<
       outsideHours: 'الحصة خارج أوقات عمل المركز',
       roomConflict: 'القاعة محجوزة بالفعل في هذا التوقيت',
       teacherConflict: 'لدى الأستاذ حصة بالفعل في هذا التوقيت',
+      seatCapacity: 'يتجاوز عدد تلاميذ هذه المجموعة سعة هذه القاعة',
     },
   },
 };
@@ -185,7 +187,7 @@ export type SeededGroup = { id: string; level: string };
 export type SeedSpec = {
   rooms?: { name: string; capacity?: number }[];
   teachers?: { nameFr: string; nameAr: string; phone: string }[];
-  /** Groups need a subject + room + teacher; the fixture wires those internally. */
+  /** Groups need a subject + teacher; the fixture wires those internally. A group carries no room (SOU-176). */
   groups?: { level: string; capacity?: number; kind?: 'regular' | 'exam-prep' }[];
 };
 
@@ -232,18 +234,16 @@ export async function boot(locale: Locale, seed: SeedSpec = {}, plan: PlanId = '
 
     const groups: { id: string; level: string }[] = [];
     if ((s.groups ?? []).length > 0) {
-      // A group requires a subject; create one and reuse a room/teacher.
+      // A group requires a subject; create one and reuse a teacher. A group carries no room (SOU-176).
       const subj = (await api.invoke('subject.create', {
         name: { fr: 'Mathématiques', ar: 'الرياضيات' },
         code: 'MATH',
       })) as { id: string };
-      const roomId = rooms[0]?.id;
       const teacherId = teachers[0]?.id;
       for (const g of s.groups ?? []) {
         const res = (await api.invoke('group.create', {
           subjectId: subj.id,
           teacherId: teacherId ?? null,
-          roomId,
           level: g.level,
           capacity: g.capacity ?? 15,
           kind: g.kind ?? 'regular',

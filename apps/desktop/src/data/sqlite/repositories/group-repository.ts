@@ -9,7 +9,6 @@ import type {
   DeviceId,
   EntityId,
   SubjectId,
-  RoomId,
   UserId,
 } from '@centresoutien/domain';
 
@@ -25,7 +24,6 @@ type GroupRow = {
   version: number;
   subject_id: string;
   teacher_id: string | null;
-  room_id: string;
   level: string;
   capacity: number;
   kind: string;
@@ -44,7 +42,6 @@ function fromRow(row: GroupRow): Group {
     version: row.version,
     subjectId: row.subject_id as SubjectId,
     teacherId: row.teacher_id === null ? null : (row.teacher_id as EntityId),
-    roomId: row.room_id as RoomId,
     level: row.level,
     capacity: row.capacity,
     kind: row.kind as GroupKind,
@@ -55,10 +52,10 @@ function fromRow(row: GroupRow): Group {
 const SAVE_SQL = `
   INSERT INTO groups
     (id, center_code, device_origin, created_at, updated_at, updated_by,
-     deleted_at, version, subject_id, teacher_id, room_id, level, capacity, kind, active)
+     deleted_at, version, subject_id, teacher_id, level, capacity, kind, active)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
-     @deleted_at, @version, @subject_id, @teacher_id, @room_id, @level, @capacity, @kind, @active)
+     @deleted_at, @version, @subject_id, @teacher_id, @level, @capacity, @kind, @active)
   ON CONFLICT(id) DO UPDATE SET
     updated_at = excluded.updated_at,
     updated_by = excluded.updated_by,
@@ -66,7 +63,6 @@ const SAVE_SQL = `
     version    = excluded.version,
     subject_id = excluded.subject_id,
     teacher_id = excluded.teacher_id,
-    room_id    = excluded.room_id,
     level      = excluded.level,
     capacity   = excluded.capacity,
     kind       = excluded.kind,
@@ -99,7 +95,6 @@ export class SqliteGroupRepository implements GroupRepository, SubjectReferenceP
       version: group.version,
       subject_id: group.subjectId,
       teacher_id: group.teacherId,
-      room_id: group.roomId,
       level: group.level,
       capacity: group.capacity,
       kind: group.kind,

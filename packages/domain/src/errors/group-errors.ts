@@ -4,25 +4,26 @@ import type { SubjectId } from '../entities/subject';
 import type { GroupId } from '../entities/group';
 
 /**
- * Thrown when a group's requested `capacity` exceeds the seat capacity of the room
- * it is scheduled into — you cannot seat more students than the room holds
- * (SOU-48 core invariant). The `CreateGroup` use case reads the room and rejects
- * with this before persisting; the renderer maps the stable `group-over-capacity`
- * code to a localized message and can show both numbers.
- *
- * This guards the ceiling at *definition* time. Blocking the Nth enrollment
- * against a live seat count is the Enrollment issue's job, not this one.
+ * Thrown when a group is bound to a room that cannot seat it: a weekly recurring
+ * session links `groupId` to `roomId` whose capacity is below the group's seat
+ * ceiling. Since SOU-176, rooms attach at session creation, so this invariant
+ * lives at the session seam — the `CreateWeeklyRecurringSession` /
+ * `UpdateWeeklyRecurringSession` gates fire it, and the capacity-edit guards on
+ * `UpdateGroup` (raising capacity) and `UpdateRoom` (lowering capacity) re-check
+ * existing bindings so the invariant holds at rest. The renderer resolves the
+ * stable `group-over-capacity` code via `t(\`errors.${code}\`)`.
  */
 export class GroupOverCapacityError extends DomainError {
   readonly code = 'group-over-capacity';
 
   constructor(
+    readonly groupId: GroupId,
+    readonly groupCapacity: number,
     readonly roomId: RoomId,
-    readonly capacity: number,
     readonly roomCapacity: number,
   ) {
     super(
-      `Group capacity ${capacity} exceeds room "${roomId}" capacity ${roomCapacity}.`,
+      `Group "${groupId}" capacity ${groupCapacity} exceeds room "${roomId}" capacity ${roomCapacity}.`,
     );
   }
 }

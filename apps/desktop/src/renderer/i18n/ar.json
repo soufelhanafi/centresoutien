@@ -164,6 +164,7 @@
     "room-conflict": "القاعة محجوزة بالفعل في هذا التوقيت",
     "teacher-conflict": "لدى الأستاذ حصة بالفعل في هذا التوقيت",
     "invalid-session-validity-range": "فترة صلاحية الحصة غير صالحة",
+    "group-over-capacity": "يتجاوز عدد تلاميذ هذه المجموعة سعة هذه القاعة",
     "weekly-recurring-session-not-found": "لم تعد هذه الحصة موجودة",
     "session-not-found": "هذه الحصة غير موجودة",
     "invalid-code": "رمز غير صالح (أحرف كبيرة وأرقام و- و_ فقط)",
@@ -218,7 +219,6 @@
       "subject": "المادة",
       "level": "المستوى",
       "teacher": "الأستاذ",
-      "room": "القاعة",
       "fill": "نسبة الامتلاء",
       "actions": "الإجراءات",
       "unassigned": "غير مُسند"
@@ -268,12 +268,10 @@
     "form": {
       "createTitle": "مجموعة جديدة",
       "editTitle": "تعديل المجموعة",
-      "createDescription": "أدخل المادة والقاعة وسعة المجموعة.",
+      "createDescription": "أدخل المادة والأستاذ وسعة المجموعة.",
       "editDescription": "حدّث معلومات المجموعة.",
       "subject": "المادة",
       "subjectPlaceholder": "اختر مادة",
-      "room": "القاعة",
-      "roomPlaceholder": "اختر قاعة",
       "teacher": "الأستاذ",
       "teacherPlaceholder": "اختر أستاذًا",
       "teacherNone": "غير مُسند",
@@ -297,7 +295,6 @@
       "notFoundBody": "هذه المجموعة غير موجودة أو تمت أرشفتها.",
       "loadError": "فشل تحميل المجموعة.",
       "meta": {
-        "room": "القاعة",
         "teacher": "الأستاذ",
         "level": "المستوى",
         "capacity": "السعة"

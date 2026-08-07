@@ -6,6 +6,9 @@ import {
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
+import { GroupOverCapacityError } from '../../../src/errors/group-errors';
+import { GroupNotFoundError } from '../../../src/errors/group-errors';
+import { RoomNotFoundError } from '../../../src/errors/room-errors';
 import {
   MalformedSessionTimeError,
   RoomConflictError,
@@ -18,21 +21,28 @@ import type {
   WeeklyRecurringSession,
   WeeklyRecurringSessionId,
 } from '../../../src/entities/weekly-recurring-session';
-import type { RoomId } from '../../../src/entities/room';
+import type { Group, GroupId } from '../../../src/entities/group';
+import type { Room, RoomId } from '../../../src/entities/room';
+import type { SubjectId } from '../../../src/entities/subject';
 import type { CenterHours, CenterHoursId } from '../../../src/entities/center-hours';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import type { WeekdayIndex } from '../../../src/value-objects/weekday';
 import { InMemoryWeeklyRecurringSessionRepository } from '../fakes/in-memory-weekly-recurring-session-repository';
 import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-repository';
+import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
+import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
+const OTHER_CENTER = 'CS-RABAT-002' as CenterCode;
 const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
 const USER = 'usr_00000000000000000000000001' as UserId;
 const ROOM = 'rom_00000000000000000000000001' as RoomId;
 const TEACHER = 'tch_00000000000000000000000001' as EntityId;
+const SUBJECT = 'sub_00000000000000000000000001' as SubjectId;
+const GROUP = 'grp_00000000000000000000000001' as GroupId;
 
 function validInput(
   overrides: Partial<CreateWeeklyRecurringSessionInput> = {},
@@ -50,6 +60,31 @@ function validInput(
     centerCode: CENTER,
     deviceOrigin: DEVICE,
     updatedBy: USER,
+    ...overrides,
+  };
+}
+
+function makeGroup(overrides: Partial<Group> = {}): Group {
+  return {
+    id: GROUP,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
+    subjectId: SUBJECT,
+    teacherId: null,
+    level: '2ème Bac',
+    capacity: 15,
+    kind: 'regular',
+    active: true,
+    ...overrides,
+  };
+}
+
+function makeRoom(overrides: Partial<Room> = {}): Room {
+  return {
+    id: ROOM,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
+    name: 'Salle A',
+    capacity: 20,
+    active: true,
     ...overrides,
   };
 }
@@ -86,14 +121,22 @@ function seededHours(dayOfWeek: WeekdayIndex, open: string | null, close: string
 
 describe('CreateWeeklyRecurringSession', () => {
   let sessions: InMemoryWeeklyRecurringSessionRepository;
+  let groups: InMemoryGroupRepository;
+  let rooms: InMemoryRoomRepository;
   let hours: InMemoryCenterHoursRepository;
   let useCase: CreateWeeklyRecurringSession;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     sessions = new InMemoryWeeklyRecurringSessionRepository();
+    groups = new InMemoryGroupRepository();
+    rooms = new InMemoryRoomRepository();
     hours = new InMemoryCenterHoursRepository();
+    await groups.save(makeGroup());
+    await rooms.save(makeRoom());
     useCase = new CreateWeeklyRecurringSession(
       sessions,
+      groups,
+      rooms,
       hours,
       fakeClock('2026-07-29T10:00:00Z'),
       fakeIds(),
@@ -134,13 +177,13 @@ describe('CreateWeeklyRecurringSession', () => {
       const session = await useCase.execute(
         validInput({
           teacherId: TEACHER,
-          groupId: 'grp_00000000000000000000000001',
+          groupId: GROUP,
           validFrom: '2026-09-01',
           validTo: '2027-06-30',
         }),
       );
       expect(session.teacherId).toBe(TEACHER);
-      expect(session.groupId).toBe('grp_00000000000000000000000001');
+      expect(session.groupId).toBe(GROUP);
       expect(session.validFrom).toBe('2026-09-01');
       expect(session.validTo).toBe('2027-06-30');
     });
@@ -163,6 +206,8 @@ describe('CreateWeeklyRecurringSession', () => {
       };
       useCase = new CreateWeeklyRecurringSession(
         sessions,
+        groups,
+        rooms,
         hours,
         fakeClock(),
         fakeIds(),
@@ -258,6 +303,53 @@ describe('CreateWeeklyRecurringSession', () => {
       await expect(
         useCase.execute(validInput({ dayOfWeek: 9 as WeekdayIndex })),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('seat-fit gate (SOU-176)', () => {
+    it('accepts a group whose capacity is exactly the room capacity', async () => {
+      await groups.save(makeGroup({ capacity: 20 }));
+      const session = await useCase.execute(validInput({ groupId: GROUP }));
+      expect(session.groupId).toBe(GROUP);
+    });
+
+    it('rejects a group whose capacity exceeds the room capacity', async () => {
+      await groups.save(makeGroup({ capacity: 21 }));
+      await expect(
+        useCase.execute(validInput({ groupId: GROUP })),
+      ).rejects.toBeInstanceOf(GroupOverCapacityError);
+      expect(sessions.all()).toHaveLength(0);
+    });
+
+    it('rejects a groupId with no live group (unknown or archived)', async () => {
+      await groups.save(makeGroup());
+      await groups.softDelete(GROUP, new Date('2026-07-28T00:00:00Z'), USER);
+      await expect(
+        useCase.execute(validInput({ groupId: GROUP })),
+      ).rejects.toBeInstanceOf(GroupNotFoundError);
+      expect(sessions.all()).toHaveLength(0);
+    });
+
+    it('rejects a group that belongs to another center (tenant scoping)', async () => {
+      await groups.save(makeGroup({ centerCode: OTHER_CENTER }));
+      await expect(
+        useCase.execute(validInput({ groupId: GROUP })),
+      ).rejects.toBeInstanceOf(GroupNotFoundError);
+      expect(sessions.all()).toHaveLength(0);
+    });
+
+    it('rejects a room that belongs to another center (tenant scoping)', async () => {
+      await rooms.save(makeRoom({ centerCode: OTHER_CENTER }));
+      await expect(
+        useCase.execute(validInput({ groupId: GROUP })),
+      ).rejects.toBeInstanceOf(RoomNotFoundError);
+      expect(sessions.all()).toHaveLength(0);
+    });
+
+    it('does not require a live room when no group is bound', async () => {
+      await rooms.clear();
+      const session = await useCase.execute(validInput());
+      expect(session.roomId).toBe(ROOM);
     });
   });
 });

@@ -7,7 +7,6 @@ import { GroupNotFoundError } from '../../../src/errors/group-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Group, GroupId } from '../../../src/entities/group';
 import type { SubjectId } from '../../../src/entities/subject';
-import type { RoomId } from '../../../src/entities/room';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
 import { fakeClock } from '../fakes/clock';
@@ -18,7 +17,6 @@ const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
 const USER = 'usr_00000000000000000000000001' as UserId;
 const GROUP_ID = 'grp_00000000000000000000000001' as GroupId;
 const SUBJECT_ID = 'sub_00000000000000000000000001' as SubjectId;
-const ROOM_ID = 'rom_00000000000000000000000001' as RoomId;
 
 function seededGroup(): Group {
   return {
@@ -29,7 +27,6 @@ function seededGroup(): Group {
     ),
     subjectId: SUBJECT_ID,
     teacherId: null,
-    roomId: ROOM_ID,
     level: '2ème Bac',
     capacity: 15,
     kind: 'regular',

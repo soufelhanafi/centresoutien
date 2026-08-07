@@ -6,6 +6,8 @@ import type {
 import type { ScheduledSessionRef } from '../errors/scheduling-errors';
 import type { CenterCode } from '../value-objects/ids';
 import type { WeekdayIndex } from '../value-objects/weekday';
+import type { GroupId } from '../entities/group';
+import type { RoomId } from '../entities/room';
 
 /**
  * Persistence port for weekly recurring sessions. Extends the soft-deletable
@@ -37,4 +39,16 @@ export interface WeeklyRecurringSessionRepository
     centerCode: CenterCode,
     dayOfWeek: WeekdayIndex,
   ): Promise<readonly ScheduledSessionRef[]>;
+  /**
+   * Active sessions bound to one group (SOU-176 seat-fit guard): the
+   * `UpdateGroup` capacity-increase check reads these to re-verify each booked
+   * room still seats the new ceiling. Same center, tombstones excluded.
+   */
+  listActiveByGroupId(centerCode: CenterCode, groupId: GroupId): Promise<readonly WeeklyRecurringSession[]>;
+  /**
+   * Active sessions booked into one room (SOU-176 seat-fit guard): the
+   * `UpdateRoom` capacity-decrease check reads these to re-verify every bound
+   * group still fits the new capacity. Same center, tombstones excluded.
+   */
+  listActiveByRoomId(centerCode: CenterCode, roomId: RoomId): Promise<readonly WeeklyRecurringSession[]>;
 }
