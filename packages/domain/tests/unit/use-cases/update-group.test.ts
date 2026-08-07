@@ -5,14 +5,24 @@ import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
 import {
   GroupNotFoundError,
+  GroupOverCapacityError,
   GroupSubjectUnavailableError,
 } from '../../../src/errors/group-errors';
+import { RoomNotFoundError } from '../../../src/errors/room-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Group, GroupId } from '../../../src/entities/group';
 import type { Subject, SubjectId } from '../../../src/entities/subject';
+import type { Room, RoomId } from '../../../src/entities/room';
+import type {
+  WeeklyRecurringSession,
+  WeeklyRecurringSessionId,
+} from '../../../src/entities/weekly-recurring-session';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
+import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
 import { InMemorySubjectRepository } from '../fakes/in-memory-subject-repository';
+import { InMemoryWeeklyRecurringSessionRepository } from '../fakes/in-memory-weekly-recurring-session-repository';
+import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
 import { fakeClock } from '../fakes/clock';
 import { planWithoutFeature } from '../fakes/plans';
 
@@ -23,6 +33,7 @@ const USER = 'usr_00000000000000000000000001' as UserId;
 const EDITOR = 'usr_00000000000000000000000002' as UserId;
 const GROUP_ID = 'grp_00000000000000000000000001' as GroupId;
 const SUBJECT_ID = 'sub_00000000000000000000000001' as SubjectId;
+const ROOM_ID = 'rom_00000000000000000000000001' as RoomId;
 
 const envelopeClock = fakeClock('2026-07-29T10:00:00Z');
 
@@ -50,6 +61,34 @@ function makeSubject(overrides: Partial<Subject> = {}): Subject {
   };
 }
 
+function makeRoom(overrides: Partial<Room> = {}): Room {
+  return {
+    id: ROOM_ID,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
+    name: 'Salle A',
+    capacity: 20,
+    active: true,
+    ...overrides,
+  };
+}
+
+function bookedSession(overrides: Partial<WeeklyRecurringSession> = {}): WeeklyRecurringSession {
+  return {
+    id: 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
+    roomId: ROOM_ID,
+    teacherId: null,
+    groupId: GROUP_ID,
+    dayOfWeek: 1,
+    start: '09:00' as TimeOfDay,
+    end: '10:30' as TimeOfDay,
+    active: true,
+    validFrom: null,
+    validTo: null,
+    ...overrides,
+  };
+}
+
 function validInput(overrides: Partial<UpdateGroupInput> = {}): UpdateGroupInput {
   return {
     id: GROUP_ID,
@@ -67,11 +106,15 @@ function validInput(overrides: Partial<UpdateGroupInput> = {}): UpdateGroupInput
 describe('UpdateGroup', () => {
   let groups: InMemoryGroupRepository;
   let subjects: InMemorySubjectRepository;
+  let sessions: InMemoryWeeklyRecurringSessionRepository;
+  let rooms: InMemoryRoomRepository;
 
   function build(plan: Plan = PLANS.pro): UpdateGroup {
     return new UpdateGroup(
       groups,
       subjects,
+      sessions,
+      rooms,
       fakeClock('2026-07-30T09:00:00Z'),
       new PlanPolicy(plan),
     );
@@ -80,6 +123,8 @@ describe('UpdateGroup', () => {
   beforeEach(async () => {
     groups = new InMemoryGroupRepository();
     subjects = new InMemorySubjectRepository();
+    sessions = new InMemoryWeeklyRecurringSessionRepository();
+    rooms = new InMemoryRoomRepository();
     await groups.save(seededGroup());
     await subjects.save(makeSubject());
   });
@@ -182,6 +227,43 @@ describe('UpdateGroup', () => {
       };
       await expect(build(planWithout).execute(validInput())).rejects.toBeInstanceOf(
         PlanFeatureUnavailableError,
+      );
+    });
+  });
+
+  describe('seat-fit guard on capacity raise (SOU-176)', () => {
+    it('allows raising capacity when every booked room still seats the new ceiling', async () => {
+      await rooms.save(makeRoom());
+      await sessions.save(bookedSession());
+      const updated = await build().execute(validInput({ capacity: 18 }));
+      expect(updated.capacity).toBe(18);
+    });
+
+    it('rejects raising capacity beyond a booked room capacity', async () => {
+      await rooms.save(makeRoom());
+      await sessions.save(bookedSession());
+      await expect(build().execute(validInput({ capacity: 21 }))).rejects.toBeInstanceOf(
+        GroupOverCapacityError,
+      );
+      expect((await groups.findById(GROUP_ID))?.capacity).toBe(15);
+    });
+
+    it('allows raising capacity when the group is bound to no session', async () => {
+      const updated = await build().execute(validInput({ capacity: 25 }));
+      expect(updated.capacity).toBe(25);
+    });
+
+    it('does not check seat-fit on a capacity decrease', async () => {
+      await rooms.save(makeRoom());
+      await sessions.save(bookedSession());
+      const updated = await build().execute(validInput({ capacity: 5 }));
+      expect(updated.capacity).toBe(5);
+    });
+
+    it('rejects when a booked room row is missing (stale room reference)', async () => {
+      await sessions.save(bookedSession());
+      await expect(build().execute(validInput({ capacity: 16 }))).rejects.toBeInstanceOf(
+        RoomNotFoundError,
       );
     });
   });

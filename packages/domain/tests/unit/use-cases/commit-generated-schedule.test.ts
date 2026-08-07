@@ -15,11 +15,12 @@ import { RoomConflictError } from '../../../src/errors/scheduling-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Group, GroupId } from '../../../src/entities/group';
 import type { SubjectId } from '../../../src/entities/subject';
-import type { RoomId } from '../../../src/entities/room';
+import type { Room, RoomId } from '../../../src/entities/room';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
 import type { WeekdayIndex } from '../../../src/value-objects/weekday';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
+import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
 import { InMemoryWeeklyRecurringSessionRepository } from '../fakes/in-memory-weekly-recurring-session-repository';
 import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-repository';
 import { InMemorySessionRepository } from '../fakes/in-memory-session-repository';
@@ -57,6 +58,17 @@ function makeGroup(overrides: Partial<Group> = {}): Group {
   };
 }
 
+function makeRoom(id: RoomId, overrides: Partial<Room> = {}): Room {
+  return {
+    id,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
+    name: 'Salle',
+    capacity: 30,
+    active: true,
+    ...overrides,
+  };
+}
+
 function proposal(groupId: GroupId, blocks: GroupScheduleProposal['blocks']): GroupScheduleProposal {
   return { groupId, blocks, gapViolations: [] };
 }
@@ -67,6 +79,7 @@ function block(dayOfWeek: WeekdayIndex, start: string, end: string, roomId: Room
 
 describe('CommitGeneratedSchedule', () => {
   let groups: InMemoryGroupRepository;
+  let rooms: InMemoryRoomRepository;
   let recurrences: InMemoryWeeklyRecurringSessionRepository;
   let centerHoursRepo: InMemoryCenterHoursRepository;
   let concreteSessions: InMemorySessionRepository;
@@ -77,7 +90,15 @@ describe('CommitGeneratedSchedule', () => {
     const clock = fakeClock('2026-08-01T00:00:00Z');
     const ids = fakeIds(seed);
     const policy = new PlanPolicy(plan);
-    const createWeeklySession = new CreateWeeklyRecurringSession(recurrences, centerHoursRepo, clock, ids, policy);
+    const createWeeklySession = new CreateWeeklyRecurringSession(
+      recurrences,
+      groups,
+      rooms,
+      centerHoursRepo,
+      clock,
+      ids,
+      policy,
+    );
     const generateAndPersist = new GenerateAndPersistSessions(
       concreteSessions,
       recurrences,
@@ -100,8 +121,11 @@ describe('CommitGeneratedSchedule', () => {
     };
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     groups = new InMemoryGroupRepository();
+    rooms = new InMemoryRoomRepository();
+    await rooms.save(makeRoom(ROOM_A));
+    await rooms.save(makeRoom(ROOM_B));
     recurrences = new InMemoryWeeklyRecurringSessionRepository();
     centerHoursRepo = new InMemoryCenterHoursRepository();
     concreteSessions = new InMemorySessionRepository();
@@ -219,6 +243,8 @@ describe('CommitGeneratedSchedule', () => {
       await groups.save(group);
       const clashing = new CreateWeeklyRecurringSession(
         recurrences,
+        groups,
+        rooms,
         centerHoursRepo,
         fakeClock('2026-07-01T00:00:00Z'),
         fakeIds(900),

@@ -136,3 +136,29 @@ test('rejects a teacher clash inline', async () => {
   await expectInlineConflict(win, dialog, L, L.errors.teacherConflict);
   expect(await readWeek(win)).toHaveLength(1);
 });
+
+// ---------------------------------------------------------------------------
+// Seat capacity (SOU-176) — binding a group too large for the room is rejected.
+// ---------------------------------------------------------------------------
+test('rejects binding a group that exceeds the room capacity inline', async () => {
+  const L = STR[locale()];
+  live = await boot(locale(), {
+    rooms: [{ name: 'Salle A', capacity: 10 }],
+    groups: [{ level: '2 Bac SM', capacity: 20 }],
+  });
+  const win = live.win;
+  const subjectName = locale() === 'ar' ? 'الرياضيات' : 'Mathématiques';
+  await gotoPlanning(win, L);
+
+  const dialog = await openCreate(win, L);
+  await pickOption(win, dialog, L.form.room, 'Salle A');
+  await dialog.getByRole('combobox', { name: L.form.group }).click();
+  await win.getByRole('option', { name: subjectName, exact: false }).click();
+  await win.getByLabel(L.form.start, { exact: false }).fill('09:00');
+  await win.getByLabel(L.form.end, { exact: false }).fill('10:00');
+  await dialog.getByRole('button', { name: L.form.create }).click();
+
+  await expectInlineConflict(win, dialog, L, L.errors.seatCapacity);
+  // Nothing persisted.
+  expect(await readWeek(win)).toHaveLength(0);
+});
