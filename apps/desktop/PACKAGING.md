@@ -13,8 +13,13 @@ pnpm --filter @centresoutien/desktop dist:mac   # dmg (must run on macOS)
 pnpm --filter @centresoutien/desktop dist:win   # NSIS installer (must run on Windows)
 ```
 
-`predist` rebuilds `better-sqlite3-multiple-ciphers` for the Electron ABI and
-runs `electron-vite build` before electron-builder packages the app.
+Each `dist*` script runs `dist:prepare` first, which rebuilds
+`better-sqlite3-multiple-ciphers` for the Electron ABI and runs
+`electron-vite build` before electron-builder packages the app. This is an
+explicit `pnpm dist:prepare &&` prefix rather than an npm `pre`-hook —
+`predist` only matches the exact script name `dist`, not `dist:mac` /
+`dist:win`, so a `pre`-hook would silently skip the rebuild for platform-
+specific builds.
 
 ### Why each platform must build on its own OS
 
