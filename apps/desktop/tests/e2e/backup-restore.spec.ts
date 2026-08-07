@@ -11,6 +11,7 @@ import {
   freshUserDataDir,
   gotoBackupTab,
   launch,
+  launchWithDbKey,
   listBackupFiles,
   pickDestinationFolder,
   pickRestoreFile,
@@ -124,4 +125,47 @@ test('Scenario 4 — a corrupted backup file fails restore safely with a clear m
   await expect(nameInput).toHaveValue('Centre Live Untouched');
 
   await win.screenshot({ path: `test-results/backup-corrupted-${loc}.png` });
+});
+
+// ---------------------------------------------------------------------------
+// Scenario 5 — SOU-179 wrong-key backup: fail-closed restore
+// ---------------------------------------------------------------------------
+
+test('Scenario 5 — a backup made under a different DB key is rejected with a clear error, the app keeps running, and the live DB is untouched', async () => {
+  const loc = locale();
+  const t = BK[loc];
+  const backupDir = mkdtempSync(join(tmpdir(), 'cs-backup-wrongkey-'));
+
+  // Center A: the backup is created while the app runs under dbKey A.
+  liveA = await launchWithDbKey({ locale: loc, userDataDir: freshUserDataDir(), dbKey: 'qa-key-alpha' });
+  await setupCenter(liveA.win, loc, 'Centre Clé A');
+  const panelA = await gotoBackupTab(liveA.win, loc);
+  await pickDestinationFolder(liveA.app, liveA.win, loc, panelA, backupDir);
+  await backupNow(liveA.win, loc, panelA);
+  const files = listBackupFiles(backupDir);
+  expect(files).toHaveLength(1);
+  const foreignBackupPath = backupFilePath(backupDir, files[0]!);
+  await liveA.app.close();
+  liveA = null;
+
+  // Center B: the restoring instance runs under a DIFFERENT key (dbKey B).
+  liveB = await launchWithDbKey({ locale: loc, userDataDir: freshUserDataDir(), dbKey: 'qa-key-bravo' });
+  await setupCenter(liveB.win, loc, 'Centre Clé B');
+  const panelB = await gotoBackupTab(liveB.win, loc);
+  await pickRestoreFile(liveB.app, liveB.win, loc, panelB, foreignBackupPath);
+  await expect(panelB.getByRole('button', { name: t.restoreBtn, exact: true })).toBeEnabled();
+
+  await confirmRestore(liveB.win, loc, panelB);
+
+  // Fail-closed: a clear wrong-key/center error is shown, the app does NOT
+  // quit (no `waitForAppQuit` — a quit here is a bug), and the live DB still
+  // holds B's own data.
+  await expect(liveB.win.getByText(t.errMismatch)).toBeVisible();
+  expect(await waitForAppQuit(liveB.app, 1500)).toBe(false);
+
+  await liveB.win.getByRole('tab', { name: loc === 'ar' ? 'الملف الشخصي' : 'Profil' }).click();
+  const nameInput = liveB.win.getByLabel(CP[loc].nameLabel, { exact: true });
+  await expect(nameInput).toHaveValue('Centre Clé B');
+
+  await liveB.win.screenshot({ path: `test-results/backup-wrongkey-${loc}.png` });
 });
