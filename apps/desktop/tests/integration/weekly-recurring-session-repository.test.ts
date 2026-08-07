@@ -108,14 +108,13 @@ function seedGroup(
 ): void {
   db.prepare(
     `INSERT INTO groups (id, center_code, device_origin, created_at, updated_at, updated_by,
-       deleted_at, version, subject_id, teacher_id, room_id, level, capacity, kind, active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 20, ?, 1)`,
+       deleted_at, version, subject_id, teacher_id, level, capacity, kind, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 20, ?, 1)`,
   ).run(
     id,
     ...env(over.del ?? null),
     over.subjectId,
     over.teacherId ?? null,
-    ROOM_A,
     over.level ?? '2 Bac SM',
     over.kind ?? 'regular',
   );

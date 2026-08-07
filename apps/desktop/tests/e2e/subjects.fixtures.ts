@@ -201,7 +201,7 @@ export type SeedGroup = { subjectIdx: number; level: string; capacity?: number }
  * public bridge:
  *   - the admin (so the shell renders past the auth gate),
  *   - the given subjects (real rows so the CRUD table has data),
- *   - optionally one room + groups referencing a subject (so `inUseCount > 0`
+ *   - optionally groups referencing a subject (so `inUseCount > 0`
  *     and the delete-blocked modal has a named reference to show).
  *
  * Returns the created subjects (with their real ids) so specs can look them up.
@@ -231,12 +231,10 @@ export async function boot(
         out.push({ id: res.id, nameFr: s.nameFr, nameAr: s.nameAr });
       }
       if (payload.groups.length > 0) {
-        const room = (await api.invoke('room.create', { name: 'Salle A', capacity: 30 })) as { id: string };
         for (const g of payload.groups) {
           await api.invoke('group.create', {
             subjectId: out[g.subjectIdx]!.id,
             teacherId: null,
-            roomId: room.id,
             level: g.level,
             capacity: g.capacity ?? 20,
             kind: 'regular',

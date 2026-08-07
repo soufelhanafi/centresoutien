@@ -208,7 +208,6 @@ export async function seedGroup(
     const group = (await api.invoke('group.create', {
       subjectId: subject.id,
       teacherId: null,
-      roomId: room.id,
       level: o.level,
       capacity: 10,
       kind: 'regular',

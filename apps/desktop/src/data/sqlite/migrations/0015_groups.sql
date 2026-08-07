@@ -1,6 +1,6 @@
 -- 0015_groups.sql
--- What: groups table — a class the center runs (one subject, one room, optional
---       teacher, a level, a seat capacity, a regular/exam-prep track).
+-- What: groups table — a class the center runs (one subject, optional teacher, a
+--       level, a seat capacity, a regular/exam-prep track).
 -- Why:  SOU-120. The Group domain (entity + port + CreateGroup) landed in SOU-48;
 --       this migration + its SQLite adapter give it persistence, mirroring the
 --       SOU-32 (Room domain) → SOU-33 (Room repo) split.
@@ -11,10 +11,11 @@
 -- archiving sets deleted_at; a tombstoned row still syncs. Envelope columns
 -- follow the standard template (order preserved).
 --
--- No FKs (sync-order safe, per 0008/0010): a group can arrive before the room or
--- subject it points at during a pull, so the relationship is enforced in the
--- domain use case, not by the schema. teacher_id stays nullable until SOU-36
--- (Teacher domain) lands; add the FK/brand then.
+-- No FKs (sync-order safe, per 0008/0010): a group can arrive before the subject
+-- it points at during a pull, so the relationship is enforced in the domain use
+-- case, not by the schema. teacher_id stays nullable until SOU-36 (Teacher
+-- domain) lands; add the FK/brand then. Rooms are not attached to a group — they
+-- are chosen at session creation (SOU-176).
 --
 -- Additive-only. No backfill (new table). Logical undo is DROP TABLE groups;
 
@@ -30,7 +31,6 @@ CREATE TABLE groups (
   -- domain fields --
   subject_id    TEXT NOT NULL,                -- ULID with 'sub_' prefix (no FK, sync-order safe)
   teacher_id    TEXT,                         -- ULID 'tch_' prefix; nullable until SOU-36
-  room_id       TEXT NOT NULL,                -- ULID with 'rom_' prefix (no FK, sync-order safe)
   level         TEXT NOT NULL,                -- plain label, e.g. "2ème Bac" (not translated)
   capacity      INTEGER NOT NULL,             -- seat ceiling
   kind          TEXT NOT NULL,                -- 'regular' | 'exam-prep'
@@ -43,5 +43,4 @@ CREATE TABLE groups (
 
 CREATE INDEX ix_groups_updated_at ON groups(updated_at);
 CREATE INDEX ix_groups_center     ON groups(center_code, deleted_at);
-CREATE INDEX ix_groups_room       ON groups(room_id, deleted_at);
 CREATE INDEX ix_groups_subject    ON groups(subject_id, deleted_at);

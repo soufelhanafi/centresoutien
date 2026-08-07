@@ -21,8 +21,8 @@ const SUBJECTS = [
 ];
 const ROOMS = [{ name: 'Salle 1', capacity: 30 }];
 const GROUPS = [
-  { subjectIdx: 0, roomIdx: 0, level: '1 Bac SE', capacity: 10, kind: 'regular' as const },
-  { subjectIdx: 1, roomIdx: 0, level: '3AC', capacity: 10, kind: 'regular' as const },
+  { subjectIdx: 0, level: '1 Bac SE', capacity: 10, kind: 'regular' as const },
+  { subjectIdx: 1, level: '3AC', capacity: 10, kind: 'regular' as const },
 ];
 
 test('Archive a group then restore it', async () => {

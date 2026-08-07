@@ -221,7 +221,6 @@ export async function seedFullMonth(win: Page): Promise<SeededDashboardData> {
       const group = (await api.invoke('group.create', {
         subjectId: subject.id,
         teacherId: null,
-        roomId: room.id,
         level: '3AC',
         capacity: 15,
         kind: 'regular',

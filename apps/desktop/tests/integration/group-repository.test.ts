@@ -10,7 +10,6 @@ import type {
   DeviceId,
   EntityId,
   SubjectId,
-  RoomId,
   UserId,
 } from '@centresoutien/domain';
 import { openDatabase } from '../../src/data/sqlite/db';
@@ -23,7 +22,6 @@ const CENTER = 'CS-CASA-001' as CenterCode;
 const OTHER_CENTER = 'CS-RABAT-001' as CenterCode;
 const USER = 'usr_00000000000000000000000001' as UserId;
 const SUBJECT_ID = 'sub_00000000000000000000000001' as SubjectId;
-const ROOM_ID = 'rom_00000000000000000000000001' as RoomId;
 
 let dir: string;
 let db: DB;
@@ -56,7 +54,6 @@ function makeGroup(over: Partial<Group> = {}): Group {
     version: 0,
     subjectId: SUBJECT_ID,
     teacherId: null,
-    roomId: ROOM_ID,
     level: '2ème Bac',
     capacity: 15,
     kind: 'regular',

@@ -81,7 +81,6 @@ export const SHEET_SQL_A: Readonly<
       ...ENVELOPE_COLUMNS,
       ['subjectId', 'subject_id'],
       ['teacherId', 'teacher_id'],
-      ['roomId', 'room_id'],
       ['level', 'level'],
       ['capacity', 'capacity'],
       ['kind', 'kind'],
