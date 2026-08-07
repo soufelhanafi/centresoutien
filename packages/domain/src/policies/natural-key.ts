@@ -5,25 +5,107 @@ import type { CenterCode } from '../value-objects/ids';
 const COMBINING_MARKS = /\p{Mn}/gu;
 const NON_NAME_CHARS = /[^\p{L}\p{N}\s]/gu; // keep letters + numbers + spacing
 const CONTACT_NOISE = /[\s\-()]/g;
+// A run of Arabic letters — a single "word" for the transliteration dictionary.
+const ARABIC_WORD = /[\u0621-\u064a]+/g;
+// Glue the Moroccan/Arabic definite article onto the following word ("El Amrani"
+// / "Elamrani" / "Al Amrani" → one key), unifying the el-/al- forms. Scoped to a
+// full word + whitespace so a given name like "Ala" is never touched.
+const ARTICLE_FOLD = [/\bel\s+/g, /\bal\s+/g] as const;
+
+/**
+ * Curated Arabic → canonical-Moroccan-French-Latin dictionary for the highest-
+ * frequency given names. This is the deliberate, narrow transliteration seam of
+ * the duplicate matcher: an Arabic name in the table collides with its common
+ * Latin spelling ("محمد" / "Mohamed" / "Mohammed" → `mohamed`), while any Arabic
+ * word NOT in the table is kept verbatim — so distinct or rare names never
+ * over-merge. Word-level, not per-letter: Arabic short vowels are unwritten, so a
+ * generic consonant map would fabricate spellings ("محمد" → "mhmd") and over-merge
+ * Latin pairs like Amine/Amina or Ali/Ala that share a consonant skeleton. The
+ * table is additive; extend it with new names only when their French spelling is
+ * standard enough to be unambiguous.
+ */
+const ARABIC_TO_LATIN_NAME_RAW: Readonly<Record<string, string>> = {
+  'محمد': 'mohamed',
+  'أحمد': 'ahmed',
+  'فاطمة': 'fatima',
+  'خديجة': 'khadija',
+  'يوسف': 'youssef',
+  'ياسين': 'yassine',
+  'سلمى': 'salma',
+  'كريم': 'karim',
+  'حسن': 'hassan',
+  'أمين': 'amine',
+  'أمينة': 'amina',
+};
+
+/**
+ * The lookup map is keyed on the same NFKD + combining-mark-strip + lowercase
+ * form the matcher normalizes names to BEFORE the dictionary runs (M1): a key
+ * like `أحمد` decomposes to `ا` + combining hamza (Mn), the mark strip removes
+ * it, so the live word is `احمد`. Keying the map on that stripped form makes
+ * the composed `أحمد` and the informal hamza-less `احمد` both hit their entry.
+ */
+const ARABIC_TO_LATIN_NAME = new Map(
+  Object.entries(ARABIC_TO_LATIN_NAME_RAW).map(([key, latin]) => [
+    key.normalize('NFKD').replace(COMBINING_MARKS, '').toLowerCase(),
+    latin,
+  ]),
+);
+
+function transliterateArabicWords(name: string): string {
+  return name.replace(ARABIC_WORD, (word) => ARABIC_TO_LATIN_NAME.get(word) ?? word);
+}
+
+/**
+ * Curated canonical-Latin spelling variants, applied AFTER the name is
+ * normalized and transliterated (M2). There is deliberately NO blanket
+ * doubled-consonant fold — `Allami`/`Alami`, `Bennani`/`Benani`, `Allal`/`Alal`
+ * are genuinely distinct Moroccan families and must never merge. Only the
+ * unambiguous transliteration-table spellings get an entry, additive like the
+ * Arabic dictionary; `mohammed → mohamed` preserves the Mohamed/Mohammed/محمد
+ * collision that the table's `محمد` entry already buys.
+ */
+const LATIN_NAME_VARIANTS: Readonly<Record<string, string>> = {
+  mohammed: 'mohamed',
+};
+
+function foldLatinNameVariants(name: string): string {
+  return name
+    .split(/\s+/)
+    .map((token) => LATIN_NAME_VARIANTS[token] ?? token)
+    .join(' ');
+}
 
 /**
  * The name slot of a `naturalKey` / sync match: NFKD-normalized, combining marks
- * stripped, lower-cased, punctuation removed, whitespace collapsed to `-`. Latin
- * and Arabic letters are preserved. It is NOT transliteration and does NOT fold
- * consonants: "Mohamed", "Mohammed", and "محمد" remain DISTINCT keys — only
- * diacritic / case / spacing variants collide. Exported so the sync duplicate
- * matcher runs the *exact* same normalization the write path stamps
- * (`sync-safe-entities`: a matcher that normalizes differently from the saver
- * can never collide).
+ * stripped, lower-cased, punctuation removed, Arabic→Latin transliterated (via
+ * the curated {@link ARABIC_TO_LATIN_NAME} table), the el-/al- article glued, and
+ * the curated canonical-Latin variants folded, so "Mohamed", "Mohammed", and
+ * "محمد" all produce the same key. Distinct names stay distinct — "Fatima" and
+ * "Fatima-Zahra" never collapse, and geminated Moroccan surnames (`Allami` vs
+ * `Alami`, `Bennani` vs `Benani`) are never folded. Exported so the
+ * sync duplicate matcher runs the *exact* same normalization the write path
+ * stamps (`sync-safe-entities`: a matcher that normalizes differently from the
+ * saver can never collide).
+ *
+ * ⚠️ IMMUTABILITY NOTE (SOU-92): existing `naturalKey`s were stamped at creation
+ * with the pre-transliteration normalization and are immutable — renaming a
+ * person never rewrites their key. This function change therefore only affects
+ * FUTURE keys (new records / new sync matches); existing rows are not migrated.
  */
 export function normalizeNameForMatch(fullName: string): string {
-  return fullName
+  let name = fullName
     .normalize('NFKD')
     .replace(COMBINING_MARKS, '')
     .toLowerCase()
-    .replace(NON_NAME_CHARS, '')
-    .trim()
-    .replace(/\s+/g, '-');
+    // A hyphen is a token separator, not a letter: turn it into a space so the
+    // pipeline is idempotent (a key we already hyphenate re-normalizes to itself).
+    .replace(/-/g, ' ')
+    .replace(NON_NAME_CHARS, '');
+  name = transliterateArabicWords(name);
+  for (const fold of ARTICLE_FOLD) name = name.replace(fold, 'el');
+  name = foldLatinNameVariants(name);
+  return name.trim().replace(/\s+/g, '-');
 }
 
 /**

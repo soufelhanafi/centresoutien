@@ -35,4 +35,12 @@ export type Student = EntityEnvelope & {
   school: string | null; // external school the student attends; null when unknown
   notes: string | null; // free-form notes; null when none
   guardianIds: readonly ParentId[]; // links to guardians (Parents); empty until linked
+  /**
+   * Set ONLY on the loser tombstone of a `MergeStudents` (SOU-92): the id of the
+   * surviving record this one was folded into. Absent/null on a never-merged
+   * (live) record, and never set on the winner. Kept on the entity (not a
+   * separate join table) so it rides the change log as one scalar field and the
+   * data layer maps it to a single `merged_into_id` column later.
+   */
+  mergedIntoId?: StudentId | null;
 };

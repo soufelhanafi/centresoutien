@@ -28,4 +28,12 @@ export type Parent = EntityEnvelope & {
   email: string | null;
   relation: GuardianRelation;
   whatsappOptIn: boolean;
+  /**
+   * Set ONLY on the loser tombstone of a `MergeParents` (SOU-92): the id of the
+   * surviving record this one was folded into. Absent/null on a never-merged
+   * (live) record, and never set on the winner. Kept on the entity (not a
+   * separate join table) so it rides the change log as one scalar field and the
+   * data layer maps it to a single `merged_into_id` column later.
+   */
+  mergedIntoId?: ParentId | null;
 };

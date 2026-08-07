@@ -7,7 +7,7 @@ import type { IdGenerator } from '@centresoutien/domain';
  * cheap (CLAUDE.md §5).
  */
 export class UlidIdGenerator implements IdGenerator {
-  next(prefix: string): string {
-    return `${prefix}_${ulid()}`;
+  next<T extends string = string>(prefix: string): T {
+    return `${prefix}_${ulid()}` as T;
   }
 }

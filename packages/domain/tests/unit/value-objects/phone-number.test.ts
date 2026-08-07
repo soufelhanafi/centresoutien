@@ -5,6 +5,7 @@ describe('normalizePhone', () => {
   it.each([
     ['0612345678', '+212612345678'],
     ['06 12 34 56 78', '+212612345678'],
+    ['06 12-34-56-78', '+212612345678'],
     ['0522-000000', '+212522000000'],
     ['+212612345678', '+212612345678'],
     ['00212612345678', '+212612345678'],
@@ -34,5 +35,14 @@ describe('normalizePhone', () => {
       expect(err).toBeInstanceOf(InvalidPhoneNumberError);
       expect((err as InvalidPhoneNumberError).raw).toBe('nope');
     }
+  });
+
+  it('E.164 variants of the same Moroccan number all collide onto one canonical form (SOU-92)', () => {
+    const a = normalizePhone('06 12-34-56-78');
+    const b = normalizePhone('0612345678');
+    const c = normalizePhone('+212612345678');
+    expect(a).toBe('+212612345678');
+    expect(b).toBe('+212612345678');
+    expect(c).toBe('+212612345678');
   });
 });

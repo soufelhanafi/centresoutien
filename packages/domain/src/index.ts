@@ -125,6 +125,7 @@ export {
   NotAuthenticatedError,
 } from './errors/auth-errors';
 export { StudentNotFoundError, StudentVersionConflictError } from './errors/student-errors';
+export { MergeSameEntityError } from './errors/merge-errors';
 export {
   DuplicateParentError,
   ParentNotFoundError,
@@ -400,6 +401,13 @@ export { SESSION_ID_PREFIX, GENERATION_BATCH_ID_PREFIX } from './entities/sessio
 export type { Session, SessionId, GenerationBatchId } from './entities/session';
 export { ATTENDANCE_RECORD_ID_PREFIX, ATTENDANCE_STATUSES } from './entities/attendance-record';
 export type { AttendanceRecord, AttendanceRecordId, AttendanceStatus } from './entities/attendance-record';
+export { MERGE_LOG_ID_PREFIX } from './entities/merge-log';
+export type {
+  MergeLogEntry,
+  MergeLogId,
+  MergeLogEntityType,
+  MergeLogReason,
+} from './entities/merge-log';
 
 // Read models (denormalized, envelope-free — never persisted)
 export type { WeeklySessionView } from './read-models/weekly-session-view';
@@ -485,6 +493,13 @@ export type { BackupImportCounts, BackupImportRowReport, BackupImportPreview, Ba
 export { emptyImportCounts } from './backup/import-reports';
 export { BackupFileReadError, BackupFileWriteError, BackupImportApplyError } from './errors/backup-errors';
 export type { ParentRepository } from './ports/parent-repository';
+export type { MergeLogRepository } from './ports/merge-log-repository';
+export type { MergeParentsUnitOfWork, MergeParentsUnit } from './ports/merge-parents-unit-of-work';
+export type {
+  MergeStudentsUnitOfWork,
+  MergeStudentsUnit,
+  StudentDependents,
+} from './ports/merge-students-unit-of-work';
 export type { RoomRepository } from './ports/room-repository';
 export type { TeacherRepository } from './ports/teacher-repository';
 // Teacher in-use guard — DECLARED CONTRACT ONLY; real adapter lands with Groups
@@ -689,6 +704,21 @@ export { UpdateParent } from './use-cases/update-parent';
 export type { UpdateParentInput } from './use-cases/update-parent';
 export { ArchiveParent } from './use-cases/archive-parent';
 export type { ArchiveParentInput } from './use-cases/archive-parent';
+export { MergeParents } from './use-cases/merge-parents';
+export type { MergeParentsInput } from './use-cases/merge-parents';
+export { MergeStudents } from './use-cases/merge-students';
+export {
+  repointStudentDependents,
+  absorbMissingStudentFields,
+  computeStudentMergeUnit,
+} from './policies/merge-students-policy';
+export type { StudentMergeUnit } from './policies/merge-students-policy';
+export {
+  reconcileOverlappingSubscriptions,
+  buildMergeStudentsNote,
+} from './policies/merge-subscription-reconciliation';
+export type { SubscriptionReconciliation } from './policies/merge-subscription-reconciliation';
+export type { MergeStudentsInput } from './use-cases/merge-students';
 export { ListParentChildren } from './use-cases/list-parent-children';
 export type { ListParentChildrenInput } from './use-cases/list-parent-children';
 export { CreateRoom } from './use-cases/create-room';

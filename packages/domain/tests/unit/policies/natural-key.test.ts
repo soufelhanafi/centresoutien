@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeNaturalKey,
+  normalizeNameForMatch,
   buildStudentNaturalKey,
   buildTeacherNaturalKey,
 } from '../../../src/policies/natural-key';
@@ -25,9 +26,11 @@ describe('normalizeNaturalKey', () => {
     expect(normalizeNaturalKey({ centerCode: CENTER, fullName: "O'Brien", contact: '+212611111111' })).toContain(
       '::obrien::',
     );
+    // Arabic "بناني" is not in the transliteration table, so it survives verbatim
+    // next to the transliterated "محمد" (SOU-92: only known names collide).
     expect(
       normalizeNaturalKey({ centerCode: CENTER, fullName: 'محمد بناني', contact: '+212611111111' }),
-    ).toContain('::محمد-بناني::');
+    ).toContain('::mohamed-بناني::');
   });
 
   it('is scoped by center — the same person in two centers gets distinct keys', () => {
@@ -114,5 +117,87 @@ describe('buildTeacherNaturalKey', () => {
       phone: '+212612345678',
     });
     expect(a).toBe(b);
+  });
+});
+
+describe('normalizeNameForMatch — Arabic↔Latin transliteration (SOU-92)', () => {
+  const pairs = [
+    // The ticket's required collision: Mohamed / Mohammed / محمد are one name.
+    ['Mohamed', 'Mohammed'],
+    ['Mohamed', 'محمد'],
+    ['Mohammed', 'محمد'],
+    // El-/Al- article attached or detached — one family name.
+    ['El Amrani', 'Elamrani'],
+    ['Elamrani', 'al Amrani'],
+    // Known Arabic given names collide with their common French spelling.
+    ['Yassine', 'ياسين'],
+    ['Fatima', 'فاطمة'],
+    ['Khadija', 'خديجة'],
+    ['Karim', 'كريم'],
+  ] as const;
+
+  it.each(pairs)('"%s" and "%s" collapse to the same match key', (a, b) => {
+    expect(normalizeNameForMatch(a)).toBe(normalizeNameForMatch(b));
+  });
+
+  it('Mohamed/Mohammed/محمد all land on the canonical "mohamed" key', () => {
+    expect(normalizeNameForMatch('محمد')).toBe('mohamed');
+    expect(normalizeNameForMatch('Mohammed')).toBe('mohamed');
+  });
+
+  it.each([
+    // Hamza-initial names: U+0623/U+0625 decompose under NFKD to alef + a
+    // combining hamza (Mn), which the mark-strip removes BEFORE the dictionary
+    // lookup. The composed spelling and the informal hamza-less spelling must
+    // both still hit their transliteration entry (M1 regression).
+    ['أحمد', 'ahmed'],
+    ['أمين', 'amine'],
+    ['أمينة', 'amina'],
+  ])('hamza-initial "%s" transliterates to "%s" after NFKD strips the combining hamza', (arabic, latin) => {
+    expect(normalizeNameForMatch(arabic)).toBe(latin);
+  });
+
+  it('hamza-less informal spelling collides with the composed form and with the Latin spelling', () => {
+    expect(normalizeNameForMatch('احمد')).toBe(normalizeNameForMatch('أحمد'));
+    expect(normalizeNameForMatch('احمد')).toBe(normalizeNameForMatch('Ahmed'));
+    expect(normalizeNameForMatch('امين')).toBe(normalizeNameForMatch('أمين'));
+    expect(normalizeNameForMatch('امين')).toBe(normalizeNameForMatch('Amine'));
+  });
+
+  it('is idempotent — running it twice never changes the key', () => {
+    const inputs = ['Mohammed El Amrani', 'محمد العلوي', 'Yassine', 'Fatima-Zahra'];
+    for (const input of inputs) {
+      expect(normalizeNameForMatch(normalizeNameForMatch(input))).toBe(normalizeNameForMatch(input));
+    }
+  });
+
+  it('never over-merges distinct names (the Fatima vs Fatima-Zahra guard)', () => {
+    expect(normalizeNameForMatch('Fatima')).not.toBe(normalizeNameForMatch('Fatima-Zahra'));
+    expect(normalizeNameForMatch('Amine')).not.toBe(normalizeNameForMatch('Amina'));
+    expect(normalizeNameForMatch('Ali')).not.toBe(normalizeNameForMatch('Ala'));
+  });
+
+  it('distinct Moroccan geminated surnames stay distinct (no blanket doubled-consonant fold)', () => {
+    expect(normalizeNameForMatch('Allami')).not.toBe(normalizeNameForMatch('Alami'));
+    expect(normalizeNameForMatch('Bennani')).not.toBe(normalizeNameForMatch('Benani'));
+    expect(normalizeNameForMatch('Allal')).not.toBe(normalizeNameForMatch('Alal'));
+    expect(normalizeNameForMatch('El Allami')).not.toBe(normalizeNameForMatch('El Alami'));
+  });
+
+  it('Mohamed/Mohammed/محمد still collapse onto the canonical "mohamed" key', () => {
+    // The blanket doubled-consonant fold is gone; the curated `mohammed →
+    // mohamed` variant is what keeps this ticket's collision (M2 regression).
+    expect(normalizeNameForMatch('Mohammed')).toBe('mohamed');
+    expect(normalizeNameForMatch('محمد')).toBe('mohamed');
+    expect(normalizeNameForMatch('Mohammed')).toBe(normalizeNameForMatch('Mohamed'));
+  });
+
+  it('keeps the parent phone anchor untouched in the naturalKey (no vowel-stripping of the contact)', () => {
+    const key = normalizeNaturalKey({
+      centerCode: CENTER,
+      fullName: 'Mohammed El Amrani',
+      contact: '+212600000000',
+    });
+    expect(key).toBe('CS-CASA-001::mohamed-elamrani::+212600000000');
   });
 });

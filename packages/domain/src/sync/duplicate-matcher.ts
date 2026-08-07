@@ -18,9 +18,11 @@ import type { DuplicateReason } from './conflicts';
  * The matcher only *detects*: it never writes, never repoints dependents, and
  * never removes a record. Detection keyed on the SAME name normalization the
  * write path stamps (`normalizeNameForMatch`), so diacritic / case / spacing
- * variants collide exactly where the naturalKey would. There is no
- * transliteration or consonant folding: "Mohamed", "Mohammed", and "محمد"
- * remain DISTINCT keys — a shared phone still flags them fuzzy, never exact.
+ * variants AND the curated Arabic→Latin transliterations collide exactly where
+ * the naturalKey would — "محمد", "Mohamed", and "Mohammed" are one key. Unknown
+ * Arabic words (kept verbatim) and distinct-surname geminations (`Allami` vs
+ * `Alami`, `Bennani` vs `Benani`) stay distinct — a shared phone then flags the
+ * pair fuzzy, never exact.
  */
 
 export const PEOPLE_ENTITY_TYPES = ['parents', 'teachers', 'students'] as const;
