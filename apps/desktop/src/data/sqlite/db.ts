@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import Database from 'better-sqlite3-multiple-ciphers';
 import type { Database as DB } from 'better-sqlite3';
@@ -38,4 +39,67 @@ export function openDatabaseAt(file: string, key: string): DB {
 /** Open (or create) the encrypted database for a given center. */
 export function openDatabase({ centreId, key, dir }: OpenOptions): DB {
   return openDatabaseAt(join(dir, centreDbFileName(centreId)), key);
+}
+
+/**
+ * The database could not be opened with its derived key, and none of the
+ * explicitly allowed legacy keys opened it either. Either the file is corrupt
+ * or it was encrypted with a key this machine no longer holds.
+ */
+export class DatabaseKeyMismatchError extends Error {
+  constructor(file: string) {
+    super(`The database at ${file} cannot be opened with this machine's key.`);
+    this.name = 'DatabaseKeyMismatchError';
+  }
+}
+
+/**
+ * Make sure `file` can be opened with `key`, re-encrypting it in place
+ * (`PRAGMA rekey`) when a DB created under a pre-SOU-179 dev key is detected.
+ * `legacyKeys` is an explicit opt-in allowlist (never a silent fallback) — the
+ * caller decides which old keys it trusts; a production startup passes none.
+ *
+ * A missing file is a fresh install: nothing to do — the next `openDatabase`
+ * creates it already keyed. `quick_check` forces a real page walk, the earliest
+ * point SQLCipher can tell "wrong key" from "corrupt".
+ */
+export function ensureDatabaseKeyed(file: string, key: string, legacyKeys: readonly string[] = []): void {
+  if (!existsSync(file)) return;
+  if (opensWith(file, key)) return;
+  for (const legacy of legacyKeys) {
+    if (!opensWith(file, legacy)) continue;
+    rekeyDatabase(file, legacy, key);
+    return;
+  }
+  throw new DatabaseKeyMismatchError(file);
+}
+
+function opensWith(file: string, key: string): boolean {
+  let db: DB | null = null;
+  try {
+    db = new Database(file, { fileMustExist: true }) as unknown as DB;
+    db.pragma(`key = '${key.replace(/'/g, "''")}'`);
+    db.pragma('quick_check');
+    return true;
+  } catch {
+    return false;
+  } finally {
+    db?.close();
+  }
+}
+
+function rekeyDatabase(file: string, oldKey: string, newKey: string): void {
+  let db: DB | null = null;
+  try {
+    db = new Database(file, { fileMustExist: true }) as unknown as DB;
+    db.pragma(`key = '${oldKey.replace(/'/g, "''")}'`);
+    db.pragma('quick_check');
+    // `rekey` rewrites every page; force rollback journal first so a crash
+    // mid-rekey cannot strand the file against an orphaned WAL.
+    db.pragma('journal_mode = DELETE');
+    db.pragma(`rekey = '${newKey.replace(/'/g, "''")}'`);
+    db.pragma('quick_check');
+  } finally {
+    db?.close();
+  }
 }
