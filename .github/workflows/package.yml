@@ -12,6 +12,9 @@ on:
 jobs:
   package:
     strategy:
+      # Each OS artifact is independent — a Windows-only native-module flake
+      # must never cancel the already-succeeding macOS build mid-run.
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
@@ -32,6 +35,15 @@ jobs:
         with:
           node-version-file: .node-version
           cache: pnpm
+
+      # Windows Defender's real-time scan can hold a lock on a freshly-built
+      # native .node binary just long enough for node-gyp's rebuild unlink to
+      # hit EPERM — a well-known node-gyp/electron-rebuild flake on
+      # windows-latest runners. Excluding the workspace avoids the race.
+      - name: Exclude workspace from Windows Defender
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE"
 
       - run: pnpm install --frozen-lockfile
 
