@@ -1,0 +1,48 @@
+name: Package
+
+# Manual only — installers are heavy artifacts and this ticket (SOU-86) ships
+# self-signed dev builds for controlled demo installs, not a public release
+# channel. Each OS builds on its own runner because better-sqlite3-multiple-
+# ciphers and @node-rs/argon2 are native modules: their compiled binaries are
+# only correct for the OS/arch that built them, so a single machine cannot
+# cross-produce a working Windows installer from macOS (see PACKAGING.md).
+on:
+  workflow_dispatch:
+
+jobs:
+  package:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            script: dist:mac
+            artifact: dmg
+          - os: windows-latest
+            script: dist:win
+            artifact: nsis
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.9.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Package (${{ matrix.artifact }})
+        run: pnpm --filter @centresoutien/desktop ${{ matrix.script }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: centre-soutien-${{ matrix.artifact }}
+          path: |
+            apps/desktop/dist/*.dmg
+            apps/desktop/dist/*.exe
+          retention-days: 14
+          if-no-files-found: error
