@@ -47,7 +47,9 @@ if (currentAbi() === target) {
 } else if (target === 'electron') {
   // Compiles from source (no Electron prebuild published). rebuild:native is the
   // single home of the electron-rebuild invocation.
-  execFileSync('pnpm', ['run', 'rebuild:native'], { stdio: 'inherit' });
+  // shell: true — on Windows, pnpm resolves to a pnpm.cmd shim that plain
+  // execFileSync can't spawn (ENOENT); the shell handles that resolution.
+  execFileSync('pnpm', ['run', 'rebuild:native'], { stdio: 'inherit', shell: true });
 } else {
   // Fast: fetches the published Node prebuild (cached), no compiler required.
   const prebuildInstall = require.resolve('prebuild-install/bin.js', { paths: [moduleDir] });
