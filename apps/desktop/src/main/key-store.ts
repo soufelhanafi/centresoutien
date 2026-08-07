@@ -1,5 +1,5 @@
 import { randomBytes, hkdfSync } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { safeStorage } from 'electron';
 
@@ -22,7 +22,17 @@ export const KEY_STORE_FILE_NAME = 'key-store.json';
 /** SQLCipher passphrase used by every pre-SOU-179 build. Never a production key. */
 export const LEGACY_DEV_DB_KEY = 'dev-insecure-key';
 
+/**
+ * Fixed key used by the dedicated E2E build (`--mode e2e`) when no `CS_DB_KEY`
+ * is set, so specs never depend on the host's OS keychain. Dead-code-eliminated
+ * from dev (uses the real keychain) and release (never reads it) builds.
+ */
+export const E2E_FIXED_DB_KEY = 'centre-soutien-e2e-test-key';
+
 const KEY_STORE_VERSION = 1;
+// HKDF salt + info are PERMANENT — every center DB key ever derived depends on
+// them. Changing either orphans every existing DB with no migration path; bump
+// only as part of a coordinated, tested re-key migration, never alone.
 const HKDF_SALT = 'centre-soutien/db-key/v1';
 const HKDF_INFO_PREFIX = 'centre-soutien/db-key/v1:';
 
@@ -94,27 +104,44 @@ export class SafeStorageSecretVault implements SecretVault {
 
   read(): Buffer | null {
     if (!existsSync(this.filePath)) return null;
-    const parsed = JSON.parse(readFileSync(this.filePath, 'utf8')) as KeyStoreFile;
+    let parsed: KeyStoreFile;
+    try {
+      parsed = JSON.parse(readFileSync(this.filePath, 'utf8')) as KeyStoreFile;
+    } catch {
+      // Truncated or non-JSON store — surface, never regenerate (regenerating
+      // would orphan every center DB derived from the old master).
+      throw new KeyStoreCorruptError(this.filePath);
+    }
     if (parsed.v !== KEY_STORE_VERSION || typeof parsed.secret !== 'string') {
       throw new KeyStoreCorruptError(this.filePath);
     }
     const encrypted = Buffer.from(parsed.secret, 'base64');
-    // A secret that cannot be decrypted must not silently regenerate — it would
-    // orphan every center DB derived from the old master. Surface instead.
-    return Buffer.from(safeStorage.decryptString(encrypted), 'base64');
+    let decrypted: Buffer;
+    try {
+      decrypted = Buffer.from(safeStorage.decryptString(encrypted), 'base64');
+    } catch {
+      // The keychain entry is gone or undecryptable (OS reinstall, keychain
+      // wiped or locked) — fail closed into the same startup dialog instead of
+      // an unhandled rejection.
+      throw new KeyStoreCorruptError(this.filePath);
+    }
+    return decrypted;
   }
 
   write(secret: Buffer): void {
     const encrypted = safeStorage.encryptString(secret.toString('base64'));
     mkdirSync(dirname(this.filePath), { recursive: true });
     const payload = JSON.stringify({ v: KEY_STORE_VERSION, secret: encrypted.toString('base64') } satisfies KeyStoreFile);
+    // 0o600 at creation; enforce on write so an existing file with looser perms
+    // (e.g. from a pre-0o600 version or a copy) is tightened back.
     writeFileSync(this.filePath, payload, { mode: 0o600 });
+    chmodSync(this.filePath, 0o600);
   }
 }
 
 export class KeyStoreCorruptError extends Error {
   constructor(filePath: string) {
-    super(`The key store at ${filePath} is unreadable or in an unknown format.`);
+    super(`The key store at ${filePath} is unreadable, in an unknown format, or cannot be decrypted.`);
     this.name = 'KeyStoreCorruptError';
   }
 }

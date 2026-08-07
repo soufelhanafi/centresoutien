@@ -9,8 +9,10 @@ import { createHandlers } from './ipc/handlers';
 import { createMainWindow } from './window';
 import { DATABASE_SCHEMA_AHEAD_MESSAGE, DatabaseSchemaAheadOfAppError } from '../data/sqlite/migration-runner';
 import { centreDbFileName, DatabaseKeyMismatchError, ensureDatabaseKeyed } from '../data/sqlite/db';
+import { hubDbFileName } from '../data/sqlite/hub/hub-store';
 import {
   DATABASE_KEY_MESSAGE,
+  E2E_FIXED_DB_KEY,
   KeyStoreCorruptError,
   KeyStoreUnavailableError,
   KEY_STORE_FILE_NAME,
@@ -106,14 +108,23 @@ app.whenReady().then(() => {
     const centreId = process.env['CS_CENTRE'] ?? 'local';
     // SOU-179: `CS_DB_KEY` is a dev/e2e-only override (same gate as `CS_PLAN`
     // and the `__CS_E2E__` license seam) — a release build never reads it, so
-    // no code path can open a center DB with the legacy placeholder key.
-    const devOrE2eKey = import.meta.env.DEV || __CS_E2E__ ? process.env['CS_DB_KEY'] : undefined;
+    // no code path can open a center DB with the legacy placeholder key. The
+    // E2E build defaults to a fixed key so specs never touch the host keychain;
+    // dev (override unset) derives from the real keychain like production.
+    const devOrE2eKey =
+      import.meta.env.DEV || __CS_E2E__
+        ? (process.env['CS_DB_KEY'] ?? (__CS_E2E__ ? E2E_FIXED_DB_KEY : undefined))
+        : undefined;
     const key =
       devOrE2eKey ?? resolveCenterKey(new SafeStorageSecretVault(join(dir, KEY_STORE_FILE_NAME)), centreId);
     // Re-key any DB still under a pre-SOU-179 dev key — an explicit, opt-in
     // legacy-key list the caller chooses; production passes none, so a DB the
     // derived key cannot open fails closed instead of silently accepting it.
-    ensureDatabaseKeyed(join(dir, centreDbFileName(centreId)), key, devOrE2eKey ? [] : [LEGACY_DEV_DB_KEY]);
+    // The hub's canonical store (SOU-90) shares the center key, so it is
+    // re-keyed the same way when it exists.
+    const legacyKeys = devOrE2eKey ? [] : [LEGACY_DEV_DB_KEY];
+    ensureDatabaseKeyed(join(dir, centreDbFileName(centreId)), key, legacyKeys);
+    ensureDatabaseKeyed(join(dir, hubDbFileName(centreId)), key, legacyKeys);
     container = buildContainer({
       centreId,
       centerCode: (process.env['CS_CENTER_CODE'] ?? 'CS-DEV-001') as CenterCode,

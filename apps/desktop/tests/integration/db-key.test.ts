@@ -3,7 +3,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3-multiple-ciphers';
-import type { Database as DB } from 'better-sqlite3';
 import { DatabaseKeyMismatchError, ensureDatabaseKeyed, openDatabaseAt } from '../../src/data/sqlite/db';
 
 const NEW_KEY = 'a'.repeat(64);
@@ -32,9 +31,9 @@ function createKeyedFile(key: string): void {
 
 function opensWith(key: string): boolean {
   try {
-    const db = new Database(file, { fileMustExist: true }) as unknown as DB;
+    const db = new Database(file, { fileMustExist: true });
     db.pragma(`key = '${key}'`);
-    db.pragma('quick_check');
+    db.prepare('SELECT count(*) FROM sqlite_master').get();
     db.close();
     return true;
   } catch {

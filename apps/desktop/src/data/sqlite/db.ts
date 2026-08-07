@@ -77,9 +77,11 @@ export function ensureDatabaseKeyed(file: string, key: string, legacyKeys: reado
 function opensWith(file: string, key: string): boolean {
   let db: DB | null = null;
   try {
-    db = new Database(file, { fileMustExist: true }) as unknown as DB;
+    db = new Database(file, { fileMustExist: true });
     db.pragma(`key = '${key.replace(/'/g, "''")}'`);
-    db.pragma('quick_check');
+    // Decrypting the first page is enough to tell "wrong key" from "opens" —
+    // the cheap per-launch probe; `rekeyDatabase` runs the full page walk.
+    db.prepare('SELECT count(*) FROM sqlite_master').get();
     return true;
   } catch {
     return false;
@@ -91,11 +93,13 @@ function opensWith(file: string, key: string): boolean {
 function rekeyDatabase(file: string, oldKey: string, newKey: string): void {
   let db: DB | null = null;
   try {
-    db = new Database(file, { fileMustExist: true }) as unknown as DB;
+    db = new Database(file, { fileMustExist: true });
     db.pragma(`key = '${oldKey.replace(/'/g, "''")}'`);
-    db.pragma('quick_check');
     // `rekey` rewrites every page; force rollback journal first so a crash
-    // mid-rekey cannot strand the file against an orphaned WAL.
+    // mid-rekey cannot strand the file against an orphaned WAL. The pre-check
+    // and the post-check both walk pages, so a wrong old key aborts before
+    // anything is rewritten.
+    db.pragma('quick_check');
     db.pragma('journal_mode = DELETE');
     db.pragma(`rekey = '${newKey.replace(/'/g, "''")}'`);
     db.pragma('quick_check');
