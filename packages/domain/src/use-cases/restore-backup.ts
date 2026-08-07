@@ -2,9 +2,8 @@ import type { BackupPort } from '../ports/backup-port';
 
 export type RestoreBackupInput = {
   path: string;
-  /** Today's mechanism: the same `CS_DB_KEY` / dev-fallback key the center was
-   *  opened with — real per-center key derivation is a separate future ticket
-   *  (see composition-root.ts). */
+  /** The center's derived SQLCipher key (SOU-179), injected by the IPC layer —
+   *  backups verify/restore only on the machine that created them. */
   key: string;
 };
 

@@ -16,6 +16,7 @@
     "dist": "pnpm dist:prepare && electron-builder",
     "dist:mac": "pnpm dist:prepare && electron-builder --mac",
     "dist:win": "pnpm dist:prepare && electron-builder --win",
+    "db:rekey": "node scripts/rekey-db.mjs",
     "pretest:e2e": "pnpm build:e2e",
     "test:e2e": "node ./scripts/native-abi.mjs electron && CS_E2E_HIDDEN=1 playwright test",
     "pretest:e2e:visible": "pnpm build:e2e",

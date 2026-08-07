@@ -228,7 +228,7 @@ const DEV_USER = 'usr_local-device' as UserId;
 export type ContainerOptions = {
   centreId: string; // database-file discriminator
   centerCode: CenterCode; // tenant code stamped on entities
-  key: string; // SQLCipher passphrase (real key management is a later ticket)
+  key: string; // SQLCipher passphrase — the per-center derived key (SOU-179)
   dir: string; // directory holding the center DB files
   planId: PlanId;
   appVersion: () => string;
@@ -816,10 +816,11 @@ export function buildContainer(options: ContainerOptions): Container {
   const getStudentAttendanceReport = new GetStudentAttendanceReport(attendanceRepo, plan);
   const getGroupAttendanceSheet = new GetGroupAttendanceSheet(attendanceRepo, plan);
 
-  // Backup & restore (SOU-102). `options.key` is today's key-management
-  // mechanism (CS_DB_KEY / dev fallback) — real per-center key derivation is a
-  // separate future ticket; both the manual/scheduled snapshot path and the
-  // restore verify/swap path use it unchanged until then.
+  // Backup & restore (SOU-102). `options.key` is the per-center derived key
+  // (SOU-179 — master secret in the OS keychain, HKDF per centreId); both the
+  // manual/scheduled snapshot path and the restore verify/swap path use it.
+  // Backups are same-install only: a file created on another laptop won't
+  // verify here (cross-machine restore lands with sync, SOU-13).
   const backupConfigStore = new SqliteBackupConfigStore(db);
   const backupAdapter = new SqliteBackupAdapter(db, options.key, ids);
   const createBackup = new CreateBackup(backupAdapter, backupConfigStore);
