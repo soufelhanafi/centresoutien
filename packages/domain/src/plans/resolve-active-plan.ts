@@ -86,7 +86,13 @@ export function resolveActivePlan(
 
   const { claims } = verification;
 
-  if (binding && claims.machineId !== null && claims.machineId !== binding.machineId) {
+  // Demo licenses (SOU-110) are deliberately machine-unbound: a pre-signed demo
+  // file must activate on any sales laptop, so the `demo: true` claim skips the
+  // machine-binding check. Signature (already proven by the adapter) and expiry
+  // (checked below) are still enforced, and the center binding still applies —
+  // a demo license bound to `CS-DEMO-001` can never grant a tier to another
+  // center. A non-demo license keeps the full machine check.
+  if (binding && !claims.demo && claims.machineId !== null && claims.machineId !== binding.machineId) {
     return {
       status: 'wrong-machine',
       plan: PLANS.essentiel,

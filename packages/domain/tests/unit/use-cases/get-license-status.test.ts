@@ -19,6 +19,7 @@ function claims(overrides: Partial<LicenseClaims> = {}): LicenseClaims {
     centerCode: null,
     centersAllowed: null,
     founderDiscountExpiresAt: null,
+    demo: false,
     ...overrides,
   };
 }

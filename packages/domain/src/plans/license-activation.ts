@@ -31,14 +31,19 @@ export type LicenseRejectionReason =
  * within its validity window? Returns the first failing reason, or `null` when the
  * license binds cleanly. Machine/center identity is checked before expiry — a
  * license that isn't yours at all is a more fundamental mismatch than one that has
- * lapsed. A `null` binding field means "unbound" and always matches.
+ * lapsed. A `null` binding field means "unbound" and always matches. A `demo`
+ * license (SOU-110) is machine-unbound by design — the `demo: true` claim skips
+ * the machine check so a pre-signed demo file activates on any sales laptop while
+ * signature, center binding, and expiry stay enforced.
  */
 export function evaluateLicenseBinding(
   claims: LicenseClaims,
   context: LicenseBindingContext,
   now: Date,
 ): Exclude<LicenseRejectionReason, 'malformed' | 'invalid-signature'> | null {
-  if (claims.machineId !== null && claims.machineId !== context.machineId) return 'wrong-machine';
+  if (!claims.demo && claims.machineId !== null && claims.machineId !== context.machineId) {
+    return 'wrong-machine';
+  }
   if (claims.centerCode !== null && claims.centerCode !== context.centerCode) return 'wrong-center';
   if (isLicenseExpired(claims, now)) return 'expired';
   return null;
