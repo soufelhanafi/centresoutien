@@ -35,7 +35,20 @@ export class Ed25519LicenseAdapter implements LicensePort {
   verify(): LicenseVerification {
     const raw = this.readFile();
     if (raw === null) return { status: 'missing' };
+    return this.verifyRaw(raw);
+  }
 
+  /**
+   * Verifies an envelope supplied at activation time (SOU-104) rather than read
+   * from disk — the paste box's text or an imported file's bytes. Same signature +
+   * shape check as {@link verify}; a "missing"-style empty read cannot occur here
+   * since the content is provided, so a bad envelope is `invalid-signature`.
+   */
+  verifyContent(raw: string): LicenseVerification {
+    return this.verifyRaw(raw);
+  }
+
+  private verifyRaw(raw: string): LicenseVerification {
     const claimsJson = this.verifiedClaimsJson(raw);
     if (claimsJson === null) return { status: 'invalid-signature' };
 
