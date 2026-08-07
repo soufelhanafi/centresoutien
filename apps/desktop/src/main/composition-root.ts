@@ -369,14 +369,14 @@ export function buildContainer(options: ContainerOptions): Container {
   const scheduleRenderer = new PdfLibScheduleRenderer();
   const createRoom = new CreateRoom(roomRepo, clock, ids, plan);
   const listRooms = new ListRooms(roomRepo, plan);
-  const updateRoom = new UpdateRoom(roomRepo, clock, plan);
   const archiveRoom = new ArchiveRoom(roomRepo, roomReference, clock, plan);
   const restoreRoom = new RestoreRoom(roomRepo, clock, plan);
 
   const groupRepo = new SqliteGroupRepository(db);
+  const updateRoom = new UpdateRoom(roomRepo, sessionRepo, groupRepo, clock, plan);
   const createGroup = new CreateGroup(groupRepo, subjectRepo, clock, ids, plan);
   const listGroups = new ListGroups(groupRepo, plan);
-  const updateGroup = new UpdateGroup(groupRepo, subjectRepo, clock, plan);
+  const updateGroup = new UpdateGroup(groupRepo, subjectRepo, sessionRepo, roomRepo, clock, plan);
   const archiveGroup = new ArchiveGroup(groupRepo, clock, plan);
   const restoreGroup = new RestoreGroup(groupRepo, clock, plan);
 
@@ -682,6 +682,8 @@ export function buildContainer(options: ContainerOptions): Container {
   // three gate `core.calendar.week` in the domain.
   const createWeeklySession = new CreateWeeklyRecurringSession(
     sessionRepo,
+    groupRepo,
+    roomRepo,
     centerHoursRepo,
     clock,
     ids,
@@ -689,6 +691,8 @@ export function buildContainer(options: ContainerOptions): Container {
   );
   const updateWeeklySession = new UpdateWeeklyRecurringSession(
     sessionRepo,
+    groupRepo,
+    roomRepo,
     centerHoursRepo,
     clock,
     plan,

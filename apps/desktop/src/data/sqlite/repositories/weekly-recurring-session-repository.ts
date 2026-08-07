@@ -274,4 +274,34 @@ export class SqliteWeeklyRecurringSessionRepository
       .get(roomId) as { 1: number } | undefined;
     return row !== undefined;
   }
+
+  /** Active sessions bound to one group (SOU-176 seat-fit guard). */
+  async listActiveByGroupId(
+    centerCode: CenterCode,
+    groupId: GroupId,
+  ): Promise<readonly WeeklyRecurringSession[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM weekly_recurring_sessions
+          WHERE center_code = ? AND group_id = ? AND deleted_at IS NULL
+          ORDER BY day_of_week, start_time`,
+      )
+      .all(centerCode, groupId) as SessionRow[];
+    return rows.map(fromRow);
+  }
+
+  /** Active sessions booked into one room (SOU-176 seat-fit guard). */
+  async listActiveByRoomId(
+    centerCode: CenterCode,
+    roomId: RoomId,
+  ): Promise<readonly WeeklyRecurringSession[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM weekly_recurring_sessions
+          WHERE center_code = ? AND room_id = ? AND deleted_at IS NULL
+          ORDER BY day_of_week, start_time`,
+      )
+      .all(centerCode, roomId) as SessionRow[];
+    return rows.map(fromRow);
+  }
 }
