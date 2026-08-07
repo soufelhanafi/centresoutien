@@ -1643,6 +1643,10 @@
           "body": "Connectez-vous avec votre nouveau mot de passe."
         }
       }
+    },
+    "login": {
+      "exploreDemo": "Explorer la démo",
+      "exploreDemoHint": "Essayez l'application avec un centre de démonstration pré-rempli. L'application redémarrera ; aucune donnée réelle ne sera modifiée."
     }
   },
   "wizard": {
@@ -2057,5 +2061,41 @@
       "candidate": "Doublon :",
       "mergeHint": "Fusionnez ces enregistrements via les doublons (parents d'abord, puis élèves)."
     }
+  },
+  "demo": {
+    "tab": "Mode démo",
+    "banner": {
+      "label": "MODE DÉMO",
+      "subtitle": "centre de démonstration",
+      "wipe": "Supprimer"
+    },
+    "intro": {
+      "subtitle": "Créez un centre avec des données réalistes pour présenter l'application lors d'une démonstration ou d'une visite de vente. Vos données réelles ne sont pas touchées.",
+      "create": "Créer le centre de démonstration",
+      "creating": "Création…"
+    },
+    "active": {
+      "title": "Vous êtes dans le centre de démonstration",
+      "subtitle": "Toutes les données affichées sont fictives. Supprimez le centre de démonstration pour revenir à votre centre.",
+      "wipe": "Supprimer la démo",
+      "wiping": "Suppression…"
+    },
+    "restarting": {
+      "title": "Redémarrage de l'application…",
+      "body": "L'application redémarre pour appliquer le changement. Patientez un instant."
+    },
+    "wipeDialog": {
+      "title": "Supprimer le centre de démonstration ?",
+      "body": "Toutes les données de démonstration seront définitivement supprimées et l'application redémarrera sur votre centre. Cette action est irréversible.",
+      "confirm": "Supprimer la démo",
+      "cancel": "Annuler"
+    },
+    "error": {
+      "loading": "Vérification du mode démo…",
+      "body": "Une erreur est survenue lors de la lecture de l'état de la démo. Réessayez.",
+      "retry": "Réessayer"
+    },
+    "createError": "La création du centre de démonstration a échoué. Réessayez.",
+    "wipeError": "La suppression du centre de démonstration a échoué. Réessayez."
   }
 }
