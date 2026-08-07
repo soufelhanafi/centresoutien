@@ -1,10 +1,14 @@
 /// <reference types="vite/client" />
 import type { Database as DB } from 'better-sqlite3';
+import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   PLANS,
   PlanPolicy,
   resolveActivePlan,
+  isRestrictedMode,
+  ActivateLicense,
+  GetLicenseStatus,
   CreateSubject,
   ArchiveSubject,
   ListSubjects,
@@ -130,16 +134,25 @@ import type {
   UserId,
   Clock,
   LicensePort,
+  LicenseBindingContext,
+  LicenseVerification,
   IdGenerator,
   RoomReferencePort,
   SubjectReferencePort,
   TeacherReferencePort,
   StudentSubscriptionReferencePort,
+  SyncHubPort,
 } from '@centresoutien/domain';
 import { Ed25519LicenseAdapter } from '../data/license/ed25519-license-adapter';
+import { FsLicenseStore } from '../data/license/fs-license-store';
+import { FileMachineIdentity } from '../data/license/file-machine-identity';
+import { licenseFileNameForCenter } from '../data/license/license-file-path';
 import { VENDOR_LICENSE_PUBLIC_KEY_PEM } from '../data/license/vendor-public-key';
 import { openDatabase } from '../data/sqlite/db';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
+import { SqliteHubStore } from '../data/sqlite/hub/hub-store';
+import { HubServer } from './hub-server/hub-server';
+import { HttpSyncHubClient } from '../data/sync/http-sync-hub-client';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
 import { SqliteChangeLogWriter } from '../data/sqlite/change-log/sqlite-change-log-writer';
 import { SqliteFormulaRepository } from '../data/sqlite/repositories/formula-repository';
@@ -199,6 +212,14 @@ const migrationFiles = import.meta.glob('../data/sqlite/migrations/*.sql', {
   eager: true,
 }) as Record<string, string>;
 
+// The embedded hub's canonical store has its own migration chain (SOU-90) — a
+// separate SQLCipher file per center, so its `_schema_migrations` is distinct.
+const hubMigrationFiles = import.meta.glob('../data/sqlite/hub/migrations/*.sql', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
 // TODO(auth): real editor identity arrives with user accounts. Until then every
 // write is attributed to a single local placeholder user.
 const DEV_USER = 'usr_local-device' as UserId;
@@ -219,6 +240,16 @@ export type ContainerOptions = {
    *  file instead of relying on the DEV-only `CS_LICENSE_*` env overrides, which
    *  a production build never reads. Undefined in production. */
   license?: LicensePort;
+  /**
+   * Embedded LAN hub (SOU-90): when present, the composition root opens the
+   * hub's canonical store, starts the HTTP listener, and wires the HTTP
+   * `SyncHubPort` client for this center. Absent by default — designating a
+   * laptop as hub (and its real config UX) is a later ticket; for now `index.ts`
+   * opts in via `CS_HUB_ENABLED`/`CS_HUB_TOKEN`. `bindHost` selects the LAN
+   * interface the listener serves (SOU-90 review Major 2 — never expose the hub
+   * beyond the local network); it is REQUIRED and must be a non-wildcard host.
+   */
+  hubServer?: { port: number; token: string; bindHost: string };
 };
 
 export type Container = {
@@ -229,10 +260,60 @@ export type Container = {
    * persistence + IPC. Nothing consumes it yet on this branch.
    */
   subscriptionReference: StudentSubscriptionReferencePort;
+  /**
+   * The embedded hub's {@link SyncHubPort} client (SOU-90) for the open center —
+   * the seam the sync engine (SOU-81) will drive. An HTTP client pointed at the
+   * hub's own listening interface (`bindHost`, the LAN address the server binds),
+   * so the hub laptop reaches its own server through the same port as every peer
+   * and is never special-cased. Null when the hub is disabled.
+   */
+  syncHub: SyncHubPort | null;
   /** Read once, synchronously, before the window opens — see `LocalePreferenceStore`. */
   readLocalePreference: () => LocalePreference | null;
+  /**
+   * The live restricted-mode gate (SOU-104): `true` while the license is non-active,
+   * so the IPC dispatcher answers only `license.status` / `license.activate`. Passed
+   * to `registerIpc`; re-evaluated per call, never a startup snapshot. This is the
+   * server-side hard lock that supersedes the deferred SOU-173.
+   */
+  isRestricted: () => boolean;
+  /**
+   * The trusted first-run state (SOU-104): `true` once an admin account exists —
+   * the durable marker that setup finished. Passed to `registerIpc` so the
+   * restricted-mode gate closes the wizard's bootstrap channels on an already
+   * configured center whose license later lapses, while still allowing them on a
+   * fresh install where the wizard has yet to create the center + admin.
+   */
+  isSetupComplete: () => boolean;
   dispose: () => void;
 };
+
+/**
+ * A cheap fingerprint of the license file, changing whenever activation rewrites
+ * it (atomic temp+rename bumps mtime; a different license changes the size too).
+ * `null` when the file is absent — a fresh install before any activation. Lets the
+ * restricted-mode gate skip the Ed25519 read+verify on the synchronous IPC path
+ * (SOU-104 perf) and re-verify only when the file actually changed; a `stat` is
+ * orders of magnitude cheaper than a signature check on every dispatch.
+ */
+function licenseFileFingerprint(filePath: string): string | null {
+  try {
+    const stat = statSync(filePath);
+    return `${stat.mtimeMs}:${stat.size}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether an admin account has been created — the durable marker that the
+ * first-run wizard finished (see `restricted-mode.ts`). A trivial indexed probe;
+ * mirrors `SqliteAdminAccountRepository.exists`, read synchronously here because
+ * the restricted-mode dispatch gate is synchronous.
+ */
+function adminAccountExists(db: DB): boolean {
+  return db.prepare('SELECT 1 FROM admin_accounts LIMIT 1').get() !== undefined;
+}
 
 /** Read the device's stable origin id, generating and persisting it on first run. */
 function resolveDeviceOrigin(db: DB, ids: IdGenerator): DeviceId {
@@ -247,15 +328,29 @@ function resolveDeviceOrigin(db: DB, ids: IdGenerator): DeviceId {
 
 /**
  * The active plan, resolved once at startup from the tamper-evident license file
- * (SOU-98). A verified, unexpired license yields its tier; any other state
- * (missing / bad-signature / expired) falls back to `devFallback` — the
- * dev/startup override in `options.planId`, which production leaves at
- * `essentiel`. The user-editable `center.plan` row is never consulted, so
- * editing the DB can no longer self-upgrade.
+ * (SOU-98/SOU-104). A verified, unexpired, correctly-bound license yields its
+ * tier; every other state (missing / bad-signature / expired / wrong-machine /
+ * wrong-center) is a HARD LOCK: the renderer, driven by the `license.status` IPC
+ * (`restricted === status !== 'active'`), confines the whole app to the
+ * activation screen, so no gated use case ever runs behind this resolution.
+ *
+ * Because nothing runs behind the lock, a non-active license must NEVER grant a
+ * usable tier in a packaged build — it resolves to `essentiel` purely so
+ * `PlanPolicy` has a `Plan` to construct from, gated shut anyway. The DEV-only
+ * override (`options.planId`, fed by CS_PLAN / CS_LICENSE_*) is honored only when
+ * `isDev`, for local ergonomics; production never self-upgrades from a bad
+ * license. The user-editable `center.plan` row is never consulted either.
  */
-function resolveStartupPlanId(license: LicensePort, clock: Clock, devFallback: PlanId): PlanId {
-  const resolution = resolveActivePlan(license.verify(), clock.now());
-  return resolution.status === 'active' ? resolution.plan.id : devFallback;
+export function resolveStartupPlanId(
+  license: LicensePort,
+  clock: Clock,
+  binding: LicenseBindingContext,
+  devFallback: PlanId,
+  isDev: boolean,
+): PlanId {
+  const resolution = resolveActivePlan(license.verify(), clock.now(), binding);
+  if (resolution.status === 'active') return resolution.plan.id;
+  return isDev ? devFallback : 'essentiel';
 }
 
 /**
@@ -270,23 +365,99 @@ export function buildContainer(options: ContainerOptions): Container {
   const clock = new SystemClock();
   const ids = new UlidIdGenerator();
   // Trust anchor + license path are fixed in a packaged build so a user cannot
-  // point them at a self-signed keypair to self-upgrade (SOU-98). The
-  // `CS_LICENSE_*` env overrides exist purely for local-dev ergonomics and are
-  // DEV-gated the same way `plan.set` is — `import.meta.env.DEV` is a build-time
-  // constant electron-vite replaces with `false` in production, tree-shaking the
-  // override path out. Tests inject through `options.license`, never the env.
+  // point them at a self-signed keypair to self-upgrade (SOU-98). The path is
+  // scoped per center (SOU-104 M2, CLAUDE.md §5ter) — each center owns its own
+  // license, so a multi-center owner activating center B never clobbers center
+  // A's file. The read (adapter) and write (store) paths share this one value,
+  // so they always agree. The `CS_LICENSE_*` env overrides exist purely for
+  // local-dev ergonomics and are DEV-gated the same way `plan.set` is —
+  // `import.meta.env.DEV` is a build-time constant electron-vite replaces with
+  // `false` in production, tree-shaking the override path out. Tests inject
+  // through `options.license`, never the env.
+  const licenseFilePath = import.meta.env.DEV
+    ? (process.env['CS_LICENSE_FILE'] ??
+      join(options.dir, licenseFileNameForCenter(options.centerCode)))
+    : join(options.dir, licenseFileNameForCenter(options.centerCode));
   const license =
     options.license ??
     new Ed25519LicenseAdapter({
-      filePath: import.meta.env.DEV
-        ? (process.env['CS_LICENSE_FILE'] ?? join(options.dir, 'license.json'))
-        : join(options.dir, 'license.json'),
+      filePath: licenseFilePath,
       publicKey: import.meta.env.DEV
         ? (process.env['CS_LICENSE_PUBLIC_KEY'] ?? VENDOR_LICENSE_PUBLIC_KEY_PEM)
         : VENDOR_LICENSE_PUBLIC_KEY_PEM,
     });
-  const activePlanId = resolveStartupPlanId(license, clock, options.planId);
+  // Machine-scoped id (SOU-104) — the anchor for the license's machine binding.
+  // A file beside the center DBs, not inside one, so every center on this laptop
+  // shares it. The activation flow and startup resolution both check against it.
+  const machineIdentity = new FileMachineIdentity(options.dir);
+  const licenseBinding: LicenseBindingContext = {
+    machineId: machineIdentity.machineId(),
+    centerCode: options.centerCode,
+  };
+  const activePlanId = resolveStartupPlanId(
+    license,
+    clock,
+    licenseBinding,
+    options.planId,
+    import.meta.env.DEV,
+  );
   const plan = new PlanPolicy(PLANS[activePlanId]);
+
+  // The server-side restricted-mode hard lock (SOU-104), superseding the deferred
+  // SOU-173. Until the license resolves to `active`, the IPC dispatcher answers
+  // only `license.status` / `license.activate` — every other channel is rejected
+  // with `LicenseRestrictedError`, so the lock no longer lives only in the renderer.
+  // Evaluated LIVE on each guarded call, so a successful `license.activate` — which
+  // rewrites the license file and flips the plan — unblocks the other channels in
+  // the same process with no restart. The expensive half (file read + Ed25519
+  // verify) is cached and re-run only when the file's fingerprint changes; the
+  // cheap, clock-dependent half (expiry) is recomputed every call, so a license
+  // that lapses mid-session still restricts without a rewrite. A dev build with no
+  // injected license keeps the `CS_LICENSE_*` / `options.planId` override ergonomics
+  // (never restricted); tests inject `options.license`, exercising the real lock.
+  const devOverrideActive = import.meta.env.DEV && options.license === undefined;
+  let cachedFingerprint: string | null = licenseFileFingerprint(licenseFilePath);
+  let cachedVerification = license.verify();
+  const verifyLicenseCached = (): LicenseVerification => {
+    const fingerprint = licenseFileFingerprint(licenseFilePath);
+    if (fingerprint !== cachedFingerprint) {
+      cachedFingerprint = fingerprint;
+      cachedVerification = license.verify();
+    }
+    return cachedVerification;
+  };
+  const isRestricted = (): boolean =>
+    devOverrideActive
+      ? false
+      : isRestrictedMode(resolveActivePlan(verifyLicenseCached(), clock.now(), licenseBinding).status);
+
+  // The trusted first-run state for the restricted-mode gate: an admin account is
+  // the wizard's last durable artifact (its step progress is otherwise ephemeral),
+  // so its existence means setup is complete and the wizard's bootstrap channels
+  // must close under restriction. Monotonic (false→true once; no hard delete), so
+  // it is memoized to true forever and never re-queries after — no per-call DB hit
+  // on the steady-state path.
+  let setupComplete = adminAccountExists(db);
+  const isSetupComplete = (): boolean => {
+    if (!setupComplete) setupComplete = adminAccountExists(db);
+    return setupComplete;
+  };
+
+  // License activation (SOU-104): the activation screen's two channels. `activate`
+  // verifies a pasted/imported envelope, checks it binds to this machine + center
+  // and hasn't expired, then persists it and flips the live plan; `status` reports
+  // the installed license's resolved state for the screen + Settings. The store
+  // writes to the same fixed `licenseFilePath` the startup adapter reads.
+  const licenseStore = new FsLicenseStore(licenseFilePath);
+  const activateLicense = new ActivateLicense(
+    license,
+    licenseStore,
+    machineIdentity,
+    clock,
+    plan,
+    options.centerCode,
+  );
+  const getLicenseStatus = new GetLicenseStatus(license, machineIdentity, clock, options.centerCode);
 
   // The acting laptop, resolved once — stamped on every change_log row (SOU-79)
   // and carried in the envelope context below.
@@ -757,6 +928,31 @@ export function buildContainer(options: ContainerOptions): Container {
   // userData directory the center DB files and the logo store live under.
   const localePreferences = new LocalePreferenceStore(options.dir);
 
+  // Embedded LAN hub (SOU-90). When enabled, the hub host's own replica syncs
+  // to itself over localhost through the SAME SyncHubPort client as every other
+  // device — this container never special-cases the hub machine. The listener
+  // binds the configured port (fire-and-forget, like the scheduled backup): a
+  // failed bind (port in use) is logged, never fatal, and the sync page (SOU-81)
+  // surfaces hub health. Real hub designation/setup UX is a later ticket; the
+  // option is wired here so the seam exists before its consumer.
+  let hubServerInstance: HubServer | null = null;
+  let hubStore: SqliteHubStore | null = null;
+  let syncHub: SyncHubPort | null = null;
+  const hubConfig = options.hubServer;
+  if (hubConfig) {
+    hubStore = SqliteHubStore.open({ centreId: options.centreId, key: options.key, dir: options.dir }, clock);
+    applyMigrations(hubStore.db, toMigrations(hubMigrationFiles));
+    hubStore.registerCenter(options.centerCode, hubConfig.token, clock.now());
+    hubServerInstance = new HubServer(hubStore, hubConfig.port, hubConfig.bindHost);
+    void hubServerInstance.start().catch((error: unknown) => {
+      console.error('[hub] failed to start on port', hubConfig.port, error);
+    });
+    syncHub = new HttpSyncHubClient({
+      baseUrl: `http://${hubConfig.bindHost}:${hubConfig.port}`,
+      token: hubConfig.token,
+    });
+  }
+
   const attemptLogin = new AttemptLogin(
     verifyAdminPassword,
     new SqliteLoginThrottleStore(db),
@@ -801,6 +997,8 @@ export function buildContainer(options: ContainerOptions): Container {
     appVersion: options.appVersion,
     activePlanId: () => plan.activePlanId(),
     setActivePlan: (planId) => plan.setActivePlan(PLANS[planId]),
+    getLicenseStatus,
+    activateLicense,
     dialogPaths,
     createSubject,
     archiveSubject,
@@ -934,11 +1132,21 @@ export function buildContainer(options: ContainerOptions): Container {
   return {
     handlerDeps,
     subscriptionReference,
+    syncHub,
+    isRestricted,
+    isSetupComplete,
     readLocalePreference: () => localePreferences.read(),
     // `db.open` guards against a double-close: a successful restore (SOU-102)
     // already closed this handle as part of its file swap, and `will-quit`
-    // still calls `dispose()` during the scheduled relaunch.
+    // still calls `dispose()` during the scheduled relaunch. The hub store is
+    // closed only AFTER the listener has stopped, so an in-flight request can
+    // never hit a half-closed canonical store.
     dispose: () => {
+      if (hubServerInstance && hubStore) {
+        void hubServerInstance.stop().finally(() => hubStore?.close());
+      } else if (hubStore) {
+        hubStore.close();
+      }
       if (db.open) db.close();
     },
   };

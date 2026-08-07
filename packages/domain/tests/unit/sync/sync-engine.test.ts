@@ -248,6 +248,42 @@ describe('SyncEngine — pull → resolve → push', () => {
     expect(reset.entity('students', S2)).toBeDefined();
   });
 
+  it('a push accepted while another device wrote does not lose the other device row (SOU-90 B1)', async () => {
+    const clock = fakeClock('2026-08-01T10:00:00Z');
+    const hub = new InMemorySyncHub(clock);
+    const a = new InMemorySyncLocalRepository(clock, DEV_A);
+    const b = new InMemorySyncLocalRepository(clock, DEV_B);
+
+    // Non-empty feed + B's baseline cursor at seq 1.
+    a.writeLocal('students', S1, studentEntity(S1), ['name'], USER_A);
+    await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A }).run(matcherFor(a));
+    await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B }).run(matcherFor(b));
+
+    // B writes S2; C writes S3 into the gap between B's pull and B's push. B's
+    // accepted push must NOT advance B's cursor past S3, or B loses it forever.
+    b.writeLocal('students', S2, studentEntity(S2), ['name'], USER_B);
+    const raced = new GapPushHub(hub, clock);
+    const result = await makeEngine({ hub: raced, local: b, clock, deviceId: DEV_B, updatedBy: USER_B }).run(
+      matcherFor(b),
+    );
+    expect(result.status).toBe('synced');
+
+    // B's cursor must NOT have advanced past S3 (the gap row) — the accepted
+    // push kept it at B's last consumed position (seq 1) so the next pull
+    // re-delivers S3.
+    expect(b.getCursor()).toEqual({ seq: 1 });
+
+    // B's next sync re-delivers the gap row and B converges on S3.
+    await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B }).run(matcherFor(b));
+    // S3 arrived purely by pull (C's push carried a bare entity; the hub stamped
+    // only `version`). S2 was written locally by B, so it also carries the
+    // `updatedAt` / `updatedBy` its change_log write records before the push.
+    expect(b.entity('students', S3)).toEqual(studentEntity(S3, { version: 1 }));
+    expect(b.entity('students', S2)).toEqual(
+      studentEntity(S2, { version: 1, updatedAt: clock.now(), updatedBy: USER_B }),
+    );
+  });
+
   it('duplicate parents detected at sync, parents-first by E.164 phone', async () => {
     const clock = fakeClock('2026-08-01T10:00:00Z');
     const hub = new InMemorySyncHub(clock);
@@ -318,6 +354,58 @@ class ConcurrentPushHub implements SyncHubPort {
           op: 'update',
           entity: studentEntity(S1, { phone: '0666666666' }),
           changedFields: ['phone'],
+          seq: 1,
+          at: this.clock.now(),
+          updatedBy: USER_C,
+        }],
+      });
+    }
+    return this.inner.pushChanges(input);
+  }
+}
+
+/**
+ * Injects a competing device's DIFFERENT-entity create between the real
+ * device's pull and push — the SOU-90 B1 data-loss interleaving. The accepted
+ * push must not advance the device's cursor past the injected row, or the next
+ * pull would skip it forever.
+ */
+class GapPushHub implements SyncHubPort {
+  private injected = false;
+
+  constructor(
+    private readonly inner: SyncHubPort,
+    private readonly clock: Clock,
+  ) {}
+
+  pullChanges(centreId: CenterCode, cursor: SyncCursor | null, deviceId: DeviceId): Promise<ChangeBatch> {
+    return this.inner.pullChanges(centreId, cursor, deviceId);
+  }
+
+  getCursor(deviceId: DeviceId, centreId: CenterCode): Promise<SyncCursor | null> {
+    return this.inner.getCursor(deviceId, centreId);
+  }
+
+  async pushChanges(input: {
+    centreId: CenterCode;
+    deviceId: DeviceId;
+    changes: readonly LocalChange[];
+    schemaVersion: number;
+  }): Promise<PushResult> {
+    if (!this.injected && input.changes.length > 0) {
+      this.injected = true;
+      await this.inner.pushChanges({
+        centreId: input.centreId,
+        deviceId: DEV_C,
+        schemaVersion: SCHEMA_VERSION,
+        changes: [{
+          entityType: 'students',
+          entityId: S3,
+          deviceId: DEV_C,
+          baseVersion: 0,
+          op: 'create',
+          entity: studentEntity(S3),
+          changedFields: ['name'],
           seq: 1,
           at: this.clock.now(),
           updatedBy: USER_C,

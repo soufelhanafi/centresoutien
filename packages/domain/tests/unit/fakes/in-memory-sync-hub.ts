@@ -105,6 +105,7 @@ export class InMemorySyncHub implements SyncHubPort {
     }
 
     const versions: Record<string, number> = {};
+    const firstSeq = feed.length + 1;
     for (const change of input.changes) {
       const key = this.centreKey(input.centreId, change.entityType, change.entityId);
       const current = this.canonical.get(key)?.version ?? 0;
@@ -128,10 +129,18 @@ export class InMemorySyncHub implements SyncHubPort {
         receivedAt: this.clock.now(),
       });
     }
+    const lastSeq = feed.length;
 
-    const nextCursor = { seq: feed.length };
-    this.cursors.set(this.cursorKey(input.deviceId, input.centreId), nextCursor);
-    return { status: 'accepted', versions, cursor: nextCursor };
+    // The device's cursor only advances past rows it has actually consumed
+    // (its last pull, plus this contiguous batch). If another device's row
+    // landed in the gap, keep the consumed cursor so the next pull re-delivers
+    // it — the engine's version-skip dedupes this device's own batch. Mirrors
+    // SqliteHubStore.acceptedCursor (SOU-90 reviewer finding B1).
+    const key = this.cursorKey(input.deviceId, input.centreId);
+    const consumed = this.cursors.get(key) ?? { seq: 0 };
+    const cursor = firstSeq <= lastSeq && consumed.seq + 1 === firstSeq ? { seq: lastSeq } : consumed;
+    this.cursors.set(key, cursor);
+    return { status: 'accepted', versions, cursor };
   }
 
   async getCursor(deviceId: DeviceId, centreId: CenterCode): Promise<SyncCursor | null> {
