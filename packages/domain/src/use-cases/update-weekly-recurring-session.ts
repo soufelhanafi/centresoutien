@@ -1,5 +1,7 @@
 import type { WeeklyRecurringSessionRepository } from '../ports/weekly-recurring-session-repository';
 import type { CenterHoursRepository } from '../ports/center-hours-repository';
+import type { GroupRepository } from '../ports/group-repository';
+import type { RoomRepository } from '../ports/room-repository';
 import type { Clock } from '../ports/clock';
 import type { PlanPolicy } from '../plans/plan-policy';
 import type { CenterCode, EntityId, UserId } from '../value-objects/ids';
@@ -8,6 +10,9 @@ import type { GroupId } from '../entities/group';
 import type { TimeOfDay } from '../value-objects/time-of-day';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import { applyWrite } from '../entities/write';
+import { assertGroupFitsRoom } from '../policies/group-seat-capacity';
+import { GroupNotFoundError } from '../errors/group-errors';
+import { RoomNotFoundError } from '../errors/room-errors';
 import {
   InvalidSessionValidityRangeError,
   WeeklyRecurringSessionNotFoundError,
@@ -33,6 +38,12 @@ export type UpdateWeeklyRecurringSessionInput = WeeklyRecurringSessionInput & {
  * validity window, active). Gated by `core.calendar.week`. Validates with the
  * shared {@link weeklyRecurringSessionInputSchema} (shape only).
  *
+ * When the slot is (or becomes) bound to a `groupId`, the SOU-176 seat-fit gate
+ * re-runs on the *new* candidate: the group and room must resolve to live rows
+ * of the same center and `group.capacity` must not exceed the room's capacity —
+ * the same check `CreateWeeklyRecurringSession` runs, so editing a slot's room
+ * or group can never introduce an undersized binding.
+ *
  * The composite conflict check runs on the *new* candidate against the center's
  * live refs for the (possibly changed) weekday — but the row being edited is
  * **excluded from its own check**, so moving a slot 15 minutes never reads as a
@@ -50,6 +61,8 @@ export type UpdateWeeklyRecurringSessionInput = WeeklyRecurringSessionInput & {
 export class UpdateWeeklyRecurringSession {
   constructor(
     private readonly sessions: WeeklyRecurringSessionRepository,
+    private readonly groups: GroupRepository,
+    private readonly rooms: RoomRepository,
     private readonly centerHours: CenterHoursRepository,
     private readonly clock: Clock,
     private readonly plan: PlanPolicy,
@@ -76,6 +89,18 @@ export class UpdateWeeklyRecurringSession {
 
     if (validFrom !== null && validTo !== null && validTo < validFrom) {
       throw new InvalidSessionValidityRangeError(validFrom, validTo);
+    }
+
+    if (groupId !== null) {
+      const group = await this.groups.findById(groupId);
+      if (group === null || group.centerCode !== input.centerCode) {
+        throw new GroupNotFoundError(groupId);
+      }
+      const room = await this.rooms.findById(roomId);
+      if (room === null || room.centerCode !== input.centerCode) {
+        throw new RoomNotFoundError(roomId);
+      }
+      assertGroupFitsRoom(group.id, group.capacity, room);
     }
 
     const week = resolveWeek(await this.centerHours.listForCenter(input.centerCode));

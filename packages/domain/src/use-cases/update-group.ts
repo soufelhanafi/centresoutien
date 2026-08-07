@@ -1,9 +1,13 @@
 import type { GroupRepository } from '../ports/group-repository';
 import type { SubjectRepository } from '../ports/subject-repository';
+import type { WeeklyRecurringSessionRepository } from '../ports/weekly-recurring-session-repository';
+import type { RoomRepository } from '../ports/room-repository';
 import type { Clock } from '../ports/clock';
 import type { PlanPolicy } from '../plans/plan-policy';
 import { applyWrite } from '../entities/write';
+import { assertGroupFitsRoom } from '../policies/group-seat-capacity';
 import { groupInputSchema, type GroupInput } from '../schemas/group';
+import { RoomNotFoundError } from '../errors/room-errors';
 import {
   GroupNotFoundError,
   GroupSubjectUnavailableError,
@@ -32,6 +36,12 @@ export type UpdateGroupInput = GroupInput & {
  * re-pointed at a foreign/archived subject — a state creation forbids. Rooms are
  * not edited here; they attach at session creation (SOU-176).
  *
+ * Raising the group's `capacity` re-verifies the SOU-176 seat-fit invariant
+ * against every room the group's active weekly sessions are booked into: a
+ * bigger ceiling must still fit each booked room, or the raise is rejected with
+ * `GroupOverCapacityError`. Lowering or keeping the capacity never needs the
+ * check — it cannot create a new violation.
+ *
  * Identity and provenance are preserved: `id`, `centerCode`, `deviceOrigin`,
  * `createdAt`, and `version` are never touched — `version` is the hub's to
  * assign, so a local edit must not bump it. The write goes through `applyWrite`,
@@ -45,6 +55,8 @@ export class UpdateGroup {
   constructor(
     private readonly groups: GroupRepository,
     private readonly subjects: SubjectRepository,
+    private readonly sessions: WeeklyRecurringSessionRepository,
+    private readonly rooms: RoomRepository,
     private readonly clock: Clock,
     private readonly plan: PlanPolicy,
   ) {}
@@ -70,6 +82,17 @@ export class UpdateGroup {
     }
     if (!subject.active) {
       throw new GroupSubjectUnavailableError(subjectId, 'inactive');
+    }
+
+    if (fields.capacity > existing.capacity) {
+      const bookings = await this.sessions.listActiveByGroupId(input.centerCode, existing.id);
+      for (const booking of bookings) {
+        const room = await this.rooms.findById(booking.roomId);
+        if (room === null || room.centerCode !== input.centerCode) {
+          throw new RoomNotFoundError(booking.roomId);
+        }
+        assertGroupFitsRoom(existing.id, fields.capacity, room);
+      }
     }
 
     const { next, changedFields } = applyWrite(
