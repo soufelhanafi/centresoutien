@@ -1,3 +1,4 @@
+import type { EntityId } from '../value-objects/ids';
 import { DomainError } from './plan-errors';
 
 /**
@@ -35,6 +36,26 @@ export class SyncProtocolError extends DomainError {
   constructor(readonly entityKey: string) {
     super(
       `Sync protocol violation: hub accepted the push but returned no version for "${entityKey}".`,
+    );
+  }
+}
+
+/**
+ * Thrown when the resolve step finds an edit touching a protected field of an
+ * immutable entity (invoices, formulas, teacher_payouts) — a locked decision
+ * that must never fork across devices. There is no merge and no popup: the
+ * pending write is blocked and the whole sync aborts loudly, so the hub's
+ * canonical state wins on the next clean sync.
+ */
+export class ImmutableDivergenceError extends DomainError {
+  readonly code = 'immutable-divergence';
+
+  constructor(
+    readonly entityType: string,
+    readonly entityId: EntityId,
+  ) {
+    super(
+      `Immutable "${entityType}" entity "${entityId}" diverged across devices. Sync aborted; the pending edit must be discarded.`,
     );
   }
 }
