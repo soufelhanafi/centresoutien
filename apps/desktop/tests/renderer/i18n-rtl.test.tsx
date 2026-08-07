@@ -1,26 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { App } from '../../src/renderer/App';
 import i18n from '../../src/renderer/i18n/config';
-
-// This smoke test drives a returning, already-activated user to the dashboard,
-// so the license gate (SOU-104) must pass through. The activation screen's own
-// behavior is covered where it's rendered directly, not here.
-vi.mock('../../src/renderer/lib/license/license-api', () => ({
-  licenseApi: {
-    status: async () => ({
-      status: 'active' as const,
-      plan: 'essentiel' as const,
-      restricted: false,
-      expiresAt: null,
-      centersAllowed: null,
-      founderDiscountExpiresAt: null,
-      founderDiscountExpired: false,
-    }),
-    activate: async () => ({ status: 'rejected' as const, reason: 'malformed' as const }),
-  },
-}));
 
 beforeEach(async () => {
   await i18n.changeLanguage('fr');
