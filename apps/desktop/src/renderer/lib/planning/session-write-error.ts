@@ -22,12 +22,15 @@ export type SessionWriteErrorCode =
   | 'room-conflict'
   | 'teacher-conflict'
   | 'invalid-session-validity-range'
-  | 'weekly-recurring-session-not-found';
+  | 'weekly-recurring-session-not-found'
+  | 'group-over-capacity';
 
 /**
  * Maps a decoded domain error code → the renderer code. `start < end`, center-hours,
  * room, and teacher clashes are **thrown** by the use case (not Zod schema errors),
- * so they only surface after submit. Order is irrelevant — one write raises one.
+ * so they only surface after submit. `group-over-capacity` (SOU-176) fires when a
+ * session binds a group to a room too small for it. Order is irrelevant — one write
+ * raises one.
  */
 const DECODED_CODE_TO_RENDERER_CODE: Readonly<Record<string, SessionWriteErrorCode>> = {
   'malformed-session-time': 'malformed-session-time',
@@ -36,6 +39,7 @@ const DECODED_CODE_TO_RENDERER_CODE: Readonly<Record<string, SessionWriteErrorCo
   TeacherConflictError: 'teacher-conflict',
   'invalid-session-validity-range': 'invalid-session-validity-range',
   'weekly-recurring-session-not-found': 'weekly-recurring-session-not-found',
+  'group-over-capacity': 'group-over-capacity',
 };
 
 /**

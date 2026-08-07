@@ -164,6 +164,7 @@
     "room-conflict": "La salle est déjà occupée sur ce créneau",
     "teacher-conflict": "L'enseignant a déjà une séance sur ce créneau",
     "invalid-session-validity-range": "La période de validité de la séance est invalide",
+    "group-over-capacity": "Ce groupe compte plus d'élèves que la capacité de cette salle",
     "weekly-recurring-session-not-found": "Cette séance n'existe plus",
     "session-not-found": "Cette séance est introuvable",
     "invalid-code": "Code invalide (majuscules, chiffres, - et _ uniquement)",

@@ -164,6 +164,7 @@
     "room-conflict": "القاعة محجوزة بالفعل في هذا التوقيت",
     "teacher-conflict": "لدى الأستاذ حصة بالفعل في هذا التوقيت",
     "invalid-session-validity-range": "فترة صلاحية الحصة غير صالحة",
+    "group-over-capacity": "يتجاوز عدد تلاميذ هذه المجموعة سعة هذه القاعة",
     "weekly-recurring-session-not-found": "لم تعد هذه الحصة موجودة",
     "session-not-found": "هذه الحصة غير موجودة",
     "invalid-code": "رمز غير صالح (أحرف كبيرة وأرقام و- و_ فقط)",
