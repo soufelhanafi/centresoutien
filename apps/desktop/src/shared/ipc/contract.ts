@@ -116,13 +116,13 @@ const roomViewSchema = z.object({
 // envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized,
 // exactly like `roomViewSchema`. `archived` is derived from `deletedAt != null` in
 // main; `active` (a not-yet-read domain flag) never crosses the boundary.
-// `teacherId` is nullable (a group may exist before a teacher is assigned). Single
+// `teacherId` is nullable (a group may exist before a teacher is assigned). A
+// group carries no room — rooms attach at session creation (SOU-176). Single
 // source of truth for the renderer's `GroupView` type.
 const groupViewSchema = z.object({
   id: z.string(),
   subjectId: z.string(),
   teacherId: z.string().nullable(),
-  roomId: z.string(),
   level: z.string(),
   capacity: z.number().int(),
   kind: z.enum(['regular', 'exam-prep']),
@@ -894,12 +894,13 @@ export const ipcContract = {
   },
   // Groups (SOU-120), mirroring the room.* contract. `list` selects the live
   // groups or the archive via `scope`; `create` and `update` take the domain's own
-  // `groupInputSchema` (capacity ≥ 1, kind regular|exam-prep, prefixed subject/room
-  // ids), validated once and reused by the future group form (zodResolver);
-  // `archive` is a soft delete; `restore` clears the tombstone. centerCode/device/
-  // user are injected in main, never sent from the renderer. Gated by `core.groups`
-  // (every plan) in the use cases; exam-prep additionally needs `core.exam-prep`
-  // (Pro+). All reads strip the envelope to `groupViewSchema`.
+  // `groupInputSchema` (capacity ≥ 1, kind regular|exam-prep, prefixed subject id;
+  // rooms are attached at session creation, not to the group), validated once and
+  // reused by the future group form (zodResolver); `archive` is a soft delete;
+  // `restore` clears the tombstone. centerCode/device/user are injected in main,
+  // never sent from the renderer. Gated by `core.groups` (every plan) in the use
+  // cases; exam-prep additionally needs `core.exam-prep` (Pro+). All reads strip
+  // the envelope to `groupViewSchema`.
   'group.list': {
     request: z.object({ scope: z.enum(['active', 'archived']) }),
     response: z.object({ groups: z.array(groupViewSchema) }),

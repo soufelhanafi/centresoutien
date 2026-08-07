@@ -382,7 +382,6 @@ function toGroupView(group: Group) {
     id: group.id,
     subjectId: group.subjectId,
     teacherId: group.teacherId,
-    roomId: group.roomId,
     level: group.level,
     capacity: group.capacity,
     kind: group.kind,

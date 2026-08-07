@@ -374,9 +374,9 @@ export function buildContainer(options: ContainerOptions): Container {
   const restoreRoom = new RestoreRoom(roomRepo, clock, plan);
 
   const groupRepo = new SqliteGroupRepository(db);
-  const createGroup = new CreateGroup(groupRepo, roomRepo, subjectRepo, clock, ids, plan);
+  const createGroup = new CreateGroup(groupRepo, subjectRepo, clock, ids, plan);
   const listGroups = new ListGroups(groupRepo, plan);
-  const updateGroup = new UpdateGroup(groupRepo, roomRepo, subjectRepo, clock, plan);
+  const updateGroup = new UpdateGroup(groupRepo, subjectRepo, clock, plan);
   const archiveGroup = new ArchiveGroup(groupRepo, clock, plan);
   const restoreGroup = new RestoreGroup(groupRepo, clock, plan);
 
