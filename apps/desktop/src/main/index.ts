@@ -8,6 +8,16 @@ import { buildContainer, type Container } from './composition-root';
 import { createHandlers } from './ipc/handlers';
 import { createMainWindow } from './window';
 import { DATABASE_SCHEMA_AHEAD_MESSAGE, DatabaseSchemaAheadOfAppError } from '../data/sqlite/migration-runner';
+import { centreDbFileName, DatabaseKeyMismatchError, ensureDatabaseKeyed } from '../data/sqlite/db';
+import {
+  DATABASE_KEY_MESSAGE,
+  KeyStoreCorruptError,
+  KeyStoreUnavailableError,
+  KEY_STORE_FILE_NAME,
+  LEGACY_DEV_DB_KEY,
+  resolveCenterKey,
+  SafeStorageSecretVault,
+} from './key-store';
 
 /**
  * The startup plan fallback used when no valid license resolves. The `CS_PLAN`
@@ -92,11 +102,23 @@ app.whenReady().then(() => {
   // arrive with first-run setup and the center switcher.
   try {
     const hubServer = resolveHubConfig();
+    const dir = app.getPath('userData');
+    const centreId = process.env['CS_CENTRE'] ?? 'local';
+    // SOU-179: `CS_DB_KEY` is a dev/e2e-only override (same gate as `CS_PLAN`
+    // and the `__CS_E2E__` license seam) — a release build never reads it, so
+    // no code path can open a center DB with the legacy placeholder key.
+    const devOrE2eKey = import.meta.env.DEV || __CS_E2E__ ? process.env['CS_DB_KEY'] : undefined;
+    const key =
+      devOrE2eKey ?? resolveCenterKey(new SafeStorageSecretVault(join(dir, KEY_STORE_FILE_NAME)), centreId);
+    // Re-key any DB still under a pre-SOU-179 dev key — an explicit, opt-in
+    // legacy-key list the caller chooses; production passes none, so a DB the
+    // derived key cannot open fails closed instead of silently accepting it.
+    ensureDatabaseKeyed(join(dir, centreDbFileName(centreId)), key, devOrE2eKey ? [] : [LEGACY_DEV_DB_KEY]);
     container = buildContainer({
-      centreId: process.env['CS_CENTRE'] ?? 'local',
+      centreId,
       centerCode: (process.env['CS_CENTER_CODE'] ?? 'CS-DEV-001') as CenterCode,
-      key: process.env['CS_DB_KEY'] ?? 'dev-insecure-key',
-      dir: app.getPath('userData'),
+      key,
+      dir,
       planId: activePlanId(),
       appVersion: () => app.getVersion(),
       scheduleRestart,
@@ -111,6 +133,18 @@ app.whenReady().then(() => {
         'Centre Soutien',
         `${DATABASE_SCHEMA_AHEAD_MESSAGE.fr}\n\n${DATABASE_SCHEMA_AHEAD_MESSAGE.ar}`,
       );
+      app.quit();
+      return;
+    }
+    // SOU-179: no safe way to open the DB — keychain unavailable, key-store
+    // corrupt, or the derived key no longer opens the file. Fail closed and
+    // surface; never fall back to a known key.
+    if (
+      error instanceof KeyStoreUnavailableError ||
+      error instanceof KeyStoreCorruptError ||
+      error instanceof DatabaseKeyMismatchError
+    ) {
+      dialog.showErrorBox('Centre Soutien', `${DATABASE_KEY_MESSAGE.fr}\n\n${DATABASE_KEY_MESSAGE.ar}`);
       app.quit();
       return;
     }

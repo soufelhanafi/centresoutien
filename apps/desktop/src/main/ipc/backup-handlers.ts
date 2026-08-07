@@ -21,7 +21,8 @@ export type BackupHandlerDeps = {
   saveBackupConfig: SaveBackupConfigUseCase;
   restoreBackup: RestoreBackupUseCase;
   activeCenterCode: () => CenterCode;
-  /** Today's mechanism: `CS_DB_KEY` / dev fallback — see composition-root.ts. */
+  /** The per-center derived SQLCipher key (SOU-179) — same key that opened the
+   *  live DB, so backups verify/restore only on the machine that made them. */
   dbKey: () => string;
   /** Called once a restore has swapped the live DB file — schedules an app
    *  relaunch so the next `buildContainer` opens the restored file. */
