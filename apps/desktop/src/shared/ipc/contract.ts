@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { backupIpcContract } from './backup-contract';
 import { dialogIpcContract } from './dialog-contract';
+import { syncIpcContract } from './sync-contract';
+import type { syncConflictViewSchema, syncResultViewSchema } from './sync-contract';
 import {
   subjectInputSchema,
   subjectUpdateInputSchema,
@@ -1763,6 +1765,7 @@ export const ipcContract = {
   },
   ...backupIpcContract,
   ...dialogIpcContract,
+  ...syncIpcContract,
 } as const;
 
 /** The Subject boundary DTO — the renderer's `SubjectView` is an alias of this. */
@@ -1842,6 +1845,12 @@ export type DashboardBasicSummaryDto = z.infer<typeof dashboardBasicSummarySchem
 /** The Avancé dashboard summary DTO — the renderer's `DashboardAdvancedSummaryView` aliases this. */
 export type DashboardAdvancedSummaryDto = z.infer<typeof dashboardAdvancedSummarySchema>;
 
+/** A sync conflict boundary DTO — the renderer's `SyncConflictView` aliases this. */
+export type SyncConflictDto = z.infer<typeof syncConflictViewSchema>;
+
+/** A sync run result boundary DTO — the renderer's `SyncRunResultView` aliases this. */
+export type SyncResultDto = z.infer<typeof syncResultViewSchema>;
+
 export type IpcContract = typeof ipcContract;
 export type IpcChannel = keyof IpcContract;
 export type IpcRequest<C extends IpcChannel> = z.infer<IpcContract[C]['request']>;
@@ -1853,12 +1862,13 @@ export type IpcHandlers = {
 
 /**
  * The handler map actually built and wired at runtime. `plan.set` is a dev-only
- * switcher (see its contract entry): production builds omit its handler, so it is
+ * switcher (see its contract entry) and `sync.test.seedConflict` is an e2e-only
+ * conflict seed (SOU-91): production builds omit both handlers, so they are
  * optional here. Everything else is mandatory. `registerIpc` skips any channel
  * whose handler is absent, so a channel with no handler is never reachable.
  */
-export type RegisterableIpcHandlers = Omit<IpcHandlers, 'plan.set'> &
-  Partial<Pick<IpcHandlers, 'plan.set'>>;
+export type RegisterableIpcHandlers = Omit<IpcHandlers, 'plan.set' | 'sync.test.seedConflict'> &
+  Partial<Pick<IpcHandlers, 'plan.set' | 'sync.test.seedConflict'>>;
 
 export function isIpcChannel(value: string): value is IpcChannel {
   return Object.prototype.hasOwnProperty.call(ipcContract, value);
