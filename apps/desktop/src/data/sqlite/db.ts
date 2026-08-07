@@ -60,8 +60,8 @@ export class DatabaseKeyMismatchError extends Error {
  * caller decides which old keys it trusts; a production startup passes none.
  *
  * A missing file is a fresh install: nothing to do — the next `openDatabase`
- * creates it already keyed. `quick_check` forces a real page walk, the earliest
- * point SQLCipher can tell "wrong key" from "corrupt".
+ * creates it already keyed. Key checks decrypt the first page (a wrong key
+ * fails the earliest read); only the re-key path runs a full page walk.
  */
 export function ensureDatabaseKeyed(file: string, key: string, legacyKeys: readonly string[] = []): void {
   if (!existsSync(file)) return;
