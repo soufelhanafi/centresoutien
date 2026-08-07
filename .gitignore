@@ -15,6 +15,11 @@ coverage/
 .env.*
 !.env.example
 
+# local self-signed dev signing certs (apps/desktop/PACKAGING.md)
+*.pfx
+*.p12
+dev-cert.*
+
 # OS / editor
 .DS_Store
 *.log
