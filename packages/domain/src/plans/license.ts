@@ -16,23 +16,10 @@ export type LicenseClaims = {
   readonly issuedAt: string;
   /** ISO-8601 UTC expiry; `null` for a perpetual license. */
   readonly expiresAt: string | null;
-  /** Optional device binding — enforced by the activation flow (SOU-104). */
+  /** Optional device binding — not enforced in SOU-98 (see SOU-104). */
   readonly machineId: string | null;
-  /** Optional center binding — enforced by the activation flow (SOU-104). */
+  /** Optional center binding — not enforced in SOU-98 (see SOU-104). */
   readonly centerCode: string | null;
-  /**
-   * How many centers this license may run (multi-center Premium). `null` when the
-   * vendor left it unspecified — surfaced by the activation UI as a display detail
-   * (SOU-104), never a gate; `org.multi-center` remains the actual entitlement.
-   */
-  readonly centersAllowed: number | null;
-  /**
-   * ISO-8601 UTC instant the Founder-Program discount metadata lapses, or `null`
-   * when the license carries no founder discount. Purely informational: a lapsed
-   * founder discount never changes the resolved plan (SOU-104) — it only drives a
-   * "discount expired" banner in the activation screen.
-   */
-  readonly founderDiscountExpiresAt: string | null;
 };
 
 /**
