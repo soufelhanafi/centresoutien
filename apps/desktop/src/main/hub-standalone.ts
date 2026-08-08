@@ -67,8 +67,8 @@ const hubMigrationFiles = import.meta.glob('../data/sqlite/hub/migrations/*.sql'
 let store: SqliteHubStore | null = null;
 let server: HubServer | null = null;
 
-app.whenReady().then(
-  async () => {
+app.whenReady().then(async () => {
+  try {
     if (!__CS_E2E__) {
       app.exit(0);
       return;
@@ -82,12 +82,14 @@ app.whenReady().then(
     const bound = await server.start();
     // The E2E launcher waits on this line before pointing the app instances here.
     console.info(`[hub-standalone] listening on ${config.bindHost}:${bound}`);
-  },
-  (error: unknown) => {
+  } catch (error) {
+    // whenReady()'s own rejection handler can't see errors thrown in here —
+    // without this, a bad config or a bind failure hangs the launcher's
+    // waitForHub poll for its full timeout instead of failing fast.
     console.error('[hub-standalone] failed to start', error);
     app.exit(1);
-  },
-);
+  }
+});
 
 app.on('will-quit', () => {
   if (server && store) {

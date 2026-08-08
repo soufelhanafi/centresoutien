@@ -9,6 +9,10 @@ on:
     - cron: '17 3 * * *'
   workflow_dispatch:
 
+concurrency:
+  group: nightly-sync-e2e
+  cancel-in-progress: false
+
 jobs:
   multi-laptop-sync:
     runs-on: macos-latest
@@ -26,12 +30,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # `test:e2e` pre-builds the `--mode e2e` artifacts (incl. the standalone
-      # hub `out/main/hub-standalone.js`) and rebuilds the native module for the
-      # Electron ABI. CS_E2E_HIDDEN keeps the app windows off-screen on the
-      # runner's real display (no Xvfb on macOS). Scoped to just the SOU-82 spec.
+      # test:e2e:multi-laptop pre-builds the `--mode e2e` artifacts (incl. the
+      # standalone hub `out/main/hub-standalone.js`), rebuilds the native module
+      # for the Electron ABI, and runs against playwright.multi-laptop.config.ts
+      # — the only config that testMatches this spec; the fast-gate config
+      # (playwright.config.ts) testIgnores it. CS_E2E_HIDDEN keeps the app
+      # windows off-screen on the runner's real display (no Xvfb on macOS).
       - name: Multi-laptop sync E2E (FR + AR)
-        run: CS_E2E_HIDDEN=1 pnpm --filter @centresoutien/desktop test:e2e -- tests/e2e/multi-laptop-sync.spec.ts
+        run: pnpm --filter @centresoutien/desktop test:e2e:multi-laptop
 
       - name: Upload Playwright artifacts
         if: failure()
