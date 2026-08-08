@@ -104,3 +104,33 @@ deferred real cert purchase fixes.
 `better-sqlite3-multiple-ciphers` and `@node-rs/argon2*` are excluded from
 the asar archive (`asarUnpack` in `electron-builder.yml`) — native `.node`
 binaries can't be loaded from inside asar.
+
+### `@node-rs/argon2`'s platform package must be a direct optionalDependency
+
+`@node-rs/argon2` is a napi-rs package: its `index.js` picks the right
+platform at runtime via `require('@node-rs/argon2-<platform>')`, a bare
+specifier resolved by Node's normal module walk. Left as only a *transitive*
+optionalDependency of `@node-rs/argon2`, pnpm places that platform package
+several directories deep inside `@node-rs/argon2`'s own `.pnpm` store entry
+— a symlink structure that doesn't reliably survive electron-builder's asar
+packing. The failure mode is silent until first launch: packaging succeeds,
+`electron-builder`'s own log even names the fix
+("`platform-specific optional dependencies not bundled — add them to your
+project's optionalDependencies`"), but the shipped app throws `Failed to
+load native binding` on first use.
+
+Fix: declare the platform package we actually ship as a **direct**
+`optionalDependency` of `apps/desktop/package.json` (currently
+`@node-rs/argon2-darwin-arm64` and `@node-rs/argon2-win32-x64-msvc`,
+matching the `mac`/`win` targets in `electron-builder.yml`). A direct
+dependency gets pnpm's normal top-level hoisted symlink, which packs
+correctly. If a new target arch/OS is added to `electron-builder.yml`, add
+its matching `@node-rs/argon2-*` package here too.
+
+The `Verify native modules load in packaged app` CI step exists because of
+this exact bug: a green `electron-builder` exit code does not prove the
+native modules it bundled actually load. It runs the packaged Electron
+binary's own Node runtime headlessly (`ELECTRON_RUN_AS_NODE=1`, no window)
+and requires both native modules straight out of `app.asar.unpacked` — the
+same resolution path a real launch hits. Any future native dependency
+should get the same check.
