@@ -189,11 +189,15 @@ app.whenReady().then(async () => {
       // Demo mode closures (SOU-110): create builds + seeds the demo DB then
       // relaunches into it; wipe disposes the open demo container, deletes every
       // demo artefact (logo resolved from the still-open DB first), and relaunches
-      // to the real center. Only wired when the demo centreId is the open one —
-      // but the closures exist regardless so `demo.status` can answer.
+      // to the real center. The closures exist regardless so `demo.status` can
+      // answer, but each mutation guards on the demo centreId being the open one:
+      // a stray `demo.create` while already in demo would re-seed the session,
+      // and a stray `demo.wipe` from a real center would dispose the real
+      // container (review M1/s1).
       demo: {
         isDemoCenter: demoRequested,
         create: async () => {
+          if (demoRequested) return;
           await prepareDemoCenter({
             dir,
             demoKey: centerDbKey(dir, DEMO_CENTRE_ID).key,
@@ -203,17 +207,18 @@ app.whenReady().then(async () => {
           scheduleRestartIntoDemo();
         },
         wipe: async () => {
-          // Only the DEMO container's logo belongs to the demo artefacts. If a
-          // wipe ever ran against a real center, `container.db` is the real
-          // center's DB — its logo must never be deleted.
-          const logoPath = demoRequested && container ? readDemoLogoPath(container.db) : null;
+          if (!demoRequested) return;
+          const logoPath = container ? readDemoLogoPath(container.db) : null;
           container?.dispose();
           container = null;
           wipeDemoArtefacts(dir, logoPath);
           scheduleRestartIntoReal();
         },
       },
-      ...(hubServer ? { hubServer } : {}),
+      // The demo container serves its fake dataset — never start the LAN hub for
+      // it (review s3): a demo launch could otherwise collide with the real hub's
+      // port/token and expose demo data on the LAN.
+      ...(hubServer && !demoRequested ? { hubServer } : {}),
     });
   } catch (error) {
     // A center DB migrated by a newer app build, then reopened after a rollback

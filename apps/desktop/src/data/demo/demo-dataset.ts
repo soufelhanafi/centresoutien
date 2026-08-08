@@ -4,8 +4,9 @@ import { addDays } from '@centresoutien/domain';
  * SOU-110 — the deterministic demo dataset. Every name, price, and phone is a
  * literal constant or a pure function of an index (never random, never the real
  * clock). Combined with a fixed clock + deterministic IdGenerator in the demo
- * container, seeding produces byte-identical results every run — the property
- * marketing screenshots depend on.
+ * container, seeding produces identical rows every run — the property marketing
+ * screenshots depend on. (One caveat: the demo admin's password hash is salted
+ * per run, so the DB bytes differ there; the observable dataset does not.)
  *
  * The dataset is deliberately written as pools (first/last names, subjects,
  * formulas) rather than 150 hand-written student objects: the pools ARE the

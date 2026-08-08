@@ -60,7 +60,24 @@ export type PrepareDemoCenterOptions = {
  * open of a fresh demo DB); this function itself never relaunches.
  */
 export async function prepareDemoCenter(options: PrepareDemoCenterOptions): Promise<void> {
-  wipeDemoArtefacts(options.dir);
+  // A prior demo session may have crashed/killed (the only non-wipe exit) after
+  // uploading a logo; resolve it from the old DB before it is wiped so the seed
+  // leaves zero residue (review m2).
+  let previousLogoPath: string | null = null;
+  const previousFile = join(options.dir, centreDbFileName(DEMO_CENTRE_ID));
+  if (existsSync(previousFile)) {
+    let probe: DB | null = null;
+    try {
+      probe = openDatabase({ centreId: DEMO_CENTRE_ID, key: options.demoKey, dir: options.dir });
+      previousLogoPath = readDemoLogoPath(probe);
+    } catch {
+      // Partial/corrupt demo file — nothing to resolve; the wipe below drops it.
+      previousLogoPath = null;
+    } finally {
+      probe?.close();
+    }
+  }
+  wipeDemoArtefacts(options.dir, previousLogoPath);
   writeDemoLicenseFile(options.dir);
 
   const container = buildContainer({
@@ -96,8 +113,11 @@ export async function prepareDemoCenter(options: PrepareDemoCenterOptions): Prom
  * Delete every demo artefact for `centreId: 'demo'` (SOU-110 wipe): the demo DB
  * + WAL/SHM sidecars, the hub store + sidecars, the demo logo file (the center
  * row's `logoPath`, resolved before the DB is dropped), and the demo license
- * file. Zero residue. Callers dispose the open demo container FIRST (the restore
- * file-swap discipline) so the files are deletable on every platform.
+ * file. Zero residue in userData. The keychain entry the demo key derives from
+ * (SOU-179) is intentionally retained — it is opaque without the DB and deleting
+ * keychain entries is riskier than leaving it (review m4). Callers dispose the
+ * open demo container FIRST (the restore file-swap discipline) so the files are
+ * deletable on every platform.
  */
 export function wipeDemoArtefacts(dir: string, logoPath: string | null = null): void {
   const files = [

@@ -51,8 +51,9 @@ import { normalizePhone } from '@centresoutien/domain';
  * SOU-110 — the demo center seeder. Drives the EXISTING wired domain use cases
  * (never raw SQL for entities), so envelopes, change-log rows, plan gates,
  * natural keys, and duplicate guards are all respected for free. Runs under the
- * demo container's FIXED clock + deterministic IdGenerator, so every run is
- * byte-identical. The only raw write is the `app_meta` demo marker (the
+ * demo container's FIXED clock + deterministic IdGenerator, so every run yields
+ * identical observable rows (the admin password hash is salted, per review m1).
+ * The only raw write is the `app_meta` demo marker (the
  * sanctioned exception, like `resolveDeviceOrigin`).
  *
  * The `DemoSeedDeps` interface is the narrow subset of wired use cases the
