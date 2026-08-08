@@ -256,6 +256,16 @@ export type ContainerOptions = {
    * beyond the local network); it is REQUIRED and must be a non-wildcard host.
    */
   hubServer?: { port: number; token: string; bindHost: string };
+  /**
+   * Client-only hub (SOU-82): point this device's {@link SyncHubPort} at an
+   * EXTERNAL bare hub — another laptop, or the multi-laptop E2E's standalone
+   * `HubServer` process — without serving one here. Mutually exclusive with
+   * `hubServer`: a hub host already wires its own client at its own listener, so
+   * `index.ts` only resolves this when it is NOT a hub host. Absent by default;
+   * `index.ts` opts in via `CS_SYNC_HUB_URL` / `CS_SYNC_HUB_TOKEN`. No canonical
+   * store and no listener are opened on this device — it is a pure replica.
+   */
+  hubClient?: { baseUrl: string; token: string };
 };
 
 export type Container = {
@@ -981,6 +991,15 @@ export function buildContainer(options: ContainerOptions): Container {
     syncHub = new HttpSyncHubClient({
       baseUrl: `http://${hubConfig.bindHost}:${hubConfig.port}`,
       token: hubConfig.token,
+    });
+  } else if (options.hubClient) {
+    // Client-only (SOU-82): this device serves no hub — it points at an external
+    // bare hub through the SAME HttpSyncHubClient a hub host uses for its own
+    // listener. The only difference from a hub host is that no canonical store or
+    // listener is opened here; the sync engine below drives this client identically.
+    syncHub = new HttpSyncHubClient({
+      baseUrl: options.hubClient.baseUrl,
+      token: options.hubClient.token,
     });
   }
 
