@@ -37,6 +37,10 @@ const LOCAL_TABLES = [
   'sync_local_entity',
   'sync_local_pending',
   'sync_cursor',
+  // The device-side outbox watermark (SOU-180): a per-center scalar cursor over
+  // change_log.rowid, never exchanged with the hub — device-local bookkeeping,
+  // not a synced entity.
+  'sync_outbox',
 ];
 
 // Append-only infrastructure ledgers: tenant-scoped (center_code) but NOT
