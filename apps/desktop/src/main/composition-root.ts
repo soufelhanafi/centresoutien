@@ -124,6 +124,7 @@ import {
   RecordSessionAttendance,
   GetDashboardBasicSummary,
   GetDashboardAdvancedSummary,
+  DashboardBasicMetricsBuilder,
   GetStudentAttendanceReport,
   GetGroupAttendanceSheet,
 } from '@centresoutien/domain';
@@ -860,10 +861,18 @@ export function buildContainer(options: ContainerOptions): Container {
   // reuses the same `monthlyFeeAttribution` service SOU-74's payroll compute job wired,
   // so the per-subject breakdown and per-teacher payroll can never disagree on one
   // month's collected money.
+  const dashboardBasicMetricsBuilder = new DashboardBasicMetricsBuilder({
+    sessions: concreteSessionRepo,
+    students: studentRepo,
+    subscriptions: subscriptionRepo,
+    invoices: invoiceRepo,
+    groups: groupRepo,
+    enrollments: enrollmentRepo,
+    teachers: teacherRepo,
+    recurringSessions: sessionRepo,
+  });
   const getDashboardBasicSummary = new GetDashboardBasicSummary(
-    concreteSessionRepo,
-    studentRepo,
-    invoiceRepo,
+    dashboardBasicMetricsBuilder,
     clock,
     plan,
   );

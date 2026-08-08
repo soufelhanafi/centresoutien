@@ -73,10 +73,43 @@
       "advanced": "متقدم"
     },
     "basic": {
-      "kpis": {
-        "todaysSessions": "الحصص اليوم",
-        "activeStudents": "التلاميذ النشيطون",
-        "unpaidInvoices": "الفواتير غير المؤداة"
+      "sections": {
+        "argent": "المالية — {{month}}",
+        "effectifs": "التعداد",
+        "teacherLoad": "عبء المدرسين / أسبوع",
+        "seances": "الحصص هذا الأسبوع"
+      },
+      "argent": {
+        "billed": "المفوتر",
+        "collected": "المحصل",
+        "unpaid": "غير المؤدى",
+        "paidInvoices": "فواتير مؤداة",
+        "deltaVs": "مقارنةً بـ {{month}}"
+      },
+      "effectifs": {
+        "activeStudents": "تلاميذ نشيطون",
+        "groups": "مجموعات",
+        "perGroup": "تلاميذ/مجموعة",
+        "unenrolled": "غير مسجلين",
+        "noGroups": "لا توجد مجموعة نشيطة.",
+        "examPrep": "تحضير الامتحان"
+      },
+      "teacherLoad": {
+        "empty": "لا توجد حصص هذا الأسبوع."
+      },
+      "seances": {
+        "planned_zero": "لا حصص · {{hours}} مخططة",
+        "planned_one": "حصة · {{hours}} مخططة",
+        "planned_two": "حصتان · {{hours}} مخططتان",
+        "planned_few": "حصص · {{hours}} مخططة",
+        "planned_many": "حصة · {{hours}} مخططة",
+        "planned_other": "حصة · {{hours}} مخططة",
+        "groupsWithoutSessions_zero": "لا توجد مجموعة بدون حصص مخططة",
+        "groupsWithoutSessions_one": "{{count}} مجموعة بدون حصص مخططة",
+        "groupsWithoutSessions_two": "{{count}} مجموعتان بدون حصص مخططة",
+        "groupsWithoutSessions_few": "{{count}} مجموعات بدون حصص مخططة",
+        "groupsWithoutSessions_many": "{{count}} مجموعة بدون حصص مخططة",
+        "groupsWithoutSessions_other": "{{count}} مجموعة بدون حصص مخططة"
       },
       "quickActions": {
         "title": "إجراءات سريعة",

@@ -22,14 +22,24 @@ export function fails<C extends IpcChannel>(message: string): ChannelOutcome<C> 
 }
 
 /**
- * The three channels every screen calls at boot, regardless of which screen
+ * The four channels every screen calls at boot, regardless of which screen
  * is under test: `FirstRunGate` (`admin.exists`), `AuthGate` (`auth.session`),
- * and `usePlanHydration` (`plan.get`). Merge screen-specific entries on top.
+ * the SOU-104 license lock (`license.status`), and `usePlanHydration`
+ * (`plan.get`). Merge screen-specific entries on top.
  */
 export function bootMocks(planId: IpcResponse<'plan.get'>['planId'] = 'premium'): MockTable {
   return {
     'admin.exists': ok({ exists: true }),
     'auth.session': ok({ authenticated: true }),
+    'license.status': ok({
+      status: 'active',
+      plan: planId,
+      restricted: false,
+      expiresAt: null,
+      centersAllowed: null,
+      founderDiscountExpiresAt: null,
+      founderDiscountExpired: false,
+    }),
     'plan.get': ok({ planId }),
   };
 }

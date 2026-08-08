@@ -4,10 +4,13 @@ import {
   DIRECTION,
   boot,
   pageCrashed,
-  gotoDashboard,
   seedFullMonth,
+  seedExtraGroupWithoutSession,
+  seedDashboardVisuals,
   readDashboardApi,
   expectedPercent,
+  zeroFigure,
+  normalizeWs,
   type Launched,
   type Locale,
 } from './dashboard.fixtures';
@@ -31,19 +34,33 @@ async function assertMounted(win: Page, L: (typeof STR)[Locale]): Promise<void> 
   await expect(win.getByRole('heading', { level: 1, name: L.title })).toBeVisible();
 }
 
-async function kpiValue(win: Page, label: string): Promise<string | null> {
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The Basique section heading (`Argent — août 2026`, `Effectifs`, …). The
+ * design appends the current month to the Argent heading, so sections are
+ * matched by the accessible name anchored to the label, never by exact text.
+ */
+function sectionHeading(win: Page, label: string) {
+  return win.getByRole('heading', { level: 2, name: new RegExp('^' + escapeRegExp(label)) });
+}
+
+/** The mono figure inside an Argent card, found via its label (`Facturé` → `0 MAD`). */
+async function argentValue(win: Page, label: string): Promise<string | null> {
   const labelLoc = win.getByText(label, { exact: true }).first();
   const card = labelLoc.locator('xpath=..');
   const value = card.locator('span').first();
-  return value.textContent();
+  return normalizeWs(await value.textContent());
 }
 
 // ---------------------------------------------------------------------------
 // Scenario 1 — Basique empty state: a freshly booted center (zero students,
-// sessions, invoices) shows the three KPI cards at 0 (not blank / crashed) and
-// the three quick actions.
+// sessions, invoices) shows the four sections with zeroed figures (not blank /
+// crashed) and their dedicated empty-state copy.
 // ---------------------------------------------------------------------------
-test('Scenario 1 — Basique empty state shows 0 KPIs and the three quick actions', async () => {
+test('Scenario 1 — Basique empty state shows the four sections at zero', async () => {
   const L = STR[locale()];
   live = await boot(locale());
   const win = live.win;
@@ -51,20 +68,26 @@ test('Scenario 1 — Basique empty state shows 0 KPIs and the three quick action
   await win.screenshot({ path: `test-results/dashboard-basic-empty-${locale()}.png` });
 
   await expect(win.getByRole('tab', { name: L.tabs.basic })).toHaveAttribute('aria-selected', 'true');
-  expect(await kpiValue(win, L.kpis.todaysSessions)).toBe('0');
-  expect(await kpiValue(win, L.kpis.activeStudents)).toBe('0');
-  expect(await kpiValue(win, L.kpis.unpaidInvoices)).toBe('0');
+  await expect(sectionHeading(win, L.sections.argent)).toBeVisible();
+  await expect(sectionHeading(win, L.sections.effectifs)).toBeVisible();
+  await expect(sectionHeading(win, L.sections.teacherLoad)).toBeVisible();
+  await expect(sectionHeading(win, L.sections.seances)).toBeVisible();
 
-  await expect(win.getByRole('link', { name: L.quickActions.addStudent })).toBeVisible();
-  await expect(win.getByRole('link', { name: L.quickActions.recordPayment })).toBeVisible();
-  await expect(win.getByRole('link', { name: L.quickActions.addSession })).toBeVisible();
+  expect(await argentValue(win, L.argent.billed)).toBe(zeroFigure(locale()));
+  expect(await argentValue(win, L.argent.collected)).toBe(zeroFigure(locale()));
+  expect(await argentValue(win, L.argent.unpaid)).toBe(zeroFigure(locale()));
+
+  await expect(win.getByText(L.effectifs.noGroups, { exact: true })).toBeVisible();
+  await expect(win.getByText(L.teacherLoadEmpty, { exact: true })).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------
-// Scenario 2 — Basique happy path: seeded activity (1 session today, 1 active
-// student, 1 invoice fully paid) is reflected exactly in the three KPI cards.
+// Scenario 2 — Basique happy path: seeded activity (1 active student, 1 group,
+// 1 session this week) is reflected in the Effectifs + Séances sections.
+// Argent stays at zero: the seeded invoice can never leave `draft` (SOU-143),
+// and the new read model counts issued invoices only (SOU-177 shape).
 // ---------------------------------------------------------------------------
-test('Scenario 2 — Basique KPIs reflect seeded activity exactly', async () => {
+test('Scenario 2 — Basique Effectifs and Séances reflect seeded activity exactly', async () => {
   const L = STR[locale()];
   live = await boot(locale());
   const win = live.win;
@@ -74,37 +97,43 @@ test('Scenario 2 — Basique KPIs reflect seeded activity exactly', async () => 
   await assertMounted(win, L);
   await win.screenshot({ path: `test-results/dashboard-basic-seeded-${locale()}.png` });
 
-  expect(await kpiValue(win, L.kpis.todaysSessions)).toBe('1');
-  expect(await kpiValue(win, L.kpis.activeStudents)).toBe('1');
-  expect(await kpiValue(win, L.kpis.unpaidInvoices), 'the seeded invoice was recorded as fully paid').toBe('0');
+  expect(await argentValue(win, L.argent.billed), 'the seeded invoice stays draft, so billed = 0').toBe(zeroFigure(locale()));
+
+  const effectifsCard = sectionHeading(win, L.sections.effectifs).locator('xpath=..');
+  await expect(effectifsCard).toContainText('1');
+  await expect(effectifsCard).toContainText(L.effectifs.groups);
+
+  const seancesCard = sectionHeading(win, L.sections.seances).locator('xpath=..');
+  await expect(seancesCard).toContainText('1');
 });
 
 // ---------------------------------------------------------------------------
-// Scenario 3 — quick actions navigate to the right destination page and never
-// crash the app.
+// Scenario 3 — a group with no concrete session this week surfaces in the
+// amber "groupes sans séance planifiée" card, whose row links to the calendar.
 // ---------------------------------------------------------------------------
-test('Scenario 3 — quick actions navigate to Students / Invoicing / Planning', async () => {
+test('Scenario 3 — a group without a session links to the calendar from the amber card', async () => {
   const L = STR[locale()];
   live = await boot(locale());
   const win = live.win;
   await assertMounted(win, L);
 
-  await win.getByRole('link', { name: L.quickActions.addStudent }).click();
-  await win.waitForTimeout(400);
-  expect(await pageCrashed(win)).toBe(false);
-  expect(await win.evaluate(() => location.hash)).toContain('students');
+  await seedFullMonth(win);
+  const { level: orphanLevel } = await seedExtraGroupWithoutSession(win);
+  await win.reload();
+  await win.waitForLoadState('domcontentloaded');
+  await assertMounted(win, L);
 
-  await gotoDashboard(win, L);
-  await win.getByRole('link', { name: L.quickActions.recordPayment }).click();
-  await win.waitForTimeout(400);
+  const amberCard = win.getByText(/sans séance planifiée|بدون حصص مخططة/).first();
+  await expect(amberCard).toBeVisible();
+  // The orphaned group (no session this week) is listed in the amber card as a
+  // link to the calendar; the seeded group (session today) is not.
+  const row = win.getByRole('link', { name: new RegExp(escapeRegExp(orphanLevel)) });
+  await expect(row).toHaveCount(1);
+  await row.click();
+  await expect
+    .poll(() => win.evaluate(() => location.hash))
+    .toContain('planning');
   expect(await pageCrashed(win)).toBe(false);
-  expect(await win.evaluate(() => location.hash)).toContain('invoicing');
-
-  await gotoDashboard(win, L);
-  await win.getByRole('link', { name: L.quickActions.addSession }).click();
-  await win.waitForTimeout(400);
-  expect(await pageCrashed(win)).toBe(false);
-  expect(await win.evaluate(() => location.hash)).toContain('planning');
 });
 
 // ---------------------------------------------------------------------------
@@ -171,7 +200,9 @@ test('Scenario 6 — Avancé widgets reflect seeded paid revenue and attendance'
   const { basic, advanced } = await readDashboardApi(win);
   // Ground truth via the public bridge, independent of the UI: prove the
   // invoice really is fully paid before asserting anything about the chart.
-  expect((basic as { summary: { unpaidInvoiceCount: number } }).summary.unpaidInvoiceCount).toBe(0);
+  expect(
+    (basic as { summary: { argent: { unpaidMad: number } } }).summary.argent.unpaidMad,
+  ).toBe(0);
 
   await win.reload();
   await win.waitForLoadState('domcontentloaded');
@@ -225,12 +256,12 @@ test('Scenario 7 — revenue trend tooltip never leaks a raw field name', async 
 });
 
 // ---------------------------------------------------------------------------
-// Scenario 8 — AR/RTL: the document direction flips, and each Basique KPI
-// card's number sits on the SAME side as its own label (a coherent card),
+// Scenario 8 — AR/RTL: the document direction flips, and each Basique money
+// card's figure sits on the SAME side as its own label (a coherent card),
 // mirrored to the end/right side in RTL exactly like it does at the
 // start/left side in LTR.
 // ---------------------------------------------------------------------------
-test('Scenario 8 — AR/RTL: KPI number stays visually grouped with its own label', async () => {
+test('Scenario 8 — AR/RTL: money figure stays visually grouped with its own label', async () => {
   const L = STR[locale()];
   live = await boot(locale());
   const win = live.win;
@@ -238,7 +269,7 @@ test('Scenario 8 — AR/RTL: KPI number stays visually grouped with its own labe
 
   expect(await win.evaluate(() => document.documentElement.dir)).toBe(DIRECTION[locale()]);
 
-  // The label and number spans are both block-level and stretch to the card's
+  // The label and figure spans are both block-level and stretch to the card's
   // full content width, so comparing their *element* bounding boxes cannot
   // detect a glyph-level misalignment. Measure the rendered GLYPH position via
   // `Range.getBoundingClientRect()` instead — the only way to tell which edge
@@ -248,18 +279,18 @@ test('Scenario 8 — AR/RTL: KPI number stays visually grouped with its own labe
       ?.parentElement;
     if (!cardEl) return null;
     const labelP = cardEl.querySelector('p');
-    const numberSpan = cardEl.querySelector('span');
-    if (!labelP?.firstChild || !numberSpan?.firstChild) return null;
+    const figureSpan = cardEl.querySelector('p:last-of-type span');
+    if (!labelP?.firstChild || !figureSpan?.firstChild) return null;
     const rectOf = (node: ChildNode): DOMRect => {
       const range = document.createRange();
       range.selectNodeContents(node);
       return range.getBoundingClientRect();
     };
     const card = cardEl.getBoundingClientRect();
-    return { card: card.toJSON(), label: rectOf(labelP.firstChild).toJSON(), number: rectOf(numberSpan.firstChild).toJSON() };
-  }, L.kpis.todaysSessions);
+    return { card: card.toJSON(), label: rectOf(labelP.firstChild).toJSON(), number: rectOf(figureSpan.firstChild).toJSON() };
+  }, L.argent.billed);
 
-  expect(rects, 'could not resolve the KPI card / label / number glyph rects').toBeTruthy();
+  expect(rects, 'could not resolve the money card / label / figure glyph rects').toBeTruthy();
   if (rects) {
     const side = (box: { x: number; width: number }): 'left' | 'right' => {
       const distToRight = rects.card.x + rects.card.width - (box.x + box.width);
@@ -271,7 +302,41 @@ test('Scenario 8 — AR/RTL: KPI number stays visually grouped with its own labe
     await win.screenshot({ path: `test-results/dashboard-rtl-kpi-alignment-${locale()}.png` });
     expect(
       numberSide,
-      `BUG: in ${locale()}, the KPI label glyph sits on the "${labelSide}" side of its card while the number glyph sits on the "${numberSide}" side — they should visually group together`,
+      `BUG: in ${locale()}, the money label glyph sits on the "${labelSide}" side of its card while the figure glyph sits on the "${numberSide}" side — they should visually group together`,
     ).toBe(labelSide);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Scenario 9 — Basique visualizations (SOU-177 kickoff): the effectifs
+// per-group enrollment bars (`1/15`, exam-prep `PE` badge), the teacher-load
+// hours bar (`2h30`, localised teacher name) and the Séances "n séances ·
+// 2h30 planifiées" copy all render from real seeded data.
+// ---------------------------------------------------------------------------
+test('Scenario 9 — Basique enrollment bars, teacher-load hours and Séances copy render from seeded data', async () => {
+  const L = STR[locale()];
+  live = await boot(locale());
+  const win = live.win;
+  await seedDashboardVisuals(win);
+  await win.reload();
+  await win.waitForLoadState('domcontentloaded');
+  await assertMounted(win, L);
+  await win.screenshot({ path: `test-results/dashboard-basic-visuals-${locale()}.png` });
+
+  // Effectifs: one bar per seeded group (regular 1/15, exam-prep 1/18), and the
+  // exam-prep group's bar carries the localized PE badge.
+  const effectifsCard = sectionHeading(win, L.sections.effectifs).locator('xpath=..');
+  await expect(effectifsCard).toContainText('1/15');
+  await expect(effectifsCard).toContainText('1/18');
+  await expect(effectifsCard).toContainText(L.effectifs.peBadge);
+
+  // Charge enseignants: the seeded teacher's bar shows her hours (90+60 min = 2h30).
+  const teacherCard = sectionHeading(win, L.sections.teacherLoad).locator('xpath=..');
+  await expect(teacherCard).toContainText(L.teacherLoadName);
+  await expect(teacherCard).toContainText('2h30');
+
+  // Séances cette semaine: 2 concrete sessions this week, 2h30 planned.
+  const seancesCard = sectionHeading(win, L.sections.seances).locator('xpath=..');
+  await expect(seancesCard).toContainText('2');
+  await expect(seancesCard).toContainText('2h30');
 });

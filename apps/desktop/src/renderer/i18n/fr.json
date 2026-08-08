@@ -73,10 +73,35 @@
       "advanced": "Avancé"
     },
     "basic": {
-      "kpis": {
-        "todaysSessions": "Séances aujourd'hui",
-        "activeStudents": "Élèves actifs",
-        "unpaidInvoices": "Factures impayées"
+      "sections": {
+        "argent": "Argent — {{month}}",
+        "effectifs": "Effectifs",
+        "teacherLoad": "Charge enseignants / semaine",
+        "seances": "Séances cette semaine"
+      },
+      "argent": {
+        "billed": "Facturé",
+        "collected": "Encaissé",
+        "unpaid": "Impayé",
+        "paidInvoices": "Factures payées",
+        "deltaVs": "vs {{month}}"
+      },
+      "effectifs": {
+        "activeStudents": "élèves actifs",
+        "groups": "groupes",
+        "perGroup": "élèves/groupe",
+        "unenrolled": "non inscrits",
+        "noGroups": "Aucun groupe actif.",
+        "examPrep": "Prépa examen"
+      },
+      "teacherLoad": {
+        "empty": "Aucune séance cette semaine."
+      },
+      "seances": {
+        "planned_one": "séance · {{hours}} planifiée",
+        "planned_other": "séances · {{hours}} planifiées",
+        "groupsWithoutSessions_one": "{{count}} groupe sans séance planifiée",
+        "groupsWithoutSessions_other": "{{count}} groupes sans séance planifiée"
       },
       "quickActions": {
         "title": "Actions rapides",

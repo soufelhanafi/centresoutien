@@ -439,7 +439,16 @@ export type {
 export type { WeeklySessionView } from './read-models/weekly-session-view';
 export type { InvoiceListRow, InvoiceListFilters } from './read-models/invoice-list-row';
 export type { OverdueInvoiceLineView } from './read-models/overdue-invoice-view';
-export type { DashboardBasicSummary } from './read-models/dashboard-basic-summary';
+export type {
+  DashboardBasicSummary,
+  MoneyDelta,
+  PaidInvoicesProgress,
+  ArgentCard,
+  GroupEnrollmentBar,
+  TeacherWeeklyLoad,
+  GroupWithoutSessions,
+} from './read-models/dashboard-basic-summary';
+export { DASHBOARD_TEACHER_LOAD_TOP_N } from './read-models/dashboard-basic-summary';
 export type {
   DashboardAdvancedSummary,
   MonthlyRevenuePoint,
@@ -587,6 +596,8 @@ export type {
 // Domain services
 export { DeviceSessionService } from './services/device-session-service';
 export { MonthlyFeeAttributionService } from './services/monthly-fee-attribution-service';
+export { DashboardBasicMetricsBuilder } from './services/dashboard-basic-metrics-builder';
+export { mondayOfWeek } from './services/dashboard-basic-metrics';
 export {
   SessionGenerator,
   assignRoomsToBlocks,

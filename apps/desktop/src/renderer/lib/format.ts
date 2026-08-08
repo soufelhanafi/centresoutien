@@ -63,3 +63,69 @@ export function formatPercent(percent: number, locale: string): string {
     percent / 100,
   );
 }
+
+/**
+ * Formats a `YYYY-MM` month as its long name only ("juin" — no year), the shape
+ * the Basique delta line needs ("▲ +6,2 % vs juin"). Falls back to the raw string.
+ */
+export function formatMonthName(value: string, locale: string): string {
+  const date = new Date(`${value}-01T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(bcp47(locale), { month: 'long' }).format(date);
+}
+
+/**
+ * Splits an integer MAD-centimes amount into its locale-formatted integer
+ * figure and its currency label ("48 250" + "MAD" under fr-MA, "د.م." under
+ * ar-MA). The Basique cards render the figure big and the unit small
+ * (design 1b), so `formatMoneyMad`'s single-string form can't be reused here.
+ */
+export function formatMadParts(amountCentimes: number, locale: string): { amount: string; unit: string } {
+  const parts = new Intl.NumberFormat(bcp47(locale), {
+    style: 'currency',
+    currency: 'MAD',
+    maximumFractionDigits: 0,
+  }).formatToParts(amountCentimes / 100);
+  let amount = '';
+  let unit = '';
+  for (const part of parts) {
+    if (part.type === 'currency') {
+      unit += part.value;
+    } else if (part.type !== 'literal') {
+      amount += part.value;
+    }
+  }
+  return { amount, unit };
+}
+
+/**
+ * Formats a signed percent change with one decimal ("+6,2 %", "-3,5 %") — the
+ * Basique Argent delta line. `value` is percentage points (6.2 for 6.2%),
+ * matching the domain's `MoneyDelta.deltaPercent`.
+ */
+export function formatSignedPercent(percentPoints: number, locale: string): string {
+  return new Intl.NumberFormat(bcp47(locale), {
+    style: 'percent',
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    signDisplay: 'exceptZero',
+  }).format(percentPoints / 100);
+}
+
+/**
+ * Formats a signed integer MAD-centimes difference as a whole-MAD figure
+ * ("+1 150", "-450") — the Impayé card's absolute diff line (design 1b).
+ */
+export function formatSignedMad(diffCentimes: number, locale: string): string {
+  return new Intl.NumberFormat(bcp47(locale), {
+    maximumFractionDigits: 0,
+    signDisplay: 'exceptZero',
+  }).format(diffCentimes / 100);
+}
+
+/** Formats a duration in minutes as "16h30" / "53h30" (design 1b — no locale separator). */
+export function formatHoursMinutes(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h${String(minutes).padStart(2, '0')}`;
+}

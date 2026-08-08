@@ -55,7 +55,36 @@ Object.defineProperty(window, 'api', {
         // Zeroed KPI/widget summaries so App smoke tests can mount the dashboard
         // without a real backend. Dashboard-specific tests override this.
         case 'dashboard.basic':
-          return { summary: { todaysSessionCount: 0, activeStudentCount: 0, unpaidInvoiceCount: 0 } };
+          return {
+            summary: {
+              argent: {
+                month: '2026-07',
+                billedMad: 0,
+                collectedMad: 0,
+                unpaidMad: 0,
+                paidInvoices: { paidCount: 0, totalCount: 0 },
+                prevMonth: { billedMad: 0, collectedMad: 0, unpaidMad: 0 },
+                deltas: {
+                  billed: { deltaPercent: null },
+                  collected: { deltaPercent: null },
+                },
+              },
+              effectifs: {
+                activeStudentCount: 0,
+                groupCount: 0,
+                averageStudentsPerGroup: 0,
+                unenrolledStudentCount: 0,
+                groupBars: [],
+              },
+              teacherWeeklyLoad: [],
+              seances: {
+                weekStart: '2026-07-06',
+                weekSessionCount: 0,
+                plannedMinutes: 0,
+                groupsWithoutSessions: [],
+              },
+            },
+          };
         case 'dashboard.advanced':
           return {
             summary: {
