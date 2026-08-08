@@ -10,19 +10,6 @@ import { THEME_DIRECTION_MATRIX, gotoScreen, matrixLabel } from '../support/visu
  */
 const MOCKS: MockTable = {
   ...bootMocks(),
-  // SOU-104 license gate: the booted renderer refuses to render any screen until
-  // `license.status` reports active (the harness's `bootMocks()` predates the
-  // hard lock and does not cover this channel). Without it the dashboard is
-  // replaced by the "Impossible de vérifier la licence" screen.
-  'license.status': ok({
-    status: 'active',
-    plan: 'premium',
-    restricted: false,
-    expiresAt: null,
-    centersAllowed: null,
-    founderDiscountExpiresAt: null,
-    founderDiscountExpired: false,
-  }),
   'dashboard.basic': ok({
     summary: {
       argent: {
@@ -35,7 +22,6 @@ const MOCKS: MockTable = {
         deltas: {
           billed: { deltaPercent: 6.2 },
           collected: { deltaPercent: 4.8 },
-          unpaid: { deltaPercent: 15.8 },
         },
       },
       effectifs: {

@@ -67,7 +67,6 @@ Object.defineProperty(window, 'api', {
                 deltas: {
                   billed: { deltaPercent: null },
                   collected: { deltaPercent: null },
-                  unpaid: { deltaPercent: null },
                 },
               },
               effectifs: {

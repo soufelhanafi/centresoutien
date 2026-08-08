@@ -110,7 +110,6 @@ test('Scenario 2 — Basique Effectifs and Séances reflect seeded activity exac
 // ---------------------------------------------------------------------------
 // Scenario 3 — a group with no concrete session this week surfaces in the
 // amber "groupes sans séance planifiée" card, whose row links to the calendar.
-// (The Basique page itself renders no quick-action shortcuts — design 1b.)
 // ---------------------------------------------------------------------------
 test('Scenario 3 — a group without a session links to the calendar from the amber card', async () => {
   const L = STR[locale()];
