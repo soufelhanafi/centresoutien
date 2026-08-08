@@ -8,6 +8,13 @@ import { isPeopleEntityType } from './duplicate-matcher';
 import { ImmutableDivergenceError } from '../errors/sync-errors';
 import { resolveInboundChange, type ResolveOutcome } from './merge';
 import type { LocalPendingChange, LocalSyncRepository } from './sync-local-repository';
+import {
+  SUBJECT_ENTITY_TYPE,
+  subjectCodeCollisionKey,
+  type SubjectCodeCollision,
+  type SubjectCodeCollisionStore,
+} from './subject-code-collision';
+import { resolveSubjectCodeCollision } from '../policies/subject-code-collision-policy';
 
 /**
  * The resolve step of pull → resolve → push (SOU-80 §3), kept out of the engine
@@ -27,6 +34,7 @@ export class ChangeResolver {
     private readonly deviceId: DeviceId,
     private readonly updatedBy: UserId,
     private readonly centreId: CenterCode,
+    private readonly subjectCollisions: SubjectCodeCollisionStore | null = null,
   ) {}
 
   /** Apply or merge each inbound change; queue conflicts; never auto-resolve them. */
@@ -34,10 +42,11 @@ export class ChangeResolver {
     changes: readonly HubChange[],
     conflicts: SyncConflict[],
     matcher: DuplicateMatcher,
+    collisions: SubjectCodeCollision[] = [],
   ): number {
     let applied = 0;
     for (const change of changes) {
-      applied += this.resolveOne(change, conflicts, matcher);
+      applied += this.resolveOne(change, conflicts, matcher, collisions);
     }
     return applied;
   }
@@ -46,6 +55,7 @@ export class ChangeResolver {
     change: HubChange,
     conflicts: SyncConflict[],
     matcher: DuplicateMatcher,
+    collisions: SubjectCodeCollision[],
   ): number {
     const state = this.local.getLocalState(change.entityType, change.entityId);
     if (state && change.version <= state.version) return 0; // already applied (retry re-delivery)
@@ -60,7 +70,7 @@ export class ChangeResolver {
 
     switch (outcome.kind) {
       case 'apply':
-        this.local.applyInbound(change.entityType, change.entityId, outcome.entity, outcome.version);
+        this.applyInbound(change, outcome, collisions);
         break;
       case 'merged':
         this.local.upsertPending(this.buildMergedPending(change, local, outcome));
@@ -78,6 +88,65 @@ export class ChangeResolver {
 
     this.detectDuplicates(change, conflicts, matcher);
     return outcome.kind === 'apply' || outcome.kind === 'merged' ? 1 : 0;
+  }
+
+  /**
+   * Fast-forward apply, made collision-safe for subjects (SOU-122). A subject
+   * apply projects onto the real `subjects` table, which carries the partial
+   * unique index `ux_subjects_code`; two replicas can each have created a live
+   * subject with the same code offline, so a raw apply would throw
+   * `SQLITE_CONSTRAINT_UNIQUE`. Instead the clash is settled deterministically —
+   * the lower ULID keeps the code, the loser's code is nulled — so the apply
+   * never throws and both rows survive. Non-subjects (and tombstone applies,
+   * which the partial index excludes) take the plain path.
+   */
+  private applyInbound(
+    change: HubChange,
+    outcome: Extract<ResolveOutcome, { kind: 'apply' }>,
+    collisions: SubjectCodeCollision[],
+  ): void {
+    const code = outcome.entity['code'];
+    const applies =
+      this.subjectCollisions !== null &&
+      change.entityType === SUBJECT_ENTITY_TYPE &&
+      outcome.entity['deletedAt'] == null &&
+      typeof code === 'string' &&
+      code.length > 0;
+
+    if (!applies) {
+      this.local.applyInbound(change.entityType, change.entityId, outcome.entity, outcome.version);
+      return;
+    }
+
+    const store = this.subjectCollisions as SubjectCodeCollisionStore;
+    const codeText = code as string;
+    const existingId = store.findLiveSubjectIdByCode(this.centreId, codeText, change.entityId);
+    if (existingId === null) {
+      this.local.applyInbound(change.entityType, change.entityId, outcome.entity, outcome.version);
+      return;
+    }
+
+    const { winnerId, loserId } = resolveSubjectCodeCollision(change.entityId, existingId);
+    if (loserId === change.entityId) {
+      // Inbound loses: apply it with its code freed; the local winner is untouched.
+      this.local.applyInbound(
+        change.entityType,
+        change.entityId,
+        { ...outcome.entity, code: null },
+        outcome.version,
+      );
+    } else {
+      // Inbound wins: free the code from the local loser first so the winner's
+      // projection cannot violate the unique index, then apply the winner as-is.
+      store.clearSubjectCode(existingId);
+      this.local.applyInbound(change.entityType, change.entityId, outcome.entity, outcome.version);
+    }
+    this.pushUniqueCollision(collisions, {
+      entityType: SUBJECT_ENTITY_TYPE,
+      code: codeText,
+      winnerId,
+      loserId,
+    });
   }
 
   private buildMergedPending(
@@ -143,5 +212,14 @@ export class ChangeResolver {
     const key = conflictKey(conflict);
     if (conflicts.some((existing) => conflictKey(existing) === key)) return;
     conflicts.push(conflict);
+  }
+
+  private pushUniqueCollision(
+    collisions: SubjectCodeCollision[],
+    collision: SubjectCodeCollision,
+  ): void {
+    const key = subjectCodeCollisionKey(collision);
+    if (collisions.some((existing) => subjectCodeCollisionKey(existing) === key)) return;
+    collisions.push(collision);
   }
 }
