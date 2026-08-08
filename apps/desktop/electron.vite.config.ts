@@ -19,6 +19,22 @@ export default defineConfig(({ mode }) => {
     main: {
       plugins: [externalizeDepsPlugin()],
       define: { __CS_E2E__: JSON.stringify(isE2E) },
+      // The E2E build adds a second, window-less main entry: the standalone bare
+      // hub the multi-laptop sync spec (SOU-82) runs as its own process. It is
+      // compiled ONLY here, so a release build ships just `index.js`.
+      ...(isE2E
+        ? {
+            build: {
+              rollupOptions: {
+                input: {
+                  index: resolve(__dirname, 'src/main/index.ts'),
+                  'hub-standalone': resolve(__dirname, 'src/main/hub-standalone.ts'),
+                },
+                output: { entryFileNames: '[name].js' },
+              },
+            },
+          }
+        : {}),
     },
     preload: {
       plugins: [externalizeDepsPlugin()],
