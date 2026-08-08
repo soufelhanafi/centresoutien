@@ -10,12 +10,12 @@ files:
   - out/**/*
   - package.json
 
-# better-sqlite3-multiple-ciphers and @node-rs/argon2 ship platform-specific
-# .node binaries — these cannot execute from inside the asar archive, so their
-# packages are unpacked to app.asar.unpacked at build time.
+# better-sqlite3-multiple-ciphers ships a platform-specific .node binary that
+# cannot execute from inside the asar archive, so its package is unpacked to
+# app.asar.unpacked at build time. Password hashing uses hash-wasm (pure
+# WebAssembly, bundled into the JS) — no native binary to unpack.
 asarUnpack:
   - '**/node_modules/better-sqlite3-multiple-ciphers/**/*'
-  - '**/node_modules/@node-rs/argon2*/**/*'
 
 # Native binary is rebuilt for the Electron ABI by predist (native-abi.mjs)
 # before electron-builder runs — its own rebuild pass would target the wrong

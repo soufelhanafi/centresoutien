@@ -194,7 +194,7 @@ import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receip
 import { PdfLibScheduleRenderer } from '../data/pdf/pdf-lib-schedule-renderer';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
-import { Argon2PasswordHasher } from './infra/argon2-password-hasher';
+import { HashWasmPasswordHasher } from './infra/hash-wasm-password-hasher';
 import { NodeSecureRandom } from './infra/node-secure-random';
 import { NodeRandomPort } from './infra/node-random-port';
 import { LocalePreferenceStore, type LocalePreference } from './infra/locale-preference-store';
@@ -887,7 +887,7 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
-  const hasher = new Argon2PasswordHasher();
+  const hasher = new HashWasmPasswordHasher();
   const adminRepo = new SqliteAdminAccountRepository(db);
   const createAdminAccount = new CreateAdminAccount(adminRepo, hasher, clock, ids);
   const verifyAdminPassword = new VerifyAdminPassword(adminRepo, hasher);

@@ -25,7 +25,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.5.7",
-    "@node-rs/argon2": "^2.0.2",
     "@pdf-lib/fontkit": "^1.1.1",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "^1.170.18",
@@ -33,6 +32,7 @@
     "better-sqlite3-multiple-ciphers": "^12.11.1",
     "bidi-js": "^1.0.3",
     "exceljs": "^4.4.0",
+    "hash-wasm": "^4.12.0",
     "i18next": "^26.3.6",
     "lucide-react": "^1.27.0",
     "pdf-lib": "^1.17.1",
