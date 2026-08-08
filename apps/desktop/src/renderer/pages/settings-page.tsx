@@ -10,13 +10,14 @@ import { AppearanceSettings } from '../components/settings/appearance-settings';
 import { PlanSettings } from '../components/settings/plan-settings';
 import { LicenseSettings } from '../components/settings/license-settings';
 import { BackupSettings } from '../components/settings/backup-settings';
+import { DemoSettings } from '../components/settings/demo-settings';
 
 /**
- * Paramètres screen (SOU-31). Nine tabs: the center-profile editor (SOU-28),
+ * Paramètres screen (SOU-31). Eleven tabs: the center-profile editor (SOU-28),
  * the center opening-hours editor (SOU-29), the holidays manager (SOU-30),
  * password change, security questions (SOU-155), language,
  * appearance/dark-mode (SOU-144), read-only plan info, license activation
- * (SOU-104), and backup/restore (SOU-102).
+ * (SOU-104), backup/restore (SOU-102), and the demo-mode entry (SOU-110).
  */
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -38,6 +39,7 @@ export function SettingsPage() {
           <TabsTrigger value="plan">{t('settings.tabs.plan')}</TabsTrigger>
           <TabsTrigger value="license">{t('settings.tabs.license')}</TabsTrigger>
           <TabsTrigger value="backup">{t('settings.tabs.backup')}</TabsTrigger>
+          <TabsTrigger value="demo">{t('demo.tab')}</TabsTrigger>
         </TabsList>
         <TabsContent value="profile">
           <CenterProfileSettings />
@@ -68,6 +70,9 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="backup">
           <BackupSettings />
+        </TabsContent>
+        <TabsContent value="demo">
+          <DemoSettings />
         </TabsContent>
       </Tabs>
     </section>

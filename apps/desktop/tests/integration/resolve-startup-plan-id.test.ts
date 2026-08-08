@@ -34,6 +34,7 @@ function validPremium(overrides: Partial<{ machineId: string | null; centerCode:
       centerCode: overrides.centerCode ?? null,
       centersAllowed: null,
       founderDiscountExpiresAt: null,
+      demo: false,
     },
   };
 }
@@ -69,6 +70,7 @@ describe('resolveStartupPlanId (SOU-104 B1 hard lock)', () => {
           centerCode: null,
           centersAllowed: null,
           founderDiscountExpiresAt: null,
+          demo: false,
         },
       },
     ];

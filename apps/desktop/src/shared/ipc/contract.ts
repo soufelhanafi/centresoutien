@@ -742,6 +742,27 @@ export const ipcContract = {
     request: z.object({}),
     response: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
   },
+  // Demo mode (SOU-110): a sales tool that builds a SEPARATE, deterministic
+  // demo DB (`centreId: 'demo'`) and relaunches into it. `demo.status` reports
+  // whether the currently-open center IS the demo center (a cheap main-process
+  // read — the open centreId, never a DB scan). `demo.create` builds + seeds the
+  // demo DB (its own premium license, admin, ~150 students, mixed invoices,
+  // payroll history) then relaunches into demo mode; `demo.wipe` deletes every
+  // demo artefact (DB + WAL/SHM, hub store, logos, license) and relaunches back
+  // to the real center. Both return `{ relaunching: true }` — the app restarts,
+  // so the response is an ack, not a data payload.
+  'demo.status': {
+    request: z.object({}),
+    response: z.object({ isDemo: z.boolean() }),
+  },
+  'demo.create': {
+    request: z.object({}),
+    response: z.object({ relaunching: z.literal(true) }),
+  },
+  'demo.wipe': {
+    request: z.object({}),
+    response: z.object({ relaunching: z.literal(true) }),
+  },
   // License activation (SOU-104). `license.status` reports the installed license's
   // resolved state (binding + expiry included) for the activation screen and
   // Settings — `restricted` is the flag the UI labels "mode restreint". Both are
