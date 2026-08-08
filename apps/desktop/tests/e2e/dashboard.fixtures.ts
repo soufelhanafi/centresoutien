@@ -37,7 +37,14 @@ export const STR: Record<
     navDashboard: string;
     title: string;
     tabs: { basic: string; advanced: string };
-    kpis: { todaysSessions: string; activeStudents: string; unpaidInvoices: string };
+    sections: { argent: string; effectifs: string; teacherLoad: string; seances: string };
+    argent: { billed: string; collected: string; unpaid: string; paidInvoices: string };
+    effectifs: {
+      activeStudents: string;
+      groups: string;
+      noGroups: string;
+    };
+    teacherLoadEmpty: string;
     quickActions: { title: string; addStudent: string; recordPayment: string; addSession: string };
     widgets: { revenueTrend: string; enrollmentEvolution: string; attendanceRate: string; subjectBreakdown: string };
     subjectBreakdownEmpty: string;
@@ -52,11 +59,24 @@ export const STR: Record<
     navDashboard: 'Tableau de bord',
     title: 'Tableau de bord',
     tabs: { basic: 'Basique', advanced: 'Avancé' },
-    kpis: {
-      todaysSessions: "Séances aujourd'hui",
-      activeStudents: 'Élèves actifs',
-      unpaidInvoices: 'Factures impayées',
+    sections: {
+      argent: 'Argent',
+      effectifs: 'Effectifs',
+      teacherLoad: 'Charge enseignants / semaine',
+      seances: 'Séances cette semaine',
     },
+    argent: {
+      billed: 'Facturé',
+      collected: 'Encaissé',
+      unpaid: 'Impayé',
+      paidInvoices: 'Factures payées',
+    },
+    effectifs: {
+      activeStudents: 'élèves actifs',
+      groups: 'groupes',
+      noGroups: 'Aucun groupe actif.',
+    },
+    teacherLoadEmpty: 'Aucune séance cette semaine.',
     quickActions: {
       title: 'Actions rapides',
       addStudent: 'Ajouter un élève',
@@ -78,11 +98,24 @@ export const STR: Record<
     navDashboard: 'لوحة القيادة',
     title: 'لوحة القيادة',
     tabs: { basic: 'أساسي', advanced: 'متقدم' },
-    kpis: {
-      todaysSessions: 'الحصص اليوم',
-      activeStudents: 'التلاميذ النشيطون',
-      unpaidInvoices: 'الفواتير غير المؤداة',
+    sections: {
+      argent: 'المالية',
+      effectifs: 'التعداد',
+      teacherLoad: 'عبء المدرسين / أسبوع',
+      seances: 'الحصص هذا الأسبوع',
     },
+    argent: {
+      billed: 'المفوتر',
+      collected: 'المحصل',
+      unpaid: 'غير المؤدى',
+      paidInvoices: 'فواتير مؤداة',
+    },
+    effectifs: {
+      activeStudents: 'تلاميذ نشيطون',
+      groups: 'مجموعات',
+      noGroups: 'لا توجد مجموعة نشيطة.',
+    },
+    teacherLoadEmpty: 'لا توجد حصص هذا الأسبوع.',
     quickActions: {
       title: 'إجراءات سريعة',
       addStudent: 'إضافة تلميذ',

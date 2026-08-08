@@ -88,12 +88,17 @@ describe('DashboardPage — Basique / Avancé toggle', () => {
     expect(screen.queryByText('Réservé à un plan supérieur')).not.toBeInTheDocument();
   });
 
-  it('renders the Basique KPI cards from the dashboard.basic summary', async () => {
+  it('renders the four Basique sections from the dashboard.basic summary', async () => {
     renderDashboard();
 
-    expect(await screen.findByText("Séances aujourd'hui")).toBeInTheDocument();
-    expect(screen.getByText('Élèves actifs')).toBeInTheDocument();
-    expect(screen.getByText('Factures impayées')).toBeInTheDocument();
+    expect(await screen.findByText(/Argent —/)).toBeInTheDocument();
+    expect(screen.getByText('Effectifs')).toBeInTheDocument();
+    expect(screen.getByText('Charge enseignants / semaine')).toBeInTheDocument();
+    expect(screen.getByText('Séances cette semaine')).toBeInTheDocument();
+    expect(screen.getByText('Facturé')).toBeInTheDocument();
+    expect(screen.getByText('Encaissé')).toBeInTheDocument();
+    expect(screen.getByText('Impayé')).toBeInTheDocument();
+    expect(screen.getByText('Factures payées')).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText('0')).not.toHaveLength(0));
   });
 });
