@@ -1,6 +1,9 @@
 /** How many teachers the "charge enseignants" widget shows, by scheduled minutes desc. */
 export const DASHBOARD_TEACHER_LOAD_TOP_N = 8;
 
+import type { GroupId } from '../entities/group';
+import type { TeacherId } from '../entities/teacher';
+
 /** One money KPI's trend arrow: the percentage move vs the previous month's baseline. */
 export type MoneyDelta = {
   /** % change vs previous month, rounded to 1 decimal. null when previous == 0 (no baseline). */
@@ -21,7 +24,7 @@ export type ArgentCard = {
 
 /** One group's enrollment bar on the effectifs widget. */
 export type GroupEnrollmentBar = {
-  readonly groupId: string;
+  readonly groupId: GroupId;
   readonly groupName: { fr: string; ar: string };
   readonly kind: 'regular' | 'exam-prep';
   readonly enrolledCount: number;
@@ -31,7 +34,7 @@ export type GroupEnrollmentBar = {
 
 /** One teacher's scheduled minutes in the current week — a row of the charge widget. */
 export type TeacherWeeklyLoad = {
-  readonly teacherId: string;
+  readonly teacherId: TeacherId;
   readonly teacherName: { fr: string; ar: string };
   /** Scheduled minutes this week across all sessions led by this teacher. */
   readonly weeklyMinutes: number;
@@ -39,7 +42,7 @@ export type TeacherWeeklyLoad = {
 
 /** A live group with no concrete session materialized in the current week. */
 export type GroupWithoutSessions = {
-  readonly groupId: string;
+  readonly groupId: GroupId;
   readonly groupName: { fr: string; ar: string };
   readonly kind: 'regular' | 'exam-prep';
 };
@@ -63,13 +66,16 @@ export type GroupWithoutSessions = {
  * `Clock.now()`. `weekSessionCount` counts concrete `Session` occurrences dated
  * in `[weekStart, weekStart+7d)`. `plannedMinutes` is a proxy for "séances
  * planifiées" — the sum of every live `WeeklyRecurringSession`'s duration
- * minutes, regardless of its validity window (no week filtering).
+ * minutes, regardless of its validity window (no week filtering; revisit when
+ * the session generator starts honoring validity windows, SOU-55/131).
  *
  * **Bounded reads / no new schema.** Every figure is built from repository
  * aggregates that already exist for other screens (`countActive`,
  * `listActive`, `listLiveByCenter`, `listInvoices`, `countActiveByGroups`,
- * `listForRange`, `listRefsForDay`) — no per-student or per-session row loop,
- * no new table, no new migration.
+ * `listForRange`, `listRefsForDay`) — the effectifs widget does read the full
+ * live student list once (`listActive`) and filters it in memory for the
+ * unenrolled count, but never in a per-student query loop. No new table, no
+ * new migration.
  */
 export type DashboardBasicSummary = {
   /** Argent — current calendar month, "recognized to billed month" convention. */
@@ -88,7 +94,6 @@ export type DashboardBasicSummary = {
     readonly deltas: {
       readonly billed: MoneyDelta;
       readonly collected: MoneyDelta;
-      readonly unpaid: MoneyDelta;
     };
   };
   /** Effectifs */

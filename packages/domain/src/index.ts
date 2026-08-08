@@ -596,6 +596,8 @@ export type {
 // Domain services
 export { DeviceSessionService } from './services/device-session-service';
 export { MonthlyFeeAttributionService } from './services/monthly-fee-attribution-service';
+export { DashboardBasicMetricsBuilder } from './services/dashboard-basic-metrics-builder';
+export { mondayOfWeek } from './services/dashboard-basic-metrics';
 export {
   SessionGenerator,
   assignRoomsToBlocks,

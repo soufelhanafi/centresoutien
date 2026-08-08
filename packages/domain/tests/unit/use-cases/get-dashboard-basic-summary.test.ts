@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GetDashboardBasicSummary } from '../../../src/use-cases/get-dashboard-basic-summary';
+import { DashboardBasicMetricsBuilder } from '../../../src/services/dashboard-basic-metrics-builder';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
@@ -201,7 +202,7 @@ describe('GetDashboardBasicSummary', () => {
   let recurring: InMemoryWeeklyRecurringSessionRepository;
 
   function build(plan: Plan = PLANS.essentiel): GetDashboardBasicSummary {
-    return new GetDashboardBasicSummary(
+    const builder = new DashboardBasicMetricsBuilder({
       sessions,
       students,
       subscriptions,
@@ -209,10 +210,9 @@ describe('GetDashboardBasicSummary', () => {
       groups,
       enrollments,
       teachers,
-      recurring,
-      clock(),
-      new PlanPolicy(plan),
-    );
+      recurringSessions: recurring,
+    });
+    return new GetDashboardBasicSummary(builder, clock(), new PlanPolicy(plan));
   }
 
   beforeEach(() => {
@@ -247,7 +247,6 @@ describe('GetDashboardBasicSummary', () => {
       expect(result.argent.prevMonth).toEqual({ billedMad: 40000, collectedMad: 30000, unpaidMad: 10000 });
       expect(result.argent.deltas.billed).toEqual({ deltaPercent: 12.5 });
       expect(result.argent.deltas.collected).toEqual({ deltaPercent: -16.7 });
-      expect(result.argent.deltas.unpaid).toEqual({ deltaPercent: 100 });
     });
 
     it('reports null deltaPercent for every money KPI when the previous month has no issued invoices', async () => {
@@ -258,7 +257,6 @@ describe('GetDashboardBasicSummary', () => {
       expect(result.argent.prevMonth).toEqual({ billedMad: 0, collectedMad: 0, unpaidMad: 0 });
       expect(result.argent.deltas.billed).toEqual({ deltaPercent: null });
       expect(result.argent.deltas.collected).toEqual({ deltaPercent: null });
-      expect(result.argent.deltas.unpaid).toEqual({ deltaPercent: null });
     });
 
     it('keeps unpaidMad = billedMad - collectedMad with draft and cancelled invoices excluded', async () => {
