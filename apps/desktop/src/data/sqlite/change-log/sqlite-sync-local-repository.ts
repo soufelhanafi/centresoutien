@@ -6,6 +6,7 @@ import type {
   LocalEntityState,
   LocalPendingChange,
   LocalSyncRepository,
+  SubjectCodeCollisionStore,
 } from '@centresoutien/domain';
 import type { SyncCursor } from '@centresoutien/domain';
 import { getRegisteredChangeLogEntityToRowMapper } from './change-log-entity-mappers';
@@ -73,6 +74,28 @@ const SELECT_CURSOR_SQL = `
   SELECT seq FROM sync_cursor WHERE device_id = ? AND center_code = ?
 `;
 
+const FIND_LIVE_SUBJECT_ID_BY_CODE_SQL = `
+  SELECT id FROM subjects
+   WHERE center_code = ? AND code = ? AND id != ? AND deleted_at IS NULL
+   LIMIT 1
+`;
+
+const CLEAR_SUBJECT_CODE_ROW_SQL = `
+  UPDATE subjects SET code = NULL WHERE id = @id AND center_code = @center_code
+`;
+
+// json_set stores a SQL NULL argument as JSON null, so the shadow snapshot keeps
+// the `code` key present but nulled — matching the projected row and what a later
+// JSON.parse expects. pending_json (when present) mirrors it under $.entity.code
+// so a queued push of the loser never re-introduces the freed code.
+const CLEAR_SUBJECT_CODE_SHADOW_SQL = `
+  UPDATE sync_local_entity
+     SET entity_json = json_set(entity_json, '$.code', NULL),
+         pending_json = CASE WHEN pending_json IS NULL THEN NULL
+                             ELSE json_set(pending_json, '$.entity.code', NULL) END
+   WHERE entity_type = 'subjects' AND entity_id = @entity_id AND center_code = @center_code
+`;
+
 /**
  * SQLite {@link LocalSyncRepository} (SOU-91) — the device side of the sync
  * cycle and the durable "conflits en attente" store. One row per entity in
@@ -91,7 +114,7 @@ const SELECT_CURSOR_SQL = `
  * row. `conflict_json` holds the serialized `SyncConflict` (Dates become ISO
  * strings) that the inbox re-surfaces.
  */
-export class SqliteLocalSyncRepository implements LocalSyncRepository {
+export class SqliteLocalSyncRepository implements LocalSyncRepository, SubjectCodeCollisionStore {
   private readonly centerCode: CenterCode;
   private seqCounter: number;
 
@@ -251,6 +274,23 @@ export class SqliteLocalSyncRepository implements LocalSyncRepository {
       center_code: this.centerCode,
       seq: cursor.seq,
     });
+  }
+
+  findLiveSubjectIdByCode(centerCode: CenterCode, code: string, excludeId: EntityId): EntityId | null {
+    const row = this.db.prepare(FIND_LIVE_SUBJECT_ID_BY_CODE_SQL).get(centerCode, code, excludeId) as
+      | { id: string }
+      | undefined;
+    return row ? (row.id as EntityId) : null;
+  }
+
+  clearSubjectCode(entityId: EntityId): void {
+    this.db.transaction(() => {
+      this.db.prepare(CLEAR_SUBJECT_CODE_ROW_SQL).run({ id: entityId, center_code: this.centerCode });
+      this.db.prepare(CLEAR_SUBJECT_CODE_SHADOW_SQL).run({
+        entity_id: entityId,
+        center_code: this.centerCode,
+      });
+    })();
   }
 
   /**

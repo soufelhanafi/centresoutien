@@ -82,6 +82,10 @@ export { ResolveConflict } from './use-cases/resolve-conflict';
 export type { ConflictResolution, ResolveConflictInput } from './use-cases/resolve-conflict';
 export { ConflictNotFoundError, ConflictNotPerFieldResolvableError } from './errors/sync-errors';
 export type { LocalSyncRepository, LocalPendingChange, LocalEntityState } from './sync/sync-local-repository';
+export { SUBJECT_ENTITY_TYPE, subjectCodeCollisionKey } from './sync/subject-code-collision';
+export type { SubjectCodeCollision, SubjectCodeCollisionStore } from './sync/subject-code-collision';
+export { resolveSubjectCodeCollision } from './policies/subject-code-collision-policy';
+export type { SubjectCodeCollisionResolution } from './policies/subject-code-collision-policy';
 
 // Sync hub port (wire types + the swappable seam)
 export type { SyncHubPort, SyncCursor, HubChange, ChangeBatch, LocalChange, PushResult } from './ports/sync-hub-port';
