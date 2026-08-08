@@ -43,8 +43,12 @@ export const STR: Record<
       activeStudents: string;
       groups: string;
       noGroups: string;
+      /** The exam-prep badge rendered on the group's enrollment bar (localized). */
+      peBadge: string;
     };
     teacherLoadEmpty: string;
+    /** The localized name of the teacher seeded by `seedDashboardVisuals` (shown on its hours bar). */
+    teacherLoadName: string;
     quickActions: { title: string; addStudent: string; recordPayment: string; addSession: string };
     widgets: { revenueTrend: string; enrollmentEvolution: string; attendanceRate: string; subjectBreakdown: string };
     subjectBreakdownEmpty: string;
@@ -75,8 +79,10 @@ export const STR: Record<
       activeStudents: 'élèves actifs',
       groups: 'groupes',
       noGroups: 'Aucun groupe actif.',
+      peBadge: 'PE',
     },
     teacherLoadEmpty: 'Aucune séance cette semaine.',
+    teacherLoadName: 'Mme Bennis',
     quickActions: {
       title: 'Actions rapides',
       addStudent: 'Ajouter un élève',
@@ -114,8 +120,10 @@ export const STR: Record<
       activeStudents: 'تلاميذ نشيطون',
       groups: 'مجموعات',
       noGroups: 'لا توجد مجموعة نشيطة.',
+      peBadge: 'ت.إ',
     },
     teacherLoadEmpty: 'لا توجد حصص هذا الأسبوع.',
+    teacherLoadName: 'السيدة بنيس',
     quickActions: {
       title: 'إجراءات سريعة',
       addStudent: 'إضافة تلميذ',
@@ -277,6 +285,165 @@ export async function seedFullMonth(win: Page): Promise<SeededDashboardData> {
       }
 
       return { studentId: student.id, invoiceId: invoice.id, sessionId, groupId: group.id, month };
+    },
+    { month, date, dayOfWeek },
+  );
+}
+
+/**
+ * The zeroed MAD figure each Basique money card shows on an empty center —
+ * locale-appropriate (the renderer shows `MAD` in fr, `د.م.` in ar, per the
+ * localized unit, not a raw currency code).
+ */
+export function zeroFigure(locale: Locale): string {
+  return locale === 'ar' ? '0 د.م.' : '0 MAD';
+}
+
+/** Whitespace-normalize a rendered figure so NBSP/bidi marks never cause a false mismatch. */
+export function normalizeWs(s: string | null): string {
+  return (s ?? '').replace(/[\u200e\u200f\u061c]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+export type SeededExtraGroup = { groupId: string; level: string };
+
+/**
+ * Scenario 3 seed: a real subject + a live group with no concrete session in
+ * the current week (the amber "sans séance planifiée" card must list it).
+ * `seedFullMonth`'s group HAS a session today, so this second group is the one
+ * the amber card should surface.
+ */
+export async function seedExtraGroupWithoutSession(win: Page): Promise<SeededExtraGroup> {
+  return win.evaluate(async () => {
+    const api = (window as unknown as { api: Bridge }).api;
+    const subject = (await api.invoke('subject.create', { name: { fr: 'Anglais', ar: 'الإنجليزية' }, code: 'ENG' })) as {
+      id: string;
+    };
+    const group = (await api.invoke('group.create', {
+      subjectId: subject.id,
+      teacherId: null,
+      level: 'Tronc commun',
+      capacity: 15,
+      kind: 'regular',
+    })) as { id: string };
+    return { groupId: group.id, level: 'Tronc commun' };
+  });
+}
+
+export type SeededDashboardVisuals = {
+  regularGroupId: string;
+  examPrepGroupId: string;
+  teacherId: string;
+  month: string;
+};
+
+/**
+ * Richer Basique seed (Scenario 9): two students (one regular, one exam-prep),
+ * one teacher leading both groups' weekly sessions, two concrete sessions
+ * today. Exercises the effectifs per-group bars (`n/15`, exam-prep `PE` badge),
+ * the teacher-load hours bar (`2h30`), and the Séances "n séances · 2h30
+ * planifiées" copy with real data.
+ */
+export async function seedDashboardVisuals(win: Page): Promise<SeededDashboardVisuals> {
+  const { month, date, dayOfWeek } = todayParts();
+  return win.evaluate(
+    async ({ month, date, dayOfWeek }) => {
+      const api = (window as unknown as { api: Bridge }).api;
+      const subject = (await api.invoke('subject.create', { name: { fr: 'Maths', ar: 'رياضيات' }, code: 'MATH' })) as {
+        id: string;
+      };
+      const formula = (await api.invoke('formula.create', {
+        name: { fr: 'Maths seul', ar: 'الرياضيات فقط' },
+        subjectIds: [subject.id],
+        priceMad: 30000,
+        kind: 'regular',
+      })) as { id: string };
+      const examFormula = (await api.invoke('formula.create', {
+        name: { fr: 'Prépa Bac Math', ar: 'تحضير باك رياضيات' },
+        subjectIds: [subject.id],
+        priceMad: 50000,
+        kind: 'exam-prep',
+      })) as { id: string };
+      const studentA = (await api.invoke('student.create', {
+        name: { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' },
+        birthDate: '2010-05-14',
+        level: '2Bac SM',
+        school: null,
+        notes: null,
+        guardianIds: [],
+      })) as { id: string };
+      const studentB = (await api.invoke('student.create', {
+        name: { fr: 'Salma Bennani', ar: 'سلمى بناني' },
+        birthDate: '2009-11-02',
+        level: '2Bac SM',
+        school: null,
+        notes: null,
+        guardianIds: [],
+      })) as { id: string };
+      await api.invoke('subscription.create', {
+        studentId: studentA.id,
+        formulaId: formula.id,
+        kind: 'regular',
+        subjectIds: [subject.id],
+        startMonth: month,
+        endMonth: null,
+      });
+      await api.invoke('subscription.create', {
+        studentId: studentB.id,
+        formulaId: examFormula.id,
+        kind: 'exam-prep',
+        subjectIds: [subject.id],
+        startMonth: month,
+        endMonth: null,
+      });
+
+      const teacher = (await api.invoke('teacher.create', {
+        name: { fr: 'Mme Bennis', ar: 'السيدة بنيس' },
+        phone: '+212600000001',
+        subjectIds: [subject.id],
+      })) as { id: string };
+      const room = (await api.invoke('room.create', { name: 'Salle QA', capacity: 20 })) as { id: string };
+      const regularGroup = (await api.invoke('group.create', {
+        subjectId: subject.id,
+        teacherId: teacher.id,
+        level: '2Bac SM',
+        capacity: 15,
+        kind: 'regular',
+      })) as { id: string };
+      const examPrepGroup = (await api.invoke('group.create', {
+        subjectId: subject.id,
+        teacherId: teacher.id,
+        level: 'Prépa Bac',
+        capacity: 18,
+        kind: 'exam-prep',
+      })) as { id: string };
+      await api.invoke('enrollment.create', { studentId: studentA.id, groupId: regularGroup.id, startMonth: month, endMonth: null });
+      await api.invoke('enrollment.create', { studentId: studentB.id, groupId: examPrepGroup.id, startMonth: month, endMonth: null });
+
+      const wrs1 = (await api.invoke('weeklySession.create', {
+        roomId: room.id,
+        teacherId: teacher.id,
+        groupId: regularGroup.id,
+        dayOfWeek,
+        start: '10:00',
+        end: '11:30',
+      })) as { id: string };
+      const wrs2 = (await api.invoke('weeklySession.create', {
+        roomId: room.id,
+        teacherId: teacher.id,
+        groupId: examPrepGroup.id,
+        dayOfWeek,
+        start: '13:00',
+        end: '14:00',
+      })) as { id: string };
+      await api.invoke('session.generate', { recurringSessionId: wrs1.id, from: date, to: date });
+      await api.invoke('session.generate', { recurringSessionId: wrs2.id, from: date, to: date });
+
+      return {
+        regularGroupId: regularGroup.id,
+        examPrepGroupId: examPrepGroup.id,
+        teacherId: teacher.id,
+        month,
+      };
     },
     { month, date, dayOfWeek },
   );

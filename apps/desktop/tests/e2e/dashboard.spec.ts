@@ -5,8 +5,12 @@ import {
   boot,
   pageCrashed,
   seedFullMonth,
+  seedExtraGroupWithoutSession,
+  seedDashboardVisuals,
   readDashboardApi,
   expectedPercent,
+  zeroFigure,
+  normalizeWs,
   type Launched,
   type Locale,
 } from './dashboard.fixtures';
@@ -30,12 +34,25 @@ async function assertMounted(win: Page, L: (typeof STR)[Locale]): Promise<void> 
   await expect(win.getByRole('heading', { level: 1, name: L.title })).toBeVisible();
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The Basique section heading (`Argent — août 2026`, `Effectifs`, …). The
+ * design appends the current month to the Argent heading, so sections are
+ * matched by the accessible name anchored to the label, never by exact text.
+ */
+function sectionHeading(win: Page, label: string) {
+  return win.getByRole('heading', { level: 2, name: new RegExp('^' + escapeRegExp(label)) });
+}
+
 /** The mono figure inside an Argent card, found via its label (`Facturé` → `0 MAD`). */
 async function argentValue(win: Page, label: string): Promise<string | null> {
   const labelLoc = win.getByText(label, { exact: true }).first();
   const card = labelLoc.locator('xpath=..');
   const value = card.locator('span').first();
-  return value.textContent();
+  return normalizeWs(await value.textContent());
 }
 
 // ---------------------------------------------------------------------------
@@ -51,14 +68,14 @@ test('Scenario 1 — Basique empty state shows the four sections at zero', async
   await win.screenshot({ path: `test-results/dashboard-basic-empty-${locale()}.png` });
 
   await expect(win.getByRole('tab', { name: L.tabs.basic })).toHaveAttribute('aria-selected', 'true');
-  await expect(win.getByText(L.sections.argent, { exact: true })).toBeVisible();
-  await expect(win.getByText(L.sections.effectifs, { exact: true })).toBeVisible();
-  await expect(win.getByText(L.sections.teacherLoad, { exact: true })).toBeVisible();
-  await expect(win.getByText(L.sections.seances, { exact: true })).toBeVisible();
+  await expect(sectionHeading(win, L.sections.argent)).toBeVisible();
+  await expect(sectionHeading(win, L.sections.effectifs)).toBeVisible();
+  await expect(sectionHeading(win, L.sections.teacherLoad)).toBeVisible();
+  await expect(sectionHeading(win, L.sections.seances)).toBeVisible();
 
-  expect(await argentValue(win, L.argent.billed)).toBe('0 MAD');
-  expect(await argentValue(win, L.argent.collected)).toBe('0 MAD');
-  expect(await argentValue(win, L.argent.unpaid)).toBe('0 MAD');
+  expect(await argentValue(win, L.argent.billed)).toBe(zeroFigure(locale()));
+  expect(await argentValue(win, L.argent.collected)).toBe(zeroFigure(locale()));
+  expect(await argentValue(win, L.argent.unpaid)).toBe(zeroFigure(locale()));
 
   await expect(win.getByText(L.effectifs.noGroups, { exact: true })).toBeVisible();
   await expect(win.getByText(L.teacherLoadEmpty, { exact: true })).toBeVisible();
@@ -80,13 +97,13 @@ test('Scenario 2 — Basique Effectifs and Séances reflect seeded activity exac
   await assertMounted(win, L);
   await win.screenshot({ path: `test-results/dashboard-basic-seeded-${locale()}.png` });
 
-  expect(await argentValue(win, L.argent.billed), 'the seeded invoice stays draft, so billed = 0').toBe('0 MAD');
+  expect(await argentValue(win, L.argent.billed), 'the seeded invoice stays draft, so billed = 0').toBe(zeroFigure(locale()));
 
-  const effectifsCard = win.getByText(L.sections.effectifs, { exact: true }).locator('xpath=..');
+  const effectifsCard = sectionHeading(win, L.sections.effectifs).locator('xpath=..');
   await expect(effectifsCard).toContainText('1');
   await expect(effectifsCard).toContainText(L.effectifs.groups);
 
-  const seancesCard = win.getByText(L.sections.seances, { exact: true }).locator('xpath=..');
+  const seancesCard = sectionHeading(win, L.sections.seances).locator('xpath=..');
   await expect(seancesCard).toContainText('1');
 });
 
@@ -102,27 +119,22 @@ test('Scenario 3 — a group without a session links to the calendar from the am
   await assertMounted(win, L);
 
   await seedFullMonth(win);
-  await win.evaluate(async () => {
-    const api = (window as unknown as { api: Bridge }).api;
-    await api.invoke('group.create', {
-      subjectId: 'subj_empty',
-      teacherId: null,
-      level: 'Tronc commun',
-      capacity: 15,
-      kind: 'regular',
-    });
-  });
+  const { level: orphanLevel } = await seedExtraGroupWithoutSession(win);
   await win.reload();
   await win.waitForLoadState('domcontentloaded');
   await assertMounted(win, L);
 
   const amberCard = win.getByText(/sans séance planifiée|بدون حصص مخططة/).first();
   await expect(amberCard).toBeVisible();
-  const row = amberCard.locator('xpath=following-sibling::ul//a').first();
+  // The orphaned group (no session this week) is listed in the amber card as a
+  // link to the calendar; the seeded group (session today) is not.
+  const row = win.getByRole('link', { name: new RegExp(escapeRegExp(orphanLevel)) });
+  await expect(row).toHaveCount(1);
   await row.click();
-  await win.waitForTimeout(400);
+  await expect
+    .poll(() => win.evaluate(() => location.hash))
+    .toContain('planning');
   expect(await pageCrashed(win)).toBe(false);
-  expect(await win.evaluate(() => location.hash)).toContain('planning');
 });
 
 // ---------------------------------------------------------------------------
@@ -294,4 +306,38 @@ test('Scenario 8 — AR/RTL: money figure stays visually grouped with its own la
       `BUG: in ${locale()}, the money label glyph sits on the "${labelSide}" side of its card while the figure glyph sits on the "${numberSide}" side — they should visually group together`,
     ).toBe(labelSide);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Scenario 9 — Basique visualizations (SOU-177 kickoff): the effectifs
+// per-group enrollment bars (`1/15`, exam-prep `PE` badge), the teacher-load
+// hours bar (`2h30`, localised teacher name) and the Séances "n séances ·
+// 2h30 planifiées" copy all render from real seeded data.
+// ---------------------------------------------------------------------------
+test('Scenario 9 — Basique enrollment bars, teacher-load hours and Séances copy render from seeded data', async () => {
+  const L = STR[locale()];
+  live = await boot(locale());
+  const win = live.win;
+  await seedDashboardVisuals(win);
+  await win.reload();
+  await win.waitForLoadState('domcontentloaded');
+  await assertMounted(win, L);
+  await win.screenshot({ path: `test-results/dashboard-basic-visuals-${locale()}.png` });
+
+  // Effectifs: one bar per seeded group (regular 1/15, exam-prep 1/18), and the
+  // exam-prep group's bar carries the localized PE badge.
+  const effectifsCard = sectionHeading(win, L.sections.effectifs).locator('xpath=..');
+  await expect(effectifsCard).toContainText('1/15');
+  await expect(effectifsCard).toContainText('1/18');
+  await expect(effectifsCard).toContainText(L.effectifs.peBadge);
+
+  // Charge enseignants: the seeded teacher's bar shows her hours (90+60 min = 2h30).
+  const teacherCard = sectionHeading(win, L.sections.teacherLoad).locator('xpath=..');
+  await expect(teacherCard).toContainText(L.teacherLoadName);
+  await expect(teacherCard).toContainText('2h30');
+
+  // Séances cette semaine: 2 concrete sessions this week, 2h30 planned.
+  const seancesCard = sectionHeading(win, L.sections.seances).locator('xpath=..');
+  await expect(seancesCard).toContainText('2');
+  await expect(seancesCard).toContainText('2h30');
 });
