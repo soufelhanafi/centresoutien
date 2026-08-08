@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, CalendarDays, Wand2 } from 'lucide-react';
 import { Button, ErrorState } from '@centresoutien/ui';
 import { useWeekSessions } from '../../hooks/planning/use-week-sessions';
+import { useCenterHours } from '../../hooks/center-hours/use-center-hours';
 import { useTeachers } from '../../hooks/teacher/use-teachers';
 import { useFeature } from '../../hooks/use-feature';
 import { localizedName } from '../../lib/teachers/localized-name';
@@ -22,7 +23,7 @@ import {
   type FilterOptions,
   type PlannerFilters,
 } from '../../lib/planning/filters';
-import { deriveTimeRange } from '../../lib/planning/time-range';
+import { deriveCenterHoursRange, deriveClosedDays } from '../../lib/planning/time-range';
 
 /**
  * Weekly planner: a 7-column × time-slot grid of the center's recurring
@@ -42,8 +43,11 @@ export function PlannerPage() {
   const [creating, setCreating] = useState(false);
   const [generating, setGenerating] = useState(false);
 
+  const hoursQuery = useCenterHours();
   const week = useMemo(() => query.data ?? [], [query.data]);
-  const range = useMemo(() => deriveTimeRange(week), [week]);
+  const hoursWeek = hoursQuery.data?.week;
+  const range = useMemo(() => deriveCenterHoursRange(hoursWeek ?? []), [hoursWeek]);
+  const closedDays = useMemo(() => deriveClosedDays(hoursWeek ?? []), [hoursWeek]);
   const filtered = useMemo(() => applyFilters(week, filters), [week, filters]);
 
   const locale = i18n.language;
@@ -105,6 +109,7 @@ export function PlannerPage() {
           <PlannerGrid
             sessions={filtered}
             range={range}
+            closedDays={closedDays}
             onSelect={setSelected}
             emptyLabel={week.length === 0 ? t('planning.empty.week') : t('planning.empty.noMatch')}
           />
