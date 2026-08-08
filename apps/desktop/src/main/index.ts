@@ -33,6 +33,24 @@ import {
 const DEMO_ARG = '--demo';
 
 /**
+ * SOU-179: the DB key for `centreId` under the current build — the dev/e2e
+ * override first, else the per-center keychain-derived key. A single helper so
+ * startup AND `demo.create` derive the SAME key for the same centreId; deriving
+ * the demo seed under one path and relaunching under another left the demo DB
+ * undecryptable on relaunch (SOU-110 QA regression). `legacyKeys` mirrors the
+ * old `devOrE2eKey ? [] : [LEGACY_DEV_DB_KEY]` — the legacy re-key list is only
+ * ever offered when no override key is in play.
+ */
+function centerDbKey(dir: string, centreId: string): { key: string; legacyKeys: readonly string[] } {
+  const devOrE2eKey =
+    import.meta.env.DEV || __CS_E2E__
+      ? (process.env['CS_DB_KEY'] ?? (__CS_E2E__ ? E2E_FIXED_DB_KEY : undefined))
+      : undefined;
+  const key = devOrE2eKey ?? resolveCenterKey(new SafeStorageSecretVault(join(dir, KEY_STORE_FILE_NAME)), centreId);
+  return { key, legacyKeys: devOrE2eKey ? [] : [LEGACY_DEV_DB_KEY] };
+}
+
+/**
  * The startup plan fallback used when no valid license resolves. The `CS_PLAN`
  * env override is a local-dev ergonomic only, DEV-gated the same way `plan.set`
  * and the `CS_LICENSE_*` overrides are (SOU-98): `import.meta.env.DEV` is a
@@ -142,18 +160,14 @@ app.whenReady().then(async () => {
     // no code path can open a center DB with the legacy placeholder key. The
     // E2E build defaults to a fixed key so specs never touch the host keychain;
     // dev (override unset) derives from the real keychain like production.
-    const devOrE2eKey =
-      import.meta.env.DEV || __CS_E2E__
-        ? (process.env['CS_DB_KEY'] ?? (__CS_E2E__ ? E2E_FIXED_DB_KEY : undefined))
-        : undefined;
-    const key =
-      devOrE2eKey ?? resolveCenterKey(new SafeStorageSecretVault(join(dir, KEY_STORE_FILE_NAME)), centreId);
+    const keyContext = centerDbKey(dir, centreId);
+    const key = keyContext.key;
+    const legacyKeys = keyContext.legacyKeys;
     // Re-key any DB still under a pre-SOU-179 dev key — an explicit, opt-in
     // legacy-key list the caller chooses; production passes none, so a DB the
     // derived key cannot open fails closed instead of silently accepting it.
     // The hub's canonical store (SOU-90) shares the center key, so it is
     // re-keyed the same way when it exists.
-    const legacyKeys = devOrE2eKey ? [] : [LEGACY_DEV_DB_KEY];
     ensureDatabaseKeyed(join(dir, centreDbFileName(centreId)), key, legacyKeys);
     ensureDatabaseKeyed(join(dir, hubDbFileName(centreId)), key, legacyKeys);
 
@@ -182,7 +196,7 @@ app.whenReady().then(async () => {
         create: async () => {
           await prepareDemoCenter({
             dir,
-            demoKey: resolveCenterKey(new SafeStorageSecretVault(join(dir, KEY_STORE_FILE_NAME)), DEMO_CENTRE_ID),
+            demoKey: centerDbKey(dir, DEMO_CENTRE_ID).key,
             appVersion: () => app.getVersion(),
             scheduleRestart,
           });
