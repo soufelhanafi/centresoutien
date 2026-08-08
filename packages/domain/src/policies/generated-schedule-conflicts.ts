@@ -80,7 +80,7 @@ export function detectGeneratedScheduleConflicts(
     const hours = SessionConflictPolicy.withinCenterHours(candidate.block, centerHours);
     if (hours) conflicts.push({ kind: 'hours', groupId: candidate.groupId, start, end, error: hours });
 
-    const siblings = candidates.filter((_, other) => other !== index).map(toScheduledSessionRef);
+    const siblings = candidates.filter((_, other) => other !== index).map(generatedCandidateToScheduledRef);
     const room = SessionConflictPolicy.roomConflict(
       { ...candidate.block, roomId: candidate.roomId },
       [...existingSchedule, ...siblings],
@@ -99,7 +99,14 @@ export function detectGeneratedScheduleConflicts(
   return conflicts;
 }
 
-function toScheduledSessionRef(candidate: GeneratedBlockCandidate): ScheduledSessionRef {
+/**
+ * Widens a generated block candidate into a {@link ScheduledSessionRef} so the
+ * conflict checks can treat it exactly like an already-committed session — both
+ * for sibling-vs-sibling detection inside one batch and for the generator's
+ * per-candidate day search (SOU-182), where each committed group becomes a ref
+ * the next group is checked against.
+ */
+export function generatedCandidateToScheduledRef(candidate: GeneratedBlockCandidate): ScheduledSessionRef {
   const ref: ScheduledSessionRef = {
     // Sibling proposals are not persisted yet; group id is the stable preview ref.
     id: toEntityId(candidate.groupId),
