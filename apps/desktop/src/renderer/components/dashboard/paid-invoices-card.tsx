@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Numeric } from '@centresoutien/ui';
 
 /** The "Factures payées" card (design 1b): paid count over total + teal progress bar. */
 export function PaidInvoicesCard({ paidCount, totalCount }: { paidCount: number; totalCount: number }) {
@@ -9,10 +10,12 @@ export function PaidInvoicesCard({ paidCount, totalCount }: { paidCount: number;
     <div className="rounded-xl border border-border bg-card p-4">
       <p className="text-xs font-medium text-muted-foreground">{t('dashboard.basic.argent.paidInvoices')}</p>
       <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-foreground">
-        <span dir="ltr">
-          {paidCount}
-          <span className="text-sm font-normal text-muted-foreground">/{totalCount}</span>
-        </span>
+        <Numeric>
+          <span dir="ltr">
+            {paidCount}
+            <span className="text-sm font-normal text-muted-foreground">/{totalCount}</span>
+          </span>
+        </Numeric>
       </p>
       <div
         role="progressbar"

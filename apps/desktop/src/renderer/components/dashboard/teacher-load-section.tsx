@@ -40,7 +40,7 @@ export function TeacherLoadSection({
                   aria-valuemax={maxMinutes}
                   className="h-2 overflow-hidden rounded bg-muted"
                 >
-                  <div className="h-full rounded bg-teal-500" style={{ inlineSize: `${pct}%` }} />
+                  <div className="h-full rounded bg-primary" style={{ inlineSize: `${pct}%` }} />
                 </div>
                 <Numeric>{formatHoursMinutes(teacher.weeklyMinutes)}</Numeric>
               </li>

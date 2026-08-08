@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { cn } from '@centresoutien/ui';
+import { cn, Numeric } from '@centresoutien/ui';
 import type { DashboardBasicSummaryView } from '../../lib/dashboard/dashboard-view';
 import { formatHoursMinutes } from '../../lib/format';
 import { GroupsWithoutSessionsCard } from './groups-without-sessions-card';
@@ -18,7 +18,9 @@ export function SeancesSection({ seances }: { seances: DashboardBasicSummaryView
           {t('dashboard.basic.sections.seances')}
         </h2>
         <p className="font-mono text-2xl font-semibold tabular-nums text-foreground">
-          <span dir="ltr">{seances.weekSessionCount}</span>{' '}
+          <Numeric>
+            <span dir="ltr">{seances.weekSessionCount}</span>
+          </Numeric>{' '}
           <span className={cn('text-xs font-medium text-muted-foreground')}>
             {t('dashboard.basic.seances.planned', { count: seances.weekSessionCount, hours })}
           </span>
