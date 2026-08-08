@@ -8,6 +8,19 @@ import type {
   LocalSyncRepository,
 } from '@centresoutien/domain';
 import type { SyncCursor } from '@centresoutien/domain';
+import { getRegisteredChangeLogEntityToRowMapper } from './change-log-entity-mappers';
+import { assertSqlIdentifier } from './table-identifier';
+
+/**
+ * Identity columns kept unchanged when an inbound payload is projected onto its
+ * real table (SOU-180). Unlike replay's {@link IDENTITY_COLUMNS}, `version` is
+ * NOT here: apply MUST advance the row to the canonical version. Apply is always
+ * forward (the resolver skips `change.version <= local.version`, and a
+ * hub-assigned version after a push is strictly higher), so writing it can never
+ * roll a row back. `id`/`center_code`/`device_origin`/`created_at` are the
+ * row's immutable provenance and stay as first written.
+ */
+const APPLY_IMMUTABLE_COLUMNS = new Set(['id', 'center_code', 'device_origin', 'created_at']);
 
 const UPSERT_STATE_SQL = `
   INSERT INTO sync_local_entity
@@ -105,13 +118,18 @@ export class SqliteLocalSyncRepository implements LocalSyncRepository {
   }
 
   applyInbound(entityType: string, entityId: EntityId, entity: Record<string, unknown>, version: number): void {
-    this.db.prepare(UPSERT_STATE_SQL).run({
-      entity_type: entityType,
-      entity_id: entityId,
-      version,
-      entity_json: JSON.stringify(entity),
-      center_code: this.centerCode,
-    });
+    this.db.transaction(() => {
+      this.db.prepare(UPSERT_STATE_SQL).run({
+        entity_type: entityType,
+        entity_id: entityId,
+        version,
+        entity_json: JSON.stringify(entity),
+        center_code: this.centerCode,
+      });
+      // Reflect the applied canonical state onto the real entity table so the
+      // app's own screens see pulled data — the shadow store alone is invisible.
+      this.projectToEntityTable(entityType, { ...entity, version });
+    })();
   }
 
   upsertPending(input: {
@@ -157,14 +175,19 @@ export class SqliteLocalSyncRepository implements LocalSyncRepository {
   markSynced(entityType: string, entityId: EntityId, assignedVersion: number): void {
     const state = this.getLocalState(entityType, entityId);
     if (!state) return;
-    this.db.prepare(UPSERT_STATE_SQL).run({
-      entity_type: entityType,
-      entity_id: entityId,
-      version: assignedVersion,
-      entity_json: JSON.stringify({ ...state.entity, version: assignedVersion }),
-      center_code: this.centerCode,
-    });
-    this.db.prepare(CLEAR_PENDING_SQL).run({ entity_type: entityType, entity_id: entityId });
+    this.db.transaction(() => {
+      this.db.prepare(UPSERT_STATE_SQL).run({
+        entity_type: entityType,
+        entity_id: entityId,
+        version: assignedVersion,
+        entity_json: JSON.stringify({ ...state.entity, version: assignedVersion }),
+        center_code: this.centerCode,
+      });
+      this.db.prepare(CLEAR_PENDING_SQL).run({ entity_type: entityType, entity_id: entityId });
+      // Stamp the hub-assigned version onto the real row. For a merged auto-resolve
+      // this is also where the merged field values first reach the entity table.
+      this.projectToEntityTable(entityType, { ...state.entity, version: assignedVersion });
+    })();
   }
 
   blockPending(entityType: string, entityId: EntityId, conflict?: SyncConflict): void {
@@ -228,6 +251,29 @@ export class SqliteLocalSyncRepository implements LocalSyncRepository {
       center_code: this.centerCode,
       seq: cursor.seq,
     });
+  }
+
+  /**
+   * Upsert an applied domain snapshot onto its real entity table so the app's
+   * own reads see synced data. Uses the explicitly registered domain→row mapper
+   * only (a synced payload is always the nested domain shape); an entityType
+   * without one is simply not projected yet. On conflict, every column is
+   * refreshed except the immutable provenance ({@link APPLY_IMMUTABLE_COLUMNS}) —
+   * `version` advances, `deleted_at` carries tombstones through.
+   */
+  private projectToEntityTable(entityType: string, entity: Record<string, unknown>): void {
+    const mapper = getRegisteredChangeLogEntityToRowMapper(entityType);
+    if (!mapper) return;
+    const table = assertSqlIdentifier(entityType);
+    const row = mapper(entity);
+    const columns = Object.keys(row).map(assertSqlIdentifier);
+    const updatable = columns.filter((column) => !APPLY_IMMUTABLE_COLUMNS.has(column));
+    const sql = `
+      INSERT INTO ${table} (${columns.join(', ')})
+      VALUES (${columns.map((column) => `@${column}`).join(', ')})
+      ON CONFLICT(id) DO UPDATE SET ${updatable.map((column) => `${column} = excluded.${column}`).join(', ')}
+    `;
+    this.db.prepare(sql).run(row);
   }
 
   private pendingFromRow(row: PendingRow): LocalPendingChange {
