@@ -29,16 +29,27 @@ const require = createRequire(import.meta.url);
 const moduleDir = dirname(require.resolve('better-sqlite3-multiple-ciphers/package.json'));
 const binary = join(moduleDir, 'build', 'Release', 'better_sqlite3.node');
 
-/** ABI the current build/Release targets, as seen from this (Node) process. */
+/**
+ * ABI the current build/Release targets. Probed in a child process, not via
+ * an in-process `process.dlopen` — on Windows a loaded native module stays
+ * memory-mapped (and locked against delete/overwrite) for the life of the
+ * process that loaded it. Probing in-process here would hold that lock
+ * across the rebuild spawned below and make node-gyp's own unlink of the
+ * same file fail with EPERM. A short-lived child process releases the lock
+ * on exit, before the rebuild ever starts.
+ */
 function currentAbi() {
   try {
-    // This script runs under Node: a clean load means it's the Node ABI.
-    process.dlopen({ exports: {} }, binary);
+    // Clean load means it's the Node ABI (this probe runs under plain Node).
+    execFileSync(process.execPath, ['-e', `process.dlopen({exports:{}}, process.argv[1])`, binary], {
+      stdio: 'pipe',
+    });
     return 'node';
   } catch (err) {
     // An ABI mismatch means it's built for another (Electron) ABI; anything else
     // (e.g. the file is missing) means there's no usable build yet.
-    return /NODE_MODULE_VERSION/.test(String(err?.message)) ? 'electron' : 'missing';
+    const message = `${err?.stderr ?? ''}${err?.message ?? ''}`;
+    return /NODE_MODULE_VERSION/.test(message) ? 'electron' : 'missing';
   }
 }
 
