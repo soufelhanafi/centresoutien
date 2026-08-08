@@ -106,21 +106,22 @@ export class ChangeResolver {
     collisions: SubjectCodeCollision[],
   ): void {
     const code = outcome.entity['code'];
-    const applies =
-      this.subjectCollisions !== null &&
-      change.entityType === SUBJECT_ENTITY_TYPE &&
-      outcome.entity['deletedAt'] == null &&
-      typeof code === 'string' &&
-      code.length > 0;
-
-    if (!applies) {
+    // Guard mirrors the `ux_subjects_code` predicate exactly (code IS NOT NULL
+    // AND deleted_at IS NULL) so the collision path covers every apply the index
+    // could reject — narrowed inline rather than via a bundled boolean so TS
+    // proves `subjectCollisions` and `code` without a cast (CLAUDE.md §13).
+    if (
+      this.subjectCollisions === null ||
+      change.entityType !== SUBJECT_ENTITY_TYPE ||
+      outcome.entity['deletedAt'] != null ||
+      typeof code !== 'string'
+    ) {
       this.local.applyInbound(change.entityType, change.entityId, outcome.entity, outcome.version);
       return;
     }
 
-    const store = this.subjectCollisions as SubjectCodeCollisionStore;
-    const codeText = code as string;
-    const existingId = store.findLiveSubjectIdByCode(this.centreId, codeText, change.entityId);
+    const store = this.subjectCollisions;
+    const existingId = store.findLiveSubjectIdByCode(this.centreId, code, change.entityId);
     if (existingId === null) {
       this.local.applyInbound(change.entityType, change.entityId, outcome.entity, outcome.version);
       return;
@@ -143,7 +144,7 @@ export class ChangeResolver {
     }
     this.pushUniqueCollision(collisions, {
       entityType: SUBJECT_ENTITY_TYPE,
-      code: codeText,
+      code,
       winnerId,
       loserId,
     });

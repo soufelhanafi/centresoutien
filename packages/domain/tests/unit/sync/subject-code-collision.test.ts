@@ -142,6 +142,26 @@ describe('ChangeResolver — subject code collision (SOU-122)', () => {
     expect(collisions).toHaveLength(0);
   });
 
+  it('an inbound update whose code changes into an existing live code also auto-resolves', () => {
+    const local = new InMemorySyncLocalRepository(clock, DEV_A);
+    local.applyInbound('subjects', SUB_LO, subjectEntity(SUB_LO), 1); // pre-existing local MATH
+
+    const collisions: SubjectCodeCollision[] = [];
+    const applied = resolverFor(local, new FakeSubjectCodeStore(local)).resolveBatch(
+      [inboundSubject(SUB_HI, { op: 'update', changedFields: ['code'] })],
+      [],
+      matcherFor(local),
+      collisions,
+    );
+
+    expect(applied).toBe(1);
+    expect(local.entity('subjects', SUB_LO)?.code).toBe('MATH'); // winner untouched
+    expect(local.entity('subjects', SUB_HI)?.code).toBeNull(); // updated-in loser nulled
+    expect(collisions).toEqual([
+      { entityType: 'subjects', code: 'MATH', winnerId: SUB_LO, loserId: SUB_HI },
+    ]);
+  });
+
   it('without a collision store, the subject applies plainly (no surfacing)', () => {
     const local = new InMemorySyncLocalRepository(clock, DEV_A);
     local.applyInbound('subjects', SUB_LO, subjectEntity(SUB_LO), 1);
