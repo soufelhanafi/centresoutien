@@ -798,7 +798,12 @@ export function buildContainer(options: ContainerOptions): Container {
   const getDashboardBasicSummary = new GetDashboardBasicSummary(
     concreteSessionRepo,
     studentRepo,
+    subscriptionRepo,
     invoiceRepo,
+    groupRepo,
+    enrollmentRepo,
+    teacherRepo,
+    sessionRepo,
     clock,
     plan,
   );

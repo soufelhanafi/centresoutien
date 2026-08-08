@@ -1,10 +1,51 @@
 import type {
   GetDashboardBasicSummary,
   GetDashboardAdvancedSummary,
+  DashboardBasicSummary,
   DashboardAdvancedSummary,
   CenterCode,
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
+
+/** Project the read model to the IPC boundary DTO: `readonly` arrays widened to
+ *  plain arrays, like every other view in `handlers.ts` — the shape is otherwise unchanged. */
+function toDashboardBasicSummaryView(summary: DashboardBasicSummary) {
+  return {
+    argent: {
+      month: summary.argent.month,
+      billedMad: summary.argent.billedMad,
+      collectedMad: summary.argent.collectedMad,
+      unpaidMad: summary.argent.unpaidMad,
+      paidInvoices: { ...summary.argent.paidInvoices },
+      prevMonth: { ...summary.argent.prevMonth },
+      deltas: {
+        billed: { ...summary.argent.deltas.billed },
+        collected: { ...summary.argent.deltas.collected },
+        unpaid: { ...summary.argent.deltas.unpaid },
+      },
+    },
+    effectifs: {
+      activeStudentCount: summary.effectifs.activeStudentCount,
+      groupCount: summary.effectifs.groupCount,
+      averageStudentsPerGroup: summary.effectifs.averageStudentsPerGroup,
+      unenrolledStudentCount: summary.effectifs.unenrolledStudentCount,
+      groupBars: summary.effectifs.groupBars.map((bar) => ({ ...bar, groupName: { ...bar.groupName } })),
+    },
+    teacherWeeklyLoad: summary.teacherWeeklyLoad.map((load) => ({
+      ...load,
+      teacherName: { ...load.teacherName },
+    })),
+    seances: {
+      weekStart: summary.seances.weekStart,
+      weekSessionCount: summary.seances.weekSessionCount,
+      plannedMinutes: summary.seances.plannedMinutes,
+      groupsWithoutSessions: summary.seances.groupsWithoutSessions.map((group) => ({
+        ...group,
+        groupName: { ...group.groupName },
+      })),
+    },
+  };
+}
 
 /** Project the read model to the IPC boundary DTO: `readonly` arrays widened to
  *  plain arrays, like every other view in `handlers.ts` — the shape is otherwise unchanged. */
@@ -44,7 +85,7 @@ export function createDashboardHandlers(
   return {
     'dashboard.basic': async () => {
       const summary = await deps.getDashboardBasicSummary.execute({ centerCode: deps.centerCode() });
-      return { summary };
+      return { summary: toDashboardBasicSummaryView(summary) };
     },
     'dashboard.advanced': async () => {
       const summary = await deps.getDashboardAdvancedSummary.execute({ centerCode: deps.centerCode() });

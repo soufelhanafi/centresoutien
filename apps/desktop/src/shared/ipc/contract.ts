@@ -626,13 +626,72 @@ const attendanceRecordViewSchema = z.object({
   status: z.enum(['present', 'absent', 'excused', 'late']),
 });
 
-// The Basique dashboard's three KPI cards across the IPC boundary (SOU-100) —
-// already a plain read model, no envelope to strip. Single source of truth for
-// the renderer's `DashboardBasicSummaryView` type.
+// The Basique dashboard's four cards across the IPC boundary (SOU-177) — already
+// a plain read model, no envelope to strip. Single source of truth for the
+// renderer's `DashboardBasicSummaryView` type. Money convention: `*Mad` fields
+// are MAD centimes recognized to the invoice's billed month; `deltas.*.deltaPercent`
+// is null when the previous month's baseline is 0.
+const moneyDeltaSchema = z.object({
+  deltaPercent: z.number().nullable(),
+});
+
+const paidInvoicesProgressSchema = z.object({
+  paidCount: z.number().int().nonnegative(),
+  totalCount: z.number().int().nonnegative(),
+});
+
+const groupEnrollmentBarSchema = z.object({
+  groupId: z.string(),
+  groupName: bilingualTextSchema,
+  kind: z.enum(['regular', 'exam-prep']),
+  enrolledCount: z.number().int().nonnegative(),
+  capacity: z.number().int().positive().nullable(),
+});
+
+const teacherWeeklyLoadSchema = z.object({
+  teacherId: z.string(),
+  teacherName: bilingualTextSchema,
+  weeklyMinutes: z.number().int().nonnegative(),
+});
+
+const groupWithoutSessionsSchema = z.object({
+  groupId: z.string(),
+  groupName: bilingualTextSchema,
+  kind: z.enum(['regular', 'exam-prep']),
+});
+
 const dashboardBasicSummarySchema = z.object({
-  todaysSessionCount: z.number().int().nonnegative(),
-  activeStudentCount: z.number().int().nonnegative(),
-  unpaidInvoiceCount: z.number().int().nonnegative(),
+  argent: z.object({
+    month: z.string(),
+    billedMad: z.number().int(),
+    collectedMad: z.number().int(),
+    unpaidMad: z.number().int(),
+    paidInvoices: paidInvoicesProgressSchema,
+    prevMonth: z.object({
+      billedMad: z.number().int(),
+      collectedMad: z.number().int(),
+      unpaidMad: z.number().int(),
+    }),
+    deltas: z.object({
+      billed: moneyDeltaSchema,
+      collected: moneyDeltaSchema,
+      unpaid: moneyDeltaSchema,
+    }),
+  }),
+  effectifs: z.object({
+    activeStudentCount: z.number().int().nonnegative(),
+    groupCount: z.number().int().nonnegative(),
+    averageStudentsPerGroup: z.number(),
+    unenrolledStudentCount: z.number().int().nonnegative(),
+    groupBars: z.array(groupEnrollmentBarSchema),
+  }),
+  teacherWeeklyLoad: z.array(teacherWeeklyLoadSchema),
+  seances: z.object({
+    weekStart: z.string(),
+    weekSessionCount: z.number().int().nonnegative(),
+    plannedMinutes: z.number().int().nonnegative(),
+    groupsWithoutSessions: z.array(groupWithoutSessionsSchema),
+  }),
 });
 
 // The Avancé dashboard's four widgets across the IPC boundary (SOU-100),
