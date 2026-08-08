@@ -107,7 +107,7 @@ export function SyncPage() {
   if (!hasSync) {
     return (
       <div className="mx-auto w-full max-w-4xl">
-        <LockOverlay title={t('nav.sync')} description={t('plan.locked')} ctaLabel={t('plan.viewPlans')}>
+        <LockOverlay title={t('nav.sync')} description={t('plan.locked')}>
           <div className="p-8">{content}</div>
         </LockOverlay>
       </div>
