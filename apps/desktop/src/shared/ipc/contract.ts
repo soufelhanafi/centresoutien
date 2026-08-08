@@ -675,7 +675,6 @@ const dashboardBasicSummarySchema = z.object({
     deltas: z.object({
       billed: moneyDeltaSchema,
       collected: moneyDeltaSchema,
-      unpaid: moneyDeltaSchema,
     }),
   }),
   effectifs: z.object({

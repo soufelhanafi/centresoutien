@@ -21,7 +21,6 @@ function toDashboardBasicSummaryView(summary: DashboardBasicSummary) {
       deltas: {
         billed: { ...summary.argent.deltas.billed },
         collected: { ...summary.argent.deltas.collected },
-        unpaid: { ...summary.argent.deltas.unpaid },
       },
     },
     effectifs: {
