@@ -3,11 +3,17 @@ import { syncGateway } from '../../lib/sync/sync-gateway';
 import type { ConflictResolutionView } from '../../lib/sync/sync-view';
 import { syncKeys } from './keys';
 
-/** The durable "conflits en attente" inbox — blocked conflicts survive restart. */
-export function useBlockedConflicts() {
+/**
+ * The durable "conflits en attente" inbox — blocked conflicts survive restart.
+ * `enabled` lets the caller skip the round trip while the page is plan-locked,
+ * so a plan without `sync.multi-device` never fires an IPC the domain
+ * `PlanPolicy` would reject.
+ */
+export function useBlockedConflicts(options: { enabled: boolean }) {
   return useQuery({
     queryKey: syncKeys.conflicts,
     queryFn: () => syncGateway.listConflicts(),
+    enabled: options.enabled,
     refetchOnWindowFocus: true,
   });
 }
