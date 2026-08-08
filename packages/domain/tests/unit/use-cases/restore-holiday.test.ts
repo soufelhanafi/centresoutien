@@ -4,6 +4,8 @@ import { ArchiveHoliday } from '../../../src/use-cases/archive-holiday';
 import { RestoreHoliday } from '../../../src/use-cases/restore-holiday';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS } from '../../../src/plans/plans';
+import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
+import { planWithoutFeature } from '../fakes/plans';
 import { HolidayNotFoundError } from '../../../src/errors/holiday-errors';
 import type { Holiday, HolidayId } from '../../../src/entities/holiday';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
@@ -78,5 +80,15 @@ describe('RestoreHoliday', () => {
     await expect(
       restore.execute({ centerCode: OTHER_CENTER, holidayId: seeded.id, updatedBy: ACTOR }),
     ).rejects.toBeInstanceOf(HolidayNotFoundError);
+  });
+
+  it('throws PlanFeatureUnavailableError when the plan lacks settings.holidays', async () => {
+    const locked = new RestoreHoliday(holidays, clock, new PlanPolicy(planWithoutFeature('settings.holidays')));
+    await expect(
+      locked.execute({ centerCode: CENTER, holidayId: seeded.id, updatedBy: ACTOR }),
+    ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
+    // Gate fires before any write: the holiday stays archived, not restored.
+    expect(await holidays.findById(seeded.id)).toBeNull();
+    expect(await holidays.findArchivedById(seeded.id)).not.toBeNull();
   });
 });

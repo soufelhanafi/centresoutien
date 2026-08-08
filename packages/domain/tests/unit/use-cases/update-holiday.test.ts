@@ -3,6 +3,8 @@ import { CreateHoliday } from '../../../src/use-cases/create-holiday';
 import { UpdateHoliday, type UpdateHolidayInput } from '../../../src/use-cases/update-holiday';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS } from '../../../src/plans/plans';
+import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
+import { planWithoutFeature } from '../fakes/plans';
 import { HolidayNotFoundError } from '../../../src/errors/holiday-errors';
 import type { Holiday, HolidayId } from '../../../src/entities/holiday';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
@@ -97,5 +99,12 @@ describe('UpdateHoliday', () => {
     await expect(
       update.execute(edit({ startDate: '2026-05-29', endDate: '2026-05-27' })),
     ).rejects.toThrow();
+  });
+
+  it('throws PlanFeatureUnavailableError when the plan lacks settings.holidays', async () => {
+    const locked = new UpdateHoliday(holidays, clock, new PlanPolicy(planWithoutFeature('settings.holidays')));
+    await expect(locked.execute(edit())).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
+    // Gate is the first thing the use case does: the holiday is left untouched.
+    expect(await holidays.findById(seeded.id)).toEqual(seeded);
   });
 });
