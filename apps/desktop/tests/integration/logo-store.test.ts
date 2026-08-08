@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { IdGenerator } from '@centresoutien/domain';
-import { FsLogoStore, LOGO_DIR } from '../../src/data/fs/logo-store';
+import { FsLogoStore, LOGO_DIR, resolveInsideLogoDir } from '../../src/data/fs/logo-store';
 
 let dir: string;
 
@@ -64,5 +64,20 @@ describe('FsLogoStore', () => {
     expect(await store.read('logos/../../etc/hosts')).toBeNull();
     expect(await store.read(join(dir, 'secret.txt'))).toBeNull(); // absolute
     expect(await store.read('')).toBeNull();
+  });
+});
+
+describe('resolveInsideLogoDir (SOU-110 m1 — shared read + wipe guard)', () => {
+  it('resolves a legitimate in-dir logo reference to an absolute path', () => {
+    const resolved = resolveInsideLogoDir(dir, 'logos/lgo_00000000000000000000000001.png');
+    expect(resolved).toBe(join(dir, LOGO_DIR, 'lgo_00000000000000000000000001.png'));
+  });
+
+  it('returns null for traversal, absolute, and empty references so a poisoned logo_path can never delete an outside file', () => {
+    expect(resolveInsideLogoDir(dir, 'logos/../secret.txt')).toBeNull();
+    expect(resolveInsideLogoDir(dir, '../secret.txt')).toBeNull();
+    expect(resolveInsideLogoDir(dir, 'logos/../../etc/hosts')).toBeNull();
+    expect(resolveInsideLogoDir(dir, join(dir, 'secret.txt'))).toBeNull();
+    expect(resolveInsideLogoDir(dir, '')).toBeNull();
   });
 });

@@ -33,6 +33,7 @@ export class ActivateLicense {
     private readonly clock: Clock,
     private readonly plan: PlanPolicy,
     private readonly centerCode: CenterCode,
+    private readonly demoAnchorTrusted: boolean,
   ) {}
 
   execute(input: ActivateLicenseInput): LicenseActivationResult {
@@ -49,7 +50,11 @@ export class ActivateLicense {
     const now = this.clock.now();
     const rejection = evaluateLicenseBinding(
       claims,
-      { machineId: this.machine.machineId(), centerCode: this.centerCode },
+      {
+        machineId: this.machine.machineId(),
+        centerCode: this.centerCode,
+        demoAnchorTrusted: this.demoAnchorTrusted,
+      },
       now,
     );
     if (rejection !== null) {

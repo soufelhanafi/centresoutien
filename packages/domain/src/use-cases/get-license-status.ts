@@ -34,6 +34,7 @@ export class GetLicenseStatus {
     private readonly machine: MachineIdentity,
     private readonly clock: Clock,
     private readonly centerCode: CenterCode,
+    private readonly demoAnchorTrusted: boolean,
   ) {}
 
   execute(): LicenseStatusView {
@@ -41,6 +42,7 @@ export class GetLicenseStatus {
     const resolution = resolveActivePlan(this.license.verify(), now, {
       machineId: this.machine.machineId(),
       centerCode: this.centerCode,
+      demoAnchorTrusted: this.demoAnchorTrusted,
     });
     const { claims } = resolution;
 

@@ -461,6 +461,11 @@ export function buildContainer(options: ContainerOptions): Container {
   const licenseBinding: LicenseBindingContext = {
     machineId: machineIdentity.machineId(),
     centerCode: options.centerCode,
+    // The demo-only trust anchor is in effect for exactly the demo container —
+    // the same fixed startup fact that selected `DEMO_LICENSE_PUBLIC_KEY_PEM`
+    // above. Threading it here keeps the `demo: true` machine-skip reachable
+    // only under the demo key, never for a real center (SOU-110).
+    demoAnchorTrusted: options.centreId === 'demo',
   };
   const activePlanId = resolveStartupPlanId(
     license,
@@ -524,8 +529,15 @@ export function buildContainer(options: ContainerOptions): Container {
     clock,
     plan,
     options.centerCode,
+    options.centreId === 'demo',
   );
-  const getLicenseStatus = new GetLicenseStatus(license, machineIdentity, clock, options.centerCode);
+  const getLicenseStatus = new GetLicenseStatus(
+    license,
+    machineIdentity,
+    clock,
+    options.centerCode,
+    options.centreId === 'demo',
+  );
 
   // The acting laptop, resolved once — stamped on every change_log row (SOU-79)
   // and carried in the envelope context below.

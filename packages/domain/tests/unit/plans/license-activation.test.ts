@@ -7,7 +7,11 @@ import {
 } from '../../../src/plans/license-activation';
 
 const NOW = new Date('2026-08-06T00:00:00.000Z');
-const CONTEXT: LicenseBindingContext = { machineId: 'machine-A', centerCode: 'CS-CASA-001' };
+const CONTEXT: LicenseBindingContext = {
+  machineId: 'machine-A',
+  centerCode: 'CS-CASA-001',
+  demoAnchorTrusted: false,
+};
 
 function claims(overrides: Partial<LicenseClaims> = {}): LicenseClaims {
   return {
@@ -55,7 +59,11 @@ describe('evaluateLicenseBinding', () => {
 });
 
 describe('evaluateLicenseBinding — demo licenses (SOU-110)', () => {
-  const demoContext: LicenseBindingContext = { machineId: 'machine-A', centerCode: 'CS-DEMO-001' };
+  const demoContext: LicenseBindingContext = {
+    machineId: 'machine-A',
+    centerCode: 'CS-DEMO-001',
+    demoAnchorTrusted: true,
+  };
   const demo = (overrides: Partial<LicenseClaims> = {}): LicenseClaims =>
     claims({ centerCode: 'CS-DEMO-001', demo: true, ...overrides });
 
@@ -67,8 +75,24 @@ describe('evaluateLicenseBinding — demo licenses (SOU-110)', () => {
 
   it('still enforces the center binding — a demo license never leaks to a real center', () => {
     expect(
-      evaluateLicenseBinding(demo({}), { machineId: 'any', centerCode: 'CS-CASA-001' }, NOW),
+      evaluateLicenseBinding(
+        demo({}),
+        { machineId: 'any', centerCode: 'CS-CASA-001', demoAnchorTrusted: false },
+        NOW,
+      ),
     ).toBe('wrong-center');
+  });
+
+  it('keeps the machine check for a demo claim OFF the demo trust anchor (SOU-110 m2)', () => {
+    // A `demo: true` claim that reaches a real center (demoAnchorTrusted false)
+    // stays fully machine-bound — the skip is unreachable without the demo key.
+    expect(
+      evaluateLicenseBinding(
+        demo({ machineId: 'machine-B', centerCode: 'CS-CASA-001' }),
+        { machineId: 'machine-A', centerCode: 'CS-CASA-001', demoAnchorTrusted: false },
+        NOW,
+      ),
+    ).toBe('wrong-machine');
   });
 
   it('still enforces expiry on a demo license', () => {

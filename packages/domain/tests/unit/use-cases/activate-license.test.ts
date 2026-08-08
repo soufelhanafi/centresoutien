@@ -44,6 +44,7 @@ describe('ActivateLicense', () => {
       fakeClock(NOW),
       plan,
       CENTER,
+      false,
     );
   });
 

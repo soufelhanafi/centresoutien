@@ -6,6 +6,22 @@ import type { LogoStore, IdGenerator } from '@centresoutien/domain';
 export const LOGO_DIR = 'logos';
 
 /**
+ * Resolve `relativePath` to an absolute path **only if** it stays inside
+ * `<baseDir>/logos/`. Returns `null` on any traversal attempt (`..`, absolute
+ * paths, paths outside the logo dir) so every caller that touches a persisted
+ * `logo_path` — the read adapter AND the demo wipe (SOU-110) — shares one guard
+ * and can never read or delete an arbitrary file from a poisoned DB string.
+ */
+export function resolveInsideLogoDir(baseDir: string, relativePath: string): string | null {
+  if (relativePath === '' || isAbsolute(relativePath)) return null;
+  const logoRoot = resolve(baseDir, LOGO_DIR);
+  const candidate = resolve(logoRoot, relativePath.replace(/^logos[\\/]/, ''));
+  const rel = relative(logoRoot, candidate);
+  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) return null;
+  return candidate;
+}
+
+/**
  * Filesystem adapter for {@link LogoStore}. Writes the logo under
  * `<baseDir>/logos/` with a fresh ULID filename and returns the **relative**
  * reference (`logos/lgo_….png`, forward-slashed) to persist on the center row —
@@ -28,7 +44,7 @@ export class FsLogoStore implements LogoStore {
   }
 
   async read(relativePath: string): Promise<Uint8Array | null> {
-    const absolute = this.resolveInsideLogoDir(relativePath);
+    const absolute = resolveInsideLogoDir(this.baseDir, relativePath);
     if (absolute === null) return null;
     try {
       return new Uint8Array(readFileSync(absolute));
@@ -36,19 +52,5 @@ export class FsLogoStore implements LogoStore {
       // Missing or unreadable file — a stale reference reads as "no logo".
       return null;
     }
-  }
-
-  /**
-   * Resolve `relativePath` to an absolute path **only if** it stays inside
-   * `<baseDir>/logos/`. Returns `null` on any traversal attempt (`..`, absolute
-   * paths, paths outside the logo dir) so `read` can never leak arbitrary files.
-   */
-  private resolveInsideLogoDir(relativePath: string): string | null {
-    if (relativePath === '' || isAbsolute(relativePath)) return null;
-    const logoRoot = resolve(this.baseDir, LOGO_DIR);
-    const candidate = resolve(logoRoot, relativePath.replace(/^logos[\\/]/, ''));
-    const rel = relative(logoRoot, candidate);
-    if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) return null;
-    return candidate;
   }
 }
