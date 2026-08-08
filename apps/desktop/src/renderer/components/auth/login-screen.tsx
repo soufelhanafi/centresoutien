@@ -56,6 +56,11 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
                 >
                   {createDemo.isPending ? t('demo.intro.creating') : t('auth.login.exploreDemo')}
                 </Button>
+                {createDemo.isError && (
+                  <p role="alert" className="text-center text-sm text-destructive">
+                    {t('demo.createError')}
+                  </p>
+                )}
               </div>
             </>
           ) : (

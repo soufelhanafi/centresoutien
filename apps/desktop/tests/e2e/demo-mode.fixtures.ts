@@ -52,7 +52,6 @@ export const D: Record<
     restartingTitle: string;
     loginExploreDemo: string;
     loginExploreDemoHint: string;
-    appMarker: string;
   }
 > = {
   fr: {
@@ -74,7 +73,6 @@ export const D: Record<
     loginExploreDemo: 'Explorer la démo',
     loginExploreDemoHint:
       "Essayez l'application avec un centre de démonstration pré-rempli. L'application redémarrera ; aucune donnée réelle ne sera modifiée.",
-    appMarker: 'Centre principal',
   },
   ar: {
     settingsNav: 'الإعدادات',
@@ -95,7 +93,6 @@ export const D: Record<
     loginExploreDemo: 'استكشاف الوضع التجريبي',
     loginExploreDemoHint:
       'جرّب التطبيق بمركز تجريبي معبأ مسبقاً. سيعاد تشغيل التطبيق ولن يتم تعديل أي بيانات حقيقية.',
-    appMarker: 'المركز الرئيسي',
   },
 };
 
