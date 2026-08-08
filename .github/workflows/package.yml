@@ -55,17 +55,24 @@ jobs:
       # load (SOU-86: @node-rs/argon2 packaged fine but threw "Failed to
       # load native binding" on first real launch). ELECTRON_RUN_AS_NODE
       # runs the packaged Electron binary's own bundled Node runtime
-      # headlessly (no window, no display server needed) so this requires
-      # the exact ABI the shipped app will use, straight out of
-      # app.asar.unpacked — the same path resolution a real launch hits.
+      # headlessly (no window, no display server needed).
+      #
+      # Requires through `app.asar`, NOT `app.asar.unpacked`, on purpose:
+      # the real app does `require('@node-rs/argon2')` as a bare specifier
+      # from inside the packed asar, which Node then resolves by walking
+      # node_modules *inside the asar virtual filesystem* (Electron
+      # transparently redirects individual unpacked files as it reads
+      # them). Requiring the unpacked path directly — the first version of
+      # this check — skips that resolution walk entirely and can pass even
+      # when the real app-launch require chain is broken.
       - name: Verify native modules load in packaged app (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
           cd apps/desktop/dist/mac-arm64
           ELECTRON_RUN_AS_NODE=1 "./Centre Soutien.app/Contents/MacOS/Centre Soutien" -e "
-            require('./Centre Soutien.app/Contents/Resources/app.asar.unpacked/node_modules/better-sqlite3-multiple-ciphers');
-            require('./Centre Soutien.app/Contents/Resources/app.asar.unpacked/node_modules/@node-rs/argon2');
+            require('./Centre Soutien.app/Contents/Resources/app.asar/node_modules/better-sqlite3-multiple-ciphers');
+            require('./Centre Soutien.app/Contents/Resources/app.asar/node_modules/@node-rs/argon2');
             console.log('native modules OK');
           "
 
@@ -75,8 +82,8 @@ jobs:
         run: |
           cd apps/desktop/dist/win-unpacked
           ELECTRON_RUN_AS_NODE=1 "./Centre Soutien.exe" -e "
-            require('./resources/app.asar.unpacked/node_modules/better-sqlite3-multiple-ciphers');
-            require('./resources/app.asar.unpacked/node_modules/@node-rs/argon2');
+            require('./resources/app.asar/node_modules/better-sqlite3-multiple-ciphers');
+            require('./resources/app.asar/node_modules/@node-rs/argon2');
             console.log('native modules OK');
           "
 

@@ -131,6 +131,12 @@ The `Verify native modules load in packaged app` CI step exists because of
 this exact bug: a green `electron-builder` exit code does not prove the
 native modules it bundled actually load. It runs the packaged Electron
 binary's own Node runtime headlessly (`ELECTRON_RUN_AS_NODE=1`, no window)
-and requires both native modules straight out of `app.asar.unpacked` — the
-same resolution path a real launch hits. Any future native dependency
-should get the same check.
+and requires both native modules through `app.asar` — **not**
+`app.asar.unpacked` directly. The real app does `require('@node-rs/argon2')`
+as a bare specifier from inside the packed asar; Node resolves that by
+walking node_modules *inside the asar virtual filesystem*, and Electron
+transparently redirects individual unpacked files as they're read. An
+earlier version of this check required the unpacked path directly, which
+skips that resolution walk and can pass even when the real launch require
+chain is broken — it did, and this exact bug shipped past it once already.
+Any future native dependency should get the same `app.asar`-path check.
