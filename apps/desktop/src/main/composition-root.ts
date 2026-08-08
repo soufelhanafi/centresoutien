@@ -1268,6 +1268,7 @@ export function buildContainer(options: ContainerOptions): Container {
     updatedBy: () => context.updatedBy,
     dbKey: () => options.key,
     scheduleRestart: options.scheduleRestart,
+    plan,
     syncEngine,
     syncOutbox,
     matcher,
