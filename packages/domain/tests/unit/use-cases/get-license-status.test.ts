@@ -19,6 +19,7 @@ function claims(overrides: Partial<LicenseClaims> = {}): LicenseClaims {
     centerCode: null,
     centersAllowed: null,
     founderDiscountExpiresAt: null,
+    demo: false,
     ...overrides,
   };
 }
@@ -29,7 +30,7 @@ describe('GetLicenseStatus', () => {
 
   beforeEach(() => {
     license = new InMemoryLicensePort();
-    useCase = new GetLicenseStatus(license, fakeMachineIdentity(MACHINE), fakeClock(NOW), CENTER);
+    useCase = new GetLicenseStatus(license, fakeMachineIdentity(MACHINE), fakeClock(NOW), CENTER, false);
   });
 
   it('reports the active tier and its metadata for a valid bound license', () => {

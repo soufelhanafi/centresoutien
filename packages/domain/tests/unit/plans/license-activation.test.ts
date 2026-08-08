@@ -7,7 +7,11 @@ import {
 } from '../../../src/plans/license-activation';
 
 const NOW = new Date('2026-08-06T00:00:00.000Z');
-const CONTEXT: LicenseBindingContext = { machineId: 'machine-A', centerCode: 'CS-CASA-001' };
+const CONTEXT: LicenseBindingContext = {
+  machineId: 'machine-A',
+  centerCode: 'CS-CASA-001',
+  demoAnchorTrusted: false,
+};
 
 function claims(overrides: Partial<LicenseClaims> = {}): LicenseClaims {
   return {
@@ -18,6 +22,7 @@ function claims(overrides: Partial<LicenseClaims> = {}): LicenseClaims {
     centerCode: null,
     centersAllowed: null,
     founderDiscountExpiresAt: null,
+    demo: false,
     ...overrides,
   };
 }
@@ -50,6 +55,54 @@ describe('evaluateLicenseBinding', () => {
 
   it.each(cases)('$name', ({ c, expected }) => {
     expect(evaluateLicenseBinding(claims(c), CONTEXT, NOW)).toBe(expected);
+  });
+});
+
+describe('evaluateLicenseBinding — demo licenses (SOU-110)', () => {
+  const demoContext: LicenseBindingContext = {
+    machineId: 'machine-A',
+    centerCode: 'CS-DEMO-001',
+    demoAnchorTrusted: true,
+  };
+  const demo = (overrides: Partial<LicenseClaims> = {}): LicenseClaims =>
+    claims({ centerCode: 'CS-DEMO-001', demo: true, ...overrides });
+
+  it('skips the machine check for a demo license on any machine', () => {
+    // A demo license carrying a stale machineId (or none) still binds on a
+    // different laptop — the machine check is deliberately a no-op.
+    expect(evaluateLicenseBinding(demo({ machineId: 'sales-laptop-1' }), demoContext, NOW)).toBeNull();
+  });
+
+  it('still enforces the center binding — a demo license never leaks to a real center', () => {
+    expect(
+      evaluateLicenseBinding(
+        demo({}),
+        { machineId: 'any', centerCode: 'CS-CASA-001', demoAnchorTrusted: false },
+        NOW,
+      ),
+    ).toBe('wrong-center');
+  });
+
+  it('keeps the machine check for a demo claim OFF the demo trust anchor (SOU-110 m2)', () => {
+    // A `demo: true` claim that reaches a real center (demoAnchorTrusted false)
+    // stays fully machine-bound — the skip is unreachable without the demo key.
+    expect(
+      evaluateLicenseBinding(
+        demo({ machineId: 'machine-B', centerCode: 'CS-CASA-001' }),
+        { machineId: 'machine-A', centerCode: 'CS-CASA-001', demoAnchorTrusted: false },
+        NOW,
+      ),
+    ).toBe('wrong-machine');
+  });
+
+  it('still enforces expiry on a demo license', () => {
+    expect(evaluateLicenseBinding(demo({ expiresAt: '2000-01-01T00:00:00.000Z' }), demoContext, NOW)).toBe(
+      'expired',
+    );
+  });
+
+  it('keeps the machine check for a non-demo license', () => {
+    expect(evaluateLicenseBinding(claims({ machineId: 'machine-B' }), demoContext, NOW)).toBe('wrong-machine');
   });
 });
 

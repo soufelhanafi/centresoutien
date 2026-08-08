@@ -1,19 +1,24 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card, CardContent } from '@centresoutien/ui';
+import { Button, Card, CardContent } from '@centresoutien/ui';
 import { LanguageToggle } from '../language-toggle';
 import { LoginForm } from './login-form';
 import { ForgotPasswordFlow } from './forgot-password/forgot-password-flow';
+import { DemoRestarting } from '../demo/demo-restarting';
+import { useCreateDemo } from '../../hooks/demo/use-create-demo';
 
 /**
  * The full-screen login page (SOU-27), shown by {@link AuthGate} when the device
  * is not remembered. Mirrors the first-run wizard's centered card so auth and
  * onboarding feel like one product. The language toggle stays reachable here — the
  * admin may want to switch before their first sign-in. The "forgot password" flow
- * (SOU-156) swaps into the same card so recovery feels part of one product.
+ * (SOU-156) swaps into the same card so recovery feels part of one product. The
+ * "Explorer la démo" entry (SOU-110) sits under the form and relaunches the app
+ * into a seeded demo center; on success the card shows the restarting state.
  */
 export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
   const { t } = useTranslation();
+  const createDemo = useCreateDemo();
   const [view, setView] = useState<'login' | 'forgot'>('login');
 
   return (
@@ -27,7 +32,9 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
             <LanguageToggle />
           </div>
 
-          {view === 'login' ? (
+          {createDemo.isSuccess ? (
+            <DemoRestarting />
+          ) : view === 'login' ? (
             <>
               <header className="flex flex-col gap-1 text-center">
                 <h1 className="text-2xl font-semibold text-primary">{t('auth.title')}</h1>
@@ -37,6 +44,24 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
                 onAuthenticated={onAuthenticated}
                 onForgotPassword={() => setView('forgot')}
               />
+              <div className="flex flex-col gap-2 border-t border-border pt-6">
+                <p className="text-center text-xs text-muted-foreground">
+                  {t('auth.login.exploreDemoHint')}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={createDemo.isPending}
+                  onClick={() => createDemo.mutate()}
+                >
+                  {createDemo.isPending ? t('demo.intro.creating') : t('auth.login.exploreDemo')}
+                </Button>
+                {createDemo.isError && (
+                  <p role="alert" className="text-center text-sm text-destructive">
+                    {t('demo.createError')}
+                  </p>
+                )}
+              </div>
             </>
           ) : (
             <ForgotPasswordFlow onClose={() => setView('login')} />

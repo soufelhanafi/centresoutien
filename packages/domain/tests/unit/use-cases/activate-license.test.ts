@@ -22,6 +22,7 @@ function claims(overrides: Partial<LicenseClaims> = {}): LicenseClaims {
     centerCode: null,
     centersAllowed: null,
     founderDiscountExpiresAt: null,
+    demo: false,
     ...overrides,
   };
 }
@@ -43,6 +44,7 @@ describe('ActivateLicense', () => {
       fakeClock(NOW),
       plan,
       CENTER,
+      false,
     );
   });
 

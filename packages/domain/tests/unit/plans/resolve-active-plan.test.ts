@@ -24,6 +24,7 @@ function claims(overrides: Partial<LicenseClaims> = {}): LicenseClaims {
     centerCode: null,
     centersAllowed: null,
     founderDiscountExpiresAt: null,
+    demo: false,
     ...overrides,
   };
 }
@@ -92,7 +93,7 @@ describe('resolveActivePlan — no usable license', () => {
 });
 
 describe('resolveActivePlan — binding enforcement (SOU-104)', () => {
-  const BINDING = { machineId: 'machine-A', centerCode: 'CS-CASA-001' };
+  const BINDING = { machineId: 'machine-A', centerCode: 'CS-CASA-001', demoAnchorTrusted: false };
 
   it('resolves the tier when machine + center match the binding', () => {
     const res = resolveActivePlan(
@@ -123,6 +124,71 @@ describe('resolveActivePlan — binding enforcement (SOU-104)', () => {
     const res = resolveActivePlan(valid(claims({ machineId: 'machine-B' })), NOW);
     expect(res.status).toBe('active');
     expect(res.plan).toBe(PLANS.premium);
+  });
+});
+
+describe('resolveActivePlan — demo licenses (SOU-110)', () => {
+  // The demo center's own binding: machine-A, the demo center code. A demo
+  // license claims `demo: true` and binds to CS-DEMO-001; its machine check is
+  // skipped so the SAME pre-signed file activates on any sales laptop.
+  const DEMO_BINDING = { machineId: 'machine-A', centerCode: 'CS-DEMO-001', demoAnchorTrusted: true };
+  const demo = (overrides: Partial<LicenseClaims> = {}): LicenseClaims =>
+    claims({ plan: 'premium', centerCode: 'CS-DEMO-001', demo: true, ...overrides });
+
+  it('resolves active on the demo center regardless of machine binding', () => {
+    const res = resolveActivePlan(valid(demo({ machineId: 'sales-laptop-1' })), NOW, DEMO_BINDING);
+    expect(res.status).toBe('active');
+    expect(res.plan).toBe(PLANS.premium);
+  });
+
+  it('resolves active on ANY machine — even a different machine than the binding context', () => {
+    const res = resolveActivePlan(
+      valid(demo({ machineId: 'other-laptop' })),
+      NOW,
+      { machineId: 'this-laptop', centerCode: 'CS-DEMO-001', demoAnchorTrusted: true },
+    );
+    expect(res.status).toBe('active');
+    expect(res.plan).toBe(PLANS.premium);
+  });
+
+  it('still rejects a demo license on the WRONG center — never leaks to a real center', () => {
+    const res = resolveActivePlan(
+      valid(demo({})),
+      NOW,
+      { machineId: 'any', centerCode: 'CS-CASA-001', demoAnchorTrusted: false },
+    );
+    expect(res.status).toBe('wrong-center');
+    expect(res.plan).toBe(PLANS.essentiel);
+  });
+
+  it('keeps the full machine check for a demo claim OFF the demo trust anchor — the machine-skip is unreachable on a real center (SOU-110 m2)', () => {
+    const res = resolveActivePlan(
+      valid(demo({ machineId: 'vendor-mis-signed', centerCode: 'CS-CASA-001' })),
+      NOW,
+      { machineId: 'this-laptop', centerCode: 'CS-CASA-001', demoAnchorTrusted: false },
+    );
+    expect(res.status).toBe('wrong-machine');
+    expect(res.plan).toBe(PLANS.essentiel);
+    expect(res.error).toBeInstanceOf(LicenseWrongMachineError);
+  });
+
+  it('still enforces expiry on a demo license', () => {
+    const res = resolveActivePlan(
+      valid(demo({ expiresAt: '2020-01-01T00:00:00.000Z' })),
+      NOW,
+      DEMO_BINDING,
+    );
+    expect(res.status).toBe('expired');
+    expect(res.plan).toBe(PLANS.essentiel);
+  });
+
+  it('keeps the full machine check for a NON-demo license bound to another machine', () => {
+    const res = resolveActivePlan(
+      valid(claims({ machineId: 'machine-B', demo: false })),
+      NOW,
+      DEMO_BINDING,
+    );
+    expect(res.status).toBe('wrong-machine');
   });
 });
 

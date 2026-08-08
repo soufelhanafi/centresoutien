@@ -98,6 +98,13 @@ importers:
       zustand:
         specifier: ^5.0.14
         version: 5.0.14(@types/react@19.2.17)(immer@11.1.15)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
+    optionalDependencies:
+      '@node-rs/argon2-darwin-arm64':
+        specifier: 2.0.2
+        version: 2.0.2
+      '@node-rs/argon2-win32-x64-msvc':
+        specifier: 2.0.2
+        version: 2.0.2
     devDependencies:
       '@centresoutien/config':
         specifier: workspace:*

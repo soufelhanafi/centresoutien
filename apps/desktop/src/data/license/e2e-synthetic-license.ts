@@ -28,6 +28,7 @@ export class E2eSyntheticLicense implements LicensePort {
         centerCode: null,
         centersAllowed: null,
         founderDiscountExpiresAt: null,
+        demo: false,
       },
     };
   }

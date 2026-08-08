@@ -12,6 +12,7 @@ const NOW = new Date('2026-08-06T00:00:00.000Z');
 const BINDING: LicenseBindingContext = {
   machineId: 'machine-A',
   centerCode: 'CS-CASA-001' as CenterCode,
+  demoAnchorTrusted: false,
 };
 
 const clock: Clock = { now: () => NOW };
@@ -34,6 +35,7 @@ function validPremium(overrides: Partial<{ machineId: string | null; centerCode:
       centerCode: overrides.centerCode ?? null,
       centersAllowed: null,
       founderDiscountExpiresAt: null,
+      demo: false,
     },
   };
 }
@@ -69,6 +71,7 @@ describe('resolveStartupPlanId (SOU-104 B1 hard lock)', () => {
           centerCode: null,
           centersAllowed: null,
           founderDiscountExpiresAt: null,
+          demo: false,
         },
       },
     ];

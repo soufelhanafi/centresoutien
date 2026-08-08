@@ -10,6 +10,15 @@ import { isLicenseExpired } from './resolve-active-plan';
 export type LicenseBindingContext = {
   readonly machineId: string;
   readonly centerCode: string;
+  /**
+   * Whether the license was verified against the DEMO-ONLY trust anchor — `true`
+   * only for the demo container (`centreId === 'demo'`), a fixed startup fact, not
+   * renderer input. The `demo: true` machine-skip requires BOTH this flag and the
+   * claim, so a `demo: true` claim signed by the production key opening a real
+   * center is still fully machine-bound — the machine-unbind can never be reached
+   * off the demo anchor (SOU-110 defense-in-depth).
+   */
+  readonly demoAnchorTrusted: boolean;
 };
 
 /**
@@ -31,14 +40,22 @@ export type LicenseRejectionReason =
  * within its validity window? Returns the first failing reason, or `null` when the
  * license binds cleanly. Machine/center identity is checked before expiry — a
  * license that isn't yours at all is a more fundamental mismatch than one that has
- * lapsed. A `null` binding field means "unbound" and always matches.
+ * lapsed. A `null` binding field means "unbound" and always matches. A `demo`
+ * license (SOU-110) is machine-unbound by design — the `demo: true` claim skips
+ * the machine check so a pre-signed demo file activates on any sales laptop while
+ * signature, center binding, and expiry stay enforced. That skip requires the
+ * DEMO-ONLY trust anchor too (`context.demoAnchorTrusted`), so it is unreachable
+ * for a `demo: true` claim signed by the production key on a real center.
  */
 export function evaluateLicenseBinding(
   claims: LicenseClaims,
   context: LicenseBindingContext,
   now: Date,
 ): Exclude<LicenseRejectionReason, 'malformed' | 'invalid-signature'> | null {
-  if (claims.machineId !== null && claims.machineId !== context.machineId) return 'wrong-machine';
+  const machineUnbound = claims.demo && context.demoAnchorTrusted;
+  if (!machineUnbound && claims.machineId !== null && claims.machineId !== context.machineId) {
+    return 'wrong-machine';
+  }
   if (claims.centerCode !== null && claims.centerCode !== context.centerCode) return 'wrong-center';
   if (isLicenseExpired(claims, now)) return 'expired';
   return null;
