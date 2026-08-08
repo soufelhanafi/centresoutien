@@ -15,11 +15,16 @@ import type { IpcHandlers } from '../../shared/ipc/contract';
 export type SyncEngineRunner = Pick<SyncEngine, 'run'>;
 export type ResolveConflictUseCase = Pick<ResolveConflict, 'execute'>;
 export type ListBlockedConflicts = () => readonly SyncConflict[];
+/** Drains this device's local `change_log` writes into pushable pending changes
+ *  (SOU-180) so a real user edit gets pushed. Ran before the engine each sync. */
+export type LocalOutbox = { drain: () => void };
 
 export type SyncHandlerDeps = {
   /** Runs one pull → resolve → push cycle against the wired hub, or null when
    *  no hub is configured (the sync page then shows a "not paired" state). */
   syncEngine: SyncEngineRunner | null;
+  /** Turns local repository writes into pending changes before the engine runs. */
+  syncOutbox: LocalOutbox;
   /** The duplicate matcher source backing the sync engine's people dedup. */
   matcher: DuplicateMatcher | null;
   resolveConflict: ResolveConflictUseCase;
@@ -47,6 +52,9 @@ export function createSyncHandlers(deps: SyncHandlerDeps): Pick<
       if (deps.syncEngine === null || deps.matcher === null) {
         return { result: null };
       }
+      // Enqueue this device's local writes (SOU-180) before pull → resolve → push,
+      // so a freshly created/edited entity is actually pushed to the hub.
+      deps.syncOutbox.drain();
       const result: SyncResult = await deps.syncEngine.run(deps.matcher);
       return {
         result: {
