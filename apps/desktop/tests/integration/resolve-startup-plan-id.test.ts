@@ -12,6 +12,7 @@ const NOW = new Date('2026-08-06T00:00:00.000Z');
 const BINDING: LicenseBindingContext = {
   machineId: 'machine-A',
   centerCode: 'CS-CASA-001' as CenterCode,
+  demoAnchorTrusted: false,
 };
 
 const clock: Clock = { now: () => NOW };

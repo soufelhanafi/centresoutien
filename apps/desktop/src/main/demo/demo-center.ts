@@ -4,6 +4,7 @@ import type { Database as DB } from 'better-sqlite3';
 import type { Clock, CenterCode } from '@centresoutien/domain';
 import { licenseFileNameForCenter } from '../../data/license/license-file-path';
 import { centreDbFileName, openDatabase } from '../../data/sqlite/db';
+import { resolveInsideLogoDir } from '../../data/fs/logo-store';
 import { hubDbFileName } from '../../data/sqlite/hub/hub-store';
 import { DEMO_CENTER_CODE, DEMO_LICENSE_FILE } from '../../data/demo/demo-license';
 import { DEMO_ANCHOR_UTC } from '../../data/demo/demo-dataset';
@@ -133,7 +134,11 @@ export function wipeDemoArtefacts(dir: string, logoPath: string | null = null): 
     rmSync(join(dir, name), { force: true });
   }
   if (logoPath !== null && logoPath !== '') {
-    rmSync(join(dir, logoPath), { force: true });
+    // Delete through the same traversal guard the read path uses (SOU-110 m1):
+    // a poisoned `centers.logo_path` can never make the wipe rm a file outside
+    // `<dir>/logos/`. A safe `logos/lgo_….png` resolves; anything else no-ops.
+    const safeLogoFile = resolveInsideLogoDir(dir, logoPath);
+    if (safeLogoFile !== null) rmSync(safeLogoFile, { force: true });
   }
 }
 

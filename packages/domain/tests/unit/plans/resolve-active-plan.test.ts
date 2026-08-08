@@ -93,7 +93,7 @@ describe('resolveActivePlan — no usable license', () => {
 });
 
 describe('resolveActivePlan — binding enforcement (SOU-104)', () => {
-  const BINDING = { machineId: 'machine-A', centerCode: 'CS-CASA-001' };
+  const BINDING = { machineId: 'machine-A', centerCode: 'CS-CASA-001', demoAnchorTrusted: false };
 
   it('resolves the tier when machine + center match the binding', () => {
     const res = resolveActivePlan(
@@ -131,7 +131,7 @@ describe('resolveActivePlan — demo licenses (SOU-110)', () => {
   // The demo center's own binding: machine-A, the demo center code. A demo
   // license claims `demo: true` and binds to CS-DEMO-001; its machine check is
   // skipped so the SAME pre-signed file activates on any sales laptop.
-  const DEMO_BINDING = { machineId: 'machine-A', centerCode: 'CS-DEMO-001' };
+  const DEMO_BINDING = { machineId: 'machine-A', centerCode: 'CS-DEMO-001', demoAnchorTrusted: true };
   const demo = (overrides: Partial<LicenseClaims> = {}): LicenseClaims =>
     claims({ plan: 'premium', centerCode: 'CS-DEMO-001', demo: true, ...overrides });
 
@@ -145,7 +145,7 @@ describe('resolveActivePlan — demo licenses (SOU-110)', () => {
     const res = resolveActivePlan(
       valid(demo({ machineId: 'other-laptop' })),
       NOW,
-      { machineId: 'this-laptop', centerCode: 'CS-DEMO-001' },
+      { machineId: 'this-laptop', centerCode: 'CS-DEMO-001', demoAnchorTrusted: true },
     );
     expect(res.status).toBe('active');
     expect(res.plan).toBe(PLANS.premium);
@@ -155,10 +155,21 @@ describe('resolveActivePlan — demo licenses (SOU-110)', () => {
     const res = resolveActivePlan(
       valid(demo({})),
       NOW,
-      { machineId: 'any', centerCode: 'CS-CASA-001' },
+      { machineId: 'any', centerCode: 'CS-CASA-001', demoAnchorTrusted: false },
     );
     expect(res.status).toBe('wrong-center');
     expect(res.plan).toBe(PLANS.essentiel);
+  });
+
+  it('keeps the full machine check for a demo claim OFF the demo trust anchor — the machine-skip is unreachable on a real center (SOU-110 m2)', () => {
+    const res = resolveActivePlan(
+      valid(demo({ machineId: 'vendor-mis-signed', centerCode: 'CS-CASA-001' })),
+      NOW,
+      { machineId: 'this-laptop', centerCode: 'CS-CASA-001', demoAnchorTrusted: false },
+    );
+    expect(res.status).toBe('wrong-machine');
+    expect(res.plan).toBe(PLANS.essentiel);
+    expect(res.error).toBeInstanceOf(LicenseWrongMachineError);
   });
 
   it('still enforces expiry on a demo license', () => {

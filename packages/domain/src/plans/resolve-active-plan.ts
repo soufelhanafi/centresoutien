@@ -91,8 +91,12 @@ export function resolveActivePlan(
   // machine-binding check. Signature (already proven by the adapter) and expiry
   // (checked below) are still enforced, and the center binding still applies —
   // a demo license bound to `CS-DEMO-001` can never grant a tier to another
-  // center. A non-demo license keeps the full machine check.
-  if (binding && !claims.demo && claims.machineId !== null && claims.machineId !== binding.machineId) {
+  // center. The skip also requires the DEMO-ONLY trust anchor (`demoAnchorTrusted`,
+  // set only for the demo container), so a `demo: true` claim signed by the
+  // production key on a real center stays fully machine-bound. A non-demo license
+  // keeps the full machine check.
+  const machineUnbound = binding !== undefined && claims.demo && binding.demoAnchorTrusted;
+  if (binding && !machineUnbound && claims.machineId !== null && claims.machineId !== binding.machineId) {
     return {
       status: 'wrong-machine',
       plan: PLANS.essentiel,
