@@ -42,6 +42,20 @@ export function getChangeLogEntityToRowMapper(
 }
 
 /**
+ * The EXPLICITLY registered domain-shape mapper for an entityType, or undefined.
+ * Sync-apply projection (SOU-180) uses this rather than
+ * {@link getChangeLogEntityToRowMapper}: a synced payload is always the nested
+ * domain entity (change_log/hub shape), so the flat backup-sheet fallback would
+ * mis-map it. An entityType without a registered domain mapper simply is not
+ * projected into its real table yet — it lights up when its repo starts logging.
+ */
+export function getRegisteredChangeLogEntityToRowMapper(
+  entityType: string,
+): ChangeLogEntityToRowMapper | undefined {
+  return registered.get(entityType);
+}
+
+/**
  * Converts the flat workbook `subjects` row (SHEET_SQL logical shape) into the
  * canonical domain {@link Subject}, so a restore logs the same payload shape
  * the subject repository does. One shape per entityType is what makes the log

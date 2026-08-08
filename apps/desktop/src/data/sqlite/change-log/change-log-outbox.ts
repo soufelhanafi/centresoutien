@@ -1,0 +1,143 @@
+import type { Database as DB } from 'better-sqlite3';
+import {
+  deserializeChangeLogPayload,
+  diffChangedFields,
+  type CenterCode,
+  type ChangeLogOp,
+  type ChangeLogPayloadUpcaster,
+  type DeviceId,
+  type EntityId,
+  type LocalSyncRepository,
+  type UserId,
+} from '@centresoutien/domain';
+
+/**
+ * The device-side sync OUTBOX (SOU-180). Turns this device's undrained
+ * `change_log` writes (SOU-79) into pushable pending writes on the
+ * {@link LocalSyncRepository} (SOU-91), so `SyncEngine.run()` actually pushes a
+ * local user edit. It is the bridge that was missing between a repository write
+ * and a real sync: before this, `upsertPending` was only ever called by inbound
+ * auto-merge and the e2e conflict seed, so `sync.run` pushed nothing.
+ *
+ * Runs before `engine.run()` on the sync path; the domain engine stays pure and
+ * never reads `change_log`. Only writes this device made land in `change_log`
+ * (inbound applies go straight to `sync_local_entity`, not through the logging
+ * repositories), so the drain never re-pushes data that arrived from the hub.
+ *
+ * `changedFields` is computed vs the device's last-known canonical snapshot with
+ * the SAME value-equality (`diffChangedFields`) the resolver uses, so overlap
+ * detection is symmetric on both devices — a field only one side changed
+ * auto-merges, a field both changed clashes.
+ */
+export class ChangeLogOutbox {
+  constructor(
+    private readonly db: DB,
+    private readonly local: LocalSyncRepository,
+    private readonly centerCode: CenterCode,
+    private readonly deviceId: DeviceId,
+    private readonly updatedBy: UserId,
+    private readonly upcasters: readonly ChangeLogPayloadUpcaster[] = [],
+  ) {}
+
+  /**
+   * Enqueue every undrained local write as a pending change, then advance the
+   * watermark — atomically, so a crash mid-drain never loses or double-enqueues.
+   */
+  drain(): void {
+    this.db.transaction(() => {
+      const watermark = this.readWatermark();
+      const rows = this.db.prepare(SELECT_UNDRAINED).all(this.centerCode, watermark) as ChangeLogRow[];
+      if (rows.length === 0) return;
+
+      // Collapse multiple undrained revisions of one entity into its LATEST
+      // snapshot (rows are rowid-ordered, so last write wins). One pending write
+      // per entity, exactly what the engine pushes.
+      const latestByEntity = new Map<string, ChangeLogRow>();
+      for (const row of rows) latestByEntity.set(entityKey(row), row);
+
+      const blocked = this.blockedEntityKeys();
+      for (const row of latestByEntity.values()) {
+        if (blocked.has(entityKey(row))) continue; // never overwrite an unresolved conflict
+        this.enqueue(row);
+      }
+
+      this.writeWatermark(rows[rows.length - 1]!.rowid);
+    })();
+  }
+
+  private enqueue(row: ChangeLogRow): void {
+    const entityId = row.entity_id as EntityId;
+    const state = this.local.getLocalState(row.entity_type, entityId);
+    const entity = deserializeChangeLogPayload(row.payload, this.upcasters) as Record<string, unknown>;
+
+    const base = state?.entity ?? null;
+    const baseVersion = state?.version ?? 0;
+    const isDelete = row.op === 'delete';
+    const changedFields = diffChangedFields(base ?? {}, entity);
+
+    // A re-drain of an already-synced entity (base == latest) has nothing net-new
+    // to push; a delete always pushes (the tombstone is the change).
+    if (!isDelete && changedFields.length === 0) return;
+
+    const op: ChangeLogOp = isDelete ? 'delete' : state ? 'update' : 'create';
+    this.local.upsertPending({
+      entityType: row.entity_type,
+      entityId,
+      deviceId: this.deviceId,
+      entity,
+      changedFields,
+      baseVersion,
+      op,
+      updatedBy: this.updatedBy,
+      at: new Date(row.created_at),
+    });
+  }
+
+  /** Field-clash / delete-vs-edit blocks freeze the entity until a human settles it. */
+  private blockedEntityKeys(): Set<string> {
+    const keys = new Set<string>();
+    for (const conflict of this.local.listBlocked()) {
+      if (conflict.kind === 'field-clash' || conflict.kind === 'delete-vs-edit') {
+        keys.add(`${conflict.entityType}\0${conflict.entityId}`);
+      }
+    }
+    return keys;
+  }
+
+  private readWatermark(): number {
+    const row = this.db.prepare(READ_WATERMARK).get(this.centerCode) as { last_rowid: number } | undefined;
+    return row?.last_rowid ?? 0;
+  }
+
+  private writeWatermark(lastRowid: number): void {
+    this.db.prepare(UPSERT_WATERMARK).run({ center_code: this.centerCode, last_rowid: lastRowid });
+  }
+}
+
+type ChangeLogRow = {
+  rowid: number;
+  entity_type: string;
+  entity_id: string;
+  op: ChangeLogOp;
+  payload: string;
+  created_at: string;
+};
+
+function entityKey(row: ChangeLogRow): string {
+  return `${row.entity_type}\0${row.entity_id}`;
+}
+
+const SELECT_UNDRAINED = `
+  SELECT rowid AS rowid, entity_type, entity_id, op, payload, created_at
+    FROM change_log
+   WHERE center_code = ? AND rowid > ?
+   ORDER BY rowid
+`;
+
+const READ_WATERMARK = `SELECT last_rowid FROM sync_outbox WHERE center_code = ?`;
+
+const UPSERT_WATERMARK = `
+  INSERT INTO sync_outbox (center_code, last_rowid)
+  VALUES (@center_code, @last_rowid)
+  ON CONFLICT(center_code) DO UPDATE SET last_rowid = excluded.last_rowid
+`;

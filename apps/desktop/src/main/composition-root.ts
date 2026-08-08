@@ -157,6 +157,7 @@ import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteHubStore } from '../data/sqlite/hub/hub-store';
 import { HubServer } from './hub-server/hub-server';
 import { HttpSyncHubClient } from '../data/sync/http-sync-hub-client';
+import { ChangeLogOutbox } from '../data/sqlite/change-log/change-log-outbox';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
 import { SqliteChangeLogWriter } from '../data/sqlite/change-log/sqlite-change-log-writer';
 import { SqliteLocalSyncRepository } from '../data/sqlite/change-log/sqlite-sync-local-repository';
@@ -1036,6 +1037,16 @@ export function buildContainer(options: ContainerOptions): Container {
     deviceOrigin,
     options.centerCode,
   );
+  // The device-side outbox (SOU-180): drains this device's local `change_log`
+  // writes into pushable pending changes before each sync run, the missing
+  // bridge that lets a real user edit actually reach the hub.
+  const syncOutbox = new ChangeLogOutbox(
+    db,
+    localSyncRepository,
+    options.centerCode,
+    deviceOrigin,
+    DEV_USER,
+  );
   const duplicateMatchSource = new SqliteDuplicateMatchSource(db);
   const matcher = new DuplicateMatcher(duplicateMatchSource);
   const syncEngine = syncHub
@@ -1227,6 +1238,7 @@ export function buildContainer(options: ContainerOptions): Container {
     dbKey: () => options.key,
     scheduleRestart: options.scheduleRestart,
     syncEngine,
+    syncOutbox,
     matcher,
     resolveConflict,
     listBlockedConflicts: () => localSyncRepository.listBlocked(),
