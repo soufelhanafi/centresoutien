@@ -1,0 +1,45 @@
+name: Nightly sync E2E
+
+# SOU-82 — the multi-laptop end-to-end sync test boots THREE Electron processes
+# (a standalone hub + two device apps) and is far heavier than the PR-gate suite,
+# so it runs on its own nightly schedule, kept out of the fast `ci.yml` gate.
+on:
+  schedule:
+    # 03:17 UTC nightly — an off-peak, non-round minute to dodge scheduler pileups.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  multi-laptop-sync:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.9.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # `test:e2e` pre-builds the `--mode e2e` artifacts (incl. the standalone
+      # hub `out/main/hub-standalone.js`) and rebuilds the native module for the
+      # Electron ABI. CS_E2E_HIDDEN keeps the app windows off-screen on the
+      # runner's real display (no Xvfb on macOS). Scoped to just the SOU-82 spec.
+      - name: Multi-laptop sync E2E (FR + AR)
+        run: CS_E2E_HIDDEN=1 pnpm --filter @centresoutien/desktop test:e2e -- tests/e2e/multi-laptop-sync.spec.ts
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-sync-e2e-results
+          path: |
+            apps/desktop/test-results/
+            apps/desktop/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
