@@ -29,16 +29,27 @@ const require = createRequire(import.meta.url);
 const moduleDir = dirname(require.resolve('better-sqlite3-multiple-ciphers/package.json'));
 const binary = join(moduleDir, 'build', 'Release', 'better_sqlite3.node');
 
-/** ABI the current build/Release targets, as seen from this (Node) process. */
+/**
+ * ABI the current build/Release targets, probed in a throwaway child Node
+ * process. It must NOT be probed in-process: on Windows a `process.dlopen`ed
+ * `.node` is locked by the OS for the lifetime of the loading process, so the
+ * subsequent electron-rebuild here fails to `unlink` it (EPERM). A child that
+ * exits before we rebuild releases the handle. POSIX allows unlinking an open
+ * file, so this only ever bit Windows.
+ */
 function currentAbi() {
   try {
-    // This script runs under Node: a clean load means it's the Node ABI.
-    process.dlopen({ exports: {} }, binary);
+    // A clean load in a plain-Node child means it's the Node ABI.
+    execFileSync(
+      process.execPath,
+      ['-e', `process.dlopen({ exports: {} }, ${JSON.stringify(binary)})`],
+      { stdio: ['ignore', 'ignore', 'pipe'], encoding: 'utf8' },
+    );
     return 'node';
   } catch (err) {
     // An ABI mismatch means it's built for another (Electron) ABI; anything else
     // (e.g. the file is missing) means there's no usable build yet.
-    return /NODE_MODULE_VERSION/.test(String(err?.message)) ? 'electron' : 'missing';
+    return /NODE_MODULE_VERSION/.test(String(err?.stderr)) ? 'electron' : 'missing';
   }
 }
 
