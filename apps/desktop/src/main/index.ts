@@ -73,6 +73,38 @@ function resolveHubConfig(): { port: number; token: string; bindHost: string } |
 }
 
 /**
+ * Client-only hub (SOU-82): point this device at an EXTERNAL bare hub — another
+ * laptop, or the multi-laptop E2E's standalone `HubServer` — without serving one
+ * here. Resolved only when this device is NOT itself a hub host (`resolveHubConfig`
+ * returned null); a hub host already wires its own client at its own listener.
+ * Fail-closed, mirroring `resolveHubConfig`: both `CS_SYNC_HUB_URL` and
+ * `CS_SYNC_HUB_TOKEN` are REQUIRED (a client with no pairing token would defeat
+ * the hub's per-center auth), and the URL must parse as an http(s) origin. Real
+ * pairing UX lands with the sync-setup ticket; this env seam is the opt-in until then.
+ */
+function resolveHubClientConfig(): { baseUrl: string; token: string } | null {
+  const rawUrl = process.env['CS_SYNC_HUB_URL'];
+  if (!rawUrl) return null;
+  const token = process.env['CS_SYNC_HUB_TOKEN'];
+  if (!token) {
+    console.warn('[hub] CS_SYNC_HUB_URL set but no CS_SYNC_HUB_TOKEN — this device stays unpaired.');
+    return null;
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    console.warn(`[hub] invalid CS_SYNC_HUB_URL "${rawUrl}" — this device stays unpaired.`);
+    return null;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    console.warn(`[hub] CS_SYNC_HUB_URL must be http(s) (got ${parsed.protocol}) — this device stays unpaired.`);
+    return null;
+  }
+  return { baseUrl: rawUrl.replace(/\/$/, ''), token };
+}
+
+/**
  * Restore (SOU-102) closes the live DB handle as part of its file swap — the
  * only way to reopen it is a fresh process. The short delay lets the IPC
  * response reach the renderer (so it can show "restarting…") before the app
@@ -104,6 +136,9 @@ app.whenReady().then(() => {
   // arrive with first-run setup and the center switcher.
   try {
     const hubServer = resolveHubConfig();
+    // A hub host already wires its own client at its own listener; only a device
+    // that serves no hub can point at an external one (SOU-82).
+    const hubClient = hubServer ? null : resolveHubClientConfig();
     const dir = app.getPath('userData');
     const centreId = process.env['CS_CENTRE'] ?? 'local';
     // SOU-179: `CS_DB_KEY` is a dev/e2e-only override (same gate as `CS_PLAN`
@@ -133,7 +168,7 @@ app.whenReady().then(() => {
       planId: activePlanId(),
       appVersion: () => app.getVersion(),
       scheduleRestart,
-      ...(hubServer ? { hubServer } : {}),
+      ...(hubServer ? { hubServer } : hubClient ? { hubClient } : {}),
     });
   } catch (error) {
     // A center DB migrated by a newer app build, then reopened after a rollback
