@@ -6,6 +6,7 @@ import { ArgentSection } from './argent-section';
 import { EffectifsSection } from './effectifs-section';
 import { TeacherLoadSection } from './teacher-load-section';
 import { SeancesSection } from './seances-section';
+import { DashboardQuickActions } from './dashboard-quick-actions';
 
 /** The Basique dashboard pane (SOU-177): the four blocks from design 1b. */
 export function DashboardBasicPanel() {
@@ -55,6 +56,7 @@ export function DashboardBasicPanel() {
         <TeacherLoadSection teachers={summary.teacherWeeklyLoad} />
         <SeancesSection seances={summary.seances} />
       </div>
+      <DashboardQuickActions />
     </div>
   );
 }
