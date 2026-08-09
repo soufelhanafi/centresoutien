@@ -19,6 +19,7 @@ import type {
 import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteSessionRepository } from '../../src/data/sqlite/repositories/session-repository';
+import { SqliteChangeLogWriter } from '../../src/data/sqlite/change-log/sqlite-change-log-writer';
 
 const KEY = 'passphrase-under-test';
 const REAL_MIGRATIONS = join(import.meta.dirname, '../../src/data/sqlite/migrations');
@@ -42,7 +43,14 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'cs-ses-'));
   db = openDatabase({ centreId: 'C1', key: KEY, dir });
   runMigrations(db, REAL_MIGRATIONS);
-  repo = new SqliteSessionRepository(db);
+  repo = new SqliteSessionRepository(
+    db,
+    new SqliteChangeLogWriter(
+      db,
+      { now: () => new Date('2026-07-29T10:00:00Z') },
+      DEVICE,
+    ),
+  );
 });
 afterEach(() => {
   db.close();

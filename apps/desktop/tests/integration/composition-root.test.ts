@@ -5,6 +5,7 @@ import { generateKeyPairSync, sign as signBytes, type KeyObject } from 'node:cry
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type {
   CenterCode,
+  DeviceId,
   LicenseClaims,
   LicensePort,
   ParentId,
@@ -21,6 +22,7 @@ import { SqliteSubjectRepository } from '../../src/data/sqlite/repositories/subj
 import { changeLogWriterForTest } from './helpers/change-log';
 import { SqliteParentRepository } from '../../src/data/sqlite/repositories/parent-repository';
 import { SqliteSessionRepository } from '../../src/data/sqlite/repositories/session-repository';
+import { SqliteChangeLogWriter } from '../../src/data/sqlite/change-log/sqlite-change-log-writer';
 
 const KEY = 'passphrase-under-test';
 const CENTER = 'CS-CASA-001' as CenterCode;
@@ -813,7 +815,10 @@ describe('composition root', () => {
     // Reopen the same encrypted file to prove the dated occurrences were really
     // persisted, not merely echoed back by the handler.
     const db = openDatabase({ centreId: 'C1', key: KEY, dir });
-    const materialized = await new SqliteSessionRepository(db).listForRange('CS-CASA-001' as CenterCode, {
+    const materialized = await new SqliteSessionRepository(
+      db,
+      new SqliteChangeLogWriter(db, { now: () => new Date() }, 'dev_readonly' as DeviceId),
+    ).listForRange('CS-CASA-001' as CenterCode, {
       start: '2026-09-01',
       end: '2026-09-30',
     });

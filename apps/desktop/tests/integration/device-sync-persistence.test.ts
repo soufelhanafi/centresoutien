@@ -11,9 +11,17 @@ import {
   type CenterCode,
   type Clock,
   type DeviceId,
+  type GroupId,
+  type RoomId,
+  type Session,
+  type SessionId,
   type Subject,
   type SubjectId,
+  type TimeOfDay,
   type UserId,
+  type WeekdayIndex,
+  type WeeklyRecurringSession,
+  type WeeklyRecurringSessionId,
 } from '@centresoutien/domain';
 import { openDatabase, openDatabaseAt } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
@@ -21,6 +29,8 @@ import { hubDbFileName, SqliteHubStore } from '../../src/data/sqlite/hub/hub-sto
 import { HubServer } from '../../src/main/hub-server/hub-server';
 import { HttpSyncHubClient } from '../../src/data/sync/http-sync-hub-client';
 import { SqliteSubjectRepository } from '../../src/data/sqlite/repositories/subject-repository';
+import { SqliteSessionRepository } from '../../src/data/sqlite/repositories/session-repository';
+import { SqliteWeeklyRecurringSessionRepository } from '../../src/data/sqlite/repositories/weekly-recurring-session-repository';
 import { SqliteChangeLogWriter } from '../../src/data/sqlite/change-log/sqlite-change-log-writer';
 import { SqliteLocalSyncRepository } from '../../src/data/sqlite/change-log/sqlite-sync-local-repository';
 import { SqliteDuplicateMatchSource } from '../../src/data/sqlite/change-log/sqlite-duplicate-match-source';
@@ -51,6 +61,11 @@ const S1 = 'sub_00000000000000000000000001' as SubjectId;
 
 const clock: Clock = { now: () => AT };
 
+const ROOM = 'rom_00000000000000000000000001' as RoomId;
+const GROUP = 'grp_00000000000000000000000001' as GroupId;
+const WRS = 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId;
+const SESSION = 'ses_00000000000000000000000001' as SessionId;
+
 function makeSubject(over: Partial<Subject> = {}): Subject {
   return {
     id: S1,
@@ -68,11 +83,58 @@ function makeSubject(over: Partial<Subject> = {}): Subject {
   };
 }
 
+function makeWrs(over: Partial<WeeklyRecurringSession> = {}): WeeklyRecurringSession {
+  return {
+    id: WRS,
+    centerCode: CENTER,
+    deviceOrigin: DEV_A,
+    createdAt: AT,
+    updatedAt: AT,
+    updatedBy: USER_A,
+    deletedAt: null,
+    version: 0,
+    roomId: ROOM,
+    teacherId: null,
+    groupId: GROUP,
+    dayOfWeek: 1 as WeekdayIndex,
+    start: '09:00' as TimeOfDay,
+    end: '11:00' as TimeOfDay,
+    active: true,
+    validFrom: null,
+    validTo: null,
+    ...over,
+  };
+}
+
+function makeSession(over: Partial<Session> = {}): Session {
+  return {
+    id: SESSION,
+    centerCode: CENTER,
+    deviceOrigin: DEV_A,
+    createdAt: AT,
+    updatedAt: AT,
+    updatedBy: USER_A,
+    deletedAt: null,
+    version: 0,
+    recurringSessionId: WRS,
+    generationBatchId: null,
+    roomId: ROOM,
+    teacherId: null,
+    groupId: GROUP,
+    date: '2026-09-05',
+    start: '09:00' as TimeOfDay,
+    end: '10:30' as TimeOfDay,
+    ...over,
+  };
+}
+
 /** A real device: its own encrypted center DB, subject repo, sync store, outbox, engine. */
 class Device {
   readonly dir: string;
   readonly db: DB;
   readonly subjects: SqliteSubjectRepository;
+  readonly weeklySessions: SqliteWeeklyRecurringSessionRepository;
+  readonly sessions: SqliteSessionRepository;
   private readonly local: SqliteLocalSyncRepository;
   private readonly outbox: ChangeLogOutbox;
   private readonly engine: SyncEngine;
@@ -82,7 +144,10 @@ class Device {
     this.dir = mkdtempSync(join(tmpdir(), `cs-device-${deviceId.slice(-1)}-`));
     this.db = openDatabase({ centreId: 'local', key: KEY, dir: this.dir });
     runMigrations(this.db, REAL_MIGRATIONS);
-    this.subjects = new SqliteSubjectRepository(this.db, new SqliteChangeLogWriter(this.db, clock, deviceId));
+    const changeLog = new SqliteChangeLogWriter(this.db, clock, deviceId);
+    this.subjects = new SqliteSubjectRepository(this.db, changeLog);
+    this.weeklySessions = new SqliteWeeklyRecurringSessionRepository(this.db, changeLog);
+    this.sessions = new SqliteSessionRepository(this.db, changeLog);
     this.local = new SqliteLocalSyncRepository(this.db, clock, deviceId, CENTER);
     this.outbox = new ChangeLogOutbox(this.db, this.local, CENTER, deviceId, userId);
     this.matcher = new DuplicateMatcher(new SqliteDuplicateMatchSource(this.db));
@@ -213,5 +278,38 @@ describe('device-to-device sync persistence (SOU-180)', () => {
     expect(b.firstBlockedKind()).toBe('field-clash');
     // B keeps its own edit; A's value never silently clobbered it.
     expect((await b.subjects.findById(S1))?.name.fr).toBe('BBB');
+  });
+
+  it('a weekly recurring session’s group_id survives push → pull onto B’s real row', async () => {
+    await a.weeklySessions.save(makeWrs());
+    await a.sync();
+
+    expect(await b.weeklySessions.findById(WRS)).toBeNull();
+
+    await b.sync();
+
+    const onB = await b.weeklySessions.findById(WRS);
+    expect(onB).not.toBeNull();
+    // Planner enrichment converges: the group link arrived, not the neutral fallback.
+    expect(onB?.groupId).toBe(GROUP);
+    expect(onB?.roomId).toBe(ROOM);
+    expect(onB?.version).toBe(1);
+    expect(onB?.deviceOrigin).toBe(DEV_A);
+  });
+
+  it('a concrete session’s group_id survives push → pull onto B’s real row', async () => {
+    await a.sessions.save(makeSession());
+    await a.sync();
+
+    expect(await b.sessions.findById(SESSION)).toBeNull();
+
+    await b.sync();
+
+    const onB = await b.sessions.findById(SESSION);
+    expect(onB).not.toBeNull();
+    expect(onB?.groupId).toBe(GROUP);
+    expect(onB?.recurringSessionId).toBe(WRS);
+    expect(onB?.version).toBe(1);
+    expect(onB?.deviceOrigin).toBe(DEV_A);
   });
 });

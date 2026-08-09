@@ -21,6 +21,7 @@ import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteAttendanceRepository } from '../../src/data/sqlite/repositories/attendance-repository';
 import { SqliteSessionRepository } from '../../src/data/sqlite/repositories/session-repository';
+import { SqliteChangeLogWriter } from '../../src/data/sqlite/change-log/sqlite-change-log-writer';
 
 const KEY = 'passphrase-under-test';
 const REAL_MIGRATIONS = join(import.meta.dirname, '../../src/data/sqlite/migrations');
@@ -42,7 +43,10 @@ beforeEach(() => {
   db = openDatabase({ centreId: 'C1', key: KEY, dir });
   runMigrations(db, REAL_MIGRATIONS);
   repo = new SqliteAttendanceRepository(db);
-  sessions = new SqliteSessionRepository(db);
+  sessions = new SqliteSessionRepository(
+    db,
+    new SqliteChangeLogWriter(db, { now: () => AT }, DEVICE),
+  );
 });
 afterEach(() => {
   db.close();
