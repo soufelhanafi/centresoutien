@@ -18,6 +18,7 @@ import type {
 import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteWeeklyRecurringSessionRepository } from '../../src/data/sqlite/repositories/weekly-recurring-session-repository';
+import { SqliteChangeLogWriter } from '../../src/data/sqlite/change-log/sqlite-change-log-writer';
 
 const KEY = 'passphrase-under-test';
 const REAL_MIGRATIONS = join(import.meta.dirname, '../../src/data/sqlite/migrations');
@@ -36,7 +37,14 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'cs-wrs-'));
   db = openDatabase({ centreId: 'C1', key: KEY, dir });
   runMigrations(db, REAL_MIGRATIONS);
-  repo = new SqliteWeeklyRecurringSessionRepository(db);
+  repo = new SqliteWeeklyRecurringSessionRepository(
+    db,
+    new SqliteChangeLogWriter(
+      db,
+      { now: () => AT },
+      'dev_00000000000000000000000001' as DeviceId,
+    ),
+  );
 });
 afterEach(() => {
   db.close();

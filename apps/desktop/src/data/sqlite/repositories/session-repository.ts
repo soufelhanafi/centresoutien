@@ -13,7 +13,9 @@ import type {
   GenerationBatchId,
   TimeOfDay,
   DateRange,
+  ChangeLogWriter,
 } from '@centresoutien/domain';
+import { toEntityId } from '@centresoutien/domain';
 
 /** The `sessions` row shape as SQLite returns it. */
 type SessionRow = {
@@ -126,16 +128,44 @@ const UPSERT_MANY_SQL = `
  * crosses a tenant boundary.
  */
 export class SqliteSessionRepository implements SessionRepository {
-  constructor(private readonly db: DB) {}
+  constructor(
+    private readonly db: DB,
+    private readonly changeLog: ChangeLogWriter,
+  ) {}
 
   async save(session: Session): Promise<void> {
-    this.db.prepare(SAVE_SQL).run(toParams(session));
+    this.db.transaction(() => {
+      this.db.prepare(SAVE_SQL).run(toParams(session));
+      this.changeLog.record({
+        entityType: 'sessions',
+        entityId: toEntityId(session.id),
+        centerCode: session.centerCode,
+        intent: 'upsert',
+        entity: session,
+      });
+    })();
   }
 
   async upsertMany(sessions: readonly Session[]): Promise<void> {
     const insert = this.db.prepare(UPSERT_MANY_SQL);
+    // Mirror the ON CONFLICT(recurring_session_id, date) DO NOTHING semantics so a
+    // re-run over already-materialized (or cancelled) dates logs nothing — a
+    // phantom create would flood the change feed. Log only what this call inserted.
+    const alreadyMaterialized = this.db.prepare(
+      'SELECT 1 FROM sessions WHERE recurring_session_id = ? AND date = ? AND center_code = ? LIMIT 1',
+    );
     const insertAll = this.db.transaction((batch: readonly Session[]) => {
-      for (const session of batch) insert.run(toParams(session));
+      for (const session of batch) {
+        if (alreadyMaterialized.get(session.recurringSessionId, session.date, session.centerCode)) continue;
+        insert.run(toParams(session));
+        this.changeLog.record({
+          entityType: 'sessions',
+          entityId: toEntityId(session.id),
+          centerCode: session.centerCode,
+          intent: 'upsert',
+          entity: session,
+        });
+      }
     });
     insertAll(sessions);
   }
@@ -149,9 +179,22 @@ export class SqliteSessionRepository implements SessionRepository {
 
   async softDelete(id: SessionId, at: Date, by: UserId): Promise<void> {
     const iso = at.toISOString();
-    this.db
-      .prepare('UPDATE sessions SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?')
-      .run(iso, iso, by, id);
+    this.db.transaction(() => {
+      const row = this.db
+        .prepare('SELECT * FROM sessions WHERE id = ?')
+        .get(id) as SessionRow | undefined;
+      if (!row) return;
+      this.db
+        .prepare('UPDATE sessions SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?')
+        .run(iso, iso, by, id);
+      this.changeLog.record({
+        entityType: 'sessions',
+        entityId: toEntityId(id),
+        centerCode: row.center_code as CenterCode,
+        intent: 'delete',
+        entity: { ...fromRow(row), deletedAt: at, updatedAt: at, updatedBy: by },
+      });
+    })();
   }
 
   async listChangedSince(cursor: Date): Promise<readonly Session[]> {

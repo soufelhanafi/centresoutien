@@ -17,7 +17,9 @@ import type {
   EntityId,
   WeekdayIndex,
   TimeOfDay,
+  ChangeLogWriter,
 } from '@centresoutien/domain';
+import { toEntityId } from '@centresoutien/domain';
 
 /** The `weekly_recurring_sessions` row shape as SQLite returns it. */
 type SessionRow = {
@@ -198,28 +200,40 @@ const LIST_WEEK_VIEW_SQL = `
 export class SqliteWeeklyRecurringSessionRepository
   implements WeeklyRecurringSessionRepository, RoomReferencePort, WeeklySessionViewReadPort
 {
-  constructor(private readonly db: DB) {}
+  constructor(
+    private readonly db: DB,
+    private readonly changeLog: ChangeLogWriter,
+  ) {}
 
   async save(session: WeeklyRecurringSession): Promise<void> {
-    this.db.prepare(SAVE_SQL).run({
-      id: session.id,
-      center_code: session.centerCode,
-      device_origin: session.deviceOrigin,
-      created_at: session.createdAt.toISOString(),
-      updated_at: session.updatedAt.toISOString(),
-      updated_by: session.updatedBy,
-      deleted_at: session.deletedAt ? session.deletedAt.toISOString() : null,
-      version: session.version,
-      room_id: session.roomId,
-      teacher_id: session.teacherId,
-      group_id: session.groupId,
-      day_of_week: session.dayOfWeek,
-      start_time: session.start,
-      end_time: session.end,
-      active: session.active ? 1 : 0,
-      valid_from: session.validFrom,
-      valid_to: session.validTo,
-    });
+    this.db.transaction(() => {
+      this.db.prepare(SAVE_SQL).run({
+        id: session.id,
+        center_code: session.centerCode,
+        device_origin: session.deviceOrigin,
+        created_at: session.createdAt.toISOString(),
+        updated_at: session.updatedAt.toISOString(),
+        updated_by: session.updatedBy,
+        deleted_at: session.deletedAt ? session.deletedAt.toISOString() : null,
+        version: session.version,
+        room_id: session.roomId,
+        teacher_id: session.teacherId,
+        group_id: session.groupId,
+        day_of_week: session.dayOfWeek,
+        start_time: session.start,
+        end_time: session.end,
+        active: session.active ? 1 : 0,
+        valid_from: session.validFrom,
+        valid_to: session.validTo,
+      });
+      this.changeLog.record({
+        entityType: 'weekly_recurring_sessions',
+        entityId: toEntityId(session.id),
+        centerCode: session.centerCode,
+        intent: 'upsert',
+        entity: session,
+      });
+    })();
   }
 
   async findById(id: WeeklyRecurringSessionId): Promise<WeeklyRecurringSession | null> {
@@ -231,11 +245,24 @@ export class SqliteWeeklyRecurringSessionRepository
 
   async softDelete(id: WeeklyRecurringSessionId, at: Date, by: UserId): Promise<void> {
     const iso = at.toISOString();
-    this.db
-      .prepare(
-        'UPDATE weekly_recurring_sessions SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?',
-      )
-      .run(iso, iso, by, id);
+    this.db.transaction(() => {
+      const row = this.db
+        .prepare('SELECT * FROM weekly_recurring_sessions WHERE id = ?')
+        .get(id) as SessionRow | undefined;
+      if (!row) return;
+      this.db
+        .prepare(
+          'UPDATE weekly_recurring_sessions SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?',
+        )
+        .run(iso, iso, by, id);
+      this.changeLog.record({
+        entityType: 'weekly_recurring_sessions',
+        entityId: toEntityId(id),
+        centerCode: row.center_code as CenterCode,
+        intent: 'delete',
+        entity: { ...fromRow(row), deletedAt: at, updatedAt: at, updatedBy: by },
+      });
+    })();
   }
 
   async listChangedSince(cursor: Date): Promise<readonly WeeklyRecurringSession[]> {

@@ -1,4 +1,13 @@
-import type { BackupRow, CenterCode, DeviceId, Subject, SubjectId, UserId } from '@centresoutien/domain';
+import type {
+  BackupRow,
+  CenterCode,
+  DeviceId,
+  Session,
+  Subject,
+  SubjectId,
+  UserId,
+  WeeklyRecurringSession,
+} from '@centresoutien/domain';
 import { SHEET_BY_TABLE } from '../repositories/backup-store-sheets';
 import { toSqlValue, type SheetSqlConfig } from '../repositories/backup-store-config';
 
@@ -121,6 +130,56 @@ function toIsoString(value: Date | string): string {
   return typeof value === 'string' ? value : value.toISOString();
 }
 
+function weeklyRecurringSessionEntityToRow(entity: unknown): Record<string, unknown> {
+  const session = entity as WeeklyRecurringSession;
+  return {
+    id: session.id,
+    center_code: session.centerCode,
+    device_origin: session.deviceOrigin,
+    created_at: toIsoString(session.createdAt),
+    updated_at: toIsoString(session.updatedAt),
+    updated_by: session.updatedBy,
+    deleted_at: session.deletedAt === null ? null : toIsoString(session.deletedAt),
+    version: session.version,
+    room_id: session.roomId,
+    teacher_id: session.teacherId,
+    group_id: session.groupId,
+    day_of_week: session.dayOfWeek,
+    start_time: session.start,
+    end_time: session.end,
+    active: session.active ? 1 : 0,
+    valid_from: session.validFrom,
+    valid_to: session.validTo,
+  };
+}
+
+function sessionEntityToRow(entity: unknown): Record<string, unknown> {
+  const session = entity as Session;
+  return {
+    id: session.id,
+    center_code: session.centerCode,
+    device_origin: session.deviceOrigin,
+    created_at: toIsoString(session.createdAt),
+    updated_at: toIsoString(session.updatedAt),
+    updated_by: session.updatedBy,
+    deleted_at: session.deletedAt === null ? null : toIsoString(session.deletedAt),
+    version: session.version,
+    recurring_session_id: session.recurringSessionId,
+    generation_batch_id: session.generationBatchId,
+    room_id: session.roomId,
+    teacher_id: session.teacherId,
+    group_id: session.groupId,
+    date: session.date,
+    start_time: session.start,
+    end_time: session.end,
+  };
+}
+
 // Default registration: `subjects` is the first repo-written entityType in the
 // log (SOU-79 representative slice); its payload is the nested domain Subject.
 registerChangeLogEntityToRowMapper('subjects', subjectEntityToRow);
+// `weekly_recurring_sessions` + `sessions` (SOU-132): the planner grid derives a
+// session's subject/level/kind from the group via the join, so sync-apply must
+// project `groupId` onto `group_id` or laptop B renders the neutral fallback.
+registerChangeLogEntityToRowMapper('weekly_recurring_sessions', weeklyRecurringSessionEntityToRow);
+registerChangeLogEntityToRowMapper('sessions', sessionEntityToRow);

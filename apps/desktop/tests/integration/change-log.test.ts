@@ -268,6 +268,77 @@ describe('change_log — replay rebuilds DB state', () => {
     expect(row['start_month']).toBe('2026-09');
   });
 
+  it('replays a weekly recurring session flat row through the explicit mapper, group_id included (SOU-132)', () => {
+    // The backup store logs these tables as FLAT rows (SHEET_BY_TABLE config). The
+    // explicit SOU-132 mapper now shadows that sheet fallback on replay — this
+    // proves a flat backup-shaped payload still lands correctly, group_id intact.
+    const wrs: Record<string, unknown> = {
+      id: 'wrs_00000000000000000000000001',
+      centerCode: CENTER,
+      deviceOrigin: ROW_ORIGIN,
+      createdAt: AT.toISOString(),
+      updatedAt: AT.toISOString(),
+      updatedBy: USER,
+      deletedAt: null,
+      version: 1,
+      roomId: 'rom_00000000000000000000000001',
+      teacherId: 'tch_00000000000000000000000001',
+      groupId: 'grp_00000000000000000000000001',
+      dayOfWeek: 2,
+      start: '09:00',
+      end: '11:00',
+      active: true,
+      validFrom: '2026-09-01',
+      validTo: null,
+    };
+    insertLogRow(db, 'weekly_recurring_sessions', wrs);
+    replayChangeLog(db);
+
+    const row = db
+      .prepare('SELECT * FROM weekly_recurring_sessions WHERE id = ?')
+      .get(wrs.id) as
+      | { group_id: string | null; room_id: string; day_of_week: number; active: number }
+      | undefined;
+    expect(row).toBeDefined();
+    expect(row?.group_id).toBe('grp_00000000000000000000000001');
+    expect(row?.room_id).toBe('rom_00000000000000000000000001');
+    expect(row?.day_of_week).toBe(2);
+    expect(row?.active).toBe(1);
+  });
+
+  it('replays a concrete session flat row through the explicit mapper, group_id included (SOU-132)', () => {
+    const session: Record<string, unknown> = {
+      id: 'ses_00000000000000000000000001',
+      centerCode: CENTER,
+      deviceOrigin: ROW_ORIGIN,
+      createdAt: AT.toISOString(),
+      updatedAt: AT.toISOString(),
+      updatedBy: USER,
+      deletedAt: null,
+      version: 1,
+      recurringSessionId: 'wrs_00000000000000000000000001',
+      generationBatchId: null,
+      roomId: 'rom_00000000000000000000000001',
+      teacherId: null,
+      groupId: 'grp_00000000000000000000000001',
+      date: '2026-09-05',
+      start: '09:00',
+      end: '10:30',
+    };
+    insertLogRow(db, 'sessions', session);
+    replayChangeLog(db);
+
+    const row = db
+      .prepare('SELECT * FROM sessions WHERE id = ?')
+      .get(session.id) as
+      | { group_id: string | null; recurring_session_id: string; date: string }
+      | undefined;
+    expect(row).toBeDefined();
+    expect(row?.group_id).toBe('grp_00000000000000000000000001');
+    expect(row?.recurring_session_id).toBe('wrs_00000000000000000000000001');
+    expect(row?.date).toBe('2026-09-05');
+  });
+
   it('throws on an entityType with no registered mapper rather than guessing', () => {
     insertLogRow(db, 'not_a_known_table', { id: 'xx_00000000000000000000000001' });
 

@@ -19,6 +19,7 @@ import type {
 import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteSessionRepository } from '../../src/data/sqlite/repositories/session-repository';
+import { SqliteChangeLogWriter } from '../../src/data/sqlite/change-log/sqlite-change-log-writer';
 
 const KEY = 'passphrase-under-test';
 const REAL_MIGRATIONS = join(import.meta.dirname, '../../src/data/sqlite/migrations');
@@ -42,7 +43,14 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'cs-ses-'));
   db = openDatabase({ centreId: 'C1', key: KEY, dir });
   runMigrations(db, REAL_MIGRATIONS);
-  repo = new SqliteSessionRepository(db);
+  repo = new SqliteSessionRepository(
+    db,
+    new SqliteChangeLogWriter(
+      db,
+      { now: () => new Date('2026-07-29T10:00:00Z') },
+      DEVICE,
+    ),
+  );
 });
 afterEach(() => {
   db.close();
@@ -73,6 +81,13 @@ function makeSession(over: Partial<Session> = {}): Session {
     end: '10:30' as TimeOfDay,
     ...over,
   };
+}
+
+function sessionLogCount(): number {
+  const { n } = db
+    .prepare("SELECT COUNT(*) AS n FROM change_log WHERE entity_type = 'sessions'")
+    .get() as { n: number };
+  return n;
 }
 
 describe('SqliteSessionRepository', () => {
@@ -159,6 +174,25 @@ describe('SqliteSessionRepository', () => {
 
       const stored = await repo.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' });
       expect(stored.map((s) => s.date)).toEqual(['2026-01-01', '2026-01-08', '2026-01-15']);
+    });
+
+    it('re-running the window appends no change-log rows (no phantom feed)', async () => {
+      await repo.upsertMany(window());
+      expect(sessionLogCount()).toBe(window().length);
+
+      await repo.upsertMany(window());
+      expect(sessionLogCount()).toBe(window().length);
+    });
+
+    it('a batch with two sessions on the same natural key inserts and logs exactly once', async () => {
+      await repo.upsertMany([
+        makeSession({ date: '2026-01-01' }),
+        makeSession({ date: '2026-01-01' }),
+      ]);
+
+      const stored = await repo.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' });
+      expect(stored).toHaveLength(1);
+      expect(sessionLogCount()).toBe(1);
     });
 
     it('keeps the original row untouched on conflict (no updated_at / version churn)', async () => {

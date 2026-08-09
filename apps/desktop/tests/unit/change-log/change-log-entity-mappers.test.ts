@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   getChangeLogEntityToRowMapper,
+  getRegisteredChangeLogEntityToRowMapper,
   subjectBackupRowToEntity,
 } from '../../../src/data/sqlite/change-log/change-log-entity-mappers';
+import { SHEET_BY_TABLE } from '../../../src/data/sqlite/repositories/backup-store-sheets';
 
 const ISO = '2026-07-29T10:00:00.000Z';
 
@@ -171,6 +173,202 @@ describe('getChangeLogEntityToRowMapper', () => {
     expect(row['is_immutable']).toBeUndefined();
     expect(row['name_fr']).toBe('Math');
     expect(row['active']).toBe(1);
+  });
+});
+
+describe('getRegisteredChangeLogEntityToRowMapper (sync-apply projection, SOU-132)', () => {
+  it.each([
+    [
+      'weekly_recurring_sessions',
+      {
+        id: 'wrs_01',
+        centerCode: 'CS-CASA-001',
+        deviceOrigin: 'dev_1',
+        createdAt: ISO,
+        updatedAt: ISO,
+        updatedBy: 'usr_1',
+        deletedAt: null,
+        version: 2,
+        roomId: 'rom_1',
+        teacherId: 'tch_1',
+        groupId: 'grp_1',
+        dayOfWeek: 2,
+        start: '09:00',
+        end: '11:00',
+        active: true,
+        validFrom: '2026-09-01',
+        validTo: null,
+      },
+      {
+        id: 'wrs_01',
+        center_code: 'CS-CASA-001',
+        device_origin: 'dev_1',
+        created_at: ISO,
+        updated_at: ISO,
+        updated_by: 'usr_1',
+        deleted_at: null,
+        version: 2,
+        room_id: 'rom_1',
+        teacher_id: 'tch_1',
+        group_id: 'grp_1',
+        day_of_week: 2,
+        start_time: '09:00',
+        end_time: '11:00',
+        active: 1,
+        valid_from: '2026-09-01',
+        valid_to: null,
+      },
+    ],
+    [
+      'sessions',
+      {
+        id: 'ses_01',
+        centerCode: 'CS-CASA-001',
+        deviceOrigin: 'dev_1',
+        createdAt: ISO,
+        updatedAt: ISO,
+        updatedBy: 'usr_1',
+        deletedAt: null,
+        version: 1,
+        recurringSessionId: 'wrs_01',
+        generationBatchId: null,
+        roomId: 'rom_1',
+        teacherId: null,
+        groupId: 'grp_2',
+        date: '2026-09-05',
+        start: '09:00',
+        end: '10:30',
+      },
+      {
+        id: 'ses_01',
+        center_code: 'CS-CASA-001',
+        device_origin: 'dev_1',
+        created_at: ISO,
+        updated_at: ISO,
+        updated_by: 'usr_1',
+        deleted_at: null,
+        version: 1,
+        recurring_session_id: 'wrs_01',
+        generation_batch_id: null,
+        room_id: 'rom_1',
+        teacher_id: null,
+        group_id: 'grp_2',
+        date: '2026-09-05',
+        start_time: '09:00',
+        end_time: '10:30',
+      },
+    ],
+  ] as const)(
+    'maps a %s domain payload onto the physical row, group_id included',
+    (entityType, entity, expectedRow) => {
+      const mapper = getRegisteredChangeLogEntityToRowMapper(entityType);
+      expect(mapper).toBeDefined();
+      expect(mapper!(entity)).toEqual(expectedRow);
+    },
+  );
+
+  it('maps a null groupId onto null group_id (unlinked session)', () => {
+    const mapper = getRegisteredChangeLogEntityToRowMapper('weekly_recurring_sessions')!;
+    const row = mapper({
+      id: 'wrs_02',
+      centerCode: 'CS-CASA-001',
+      deviceOrigin: 'dev_1',
+      createdAt: ISO,
+      updatedAt: ISO,
+      updatedBy: 'usr_1',
+      deletedAt: null,
+      version: 0,
+      roomId: 'rom_1',
+      teacherId: null,
+      groupId: null,
+      dayOfWeek: 1,
+      start: '09:00',
+      end: '10:00',
+      active: true,
+      validFrom: null,
+      validTo: null,
+    });
+    expect(row['group_id']).toBeNull();
+  });
+
+  it('projects a tombstoned session payload onto deleted_at', () => {
+    const mapper = getRegisteredChangeLogEntityToRowMapper('sessions')!;
+    const row = mapper({
+      id: 'ses_02',
+      centerCode: 'CS-CASA-001',
+      deviceOrigin: 'dev_1',
+      createdAt: ISO,
+      updatedAt: ISO,
+      updatedBy: 'usr_1',
+      deletedAt: ISO,
+      version: 3,
+      recurringSessionId: 'wrs_01',
+      generationBatchId: null,
+      roomId: 'rom_1',
+      teacherId: null,
+      groupId: 'grp_1',
+      date: '2026-09-06',
+      start: '09:00',
+      end: '10:30',
+    });
+    expect(row['deleted_at']).toBe(ISO);
+  });
+
+  it('explicit mappers stay in sync with the backup-sheet column registry', () => {
+    const cases = [
+      {
+        entityType: 'weekly_recurring_sessions' as const,
+        entity: {
+          id: 'wrs_01',
+          centerCode: 'CS-CASA-001',
+          deviceOrigin: 'dev_1',
+          createdAt: ISO,
+          updatedAt: ISO,
+          updatedBy: 'usr_1',
+          deletedAt: null,
+          version: 2,
+          roomId: 'rom_1',
+          teacherId: 'tch_1',
+          groupId: 'grp_1',
+          dayOfWeek: 2,
+          start: '09:00',
+          end: '11:00',
+          active: true,
+          validFrom: '2026-09-01',
+          validTo: null,
+        },
+      },
+      {
+        entityType: 'sessions' as const,
+        entity: {
+          id: 'ses_01',
+          centerCode: 'CS-CASA-001',
+          deviceOrigin: 'dev_1',
+          createdAt: ISO,
+          updatedAt: ISO,
+          updatedBy: 'usr_1',
+          deletedAt: null,
+          version: 1,
+          recurringSessionId: 'wrs_01',
+          generationBatchId: null,
+          roomId: 'rom_1',
+          teacherId: null,
+          groupId: 'grp_2',
+          date: '2026-09-05',
+          start: '09:00',
+          end: '10:30',
+        },
+      },
+    ];
+    for (const { entityType, entity } of cases) {
+      const config = SHEET_BY_TABLE.get(entityType);
+      const mapper = getRegisteredChangeLogEntityToRowMapper(entityType);
+      expect(config).toBeDefined();
+      expect(mapper).toBeDefined();
+      const expectedColumns = config!.columns.map(([, sql]) => sql).sort();
+      const actualColumns = Object.keys(mapper!(entity)).sort();
+      expect(actualColumns).toEqual(expectedColumns);
+    }
   });
 });
 

@@ -594,7 +594,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // referenced" stub with no change to ArchiveRoom or the port contract. The same
   // instance also serves WeeklySessionViewReadPort — the planner grid's enriched
   // week (SOU-118), whose join is anchored on this table.
-  const sessionRepo = new SqliteWeeklyRecurringSessionRepository(db);
+  const sessionRepo = new SqliteWeeklyRecurringSessionRepository(db, changeLog);
   const roomReference: RoomReferencePort = sessionRepo;
   const listWeekSessions = new ListWeekSessions(sessionRepo, plan);
   // Weekly schedule PDF export (SOU-107): no domain use case sits between
@@ -795,7 +795,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // gate + persistence live here. GenerateAndPersistSessions resolves the
   // recurrence template (the WRS repo above) and the center's holidays, runs the
   // pure generator, and upserts idempotently on (recurringSessionId, date).
-  const concreteSessionRepo = new SqliteSessionRepository(db);
+  const concreteSessionRepo = new SqliteSessionRepository(db, changeLog);
   const generateSessions = new GenerateAndPersistSessions(
     concreteSessionRepo,
     sessionRepo,
