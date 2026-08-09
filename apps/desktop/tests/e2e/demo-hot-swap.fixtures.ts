@@ -1,4 +1,5 @@
 import { existsSync, mkdtempSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
@@ -32,6 +33,22 @@ export type { Launched, Locale };
 
 export const RELOAD_SENTINEL = '__csHotSwapSentinel';
 
+/** Pairing token for the embedded hub launched under `bootRealCenter({ hubHost: true })` (SOU-190). */
+export const HUB_TOKEN = ['e2e', 'hub-host', 'pairing', 'token'].join('-');
+
+/** An OS-assigned free loopback TCP port — the embedded hub binds it at launch. */
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      const port = typeof address === 'object' && address !== null ? address.port : 0;
+      server.close(() => resolve(port));
+    });
+  });
+}
+
 export function freshUserDataDir(): string {
   return mkdtempSync(join(tmpdir(), 'cs-e2e-demoswap-'));
 }
@@ -43,12 +60,26 @@ export type BootedReal = { app: ElectronApplication; win: Page; dir: string };
  * the admin, log in, and return the userDataDir so filesystem-isolation facts
  * can be read. This is the single window that every hot-swap scenario mutates —
  * it must survive create + wipe untouched.
+ *
+ * With `hubHost: true` the app boots with the embedded LAN hub serving
+ * (`CS_HUB_ENABLED` + `CS_HUB_TOKEN` + `CS_HUB_PORT` + `CS_HUB_BIND_HOST`), so
+ * `demo.status` reports `isHubHost: true` — the SOU-190 warning precondition.
  */
-export async function bootRealCenter(locale: Locale): Promise<BootedReal> {
+export async function bootRealCenter(
+  locale: Locale,
+  opts: { hubHost?: boolean } = {},
+): Promise<BootedReal> {
   const dir = freshUserDataDir();
+  const env: Record<string, string> = { ...process.env, CS_LOCALE: locale, CS_PLAN: 'premium' };
+  if (opts.hubHost) {
+    env['CS_HUB_ENABLED'] = '1';
+    env['CS_HUB_TOKEN'] = HUB_TOKEN;
+    env['CS_HUB_PORT'] = String(await freePort());
+    env['CS_HUB_BIND_HOST'] = '127.0.0.1';
+  }
   const app = await electron.launch({
     args: [MAIN_ENTRY, `--user-data-dir=${dir}`],
-    env: { ...process.env, CS_LOCALE: locale, CS_PLAN: 'premium' },
+    env,
   });
   const win = await app.firstWindow();
   await win.waitForLoadState('domcontentloaded');

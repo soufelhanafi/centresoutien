@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -76,6 +76,47 @@ describe('LoginScreen — demo entry (SOU-110 / SOU-186)', () => {
     expect(username).toHaveValue('');
     expect(screen.queryByText('Connexion démo')).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Explorer la démo' })).toBeInTheDocument();
+  });
+
+  it('warns before creating when the laptop is the hub host; cancel does not create', async () => {
+    const create = vi.spyOn(demoGateway, 'create');
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: true,
+    });
+    const user = userEvent.setup();
+    renderLogin();
+
+    await user.click(await screen.findByRole('button', { name: 'Explorer la démo' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByText(/Cet ordinateur est le serveur de synchronisation/),
+    ).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getAllByRole('button', { name: 'Annuler' })[0]!);
+
+    expect(create).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('confirms the hub-host warning and proceeds with demo.create', async () => {
+    const create = vi.spyOn(demoGateway, 'create').mockResolvedValue({ isDemo: true });
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: true,
+    });
+    const user = userEvent.setup();
+    renderLogin();
+
+    await user.click(await screen.findByRole('button', { name: 'Explorer la démo' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Continuer quand même' }));
+
+    expect(create).toHaveBeenCalledTimes(1);
   });
 
   it('disables the entry while the swap is in flight', async () => {

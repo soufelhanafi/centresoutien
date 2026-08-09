@@ -6,8 +6,9 @@
  * change with no component edits.
  *
  * The three channels (SOU-186 hot-swap — no process restart, no window reload):
- *  - `demo.status` (request `{}`) -> `{ isDemo }` — whether the currently-open
- *    center is the demo center.
+ *  - `demo.status` (request `{}`) -> `{ isDemo, demoLogin, isHubHost }` — whether
+ *    the currently-open center is the demo center, the demo login prefill, and
+ *    whether this device is the LAN hub host (SOU-190).
  *  - `demo.create` (request `{}`) -> `{ isDemo: true }` — creates + seeds the
  *    demo DB, then hot-swaps the open center to it; resolves AFTER the swap.
  *  - `demo.wipe`  (request `{}`) -> `{ isDemo: false }` — swaps back to the real
@@ -27,13 +28,18 @@ export type DemoLogin = {
 
 /**
  * `demo.status` response — whether the open center is the demo center, plus the
- * demo login prefill (SOU-186). `demoLogin` is non-null ONLY when the open
- * center IS the demo center AND main has the `CS_DEMO_*` env vars set; the
- * renderer holds no credential literal of its own and reads them only from here.
+ * demo login prefill (SOU-186) and whether this device is the active LAN hub
+ * host (SOU-190). `demoLogin` is non-null ONLY when the open center IS the demo
+ * center AND main has the `CS_DEMO_*` env vars set; the renderer holds no
+ * credential literal of its own and reads them only from here. `isHubHost` is
+ * true ONLY on the real center AND when main's embedded hub is serving
+ * (`CS_HUB_ENABLED` + `CS_HUB_TOKEN` + `CS_HUB_PORT` + `CS_HUB_BIND_HOST`) —
+ * the renderer uses it to warn before `demo.create`, which stops the hub.
  */
 export type DemoStatusResponse = {
   isDemo: boolean;
   demoLogin: DemoLogin | null;
+  isHubHost: boolean;
 };
 
 /**
