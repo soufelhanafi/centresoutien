@@ -18,8 +18,8 @@ type DemoWipeDialogProps = {
 
 /**
  * Confirms deleting the demo center (SOU-110). Destructive by design: the wipe
- * deletes every demo artefact and relaunches the app into the real center.
- * Presentational — the caller owns the `useWipeDemo` mutation.
+ * swaps back to the real center in place (SOU-186), then deletes every demo
+ * artefact. Presentational — the caller owns the `useWipeDemo` mutation.
  */
 export function DemoWipeDialog({ open, onOpenChange, onConfirm, pending }: DemoWipeDialogProps) {
   const { t } = useTranslation();

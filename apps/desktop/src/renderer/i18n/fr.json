@@ -1699,7 +1699,12 @@
     },
     "login": {
       "exploreDemo": "Explorer la démo",
-      "exploreDemoHint": "Essayez l'application avec un centre de démonstration pré-rempli. L'application redémarrera ; aucune donnée réelle ne sera modifiée."
+      "exploreDemoHint": "Essayez l'application avec un centre de démonstration pré-rempli. Aucune donnée réelle ne sera modifiée.",
+      "demoPrefill": {
+        "title": "Connexion démo",
+        "hint": "Identifiants pré-remplis. Cliquez sur « Se connecter » pour entrer dans la démo.",
+        "credentials": "Utilisateur : {{username}} · Mot de passe : {{password}}"
+      }
     }
   },
   "wizard": {
@@ -2133,13 +2138,9 @@
       "wipe": "Supprimer la démo",
       "wiping": "Suppression…"
     },
-    "restarting": {
-      "title": "Redémarrage de l'application…",
-      "body": "L'application redémarre pour appliquer le changement. Patientez un instant."
-    },
     "wipeDialog": {
       "title": "Supprimer le centre de démonstration ?",
-      "body": "Toutes les données de démonstration seront définitivement supprimées et l'application redémarrera sur votre centre. Cette action est irréversible.",
+      "body": "Toutes les données de démonstration seront définitivement supprimées et vous reviendrez à votre centre. Cette action est irréversible.",
       "confirm": "Supprimer la démo",
       "cancel": "Annuler"
     },

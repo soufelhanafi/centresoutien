@@ -1,11 +1,17 @@
 import { useMutation } from '@tanstack/react-query';
 import { demoGateway } from '../../lib/demo/demo-gateway';
+import { useDemoSwap } from './use-demo-swap';
 
 /**
- * Seeds the demo center and relaunches into it (SOU-110). The response is
- * `{ relaunching: true }` — the app restarts, so callers render the restarting
- * state on success and issue no further calls.
+ * Seeds the demo center and hot-swaps into it (SOU-110 / SOU-186). Resolves
+ * `{ isDemo: true }` after the in-process DB swap; `onSuccess` re-hydrates the
+ * plan and refetches every screen — no restart, no reload. A failed swap rejects
+ * and leaves the real center open, so callers surface an error and keep state.
  */
 export function useCreateDemo() {
-  return useMutation({ mutationFn: () => demoGateway.create() });
+  const applyDemoSwap = useDemoSwap();
+  return useMutation({
+    mutationFn: () => demoGateway.create(),
+    onSuccess: applyDemoSwap,
+  });
 }

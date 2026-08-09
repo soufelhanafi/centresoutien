@@ -14,4 +14,10 @@
  */
 export default function globalSetup(): void {
   process.env['CS_E2E_LICENSE_PLAN'] = 'premium';
+  // SOU-186: the demo admin credentials live only in the environment (never in
+  // shipped source). Set throwaway test values here — before any worker forks —
+  // so every `electron.launch({ env: { ...process.env } })` inherits them and
+  // demo mode is available in the E2E suite.
+  process.env['CS_DEMO_USERNAME'] = 'demo';
+  process.env['CS_DEMO_PASSWORD'] = ['Demo', 'e2e', '1'].join('');
 }

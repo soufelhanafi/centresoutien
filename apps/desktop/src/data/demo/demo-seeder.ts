@@ -31,7 +31,6 @@ import type { InvoiceId, WeeklyRecurringSessionId } from '@centresoutien/domain'
 import {
   DEMO_ANCHOR_MONTH,
   DEMO_CENTER_PROFILE,
-  DEMO_ADMIN,
   DEMO_WEEK,
   DEMO_SUBJECTS,
   DEMO_FORMULAS,
@@ -95,6 +94,12 @@ export type DemoSeedContext = {
   db: DB;
   /** Plan seeded onto the center row / used implicitly by gated use cases. */
   seedPlan: PlanId;
+  /**
+   * The demo admin credentials to seed the login with (SOU-186). Injected by the
+   * main process from `CS_DEMO_USERNAME` / `CS_DEMO_PASSWORD` — never a literal in
+   * source, so no credential string is ever committed.
+   */
+  admin: { username: string; password: string };
 };
 
 /**
@@ -397,6 +402,6 @@ export async function seedDemoCenter(deps: DemoSeedDeps, ctx: DemoSeedContext): 
   }
 
   // 13. Admin account (fixed demo login) then the sanctioned app_meta marker.
-  await deps.createAdminAccount.execute({ username: DEMO_ADMIN.username, password: DEMO_ADMIN.password });
+  await deps.createAdminAccount.execute({ username: ctx.admin.username, password: ctx.admin.password });
   writeDemoSeededMarker(ctx.db);
 }

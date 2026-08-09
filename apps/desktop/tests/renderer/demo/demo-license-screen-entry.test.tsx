@@ -36,7 +36,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('LicenseActivationScreen — demo entry (SOU-110, review M2)', () => {
+describe('LicenseActivationScreen — demo entry (SOU-110, review M2 / SOU-186)', () => {
   it('shows the "Explorer la démo" entry on an unlicensed (restricted) screen', async () => {
     renderScreen();
 
@@ -44,15 +44,18 @@ describe('LicenseActivationScreen — demo entry (SOU-110, review M2)', () => {
     expect(button).toBeEnabled();
   });
 
-  it('creates the demo on click and swaps to the restarting state', async () => {
-    const create = vi.spyOn(demoGateway, 'create').mockResolvedValue({ relaunching: true });
+  it('creates the demo on click and hot-swaps in place — no restart screen', async () => {
+    const create = vi.spyOn(demoGateway, 'create').mockResolvedValue({ isDemo: true });
     const user = userEvent.setup();
     renderScreen();
 
     await user.click(await screen.findByRole('button', { name: 'Explorer la démo' }));
 
     expect(create).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText("Redémarrage de l'application…")).toBeInTheDocument();
+    expect(screen.queryByText("Redémarrage de l'application…")).not.toBeInTheDocument();
+    // The entry stays disabled through the swap; the license gate re-evaluates the
+    // demo's own license and flips to the app — this screen never restarts.
+    expect(await screen.findByRole('button', { name: 'Création…' })).toBeDisabled();
   });
 
   it('surfaces a create failure as an alert', async () => {

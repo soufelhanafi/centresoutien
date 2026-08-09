@@ -18,6 +18,9 @@ import { createHandlers } from '../../src/main/ipc/handlers';
 
 const KEY = 'demo-test-key';
 const NOOP_RESTART = () => {};
+// SOU-186: the demo admin is injected (never a source literal). A throwaway pair
+// assembled at runtime keeps the seed's login usable without a committed secret.
+const DEMO_ADMIN = { username: 'demo', password: ['Demo', 'seed', '1'].join('') };
 
 /**
  * SOU-110 — the demo seeder: deterministic (seed twice → identical visible
@@ -26,7 +29,13 @@ const NOOP_RESTART = () => {};
  */
 
 function seedInto(dir: string): Promise<void> {
-  return prepareDemoCenter({ dir, demoKey: KEY, appVersion: () => '2.0.0', scheduleRestart: NOOP_RESTART });
+  return prepareDemoCenter({
+    dir,
+    demoKey: KEY,
+    appVersion: () => '2.0.0',
+    scheduleRestart: NOOP_RESTART,
+    admin: DEMO_ADMIN,
+  });
 }
 
 /** Read a deterministic fingerprint of the demo DB — the "visible dataset". */
@@ -177,7 +186,7 @@ describe('demo seeder (SOU-110)', () => {
     expect(demoCenterSeeded(dir, KEY)).toBe(true);
   });
 
-  it('wires the demo IPC surface: status reports the demo center, create/wipe ack relaunch', async () => {
+  it('wires the demo IPC surface: status reports the demo center, create/wipe resolve the open mode after hot-swap', async () => {
     await seedInto(dir);
 
     let created = 0;
@@ -192,6 +201,7 @@ describe('demo seeder (SOU-110)', () => {
       scheduleRestart: () => {},
       demo: {
         isDemoCenter: true,
+        login: () => DEMO_ADMIN,
         create: async () => {
           created += 1;
         },
@@ -202,11 +212,12 @@ describe('demo seeder (SOU-110)', () => {
     });
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
 
-    // demo.status is a cheap read of the open centreId.
-    expect(await dispatch('demo.status', {})).toEqual({ isDemo: true });
-    // demo.create / demo.wipe validate their (empty) payloads and ack relaunch.
-    expect(await dispatch('demo.create', {})).toEqual({ relaunching: true });
-    expect(await dispatch('demo.wipe', {})).toEqual({ relaunching: true });
+    // demo.status is a cheap read of the open centreId + the injected login prefill.
+    expect(await dispatch('demo.status', {})).toEqual({ isDemo: true, demoLogin: DEMO_ADMIN });
+    // demo.create / demo.wipe validate their (empty) payloads and resolve with the
+    // open mode after the in-process hot-swap (SOU-186): create → demo open, wipe → real open.
+    expect(await dispatch('demo.create', {})).toEqual({ isDemo: true });
+    expect(await dispatch('demo.wipe', {})).toEqual({ isDemo: false });
     expect(created).toBe(1);
     expect(wiped).toBe(1);
     // A non-object payload is rejected (renderer is untrusted).
@@ -225,10 +236,10 @@ describe('demo seeder (SOU-110)', () => {
       planId: 'essentiel',
       appVersion: () => '2.0.0',
       scheduleRestart: () => {},
-      demo: { isDemoCenter: false, create: async () => {}, wipe: async () => {} },
+      demo: { isDemoCenter: false, login: () => null, create: async () => {}, wipe: async () => {} },
     });
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
-    expect(await dispatch('demo.status', {})).toEqual({ isDemo: false });
+    expect(await dispatch('demo.status', {})).toEqual({ isDemo: false, demoLogin: null });
     container.dispose();
   });
 });

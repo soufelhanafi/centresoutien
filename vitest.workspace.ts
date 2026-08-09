@@ -19,7 +19,11 @@ export default defineWorkspace([
     // license trust-anchor seam gates on (SOU-172). Under vitest it defaults to
     // `false` — matching a normal dev/release build — so the seam's env-override
     // branch stays compiled out; integration tests inject via `options.license`.
-    define: { __CS_E2E__: 'false' },
+    // The demo-credential build constants (SOU-186) resolve to `""` here so the
+    // accessor's build-time fallback is empty and tests drive it purely via
+    // `process.env` (set/unset per case); the real values come from `loadEnv` in
+    // electron.vite.config.ts at build time.
+    define: { __CS_E2E__: 'false', __CS_DEMO_USERNAME__: '""', __CS_DEMO_PASSWORD__: '""' },
     test: {
       name: 'desktop',
       root: './apps/desktop',

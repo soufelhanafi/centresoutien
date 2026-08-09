@@ -13,9 +13,9 @@ import { ipcDemoGateway } from './ipc-demo-gateway';
 export interface DemoGateway {
   /** Whether the currently-open center is the demo center. */
   status(): Promise<DemoStatusResponse>;
-  /** Creates + seeds the demo DB; the app relaunches into demo mode. */
+  /** Creates + seeds the demo DB and hot-swaps into it; resolves `{ isDemo: true }`. */
   create(): Promise<DemoMutationResponse>;
-  /** Deletes every demo artefact; the app relaunches into the real center. */
+  /** Swaps back to the real center and deletes every demo artefact; resolves `{ isDemo: false }`. */
   wipe(): Promise<DemoMutationResponse>;
 }
 

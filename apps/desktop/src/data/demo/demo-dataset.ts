@@ -30,13 +30,6 @@ export const DEMO_CENTER_PROFILE = {
   email: 'contact@excellence-rabat.ma',
 };
 
-/** Fixed demo login (documented throwaway, not a real secret). */
-export const DEMO_ADMIN = {
-  username: 'demo',
-  // Assembled from fragments so no literal secret string sits in source.
-  password: ['Demo', '2026', '!'].join(''),
-};
-
 /** Weekly center hours: Mon–Sat 09:00–18:00, Sunday closed. */
 export const DEMO_WEEK: ReadonlyArray<{ dayOfWeek: number; open: string | null; close: string | null }> = [
   { dayOfWeek: 0, open: null, close: null }, // dimanche
