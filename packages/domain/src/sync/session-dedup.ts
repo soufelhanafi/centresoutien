@@ -1,4 +1,5 @@
-import type { EntityId } from '../value-objects/ids';
+import type { EntityId, UserId } from '../value-objects/ids';
+import type { ChangeLogOp } from './change-log-writer';
 import type { ConflictSide } from './conflicts';
 
 /**
@@ -97,5 +98,36 @@ export interface SessionDedupStore {
     retiredId: EntityId;
     entity: Record<string, unknown>;
     version: number;
+  }): void;
+
+  /**
+   * The human-settled natural-key clash (SOU-194): a session delete-vs-edit /
+   * field-clash that blocked as a conflict on the local occupied row. This is
+   * NOT the generic "write the chosen snapshot under the conflict's id" — the
+   * two sides are DIFFERENT ids for the same `(recurring_session_id, date)`
+   * slot, so the generic path either re-wedges `ux_sessions_recurrence_date`
+   * (take-theirs projects the winner id into a slot the local loser still
+   * holds) or silently diverges (take-mine consumes the winner without ever
+   * applying it). The human's chosen data therefore survives ALWAYS under the
+   * lower-ULID winner id — the id every replica converges on — with the loser
+   * retired and attendance re-pointed. Atomic.
+   */
+  resolveSessionNaturalKey(input: {
+    /** The local occupied row id the conflict was keyed on (the loser when ≠ `winnerId`). */
+    fromId: EntityId;
+    /** The survivor id — lower ULID of the two sides, what every device keeps. */
+    winnerId: EntityId;
+    /** The retired id — higher ULID of the two sides, never resurrected. */
+    loserId: EntityId;
+    /** The chosen surviving snapshot, `id` already normalized to `winnerId`. */
+    entity: Record<string, unknown>;
+    /** The conflict's canonical version (the inbound side's) — stamps the loser shadow so re-delivery is skipped. */
+    inboundVersion: number;
+    /** Canonical version of `winnerId` the resolution push is based on. */
+    baseVersion: number;
+    op: ChangeLogOp;
+    changedFields: readonly string[];
+    updatedBy: UserId;
+    at: Date;
   }): void;
 }

@@ -1111,7 +1111,7 @@ export function buildContainer(options: ContainerOptions): Container {
         sessionDedupStore: localSyncRepository,
       })
     : null;
-  const resolveConflict = new ResolveConflict(localSyncRepository, clock, plan);
+  const resolveConflict = new ResolveConflict(localSyncRepository, clock, plan, localSyncRepository);
 
   const attemptLogin = new AttemptLogin(
     verifyAdminPassword,
