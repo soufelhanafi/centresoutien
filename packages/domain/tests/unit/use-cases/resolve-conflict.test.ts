@@ -37,10 +37,10 @@ describe('ResolveConflict', () => {
     | { choice: 'take-theirs' }
     | { choice: 'per-field'; fields: Record<string, 'mine' | 'theirs'> };
 
-  const resolve = (entityId: string, resolution: Resolution) =>
+  const resolve = (entityId: EntityId, resolution: Resolution) =>
     useCase().execute({
       entityType: 'students',
-      entityId: entityId as never,
+      entityId,
       deviceId: DEV_B,
       updatedBy: USER_B,
       resolution,
@@ -332,5 +332,43 @@ describe('ResolveConflict — session natural-key (SOU-194)', () => {
     expect(pending?.entity['roomId']).toBe('rom_00000000000000000000000001');
     expect(b.isBlocked('sessions', SES_HI)).toBe(false);
     expect(pendingFor(SES_HI)).toBeUndefined();
+  });
+
+  it('a SYNCED local winner re-bases onto its own canonical version (not 0), so the push is accepted', async () => {
+    const hub = new InMemorySyncHub(clock);
+
+    // B syncs its lower-ULID winner (v1 on the hub) BEFORE A ever creates the
+    // inbound — so the winner is canonical locally, then edited offline.
+    b.writeLocal('sessions', SES_LO, sessionEntity(SES_LO), [], USER_B);
+    await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B, sessionDedupStore: dedupStore(b) }).run(
+      matcherFor(b),
+    );
+    b.writeLocal('sessions', SES_LO, sessionEntity(SES_LO, { roomId: 'rom_EDITED' }), ['roomId'], USER_B);
+
+    const a = new InMemorySyncLocalRepo(clock, DEV_A);
+    a.writeLocal('sessions', SES_HI, sessionEntity(SES_HI), [], USER_A);
+    await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A }).run(matcherFor(a));
+
+    await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B, sessionDedupStore: dedupStore(b) }).run(
+      matcherFor(b),
+    );
+    const conflict = b.listBlocked()[0];
+    expect(conflict?.kind).toBe('field-clash');
+    expect(conflict?.entityId).toBe(SES_LO);
+
+    await resolve(SES_LO, { choice: 'take-mine' });
+
+    const pending = pendingFor(SES_LO);
+    expect(pending?.entity['id']).toBe(SES_LO);
+    expect(pending?.entity['roomId']).toBe('rom_EDITED');
+    // Synced at v1 → the survivor re-bases onto 1 (NOT the inbound's version, and
+    // NOT 0), so the resolution push is accepted and advances the hub.
+    expect(pending?.baseVersion).toBe(1);
+
+    const result = await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B, sessionDedupStore: dedupStore(b) }).run(
+      matcherFor(b),
+    );
+    expect(result.status).toBe('synced');
+    expect(hub.canonicalEntity(CENTER, 'sessions', SES_LO)?.version).toBe(2);
   });
 });
