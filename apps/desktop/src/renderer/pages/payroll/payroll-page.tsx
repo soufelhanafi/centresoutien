@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LockOverlay } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
+import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
 import { useTeachers } from '../../hooks/teacher/use-teachers';
 import { useSubjects } from '../../hooks/subject/use-subjects';
 import { usePayrollPayouts } from '../../hooks/payroll/use-payroll-payouts';
@@ -15,6 +16,7 @@ import { PayrollListContent, type PayrollListStatus } from '../../components/pay
 export function PayrollPage() {
   const { t } = useTranslation();
   const hasPayroll = useFeature('payroll.teacher');
+  const upgradeCta = useUpgradeCta('payroll.teacher');
   const [month, setMonth] = useState(currentMonth());
 
   const payoutsQuery = usePayrollPayouts(month, { enabled: hasPayroll });
@@ -69,7 +71,12 @@ export function PayrollPage() {
   if (!hasPayroll) {
     return (
       <div className="mx-auto w-full max-w-5xl">
-        <LockOverlay title={t('nav.payroll')} description={t('plan.locked')} ctaLabel={t('plan.viewPlans')}>
+        <LockOverlay
+          title={t('nav.payroll')}
+          description={t('plan.locked')}
+          ctaLabel={upgradeCta.ctaLabel}
+          onCta={upgradeCta.onCta}
+        >
           <div className="p-8">{content}</div>
         </LockOverlay>
       </div>

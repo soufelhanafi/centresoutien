@@ -7,7 +7,8 @@ export type LockOverlayProps = {
   title: string;
   description?: string;
   ctaLabel?: string;
-  onCta?: () => void;
+  /** Explicit `undefined` is allowed so callers can compute a handler that may be absent. */
+  onCta?: (() => void) | undefined;
   /** The real UI, rendered blurred behind the scrim. */
   children: ReactNode;
   className?: string;

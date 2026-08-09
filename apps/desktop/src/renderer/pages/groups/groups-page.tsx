@@ -10,6 +10,7 @@ import {
   TabsTrigger,
 } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
+import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
 import { useGroupOptions } from '../../hooks/group/use-group-options';
 import { GroupListToolbar } from '../../components/group/group-list-toolbar';
 import { GroupListPanel } from '../../components/group/group-list-panel';
@@ -20,6 +21,7 @@ import { EMPTY_GROUP_FILTERS, type GroupFilters } from '../../components/group/g
 export function GroupsPage() {
   const { t } = useTranslation();
   const groupsEnabled = useFeature('core.groups');
+  const upgradeCta = useUpgradeCta('core.groups');
   const [filters, setFilters] = useState<GroupFilters>(EMPTY_GROUP_FILTERS);
   const [createOpen, setCreateOpen] = useState(false);
   const openCreate = () => setCreateOpen(true);
@@ -35,7 +37,8 @@ export function GroupsPage() {
           <LockOverlay
             title={t('groups.title')}
             description={t('plan.locked')}
-            ctaLabel={t('plan.viewPlans')}
+            ctaLabel={upgradeCta.ctaLabel}
+            onCta={upgradeCta.onCta}
             className="w-full max-w-md"
           >
             <div className="p-8 text-sm text-muted-foreground">{t('groups.subtitle')}</div>

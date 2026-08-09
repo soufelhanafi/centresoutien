@@ -42,7 +42,24 @@
   "plan": {
     "locked": "Réservé à un plan supérieur",
     "viewPlans": "Voir les plans",
-    "devSwitcher": "Plan (dev)"
+    "devSwitcher": "Plan (dev)",
+    "names": {
+      "essentiel": "Essentiel",
+      "pro": "Pro",
+      "premium": "Premium"
+    }
+  },
+  "upgrade": {
+    "title": "Débloquez cette fonctionnalité",
+    "unlockWith": "Débloquer avec {{plan}}",
+    "viewPlans": "Voir les tarifs",
+    "later": "Plus tard",
+    "close": "Fermer",
+    "benefit": {
+      "essentiel": "Cette fonctionnalité est incluse dans le plan Essentiel. Découvrez les tarifs pour l'activer.",
+      "pro": "Passez au plan Pro pour la paie des enseignants, la facturation partielle, les formules de préparation aux examens et l'import/export Excel.",
+      "premium": "Passez au plan Premium pour le tableau de bord avancé, la synchronisation multi-postes et la planification automatique."
+    }
   },
   "language": {
     "switch": "العربية"
