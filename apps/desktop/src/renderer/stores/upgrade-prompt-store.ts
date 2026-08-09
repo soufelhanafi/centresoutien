@@ -9,9 +9,8 @@ type UpgradePromptState = {
 };
 
 /**
- * One shared upgrade dialog for every gated surface (SOU-85). CTAs across the
- * app all target this store so a single `<UpgradeDialog />` mounts in the shell
- * — no per-surface dialog duplication. Pure Presentation state; not persisted.
+ * Backs one shared `<UpgradeDialog />` (SOU-85): every gated CTA opens it through
+ * this store instead of mounting its own dialog. Presentation state, not persisted.
  */
 export const useUpgradePromptStore = create<UpgradePromptState>((set) => ({
   feature: null,
