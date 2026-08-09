@@ -58,8 +58,11 @@ export function PlannerPage() {
   const patchFilters = (patch: Partial<PlannerFilters>) => setFilters((f) => ({ ...f, ...patch }));
 
   return (
-    <section aria-labelledby="planning-title" className="mx-auto flex w-full max-w-6xl flex-col gap-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+    <section
+      aria-labelledby="planning-title"
+      className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-5"
+    >
+      <header className="flex shrink-0 flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 id="planning-title" className="text-xl font-semibold text-foreground">
             {t('planning.title')}
@@ -82,7 +85,7 @@ export function PlannerPage() {
       </header>
 
       {query.isPending ? (
-        <PlannerGridSkeleton />
+        <PlannerGridSkeleton className="min-h-0 flex-1" />
       ) : query.isError ? (
         <ErrorState
           icon={<CalendarDays className="h-5 w-5" aria-hidden="true" />}
@@ -103,6 +106,7 @@ export function PlannerPage() {
             onReset={() => setFilters(NO_FILTERS)}
           />
           <PlannerGrid
+            className="min-h-0 flex-1"
             sessions={filtered}
             range={range}
             onSelect={setSelected}
