@@ -127,6 +127,8 @@ import {
   DashboardBasicMetricsBuilder,
   GetStudentAttendanceReport,
   GetGroupAttendanceSheet,
+  SwitchCenter,
+  CenterSwitchError,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -146,6 +148,7 @@ import type {
   LocalSyncRepository,
   SubjectCodeCollisionStore,
   SessionDedupStore,
+  CenterSwitchPort,
 } from '@centresoutien/domain';
 import { Ed25519LicenseAdapter } from '../data/license/ed25519-license-adapter';
 import { E2eSyntheticLicense, isPlanId } from '../data/license/e2e-synthetic-license';
@@ -156,6 +159,7 @@ import { VENDOR_LICENSE_PUBLIC_KEY_PEM } from '../data/license/vendor-public-key
 import { SyncEngine, DuplicateMatcher, ResolveConflict } from '@centresoutien/domain';
 import { DEMO_LICENSE_PUBLIC_KEY_PEM } from '../data/demo/demo-license';
 import { openDatabase } from '../data/sqlite/db';
+import type { CenterSummary } from '../data/sqlite/center-directory';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteHubStore } from '../data/sqlite/hub/hub-store';
 import { HubServer } from './hub-server/hub-server';
@@ -293,6 +297,19 @@ export type ContainerOptions = {
     create: () => Promise<void>;
     /** Dispose the open demo container, delete every demo artefact, relaunch to the real center. */
     wipe: () => Promise<void>;
+  };
+  /**
+   * Center switcher (SOU-96). The app shell owns the fs directory scan and the
+   * live hot-swap machinery (both need Electron + the userData dir), so it passes
+   * them in as closures — the composition root only wires them into the
+   * `SwitchCenter` use case (which enforces the `org.multi-center` gate) and the
+   * `center.list` handler. Absent → single-center fallbacks: `center.list`
+   * reports only the open center and `center.switch` rejects with
+   * `CenterSwitchError` (after the plan gate), so no channel is left unwired.
+   */
+  centerSwitch?: {
+    switchTo: (centreId: string) => Promise<void>;
+    listCenters: () => Promise<readonly CenterSummary[]>;
   };
 };
 
@@ -831,6 +848,29 @@ export function buildContainer(options: ContainerOptions): Container {
   const storeCenterLogo = new StoreCenterLogo(logoStore);
   const readCenterLogo = new ReadCenterLogo(logoStore);
 
+  // Center switcher (SOU-96). `SwitchCenter` gates the Premium `org.multi-center`
+  // feature server-side, then delegates the live hot-swap to the shell's
+  // `switchTo` adapter. Without a wired shell (integration tests, the demo
+  // container) the adapter rejects — but only ever AFTER the plan gate, and the
+  // single-center `center.list` still answers.
+  const centerSwitchPort: CenterSwitchPort = {
+    switchTo:
+      options.centerSwitch?.switchTo ??
+      (() => Promise.reject(new CenterSwitchError('center switching is not available'))),
+  };
+  const switchCenter = new SwitchCenter(plan, centerSwitchPort);
+  const listCenters =
+    options.centerSwitch?.listCenters ??
+    ((): Promise<readonly CenterSummary[]> =>
+      Promise.resolve([
+        {
+          centreId: options.centreId,
+          centerCode: options.centerCode,
+          displayName: options.centerCode,
+          isActive: true,
+        },
+      ]));
+
   // Payslip PDF (SOU-75): renders a confirmed TeacherPayout, reusing the
   // invoice PDF adapter's font/layout setup. Resolves the teacher + center
   // profile itself rather than through an IPC-level assembly step like
@@ -1267,6 +1307,11 @@ export function buildContainer(options: ContainerOptions): Container {
     saveCenterProfile,
     storeCenterLogo,
     readCenterLogo,
+    // Center switcher (SOU-96): the plan-gated switch use case, the directory
+    // scan closure, and the open center's discriminator for `center.current`.
+    switchCenter,
+    listCenters,
+    currentCentreId: () => options.centreId,
     centerContext: () => centerContext,
     saveLocalePreference: (locale) => localePreferences.write(locale),
     createBackup,

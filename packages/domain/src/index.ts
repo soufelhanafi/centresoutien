@@ -1006,3 +1006,11 @@ export { CloneFormula } from './use-cases/clone-formula';
 export type { CloneFormulaInput } from './use-cases/clone-formula';
 export { DeactivateFormula } from './use-cases/deactivate-formula';
 export type { DeactivateFormulaInput } from './use-cases/deactivate-formula';
+
+// Center switcher (SOU-96): the domain seam for the app-shell hot-swap. The port
+// is implemented by the Electron main process; the use case gates the Premium
+// `org.multi-center` capability. The fs directory scan + swap live in the app.
+export { SwitchCenter } from './use-cases/switch-center';
+export type { SwitchCenterInput, SwitchCenterResult } from './use-cases/switch-center';
+export type { CenterSwitchPort } from './ports/center-switch-port';
+export { CenterSwitchError } from './errors/center-errors';

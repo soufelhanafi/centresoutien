@@ -1,4 +1,5 @@
 import type { IpcChannel, IpcRequest, IpcResponse } from './contract';
+import type { CenterChangedEvent } from './center-events';
 
 /**
  * The surface the preload bridge exposes on `window.api`. Defined in shared so
@@ -6,4 +7,11 @@ import type { IpcChannel, IpcRequest, IpcResponse } from './contract';
  */
 export interface DesktopApi {
   invoke<C extends IpcChannel>(channel: C, request: IpcRequest<C>): Promise<IpcResponse<C>>;
+  /**
+   * Subscribe to the post-switch "center changed" push event (SOU-96). The
+   * listener fires after a live center hot-swap completes; the renderer should
+   * reset its query caches and re-read the now-open center. Returns an
+   * unsubscribe function — call it on unmount to detach the ipcRenderer listener.
+   */
+  onCenterChanged(listener: (event: CenterChangedEvent) => void): () => void;
 }
