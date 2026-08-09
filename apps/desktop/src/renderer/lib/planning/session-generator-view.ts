@@ -1,7 +1,9 @@
 import type {
+  GeneratorBlockProposal,
   GeneratorCommitInput,
   GeneratorConflict,
   GeneratorGroupProposal,
+  GeneratorPreviewResult,
   GeneratorRange,
 } from './session-generator-gateway';
 
@@ -59,24 +61,70 @@ export function conflictsByGroup(
   return byGroup;
 }
 
+/** A stable identity for one proposed block within its group (weekday + slot + room). */
+export function blockKey(groupId: string, block: GeneratorBlockProposal): string {
+  return `${groupId}|${block.dayOfWeek}|${block.start}|${block.end}|${block.roomId}`;
+}
+
+function blockMatchesAnyConflict(
+  block: GeneratorBlockProposal,
+  conflicts: readonly GeneratorConflict[],
+): boolean {
+  return conflicts.some(
+    (conflict) =>
+      conflict.dayOfWeek === block.dayOfWeek &&
+      conflict.start === block.start &&
+      conflict.end === block.end &&
+      (conflict.kind === 'hours' || conflict.roomId === block.roomId),
+  );
+}
+
 /**
- * Strips the preview proposals down to the commit request's `proposals` shape:
- * `gapViolations` was informational only (the domain re-derives nothing from it)
- * and blocks with no room are dropped since the commit schema requires at least
- * one block per proposal. A proposal left with zero blocks is omitted entirely.
+ * The keys of every block that clashes (SOU-183): a block is conflicting when a
+ * conflict in its group matches its exact slot (weekday + start + end) — plus its
+ * room for a double-booking, with no room to match for a center-hours overrun.
+ * Only these blocks need an explicit include/exclude decision before the run can
+ * be committed.
  */
-export function toCommitProposals(
+export function conflictingBlockKeys(result: GeneratorPreviewResult): ReadonlySet<string> {
+  const byGroup = conflictsByGroup(result.conflicts);
+  const keys = new Set<string>();
+  for (const proposal of result.proposals) {
+    const conflicts = byGroup.get(proposal.groupId);
+    if (conflicts === undefined) continue;
+    for (const block of proposal.blocks) {
+      if (blockMatchesAnyConflict(block, conflicts)) keys.add(blockKey(proposal.groupId, block));
+    }
+  }
+  return keys;
+}
+
+/** The commit disposition of one block (SOU-183): clean, force-included, or excluded. */
+export type BlockResolution = 'clean' | 'forced' | 'excluded';
+
+/**
+ * Builds the commit request's `proposals` from the preview and the admin's
+ * per-block decisions (SOU-183): excluded blocks are dropped, forced blocks carry
+ * `allowScheduleConflict: true`, clean blocks `false`, and `gapViolations` (only
+ * informational) is stripped. A proposal left with zero blocks is omitted so a
+ * group whose every block was excluded never reaches the write path.
+ */
+export function buildCommitProposals(
   proposals: readonly GeneratorGroupProposal[],
+  resolve: (groupId: string, block: GeneratorBlockProposal) => BlockResolution,
 ): GeneratorCommitInput['proposals'] {
-  return proposals
-    .filter((proposal) => proposal.blocks.length > 0)
-    .map((proposal) => ({
-      groupId: proposal.groupId,
-      blocks: proposal.blocks.map((block) => ({
+  const result: GeneratorCommitInput['proposals'] = [];
+  for (const proposal of proposals) {
+    const blocks = proposal.blocks
+      .filter((block) => resolve(proposal.groupId, block) !== 'excluded')
+      .map((block) => ({
         dayOfWeek: block.dayOfWeek,
         start: block.start,
         end: block.end,
         roomId: block.roomId,
-      })),
-    }));
+        allowScheduleConflict: resolve(proposal.groupId, block) === 'forced',
+      }));
+    if (blocks.length > 0) result.push({ groupId: proposal.groupId, blocks });
+  }
+  return result;
 }

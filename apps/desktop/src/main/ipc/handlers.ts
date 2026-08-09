@@ -104,6 +104,7 @@ import type {
   SessionGeneratorConfig,
   SessionGeneratorScope,
   GroupScheduleProposal,
+  CommitGroupProposal,
   GeneratedScheduleConflict,
   CommittedGeneratedTemplate,
   WeekdayIndex,
@@ -594,6 +595,8 @@ function toGeneratedScheduleConflictView(conflict: GeneratedScheduleConflict) {
       kind: 'hours' as const,
       groupId: conflict.groupId,
       dayOfWeek: conflict.error.dayOfWeek,
+      start: conflict.start,
+      end: conflict.end,
       reason: conflict.error.reason,
       open: conflict.error.open,
       close: conflict.error.close,
@@ -604,6 +607,8 @@ function toGeneratedScheduleConflictView(conflict: GeneratedScheduleConflict) {
     groupId: conflict.groupId,
     roomId: conflict.error.roomId,
     dayOfWeek: conflict.error.dayOfWeek,
+    start: conflict.start,
+    end: conflict.end,
     conflicts: conflict.error.conflicts.map((ref) => ({
       id: ref.id,
       roomId: ref.roomId,
@@ -1432,7 +1437,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     },
     'session.generator.commit': async (request) => {
       const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
-      const proposals: GroupScheduleProposal[] = request.proposals.map((proposal) => ({
+      const proposals: CommitGroupProposal[] = request.proposals.map((proposal) => ({
         groupId: proposal.groupId as GroupId,
         blocks: proposal.blocks.map((scheduled) => ({
           block: {
@@ -1441,8 +1446,8 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
             end: scheduled.end as TimeOfDay,
           },
           roomId: scheduled.roomId as RoomId,
+          allowScheduleConflict: scheduled.allowScheduleConflict ?? false,
         })),
-        gapViolations: [],
       }));
       const result = await deps.commitGeneratedSchedule.execute({
         centerCode,

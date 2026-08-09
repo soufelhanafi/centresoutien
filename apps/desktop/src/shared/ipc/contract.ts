@@ -558,17 +558,22 @@ const groupScheduleProposalViewSchema = z.object({
   gapViolations: z.array(weekdayGapViewSchema),
 });
 
-// The commit request's proposal shape: the renderer echoes back exactly what
-// `session.generator.preview` returned, so every id/time/weekday is
-// re-validated here — `gapViolations` is not accepted back (it was informational
-// only; the domain re-derives nothing from it) and the use case's own re-run of
-// `assertScheduleFree` at write time is the real conflict authority, not this
-// shape check.
+// The commit request's block shape (SOU-183): the renderer echoes back the
+// preview's blocks — every id/time/weekday re-validated here — plus a per-block
+// `allowScheduleConflict` decision. `true` forces the block past a flagged
+// schedule conflict (room/teacher double-book, outside center hours), recording
+// an intentional double-book; an EXCLUDED block is simply omitted from `blocks`.
+// The flag is optional and treated as `false` (the safe default: never force) by
+// the handler when absent, so a caller that never forces sends the same shape as
+// before. `gapViolations` is not accepted back (informational only) and the use
+// case's own re-run of `assertScheduleFree` at write time is the real conflict
+// authority, not this shape check.
 const generatedBlockProposalInputSchema = z.object({
   dayOfWeek: generatorWeekday,
   start: generatorTimeString,
   end: generatorTimeString,
   roomId: generatorRoomRef,
+  allowScheduleConflict: z.boolean().optional(),
 });
 
 const groupScheduleProposalInputSchema = z.object({
@@ -594,6 +599,8 @@ const generatedScheduleConflictViewSchema = z.discriminatedUnion('kind', [
     kind: z.literal('hours'),
     groupId: z.string(),
     dayOfWeek: generatorWeekday,
+    start: z.string(),
+    end: z.string(),
     reason: z.enum(['closed', 'before-open', 'after-close']),
     open: z.string().nullable(),
     close: z.string().nullable(),
@@ -603,6 +610,8 @@ const generatedScheduleConflictViewSchema = z.discriminatedUnion('kind', [
     groupId: z.string(),
     roomId: z.string(),
     dayOfWeek: generatorWeekday,
+    start: z.string(),
+    end: z.string(),
     conflicts: z.array(scheduledSessionRefViewSchema),
   }),
 ]);

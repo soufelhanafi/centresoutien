@@ -55,6 +55,10 @@ export const BACKUP_SHEETS_B: readonly BackupSheetSpec[] = [
       createRequiredColumn('active', 'boolean'),
       createRequiredColumn('validFrom', 'string-or-null'),
       createRequiredColumn('validTo', 'string-or-null'),
+      // SOU-183: optional on import so a backup taken before this field existed
+      // still restores — the absent column is skipped on write and the DB's
+      // `DEFAULT 0` (migration 0039) supplies `conflictAccepted = false`.
+      { name: 'conflictAccepted', type: 'boolean', optional: true },
     ],
   },
   {

@@ -140,19 +140,17 @@ test('AC4 (Premium) — preview is read-only and cancel-after-preview creates no
 });
 
 // ---------------------------------------------------------------------------
-// AC5 — a colliding config surfaces a flagged (non-blocking) conflict in the
-// preview; the warning never hides or auto-skips the proposal, and commit is
-// still the admin's call, not disabled. But per `SessionGeneratorGateway`'s
-// documented contract, commit re-runs the composite conflict check against
-// the LIVE schedule (never trusting a possibly-stale preview) — so when the
-// seeded conflict is still live at commit time, the write is correctly
-// rejected with the same inline `errors.room-conflict` toast the manual
-// create-session flow uses (see `planning-session-conflicts.spec.ts`), and
-// nothing is persisted. This is the intended behavior, not a silent no-op:
-// the toast renders outside the dialog's DOM subtree via a portal, which is
-// why an earlier pass mistook the (correct) rejection for one.
+// AC5 (SOU-183) — a colliding config surfaces a flagged (non-blocking) conflict
+// in the preview; the warning never hides or auto-skips the proposal. Commit is
+// now GATED on a per-block decision: while any clashing block is undecided the
+// commit button is disabled and a "décision requise" marker shows. Choosing
+// "Inclure malgré le conflit" forces that block through — the composite
+// schedule-conflict check is deliberately bypassed and the slot is committed as
+// an accepted double-book (`conflictAccepted`), so the run succeeds and persists
+// rather than being rejected. (The old "rejected on commit" behavior is gone:
+// forcing is exactly the escape hatch SOU-183 adds.)
 // ---------------------------------------------------------------------------
-test('AC5 (Premium) — room collision is flagged in preview and correctly rejected on commit', async () => {
+test('AC5 (Premium) — a flagged room clash requires a decision, then "include" forces it through', async () => {
   const L = STR[locale()];
   const G = GENERATOR_STR[locale()];
   const { win } = await bootAndSeed('premium');
@@ -182,14 +180,60 @@ test('AC5 (Premium) — room collision is flagged in preview and correctly rejec
   const roomWarning = new RegExp(G.warnings.room.replace('{{room}}', '.+').replace('{{day}}', '.+'));
   await expect(dialog.getByText(roomWarning)).toBeVisible();
 
-  // The warning was surfaced BEFORE commit is reachable — commit is still a
-  // human decision (non-blocking warning), not a silent auto-skip. Attempting
-  // it against a still-live conflict is correctly rejected, not silently
-  // dropped: an inline error toast fires and nothing is persisted.
+  // Undecided clash → commit is blocked and the reason is shown, never a silent
+  // disable.
+  const commitButton = dialog.getByRole('button', { name: G.commitAction, exact: true });
+  await expect(commitButton).toBeDisabled();
+  await expect(dialog.getByText(G.conflictAction.decisionRequired)).toBeVisible();
+
+  // Force the clashing block in. Commit unlocks and the run persists the
+  // deliberate double-book — no rejection toast.
   const before = await readWeek(win);
-  await dialog.getByRole('button', { name: G.commitAction, exact: true }).click();
-  await expect(win.getByText(L.errors.roomConflict)).toBeVisible();
-  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: G.conflictAction.include, exact: true }).click();
+  await expect(commitButton).toBeEnabled();
+  await commitButton.click();
+
+  await expect(win.getByText(G.commitSuccess.replace('{{count}}', '1'))).toBeVisible();
+  await expect(dialog).toBeHidden();
+  const after = await readWeek(win);
+  expect(after.length).toBeGreaterThan(before.length);
+});
+
+// ---------------------------------------------------------------------------
+// AC5b (SOU-183) — the exclude-only path completes. When the run's every
+// conflicting block is excluded there is nothing left to commit, but the flow
+// must still close through its final action (never dead-end on a disabled
+// button). Nothing is persisted.
+// ---------------------------------------------------------------------------
+test('AC5b (Premium) — excluding the only clashing block lets the run complete and persists nothing', async () => {
+  const L = STR[locale()];
+  const G = GENERATOR_STR[locale()];
+  const { win } = await bootAndSeed('premium');
+  const [roomA, roomB] = live!.seeded.rooms;
+
+  await createSessionViaBridge(win, { roomId: roomA!.id, dayOfWeek: 1, start: '09:00', end: '10:30' });
+  await createSessionViaBridge(win, { roomId: roomB!.id, dayOfWeek: 1, start: '09:00', end: '10:30' });
+
+  const outcome = await openGenerator(win, locale());
+  expect(outcome, `renderer errors: ${pageErrors.map((e) => e.message).join(' | ')}`).toBe('dialog');
+  const dialog = getDialog(win);
+
+  await fillMinimumCustomConfig(dialog, G, L.weekdays[1]!);
+  await submitGeneratorConfig(dialog, G);
+  await dialog.locator('summary').first().click();
+
+  const commitButton = dialog.getByRole('button', { name: G.commitAction, exact: true });
+  await expect(commitButton).toBeDisabled();
+
+  const before = await readWeek(win);
+  await dialog.getByRole('button', { name: G.conflictAction.exclude, exact: true }).click();
+
+  // All clashes decided → commit unlocks even though the batch is now empty, and
+  // clicking it closes the dialog without writing anything.
+  await expect(commitButton).toBeEnabled();
+  await commitButton.click();
+  await expect(dialog).toBeHidden();
+
   const after = await readWeek(win);
   expect(after.length).toBe(before.length);
 });

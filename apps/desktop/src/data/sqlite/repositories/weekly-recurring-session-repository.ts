@@ -40,6 +40,7 @@ type SessionRow = {
   active: number;
   valid_from: string | null;
   valid_to: string | null;
+  conflict_accepted: number;
 };
 
 /**
@@ -85,6 +86,7 @@ function fromRow(row: SessionRow): WeeklyRecurringSession {
     active: row.active !== 0,
     validFrom: row.valid_from,
     validTo: row.valid_to,
+    conflictAccepted: row.conflict_accepted !== 0,
   };
 }
 
@@ -131,25 +133,26 @@ const SAVE_SQL = `
   INSERT INTO weekly_recurring_sessions
     (id, center_code, device_origin, created_at, updated_at, updated_by,
      deleted_at, version, room_id, teacher_id, group_id, day_of_week, start_time, end_time,
-     active, valid_from, valid_to)
+     active, valid_from, valid_to, conflict_accepted)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
      @deleted_at, @version, @room_id, @teacher_id, @group_id, @day_of_week, @start_time, @end_time,
-     @active, @valid_from, @valid_to)
+     @active, @valid_from, @valid_to, @conflict_accepted)
   ON CONFLICT(id) DO UPDATE SET
-    updated_at  = excluded.updated_at,
-    updated_by  = excluded.updated_by,
-    deleted_at  = excluded.deleted_at,
-    version     = excluded.version,
-    room_id     = excluded.room_id,
-    teacher_id  = excluded.teacher_id,
-    group_id    = excluded.group_id,
-    day_of_week = excluded.day_of_week,
-    start_time  = excluded.start_time,
-    end_time    = excluded.end_time,
-    active      = excluded.active,
-    valid_from  = excluded.valid_from,
-    valid_to    = excluded.valid_to
+    updated_at        = excluded.updated_at,
+    updated_by        = excluded.updated_by,
+    deleted_at        = excluded.deleted_at,
+    version           = excluded.version,
+    room_id           = excluded.room_id,
+    teacher_id        = excluded.teacher_id,
+    group_id          = excluded.group_id,
+    day_of_week       = excluded.day_of_week,
+    start_time        = excluded.start_time,
+    end_time          = excluded.end_time,
+    active            = excluded.active,
+    valid_from        = excluded.valid_from,
+    valid_to          = excluded.valid_to,
+    conflict_accepted = excluded.conflict_accepted
 `;
 
 /**
@@ -225,6 +228,7 @@ export class SqliteWeeklyRecurringSessionRepository
         active: session.active ? 1 : 0,
         valid_from: session.validFrom,
         valid_to: session.validTo,
+        conflict_accepted: session.conflictAccepted ? 1 : 0,
       });
       this.changeLog.record({
         entityType: 'weekly_recurring_sessions',

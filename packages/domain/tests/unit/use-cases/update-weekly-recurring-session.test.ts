@@ -84,6 +84,7 @@ function seededSession(over: Partial<WeeklyRecurringSession> = {}): WeeklyRecurr
     active: true,
     validFrom: null,
     validTo: null,
+    conflictAccepted: false,
     ...over,
   };
 }
@@ -155,6 +156,17 @@ describe('UpdateWeeklyRecurringSession', () => {
       // updatedBy/updatedAt unchanged — no spurious sync delta.
       expect(result.updatedBy).toBe(USER);
       expect(result.updatedAt).toEqual(existing.updatedAt);
+    });
+
+    it('never mutates conflictAccepted — it is a create-only audit marker (SOU-183)', async () => {
+      const existing = seededSession({ conflictAccepted: true });
+      await sessions.save(existing);
+
+      const updated = await useCase.execute(editInput(existing.id, { start: '09:30' as TimeOfDay }));
+
+      expect(updated.conflictAccepted).toBe(true);
+      const saved = await sessions.findById(existing.id);
+      expect(saved?.conflictAccepted).toBe(true);
     });
 
     it('excludes the edited row from its own conflict check (moving a slot is not a self-clash)', async () => {

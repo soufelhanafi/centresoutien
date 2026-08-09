@@ -117,6 +117,12 @@ describe('classifyImportRow', () => {
       expect(classify('rooms', row).status).toBe('created');
     });
 
+    it('tolerates a weekly-recurring-session row missing conflictAccepted (pre-SOU-183 backup restores as false)', () => {
+      const spec = findBackupSheet('weekly-recurring-sessions')!;
+      const row = validBackupRow('weekly-recurring-sessions', {}, ['conflictAccepted']);
+      expect(validateBackupRow(spec, row)).toEqual([]);
+    });
+
     it('tolerates null on optional envelope columns', () => {
       const row = validBackupRow('parents', { id: undefined, createdAt: null, deletedAt: null }, ['id', 'deviceOrigin', 'updatedAt', 'updatedBy', 'version']);
       expect(validateBackupRow(findBackupSheet('parents')!, row)).toEqual([]);

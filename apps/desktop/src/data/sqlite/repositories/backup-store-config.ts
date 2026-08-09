@@ -22,7 +22,12 @@ export type SheetSqlConfig = {
 };
 
 /** Domain columns whose value is a 0/1 SQLite integer. */
-export const BOOLEAN_COLUMNS = new Set(['whatsappOptIn', 'active', 'isImmutable']);
+export const BOOLEAN_COLUMNS = new Set([
+  'whatsappOptIn',
+  'active',
+  'isImmutable',
+  'conflictAccepted',
+]);
 
 /** Domain columns stored as a JSON array string in SQLite, comma-joined in the
  *  workbook (ULIDs contain no commas, so the join is unambiguous). */

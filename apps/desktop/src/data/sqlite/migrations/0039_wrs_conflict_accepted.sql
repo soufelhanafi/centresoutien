@@ -1,0 +1,31 @@
+-- 0039_wrs_conflict_accepted.sql
+-- What: add conflict_accepted to weekly_recurring_sessions.
+-- Why:  SOU-183. Auto session-generation commit can now FORCE a block past a
+--       flagged schedule conflict (room double-book, teacher double-book, or a
+--       slot outside center hours). A forced block is committed with this
+--       intentional-double-book marker set, so the planner grid and reports can
+--       tell a deliberate overlap from an accidental one. The seat-fit and
+--       group/room not-found checks are never bypassed — only the schedule
+--       conflict check is, and only when the admin explicitly forces the block.
+-- First ships in: v2.0.0.
+--
+-- Additive-only. One new column on an existing table.
+--
+-- conflict_accepted: boolean 0/1, NOT NULL DEFAULT 0 — every existing row is an
+-- ordinary, non-forced slot, and the domain sets it 0 on every non-forced write
+-- (mirrors the active 0/1 column added in 0022). The DEFAULT is what makes this
+-- replay-safe on tables that already hold rows: the column is backfilled by the
+-- DEFAULT itself, so no UPDATE runs — updated_at / updated_by / version stay
+-- untouched and no phantom sync delta is produced (migration-authoring §3).
+-- Column-level CHECK constrains it to 0/1 (existing rows satisfy it via the
+-- default).
+--
+-- No index on the new column: SOU-183 does not query by it (reads filter by
+-- center/day/room as before). Add one with the query that needs it, not
+-- speculatively.
+--
+-- Logical undo is DROP TABLE weekly_recurring_sessions; (additive-only — the
+-- column stays).
+
+ALTER TABLE weekly_recurring_sessions
+  ADD COLUMN conflict_accepted INTEGER NOT NULL DEFAULT 0 CHECK (conflict_accepted IN (0, 1));  -- boolean 0/1

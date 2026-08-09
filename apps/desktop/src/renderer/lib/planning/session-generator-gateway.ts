@@ -13,8 +13,13 @@ export type GeneratorGroupProposal = GeneratorPreviewResult['proposals'][number]
 export type GeneratorBlockProposal = GeneratorGroupProposal['blocks'][number];
 /** A non-blocking preview warning: a center-hours overrun or a room double-booking. */
 export type GeneratorConflict = GeneratorPreviewResult['conflicts'][number];
+
 /** The confirmed proposals + window echoed back to commit (`session.generator.commit`). */
 export type GeneratorCommitInput = IpcRequest<'session.generator.commit'>;
+/** One group's confirmed blocks for commit; excluded blocks are already omitted. */
+export type CommitGroupProposal = GeneratorCommitInput['proposals'][number];
+/** One confirmed block (weekday + `[start, end)` + room + `allowScheduleConflict`). */
+export type CommitScheduledBlock = CommitGroupProposal['blocks'][number];
 /** The per-block commit summary (one template each, its own batch + skipped holidays). */
 export type GeneratorCommitResult = IpcResponse<'session.generator.commit'>;
 

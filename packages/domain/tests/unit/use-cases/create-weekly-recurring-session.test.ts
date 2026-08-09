@@ -104,6 +104,7 @@ function seededSession(over: Partial<WeeklyRecurringSession> = {}): WeeklyRecurr
     active: true,
     validFrom: null,
     validTo: null,
+    conflictAccepted: false,
     ...over,
   };
 }
@@ -158,6 +159,7 @@ describe('CreateWeeklyRecurringSession', () => {
       expect(session.active).toBe(true);
       expect(session.validFrom).toBeNull();
       expect(session.validTo).toBeNull();
+      expect(session.conflictAccepted).toBe(false);
 
       expect(session.centerCode).toBe(CENTER);
       expect(session.deviceOrigin).toBe(DEVICE);
@@ -268,6 +270,88 @@ describe('CreateWeeklyRecurringSession', () => {
       await expect(
         useCase.execute(validInput({ start: '07:30' as TimeOfDay, end: '08:00' as TimeOfDay })),
       ).rejects.toBeInstanceOf(SessionOutsideCenterHoursError);
+    });
+  });
+
+  describe('forced schedule conflict (SOU-183)', () => {
+    it('commits past a room double-book when allowScheduleConflict is true, marking conflictAccepted', async () => {
+      await sessions.save(
+        seededSession({ roomId: ROOM, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay }),
+      );
+      const session = await useCase.execute(
+        validInput({
+          start: '10:00' as TimeOfDay,
+          end: '11:00' as TimeOfDay,
+          allowScheduleConflict: true,
+        }),
+      );
+      expect(session.conflictAccepted).toBe(true);
+      expect(sessions.all()).toHaveLength(2);
+    });
+
+    it('commits past a teacher double-book when allowScheduleConflict is true', async () => {
+      await sessions.save(
+        seededSession({
+          roomId: 'rom_00000000000000000000000009' as RoomId,
+          teacherId: TEACHER,
+          start: '09:00' as TimeOfDay,
+          end: '10:30' as TimeOfDay,
+        }),
+      );
+      const session = await useCase.execute(
+        validInput({
+          teacherId: TEACHER,
+          start: '10:00' as TimeOfDay,
+          end: '11:00' as TimeOfDay,
+          allowScheduleConflict: true,
+        }),
+      );
+      expect(session.conflictAccepted).toBe(true);
+      expect(sessions.all()).toHaveLength(2);
+    });
+
+    it('commits past an outside-center-hours slot when allowScheduleConflict is true', async () => {
+      const session = await useCase.execute(
+        validInput({
+          start: '08:00' as TimeOfDay,
+          end: '08:45' as TimeOfDay,
+          allowScheduleConflict: true,
+        }),
+      );
+      expect(session.conflictAccepted).toBe(true);
+      expect(sessions.all()).toHaveLength(1);
+    });
+
+    it('still throws each conflict when allowScheduleConflict is explicitly false', async () => {
+      await sessions.save(
+        seededSession({ roomId: ROOM, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay }),
+      );
+      await expect(
+        useCase.execute(
+          validInput({
+            start: '10:00' as TimeOfDay,
+            end: '11:00' as TimeOfDay,
+            allowScheduleConflict: false,
+          }),
+        ),
+      ).rejects.toBeInstanceOf(RoomConflictError);
+    });
+
+    it('never bypasses the seat-fit gate even when allowScheduleConflict is true', async () => {
+      await groups.save(makeGroup({ capacity: 21 }));
+      await expect(
+        useCase.execute(validInput({ groupId: GROUP, allowScheduleConflict: true })),
+      ).rejects.toBeInstanceOf(GroupOverCapacityError);
+      expect(sessions.all()).toHaveLength(0);
+    });
+
+    it('never bypasses the group not-found check even when allowScheduleConflict is true', async () => {
+      await groups.save(makeGroup());
+      await groups.softDelete(GROUP, new Date('2026-07-28T00:00:00Z'), USER);
+      await expect(
+        useCase.execute(validInput({ groupId: GROUP, allowScheduleConflict: true })),
+      ).rejects.toBeInstanceOf(GroupNotFoundError);
+      expect(sessions.all()).toHaveLength(0);
     });
   });
 

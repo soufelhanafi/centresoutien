@@ -907,6 +907,8 @@ export type {
   CommitGeneratedScheduleInput,
   CommitGeneratedScheduleResult,
   CommittedGeneratedTemplate,
+  CommitGroupProposal,
+  CommitScheduledBlock,
 } from './use-cases/commit-generated-schedule';
 export { UpdateRoom } from './use-cases/update-room';
 export type { UpdateRoomInput } from './use-cases/update-room';
