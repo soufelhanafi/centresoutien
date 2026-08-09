@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileUp, Loader2 } from 'lucide-react';
 import { Button, LockOverlay } from '@centresoutien/ui';
+import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
 import { selectFile } from '../../lib/settings/dialog';
 import { useExcelBackupPreview } from '../../hooks/settings/use-excel-backup-preview';
 import { ExcelBackupPreview } from './excel-backup-preview';
@@ -16,6 +17,7 @@ const XLSX_EXTENSIONS = ['xlsx'] as const;
  */
 export function ExcelBackupImportSection({ locked }: { locked: boolean }) {
   const { t } = useTranslation();
+  const upgradeCta = useUpgradeCta('io.excel.import');
   const preview = useExcelBackupPreview();
   const [filePath, setFilePath] = useState<string | null>(null);
   const [pathToken, setPathToken] = useState<string | null>(null);
@@ -69,7 +71,8 @@ export function ExcelBackupImportSection({ locked }: { locked: boolean }) {
     <LockOverlay
       title={t('settings.backup.excel.importTitle')}
       description={t('plan.locked')}
-      ctaLabel={t('plan.viewPlans')}
+      ctaLabel={upgradeCta.ctaLabel}
+      onCta={upgradeCta.onCta}
     >
       {content}
     </LockOverlay>

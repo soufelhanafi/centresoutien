@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, EmptyState, LockOverlay, Skeleton } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
+import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
 import { useTeacherPayrollRules } from '../../hooks/teacher-payroll-rule/use-teacher-payroll-rules';
 import type { TeacherView } from '../../lib/teachers/teacher-view';
 import { TeacherPayrollRuleActiveCard } from './teacher-payroll-rule-active-card';
@@ -27,6 +28,7 @@ import { SetTeacherPayrollRuleDialog } from './set-teacher-payroll-rule-dialog';
 export function TeacherPayrollRuleTab({ teacher }: { teacher: TeacherView }) {
   const { t } = useTranslation();
   const hasPayroll = useFeature('payroll.teacher');
+  const upgradeCta = useUpgradeCta('payroll.teacher');
   const [dialogOpen, setDialogOpen] = useState(false);
   const query = useTeacherPayrollRules(teacher.id, { enabled: hasPayroll });
 
@@ -36,7 +38,8 @@ export function TeacherPayrollRuleTab({ teacher }: { teacher: TeacherView }) {
         <LockOverlay
           title={t('teachers.detail.tabs.payroll')}
           description={t('plan.locked')}
-          ctaLabel={t('plan.viewPlans')}
+          ctaLabel={upgradeCta.ctaLabel}
+          onCta={upgradeCta.onCta}
           className="w-full"
         >
           <div className="p-8 text-sm text-muted-foreground">{t('teachers.detail.payroll.lockedBody')}</div>

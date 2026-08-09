@@ -28,6 +28,7 @@ import {
 } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
 import { useFeature } from '../../hooks/use-feature';
+import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
 import { useRecordPayment } from '../../hooks/invoice/use-record-payment';
 import { mapPaymentWriteError } from '../../lib/invoices/payment-write-error';
 import { centimesToMad, madToCentimes } from '../../lib/formulas/price-mad';
@@ -49,6 +50,7 @@ export function RecordPaymentDialog({ invoiceId, outstandingMad, open, onOpenCha
   const { t } = useTranslation();
   const formId = useId();
   const canPartialPay = useFeature('core.invoicing.partial-paid');
+  const upgradeCta = useUpgradeCta('core.invoicing.partial-paid');
   const record = useRecordPayment();
 
   const form = useForm<RecordPaymentFormInput, unknown, RecordPaymentFields>({
@@ -106,7 +108,16 @@ export function RecordPaymentDialog({ invoiceId, outstandingMad, open, onOpenCha
                     />
                   </FormControl>
                   {!canPartialPay && (
-                    <p className="text-xs text-muted-foreground">{t('invoices.detail.payment.partialLocked')}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t('invoices.detail.payment.partialLocked')}{' '}
+                      <button
+                        type="button"
+                        onClick={upgradeCta.onCta}
+                        className="font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {upgradeCta.ctaLabel}
+                      </button>
+                    </p>
                   )}
                   <FieldMessage />
                 </FormItem>

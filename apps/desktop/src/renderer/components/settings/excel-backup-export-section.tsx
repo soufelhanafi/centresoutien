@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, Loader2 } from 'lucide-react';
 import { Button, LockOverlay, toast } from '@centresoutien/ui';
+import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
 import { selectSaveFile } from '../../lib/settings/dialog';
 import { useExcelBackupExport } from '../../hooks/settings/use-excel-backup-export';
 import { ExcelExportSummary } from './excel-export-summary';
@@ -24,6 +25,7 @@ function backupDateStamp(date = new Date()): string {
  */
 export function ExcelBackupExportSection({ locked }: { locked: boolean }) {
   const { t } = useTranslation();
+  const upgradeCta = useUpgradeCta('io.excel.export');
   const exportMutation = useExcelBackupExport();
   const [savedPath, setSavedPath] = useState<string | null>(null);
 
@@ -81,7 +83,8 @@ export function ExcelBackupExportSection({ locked }: { locked: boolean }) {
     <LockOverlay
       title={t('settings.backup.excel.exportTitle')}
       description={t('plan.locked')}
-      ctaLabel={t('plan.viewPlans')}
+      ctaLabel={upgradeCta.ctaLabel}
+      onCta={upgradeCta.onCta}
     >
       {content}
     </LockOverlay>
