@@ -9,9 +9,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@centresoutien/ui';
-import { useCreateDemo } from '../../hooks/demo/use-create-demo';
-import { useDemoStatus } from '../../hooks/demo/use-demo-status';
+import { useCreateDemoWithHubGuard } from '../../hooks/demo/use-create-demo-with-hub-guard';
 import { useWipeDemo } from '../../hooks/demo/use-wipe-demo';
+import { DemoHubWarnDialog } from '../demo/demo-hub-warn-dialog';
 import { DemoWipeDialog } from '../demo/demo-wipe-dialog';
 
 /**
@@ -23,8 +23,8 @@ import { DemoWipeDialog } from '../demo/demo-wipe-dialog';
  */
 export function DemoSettings() {
   const { t } = useTranslation();
-  const status = useDemoStatus();
-  const create = useCreateDemo();
+  const { create, status, hubWarnOpen, setHubWarnOpen, requestCreate, confirmCreate } =
+    useCreateDemoWithHubGuard();
   const wipe = useWipeDemo();
   const [wipeOpen, setWipeOpen] = useState(false);
 
@@ -75,7 +75,7 @@ export function DemoSettings() {
           <div className="flex flex-col items-start gap-4">
             <Button
               type="button"
-              onClick={() => create.mutate()}
+              onClick={requestCreate}
               disabled={create.isPending || create.isSuccess}
             >
               {create.isPending || create.isSuccess
@@ -98,6 +98,12 @@ export function DemoSettings() {
           setWipeOpen(false);
           wipe.mutate();
         }}
+      />
+      <DemoHubWarnDialog
+        open={hubWarnOpen}
+        onOpenChange={setHubWarnOpen}
+        pending={create.isPending}
+        onConfirm={confirmCreate}
       />
     </Card>
   );
