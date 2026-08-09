@@ -3,13 +3,13 @@ import { windowCenterGateway } from './center-gateway';
 import { createMockCenterGateway } from './center-gateway.mock';
 
 /**
- * SOU-96 integration switch. The backend's `center.*` IPC handlers are the last
- * piece to land; until then the mock lets the switcher run. Set
- * `VITE_CENTER_GATEWAY=real` (or flip the fallback) once [BACKEND DONE] is merged
- * — a one-line swap, no component change, since both sides honor `CenterGateway`.
+ * SOU-96 gateway selection. The real `window.api` bridge is the default now that
+ * the backend's `center.*` handlers have landed; `VITE_CENTER_GATEWAY=mock` opts
+ * into the in-memory gateway for isolated UI runs. Either side honors
+ * `CenterGateway`, so this stays a one-line swap with no component change.
  */
-const useRealGateway = import.meta.env['VITE_CENTER_GATEWAY'] === 'real';
+const useMockGateway = import.meta.env['VITE_CENTER_GATEWAY'] === 'mock';
 
-export const centerGateway: CenterGateway = useRealGateway
-  ? windowCenterGateway
-  : createMockCenterGateway();
+export const centerGateway: CenterGateway = useMockGateway
+  ? createMockCenterGateway()
+  : windowCenterGateway;

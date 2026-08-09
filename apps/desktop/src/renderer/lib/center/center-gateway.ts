@@ -37,20 +37,17 @@ export interface CenterGateway {
   switchTo(centreId: string): Promise<void>;
 }
 
-const notWired = (): never => {
-  throw new Error('center-gateway: real IPC bridge not wired yet (SOU-96 integration)');
-};
-
 /**
- * Integration stub for the production gateway. Once the backend's `center.*`
- * channels are merged into the shared contract, each method body becomes a
- * one-line `window.api.invoke('center.list', {})` / `.current` / `.switch` call —
- * `switchTo` resolving only when main confirms the DB swap (a rejected
- * `center.switch` rejects here so the mutation surfaces its error state). Until
- * then `center-gateway-instance` uses the mock, so this is never called.
+ * Production gateway over the preload `window.api` bridge. Each method maps to one
+ * of the backend's fixed `center.*` channels (SOU-96); `switchTo` resolves only
+ * once main confirms the live DB swap, and a rejected `center.switch`
+ * (`PlanFeatureUnavailableError` on a locked plan, `CenterSwitchError` on a failed
+ * open) rejects here so the mutation surfaces its error state.
  */
 export const windowCenterGateway: CenterGateway = {
-  list: () => Promise.resolve(notWired()),
-  current: () => Promise.resolve(notWired()),
-  switchTo: () => Promise.resolve(notWired()),
+  list: async () => (await window.api.invoke('center.list', {})).centers,
+  current: () => window.api.invoke('center.current', {}),
+  switchTo: async (centreId) => {
+    await window.api.invoke('center.switch', { centreId });
+  },
 };
