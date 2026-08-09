@@ -1,13 +1,15 @@
 import type { Clock } from '../ports/clock';
 import type { HubChange } from '../ports/sync-hub-port';
-import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
-import type { SyncConflict } from './conflicts';
+import type { CenterCode, DeviceId, EntityId, UserId } from '../value-objects/ids';
+import type { SyncConflict, ConflictSide } from './conflicts';
 import { conflictKey } from './conflicts';
 import type { DuplicateMatcher } from './duplicate-matcher';
 import { isPeopleEntityType } from './duplicate-matcher';
 import { ImmutableDivergenceError } from '../errors/sync-errors';
 import { resolveInboundChange, type ResolveOutcome } from './merge';
 import type { LocalPendingChange, LocalSyncRepository } from './sync-local-repository';
+import { valuesEqual } from './change-log';
+import { ENVELOPE_FIELD_NAMES } from '../entities/envelope';
 import {
   SUBJECT_ENTITY_TYPE,
   subjectCodeCollisionKey,
@@ -78,12 +80,14 @@ export class ChangeResolver {
       inbound: change,
     });
 
+    let applied = false;
     switch (outcome.kind) {
       case 'apply':
-        this.applyInbound(change, outcome, collisions, dedups);
+        applied = this.applyInbound(change, outcome, conflicts, collisions, dedups);
         break;
       case 'merged':
         this.local.upsertPending(this.buildMergedPending(change, local, outcome));
+        applied = true;
         break;
       case 'conflict':
         this.local.blockPending(change.entityType, change.entityId, outcome.conflict);
@@ -97,7 +101,7 @@ export class ChangeResolver {
     }
 
     this.detectDuplicates(change, conflicts, matcher);
-    return outcome.kind === 'apply' || outcome.kind === 'merged' ? 1 : 0;
+    return applied ? 1 : 0;
   }
 
   /**
@@ -113,40 +117,73 @@ export class ChangeResolver {
   private applyInbound(
     change: HubChange,
     outcome: Extract<ResolveOutcome, { kind: 'apply' }>,
+    conflicts: SyncConflict[],
     collisions: SubjectCodeCollision[],
     dedups: SessionDedup[],
-  ): void {
-    // Sessions first: a live natural-key collision settles deterministically
-    // (lower ULID wins, in-place rewrite) so the projected `ux_sessions_recurrence_date`
-    // index never throws. Tombstone applies (which the collision would be moot for)
-    // and non-sessions fall through to the plain / subject paths.
+  ): boolean {
+    // Sessions first: a natural-key collision with a DIFFERENT local row settles
+    // deterministically when both sides agree (lower ULID wins, in-place rewrite)
+    // so the projected `ux_sessions_recurrence_date` index never throws. But a
+    // deleted-state disagreement (one replica cancelled the occurrence, the other
+    // kept it) or an unsynced local edit on the occupied row is a HUMAN decision
+    // — absorb would rewrite the local row and silently discard the user's choice,
+    // so route to a conflict instead.
     const sessionStore = this.sessionDedups;
     const recurringSessionId = outcome.entity['recurringSessionId'];
     const date = outcome.entity['date'];
     if (
       sessionStore !== null &&
       change.entityType === SESSION_ENTITY_TYPE &&
-      outcome.entity['deletedAt'] == null &&
       typeof recurringSessionId === 'string' &&
       typeof date === 'string'
     ) {
-      const occupiedId = sessionStore.findLiveSessionIdByNaturalKey(
-        recurringSessionId,
-        date,
-        change.entityId,
-      );
-      if (occupiedId !== null) {
-        const { winnerId, loserId } = resolveSessionCollision(change.entityId, occupiedId);
+      const occupied = sessionStore.findSessionByNaturalKey(recurringSessionId, date, change.entityId);
+      if (occupied !== null) {
+        const inboundDeleted = outcome.entity['deletedAt'] != null;
+        const occupiedDeleted = occupied.deletedAt !== null;
+        // A pending write here is normally the materialization itself (redundant
+        // with the winner — deterministic generator → identical fields) and must
+        // NOT block convergence. Only a divergence between the local pending
+        // entity and the inbound — i.e. a user edit beyond creation — is a
+        // decision absorb must not discard.
+        const localPending = this.local.getLocalState(SESSION_ENTITY_TYPE, occupied.id)?.pending ?? null;
+        const divergingFields =
+          localPending !== null ? divergingDomainFields(localPending.entity, outcome.entity) : [];
+        const localBlocked = this.local
+          .listBlocked()
+          .some(
+            (c) =>
+              c.entityType === SESSION_ENTITY_TYPE &&
+              (c.kind === 'probable-duplicate'
+                ? c.keptId === occupied.id || c.candidateId === occupied.id
+                : c.entityId === occupied.id),
+          );
+
+        if (localBlocked) return false; // preserve the queued conflict; re-deliver later
+        if (inboundDeleted !== occupiedDeleted || divergingFields.length > 0) {
+          const conflict = this.sessionCollisionConflict(
+            change,
+            occupied.id,
+            inboundDeleted,
+            occupiedDeleted,
+            divergingFields,
+          );
+          this.local.blockPending(SESSION_ENTITY_TYPE, occupied.id, conflict);
+          this.pushUniqueConflict(conflicts, conflict);
+          return false;
+        }
+
+        const { winnerId, loserId } = resolveSessionCollision(change.entityId, occupied.id);
         if (loserId === change.entityId) {
           sessionStore.retireInboundSession({
-            keptId: occupiedId,
+            keptId: occupied.id,
             retiredId: change.entityId,
             entity: outcome.entity,
             version: outcome.version,
           });
         } else {
           sessionStore.absorbSessionAsWinner({
-            fromId: occupiedId,
+            fromId: occupied.id,
             toId: change.entityId,
             entity: outcome.entity,
             version: outcome.version,
@@ -159,7 +196,7 @@ export class ChangeResolver {
           winnerId,
           loserId,
         });
-        return;
+        return true;
       }
     }
 
@@ -175,14 +212,14 @@ export class ChangeResolver {
       typeof code !== 'string'
     ) {
       this.local.applyInbound(change.entityType, change.entityId, outcome.entity, outcome.version);
-      return;
+      return true;
     }
 
     const store = this.subjectCollisions;
     const existingId = store.findLiveSubjectIdByCode(this.centreId, code, change.entityId);
     if (existingId === null) {
       this.local.applyInbound(change.entityType, change.entityId, outcome.entity, outcome.version);
-      return;
+      return true;
     }
 
     const { winnerId, loserId } = resolveSubjectCodeCollision(change.entityId, existingId);
@@ -206,6 +243,7 @@ export class ChangeResolver {
       winnerId,
       loserId,
     });
+    return true;
   }
 
   private buildMergedPending(
@@ -287,4 +325,102 @@ export class ChangeResolver {
     if (dedups.some((existing) => sessionDedupKey(existing) === key)) return;
     dedups.push(dedup);
   }
+
+  /**
+   * The conflict a natural-key collision becomes when it cannot settle
+   * automatically (SOU-188): a deleted-state disagreement is a delete-vs-edit —
+   * one replica cancelled the occurrence, the other kept it — which is never
+   * auto-resolved in either direction; an unsynced local edit on the occupied
+   * row is a field-clash, because absorbing would rewrite that row and silently
+   * discard the user's edit. Keyed on the LOCAL occupied row — the durable
+   * shadow entry the "conflits en attente" inbox re-surfaces.
+   */
+  private sessionCollisionConflict(
+    change: HubChange,
+    localId: EntityId,
+    inboundDeleted: boolean,
+    occupiedDeleted: boolean,
+    fields: readonly string[],
+  ): SyncConflict {
+    const localState = this.local.getLocalState(SESSION_ENTITY_TYPE, localId);
+    const localPending = localState?.pending ?? null;
+    const theirs = inboundSide(change);
+    const mine = localPending
+      ? pendingSide(localPending)
+      : (this.sessionDedups?.lastLocalSide(localId) ?? {
+          updatedBy: this.updatedBy,
+          deviceId: this.deviceId,
+          op: occupiedDeleted ? ('delete' as const) : ('update' as const),
+          seq: 0,
+          at: this.clock.now(),
+          changedFields: [],
+          entity: localState?.entity ?? change.entity,
+        });
+    if (inboundDeleted !== occupiedDeleted) {
+      return {
+        kind: 'delete-vs-edit',
+        entityType: SESSION_ENTITY_TYPE,
+        entityId: localId,
+        version: change.version,
+        mine,
+        theirs,
+      };
+    }
+    return {
+      kind: 'field-clash',
+      entityType: SESSION_ENTITY_TYPE,
+      entityId: localId,
+      version: change.version,
+      fields,
+      mine,
+      theirs,
+    };
+  }
+}
+
+/** The inbound (hub) side of a conflict — mirrors merge.ts `side(…, 'theirs')`. */
+function inboundSide(change: HubChange): ConflictSide {
+  return {
+    updatedBy: change.updatedBy,
+    deviceId: change.deviceId,
+    op: change.op,
+    seq: change.deviceSeq,
+    at: change.receivedAt,
+    changedFields: change.changedFields,
+    entity: change.entity,
+  };
+}
+
+/** The local pending-edit side of a conflict — mirrors merge.ts `side(…, 'mine')`. */
+function pendingSide(pending: LocalPendingChange): ConflictSide {
+  return {
+    updatedBy: pending.updatedBy,
+    deviceId: pending.deviceId,
+    op: pending.op,
+    seq: pending.seq,
+    at: pending.at,
+    changedFields: pending.changedFields,
+    entity: pending.entity,
+  };
+}
+
+/**
+ * The non-envelope fields whose value differs between the local pending entity
+ * and the inbound entity — the user edits absorb would discard. Empty when the
+ * two are the same materialization (deterministic generator → identical fields).
+ * Identity + envelope bookkeeping (incl. `id`, which the envelope set omits) can
+ * never count — they differ by construction across replicas.
+ */
+function divergingDomainFields(
+  local: Readonly<Record<string, unknown>>,
+  inbound: Readonly<Record<string, unknown>>,
+): readonly string[] {
+  const excluded = new Set<string>(['id', ...ENVELOPE_FIELD_NAMES]);
+  const allFields = new Set([...Object.keys(local), ...Object.keys(inbound)]);
+  const diverging: string[] = [];
+  for (const field of allFields) {
+    if (excluded.has(field)) continue;
+    if (!valuesEqual(local[field], inbound[field])) diverging.push(field);
+  }
+  return diverging;
 }

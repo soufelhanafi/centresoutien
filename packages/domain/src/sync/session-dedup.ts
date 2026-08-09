@@ -1,4 +1,5 @@
 import type { EntityId } from '../value-objects/ids';
+import type { ConflictSide } from './conflicts';
 
 /**
  * The entityType string sessions are logged, synced, and projected under — the
@@ -49,16 +50,27 @@ export function sessionDedupKey(dedup: SessionDedup): string {
  */
 export interface SessionDedupStore {
   /**
-   * The id of the live (non-tombstoned) session in this center whose
+   * The id + tombstone state of the local session in this center whose
    * `(recurringSessionId, date)` equals the pair, excluding `excludeId`, or
-   * null. Reads the projected table so it sees exactly what the unique index
-   * would reject.
+   * null. Returns BOTH live and tombstoned rows — the unique index
+   * `ux_sessions_recurrence_date` is non-partial, so a tombstoned row still
+   * occupies the slot and is just as capable of rejecting an insert. Reads the
+   * projected table so it sees exactly what the index would reject.
    */
-  findLiveSessionIdByNaturalKey(
+  findSessionByNaturalKey(
     recurringSessionId: string,
     date: string,
     excludeId: EntityId,
-  ): EntityId | null;
+  ): { id: EntityId; deletedAt: string | null } | null;
+
+  /**
+   * The local side of a natural-key clash for the conflict popup: the last
+   * change-log write for a session id that is currently SYNCED (no pending
+   * write to build the side from). Returns null when the id has no log entry.
+   * A conflict's "mine" side needs who/when/what even for a settled row — the
+   * change log is the only durable record of it.
+   */
+  lastLocalSide(entityId: EntityId): ConflictSide | null;
 
   /**
    * The inbound session is the lower ULID (winner): rewrite the local loser

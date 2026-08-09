@@ -11,6 +11,7 @@ import type {
 } from '@centresoutien/domain';
 import { SESSION_ENTITY_TYPE } from '@centresoutien/domain';
 import type { SyncCursor } from '@centresoutien/domain';
+import type { ConflictSide } from '@centresoutien/domain';
 import { getRegisteredChangeLogEntityToRowMapper } from './change-log-entity-mappers';
 import { assertSqlIdentifier } from './table-identifier';
 
@@ -98,11 +99,17 @@ const CLEAR_SUBJECT_CODE_SHADOW_SQL = `
    WHERE entity_type = 'subjects' AND entity_id = @entity_id AND center_code = @center_code
 `;
 
-const FIND_LIVE_SESSION_BY_NATURAL_KEY_SQL = `
-  SELECT id FROM sessions
-   WHERE recurring_session_id = ? AND date = ? AND id != ? AND deleted_at IS NULL
+const FIND_SESSION_BY_NATURAL_KEY_SQL = `
+  SELECT id, deleted_at FROM sessions
+   WHERE recurring_session_id = ? AND date = ? AND id != ?
      AND center_code = ?
    LIMIT 1
+`;
+
+const LAST_LOCAL_SIDE_SQL = `
+  SELECT op, device_id, created_at, revision, payload FROM change_log
+   WHERE entity_type = ? AND entity_id = ? AND center_code = ?
+   ORDER BY rowid DESC LIMIT 1
 `;
 
 const RE_POINT_ATTENDANCE_SQL = `
@@ -316,18 +323,44 @@ export class SqliteLocalSyncRepository
     })();
   }
 
-  findLiveSessionIdByNaturalKey(
+  findSessionByNaturalKey(
     recurringSessionId: string,
     date: string,
     excludeId: EntityId,
-  ): EntityId | null {
-    const row = this.db.prepare(FIND_LIVE_SESSION_BY_NATURAL_KEY_SQL).get(
+  ): { id: EntityId; deletedAt: string | null } | null {
+    const row = this.db.prepare(FIND_SESSION_BY_NATURAL_KEY_SQL).get(
       recurringSessionId,
       date,
       excludeId,
       this.centerCode,
-    ) as { id: string } | undefined;
-    return row ? (row.id as EntityId) : null;
+    ) as { id: string; deleted_at: string | null } | undefined;
+    return row ? { id: row.id as EntityId, deletedAt: row.deleted_at } : null;
+  }
+
+  lastLocalSide(entityId: EntityId): ConflictSide | null {
+    const row = this.db.prepare(LAST_LOCAL_SIDE_SQL).get(
+      SESSION_ENTITY_TYPE,
+      entityId,
+      this.centerCode,
+    ) as
+      | { op: string; device_id: string; created_at: string; revision: number; payload: string }
+      | undefined;
+    if (!row) return null;
+    let entity: Record<string, unknown>;
+    try {
+      entity = (JSON.parse(row.payload) as { entity: Record<string, unknown> }).entity;
+    } catch {
+      return null;
+    }
+    return {
+      updatedBy: (entity['updatedBy'] as UserId | undefined) ?? (row.device_id as UserId),
+      deviceId: row.device_id as DeviceId,
+      op: row.op as ChangeLogOp,
+      seq: row.revision,
+      at: new Date(row.created_at),
+      changedFields: [],
+      entity,
+    };
   }
 
   /**

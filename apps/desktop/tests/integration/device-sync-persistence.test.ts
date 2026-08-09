@@ -416,4 +416,55 @@ describe('session natural-key collision (SOU-188)', () => {
     expect(row.session_id).toBe(SESSION_LO);
     expect(row.session_id).not.toBe(SESSION_HI);
   });
+
+  it('a cancel on A vs a live occurrence on B is a delete-vs-edit conflict — no wedge, B keeps its row', async () => {
+    await a.sessions.save(makeSession({ id: SESSION_LO }));
+    await a.sessions.softDelete(SESSION_LO, new Date('2026-08-02T00:00:00Z'), USER_A);
+    await a.sync();
+
+    await b.sessions.save(makeSession({ id: SESSION_HI, deviceOrigin: DEV_B, updatedBy: USER_B }));
+    await b.sync();
+
+    expect(b.blockedCount()).toBe(1);
+    expect(b.firstBlockedKind()).toBe('delete-vs-edit');
+    // B's live occurrence survives — the cancel did not silently win.
+    expect((await b.sessions.findById(SESSION_HI))?.id).toBe(SESSION_HI);
+    const all = await b.sessions.listForRange(CENTER, { start: '2026-09-01', end: '2026-09-30' });
+    expect(all).toHaveLength(1);
+  });
+
+  it('a cancel on B vs a live occurrence on A is a delete-vs-edit conflict on A', async () => {
+    await b.sessions.save(makeSession({ id: SESSION_HI, deviceOrigin: DEV_B, updatedBy: USER_B }));
+    await b.sessions.softDelete(SESSION_HI, new Date('2026-08-02T00:00:00Z'), USER_B);
+    await b.sync();
+
+    await a.sessions.save(makeSession({ id: SESSION_LO }));
+    await a.sync();
+
+    expect(a.blockedCount()).toBe(1);
+    expect(a.firstBlockedKind()).toBe('delete-vs-edit');
+    expect((await a.sessions.findById(SESSION_LO))?.id).toBe(SESSION_LO);
+  });
+
+  it('an unsynced local edit on B survives a winner arriving from A (field-clash, no clobber)', async () => {
+    await a.sessions.save(makeSession({ id: SESSION_LO }));
+    await a.sync();
+
+    await b.sessions.save(makeSession({ id: SESSION_HI, deviceOrigin: DEV_B, updatedBy: USER_B }));
+    await b.sessions.save(
+      makeSession({
+        id: SESSION_HI,
+        deviceOrigin: DEV_B,
+        updatedBy: USER_B,
+        roomId: 'rom_00000000000000000000000009' as RoomId,
+      }),
+    );
+    await b.sync();
+
+    expect(b.blockedCount()).toBe(1);
+    expect(b.firstBlockedKind()).toBe('field-clash');
+    // The user's room edit survived; absorb never clobbered it.
+    const onB = await b.sessions.findById(SESSION_HI);
+    expect(onB?.roomId).toBe('rom_00000000000000000000000009');
+  });
 });

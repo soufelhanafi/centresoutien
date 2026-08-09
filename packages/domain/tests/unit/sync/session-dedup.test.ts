@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { ChangeResolver } from '../../../src/sync/resolve-changes';
 import type { SessionDedup, SessionDedupStore } from '../../../src/sync/session-dedup';
-import type { SyncConflict } from '../../../src/sync/conflicts';
+import type { SyncConflict, ConflictSide } from '../../../src/sync/conflicts';
 import type { HubChange } from '../../../src/ports/sync-hub-port';
-import type { EntityId } from '../../../src/value-objects/ids';
+import type { EntityId, UserId } from '../../../src/value-objects/ids';
 import { fakeClock } from '../fakes/clock';
 import { InMemorySyncLocalRepository } from '../fakes/in-memory-sync-local-repository';
 import { CENTER, DEV_A, USER_A, USER_B, DEV_B, matcherFor } from './sync-engine-helpers';
@@ -11,10 +11,13 @@ import { CENTER, DEV_A, USER_A, USER_B, DEV_B, matcherFor } from './sync-engine-
 /**
  * SOU-188 — two replicas materialized the same session occurrence offline
  * (deterministic generator → identical `(recurringSessionId, date)`, different
- * ULIDs). A session apply whose natural key collides with a different live local
- * session must settle deterministically (lower ULID wins, the loser is
- * absorbed/retired) instead of throwing the projected `ux_sessions_recurrence_date`
- * constraint — which would wedge the whole sync cycle.
+ * ULIDs). A session apply whose natural key collides with a different local
+ * session must:
+ *  - settle deterministically (lower ULID wins, in-place rewrite) when BOTH
+ *    sides agree on deleted state AND the local copy has no unsynced edit;
+ *  - route to a delete-vs-edit / field-clash conflict when they disagree or the
+ *    local copy was edited — never throwing `ux_sessions_recurrence_date`
+ *    (which would wedge the whole sync) and never silently clobbering the user.
  */
 
 const clock = fakeClock('2026-08-01T10:00:00Z');
@@ -40,17 +43,37 @@ const sessionEntity = (id: EntityId, over: Record<string, unknown> = {}) => ({
 class FakeSessionDedupStore implements SessionDedupStore {
   constructor(private readonly local: InMemorySyncLocalRepository) {}
 
-  findLiveSessionIdByNaturalKey(
+  findSessionByNaturalKey(
     recurringSessionId: string,
     date: string,
     excludeId: EntityId,
-  ): EntityId | null {
-    for (const s of this.local.livePeople<{ id: string; recurringSessionId: string; date: string }>('ses_')) {
-      if (s.id !== excludeId && s.recurringSessionId === recurringSessionId && s.date === date) {
-        return s.id as EntityId;
+  ): { id: EntityId; deletedAt: string | null } | null {
+    for (const entity of Object.values(this.local.allEntities())) {
+      const id = entity['id'];
+      if (
+        String(id ?? '').startsWith('ses_') &&
+        id !== excludeId &&
+        entity['recurringSessionId'] === recurringSessionId &&
+        entity['date'] === date
+      ) {
+        return { id: id as EntityId, deletedAt: entity['deletedAt'] == null ? null : String(entity['deletedAt']) };
       }
     }
     return null;
+  }
+
+  lastLocalSide(entityId: EntityId): ConflictSide | null {
+    const state = this.local.getLocalState('sessions', entityId);
+    if (!state) return null;
+    return {
+      updatedBy: state.entity['updatedBy'] as UserId,
+      deviceId: DEV_A,
+      op: state.entity['deletedAt'] == null ? 'update' : 'delete',
+      seq: 0,
+      at: clock.now(),
+      changedFields: [],
+      entity: state.entity,
+    };
   }
 
   absorbSessionAsWinner(input: {
@@ -159,21 +182,98 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
     expect(dedups).toHaveLength(0);
   });
 
-  it('a tombstone apply skips collision handling (no live clash to settle)', () => {
+  it('an inbound tombstone vs a live local occurrence is a delete-vs-edit conflict, never a wedge', () => {
     const local = new InMemorySyncLocalRepository(clock, DEV_A);
-    local.applyInbound('sessions', SES_LO, sessionEntity(SES_LO), 1);
+    local.applyInbound('sessions', SES_LO, sessionEntity(SES_LO), 1); // live synced local
 
+    const conflicts: SyncConflict[] = [];
     const dedups: SessionDedup[] = [];
     resolverFor(local, new FakeSessionDedupStore(local)).resolveBatch(
-      [inboundSession(SES_HI, { op: 'delete', entity: sessionEntity(SES_HI, { deletedAt: new Date() }) })],
+      [
+        inboundSession(SES_HI, {
+          op: 'delete',
+          entity: sessionEntity(SES_HI, { deletedAt: new Date('2026-08-02T00:00:00Z') }),
+        }),
+      ],
+      conflicts,
+      matcherFor(local),
+      [],
+      dedups,
+    );
+
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.kind).toBe('delete-vs-edit');
+    expect((conflicts[0] as Extract<SyncConflict, { kind: 'delete-vs-edit' }>).entityId).toBe(SES_LO);
+    // The live local row is untouched — the cancel did not silently win.
+    expect(local.entity('sessions', SES_LO)).toEqual(sessionEntity(SES_LO));
+    expect(dedups).toHaveLength(0);
+  });
+
+  it('a live inbound vs a tombstoned local occurrence is a delete-vs-edit conflict, never a wedge', () => {
+    const local = new InMemorySyncLocalRepository(clock, DEV_A);
+    local.applyInbound(
+      'sessions',
+      SES_LO,
+      sessionEntity(SES_LO, { deletedAt: new Date('2026-08-02T00:00:00Z') }),
+      1, // tombstoned synced local
+    );
+
+    const conflicts: SyncConflict[] = [];
+    resolverFor(local, new FakeSessionDedupStore(local)).resolveBatch(
+      [inboundSession(SES_HI)],
+      conflicts,
+      matcherFor(local),
+      [],
+      [],
+    );
+
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.kind).toBe('delete-vs-edit');
+  });
+
+  it('an unsynced local edit on the loser is a field-clash — absorb must not clobber it', () => {
+    const local = new InMemorySyncLocalRepository(clock, DEV_A);
+    // Local higher-ULID session was edited offline (room moved) — a pending write.
+    local.writeLocal('sessions', SES_HI, sessionEntity(SES_HI, { roomId: 'rom_EDITED' }), ['roomId'], USER_A);
+
+    const conflicts: SyncConflict[] = [];
+    const dedups: SessionDedup[] = [];
+    resolverFor(local, new FakeSessionDedupStore(local)).resolveBatch(
+      [inboundSession(SES_LO)],
+      conflicts,
+      matcherFor(local),
+      [],
+      dedups,
+    );
+
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.kind).toBe('field-clash');
+    // The user's edit survives; the loser is blocked, not rewritten.
+    expect(local.entity('sessions', SES_HI)?.roomId).toBe('rom_EDITED');
+    expect(local.isBlocked('sessions', SES_HI)).toBe(true);
+    expect(dedups).toHaveLength(0);
+  });
+
+  it('two tombstones of the same occurrence converge deterministically (agreement)', () => {
+    const local = new InMemorySyncLocalRepository(clock, DEV_A);
+    local.applyInbound('sessions', SES_HI, sessionEntity(SES_HI, { deletedAt: new Date('2026-08-02T00:00:00Z') }), 1);
+
+    const dedups: SessionDedup[] = [];
+    const applied = resolverFor(local, new FakeSessionDedupStore(local)).resolveBatch(
+      [
+        inboundSession(SES_LO, {
+          op: 'delete',
+          entity: sessionEntity(SES_LO, { deletedAt: new Date('2026-08-02T00:00:00Z') }),
+        }),
+      ],
       [],
       matcherFor(local),
       [],
       dedups,
     );
 
-    expect(local.entity('sessions', SES_LO)).toEqual(sessionEntity(SES_LO));
-    expect(dedups).toHaveLength(0);
+    expect(applied).toBe(1);
+    expect(dedups).toHaveLength(1);
   });
 
   it('without a dedup store, the session applies plainly (no surfacing)', () => {
