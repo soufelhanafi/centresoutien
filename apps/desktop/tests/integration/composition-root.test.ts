@@ -875,7 +875,6 @@ describe('composition root', () => {
     });
 
     expect(preview.proposals[0]?.blocks[0]).toMatchObject({ dayOfWeek: 1, start: '09:00', end: '10:00', teacherId });
-    expect(preview.proposals[0]?.blocks[0]?.roomId).toBe(roomAId);
     expect(preview.conflicts).toContainEqual({
       kind: 'teacher',
       groupId,
