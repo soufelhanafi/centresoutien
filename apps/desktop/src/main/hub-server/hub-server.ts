@@ -50,6 +50,7 @@ function isAddressInUse(error: unknown): boolean {
  */
 export class HubServer {
   private readonly server: HttpServer;
+  private stopped = false;
 
   constructor(
     private readonly store: HubStorePort,
@@ -74,6 +75,7 @@ export class HubServer {
     const retries = options.retries ?? 0;
     const retryDelayMs = options.retryDelayMs ?? 100;
     for (let attempt = 0; ; attempt += 1) {
+      if (this.stopped) throw new Error('HubServer stopped before it could start');
       try {
         return await this.listenOnce();
       } catch (error) {
@@ -105,6 +107,7 @@ export class HubServer {
   }
 
   stop(): Promise<void> {
+    this.stopped = true;
     if (!this.server.listening) return Promise.resolve();
     return new Promise((resolve) => this.server.close(() => resolve()));
   }

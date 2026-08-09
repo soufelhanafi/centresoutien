@@ -150,6 +150,22 @@ describe('embedded hub over localhost (SOU-90)', () => {
     await restarting.stop();
   });
 
+  it('cancels a pending retry when the runtime disposes the container (SOU-191)', async () => {
+    const blocker = createServer();
+    const port = await listen(blocker, 0);
+    const restarting = new HubServer(store, port, '127.0.0.1');
+
+    const started = restarting.start({ retries: 10, retryDelayMs: 10 });
+    await delay(20);
+    await restarting.stop();
+    await close(blocker);
+
+    await expect(started).rejects.toThrow('HubServer stopped before it could start');
+    const replacement = createServer();
+    await expect(listen(replacement, port)).resolves.toBe(port);
+    await close(replacement);
+  });
+
   it('applies the hub canonical-store migrations on a fresh file', () => {
     const names = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as {
       name: string;
