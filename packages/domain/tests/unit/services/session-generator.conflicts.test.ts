@@ -70,7 +70,9 @@ describe('SessionGenerator — conflict detection (SOU-161)', () => {
     const { proposals, conflicts } = generator.generate(input(autoConfig({ weekdayPool: [MON] }), [G1]));
 
     expect(proposals[0]!.blocks).toEqual([{ block: { dayOfWeek: MON, start: '09:00', end: '10:30' }, roomId: ROOM_A }]);
-    expect(conflicts).toEqual([{ kind: 'hours', groupId: G1, error: expect.objectContaining({ reason: 'after-close' }) }]);
+    expect(conflicts).toEqual([
+      { kind: 'hours', groupId: G1, start: '09:00', end: '10:30', error: expect.objectContaining({ reason: 'after-close' }) },
+    ]);
   });
 
   it('flags a room double-booked against the real, already-committed schedule', () => {
@@ -81,7 +83,9 @@ describe('SessionGenerator — conflict detection (SOU-161)', () => {
 
     const { conflicts } = generator.generate(input(autoConfig({ weekdayPool: [TUE] }), [G1], { existingSchedule: existing }));
 
-    expect(conflicts).toEqual([{ kind: 'room', groupId: G1, error: expect.objectContaining({ roomId: ROOM_A }) }]);
+    expect(conflicts).toEqual([
+      { kind: 'room', groupId: G1, start: '09:00', end: '10:30', error: expect.objectContaining({ roomId: ROOM_A }) },
+    ]);
   });
 
   it('flags two sibling groups double-booked into the same room by random draw in one run', () => {

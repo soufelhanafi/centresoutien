@@ -2,17 +2,38 @@ import type { GroupRepository } from '../ports/group-repository';
 import type { PlanPolicy } from '../plans/plan-policy';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../value-objects/ids';
 import type { GroupId } from '../entities/group';
+import type { RoomId } from '../entities/room';
 import type { GenerationBatchId } from '../entities/session';
 import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-session';
+import type { WeeklyBlock } from '../value-objects/weekly-block';
 import { GroupNotFoundError } from '../errors/group-errors';
 import {
   resolveGeneratorMaterializationRange,
-  type GroupScheduleProposal,
   type SessionGeneratorRange,
 } from '../services/session-generator';
 import type { CreateWeeklyRecurringSession } from './create-weekly-recurring-session';
 import type { GenerateAndPersistSessions } from './generate-and-persist-sessions';
 import type { SkippedHolidayOccurrence } from './generate-sessions';
+
+/**
+ * One block the admin confirmed for commit (SOU-183). Deliberately NOT the pure
+ * engine's {@link ScheduledBlockProposal}: this carries the admin's per-block
+ * commit decision (`allowScheduleConflict`), which is a UI/write concern the
+ * pure generator never produces. An EXCLUDED block is simply absent from its
+ * group's `blocks` list — the caller drops it, this use case never sees it.
+ */
+export type CommitScheduledBlock = {
+  readonly block: WeeklyBlock;
+  readonly roomId: RoomId;
+  /** `true` = force this block past a flagged schedule conflict, recording an intentional double-book. */
+  readonly allowScheduleConflict: boolean;
+};
+
+/** One group's blocks to commit; excluded blocks are already dropped from `blocks`. */
+export type CommitGroupProposal = {
+  readonly groupId: GroupId;
+  readonly blocks: readonly CommitScheduledBlock[];
+};
 
 export type CommitGeneratedScheduleInput = {
   centerCode: CenterCode;
@@ -20,8 +41,8 @@ export type CommitGeneratedScheduleInput = {
   updatedBy: UserId;
   /** The same run's `config.mode` the preview was gated on — re-asserted here, since commit is the write path that actually matters. */
   mode: 'auto' | 'custom';
-  /** The proposals the admin confirmed from a {@link PreviewGeneratedSchedule} run — echoed back verbatim. */
-  proposals: readonly GroupScheduleProposal[];
+  /** The blocks the admin confirmed from a {@link PreviewGeneratedSchedule} run, each carrying its own force/keep decision. */
+  proposals: readonly CommitGroupProposal[];
   /** The same run's materialization window; resolved per template below. */
   range: SessionGeneratorRange;
 };
@@ -54,6 +75,14 @@ export type CommitGeneratedScheduleResult = {
  * proposal (which never carried one — only `groupId` and the room-assigned
  * blocks). A group deleted since the preview rejects with
  * {@link GroupNotFoundError} rather than silently proceeding without a teacher.
+ *
+ * **Per-block force / exclude (SOU-183).** The admin's confirmed
+ * {@link CommitGroupProposal} carries one decision per block. A block flagged
+ * `allowScheduleConflict` is committed even when it clashes (recorded with
+ * `conflictAccepted = true`); an *excluded* block is simply never sent — the
+ * caller drops it from `blocks`, so this use case only ever commits what it is
+ * given. Forcing only bypasses the schedule-conflict check; the seat-fit and
+ * not-found hard checks inside `CreateWeeklyRecurringSession` always run.
  *
  * Blocks are committed **sequentially, not in parallel**: each
  * `CreateWeeklyRecurringSession` call reads the repository's live state, so an
@@ -105,6 +134,7 @@ export class CommitGeneratedSchedule {
           active: true,
           validFrom: null,
           validTo: null,
+          allowScheduleConflict: scheduled.allowScheduleConflict,
         });
 
         const materialized = await this.generateAndPersist.execute({

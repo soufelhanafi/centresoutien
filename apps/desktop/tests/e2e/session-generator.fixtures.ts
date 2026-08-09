@@ -27,6 +27,7 @@ export const GENERATOR_STR: Record<
     range: { startDateLabel: string; endDateLabel: string };
     preview: { conflictsBanner: string };
     warnings: { room: string };
+    conflictAction: { include: string; exclude: string; decisionRequired: string; commitBlockedHint: string };
   }
 > = {
   fr: {
@@ -43,6 +44,12 @@ export const GENERATOR_STR: Record<
     range: { startDateLabel: 'Date de début', endDateLabel: 'Date de fin' },
     preview: { conflictsBanner: '{{count}} conflit(s) détecté(s). Vérifiez avant de générer.' },
     warnings: { room: 'Salle {{room}} déjà occupée le {{day}}.' },
+    conflictAction: {
+      include: 'Inclure malgré le conflit',
+      exclude: 'Exclure de cette génération',
+      decisionRequired: 'Décision requise',
+      commitBlockedHint: 'Décidez pour chaque créneau en conflit (inclure ou exclure) avant de générer.',
+    },
   },
   ar: {
     trigger: 'توليد',
@@ -58,6 +65,12 @@ export const GENERATOR_STR: Record<
     range: { startDateLabel: 'تاريخ البداية', endDateLabel: 'تاريخ النهاية' },
     preview: { conflictsBanner: 'تم رصد {{count}} تعارض. تحقق قبل التوليد.' },
     warnings: { room: 'القاعة {{room}} مشغولة يوم {{day}}.' },
+    conflictAction: {
+      include: 'إدراجه رغم التعارض',
+      exclude: 'استبعاده من هذا التوليد',
+      decisionRequired: 'قرار مطلوب',
+      commitBlockedHint: 'حدّد لكل موعد متعارض (إدراجه أو استبعاده) قبل التوليد.',
+    },
   },
 };
 

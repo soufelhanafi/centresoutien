@@ -38,6 +38,7 @@ const base: WeeklyRecurringSession = {
   active: true,
   validFrom: null,
   validTo: null,
+  conflictAccepted: false,
 };
 
 function draft(over: Partial<WeeklyRecurringSessionDraft> = {}): WeeklyRecurringSessionDraft {
@@ -92,6 +93,16 @@ describe('createWeeklyRecurringSession', () => {
 
   it('keeps active false when explicitly paused', () => {
     expect(createWeeklyRecurringSession(draft({ active: false })).active).toBe(false);
+  });
+
+  it('defaults conflictAccepted to false when omitted', () => {
+    expect(createWeeklyRecurringSession(draft()).conflictAccepted).toBe(false);
+  });
+
+  it('keeps conflictAccepted true when the block was forced past a conflict', () => {
+    expect(createWeeklyRecurringSession(draft({ conflictAccepted: true })).conflictAccepted).toBe(
+      true,
+    );
   });
 
   it('carries both validity bounds through when set', () => {

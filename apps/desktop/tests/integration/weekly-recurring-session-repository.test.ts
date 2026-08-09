@@ -74,6 +74,7 @@ function makeSession(over: Partial<WeeklyRecurringSession> = {}): WeeklyRecurrin
     active: true,
     validFrom: null,
     validTo: null,
+    conflictAccepted: false,
     ...over,
   };
 }
@@ -155,6 +156,18 @@ describe('SqliteWeeklyRecurringSessionRepository', () => {
     expect(found?.active).toBe(false);
     expect(found?.validFrom).toBe('2026-09-01');
     expect(found?.validTo).toBe('2027-06-30');
+  });
+
+  it('round-trips conflictAccepted true (SOU-183 intentional double-book marker)', async () => {
+    const session = makeSession({ conflictAccepted: true });
+    await repo.save(session);
+    expect((await repo.findById(session.id))?.conflictAccepted).toBe(true);
+  });
+
+  it('defaults conflictAccepted to false for an ordinary slot', async () => {
+    const session = makeSession();
+    await repo.save(session);
+    expect((await repo.findById(session.id))?.conflictAccepted).toBe(false);
   });
 
   it('findById returns null for an unknown id', async () => {

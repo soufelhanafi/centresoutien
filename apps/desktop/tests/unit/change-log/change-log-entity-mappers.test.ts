@@ -198,6 +198,7 @@ describe('getRegisteredChangeLogEntityToRowMapper (sync-apply projection, SOU-13
         active: true,
         validFrom: '2026-09-01',
         validTo: null,
+        conflictAccepted: false,
       },
       {
         id: 'wrs_01',
@@ -217,6 +218,7 @@ describe('getRegisteredChangeLogEntityToRowMapper (sync-apply projection, SOU-13
         active: 1,
         valid_from: '2026-09-01',
         valid_to: null,
+        conflict_accepted: 0,
       },
     ],
     [

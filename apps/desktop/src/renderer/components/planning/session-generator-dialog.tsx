@@ -15,7 +15,7 @@ import {
 } from '@centresoutien/ui';
 import { useSessionFormOptions } from '../../hooks/planning/use-session-form-options';
 import { usePreviewSchedule } from '../../hooks/planning/use-preview-schedule';
-import { useCommitSchedule } from '../../hooks/planning/use-commit-schedule';
+import { useSessionGeneratorCommit } from '../../hooks/planning/use-session-generator-commit';
 import { useFeature } from '../../hooks/use-feature';
 import {
   EMPTY_GENERATOR_FORM,
@@ -23,10 +23,10 @@ import {
   type GeneratorFormValues,
 } from '../../lib/planning/session-generator-schema';
 import type { GeneratorRange } from '../../lib/planning/session-generator-gateway';
-import { toCommitProposals } from '../../lib/planning/session-generator-view';
 import { mapGeneratorError, type GeneratorErrorCode } from '../../lib/planning/session-generator-error';
 import { SessionGeneratorConfigForm } from './session-generator-config-form';
 import { SessionGeneratorPreview } from './session-generator-preview';
+import { GeneratorPreviewFooter } from './generator-preview-footer';
 
 /** Today as `YYYY-MM-DD` in local time — the sensible default start of a generation window. */
 function today(): string {
@@ -53,7 +53,7 @@ export function SessionGeneratorDialog({
   const formId = useId();
   const options = useSessionFormOptions();
   const preview = usePreviewSchedule();
-  const commit = useCommitSchedule();
+  const commit = useSessionGeneratorCommit(preview.data);
   const hasRandomAuto = useFeature('planning.random-auto');
 
   const [step, setStep] = useState<'config' | 'preview'>('config');
@@ -73,7 +73,7 @@ export function SessionGeneratorDialog({
       setPreviewErrorCode(null);
       setMode(null);
       preview.reset();
-      commit.reset();
+      commit.resetCommit();
     }
     onOpenChange(next);
   };
@@ -93,25 +93,10 @@ export function SessionGeneratorDialog({
     }
   };
 
-  const runCommit = async () => {
-    if (preview.data === undefined || range === null || mode === null) return;
-    const proposals = toCommitProposals(preview.data.proposals);
-    if (proposals.length === 0) return;
-    try {
-      const result = await commit.mutateAsync({ mode, proposals, range });
-      const created = result.templates.length;
-      const skipped = result.templates.reduce((sum, template) => sum + template.skippedHolidays.length, 0);
-      toast.success(t('planning.generator.commitSuccess', { count: created }));
-      if (skipped > 0) toast.warning(t('planning.generator.commitSkipped', { count: skipped }));
-      close(false);
-    } catch (error) {
-      const code = mapGeneratorError(error);
-      toast.error(code ? t(`errors.${code}`) : t('planning.generator.error'));
-    }
+  const submitCommit = () => {
+    if (range === null || mode === null) return;
+    void commit.runCommit({ range, mode, onCommitted: () => close(false) });
   };
-
-  const canCommit =
-    preview.data !== undefined && toCommitProposals(preview.data.proposals).length > 0 && !commit.isPending;
 
   return (
     <Dialog open={open} onOpenChange={close}>
@@ -153,7 +138,12 @@ export function SessionGeneratorDialog({
                 />
               </div>
               {step === 'preview' && preview.data !== undefined && range !== null ? (
-                <SessionGeneratorPreview result={preview.data} range={range} options={options.data} />
+                <SessionGeneratorPreview
+                  result={preview.data}
+                  range={range}
+                  options={options.data}
+                  decisions={commit.decisions}
+                />
               ) : null}
             </>
           )}
@@ -170,14 +160,13 @@ export function SessionGeneratorDialog({
               </Button>
             </>
           ) : (
-            <>
-              <Button type="button" variant="ghost" onClick={() => setStep('config')}>
-                {t('planning.generator.back')}
-              </Button>
-              <Button type="button" onClick={() => void runCommit()} disabled={!canCommit}>
-                {commit.isPending ? t('planning.generator.committing') : t('planning.generator.commitAction')}
-              </Button>
-            </>
+            <GeneratorPreviewFooter
+              onBack={() => setStep('config')}
+              onCommit={submitCommit}
+              canCommit={commit.canCommit}
+              isCommitting={commit.isCommitting}
+              decisionRequired={!commit.decisions.allDecided}
+            />
           )}
         </DialogFooter>
       </DialogContent>

@@ -64,6 +64,7 @@ export const SHEET_SQL_B: Readonly<
       ['active', 'active'],
       ['validFrom', 'valid_from'],
       ['validTo', 'valid_to'],
+      ['conflictAccepted', 'conflict_accepted'],
     ],
   },
   sessions: {

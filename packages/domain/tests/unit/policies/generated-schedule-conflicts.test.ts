@@ -60,7 +60,15 @@ describe('detectGeneratedScheduleConflicts', () => {
   describe('center-hours overrun', () => {
     it('flags a block whose end runs past closing time', () => {
       const result = detectGeneratedScheduleConflicts([block(G1, ROOM_A, '17:00', '19:00')], [], centerHours);
-      expect(result).toEqual([{ kind: 'hours', groupId: G1, error: expect.objectContaining({ reason: 'after-close' }) }]);
+      expect(result).toEqual([
+        {
+          kind: 'hours',
+          groupId: G1,
+          start: '17:00',
+          end: '19:00',
+          error: expect.objectContaining({ reason: 'after-close' }),
+        },
+      ]);
     });
 
     it('does not flag a block that fits exactly up to closing time', () => {
@@ -76,7 +84,15 @@ describe('detectGeneratedScheduleConflicts', () => {
         [existingRef(ROOM_A, '10:00', '11:00')],
         centerHours,
       );
-      expect(result).toEqual([{ kind: 'room', groupId: G1, error: expect.objectContaining({ roomId: ROOM_A }) }]);
+      expect(result).toEqual([
+        {
+          kind: 'room',
+          groupId: G1,
+          start: '09:00',
+          end: '10:30',
+          error: expect.objectContaining({ roomId: ROOM_A }),
+        },
+      ]);
     });
 
     it('does not flag a back-to-back existing session (touching endpoints)', () => {
@@ -108,6 +124,10 @@ describe('detectGeneratedScheduleConflicts', () => {
       expect(result).toHaveLength(2);
       expect(result.map((c) => c.kind)).toEqual(['room', 'room']);
       expect(result.map((c) => c.groupId).sort()).toEqual([G1, G2]);
+      expect(result.map((c) => ({ start: c.start, end: c.end }))).toEqual([
+        { start: '09:00', end: '10:30' },
+        { start: '09:30', end: '11:00' },
+      ]);
     });
 
     it('does not flag two groups sharing a room back-to-back (continuity)', () => {

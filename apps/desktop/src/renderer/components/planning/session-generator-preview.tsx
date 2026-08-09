@@ -5,6 +5,7 @@ import { EmptyState } from '@centresoutien/ui';
 import { localizedText } from '../../lib/planning/localized-text';
 import type { SessionFormOptions } from '../../lib/planning/session-options';
 import type { GeneratorPreviewResult, GeneratorRange } from '../../lib/planning/session-generator-gateway';
+import type { GeneratorDecisions } from '../../hooks/planning/use-generator-decisions';
 import { conflictsByGroup, summarizeProposals } from '../../lib/planning/session-generator-view';
 import { GeneratorPreviewGroup } from './generator-preview-group';
 
@@ -19,10 +20,12 @@ export function SessionGeneratorPreview({
   result,
   range,
   options,
+  decisions,
 }: {
   result: GeneratorPreviewResult;
   range: GeneratorRange;
   options: SessionFormOptions;
+  decisions: GeneratorDecisions;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
@@ -81,6 +84,7 @@ export function SessionGeneratorPreview({
               groupLabel={groupLabel(proposal.groupId)}
               roomName={roomName}
               conflicts={byGroup.get(proposal.groupId) ?? []}
+              decisions={decisions}
             />
           </li>
         ))}

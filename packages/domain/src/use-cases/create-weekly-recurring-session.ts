@@ -30,6 +30,16 @@ export type CreateWeeklyRecurringSessionInput = WeeklyRecurringSessionInput & {
   centerCode: CenterCode;
   deviceOrigin: DeviceId;
   updatedBy: UserId;
+  /**
+   * SOU-183: when `true`, commit the slot even if it clashes with the live
+   * schedule — the composite {@link assertScheduleFree} check (room double-book,
+   * teacher double-book, outside center hours) is skipped and the created row is
+   * stamped `conflictAccepted = true`. Absent/`false` keeps the default behavior:
+   * a clash throws its standard scheduling error. This never relaxes the seat-fit
+   * ({@link assertGroupFitsRoom}) or the group/room not-found checks — those run
+   * unconditionally.
+   */
+  allowScheduleConflict?: boolean;
 };
 
 /**
@@ -49,7 +59,11 @@ export type CreateWeeklyRecurringSessionInput = WeeklyRecurringSessionInput & {
  * Then the SOU-55 composite conflict check (malformed time → outside center
  * hours → room overlap → teacher overlap) runs against the center's live refs
  * for that weekday and throws the most-blocking standard scheduling error when
- * the slot clashes. The row is then minted through
+ * the slot clashes — unless `allowScheduleConflict` is `true` (SOU-183), in which
+ * case that single check is skipped and the row is stamped
+ * `conflictAccepted = true` to record the intentional double-book. The seat-fit
+ * gate and the group/room not-found checks are never skipped. The row is then
+ * minted through
  * {@link createWeeklyRecurringSession}, which re-asserts `start < end` and
  * `validFrom <= validTo` — the entity factory is the single home of those
  * structural invariants. Id and envelope come from the injected `IdGenerator` /
@@ -89,9 +103,12 @@ export class CreateWeeklyRecurringSession {
       assertGroupFitsRoom(group.id, group.capacity, room);
     }
 
-    const week = resolveWeek(await this.centerHours.listForCenter(input.centerCode));
-    const existing = await this.sessions.listRefsForDay(input.centerCode, dayOfWeek);
-    assertScheduleFree({ roomId, teacherId, dayOfWeek, start, end }, existing, week);
+    const forced = input.allowScheduleConflict === true;
+    if (!forced) {
+      const week = resolveWeek(await this.centerHours.listForCenter(input.centerCode));
+      const existing = await this.sessions.listRefsForDay(input.centerCode, dayOfWeek);
+      assertScheduleFree({ roomId, teacherId, dayOfWeek, start, end }, existing, week);
+    }
 
     const session = createWeeklyRecurringSession({
       id: this.ids.next(WEEKLY_RECURRING_SESSION_ID_PREFIX) as WeeklyRecurringSessionId,
@@ -112,6 +129,7 @@ export class CreateWeeklyRecurringSession {
       validFrom: fields.validFrom,
       validTo: fields.validTo,
       active: fields.active,
+      conflictAccepted: forced,
     });
 
     await this.sessions.save(session);

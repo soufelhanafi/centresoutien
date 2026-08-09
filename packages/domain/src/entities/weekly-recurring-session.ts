@@ -46,6 +46,18 @@ export type WeeklyRecurringSessionId = Brand<string, 'WeeklyRecurringSessionId'>
  * set `true` on creation. The live/archived lifecycle is driven by the envelope
  * `deletedAt`, never by this flag.
  *
+ * `conflictAccepted` (SOU-183) marks a slot deliberately booked over a flagged
+ * schedule conflict (room double-book, teacher double-book, or outside center
+ * hours) during auto session-generation commit. It defaults to `false` for every
+ * ordinary write and is only set `true` when the caller forced the block past
+ * `assertScheduleFree`. It is an intentional-double-book audit marker — never a
+ * license to skip the seat-fit / not-found hard checks, which always run.
+ *
+ * **Create-only.** `conflictAccepted` records the acceptance decision made at the
+ * moment the slot was minted; it is never mutated by a later edit.
+ * {@link UpdateWeeklyRecurringSession} deliberately omits it from its patch, so it
+ * can never appear among an edit's changed fields.
+ *
  * `validFrom` / `validTo` are the recurrence's validity window as strict civil
  * dates (`YYYY-MM-DD`, so they compare lexicographically = chronologically). Both
  * are nullable: `validFrom: null` means "no lower bound" and `validTo: null` means
@@ -67,6 +79,7 @@ export type WeeklyRecurringSession = EntityEnvelope & {
   active: boolean;
   validFrom: string | null;
   validTo: string | null;
+  conflictAccepted: boolean;
 };
 
 /**
@@ -88,6 +101,7 @@ export type WeeklyRecurringSessionDraft = {
   readonly validFrom: string | null;
   readonly validTo: string | null;
   readonly active?: boolean;
+  readonly conflictAccepted?: boolean;
 };
 
 /**
@@ -130,6 +144,7 @@ export function createWeeklyRecurringSession(
     active: draft.active ?? true,
     validFrom: draft.validFrom,
     validTo: draft.validTo,
+    conflictAccepted: draft.conflictAccepted ?? false,
   };
 }
 

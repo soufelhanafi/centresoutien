@@ -1388,6 +1388,12 @@
         },
         "room": "Salle {{room}} déjà occupée le {{day}}.",
         "gap": "Écart inférieur au minimum ({{count}} jour(s))."
+      },
+      "conflictAction": {
+        "decisionRequired": "Décision requise",
+        "include": "Inclure malgré le conflit",
+        "exclude": "Exclure de cette génération",
+        "commitBlockedHint": "Décidez pour chaque créneau en conflit (inclure ou exclure) avant de générer."
       }
     }
   },

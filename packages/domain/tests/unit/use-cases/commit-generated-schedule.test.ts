@@ -2,11 +2,11 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   CommitGeneratedSchedule,
   type CommitGeneratedScheduleInput,
+  type CommitGroupProposal,
 } from '../../../src/use-cases/commit-generated-schedule';
 import { CreateWeeklyRecurringSession } from '../../../src/use-cases/create-weekly-recurring-session';
 import { GenerateAndPersistSessions } from '../../../src/use-cases/generate-and-persist-sessions';
 import { GenerateSessions } from '../../../src/use-cases/generate-sessions';
-import type { GroupScheduleProposal } from '../../../src/services/session-generator';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
@@ -69,12 +69,22 @@ function makeRoom(id: RoomId, overrides: Partial<Room> = {}): Room {
   };
 }
 
-function proposal(groupId: GroupId, blocks: GroupScheduleProposal['blocks']): GroupScheduleProposal {
-  return { groupId, blocks, gapViolations: [] };
+function proposal(groupId: GroupId, blocks: CommitGroupProposal['blocks']): CommitGroupProposal {
+  return { groupId, blocks };
 }
 
-function block(dayOfWeek: WeekdayIndex, start: string, end: string, roomId: RoomId = ROOM_A) {
-  return { block: { dayOfWeek, start: start as TimeOfDay, end: end as TimeOfDay }, roomId };
+function block(
+  dayOfWeek: WeekdayIndex,
+  start: string,
+  end: string,
+  roomId: RoomId = ROOM_A,
+  allowScheduleConflict = false,
+): CommitGroupProposal['blocks'][number] {
+  return {
+    block: { dayOfWeek, start: start as TimeOfDay, end: end as TimeOfDay },
+    roomId,
+    allowScheduleConflict,
+  };
 }
 
 describe('CommitGeneratedSchedule', () => {
@@ -289,6 +299,88 @@ describe('CommitGeneratedSchedule', () => {
 
       const live = (await recurrences.listRefsForDay(CENTER, MON)).filter((r) => r.roomId === ROOM_A);
       expect(live).toHaveLength(1);
+    });
+  });
+
+  describe('per-block force / exclude (SOU-183)', () => {
+    async function seedClashingMondaySlot(): Promise<void> {
+      const clashing = new CreateWeeklyRecurringSession(
+        recurrences,
+        groups,
+        rooms,
+        centerHoursRepo,
+        fakeClock('2026-07-01T00:00:00Z'),
+        fakeIds(900),
+        new PlanPolicy(PLANS.essentiel),
+      );
+      await clashing.execute({
+        centerCode: CENTER,
+        deviceOrigin: DEVICE,
+        updatedBy: USER,
+        roomId: ROOM_A,
+        teacherId: null,
+        groupId: null,
+        dayOfWeek: MON,
+        start: '09:00' as TimeOfDay,
+        end: '10:30' as TimeOfDay,
+        active: true,
+        validFrom: null,
+        validTo: null,
+      });
+    }
+
+    it('commits both a clean block and a forced clashing block, marking only the forced one', async () => {
+      const group = makeGroup();
+      await groups.save(group);
+      await seedClashingMondaySlot();
+
+      const result = await useCase.execute(
+        input({
+          proposals: [
+            proposal(group.id, [
+              block(MON, '09:00', '10:30', ROOM_A, true), // clashes with the seeded slot → forced
+              block(WED, '09:00', '10:30', ROOM_B, false), // clean
+            ]),
+          ],
+        }),
+      );
+
+      expect(result.templates).toHaveLength(2);
+      const stored = await Promise.all(
+        result.templates.map((t) => recurrences.findById(t.recurringSessionId)),
+      );
+      const monday = stored.find((s) => s?.dayOfWeek === MON)!;
+      const wednesday = stored.find((s) => s?.dayOfWeek === WED)!;
+      expect(monday.conflictAccepted).toBe(true);
+      expect(wednesday.conflictAccepted).toBe(false);
+    });
+
+    it('does not commit an excluded block: only the blocks present in the list are persisted', async () => {
+      const group = makeGroup();
+      await groups.save(group);
+
+      const result = await useCase.execute(
+        input({
+          proposals: [proposal(group.id, [block(WED, '09:00', '10:30', ROOM_B)])],
+        }),
+      );
+
+      expect(result.templates).toHaveLength(1);
+      expect(await recurrences.listRefsForDay(CENTER, MON)).toEqual([]);
+      const wednesday = await recurrences.listRefsForDay(CENTER, WED);
+      expect(wednesday).toHaveLength(1);
+    });
+
+    it('a non-forced block that clashes still aborts the run (force is opt-in per block)', async () => {
+      const group = makeGroup();
+      await groups.save(group);
+      await seedClashingMondaySlot();
+
+      await expect(
+        useCase.execute(
+          input({ proposals: [proposal(group.id, [block(MON, '09:00', '10:30', ROOM_A, false)])] }),
+        ),
+      ).rejects.toBeInstanceOf(RoomConflictError);
     });
   });
 

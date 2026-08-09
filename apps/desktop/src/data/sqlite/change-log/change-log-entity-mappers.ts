@@ -150,6 +150,7 @@ function weeklyRecurringSessionEntityToRow(entity: unknown): Record<string, unkn
     active: session.active ? 1 : 0,
     valid_from: session.validFrom,
     valid_to: session.validTo,
+    conflict_accepted: session.conflictAccepted ? 1 : 0,
   };
 }
 
