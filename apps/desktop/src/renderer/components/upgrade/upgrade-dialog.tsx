@@ -48,7 +48,7 @@ export function UpgradeDialog() {
           <Button
             type="button"
             onClick={() => {
-              void openTarifs();
+              void openTarifs().catch(() => undefined);
               close();
             }}
           >

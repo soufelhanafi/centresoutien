@@ -4,7 +4,7 @@ import { useUpgradePromptStore } from '../stores/upgrade-prompt-store';
 import { minimumPlanFor } from '../lib/plan/minimum-plan';
 
 type UpgradeCta = {
-  /** Plan-aware label, e.g. "Débloquer avec Pro" / "أُفتح مع بريميوم". */
+  /** Plan-aware label, e.g. "Débloquer avec Pro" / "افتح مع بريميوم". */
   ctaLabel: string;
   /** Omitted when `feature` is undefined so `LockOverlay` hides the button. */
   onCta: (() => void) | undefined;
