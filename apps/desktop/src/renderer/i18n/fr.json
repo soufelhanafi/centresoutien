@@ -2144,6 +2144,12 @@
       "confirm": "Supprimer la démo",
       "cancel": "Annuler"
     },
+    "hubWarn": {
+      "title": "Cet ordinateur est le serveur de synchronisation",
+      "body": "Pendant la démo, la synchronisation des autres ordinateurs du centre sera en pause.",
+      "confirm": "Continuer quand même",
+      "cancel": "Annuler"
+    },
     "error": {
       "loading": "Vérification du mode démo…",
       "body": "Une erreur est survenue lors de la lecture de l'état de la démo. Réessayez.",
