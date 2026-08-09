@@ -5,16 +5,16 @@ import { UpgradeDialog } from '../../src/renderer/components/upgrade/upgrade-dia
 import { useUpgradePromptStore } from '../../src/renderer/stores/upgrade-prompt-store';
 import i18n from '../../src/renderer/i18n/config';
 
-const openExternal = vi.fn();
+const invoke = vi.fn(async () => ({ opened: true }));
 
 beforeEach(async () => {
   await i18n.changeLanguage('fr');
   useUpgradePromptStore.setState({ feature: null });
-  openExternal.mockReset();
+  invoke.mockClear();
   Object.defineProperty(window, 'api', {
     configurable: true,
     writable: true,
-    value: { invoke: async () => ({}), external: { open: openExternal } },
+    value: { invoke },
   });
 });
 
@@ -42,7 +42,9 @@ describe('UpgradeDialog', () => {
 
     await user.click(screen.getByRole('button', { name: i18n.t('upgrade.viewPlans') }));
 
-    expect(openExternal).toHaveBeenCalledWith('https://centresoutien.com/tarifs');
+    expect(invoke).toHaveBeenCalledWith('external.open', {
+      url: 'https://centresoutien.com/tarifs',
+    });
     expect(useUpgradePromptStore.getState().feature).toBeNull();
   });
 
@@ -53,7 +55,7 @@ describe('UpgradeDialog', () => {
 
     await user.click(screen.getByRole('button', { name: i18n.t('upgrade.later') }));
 
-    expect(openExternal).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalled();
     expect(useUpgradePromptStore.getState().feature).toBeNull();
   });
 });
