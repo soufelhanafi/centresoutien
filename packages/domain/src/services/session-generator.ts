@@ -238,18 +238,25 @@ function linkBackToBackChains(entries: readonly UnroomedBlock[]): ReadonlyMap<Un
  * measured circularly around the week (see {@link circularWeekdayGaps}), so a
  * Monday session forces the next no earlier than `minGapDays` later.
  *
- * Room assignment (SOU-158, not SOU-161) picks a room at random from
- * `input.rooms` via the injected {@link RandomPort} for every generated block,
- * with one exception: when the same teacher has two blocks back-to-back on the
- * same weekday within this same run (one block's `end` equals another's
- * `start`), the later block reuses the earlier block's room instead of
- * drawing a fresh one, so the teacher never has to switch rooms between
- * consecutive classes. This reasoning is **intra-batch only** — it never reads
- * the real, already-committed schedule; a room draw here can still land on
- * one already occupied by an existing session or by another group's proposal
- * in this same run. Catching that is a separate pass, {@link
- * detectGeneratedScheduleConflicts} (SOU-161) — it never changes the picked
- * room, only reports the clash for the caller to act on.
+ * Room assignment runs in two stages. The per-group day search (SOU-182)
+ * rooms each candidate weekday combo on its own via {@link roomBlocksForGroup},
+ * so {@link isConflictFree} has a concrete room to detect a double-booking
+ * against while it hunts for a clean weekday set. Once every group has committed
+ * its combo, one **run-wide** final pass re-rooms every committed block together
+ * through a single {@link assignRoomsToBlocks} call: it draws a room at random
+ * from `input.rooms` via the injected {@link RandomPort} for each block, with
+ * one exception — when the same teacher has two blocks back-to-back on the same
+ * weekday *anywhere in the run* (one block's `end` equals another's `start`),
+ * the later block reuses the earlier block's room instead of drawing a fresh
+ * one, so the teacher never switches rooms between consecutive classes even when
+ * those classes belong to different groups. Rooming the whole run together — not
+ * group by group — is what lets that continuity chain span groups. This
+ * reasoning is **intra-batch only**: it never reads the real, already-committed
+ * schedule, so a room draw here can still land on one already occupied by an
+ * existing session or by another group's proposal in this same run. Catching
+ * that is the final pass, {@link detectGeneratedScheduleConflicts} (SOU-161),
+ * run over the re-roomed blocks — it never changes the picked room, only reports
+ * the clash for the caller to act on.
  *
  * Randomization runs through the injected {@link RandomPort}, never
  * `Math.random()`, so a seeded fake makes every test deterministic. Each
@@ -281,13 +288,13 @@ export class SessionGenerator {
     };
 
     const committed: GeneratedBlockCandidate[] = [];
-    const proposals: GroupScheduleProposal[] = [];
+    const searched: GroupScheduleProposal[] = [];
     for (const groupId of groups) {
       const proposal =
         config.mode === 'auto'
           ? this.placeAutoGroup(groupId, config, eligiblePool, context, committed)
           : this.placeCustomGroup(groupId, config, context);
-      proposals.push(proposal);
+      searched.push(proposal);
       for (const scheduled of proposal.blocks) {
         committed.push({
           groupId,
@@ -298,8 +305,38 @@ export class SessionGenerator {
       }
     }
 
-    const conflicts = detectGeneratedScheduleConflicts(committed, existingSchedule, centerHours);
+    const proposals = this.assignRunWideRooms(searched, context);
+    const roomedCommitted = proposals.flatMap((proposal) =>
+      proposal.blocks.map((scheduled) => ({ groupId: proposal.groupId, block: scheduled.block, roomId: scheduled.roomId })),
+    );
+    const conflicts = detectGeneratedScheduleConflicts(roomedCommitted, existingSchedule, centerHours);
     return { proposals, conflicts };
+  }
+
+  /**
+   * Re-rooms every committed block of the run in one {@link assignRoomsToBlocks}
+   * pass, replacing the provisional per-group rooms the day search drew
+   * ({@link roomBlocksForGroup}). Rooming the whole run together — rather than
+   * group by group — is what lets the same-teacher back-to-back continuity rule
+   * span groups: a teacher teaching group A then group B back-to-back on one
+   * weekday keeps a single room, which a per-group pass could never see.
+   */
+  private assignRunWideRooms(
+    proposals: readonly GroupScheduleProposal[],
+    context: GroupPlacementContext,
+  ): readonly GroupScheduleProposal[] {
+    const entries: UnroomedBlock[] = proposals.flatMap((proposal) =>
+      proposal.blocks.map((scheduled) => ({
+        groupId: proposal.groupId,
+        teacherId: context.teacherByGroup.get(proposal.groupId) ?? null,
+        block: scheduled.block,
+      })),
+    );
+    const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random);
+    return proposals.map((proposal) => ({
+      ...proposal,
+      blocks: proposal.blocks.map((scheduled) => ({ block: scheduled.block, roomId: roomByBlock.get(scheduled.block)! })),
+    }));
   }
 
   /**
@@ -344,10 +381,14 @@ export class SessionGenerator {
   }
 
   /**
-   * Builds the group's weekly blocks for `weekdays` and assigns each a room via
-   * {@link assignRoomsToBlocks} (honoring the same-teacher room-continuity rule),
-   * keyed back by block identity — a `WeeklyBlock` object is unique per generated
-   * occurrence, so it doubles as the map key.
+   * Builds the group's weekly blocks for `weekdays` and gives each a
+   * *provisional* room via {@link assignRoomsToBlocks}, keyed back by block
+   * identity — a `WeeklyBlock` object is unique per generated occurrence, so it
+   * doubles as the map key. These rooms exist only so the per-group day search
+   * ({@link isConflictFree}) has a concrete room to detect a double-booking
+   * against; {@link generate}'s run-wide final pass ({@link assignRunWideRooms})
+   * re-rooms every committed block together, so this per-group draw never
+   * survives into the result.
    */
   private roomBlocksForGroup(
     groupId: GroupId,
