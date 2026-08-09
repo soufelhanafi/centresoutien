@@ -1,5 +1,5 @@
+import { type WeekdayHoursInput } from '@centresoutien/domain';
 import type { PlannerSessionView } from './planner-view';
-import type { CenterHoursWeek } from '../center-hours';
 
 /** Default visible window when no day of the week is open: 08:00 → 20:00. */
 const DEFAULT_START_HOUR = 8;
@@ -35,7 +35,7 @@ export type GridBounds = {
  * 08:00–20:00 window. Sessions never extend the bounds — the grid shows exactly
  * what the center says it is open for (SOU-184).
  */
-export function getGridBounds(week: CenterHoursWeek): GridBounds {
+export function getGridBounds(week: readonly WeekdayHoursInput[]): GridBounds {
   let start = Number.POSITIVE_INFINITY;
   let end = Number.NEGATIVE_INFINITY;
   for (const row of week) {
@@ -51,9 +51,9 @@ export function getGridBounds(week: CenterHoursWeek): GridBounds {
  * The visible hour window derived from the center's weekly hours: floor the
  * earliest open and ceil the latest close to whole hours, filling every hour in
  * between. A 22:00 closing stays visible even when no session is scheduled that
- * late (SOU-184).
+ * late (SOU-184). A close after 23:00 ceils to the end-of-day boundary hour 24.
  */
-export function deriveCenterHoursRange(week: CenterHoursWeek): TimeRange {
+export function deriveCenterHoursRange(week: readonly WeekdayHoursInput[]): TimeRange {
   const { start, end } = getGridBounds(week);
   const startHour = Math.floor(start / 60);
   const endHour = Math.ceil(end / 60);
@@ -63,7 +63,7 @@ export function deriveCenterHoursRange(week: CenterHoursWeek): TimeRange {
 }
 
 /** The day indexes whose rows are closed and must render hatched in the grid. */
-export function deriveClosedDays(week: CenterHoursWeek): ReadonlySet<number> {
+export function deriveClosedDays(week: readonly WeekdayHoursInput[]): ReadonlySet<number> {
   const closed = new Set<number>();
   for (const row of week) {
     if (row.open === null || row.close === null) closed.add(row.dayOfWeek);
@@ -81,12 +81,23 @@ export type BlockPosition = {
  * Positions a session vertically within the range: `top` and `height` as a
  * percentage of the column height, so the block scales with any row height the
  * grid chooses. Horizontal placement (which day, RTL mirroring) is the grid's
- * job, not this function's.
+ * job, not this function's. Out-of-range sessions clamp to the visible edges —
+ * a session created when the range was wider stays visible after the center
+ * narrows its hours (SOU-184).
  */
 export function blockPosition(session: PlannerSessionView, range: TimeRange): BlockPosition {
   const rangeStart = range.startHour * 60;
   const totalMinutes = (range.endHour - range.startHour) * 60;
-  const top = ((timeToMinutes(session.start) - rangeStart) / totalMinutes) * 100;
-  const height = ((timeToMinutes(session.end) - timeToMinutes(session.start)) / totalMinutes) * 100;
-  return { topPercent: top, heightPercent: height };
+  const top = Math.min(100, Math.max(0, ((timeToMinutes(session.start) - rangeStart) / totalMinutes) * 100));
+  const bottom = Math.min(100, Math.max(0, ((timeToMinutes(session.end) - rangeStart) / totalMinutes) * 100));
+  return { topPercent: top, heightPercent: Math.max(0, bottom - top) };
+}
+
+/**
+ * The gutter label for a whole-hour tick, `'HH:00'`. The end-of-day boundary
+ * hour 24 renders as `'24:00'` — the bottom label when a center stays open past
+ * 23:00, so a 23:30 close still shows sessions up to that hour.
+ */
+export function hourLabel(hour: number): string {
+  return `${String(hour).padStart(2, '0')}:00`;
 }

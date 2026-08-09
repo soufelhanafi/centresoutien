@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, CalendarDays, Wand2 } from 'lucide-react';
+import { DEFAULT_WEEKLY_HOURS } from '@centresoutien/domain';
 import { Button, ErrorState } from '@centresoutien/ui';
 import { useWeekSessions } from '../../hooks/planning/use-week-sessions';
 import { useCenterHours } from '../../hooks/center-hours/use-center-hours';
@@ -25,6 +26,31 @@ import {
 } from '../../lib/planning/filters';
 import { deriveCenterHoursRange, deriveClosedDays } from '../../lib/planning/time-range';
 
+/** Full-width error panel for a failed planner query, with a retry action. */
+function PlannerLoadError({
+  title,
+  description,
+  onRetry,
+}: {
+  title: string;
+  description: string;
+  onRetry: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <ErrorState
+      icon={<CalendarDays className="h-5 w-5" aria-hidden="true" />}
+      title={title}
+      description={description}
+      action={
+        <Button variant="secondary" size="sm" onClick={onRetry}>
+          {t('planning.loadError.retry')}
+        </Button>
+      }
+    />
+  );
+}
+
 /**
  * Weekly planner: a 7-column × time-slot grid of the center's recurring
  * sessions, colour-coded by subject, filterable by teacher / room / level (and
@@ -45,9 +71,12 @@ export function PlannerPage() {
 
   const hoursQuery = useCenterHours();
   const week = useMemo(() => query.data ?? [], [query.data]);
-  const hoursWeek = hoursQuery.data?.week;
-  const range = useMemo(() => deriveCenterHoursRange(hoursWeek ?? []), [hoursWeek]);
-  const closedDays = useMemo(() => deriveClosedDays(hoursWeek ?? []), [hoursWeek]);
+  // A fresh center persists no hours rows; fall back to the domain's seed week
+  // (09:00–18:00) so the grid agrees with the Settings form, not a hard-coded
+  // window (SOU-184).
+  const hoursWeek = hoursQuery.data?.week ?? DEFAULT_WEEKLY_HOURS;
+  const range = useMemo(() => deriveCenterHoursRange(hoursWeek), [hoursWeek]);
+  const closedDays = useMemo(() => deriveClosedDays(hoursWeek), [hoursWeek]);
   const filtered = useMemo(() => applyFilters(week, filters), [week, filters]);
 
   const locale = i18n.language;
@@ -85,18 +114,19 @@ export function PlannerPage() {
         </div>
       </header>
 
-      {query.isPending ? (
+      {hoursQuery.isError ? (
+        <PlannerLoadError
+          title={t('planning.hoursError.title')}
+          description={t('planning.hoursError.body')}
+          onRetry={() => void hoursQuery.refetch()}
+        />
+      ) : query.isPending || hoursQuery.isPending ? (
         <PlannerGridSkeleton />
       ) : query.isError ? (
-        <ErrorState
-          icon={<CalendarDays className="h-5 w-5" aria-hidden="true" />}
+        <PlannerLoadError
           title={t('planning.loadError.title')}
           description={t('planning.loadError.body')}
-          action={
-            <Button variant="secondary" size="sm" onClick={() => void query.refetch()}>
-              {t('planning.loadError.retry')}
-            </Button>
-          }
+          onRetry={() => void query.refetch()}
         />
       ) : (
         <>

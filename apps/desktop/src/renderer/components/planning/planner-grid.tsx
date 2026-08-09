@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { WEEKDAYS } from '@centresoutien/domain';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
-import type { TimeRange } from '../../lib/planning/time-range';
+import { hourLabel, type TimeRange } from '../../lib/planning/time-range';
 import { PlannerDayColumn } from './planner-day-column';
 
 /** One hour of the day occupies this many pixels; gutter and columns share it. */
@@ -19,11 +19,6 @@ type PlannerGridProps = {
   /** Shown centered over the grid when `sessions` is empty (week-empty vs no-match copy). */
   emptyLabel: string;
 };
-
-/** `8` → `'08:00'`. */
-function hourLabel(hour: number): string {
-  return `${String(hour).padStart(2, '0')}:00`;
-}
 
 function groupByDay(sessions: readonly PlannerSessionView[]): Map<number, PlannerSessionView[]> {
   const byDay = new Map<number, PlannerSessionView[]>();

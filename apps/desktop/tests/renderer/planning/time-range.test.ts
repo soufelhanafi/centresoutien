@@ -5,6 +5,7 @@ import {
   deriveCenterHoursRange,
   deriveClosedDays,
   blockPosition,
+  hourLabel,
   type GridBounds,
   type TimeRange,
 } from '../../../src/renderer/lib/planning/time-range';
@@ -107,6 +108,13 @@ describe('deriveCenterHoursRange', () => {
     const range: TimeRange = deriveCenterHoursRange(OPEN_WEEK);
     expect(range.hours).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]);
   });
+
+  it('ceils a close after 23:00 to the end-of-day boundary hour 24', () => {
+    const range: TimeRange = deriveCenterHoursRange([hoursRow(0, '09:00', '23:30')]);
+    expect(range.startHour).toBe(9);
+    expect(range.endHour).toBe(24);
+    expect(range.hours[range.hours.length - 1]).toBe(24);
+  });
 });
 
 describe('deriveClosedDays', () => {
@@ -138,5 +146,30 @@ describe('blockPosition', () => {
     const range = deriveCenterHoursRange([]);
     const pos = blockPosition(session({ start: '08:00', end: '09:00' }), range);
     expect(pos.topPercent).toBeCloseTo(0, 5);
+  });
+
+  it('clamps a session starting before the range to the top edge', () => {
+    const range = deriveCenterHoursRange([]); // 08:00–20:00
+    const pos = blockPosition(session({ start: '07:30', end: '08:30' }), range);
+    expect(pos.topPercent).toBe(0);
+    expect(pos.heightPercent).toBeCloseTo(4.17, 2);
+  });
+
+  it('clamps a session ending after the range to the bottom edge with zero height', () => {
+    const range = deriveCenterHoursRange([]); // 08:00–20:00
+    const pos = blockPosition(session({ start: '21:00', end: '22:00' }), range);
+    expect(pos.topPercent).toBe(100);
+    expect(pos.heightPercent).toBe(0);
+  });
+});
+
+describe('hourLabel', () => {
+  it('formats a whole hour as HH:00', () => {
+    expect(hourLabel(8)).toBe('08:00');
+    expect(hourLabel(19)).toBe('19:00');
+  });
+
+  it('renders the end-of-day boundary hour 24 as 24:00', () => {
+    expect(hourLabel(24)).toBe('24:00');
   });
 });

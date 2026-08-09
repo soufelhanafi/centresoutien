@@ -1244,6 +1244,10 @@
       "body": "Le chargement des séances a échoué.",
       "retry": "Réessayer"
     },
+    "hoursError": {
+      "title": "Impossible de charger les horaires d'ouverture",
+      "body": "La grille ne peut pas afficher les bonnes bornes sans les horaires du centre."
+    },
     "form": {
       "new": "Nouvelle séance",
       "createTitle": "Nouvelle séance",
