@@ -109,6 +109,6 @@ describe('LoginScreen (SOU-27)', () => {
 
     expect(await screen.findByText("Le nom d'utilisateur est requis")).toBeInTheDocument();
     expect(screen.getByText('Le mot de passe est requis')).toBeInTheDocument();
-    expect(invoke).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalledWith('auth.login', expect.anything());
   });
 });

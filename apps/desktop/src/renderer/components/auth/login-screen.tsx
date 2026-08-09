@@ -4,8 +4,8 @@ import { Button, Card, CardContent } from '@centresoutien/ui';
 import { LanguageToggle } from '../language-toggle';
 import { LoginForm } from './login-form';
 import { ForgotPasswordFlow } from './forgot-password/forgot-password-flow';
-import { DemoRestarting } from '../demo/demo-restarting';
 import { useCreateDemo } from '../../hooks/demo/use-create-demo';
+import { useDemoStatus } from '../../hooks/demo/use-demo-status';
 
 /**
  * The full-screen login page (SOU-27), shown by {@link AuthGate} when the device
@@ -13,12 +13,16 @@ import { useCreateDemo } from '../../hooks/demo/use-create-demo';
  * onboarding feel like one product. The language toggle stays reachable here — the
  * admin may want to switch before their first sign-in. The "forgot password" flow
  * (SOU-156) swaps into the same card so recovery feels part of one product. The
- * "Explorer la démo" entry (SOU-110) sits under the form and relaunches the app
- * into a seeded demo center; on success the card shows the restarting state.
+ * "Explorer la démo" entry (SOU-110) sits under the form and hot-swaps into a
+ * seeded demo center in place (SOU-186); on success the gates re-evaluate against
+ * the demo DB and drop the user straight in — no restart, no reload.
  */
 export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
   const { t } = useTranslation();
   const createDemo = useCreateDemo();
+  const demoStatus = useDemoStatus();
+  const isDemo = demoStatus.data?.isDemo === true;
+  const demoLogin = demoStatus.data?.demoLogin ?? null;
   const [view, setView] = useState<'login' | 'forgot'>('login');
 
   return (
@@ -32,18 +36,20 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
             <LanguageToggle />
           </div>
 
-          {createDemo.isSuccess ? (
-            <DemoRestarting />
-          ) : view === 'login' ? (
+          {view === 'login' ? (
             <>
               <header className="flex flex-col gap-1 text-center">
                 <h1 className="text-2xl font-semibold text-primary">{t('auth.title')}</h1>
                 <p className="text-sm text-muted-foreground">{t('auth.subtitle')}</p>
               </header>
               <LoginForm
+                key={isDemo ? 'demo' : 'real'}
                 onAuthenticated={onAuthenticated}
                 onForgotPassword={() => setView('forgot')}
+                isDemo={isDemo}
+                demoLogin={demoLogin}
               />
+              {!isDemo && (
               <div className="flex flex-col gap-2 border-t border-border pt-6">
                 <p className="text-center text-xs text-muted-foreground">
                   {t('auth.login.exploreDemoHint')}
@@ -51,10 +57,12 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={createDemo.isPending}
+                  disabled={createDemo.isPending || createDemo.isSuccess}
                   onClick={() => createDemo.mutate()}
                 >
-                  {createDemo.isPending ? t('demo.intro.creating') : t('auth.login.exploreDemo')}
+                  {createDemo.isPending || createDemo.isSuccess
+                    ? t('demo.intro.creating')
+                    : t('auth.login.exploreDemo')}
                 </Button>
                 {createDemo.isError && (
                   <p role="alert" className="text-center text-sm text-destructive">
@@ -62,6 +70,7 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
                   </p>
                 )}
               </div>
+              )}
             </>
           ) : (
             <ForgotPasswordFlow onClose={() => setView('login')} />

@@ -801,25 +801,38 @@ export const ipcContract = {
     response: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
   },
   // Demo mode (SOU-110): a sales tool that builds a SEPARATE, deterministic
-  // demo DB (`centreId: 'demo'`) and relaunches into it. `demo.status` reports
-  // whether the currently-open center IS the demo center (a cheap main-process
-  // read — the open centreId, never a DB scan). `demo.create` builds + seeds the
-  // demo DB (its own premium license, admin, ~150 students, mixed invoices,
-  // payroll history) then relaunches into demo mode; `demo.wipe` deletes every
-  // demo artefact (DB + WAL/SHM, hub store, logos, license) and relaunches back
-  // to the real center. Both return `{ relaunching: true }` — the app restarts,
-  // so the response is an ack, not a data payload.
+  // demo DB (`centreId: 'demo'`). `demo.status` reports whether the currently-open
+  // center IS the demo center (a cheap main-process read — the open centreId,
+  // never a DB scan). `demo.create` builds + seeds the demo DB (its own premium
+  // license, admin, ~150 students, mixed invoices, payroll history) then HOT-SWAPS
+  // the open center to it; `demo.wipe` swaps back to the real center then deletes
+  // every demo artefact (DB + WAL/SHM, hub store, logos, license).
+  //
+  // SOU-186: the swap NEVER restarts the OS process — main closes the current
+  // SQLCipher handle and opens the target through the same composition-root open
+  // path (a constrained center switch), then resolves. Both resolve with the
+  // resulting `{ isDemo }` (create → true, wipe → false) AFTER the swap completes,
+  // so the renderer invalidates its caches / resets its stores off the resolved
+  // promise without reloading the BrowserWindow.
+  // `demoLogin` carries the demo admin credentials for the login-screen prefill
+  // (SOU-186) — non-null ONLY when the open center IS the demo center AND main's
+  // `CS_DEMO_USERNAME` / `CS_DEMO_PASSWORD` are set; `null` otherwise. No
+  // credential literal lives in renderer or data-layer source; the values are
+  // read only in the main process and reach the renderer through this channel.
   'demo.status': {
     request: z.object({}),
-    response: z.object({ isDemo: z.boolean() }),
+    response: z.object({
+      isDemo: z.boolean(),
+      demoLogin: z.object({ username: z.string(), password: z.string() }).nullable(),
+    }),
   },
   'demo.create': {
     request: z.object({}),
-    response: z.object({ relaunching: z.literal(true) }),
+    response: z.object({ isDemo: z.boolean() }),
   },
   'demo.wipe': {
     request: z.object({}),
-    response: z.object({ relaunching: z.literal(true) }),
+    response: z.object({ isDemo: z.boolean() }),
   },
   // License activation (SOU-104). `license.status` reports the installed license's
   // resolved state (binding + expiry included) for the activation screen and
@@ -874,7 +887,7 @@ export const ipcContract = {
   // UI feature on would fire gated reads the domain still rejects.
   // DEV-ONLY (SOU-98): this entry types the dev bridge, but the main process
   // never wires the handler in a production build — `createHandlers` omits it and
-  // `registerIpc` skips absent channels, so an `invoke('plan.set', …)` from a
+  // `MainRuntime` skips absent channels, so an `invoke('plan.set', …)` from a
   // packaged renderer hits no `ipcMain.handle` and is rejected. It exists here so
   // the dev switcher stays typed; it grants no runtime capability in production.
   'plan.set': {
@@ -1943,7 +1956,7 @@ export type IpcHandlers = {
  * The handler map actually built and wired at runtime. `plan.set` is a dev-only
  * switcher (see its contract entry) and `sync.test.seedConflict` is an e2e-only
  * conflict seed (SOU-91): production builds omit both handlers, so they are
- * optional here. Everything else is mandatory. `registerIpc` skips any channel
+ * optional here. Everything else is mandatory. `MainRuntime` skips any channel
  * whose handler is absent, so a channel with no handler is never reachable.
  */
 export type RegisterableIpcHandlers = Omit<IpcHandlers, 'plan.set' | 'sync.test.seedConflict'> &

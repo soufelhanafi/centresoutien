@@ -768,6 +768,12 @@ export type HandlerDeps = BackupHandlerDeps &
   /** Demo mode (SOU-110) — wired only when `ContainerOptions.demo` is present. */
   demo: {
     isDemoCenter: boolean;
+    /**
+     * The demo login prefill for `demo.status` (SOU-186) — the env-provided
+     * credentials, returned only when the open center is the demo one AND the
+     * `CS_DEMO_*` vars are set; `null` otherwise. Never throws.
+     */
+    login: () => { username: string; password: string } | null;
     create: () => Promise<void>;
     wipe: () => Promise<void>;
   };
@@ -786,16 +792,19 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     'license.activate': (request) => deps.activateLicense.execute({ rawLicense: request.license }),
     // Demo mode (SOU-110). `demo.status` is a cheap main-process read of the open
     // centreId (never a DB scan). `demo.create`/`demo.wipe` drive the demo center
-    // orchestration (seeding / artefact deletion) and then schedule an app
-    // relaunch — the response is an ack (`relaunching: true`), not a data payload.
-    'demo.status': () => ({ isDemo: deps.demo.isDemoCenter }),
+    // orchestration (seeding / artefact deletion) and the SOU-186 in-place center
+    // hot-swap — no OS-process restart. Each resolves with the resulting open mode
+    // AFTER the swap completes: create → the demo center is open (`isDemo: true`),
+    // wipe → the real center is open (`isDemo: false`). A failed swap rejects and
+    // leaves the current center untouched.
+    'demo.status': () => ({ isDemo: deps.demo.isDemoCenter, demoLogin: deps.demo.login() }),
     'demo.create': async () => {
       await deps.demo.create();
-      return { relaunching: true };
+      return { isDemo: true };
     },
     'demo.wipe': async () => {
       await deps.demo.wipe();
-      return { relaunching: true };
+      return { isDemo: false };
     },
     'subject.create': async (request) => {
       const subject = await deps.createSubject.execute({ ...request, ...deps.envelopeContext() });
@@ -1573,7 +1582,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
   // constant electron-vite statically replaces with `false` in a production
   // build, so this block — and with it any runtime path that mutates PlanPolicy
   // — is tree-shaken out of the packaged main bundle. In production `plan.set`
-  // is never added, `registerIpc` skips the unwired channel, and a packaged
+  // is never added, `MainRuntime` skips the unwired channel, and a packaged
   // renderer's `invoke('plan.set', …)` hits no `ipcMain.handle` and is rejected.
   if (import.meta.env.DEV) {
     handlers['plan.set'] = (request) => {

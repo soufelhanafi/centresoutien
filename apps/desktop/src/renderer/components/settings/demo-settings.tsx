@@ -12,15 +12,14 @@ import {
 import { useCreateDemo } from '../../hooks/demo/use-create-demo';
 import { useDemoStatus } from '../../hooks/demo/use-demo-status';
 import { useWipeDemo } from '../../hooks/demo/use-wipe-demo';
-import { DemoRestarting } from '../demo/demo-restarting';
 import { DemoWipeDialog } from '../demo/demo-wipe-dialog';
 
 /**
  * "Mode démo" tab of the Settings page (SOU-110) — one of the two entry
  * points (the other is the login screen). NOT in demo: an explainer card plus
  * the create action. IN demo: an info card plus the destructive wipe action.
- * On success the response is `{ relaunching: true }` — the app restarts, so
- * the tab swaps to the restarting state and issues no further calls.
+ * On success the DB hot-swaps in place (SOU-186): the demo status refetches and
+ * the card flips to the other variant — no restart, no reload.
  */
 export function DemoSettings() {
   const { t } = useTranslation();
@@ -30,7 +29,6 @@ export function DemoSettings() {
   const [wipeOpen, setWipeOpen] = useState(false);
 
   const isDemo = status.data?.isDemo ?? false;
-  const restarting = create.isSuccess || wipe.isSuccess;
 
   return (
     <Card className="w-full max-w-2xl">
@@ -41,9 +39,7 @@ export function DemoSettings() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {restarting ? (
-          <DemoRestarting />
-        ) : status.isPending ? (
+        {status.isPending ? (
           <div className="flex items-center gap-3 py-4" aria-busy="true">
             <Loader2
               className="size-5 animate-spin text-primary motion-reduce:animate-none"
@@ -65,9 +61,9 @@ export function DemoSettings() {
               type="button"
               variant="destructive"
               onClick={() => setWipeOpen(true)}
-              disabled={wipe.isPending}
+              disabled={wipe.isPending || wipe.isSuccess}
             >
-              {wipe.isPending ? t('demo.active.wiping') : t('demo.active.wipe')}
+              {wipe.isPending || wipe.isSuccess ? t('demo.active.wiping') : t('demo.active.wipe')}
             </Button>
             {wipe.isError ? (
               <p role="alert" className="text-sm text-destructive">
@@ -77,8 +73,14 @@ export function DemoSettings() {
           </div>
         ) : (
           <div className="flex flex-col items-start gap-4">
-            <Button type="button" onClick={() => create.mutate()} disabled={create.isPending}>
-              {create.isPending ? t('demo.intro.creating') : t('demo.intro.create')}
+            <Button
+              type="button"
+              onClick={() => create.mutate()}
+              disabled={create.isPending || create.isSuccess}
+            >
+              {create.isPending || create.isSuccess
+                ? t('demo.intro.creating')
+                : t('demo.intro.create')}
             </Button>
             {create.isError ? (
               <p role="alert" className="text-sm text-destructive">

@@ -48,6 +48,12 @@ export type PrepareDemoCenterOptions = {
   appVersion: () => string;
   /** Restart callback the transient seed container receives (unused for seeding). */
   scheduleRestart: () => void;
+  /**
+   * The demo admin credentials to seed the login with (SOU-186), resolved from
+   * the environment by the main entry BEFORE seeding so seeding fails loud when
+   * they are unset. No credential literal ever lives in source.
+   */
+  admin: { username: string; password: string };
 };
 
 /**
@@ -104,6 +110,7 @@ export async function prepareDemoCenter(options: PrepareDemoCenterOptions): Prom
       updatedBy: envelope.updatedBy,
       db: container.db,
       seedPlan: 'premium',
+      admin: options.admin,
     });
   } finally {
     container.dispose();
@@ -142,9 +149,9 @@ export function wipeDemoArtefacts(dir: string, logoPath: string | null = null): 
   }
 }
 
-/** Resolve the demo center's logo path (its `centers.logo_path`) before wiping. */
+/** Resolve the demo center's logo path (its `center.logo_path`) before wiping. */
 export function readDemoLogoPath(db: DB): string | null {
-  const row = db.prepare('SELECT logo_path FROM centers LIMIT 1').get() as
+  const row = db.prepare('SELECT logo_path FROM center LIMIT 1').get() as
     | { logo_path: string | null }
     | undefined;
   return row?.logo_path ?? null;
