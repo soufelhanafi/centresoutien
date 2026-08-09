@@ -13,12 +13,7 @@ import { useUpgradePromptStore } from '../../stores/upgrade-prompt-store';
 import { minimumPlanFor } from '../../lib/plan/minimum-plan';
 import { openTarifs } from '../../lib/external/open-external';
 
-/**
- * The single upgrade dialog shared by every gated surface (SOU-85). It names the
- * plan that unlocks the feature, states the benefit, and links to the pricing
- * page in the default browser. Mounted once in the app shell; opened from any
- * CTA through `useUpgradePromptStore`.
- */
+/** The shared upgrade dialog; opened from any gated surface via `useUpgradePromptStore`. */
 export function UpgradeDialog() {
   const { t } = useTranslation();
   const feature = useUpgradePromptStore((state) => state.feature);
