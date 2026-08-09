@@ -8,6 +8,8 @@ type PlannerDayColumnProps = {
   range: TimeRange;
   /** Pixel height of one hour, shared with the gutter so rows align. */
   hourPx: number;
+  /** Closed days render hatched, aria-hidden, and drop their session blocks. */
+  closed: boolean;
   onSelect: (session: PlannerSessionView) => void;
 };
 
@@ -16,10 +18,27 @@ type PlannerDayColumnProps = {
  * repeating gradient, with each session absolutely positioned by time (top /
  * height) and by lane (inline-start / width) so overlaps sit side by side. The
  * grid mirrors the whole row of columns in RTL via `dir` — this column never
- * flips anything itself.
+ * flips anything itself. A closed day swaps the gridlines for a direction-neutral
+ * diagonal hatch and renders nothing interactive (SOU-184).
  */
-export function PlannerDayColumn({ sessions, range, hourPx, onSelect }: PlannerDayColumnProps) {
+export function PlannerDayColumn({ sessions, range, hourPx, closed, onSelect }: PlannerDayColumnProps) {
   const height = (range.endHour - range.startHour) * hourPx;
+
+  if (closed) {
+    return (
+      <div
+        aria-hidden="true"
+        className="pointer-events-none relative border-s border-border"
+        style={{
+          height,
+          backgroundColor: 'var(--muted)',
+          backgroundImage:
+            'repeating-linear-gradient(45deg, transparent, transparent 6px, var(--border) 6px, var(--border) 12px)',
+        }}
+      />
+    );
+  }
+
   const laidOut = layoutDaySessions(sessions);
 
   return (

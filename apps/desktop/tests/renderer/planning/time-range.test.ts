@@ -1,10 +1,29 @@
 import { describe, it, expect } from 'vitest';
 import {
   timeToMinutes,
-  deriveTimeRange,
+  getGridBounds,
+  deriveCenterHoursRange,
+  deriveClosedDays,
   blockPosition,
+  hourLabel,
+  type GridBounds,
+  type TimeRange,
 } from '../../../src/renderer/lib/planning/time-range';
-import { session } from './_fixtures';
+import type { CenterHoursWeek } from '../../../src/renderer/lib/center-hours';
+import { hoursRow, session } from './_fixtures';
+
+/** The hour labels `deriveCenterHoursRange` fills between two whole hours. */
+function hoursBetween(startHour: number, endHour: number): number[] {
+  const hours: number[] = [];
+  for (let h = startHour; h <= endHour; h += 1) hours.push(h);
+  return hours;
+}
+
+/** A fully open week so range tests focus on the hours they care about. */
+const OPEN_WEEK: CenterHoursWeek = [
+  hoursRow(0, '10:00', '18:00'),
+  hoursRow(1, '19:00', '22:00'),
+];
 
 describe('timeToMinutes', () => {
   it('converts HH:mm to minutes since midnight', () => {
@@ -14,35 +33,109 @@ describe('timeToMinutes', () => {
   });
 });
 
-describe('deriveTimeRange', () => {
-  it('falls back to the default 08:00–20:00 window when the week is empty', () => {
-    const range = deriveTimeRange([]);
-    expect(range.startHour).toBe(8);
-    expect(range.endHour).toBe(20);
-    expect(range.hours).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]);
+describe('getGridBounds', () => {
+  it.each<[string, CenterHoursWeek, GridBounds]>([
+    [
+      'unions across open days: earliest open to latest close',
+      OPEN_WEEK,
+      { start: 600, end: 1320 }, // 10:00–22:00
+    ],
+    [
+      'excludes closed days from both min and max',
+      [
+        hoursRow(0, '07:00', '18:00'),
+        hoursRow(1, null, '23:00'), // closed (open null) — must not pull end later
+        hoursRow(2, '05:00', null), // closed (close null) — must not pull start earlier
+        hoursRow(3, '09:00', '21:00'),
+      ],
+      { start: 420, end: 1260 }, // 07:00–21:00
+    ],
+    [
+      'falls back to 08:00–20:00 when every day is closed',
+      [hoursRow(0, null, null), hoursRow(1, null, null)],
+      { start: 480, end: 1200 },
+    ],
+    [
+      'falls back to 08:00–20:00 on an empty week',
+      [],
+      { start: 480, end: 1200 },
+    ],
+  ])('%s', (_label, week, expected) => {
+    expect(getGridBounds(week)).toEqual(expected);
+  });
+});
+
+describe('deriveCenterHoursRange', () => {
+  it.each<[string, CenterHoursWeek, number, number]>([
+    [
+      'spans the union of open days',
+      OPEN_WEEK,
+      10,
+      22,
+    ],
+    [
+      'floors the earliest opening time to a whole hour',
+      [hoursRow(0, '10:30', '18:00')],
+      10,
+      18,
+    ],
+    [
+      'ceils the latest closing time to a whole hour',
+      [hoursRow(0, '09:00', '21:45')],
+      9,
+      22,
+    ],
+    [
+      'falls back to 08:00–20:00 when no day is open',
+      [hoursRow(0, null, null)],
+      8,
+      20,
+    ],
+    [
+      'falls back to 08:00–20:00 on an empty week',
+      [],
+      8,
+      20,
+    ],
+  ])('%s', (_label, week, startHour, endHour) => {
+    const range = deriveCenterHoursRange(week);
+    expect(range.startHour).toBe(startHour);
+    expect(range.endHour).toBe(endHour);
+    expect(range.hours).toEqual(hoursBetween(startHour, endHour));
   });
 
-  it('extends the window to fit an early start and a late end, never clipping', () => {
-    const range = deriveTimeRange([
-      session({ start: '07:15', end: '08:15' }),
-      session({ start: '20:30', end: '21:15' }),
+  it('fills every hour label between the floored and ceiled bounds, inclusive', () => {
+    const range: TimeRange = deriveCenterHoursRange(OPEN_WEEK);
+    expect(range.hours).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]);
+  });
+
+  it('ceils a close after 23:00 to the end-of-day boundary hour 24', () => {
+    const range: TimeRange = deriveCenterHoursRange([hoursRow(0, '09:00', '23:30')]);
+    expect(range.startHour).toBe(9);
+    expect(range.endHour).toBe(24);
+    expect(range.hours[range.hours.length - 1]).toBe(24);
+  });
+});
+
+describe('deriveClosedDays', () => {
+  it('returns the day indexes whose rows are closed', () => {
+    const closed = deriveClosedDays([
+      hoursRow(0, '09:00', '18:00'),
+      hoursRow(1, null, null),
+      hoursRow(2, '09:00', null),
+      hoursRow(3, null, '18:00'),
     ]);
-    expect(range.startHour).toBe(7); // floor(07:15)
-    expect(range.endHour).toBe(22); // ceil(21:15)
-    expect(range.hours[0]).toBe(7);
-    expect(range.hours.at(-1)).toBe(22);
+    expect([...closed].sort()).toEqual([1, 2, 3]);
   });
 
-  it('keeps the default window when sessions fit inside it', () => {
-    const range = deriveTimeRange([session({ start: '10:00', end: '11:00' })]);
-    expect(range.startHour).toBe(8);
-    expect(range.endHour).toBe(20);
+  it('returns an empty set for an empty week', () => {
+    expect([...deriveClosedDays([])]).toEqual([]);
   });
 });
 
 describe('blockPosition', () => {
   it('places a block as a percentage of the visible range height', () => {
-    const range = deriveTimeRange([]); // 08:00–20:00, 720 min tall
+    const range = deriveCenterHoursRange([]); // 08:00–20:00, 720 min tall
     const pos = blockPosition(session({ start: '09:00', end: '10:00' }), range);
     // (540-480)/720 = 8.33% top, one hour = 8.33% height
     expect(pos.topPercent).toBeCloseTo(8.333, 2);
@@ -50,8 +143,47 @@ describe('blockPosition', () => {
   });
 
   it('positions the first visible hour at the top edge', () => {
-    const range = deriveTimeRange([]);
+    const range = deriveCenterHoursRange([]);
     const pos = blockPosition(session({ start: '08:00', end: '09:00' }), range);
     expect(pos.topPercent).toBeCloseTo(0, 5);
+  });
+
+  it('clamps a session starting before the range to the top edge', () => {
+    const range = deriveCenterHoursRange([]); // 08:00–20:00
+    const pos = blockPosition(session({ start: '07:30', end: '08:30' }), range);
+    expect(pos.topPercent).toBe(0);
+    expect(pos.heightPercent).toBeCloseTo(4.17, 2);
+  });
+
+  it('pins a session fully after the range to a bottom-edge sliver', () => {
+    const range = deriveCenterHoursRange([]); // 08:00–20:00
+    const pos = blockPosition(session({ start: '21:00', end: '22:00' }), range);
+    expect(pos.topPercent).toBe(98);
+    expect(pos.heightPercent).toBe(2);
+  });
+
+  it('pins a session fully before the range to a top-edge sliver', () => {
+    const range = deriveCenterHoursRange([]); // 08:00–20:00
+    const pos = blockPosition(session({ start: '07:00', end: '07:30' }), range);
+    expect(pos.topPercent).toBe(0);
+    expect(pos.heightPercent).toBe(2);
+  });
+
+  it('keeps a session straddling the top edge clamped, with its in-range height', () => {
+    const range = deriveCenterHoursRange([]); // 08:00–20:00
+    const pos = blockPosition(session({ start: '07:30', end: '09:00' }), range);
+    expect(pos.topPercent).toBe(0);
+    expect(pos.heightPercent).toBeCloseTo(8.33, 2);
+  });
+});
+
+describe('hourLabel', () => {
+  it('formats a whole hour as HH:00', () => {
+    expect(hourLabel(8)).toBe('08:00');
+    expect(hourLabel(19)).toBe('19:00');
+  });
+
+  it('renders the end-of-day boundary hour 24 as 24:00', () => {
+    expect(hourLabel(24)).toBe('24:00');
   });
 });
