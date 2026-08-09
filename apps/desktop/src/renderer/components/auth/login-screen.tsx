@@ -4,8 +4,11 @@ import { Button, Card, CardContent } from '@centresoutien/ui';
 import { LanguageToggle } from '../language-toggle';
 import { LoginForm } from './login-form';
 import { ForgotPasswordFlow } from './forgot-password/forgot-password-flow';
+import { LoginCenterSelector } from './login-center-selector';
 import { DemoRestarting } from '../demo/demo-restarting';
 import { useCreateDemo } from '../../hooks/demo/use-create-demo';
+import { useFeature } from '../../hooks/use-feature';
+import { useCenters } from '../../hooks/center/use-centers';
 
 /**
  * The full-screen login page (SOU-27), shown by {@link AuthGate} when the device
@@ -19,7 +22,19 @@ import { useCreateDemo } from '../../hooks/demo/use-create-demo';
 export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
   const { t } = useTranslation();
   const createDemo = useCreateDemo();
-  const [view, setView] = useState<'login' | 'forgot'>('login');
+  const [view, setView] = useState<'login' | 'forgot' | 'selectCenter'>('login');
+  const canMultiCenter = useFeature('org.multi-center');
+  const centers = useCenters({ enabled: canMultiCenter });
+
+  // A Premium user with more than one local center picks which to enter before
+  // the app loads (SOU-96); everyone else goes straight in.
+  const handleAuthenticated = () => {
+    if (canMultiCenter && (centers.data?.length ?? 0) > 1) {
+      setView('selectCenter');
+    } else {
+      onAuthenticated();
+    }
+  };
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 p-6">
@@ -34,6 +49,8 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
 
           {createDemo.isSuccess ? (
             <DemoRestarting />
+          ) : view === 'selectCenter' ? (
+            <LoginCenterSelector onSelected={onAuthenticated} />
           ) : view === 'login' ? (
             <>
               <header className="flex flex-col gap-1 text-center">
@@ -41,7 +58,7 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
                 <p className="text-sm text-muted-foreground">{t('auth.subtitle')}</p>
               </header>
               <LoginForm
-                onAuthenticated={onAuthenticated}
+                onAuthenticated={handleAuthenticated}
                 onForgotPassword={() => setView('forgot')}
               />
               <div className="flex flex-col gap-2 border-t border-border pt-6">
