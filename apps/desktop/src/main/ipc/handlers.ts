@@ -153,6 +153,7 @@ import type { LocalePreference } from '../infra/locale-preference-store';
 import { createBackupHandlers, type BackupHandlerDeps } from './backup-handlers';
 import { createBackupExcelHandlers, type BackupExcelHandlerDeps } from './backup-excel-handlers';
 import { createDialogHandlers } from './dialog-handlers';
+import { createExternalHandlers } from './external-handlers';
 import { createInvoiceHandlers, type InvoiceHandlerDeps } from './invoice-handlers';
 import {
   createOverdueInvoiceHandlers,
@@ -1558,6 +1559,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     ...createBackupHandlers(deps),
     ...createBackupExcelHandlers(deps),
     ...createDialogHandlers(deps.dialogPaths),
+    ...createExternalHandlers(),
     ...createInvoiceHandlers(deps),
     ...createOverdueInvoiceHandlers(deps),
     ...createPayslipHandlers(deps),

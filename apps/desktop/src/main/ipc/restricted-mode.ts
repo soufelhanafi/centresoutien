@@ -50,6 +50,11 @@ export const RESTRICTED_MODE_ALWAYS_ALLOWED: ReadonlySet<IpcChannel> = new Set<I
   'demo.status',
   'demo.create',
   'demo.wipe',
+  // Upgrade CTA / pricing link (SOU-85). A lapsed or unlicensed center must be
+  // able to reach the landing page to renew or upgrade — the whole point of the
+  // CTA. Safe under restriction: the host is hard-whitelisted to centresoutien.com
+  // and the channel touches no center data, it only hands a URL to the OS browser.
+  'external.open',
 ]);
 
 export const RESTRICTED_MODE_BOOTSTRAP_CHANNELS: ReadonlySet<IpcChannel> = new Set<IpcChannel>([
