@@ -7,7 +7,9 @@ import {
   DuplicateMatcher,
   PLANS,
   PlanPolicy,
+  ResolveConflict,
   SyncEngine,
+  type ConflictResolution,
   type CenterCode,
   type Clock,
   type DeviceId,
@@ -140,8 +142,12 @@ class Device {
   private readonly outbox: ChangeLogOutbox;
   private readonly engine: SyncEngine;
   private readonly matcher: DuplicateMatcher;
+  private readonly userId: UserId;
+  private readonly deviceId: DeviceId;
 
   constructor(deviceId: DeviceId, userId: UserId, hubPort: number) {
+    this.userId = userId;
+    this.deviceId = deviceId;
     this.dir = mkdtempSync(join(tmpdir(), `cs-device-${deviceId.slice(-1)}-`));
     this.db = openDatabase({ centreId: 'local', key: KEY, dir: this.dir });
     runMigrations(this.db, REAL_MIGRATIONS);
@@ -181,6 +187,17 @@ class Device {
 
   firstBlockedKind(): string | undefined {
     return this.local.listBlocked()[0]?.kind;
+  }
+
+  /** The "conflits en attente" action, wired exactly as the composition root does. */
+  resolveSessionConflict(entityId: SessionId, resolution: ConflictResolution): void {
+    new ResolveConflict(this.local, clock, new PlanPolicy(PLANS.premium), this.local).execute({
+      entityType: 'sessions',
+      entityId,
+      deviceId: this.deviceId,
+      updatedBy: this.userId,
+      resolution,
+    });
   }
 
   dispose(): void {
@@ -466,5 +483,93 @@ describe('session natural-key collision (SOU-188)', () => {
     // The user's room edit survived; absorb never clobbered it.
     const onB = await b.sessions.findById(SESSION_HI);
     expect(onB?.roomId).toBe('rom_00000000000000000000000009');
+  });
+});
+
+/**
+ * SOU-194 — resolving a session natural-key conflict must be natural-key-aware:
+ * the human's choice survives under the lower-ULID WINNER id with the loser
+ * retired. Without this, take-theirs re-wedges `ux_sessions_recurrence_date` at
+ * the next `markSynced` projection and take-mine leaves the winner silently
+ * un-applied (the cursor consumed it) — permanent divergence. Each scenario
+ * drives a real conflict on B, resolves it through the real `ResolveConflict`,
+ * then syncs both devices to convergence.
+ */
+describe('session natural-key conflict resolution (SOU-194)', () => {
+  const SESSION_LO = SESSION; // lower ULID
+  const SESSION_HI = 'ses_00000000000000000000000002' as SessionId;
+  const STUDENT = 'stu_00000000000000000000000001' as StudentId;
+  const ATT = 'att_00000000000000000000000001';
+
+  function insertAttendance(device: Device, sessionId: SessionId): void {
+    device.db
+      .prepare(
+        `INSERT INTO attendance_records
+           (id, center_code, device_origin, created_at, updated_at, updated_by,
+            deleted_at, version, session_id, student_id, status, note)
+         VALUES (?, ?, ?, ?, ?, ?, NULL, 0, ?, ?, 'present', NULL)`,
+      )
+      .run(ATT, CENTER, DEV_B, AT.toISOString(), AT.toISOString(), USER_B, sessionId, STUDENT);
+  }
+
+  /** A deletes the winner, B holds the loser live → delete-vs-edit blocked on B. */
+  async function deleteVsEditOnB(): Promise<void> {
+    await a.sessions.save(makeSession({ id: SESSION_LO }));
+    await a.sessions.softDelete(SESSION_LO, new Date('2026-08-02T00:00:00Z'), USER_A);
+    await a.sync();
+    await b.sessions.save(makeSession({ id: SESSION_HI, deviceOrigin: DEV_B, updatedBy: USER_B }));
+    await b.sync();
+    expect(b.blockedCount()).toBe(1);
+    expect(b.firstBlockedKind()).toBe('delete-vs-edit');
+  }
+
+  it('take-theirs converges both devices on the winner id — no unique-index wedge', async () => {
+    await deleteVsEditOnB();
+
+    b.resolveSessionConflict(SESSION_HI, { choice: 'take-theirs' });
+    await b.sync(); // the resolution push is accepted, not stale-rejected
+    await a.sync(); // A converges on the winner id
+
+    expect(b.blockedCount()).toBe(0);
+    // One row per natural key on B, under the lower-ULID winner — the cancel
+    // survived as a tombstone (findById/listForRange exclude it by design).
+    const onB = await b.sessions.listChangedSince(AT);
+    expect(onB.filter((s) => s.recurringSessionId === WRS)).toHaveLength(1);
+    expect(onB.find((s) => s.id === SESSION_LO)?.deletedAt).toEqual(new Date('2026-08-02T00:00:00Z'));
+    expect(onB.find((s) => s.id === SESSION_HI)).toBeUndefined();
+    expect(await b.sessions.findById(SESSION_LO)).toBeNull();
+    // The cancel (their version) is the survivor on A too — no divergence.
+    expect(await a.sessions.findById(SESSION_LO)).toBeNull();
+    expect(await a.sessions.findById(SESSION_HI)).toBeNull();
+  });
+
+  it('take-mine keeps the local live occurrence, surviving under the winner id', async () => {
+    await deleteVsEditOnB();
+
+    b.resolveSessionConflict(SESSION_HI, { choice: 'take-mine' });
+    await b.sync();
+    await a.sync();
+
+    expect(b.blockedCount()).toBe(0);
+    const onB = await b.sessions.listForRange(CENTER, { start: '2026-09-01', end: '2026-09-30' });
+    expect(onB).toHaveLength(1);
+    expect(onB[0]?.id).toBe(SESSION_LO);
+    expect(onB[0]?.deletedAt).toBeNull(); // B's "keep the occurrence" won, under the winner id
+    // A resurrects the occurrence it had cancelled — the human's choice propagates.
+    expect((await a.sessions.findById(SESSION_LO))?.deletedAt).toBeNull();
+    expect(await a.sessions.findById(SESSION_HI)).toBeNull();
+  });
+
+  it('attendance on the absorbed session is re-pointed to the winner after resolution', async () => {
+    await deleteVsEditOnB();
+    insertAttendance(b, SESSION_HI); // B already took roll-call on its losing occurrence
+
+    b.resolveSessionConflict(SESSION_HI, { choice: 'take-mine' });
+    await b.sync(); // the resolution rewrote the loser row to the winner id
+
+    const row = b.db
+      .prepare('SELECT session_id FROM attendance_records WHERE id = ?')
+      .get(ATT) as { session_id: string };
+    expect(row.session_id).toBe(SESSION_LO);
   });
 });
