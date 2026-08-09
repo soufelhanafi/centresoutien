@@ -220,15 +220,19 @@ app.whenReady().then(async () => {
             // demo mode is unavailable without them; the rest of the app is fine.
             const admin = demoAdminCredentials();
             const demoKey = centerDbKey(dir, DEMO_CENTRE_ID).key;
-            if (!demoCenterSeeded(dir, demoKey)) {
-              await prepareDemoCenter({
-                dir,
-                demoKey,
-                appVersion: () => app.getVersion(),
-                scheduleRestart,
-                admin,
-              });
-            }
+            // Always (re)seed on entry rather than trusting an existing seeded
+            // marker: prepareDemoCenter wipes any previous demo artefacts then
+            // seeds the deterministic dataset from scratch. This is what makes the
+            // wipe's best-effort cleanup safe — a prior wipe that failed to delete
+            // a locked demo DB cannot make the next entry reopen that stale session
+            // (Greptile P1). Seeding is deterministic, so re-entry is byte-identical.
+            await prepareDemoCenter({
+              dir,
+              demoKey,
+              appVersion: () => app.getVersion(),
+              scheduleRestart,
+              admin,
+            });
             await runtime?.swapTo(() => openCenter('demo'));
           },
           wipe: async () => {
