@@ -210,6 +210,12 @@ app.whenReady().then(async () => {
         // opens the target via this same `openCenter`, with NO process restart.
         demo: {
           isDemoCenter: isDemo,
+          // SOU-190: whether THIS laptop is the active LAN hub host — the env
+          // config intent resolved once at startup (`hubServer !== null`), a stable
+          // process-level fact. The demo container never wires a hub, so a demo swap
+          // stops the embedded hub for the demo's duration; this flag is what lets
+          // the renderer warn teammates' sync is about to be cut before `demo.create`.
+          isHubHost: hubServer !== null,
           // The demo login prefill the renderer reads from `demo.status` (SOU-186):
           // the env-provided creds, but only when the OPEN center is the demo one —
           // a real center never leaks them. Null when the env vars are unset.

@@ -840,11 +840,15 @@ export const ipcContract = {
   // `CS_DEMO_USERNAME` / `CS_DEMO_PASSWORD` are set; `null` otherwise. No
   // credential literal lives in renderer or data-layer source; the values are
   // read only in the main process and reach the renderer through this channel.
+  // `isHubHost` (SOU-190) reports whether THIS laptop is the LAN hub host — a
+  // stable process-level fact (hub wired at startup), so the renderer can confirm
+  // before `demo.create` stops the embedded hub and cuts off teammates' sync.
   'demo.status': {
     request: z.object({}),
     response: z.object({
       isDemo: z.boolean(),
       demoLogin: z.object({ username: z.string(), password: z.string() }).nullable(),
+      isHubHost: z.boolean(),
     }),
   },
   'demo.create': {
