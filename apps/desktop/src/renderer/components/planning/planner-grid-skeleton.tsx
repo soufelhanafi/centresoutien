@@ -1,12 +1,15 @@
-import { Skeleton } from '@centresoutien/ui';
+import { Skeleton, cn } from '@centresoutien/ui';
 import { WEEKDAYS } from '@centresoutien/domain';
 
 const GRID_COLUMNS = '3.5rem repeat(7, minmax(0, 1fr))';
 
 /** Loading placeholder that mirrors the grid frame so the layout doesn't jump. */
-export function PlannerGridSkeleton() {
+export function PlannerGridSkeleton({ className }: { className?: string }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card" aria-hidden="true">
+    <div
+      className={cn('overflow-hidden rounded-xl border border-border bg-card', className)}
+      aria-hidden="true"
+    >
       <div className="grid min-w-[720px]" style={{ gridTemplateColumns: GRID_COLUMNS }}>
         <div className="border-b border-border p-2" />
         {WEEKDAYS.map((day) => (

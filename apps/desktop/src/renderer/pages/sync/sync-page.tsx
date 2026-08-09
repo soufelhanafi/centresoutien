@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
-import { Dialog, DialogTrigger, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState } from '@centresoutien/ui';
+import { Dialog, DialogTrigger, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState, LockOverlay } from '@centresoutien/ui';
+import { useFeature } from '../../hooks/use-feature';
 import { useRunSync, useBlockedConflicts } from '../../hooks/sync/use-sync';
 import { ConflictPopup } from '../../components/sync/conflict-popup';
 
@@ -13,8 +14,9 @@ import { ConflictPopup } from '../../components/sync/conflict-popup';
  */
 export function SyncPage() {
   const { t } = useTranslation();
+  const hasSync = useFeature('sync.multi-device');
   const run = useRunSync();
-  const conflicts = useBlockedConflicts();
+  const conflicts = useBlockedConflicts({ enabled: hasSync });
   const [popupOpen, setPopupOpen] = useState(false);
 
   const blocked = conflicts.data ?? [];
@@ -24,7 +26,7 @@ export function SyncPage() {
     void run.mutateAsync().then(() => setPopupOpen(true));
   };
 
-  return (
+  const content = (
     <section aria-labelledby="sync-title" className="mx-auto flex w-full max-w-4xl flex-col gap-5">
       <header className="space-y-1">
         <h1 id="sync-title" className="text-xl font-semibold text-foreground">
@@ -101,6 +103,18 @@ export function SyncPage() {
       </Card>
     </section>
   );
+
+  if (!hasSync) {
+    return (
+      <div className="mx-auto w-full max-w-4xl">
+        <LockOverlay title={t('nav.sync')} description={t('plan.locked')}>
+          <div className="p-8">{content}</div>
+        </LockOverlay>
+      </div>
+    );
+  }
+
+  return content;
 }
 
 function conflictKey(conflict: {

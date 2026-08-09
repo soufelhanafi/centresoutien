@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { WEEKDAYS } from '@centresoutien/domain';
+import { cn } from '@centresoutien/ui';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 import { hourLabel, type TimeRange } from '../../lib/planning/time-range';
 import { PlannerDayColumn } from './planner-day-column';
@@ -18,6 +19,8 @@ type PlannerGridProps = {
   onSelect: (session: PlannerSessionView) => void;
   /** Shown centered over the grid when `sessions` is empty (week-empty vs no-match copy). */
   emptyLabel: string;
+  /** Layout classes from the page so the grid can be the only scrollable region (SOU-185). */
+  className?: string;
 };
 
 function groupByDay(sessions: readonly PlannerSessionView[]): Map<number, PlannerSessionView[]> {
@@ -36,13 +39,13 @@ function groupByDay(sessions: readonly PlannerSessionView[]): Map<number, Planne
  * `WEEKDAYS`; RTL mirroring (Sunday on the right, headers flipped) is done once
  * by `dir="rtl"` on `<html>`, never by reversing the array here (CLAUDE.md §8).
  */
-export function PlannerGrid({ sessions, range, closedDays, onSelect, emptyLabel }: PlannerGridProps) {
+export function PlannerGrid({ sessions, range, closedDays, onSelect, emptyLabel, className }: PlannerGridProps) {
   const { t } = useTranslation();
   const byDay = groupByDay(sessions);
   const bodyHeight = (range.endHour - range.startHour) * HOUR_PX;
 
   return (
-    <div className="relative overflow-auto rounded-xl border border-border bg-card">
+    <div className={cn('relative overflow-auto rounded-xl border border-border bg-card', className)}>
       <div className="grid min-w-[720px]" style={{ gridTemplateColumns: GRID_COLUMNS }}>
         {/* Header row: corner + seven day names. */}
         <div className="sticky top-0 z-10 border-b border-border bg-card" />

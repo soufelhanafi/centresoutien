@@ -8,6 +8,7 @@ import type { DuplicateMatcher } from './duplicate-matcher';
 import { SCHEMA_VERSION } from './schema-version';
 import { ChangeResolver } from './resolve-changes';
 import type { LocalSyncRepository } from './sync-local-repository';
+import type { SubjectCodeCollision, SubjectCodeCollisionStore } from './subject-code-collision';
 
 /**
  * The sync cycle: **pull → resolve → push** (SOU-80 §3). Every sync, in that
@@ -52,6 +53,13 @@ export type SyncEngineInput = {
    * inbox for an admin (`queued`).
    */
   userCanResolve: boolean;
+  /**
+   * Subject-code clash reads/writes (SOU-122). When wired, a subject apply whose
+   * code collides with a different live local subject is auto-resolved (lower
+   * ULID keeps the code) instead of throwing the unique-index constraint. Omit
+   * to fall back to plain applies (e.g. tests with no subject store).
+   */
+  subjectCollisionStore?: SubjectCodeCollisionStore;
   /** Total pull→resolve→push attempts before giving up (default `MAX_SYNC_ATTEMPTS`). */
   maxAttempts?: number;
 };
@@ -63,6 +71,11 @@ export type SyncResult = {
   /** Entities pushed and accepted by the hub. */
   readonly pushed: number;
   readonly conflicts: readonly SyncConflict[];
+  /**
+   * Subject-code clashes auto-resolved this run (SOU-122) — deterministic, no
+   * human needed. Surfaced so a future admin nudge / log can report them.
+   */
+  readonly subjectCodeCollisions: readonly SubjectCodeCollision[];
   readonly cursor: SyncCursor | null;
   /** True when the device clock diverged absurdly from the hub's — flagged, not trusted. */
   readonly deviceClockSkew: boolean;
@@ -91,13 +104,21 @@ export class SyncEngine {
     this.centreId = input.centreId;
     this.userCanResolve = input.userCanResolve;
     this.maxAttempts = input.maxAttempts ?? MAX_SYNC_ATTEMPTS;
-    this.resolver = new ChangeResolver(input.local, input.clock, input.deviceId, input.updatedBy, input.centreId);
+    this.resolver = new ChangeResolver(
+      input.local,
+      input.clock,
+      input.deviceId,
+      input.updatedBy,
+      input.centreId,
+      input.subjectCollisionStore ?? null,
+    );
   }
 
   async run(matcher: DuplicateMatcher): Promise<SyncResult> {
     this.plan.require('sync.multi-device');
 
     const conflicts: SyncConflict[] = [];
+    const collisions: SubjectCodeCollision[] = [];
     let applied = 0;
     let pushed = 0;
     let deviceClockSkew = false;
@@ -117,13 +138,13 @@ export class SyncEngine {
       }
       deviceClockSkew = deviceClockSkew || this.isClockSkewed(batch.hubTime);
 
-      applied += this.resolver.resolveBatch(batch.changes, conflicts, matcher);
+      applied += this.resolver.resolveBatch(batch.changes, conflicts, matcher, collisions);
 
       const push = await this.pushPending(batch.cursor);
       pushed += push.pushed;
       if (push.status === 'accepted') {
         this.local.setCursor(push.cursor);
-        return this.result('synced', applied, pushed, conflicts, push.cursor, deviceClockSkew);
+        return this.result('synced', applied, pushed, conflicts, collisions, push.cursor, deviceClockSkew);
       }
       // Rejected-stale: a concurrent sync won the version race for some entity.
       // Cursor is unchanged, so the next pull re-delivers the winning change and
@@ -132,7 +153,7 @@ export class SyncEngine {
     }
 
     this.local.setCursor(cursor ?? { seq: 0 });
-    return this.result('retries-exhausted', applied, pushed, conflicts, cursor, deviceClockSkew);
+    return this.result('retries-exhausted', applied, pushed, conflicts, collisions, cursor, deviceClockSkew);
   }
 
   private result(
@@ -140,6 +161,7 @@ export class SyncEngine {
     applied: number,
     pushed: number,
     conflicts: readonly SyncConflict[],
+    subjectCodeCollisions: readonly SubjectCodeCollision[],
     cursor: SyncCursor | null,
     deviceClockSkew: boolean,
   ): SyncResult {
@@ -148,6 +170,7 @@ export class SyncEngine {
       applied,
       pushed,
       conflicts,
+      subjectCodeCollisions,
       cursor,
       deviceClockSkew,
       resolutionPermission: this.userCanResolve ? 'granted' : 'queued',

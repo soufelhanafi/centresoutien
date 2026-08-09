@@ -9,17 +9,26 @@ import type {
   UserId,
   EntityId,
   LocalSyncRepository,
+  PlanPolicy,
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 
 export type SyncEngineRunner = Pick<SyncEngine, 'run'>;
 export type ResolveConflictUseCase = Pick<ResolveConflict, 'execute'>;
+/** The domain-side plan gate for the multi-device sync path (CLAUDE.md §4 rule 1).
+ *  `sync.run` / `sync.conflicts.list` call `require('sync.multi-device')` before
+ *  any hub/engine work, so an ungated plan throws `PlanFeatureUnavailableError` —
+ *  the renderer's `useFeature` hiding is only cosmetic on top of this. */
+export type SyncPlanGate = Pick<PlanPolicy, 'require'>;
 export type ListBlockedConflicts = () => readonly SyncConflict[];
 /** Drains this device's local `change_log` writes into pushable pending changes
  *  (SOU-180) so a real user edit gets pushed. Ran before the engine each sync. */
 export type LocalOutbox = { drain: () => void };
 
 export type SyncHandlerDeps = {
+  /** The domain plan gate — `sync.run` and `sync.conflicts.list` require
+   *  `sync.multi-device` through it before touching the hub or the engine. */
+  plan: SyncPlanGate;
   /** Runs one pull → resolve → push cycle against the wired hub, or null when
    *  no hub is configured (the sync page then shows a "not paired" state). */
   syncEngine: SyncEngineRunner | null;
@@ -49,6 +58,7 @@ export function createSyncHandlers(deps: SyncHandlerDeps): Pick<
 > {
   return {
     'sync.run': async () => {
+      deps.plan.require('sync.multi-device');
       if (deps.syncEngine === null || deps.matcher === null) {
         return { result: null };
       }
@@ -67,9 +77,10 @@ export function createSyncHandlers(deps: SyncHandlerDeps): Pick<
         },
       };
     },
-    'sync.conflicts.list': () => ({
-      conflicts: deps.listBlockedConflicts().map(toConflictView),
-    }),
+    'sync.conflicts.list': () => {
+      deps.plan.require('sync.multi-device');
+      return { conflicts: deps.listBlockedConflicts().map(toConflictView) };
+    },
     'sync.conflict.resolve': async (request) => {
       // The domain `ResolveConflict` use case is the real permission gate —
       // this handler just forwards the human's choice.
