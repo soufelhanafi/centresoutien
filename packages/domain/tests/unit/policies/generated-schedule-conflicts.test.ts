@@ -15,6 +15,8 @@ const G3 = 'grp_00000000000000000000000003' as GroupId;
 
 const ROOM_A = 'rom_00000000000000000000000001' as RoomId;
 const ROOM_B = 'rom_00000000000000000000000002' as RoomId;
+const TEACHER_A = 'tea_00000000000000000000000001' as EntityId;
+const TEACHER_B = 'tea_00000000000000000000000002' as EntityId;
 
 const MON = 1 as WeekdayIndex;
 
@@ -29,22 +31,25 @@ function block(
   start: string,
   end: string,
   dayOfWeek: WeekdayIndex = MON,
+  teacherId: EntityId | null = null,
 ): GeneratedBlockCandidate {
   return {
     groupId,
     roomId,
+    teacherId,
     block: { dayOfWeek, start: start as TimeOfDay, end: end as TimeOfDay },
   };
 }
 
-function existingRef(roomId: RoomId, start: string, end: string): ScheduledSessionRef {
-  return {
+function existingRef(roomId: RoomId, start: string, end: string, teacherId?: EntityId): ScheduledSessionRef {
+  const ref: ScheduledSessionRef = {
     id: 'ses_existing' as EntityId,
     roomId,
     dayOfWeek: MON,
     start: start as TimeOfDay,
     end: end as TimeOfDay,
   };
+  return teacherId === undefined ? ref : { ...ref, teacherId };
 }
 
 describe('detectGeneratedScheduleConflicts', () => {
@@ -155,6 +160,60 @@ describe('detectGeneratedScheduleConflicts', () => {
         centerHours,
       );
       expect(result.map((c) => c.groupId).sort()).toEqual([G1, G3]);
+    });
+  });
+
+  describe('teacher conflict against the already-committed schedule', () => {
+    it('flags a generated block overlapping an existing session for the same teacher', () => {
+      const result = detectGeneratedScheduleConflicts(
+        [block(G1, ROOM_A, '09:00', '10:30', MON, TEACHER_A)],
+        [existingRef(ROOM_B, '10:00', '11:00', TEACHER_A)],
+        centerHours,
+      );
+
+      expect(result).toEqual([
+        {
+          kind: 'teacher',
+          groupId: G1,
+          start: '09:00',
+          end: '10:30',
+          error: expect.objectContaining({ teacherId: TEACHER_A }),
+        },
+      ]);
+    });
+
+    it('does not flag teacher conflict when candidate teacher is null or different', () => {
+      const nullTeacher = detectGeneratedScheduleConflicts(
+        [block(G1, ROOM_A, '09:00', '10:30')],
+        [existingRef(ROOM_B, '09:00', '10:30', TEACHER_A)],
+        centerHours,
+      );
+      const differentTeacher = detectGeneratedScheduleConflicts(
+        [block(G1, ROOM_A, '09:00', '10:30', MON, TEACHER_B)],
+        [existingRef(ROOM_B, '09:00', '10:30', TEACHER_A)],
+        centerHours,
+      );
+
+      expect(nullTeacher).toEqual([]);
+      expect(differentTeacher).toEqual([]);
+    });
+  });
+
+  describe('teacher conflict between generated sibling proposals', () => {
+    it('flags both generated blocks when the same teacher overlaps in different rooms', () => {
+      const result = detectGeneratedScheduleConflicts(
+        [
+          block(G1, ROOM_A, '09:00', '10:30', MON, TEACHER_A),
+          block(G2, ROOM_B, '10:00', '11:00', MON, TEACHER_A),
+        ],
+        [],
+        centerHours,
+      );
+
+      expect(result).toEqual([
+        { kind: 'teacher', groupId: G1, start: '09:00', end: '10:30', error: expect.objectContaining({ teacherId: TEACHER_A }) },
+        { kind: 'teacher', groupId: G2, start: '10:00', end: '11:00', error: expect.objectContaining({ teacherId: TEACHER_A }) },
+      ]);
     });
   });
 
