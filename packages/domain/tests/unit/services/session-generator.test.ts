@@ -100,8 +100,8 @@ describe('SessionGenerator — auto mode', () => {
     expect(proposal.gapViolations).toEqual([]);
     // Identity shuffle scans the pool in order: {Mon,Tue} fails the 2-day gap, {Mon,Wed} is first to pass.
     expect(proposal.blocks).toEqual([
-      { block: { dayOfWeek: MON, start: '09:00', end: '10:30' }, roomId: ROOM_A },
-      { block: { dayOfWeek: WED, start: '09:00', end: '10:30' }, roomId: ROOM_A },
+      { block: { dayOfWeek: MON, start: '09:00', end: '10:30' }, roomId: ROOM_A, teacherId: null },
+      { block: { dayOfWeek: WED, start: '09:00', end: '10:30' }, roomId: ROOM_A, teacherId: null },
     ]);
     expect(satisfiesMinGap(blockDays(proposal), 2)).toBe(true);
   });

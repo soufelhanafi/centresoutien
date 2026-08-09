@@ -1,8 +1,13 @@
 import { SessionConflictPolicy, type DayHours } from './session-conflict-policy';
-import type { RoomConflictError, ScheduledSessionRef, SessionOutsideCenterHoursError } from '../errors/scheduling-errors';
+import type {
+  RoomConflictError,
+  ScheduledSessionRef,
+  SessionOutsideCenterHoursError,
+  TeacherConflictError,
+} from '../errors/scheduling-errors';
 import type { GroupId } from '../entities/group';
 import type { RoomId } from '../entities/room';
-import type { EntityId } from '../value-objects/ids';
+import { toEntityId, type EntityId } from '../value-objects/ids';
 import type { TimeOfDay } from '../value-objects/time-of-day';
 import type { WeeklyBlock } from '../value-objects/weekly-block';
 
@@ -11,6 +16,7 @@ export type GeneratedBlockCandidate = {
   readonly groupId: GroupId;
   readonly block: WeeklyBlock;
   readonly roomId: RoomId;
+  readonly teacherId: EntityId | null;
 };
 
 /**
@@ -40,13 +46,20 @@ export type GeneratedScheduleConflict =
       readonly start: TimeOfDay;
       readonly end: TimeOfDay;
       readonly error: SessionOutsideCenterHoursError;
+    }
+  | {
+      readonly kind: 'teacher';
+      readonly groupId: GroupId;
+      readonly start: TimeOfDay;
+      readonly end: TimeOfDay;
+      readonly error: TeacherConflictError;
     };
 
 /**
- * Checks every generated block for two things a generation run can silently
+ * Checks every generated block for conflicts a generation run can silently
  * get wrong: a block that overruns the center's closing time on its weekday
  * (the engine only ever anchors a block's `start` at `open`, never validates
- * `end` against `close`), and a room double-booked at an overlapping
+ * `end` against `close`), plus a room or teacher double-booked at an overlapping
  * weekday+time — either against the real, already-committed schedule
  * (`existingSchedule`) or against another group's proposal generated in this
  * same run (random room assignment has no way to know about a sibling
@@ -73,22 +86,27 @@ export function detectGeneratedScheduleConflicts(
       [...existingSchedule, ...siblings],
     );
     if (room) conflicts.push({ kind: 'room', groupId: candidate.groupId, start, end, error: room });
+
+    if (candidate.teacherId !== null) {
+      const teacher = SessionConflictPolicy.teacherConflict(
+        { ...candidate.block, teacherId: candidate.teacherId },
+        [...existingSchedule, ...siblings],
+      );
+      if (teacher) conflicts.push({ kind: 'teacher', groupId: candidate.groupId, start, end, error: teacher });
+    }
   });
 
   return conflicts;
 }
 
 function toScheduledSessionRef(candidate: GeneratedBlockCandidate): ScheduledSessionRef {
-  return {
-    // These sibling proposals aren't persisted sessions yet, so there is no
-    // real session id to carry — the group id says which proposal a reported
-    // conflict points back to. EntityId is the deliberately generic id bucket
-    // (see entities/group.ts `teacherId: EntityId | null`), so this widening
-    // is the same kind of cast already used elsewhere in the domain.
-    id: candidate.groupId as unknown as EntityId,
+  const ref: ScheduledSessionRef = {
+    // Sibling proposals are not persisted yet; group id is the stable preview ref.
+    id: toEntityId(candidate.groupId),
     roomId: candidate.roomId,
     dayOfWeek: candidate.block.dayOfWeek,
     start: candidate.block.start,
     end: candidate.block.end,
   };
+  return candidate.teacherId === null ? ref : { ...ref, teacherId: candidate.teacherId };
 }

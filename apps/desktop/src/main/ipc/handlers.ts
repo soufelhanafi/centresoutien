@@ -577,6 +577,7 @@ function toGroupScheduleProposalView(proposal: GroupScheduleProposal) {
       start: scheduled.block.start,
       end: scheduled.block.end,
       roomId: scheduled.roomId,
+      teacherId: scheduled.teacherId,
     })),
     gapViolations: proposal.gapViolations.map((gap) => ({
       fromDay: gap.fromDay,
@@ -600,6 +601,24 @@ function toGeneratedScheduleConflictView(conflict: GeneratedScheduleConflict) {
       reason: conflict.error.reason,
       open: conflict.error.open,
       close: conflict.error.close,
+    };
+  }
+  if (conflict.kind === 'teacher') {
+    return {
+      kind: 'teacher' as const,
+      groupId: conflict.groupId,
+      teacherId: conflict.error.teacherId,
+      dayOfWeek: conflict.error.dayOfWeek,
+      start: conflict.start,
+      end: conflict.end,
+      conflicts: conflict.error.conflicts.map((ref) => ({
+        id: ref.id,
+        roomId: ref.roomId,
+        teacherId: ref.teacherId,
+        dayOfWeek: ref.dayOfWeek,
+        start: ref.start,
+        end: ref.end,
+      })),
     };
   }
   return {

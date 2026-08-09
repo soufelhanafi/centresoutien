@@ -544,6 +544,7 @@ const generatedBlockProposalViewSchema = z.object({
   start: z.string(),
   end: z.string(),
   roomId: z.string(),
+  teacherId: z.string().nullable(),
 });
 
 const weekdayGapViewSchema = z.object({
@@ -584,16 +585,17 @@ const groupScheduleProposalInputSchema = z.object({
 const scheduledSessionRefViewSchema = z.object({
   id: z.string(),
   roomId: z.string(),
+  teacherId: z.string().optional(),
   dayOfWeek: generatorWeekday,
   start: z.string(),
   end: z.string(),
 });
 
 // A generator run's non-blocking conflicts (SOU-161): a block whose `end` runs
-// past the center's closing time, or a room double-booked at an overlapping
-// weekday+time — either against the real committed schedule or a sibling
-// proposal in the same run. Mirrors `GeneratedScheduleConflict`; never thrown,
-// always returned alongside `proposals` for the admin to review.
+// past the center's closing time, or a room/teacher double-booked at an
+// overlapping weekday+time — either against the real committed schedule or a
+// sibling proposal in the same run. Mirrors `GeneratedScheduleConflict`; never
+// thrown, always returned alongside `proposals` for the admin to review.
 const generatedScheduleConflictViewSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('hours'),
@@ -609,6 +611,15 @@ const generatedScheduleConflictViewSchema = z.discriminatedUnion('kind', [
     kind: z.literal('room'),
     groupId: z.string(),
     roomId: z.string(),
+    dayOfWeek: generatorWeekday,
+    start: z.string(),
+    end: z.string(),
+    conflicts: z.array(scheduledSessionRefViewSchema),
+  }),
+  z.object({
+    kind: z.literal('teacher'),
+    groupId: z.string(),
+    teacherId: z.string(),
     dayOfWeek: generatorWeekday,
     start: z.string(),
     end: z.string(),

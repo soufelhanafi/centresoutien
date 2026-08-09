@@ -67,6 +67,7 @@ export type SessionGeneratorConfig =
 export type ScheduledBlockProposal = {
   readonly block: WeeklyBlock;
   readonly roomId: RoomId;
+  readonly teacherId: EntityId | null;
 };
 
 /** One group's proposed weekly pattern plus any gap breaches (always empty in auto mode). */
@@ -80,7 +81,7 @@ export type GroupScheduleProposal = {
  * `conflicts` (SOU-161) never blocks — every proposal in `proposals` is still
  * fully returned even when it clashes. It surfaces two things the room-picking
  * and weekday-placement steps can't see on their own: a block whose `end` runs
- * past the center's closing time, and a room double-booked at an overlapping
+ * past the center's closing time, and a room/teacher double-booked at an overlapping
  * weekday+time — either against `SessionGenerationInput.existingSchedule` or
  * against a sibling proposal generated in this same run. The caller (the
  * SOU-159 preview) decides what to do with a non-empty list; nothing here ever
@@ -99,8 +100,8 @@ export type SessionGeneratorResult = {
  * entity's brand isn't wired through here yet), the pool of rooms the run may
  * assign from, the center's opening hours per weekday, and the real,
  * already-committed schedule (SOU-161) the caller pre-scoped to same-center,
- * non-soft-deleted, active refs — used only to detect room conflicts, never to
- * change what gets generated.
+ * non-soft-deleted, active refs — used only to detect room/teacher conflicts,
+ * never to change what gets generated.
  */
 export type SessionGenerationInput = {
   readonly config: SessionGeneratorConfig;
@@ -251,8 +252,8 @@ function linkBackToBackChains(entries: readonly UnroomedBlock[]): ReadonlyMap<Un
  * holiday dates only makes sense once a pattern is materialized into dated
  * occurrences ({@link GenerateSessions}). What this engine *does* detect
  * (SOU-161, via {@link detectGeneratedScheduleConflicts}) is a center-hours
- * overrun and a room double-booked either against the real committed schedule
- * or against a sibling proposal in the same run — both reported as
+ * overrun plus room/teacher double-booking against the real committed schedule
+ * or against a sibling proposal in the same run — reported as
  * non-blocking `conflicts`, never thrown.
  */
 export class SessionGenerator {
@@ -275,6 +276,7 @@ export class SessionGenerator {
       blocks: proposal.blocks.map((block) => ({
         block,
         roomId: roomByBlock.get(block)!,
+        teacherId: teacherByGroup.get(proposal.groupId) ?? null,
       })),
       gapViolations: proposal.gapViolations,
     }));
@@ -284,6 +286,7 @@ export class SessionGenerator {
         groupId: proposal.groupId,
         block: scheduled.block,
         roomId: scheduled.roomId,
+        teacherId: scheduled.teacherId,
       })),
     );
     const conflicts = detectGeneratedScheduleConflicts(candidates, existingSchedule, centerHours);

@@ -26,6 +26,8 @@ export function GeneratorWarnings({
   for (const conflict of conflicts) {
     if (conflict.kind === 'hours') {
       lines.push(t(`planning.generator.warnings.hours.${conflict.reason}`, { day: weekday(conflict.dayOfWeek) }));
+    } else if (conflict.kind === 'teacher') {
+      lines.push(t('planning.generator.warnings.teacher', { day: weekday(conflict.dayOfWeek) }));
     } else {
       lines.push(
         t('planning.generator.warnings.room', {

@@ -17,6 +17,7 @@ const G2 = 'grp_00000000000000000000000002' as GroupId;
 
 const ROOM_A = 'rom_00000000000000000000000001' as RoomId;
 const ROOM_B = 'rom_00000000000000000000000002' as RoomId;
+const TEACHER_A = 'tea_00000000000000000000000001' as EntityId;
 
 /** Center open Mon+Tue 09:00–10:00 — narrow on purpose so a 90-minute block overruns it. */
 const centerHours: readonly DayHours[] = [
@@ -69,7 +70,9 @@ describe('SessionGenerator — conflict detection (SOU-161)', () => {
     // Monday closes at 10:00; a 90-minute block from 09:00 overruns it by 30 minutes.
     const { proposals, conflicts } = generator.generate(input(autoConfig({ weekdayPool: [MON] }), [G1]));
 
-    expect(proposals[0]!.blocks).toEqual([{ block: { dayOfWeek: MON, start: '09:00', end: '10:30' }, roomId: ROOM_A }]);
+    expect(proposals[0]!.blocks).toEqual([
+      { block: { dayOfWeek: MON, start: '09:00', end: '10:30' }, roomId: ROOM_A, teacherId: null },
+    ]);
     expect(conflicts).toEqual([
       { kind: 'hours', groupId: G1, start: '09:00', end: '10:30', error: expect.objectContaining({ reason: 'after-close' }) },
     ]);
@@ -85,6 +88,31 @@ describe('SessionGenerator — conflict detection (SOU-161)', () => {
 
     expect(conflicts).toEqual([
       { kind: 'room', groupId: G1, start: '09:00', end: '10:30', error: expect.objectContaining({ roomId: ROOM_A }) },
+    ]);
+  });
+
+  it('flags a teacher double-booked against the real, already-committed schedule', () => {
+    const generator = new SessionGenerator(fakeRandom());
+    const existing: readonly ScheduledSessionRef[] = [
+      {
+        id: 'ses_1' as EntityId,
+        roomId: ROOM_B,
+        teacherId: TEACHER_A,
+        dayOfWeek: TUE,
+        start: '09:30' as TimeOfDay,
+        end: '11:00' as TimeOfDay,
+      },
+    ];
+
+    const { conflicts } = generator.generate(
+      input(autoConfig({ weekdayPool: [TUE] }), [G1], {
+        existingSchedule: existing,
+        teacherByGroup: new Map([[G1, TEACHER_A]]),
+      }),
+    );
+
+    expect(conflicts).toEqual([
+      { kind: 'teacher', groupId: G1, start: '09:00', end: '10:30', error: expect.objectContaining({ teacherId: TEACHER_A }) },
     ]);
   });
 

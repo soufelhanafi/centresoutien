@@ -1387,6 +1387,7 @@
           "after-close": "{{day}} : le créneau dépasse l'heure de fermeture."
         },
         "room": "Salle {{room}} déjà occupée le {{day}}.",
+        "teacher": "Enseignant déjà occupé le {{day}}.",
         "gap": "Écart inférieur au minimum ({{count}} jour(s))."
       },
       "conflictAction": {
