@@ -54,6 +54,10 @@ export const D: Record<
     wipeDialogTitle: string;
     wipeDialogConfirm: string;
     wipeDialogCancel: string;
+    hubWarnTitle: string;
+    hubWarnBody: string;
+    hubWarnCancel: string;
+    hubWarnConfirm: string;
     restartingTitle: string;
     loginExploreDemo: string;
     loginExploreDemoHint: string;
@@ -77,6 +81,11 @@ export const D: Record<
     wipeDialogTitle: 'Supprimer le centre de démonstration ?',
     wipeDialogConfirm: 'Supprimer la démo',
     wipeDialogCancel: 'Annuler',
+    hubWarnTitle: 'Cet ordinateur est le serveur de synchronisation',
+    hubWarnBody:
+      'Pendant la démo, la synchronisation des autres ordinateurs du centre sera en pause.',
+    hubWarnCancel: 'Annuler',
+    hubWarnConfirm: 'Continuer quand même',
     restartingTitle: "Redémarrage de l'application…",
     loginExploreDemo: 'Explorer la démo',
     loginExploreDemoHint:
@@ -100,6 +109,10 @@ export const D: Record<
     wipeDialogTitle: 'حذف المركز التجريبي؟',
     wipeDialogConfirm: 'حذف المركز التجريبي',
     wipeDialogCancel: 'إلغاء',
+    hubWarnTitle: 'هذا الحاسوب هو خادم المزامنة',
+    hubWarnBody: 'أثناء العرض التجريبي، ستتوقف مزامنة أجهزة المركز الأخرى مؤقتاً.',
+    hubWarnCancel: 'إلغاء',
+    hubWarnConfirm: 'المتابعة على أي حال',
     restartingTitle: 'إعادة تشغيل التطبيق…',
     loginExploreDemo: 'استكشاف الوضع التجريبي',
     loginExploreDemoHint:

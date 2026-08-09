@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -56,6 +56,47 @@ describe('LicenseActivationScreen — demo entry (SOU-110, review M2 / SOU-186)'
     // The entry stays disabled through the swap; the license gate re-evaluates the
     // demo's own license and flips to the app — this screen never restarts.
     expect(await screen.findByRole('button', { name: 'Création…' })).toBeDisabled();
+  });
+
+  it('warns before creating when the laptop is the hub host; cancel does not create', async () => {
+    const create = vi.spyOn(demoGateway, 'create');
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: true,
+    });
+    const user = userEvent.setup();
+    renderScreen();
+
+    await user.click(await screen.findByRole('button', { name: 'Explorer la démo' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByText(/Cet ordinateur est le serveur de synchronisation/),
+    ).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getAllByRole('button', { name: 'Annuler' })[0]!);
+
+    expect(create).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('confirms the hub-host warning and proceeds with demo.create', async () => {
+    const create = vi.spyOn(demoGateway, 'create').mockResolvedValue({ isDemo: true });
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: true,
+    });
+    const user = userEvent.setup();
+    renderScreen();
+
+    await user.click(await screen.findByRole('button', { name: 'Explorer la démo' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Continuer quand même' }));
+
+    expect(create).toHaveBeenCalledTimes(1);
   });
 
   it('surfaces a create failure as an alert', async () => {

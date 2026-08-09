@@ -159,6 +159,51 @@ describe('DemoSettings (SOU-110 / SOU-186)', () => {
     expect(screen.getByRole('button', { name: 'Supprimer la démo' })).toBeInTheDocument();
   });
 
+  it('warns before creating when the laptop is the hub host; cancel does not create', async () => {
+    const create = vi.spyOn(demoGateway, 'create');
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({ isDemo: false, isHubHost: true });
+    const user = userEvent.setup();
+    renderSettings();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Créer le centre de démonstration' }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByText(/Cet ordinateur est le serveur de synchronisation/),
+    ).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+
+    // The dialog's close "X" and the footer "Annuler" share the accessible name;
+    // the footer cancel is the first in DOM order (same pattern as the wipe dialog).
+    const cancelButtons = within(dialog).getAllByRole('button', { name: 'Annuler' });
+    expect(cancelButtons.length).toBeGreaterThan(0);
+    await user.click(cancelButtons[0]!);
+
+    expect(create).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('confirms the hub-host warning and proceeds with demo.create', async () => {
+    const create = vi.spyOn(demoGateway, 'create').mockResolvedValue({ isDemo: true });
+    vi.spyOn(demoGateway, 'status')
+      .mockResolvedValueOnce({ isDemo: false, isHubHost: true })
+      .mockResolvedValue({ isDemo: true, isHubHost: false });
+    const user = userEvent.setup();
+    renderSettings();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Créer le centre de démonstration' }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Continuer quand même' }));
+
+    expect(create).toHaveBeenCalledTimes(1);
+    // The DB hot-swapped in place: the tab flips to the demo (wipe) variant.
+    expect(await screen.findByRole('button', { name: 'Supprimer la démo' })).toBeInTheDocument();
+  });
+
   it('shows the loading state while the demo status is unresolved', async () => {
     const pending = deferred<DemoStatusResponse>();
     vi.spyOn(demoGateway, 'status').mockReturnValue(pending.promise);
