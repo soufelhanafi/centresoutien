@@ -15,6 +15,7 @@ import {
   type RoomId,
   type Session,
   type SessionId,
+  type StudentId,
   type Subject,
   type SubjectId,
   type TimeOfDay,
@@ -160,6 +161,7 @@ class Device {
       updatedBy: userId,
       centreId: CENTER,
       userCanResolve: true,
+      sessionDedupStore: this.local,
     });
   }
 
@@ -171,6 +173,10 @@ class Device {
 
   blockedCount(): number {
     return this.local.listBlocked().length;
+  }
+
+  localPendingCount(): number {
+    return this.local.listPending().length;
   }
 
   firstBlockedKind(): string | undefined {
@@ -341,5 +347,124 @@ describe('device-to-device sync persistence (SOU-180)', () => {
     const tombstone = changed.find((s) => s.id === SESSION);
     expect(tombstone).toBeDefined();
     expect(tombstone?.deletedAt).toEqual(new Date('2026-08-03T00:00:00Z'));
+  });
+});
+
+describe('session natural-key collision (SOU-188)', () => {
+  const SESSION_LO = SESSION; // lower ULID
+  const SESSION_HI = 'ses_00000000000000000000000002' as SessionId;
+  const STUDENT = 'stu_00000000000000000000000001' as StudentId;
+  const ATT = 'att_00000000000000000000000001';
+
+  /** Seed a roll-call record for one session on a device (attendance is local-only today). */
+  function insertAttendance(device: Device, sessionId: SessionId): void {
+    device.db
+      .prepare(
+        `INSERT INTO attendance_records
+           (id, center_code, device_origin, created_at, updated_at, updated_by,
+            deleted_at, version, session_id, student_id, status, note)
+         VALUES (?, ?, ?, ?, ?, ?, NULL, 0, ?, ?, 'present', NULL)`,
+      )
+      .run(ATT, CENTER, DEV_B, AT.toISOString(), AT.toISOString(), USER_B, sessionId, STUDENT);
+  }
+
+  it('two devices materializing the same (WRS, date) offline converge on the lower-ULID row — no wedge', async () => {
+    await a.sessions.save(makeSession({ id: SESSION_LO }));
+    await b.sessions.save(makeSession({ id: SESSION_HI, deviceOrigin: DEV_B, updatedBy: USER_B }));
+
+    await a.sync(); // A pushes the lower-ULID winner
+    await b.sync(); // B pulls it → absorbs its own higher-ULID duplicate
+
+    expect(b.blockedCount()).toBe(0);
+    expect(b.localPendingCount()).toBe(0); // the loser's pending push was retracted
+
+    const onB = await b.sessions.listForRange(CENTER, { start: '2026-09-01', end: '2026-09-30' });
+    expect(onB).toHaveLength(1);
+    expect(onB[0]?.id).toBe(SESSION_LO);
+    expect(await b.sessions.findById(SESSION_HI)).toBeNull();
+    expect((await a.sessions.findById(SESSION_LO))?.id).toBe(SESSION_LO);
+  });
+
+  it('the reverse arrival order converges on the same lower-ULID row', async () => {
+    await a.sessions.save(makeSession({ id: SESSION_LO }));
+    await b.sessions.save(makeSession({ id: SESSION_HI, deviceOrigin: DEV_B, updatedBy: USER_B }));
+
+    await b.sync(); // B pushes its higher-ULID duplicate first
+    await a.sync(); // A pulls it → the inbound is the loser, A keeps its lower-ULID row
+    await b.sync(); // B now pulls A's winner and absorbs
+
+    expect(a.blockedCount()).toBe(0);
+    expect(b.blockedCount()).toBe(0);
+    expect((await a.sessions.findById(SESSION_LO))?.id).toBe(SESSION_LO);
+    expect(await a.sessions.findById(SESSION_HI)).toBeNull();
+    expect((await b.sessions.findById(SESSION_LO))?.id).toBe(SESSION_LO);
+    expect(await b.sessions.findById(SESSION_HI)).toBeNull();
+  });
+
+  it('attendance referencing the absorbed session is re-pointed to the winner', async () => {
+    await a.sessions.save(makeSession({ id: SESSION_LO }));
+    await b.sessions.save(makeSession({ id: SESSION_HI, deviceOrigin: DEV_B, updatedBy: USER_B }));
+    // B already took roll-call on its local (soon-to-be-absorbed) session.
+    insertAttendance(b, SESSION_HI);
+
+    await a.sync();
+    await b.sync(); // absorb rewrites SES_HI → SES_LO and re-points the attendance
+
+    const row = b.db
+      .prepare('SELECT session_id FROM attendance_records WHERE id = ?')
+      .get(ATT) as { session_id: string };
+    expect(row.session_id).toBe(SESSION_LO);
+    expect(row.session_id).not.toBe(SESSION_HI);
+  });
+
+  it('a cancel on A vs a live occurrence on B is a delete-vs-edit conflict — no wedge, B keeps its row', async () => {
+    await a.sessions.save(makeSession({ id: SESSION_LO }));
+    await a.sessions.softDelete(SESSION_LO, new Date('2026-08-02T00:00:00Z'), USER_A);
+    await a.sync();
+
+    await b.sessions.save(makeSession({ id: SESSION_HI, deviceOrigin: DEV_B, updatedBy: USER_B }));
+    await b.sync();
+
+    expect(b.blockedCount()).toBe(1);
+    expect(b.firstBlockedKind()).toBe('delete-vs-edit');
+    // B's live occurrence survives — the cancel did not silently win.
+    expect((await b.sessions.findById(SESSION_HI))?.id).toBe(SESSION_HI);
+    const all = await b.sessions.listForRange(CENTER, { start: '2026-09-01', end: '2026-09-30' });
+    expect(all).toHaveLength(1);
+  });
+
+  it('a cancel on B vs a live occurrence on A is a delete-vs-edit conflict on A', async () => {
+    await b.sessions.save(makeSession({ id: SESSION_HI, deviceOrigin: DEV_B, updatedBy: USER_B }));
+    await b.sessions.softDelete(SESSION_HI, new Date('2026-08-02T00:00:00Z'), USER_B);
+    await b.sync();
+
+    await a.sessions.save(makeSession({ id: SESSION_LO }));
+    await a.sync();
+
+    expect(a.blockedCount()).toBe(1);
+    expect(a.firstBlockedKind()).toBe('delete-vs-edit');
+    expect((await a.sessions.findById(SESSION_LO))?.id).toBe(SESSION_LO);
+  });
+
+  it('an unsynced local edit on B survives a winner arriving from A (field-clash, no clobber)', async () => {
+    await a.sessions.save(makeSession({ id: SESSION_LO }));
+    await a.sync();
+
+    await b.sessions.save(makeSession({ id: SESSION_HI, deviceOrigin: DEV_B, updatedBy: USER_B }));
+    await b.sessions.save(
+      makeSession({
+        id: SESSION_HI,
+        deviceOrigin: DEV_B,
+        updatedBy: USER_B,
+        roomId: 'rom_00000000000000000000000009' as RoomId,
+      }),
+    );
+    await b.sync();
+
+    expect(b.blockedCount()).toBe(1);
+    expect(b.firstBlockedKind()).toBe('field-clash');
+    // The user's room edit survived; absorb never clobbered it.
+    const onB = await b.sessions.findById(SESSION_HI);
+    expect(onB?.roomId).toBe('rom_00000000000000000000000009');
   });
 });

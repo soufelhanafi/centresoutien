@@ -7,8 +7,11 @@ import type {
   LocalPendingChange,
   LocalSyncRepository,
   SubjectCodeCollisionStore,
+  SessionDedupStore,
 } from '@centresoutien/domain';
+import { SESSION_ENTITY_TYPE } from '@centresoutien/domain';
 import type { SyncCursor } from '@centresoutien/domain';
+import type { ConflictSide } from '@centresoutien/domain';
 import { getRegisteredChangeLogEntityToRowMapper } from './change-log-entity-mappers';
 import { assertSqlIdentifier } from './table-identifier';
 
@@ -96,6 +99,31 @@ const CLEAR_SUBJECT_CODE_SHADOW_SQL = `
    WHERE entity_type = 'subjects' AND entity_id = @entity_id AND center_code = @center_code
 `;
 
+const FIND_SESSION_BY_NATURAL_KEY_SQL = `
+  SELECT id, deleted_at FROM sessions
+   WHERE recurring_session_id = ? AND date = ? AND id != ?
+     AND center_code = ?
+   LIMIT 1
+`;
+
+const LAST_LOCAL_SIDE_SQL = `
+  SELECT op, device_id, created_at, revision, payload FROM change_log
+   WHERE entity_type = ? AND entity_id = ? AND center_code = ?
+   ORDER BY rowid DESC LIMIT 1
+`;
+
+const RE_POINT_ATTENDANCE_SQL = `
+  UPDATE attendance_records SET session_id = @to_id
+   WHERE session_id = @from_id AND center_code = @center_code
+`;
+
+const NEUTRALIZE_SESSION_SHADOW_SQL = `
+  UPDATE sync_local_entity
+     SET pending_json = NULL, blocked = 0, conflict_json = NULL,
+         version = @version, entity_json = @entity_json
+   WHERE entity_type = 'sessions' AND entity_id = @entity_id AND center_code = @center_code
+`;
+
 /**
  * SQLite {@link LocalSyncRepository} (SOU-91) — the device side of the sync
  * cycle and the durable "conflits en attente" store. One row per entity in
@@ -114,7 +142,9 @@ const CLEAR_SUBJECT_CODE_SHADOW_SQL = `
  * row. `conflict_json` holds the serialized `SyncConflict` (Dates become ISO
  * strings) that the inbox re-surfaces.
  */
-export class SqliteLocalSyncRepository implements LocalSyncRepository, SubjectCodeCollisionStore {
+export class SqliteLocalSyncRepository
+  implements LocalSyncRepository, SubjectCodeCollisionStore, SessionDedupStore
+{
   private readonly centerCode: CenterCode;
   private seqCounter: number;
 
@@ -291,6 +321,131 @@ export class SqliteLocalSyncRepository implements LocalSyncRepository, SubjectCo
         center_code: this.centerCode,
       });
     })();
+  }
+
+  findSessionByNaturalKey(
+    recurringSessionId: string,
+    date: string,
+    excludeId: EntityId,
+  ): { id: EntityId; deletedAt: string | null } | null {
+    const row = this.db.prepare(FIND_SESSION_BY_NATURAL_KEY_SQL).get(
+      recurringSessionId,
+      date,
+      excludeId,
+      this.centerCode,
+    ) as { id: string; deleted_at: string | null } | undefined;
+    return row ? { id: row.id as EntityId, deletedAt: row.deleted_at } : null;
+  }
+
+  lastLocalSide(entityId: EntityId): ConflictSide | null {
+    const row = this.db.prepare(LAST_LOCAL_SIDE_SQL).get(
+      SESSION_ENTITY_TYPE,
+      entityId,
+      this.centerCode,
+    ) as
+      | { op: string; device_id: string; created_at: string; revision: number; payload: string }
+      | undefined;
+    if (!row) return null;
+    let entity: Record<string, unknown>;
+    try {
+      entity = (JSON.parse(row.payload) as { entity: Record<string, unknown> }).entity;
+    } catch {
+      return null;
+    }
+    return {
+      updatedBy: (entity['updatedBy'] as UserId | undefined) ?? (row.device_id as UserId),
+      deviceId: row.device_id as DeviceId,
+      op: row.op as ChangeLogOp,
+      seq: row.revision,
+      at: new Date(row.created_at),
+      changedFields: [],
+      entity,
+    };
+  }
+
+  /**
+   * Inbound wins (lower ULID): rewrite the local loser row in place to become
+   * the winner — the natural-key slot is occupied and stays occupied (the unique
+   * index is non-partial), so the winner's INSERT would throw; the UPDATE moves
+   * the row to the winner's id + data + version instead. Attendance that
+   * referenced the loser id is re-pointed, and the loser's shadow entry is
+   * neutralized so its pending push can never resurrect it.
+   */
+  absorbSessionAsWinner(input: {
+    fromId: EntityId;
+    toId: EntityId;
+    entity: Record<string, unknown>;
+    version: number;
+  }): void {
+    this.db.transaction(() => {
+      this.rewriteSessionRowInPlace(input.fromId, input.toId, input.entity, input.version);
+      this.db.prepare(RE_POINT_ATTENDANCE_SQL).run({
+        to_id: input.toId,
+        from_id: input.fromId,
+        center_code: this.centerCode,
+      });
+      this.db.prepare(UPSERT_STATE_SQL).run({
+        entity_type: SESSION_ENTITY_TYPE,
+        entity_id: input.toId,
+        version: input.version,
+        entity_json: JSON.stringify({ ...input.entity, version: input.version }),
+        center_code: this.centerCode,
+      });
+      this.db.prepare(NEUTRALIZE_SESSION_SHADOW_SQL).run({
+        entity_id: input.fromId,
+        version: input.version,
+        entity_json: JSON.stringify({ ...input.entity, version: input.version }),
+        center_code: this.centerCode,
+      });
+    })();
+  }
+
+  /**
+   * Inbound loses (higher ULID): keep the local winner row untouched. Record
+   * the inbound loser's version in the shadow (so re-delivery is skipped), and
+   * defensively re-point any attendance that references the retired id (normally
+   * a no-op — the retired row never existed locally).
+   */
+  retireInboundSession(input: {
+    keptId: EntityId;
+    retiredId: EntityId;
+    entity: Record<string, unknown>;
+    version: number;
+  }): void {
+    this.db.transaction(() => {
+      this.db.prepare(UPSERT_STATE_SQL).run({
+        entity_type: SESSION_ENTITY_TYPE,
+        entity_id: input.retiredId,
+        version: input.version,
+        entity_json: JSON.stringify({ ...input.entity, version: input.version }),
+        center_code: this.centerCode,
+      });
+      this.db.prepare(RE_POINT_ATTENDANCE_SQL).run({
+        to_id: input.keptId,
+        from_id: input.retiredId,
+        center_code: this.centerCode,
+      });
+    })();
+  }
+
+  private rewriteSessionRowInPlace(
+    fromId: EntityId,
+    toId: EntityId,
+    entity: Record<string, unknown>,
+    version: number,
+  ): void {
+    const mapper = getRegisteredChangeLogEntityToRowMapper(SESSION_ENTITY_TYPE);
+    if (!mapper) {
+      throw new Error(
+        `sessions entity→row mapper not registered — cannot settle session natural-key collision`,
+      );
+    }
+    const row = mapper({ ...entity, version });
+    const columns = Object.keys(row).map(assertSqlIdentifier);
+    const sets = columns.map((column) => `${column} = @${column}`).join(', ');
+    this.db
+      .prepare(`UPDATE sessions SET ${sets} WHERE id = @from_id AND center_code = @center_code`)
+      .run({ ...row, from_id: fromId, center_code: this.centerCode });
   }
 
   /**
