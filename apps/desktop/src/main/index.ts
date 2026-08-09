@@ -282,7 +282,7 @@ app.whenReady().then(async () => {
     // `CS_LOCALE` (dev override) wins over the persisted preference (SOU-31); the
     // language tab writes that preference via `preferences.locale.set`, read
     // synchronously here so it survives a restart without waiting on the renderer.
-    const locale = process.env['CS_LOCALE'] ?? initial.readLocalePreference() ?? undefined;
+    const locale = process.env['CS_LOCALE'] ?? runtime.readLocalePreference() ?? undefined;
     openWindow(locale);
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) openWindow(locale);

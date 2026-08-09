@@ -58,6 +58,7 @@ export class MainRuntime {
     const previous = this.current;
     this.current = next;
     this.dispatch = createIpcDispatcher(createHandlers(next.handlerDeps), gatesFor(next));
+    // Safe for the manual demo toggle; revisit before reusing this seam for SOU-96 multi-center switching.
     previous.dispose();
   }
 

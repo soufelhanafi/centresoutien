@@ -18,6 +18,14 @@ import {
   toLocalChange,
 } from './hub-http';
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isAddressInUse(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'EADDRINUSE';
+}
+
 /**
  * The embedded LAN hub (SOU-90): a small Node HTTP listener inside the Electron
  * main process of a designated laptop, exposing the {@link SyncHubPort}
@@ -62,7 +70,20 @@ export class HubServer {
   }
 
   /** Bind and start listening; resolves with the actually-bound port (0 = ephemeral). */
-  start(): Promise<number> {
+  async start(options: { readonly retries?: number; readonly retryDelayMs?: number } = {}): Promise<number> {
+    const retries = options.retries ?? 0;
+    const retryDelayMs = options.retryDelayMs ?? 100;
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await this.listenOnce();
+      } catch (error) {
+        if (!isAddressInUse(error) || attempt >= retries) throw error;
+        await delay(retryDelayMs);
+      }
+    }
+  }
+
+  private listenOnce(): Promise<number> {
     return new Promise((resolve, reject) => {
       const onError = (error: Error): void => {
         this.server.off('listening', onListening);

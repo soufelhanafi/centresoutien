@@ -1,4 +1,5 @@
 import { mkdtempSync, rmSync } from 'node:fs';
+import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -70,6 +71,25 @@ function clientFor(token: string = TOKEN): HttpSyncHubClient {
   return new HttpSyncHubClient({ baseUrl: `http://127.0.0.1:${server.port()}`, token });
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function listen(serverToStart: Server, port: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    serverToStart.once('error', reject);
+    serverToStart.listen(port, '127.0.0.1', () => {
+      serverToStart.off('error', reject);
+      const address = serverToStart.address();
+      resolve(typeof address === 'object' && address !== null ? address.port : 0);
+    });
+  });
+}
+
+function close(serverToStop: Server): Promise<void> {
+  return new Promise((resolve) => serverToStop.close(() => resolve()));
+}
+
 function device(deviceId: DeviceId, userId: UserId): HubDevice {
   return new HubDevice({ hub: clientFor(), clock, deviceId, updatedBy: userId });
 }
@@ -117,6 +137,19 @@ function stable(device: HubDevice): Record<string, Record<string, unknown>> {
 }
 
 describe('embedded hub over localhost (SOU-90)', () => {
+  it('retries when the configured port is still releasing during a rapid restart (SOU-191)', async () => {
+    const blocker = createServer();
+    const port = await listen(blocker, 0);
+    const restarting = new HubServer(store, port, '127.0.0.1');
+
+    const started = restarting.start({ retries: 10, retryDelayMs: 10 });
+    await delay(20);
+    await close(blocker);
+
+    await expect(started).resolves.toBe(port);
+    await restarting.stop();
+  });
+
   it('applies the hub canonical-store migrations on a fresh file', () => {
     const names = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as {
       name: string;
