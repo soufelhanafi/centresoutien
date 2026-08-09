@@ -307,7 +307,12 @@ export class SessionGenerator {
 
     const proposals = this.assignRunWideRooms(searched, context);
     const roomedCommitted = proposals.flatMap((proposal) =>
-      proposal.blocks.map((scheduled) => ({ groupId: proposal.groupId, block: scheduled.block, roomId: scheduled.roomId })),
+      proposal.blocks.map((scheduled) => ({
+        groupId: proposal.groupId,
+        block: scheduled.block,
+        roomId: scheduled.roomId,
+        teacherId: scheduled.teacherId,
+      })),
     );
     const conflicts = detectGeneratedScheduleConflicts(roomedCommitted, existingSchedule, centerHours);
     return { proposals, conflicts };
@@ -335,7 +340,11 @@ export class SessionGenerator {
     const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random);
     return proposals.map((proposal) => ({
       ...proposal,
-      blocks: proposal.blocks.map((scheduled) => ({ block: scheduled.block, roomId: roomByBlock.get(scheduled.block)! })),
+      blocks: proposal.blocks.map((scheduled) => ({
+        block: scheduled.block,
+        roomId: roomByBlock.get(scheduled.block)!,
+        teacherId: scheduled.teacherId,
+      })),
     }));
   }
 
