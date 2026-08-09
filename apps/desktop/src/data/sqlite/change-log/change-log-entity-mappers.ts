@@ -147,7 +147,7 @@ function weeklyRecurringSessionEntityToRow(entity: unknown): Record<string, unkn
     day_of_week: session.dayOfWeek,
     start_time: session.start,
     end_time: session.end,
-    active: session.active ? 1 : 0,
+    active: session.active === undefined ? 1 : session.active ? 1 : 0,
     valid_from: session.validFrom,
     valid_to: session.validTo,
   };

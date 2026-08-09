@@ -152,11 +152,11 @@ export class SqliteSessionRepository implements SessionRepository {
     // re-run over already-materialized (or cancelled) dates logs nothing — a
     // phantom create would flood the change feed. Log only what this call inserted.
     const alreadyMaterialized = this.db.prepare(
-      'SELECT 1 FROM sessions WHERE recurring_session_id = ? AND date = ? LIMIT 1',
+      'SELECT 1 FROM sessions WHERE recurring_session_id = ? AND date = ? AND center_code = ? LIMIT 1',
     );
     const insertAll = this.db.transaction((batch: readonly Session[]) => {
       for (const session of batch) {
-        if (alreadyMaterialized.get(session.recurringSessionId, session.date)) continue;
+        if (alreadyMaterialized.get(session.recurringSessionId, session.date, session.centerCode)) continue;
         insert.run(toParams(session));
         this.changeLog.record({
           entityType: 'sessions',

@@ -312,4 +312,34 @@ describe('device-to-device sync persistence (SOU-180)', () => {
     expect(onB?.version).toBe(1);
     expect(onB?.deviceOrigin).toBe(DEV_A);
   });
+
+  it('a weekly recurring session tombstone propagates to B (deleted_at set)', async () => {
+    await a.weeklySessions.save(makeWrs());
+    await a.sync();
+    await b.sync();
+
+    await a.weeklySessions.softDelete(WRS, new Date('2026-08-02T00:00:00Z'), USER_A);
+    await a.sync();
+    await b.sync();
+
+    const changed = await b.weeklySessions.listChangedSince(AT);
+    const tombstone = changed.find((s) => s.id === WRS);
+    expect(tombstone).toBeDefined();
+    expect(tombstone?.deletedAt).toEqual(new Date('2026-08-02T00:00:00Z'));
+  });
+
+  it('a concrete session tombstone propagates to B (deleted_at set)', async () => {
+    await a.sessions.save(makeSession());
+    await a.sync();
+    await b.sync();
+
+    await a.sessions.softDelete(SESSION, new Date('2026-08-03T00:00:00Z'), USER_A);
+    await a.sync();
+    await b.sync();
+
+    const changed = await b.sessions.listChangedSince(AT);
+    const tombstone = changed.find((s) => s.id === SESSION);
+    expect(tombstone).toBeDefined();
+    expect(tombstone?.deletedAt).toEqual(new Date('2026-08-03T00:00:00Z'));
+  });
 });

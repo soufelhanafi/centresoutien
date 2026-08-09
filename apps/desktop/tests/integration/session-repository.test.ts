@@ -83,6 +83,13 @@ function makeSession(over: Partial<Session> = {}): Session {
   };
 }
 
+function sessionLogCount(): number {
+  const { n } = db
+    .prepare("SELECT COUNT(*) AS n FROM change_log WHERE entity_type = 'sessions'")
+    .get() as { n: number };
+  return n;
+}
+
 describe('SqliteSessionRepository', () => {
   describe('save + findById', () => {
     it('round-trips a session with all fields intact', async () => {
@@ -167,6 +174,25 @@ describe('SqliteSessionRepository', () => {
 
       const stored = await repo.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' });
       expect(stored.map((s) => s.date)).toEqual(['2026-01-01', '2026-01-08', '2026-01-15']);
+    });
+
+    it('re-running the window appends no change-log rows (no phantom feed)', async () => {
+      await repo.upsertMany(window());
+      expect(sessionLogCount()).toBe(window().length);
+
+      await repo.upsertMany(window());
+      expect(sessionLogCount()).toBe(window().length);
+    });
+
+    it('a batch with two sessions on the same natural key inserts and logs exactly once', async () => {
+      await repo.upsertMany([
+        makeSession({ date: '2026-01-01' }),
+        makeSession({ date: '2026-01-01' }),
+      ]);
+
+      const stored = await repo.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' });
+      expect(stored).toHaveLength(1);
+      expect(sessionLogCount()).toBe(1);
     });
 
     it('keeps the original row untouched on conflict (no updated_at / version churn)', async () => {
