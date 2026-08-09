@@ -51,6 +51,7 @@ function isAddressInUse(error: unknown): boolean {
 export class HubServer {
   private readonly server: HttpServer;
   private stopped = false;
+  private listenAttempt: Promise<number> | null = null;
 
   constructor(
     private readonly store: HubStorePort,
@@ -86,13 +87,20 @@ export class HubServer {
   }
 
   private listenOnce(): Promise<number> {
-    return new Promise((resolve, reject) => {
+    const attempt = new Promise<number>((resolve, reject) => {
       const onError = (error: Error): void => {
         this.server.off('listening', onListening);
         reject(error);
       };
       const onListening = (): void => {
         this.server.off('error', onError);
+        if (this.stopped) {
+          this.closeListeningServer().then(
+            () => reject(new Error('HubServer stopped before it could start')),
+            reject,
+          );
+          return;
+        }
         const bound = this.server.address();
         console.info(
           '[hub] listening on',
@@ -104,10 +112,20 @@ export class HubServer {
       this.server.once('listening', onListening);
       this.server.listen(this.listenPort, this.bindHost);
     });
+    this.listenAttempt = attempt.finally(() => {
+      if (this.listenAttempt === attempt) this.listenAttempt = null;
+    });
+    return this.listenAttempt;
   }
 
-  stop(): Promise<void> {
+  async stop(): Promise<void> {
     this.stopped = true;
+    await this.listenAttempt?.catch(() => undefined);
+    if (!this.server.listening) return;
+    await this.closeListeningServer();
+  }
+
+  private closeListeningServer(): Promise<void> {
     if (!this.server.listening) return Promise.resolve();
     return new Promise((resolve) => this.server.close(() => resolve()));
   }

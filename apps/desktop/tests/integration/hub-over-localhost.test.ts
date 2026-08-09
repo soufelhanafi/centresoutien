@@ -90,6 +90,15 @@ function close(serverToStop: Server): Promise<void> {
   return new Promise((resolve) => serverToStop.close(() => resolve()));
 }
 
+function delayNextListen(serverToDelay: HubServer, delayMs: number): void {
+  const rawServer = (serverToDelay as unknown as { readonly server: Server }).server;
+  const originalListen = rawServer.listen.bind(rawServer) as (port: number, host: string) => Server;
+  rawServer.listen = ((port: number, host?: string) => {
+    setTimeout(() => originalListen(port, host ?? '127.0.0.1'), delayMs);
+    return rawServer;
+  }) as Server['listen'];
+}
+
 function device(deviceId: DeviceId, userId: UserId): HubDevice {
   return new HubDevice({ hub: clientFor(), clock, deviceId, updatedBy: userId });
 }
@@ -164,6 +173,17 @@ describe('embedded hub over localhost (SOU-90)', () => {
     const replacement = createServer();
     await expect(listen(replacement, port)).resolves.toBe(port);
     await close(replacement);
+  });
+
+  it('cancels an in-flight bind when the runtime disposes the container (SOU-191)', async () => {
+    const starting = new HubServer(store, 0, '127.0.0.1');
+    delayNextListen(starting, 20);
+
+    const started = starting.start();
+    const stopped = starting.stop();
+
+    await expect(started).rejects.toThrow('HubServer stopped before it could start');
+    await stopped;
   });
 
   it('applies the hub canonical-store migrations on a fresh file', () => {
