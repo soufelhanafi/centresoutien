@@ -378,7 +378,7 @@ export class ChangeResolver {
   }
 }
 
-/** The inbound (hub) side of a conflict — mirrors merge.ts `side(…, 'theirs')`. */
+/** Mirrors merge.ts `side(…, 'theirs')` so the two stay in sync. */
 function inboundSide(change: HubChange): ConflictSide {
   return {
     updatedBy: change.updatedBy,
@@ -391,7 +391,7 @@ function inboundSide(change: HubChange): ConflictSide {
   };
 }
 
-/** The local pending-edit side of a conflict — mirrors merge.ts `side(…, 'mine')`. */
+/** Mirrors merge.ts `side(…, 'mine')` so the two stay in sync. */
 function pendingSide(pending: LocalPendingChange): ConflictSide {
   return {
     updatedBy: pending.updatedBy,

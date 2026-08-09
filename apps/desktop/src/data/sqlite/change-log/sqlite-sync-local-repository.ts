@@ -428,9 +428,6 @@ export class SqliteLocalSyncRepository
     })();
   }
 
-  /** Rewrite the local `sessions` row under `fromId` in place to the winner's
-   *  id + data + version (SOU-188). The mapper yields the full physical row for
-   *  the winner entity; every column is overwritten, id included. */
   private rewriteSessionRowInPlace(
     fromId: EntityId,
     toId: EntityId,
