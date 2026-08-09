@@ -201,6 +201,7 @@ describe('demo seeder (SOU-110)', () => {
       scheduleRestart: () => {},
       demo: {
         isDemoCenter: true,
+        isHubHost: false,
         login: () => DEMO_ADMIN,
         create: async () => {
           created += 1;
@@ -213,7 +214,13 @@ describe('demo seeder (SOU-110)', () => {
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
 
     // demo.status is a cheap read of the open centreId + the injected login prefill.
-    expect(await dispatch('demo.status', {})).toEqual({ isDemo: true, demoLogin: DEMO_ADMIN });
+    expect(await dispatch('demo.status', {})).toEqual({
+      isDemo: true,
+      demoLogin: DEMO_ADMIN,
+      // No hub is configured in this test container, so the default test setup
+      // must report this laptop as NOT the hub host (SOU-190).
+      isHubHost: false,
+    });
     // demo.create / demo.wipe validate their (empty) payloads and resolve with the
     // open mode after the in-process hot-swap (SOU-186): create → demo open, wipe → real open.
     expect(await dispatch('demo.create', {})).toEqual({ isDemo: true });
@@ -236,10 +243,16 @@ describe('demo seeder (SOU-110)', () => {
       planId: 'essentiel',
       appVersion: () => '2.0.0',
       scheduleRestart: () => {},
-      demo: { isDemoCenter: false, login: () => null, create: async () => {}, wipe: async () => {} },
+      demo: {
+        isDemoCenter: false,
+        isHubHost: false,
+        login: () => null,
+        create: async () => {},
+        wipe: async () => {},
+      },
     });
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
-    expect(await dispatch('demo.status', {})).toEqual({ isDemo: false, demoLogin: null });
+    expect(await dispatch('demo.status', {})).toEqual({ isDemo: false, demoLogin: null, isHubHost: false });
     container.dispose();
   });
 });
