@@ -7,7 +7,8 @@ export type LockOverlayProps = {
   title: string;
   description?: string;
   ctaLabel?: string;
-  onCta?: () => void;
+  /** Explicit `undefined` is allowed so callers can compute a handler that may be absent. */
+  onCta?: (() => void) | undefined;
   /** The real UI, rendered blurred behind the scrim. */
   children: ReactNode;
   className?: string;
@@ -21,7 +22,7 @@ export type LockOverlayProps = {
 export function LockOverlay({
   title,
   description,
-  ctaLabel = 'Voir les plans',
+  ctaLabel,
   onCta,
   children,
   className,
@@ -46,7 +47,7 @@ export function LockOverlay({
           {description ? (
             <p className="mb-2 mt-0.5 text-[11.5px] text-muted-foreground">{description}</p>
           ) : null}
-          {onCta ? (
+          {onCta && ctaLabel ? (
             <button
               type="button"
               onClick={onCta}

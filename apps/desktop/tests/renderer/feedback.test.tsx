@@ -44,6 +44,15 @@ describe('LockOverlay', () => {
     );
     expect(screen.queryByRole('button')).toBeNull();
   });
+
+  it('renders no button when onCta is supplied without ctaLabel', () => {
+    render(
+      <LockOverlay title="Paie enseignants" onCta={vi.fn()}>
+        <p>contenu</p>
+      </LockOverlay>,
+    );
+    expect(screen.queryByRole('button')).toBeNull();
+  });
 });
 
 describe('EmptyState', () => {

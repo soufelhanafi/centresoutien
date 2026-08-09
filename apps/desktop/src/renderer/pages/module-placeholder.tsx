@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { EmptyState, LockOverlay } from '@centresoutien/ui';
 import { useOptionalFeature } from '../hooks/use-feature';
+import { useUpgradeCta } from '../hooks/use-upgrade-prompt';
 import type { NavModule } from '../app/nav-items';
 
 /**
@@ -15,6 +16,7 @@ export function ModulePlaceholder({ module }: { module: NavModule }) {
   const Icon = module.icon;
   const hasFeature = useOptionalFeature(module.feature);
   const locked = module.feature !== undefined && !hasFeature;
+  const upgradeCta = useUpgradeCta(module.feature);
 
   const body = (
     <EmptyState
@@ -34,7 +36,8 @@ export function ModulePlaceholder({ module }: { module: NavModule }) {
           <LockOverlay
             title={title}
             description={t('plan.locked')}
-            ctaLabel={t('plan.viewPlans')}
+            ctaLabel={upgradeCta.ctaLabel}
+            onCta={upgradeCta.onCta}
             className="w-full max-w-md"
           >
             <div className="p-8">{body}</div>

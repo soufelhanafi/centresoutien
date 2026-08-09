@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
 import { Dialog, DialogTrigger, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState, LockOverlay } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
+import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
 import { useRunSync, useBlockedConflicts } from '../../hooks/sync/use-sync';
 import { ConflictPopup } from '../../components/sync/conflict-popup';
 
@@ -15,6 +16,7 @@ import { ConflictPopup } from '../../components/sync/conflict-popup';
 export function SyncPage() {
   const { t } = useTranslation();
   const hasSync = useFeature('sync.multi-device');
+  const upgradeCta = useUpgradeCta('sync.multi-device');
   const run = useRunSync();
   const conflicts = useBlockedConflicts({ enabled: hasSync });
   const [popupOpen, setPopupOpen] = useState(false);
@@ -107,7 +109,12 @@ export function SyncPage() {
   if (!hasSync) {
     return (
       <div className="mx-auto w-full max-w-4xl">
-        <LockOverlay title={t('nav.sync')} description={t('plan.locked')}>
+        <LockOverlay
+          title={t('nav.sync')}
+          description={t('plan.locked')}
+          ctaLabel={upgradeCta.ctaLabel}
+          onCta={upgradeCta.onCta}
+        >
           <div className="p-8">{content}</div>
         </LockOverlay>
       </div>

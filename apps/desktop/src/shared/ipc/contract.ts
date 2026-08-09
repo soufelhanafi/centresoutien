@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { backupIpcContract } from './backup-contract';
 import { dialogIpcContract } from './dialog-contract';
+import { externalIpcContract } from './external-contract';
 import { syncIpcContract } from './sync-contract';
 import type { syncConflictViewSchema, syncResultViewSchema } from './sync-contract';
 import {
@@ -1844,6 +1845,7 @@ export const ipcContract = {
   },
   ...backupIpcContract,
   ...dialogIpcContract,
+  ...externalIpcContract,
   ...syncIpcContract,
 } as const;
 

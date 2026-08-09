@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, LockOverlay } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
+import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
 import { ExcelBackupExportSection } from './excel-backup-export-section';
 import { ExcelBackupImportSection } from './excel-backup-import-section';
 
@@ -16,6 +17,7 @@ export function ExcelBackupCard() {
   const canExport = useFeature('io.excel.export');
   const canImport = useFeature('io.excel.import');
   const allLocked = !canExport && !canImport;
+  const upgradeCta = useUpgradeCta('io.excel.export');
 
   const body = (
     <div className="flex flex-col gap-6">
@@ -35,7 +37,8 @@ export function ExcelBackupCard() {
           <LockOverlay
             title={t('settings.backup.excel.title')}
             description={t('plan.locked')}
-            ctaLabel={t('plan.viewPlans')}
+            ctaLabel={upgradeCta.ctaLabel}
+            onCta={upgradeCta.onCta}
           >
             {body}
           </LockOverlay>

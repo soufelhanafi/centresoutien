@@ -4,6 +4,7 @@ import { Sidebar } from './sidebar';
 import { AppHeader } from './app-header';
 import { DemoBanner } from './demo-banner';
 import { CommandPalette } from '../search/command-palette';
+import { UpgradeDialog } from '../upgrade/upgrade-dialog';
 
 /**
  * The application chrome every feature screen mounts into: a navigation rail,
@@ -36,6 +37,7 @@ export function AppShell() {
         </main>
       </div>
       <CommandPalette />
+      <UpgradeDialog />
     </div>
   );
 }
