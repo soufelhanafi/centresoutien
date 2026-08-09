@@ -9,6 +9,7 @@ import { SCHEMA_VERSION } from './schema-version';
 import { ChangeResolver } from './resolve-changes';
 import type { LocalSyncRepository } from './sync-local-repository';
 import type { SubjectCodeCollision, SubjectCodeCollisionStore } from './subject-code-collision';
+import type { SessionDedup, SessionDedupStore } from './session-dedup';
 
 /**
  * The sync cycle: **pull → resolve → push** (SOU-80 §3). Every sync, in that
@@ -60,6 +61,14 @@ export type SyncEngineInput = {
    * to fall back to plain applies (e.g. tests with no subject store).
    */
   subjectCollisionStore?: SubjectCodeCollisionStore;
+  /**
+   * Session natural-key clash reads/writes (SOU-188). When wired, a session
+   * apply whose `(recurring_session_id, date)` collides with a different live
+   * local session (two replicas materialized the same occurrence offline) is
+   * settled deterministically (lower ULID wins, in-place rewrite) instead of
+   * throwing `ux_sessions_recurrence_date`. Omit to fall back to plain applies.
+   */
+  sessionDedupStore?: SessionDedupStore;
   /** Total pull→resolve→push attempts before giving up (default `MAX_SYNC_ATTEMPTS`). */
   maxAttempts?: number;
 };
@@ -76,6 +85,11 @@ export type SyncResult = {
    * human needed. Surfaced so a future admin nudge / log can report them.
    */
   readonly subjectCodeCollisions: readonly SubjectCodeCollision[];
+  /**
+   * Session natural-key clashes auto-resolved this run (SOU-188) — deterministic,
+   * no human needed. Surfaced so a future admin nudge / log can report them.
+   */
+  readonly sessionDedups: readonly SessionDedup[];
   readonly cursor: SyncCursor | null;
   /** True when the device clock diverged absurdly from the hub's — flagged, not trusted. */
   readonly deviceClockSkew: boolean;
@@ -111,6 +125,7 @@ export class SyncEngine {
       input.updatedBy,
       input.centreId,
       input.subjectCollisionStore ?? null,
+      input.sessionDedupStore ?? null,
     );
   }
 
@@ -119,6 +134,7 @@ export class SyncEngine {
 
     const conflicts: SyncConflict[] = [];
     const collisions: SubjectCodeCollision[] = [];
+    const dedups: SessionDedup[] = [];
     let applied = 0;
     let pushed = 0;
     let deviceClockSkew = false;
@@ -138,13 +154,13 @@ export class SyncEngine {
       }
       deviceClockSkew = deviceClockSkew || this.isClockSkewed(batch.hubTime);
 
-      applied += this.resolver.resolveBatch(batch.changes, conflicts, matcher, collisions);
+      applied += this.resolver.resolveBatch(batch.changes, conflicts, matcher, collisions, dedups);
 
       const push = await this.pushPending(batch.cursor);
       pushed += push.pushed;
       if (push.status === 'accepted') {
         this.local.setCursor(push.cursor);
-        return this.result('synced', applied, pushed, conflicts, collisions, push.cursor, deviceClockSkew);
+        return this.result('synced', applied, pushed, conflicts, collisions, dedups, push.cursor, deviceClockSkew);
       }
       // Rejected-stale: a concurrent sync won the version race for some entity.
       // Cursor is unchanged, so the next pull re-delivers the winning change and
@@ -153,7 +169,7 @@ export class SyncEngine {
     }
 
     this.local.setCursor(cursor ?? { seq: 0 });
-    return this.result('retries-exhausted', applied, pushed, conflicts, collisions, cursor, deviceClockSkew);
+    return this.result('retries-exhausted', applied, pushed, conflicts, collisions, dedups, cursor, deviceClockSkew);
   }
 
   private result(
@@ -162,6 +178,7 @@ export class SyncEngine {
     pushed: number,
     conflicts: readonly SyncConflict[],
     subjectCodeCollisions: readonly SubjectCodeCollision[],
+    sessionDedups: readonly SessionDedup[],
     cursor: SyncCursor | null,
     deviceClockSkew: boolean,
   ): SyncResult {
@@ -171,6 +188,7 @@ export class SyncEngine {
       pushed,
       conflicts,
       subjectCodeCollisions,
+      sessionDedups,
       cursor,
       deviceClockSkew,
       resolutionPermission: this.userCanResolve ? 'granted' : 'queued',

@@ -15,6 +15,13 @@ import {
   type SubjectCodeCollisionStore,
 } from './subject-code-collision';
 import { resolveSubjectCodeCollision } from '../policies/subject-code-collision-policy';
+import {
+  SESSION_ENTITY_TYPE,
+  sessionDedupKey,
+  type SessionDedup,
+  type SessionDedupStore,
+} from './session-dedup';
+import { resolveSessionCollision } from '../policies/session-collision-policy';
 
 /**
  * The resolve step of pull → resolve → push (SOU-80 §3), kept out of the engine
@@ -35,6 +42,7 @@ export class ChangeResolver {
     private readonly updatedBy: UserId,
     private readonly centreId: CenterCode,
     private readonly subjectCollisions: SubjectCodeCollisionStore | null = null,
+    private readonly sessionDedups: SessionDedupStore | null = null,
   ) {}
 
   /** Apply or merge each inbound change; queue conflicts; never auto-resolve them. */
@@ -43,10 +51,11 @@ export class ChangeResolver {
     conflicts: SyncConflict[],
     matcher: DuplicateMatcher,
     collisions: SubjectCodeCollision[] = [],
+    dedups: SessionDedup[] = [],
   ): number {
     let applied = 0;
     for (const change of changes) {
-      applied += this.resolveOne(change, conflicts, matcher, collisions);
+      applied += this.resolveOne(change, conflicts, matcher, collisions, dedups);
     }
     return applied;
   }
@@ -56,6 +65,7 @@ export class ChangeResolver {
     conflicts: SyncConflict[],
     matcher: DuplicateMatcher,
     collisions: SubjectCodeCollision[],
+    dedups: SessionDedup[],
   ): number {
     const state = this.local.getLocalState(change.entityType, change.entityId);
     if (state && change.version <= state.version) return 0; // already applied (retry re-delivery)
@@ -70,7 +80,7 @@ export class ChangeResolver {
 
     switch (outcome.kind) {
       case 'apply':
-        this.applyInbound(change, outcome, collisions);
+        this.applyInbound(change, outcome, collisions, dedups);
         break;
       case 'merged':
         this.local.upsertPending(this.buildMergedPending(change, local, outcome));
@@ -104,7 +114,55 @@ export class ChangeResolver {
     change: HubChange,
     outcome: Extract<ResolveOutcome, { kind: 'apply' }>,
     collisions: SubjectCodeCollision[],
+    dedups: SessionDedup[],
   ): void {
+    // Sessions first: a live natural-key collision settles deterministically
+    // (lower ULID wins, in-place rewrite) so the projected `ux_sessions_recurrence_date`
+    // index never throws. Tombstone applies (which the collision would be moot for)
+    // and non-sessions fall through to the plain / subject paths.
+    const sessionStore = this.sessionDedups;
+    const recurringSessionId = outcome.entity['recurringSessionId'];
+    const date = outcome.entity['date'];
+    if (
+      sessionStore !== null &&
+      change.entityType === SESSION_ENTITY_TYPE &&
+      outcome.entity['deletedAt'] == null &&
+      typeof recurringSessionId === 'string' &&
+      typeof date === 'string'
+    ) {
+      const occupiedId = sessionStore.findLiveSessionIdByNaturalKey(
+        recurringSessionId,
+        date,
+        change.entityId,
+      );
+      if (occupiedId !== null) {
+        const { winnerId, loserId } = resolveSessionCollision(change.entityId, occupiedId);
+        if (loserId === change.entityId) {
+          sessionStore.retireInboundSession({
+            keptId: occupiedId,
+            retiredId: change.entityId,
+            entity: outcome.entity,
+            version: outcome.version,
+          });
+        } else {
+          sessionStore.absorbSessionAsWinner({
+            fromId: occupiedId,
+            toId: change.entityId,
+            entity: outcome.entity,
+            version: outcome.version,
+          });
+        }
+        this.pushUniqueDedup(dedups, {
+          entityType: SESSION_ENTITY_TYPE,
+          recurringSessionId,
+          date,
+          winnerId,
+          loserId,
+        });
+        return;
+      }
+    }
+
     const code = outcome.entity['code'];
     // Guard mirrors the `ux_subjects_code` predicate exactly (code IS NOT NULL
     // AND deleted_at IS NULL) so the collision path covers every apply the index
@@ -222,5 +280,11 @@ export class ChangeResolver {
     const key = subjectCodeCollisionKey(collision);
     if (collisions.some((existing) => subjectCodeCollisionKey(existing) === key)) return;
     collisions.push(collision);
+  }
+
+  private pushUniqueDedup(dedups: SessionDedup[], dedup: SessionDedup): void {
+    const key = sessionDedupKey(dedup);
+    if (dedups.some((existing) => sessionDedupKey(existing) === key)) return;
+    dedups.push(dedup);
   }
 }

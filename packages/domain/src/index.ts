@@ -86,6 +86,10 @@ export { SUBJECT_ENTITY_TYPE, subjectCodeCollisionKey } from './sync/subject-cod
 export type { SubjectCodeCollision, SubjectCodeCollisionStore } from './sync/subject-code-collision';
 export { resolveSubjectCodeCollision } from './policies/subject-code-collision-policy';
 export type { SubjectCodeCollisionResolution } from './policies/subject-code-collision-policy';
+export { SESSION_ENTITY_TYPE, sessionDedupKey } from './sync/session-dedup';
+export type { SessionDedup, SessionDedupStore } from './sync/session-dedup';
+export { resolveSessionCollision } from './policies/session-collision-policy';
+export type { SessionCollisionResolution } from './policies/session-collision-policy';
 
 // Sync hub port (wire types + the swappable seam)
 export type { SyncHubPort, SyncCursor, HubChange, ChangeBatch, LocalChange, PushResult } from './ports/sync-hub-port';

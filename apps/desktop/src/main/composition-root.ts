@@ -145,6 +145,7 @@ import type {
   SyncHubPort,
   LocalSyncRepository,
   SubjectCodeCollisionStore,
+  SessionDedupStore,
 } from '@centresoutien/domain';
 import { Ed25519LicenseAdapter } from '../data/license/ed25519-license-adapter';
 import { E2eSyntheticLicense, isPlanId } from '../data/license/e2e-synthetic-license';
@@ -1072,7 +1073,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // attente" inbox even before a hub exists); the engine itself only runs when
   // a hub is configured, mirroring `syncHub` — `sync.run` then reports a null
   // result ("not paired") to the renderer instead of failing.
-  const localSyncRepository: LocalSyncRepository & SubjectCodeCollisionStore = new SqliteLocalSyncRepository(
+  const localSyncRepository: LocalSyncRepository & SubjectCodeCollisionStore & SessionDedupStore = new SqliteLocalSyncRepository(
     db,
     clock,
     deviceOrigin,
@@ -1101,6 +1102,7 @@ export function buildContainer(options: ContainerOptions): Container {
         centreId: options.centerCode,
         userCanResolve: true,
         subjectCollisionStore: localSyncRepository,
+        sessionDedupStore: localSyncRepository,
       })
     : null;
   const resolveConflict = new ResolveConflict(localSyncRepository, clock, plan);
