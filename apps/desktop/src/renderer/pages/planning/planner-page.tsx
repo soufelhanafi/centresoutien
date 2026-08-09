@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, CalendarDays, Wand2 } from 'lucide-react';
-import { DEFAULT_WEEKLY_HOURS } from '@centresoutien/domain';
 import { Button, ErrorState } from '@centresoutien/ui';
 import { useWeekSessions } from '../../hooks/planning/use-week-sessions';
 import { useCenterHours } from '../../hooks/center-hours/use-center-hours';
 import { useTeachers } from '../../hooks/teacher/use-teachers';
 import { useFeature } from '../../hooks/use-feature';
 import { localizedName } from '../../lib/teachers/localized-name';
+import { resolvePersistedWeek } from '../../lib/center-hours';
 import { PlannerToolbar } from '../../components/planning/planner-toolbar';
 import { PlannerGrid } from '../../components/planning/planner-grid';
 import { PlannerGridSkeleton } from '../../components/planning/planner-grid-skeleton';
@@ -30,13 +30,14 @@ import { deriveCenterHoursRange, deriveClosedDays } from '../../lib/planning/tim
 function PlannerLoadError({
   title,
   description,
+  retryLabel,
   onRetry,
 }: {
   title: string;
   description: string;
+  retryLabel: string;
   onRetry: () => void;
 }) {
-  const { t } = useTranslation();
   return (
     <ErrorState
       icon={<CalendarDays className="h-5 w-5" aria-hidden="true" />}
@@ -44,7 +45,7 @@ function PlannerLoadError({
       description={description}
       action={
         <Button variant="secondary" size="sm" onClick={onRetry}>
-          {t('planning.loadError.retry')}
+          {retryLabel}
         </Button>
       }
     />
@@ -71,10 +72,10 @@ export function PlannerPage() {
 
   const hoursQuery = useCenterHours();
   const week = useMemo(() => query.data ?? [], [query.data]);
-  // A fresh center persists no hours rows; fall back to the domain's seed week
-  // (09:00–18:00) so the grid agrees with the Settings form, not a hard-coded
-  // window (SOU-184).
-  const hoursWeek = hoursQuery.data?.week ?? DEFAULT_WEEKLY_HOURS;
+  // A fresh center persists no hours rows (an empty array, never undefined), so
+  // fall back to the domain's seed week (09:00–18:00) and agree with the
+  // Settings form instead of a hard-coded window (SOU-184).
+  const hoursWeek = resolvePersistedWeek(hoursQuery.data?.week);
   const range = useMemo(() => deriveCenterHoursRange(hoursWeek), [hoursWeek]);
   const closedDays = useMemo(() => deriveClosedDays(hoursWeek), [hoursWeek]);
   const filtered = useMemo(() => applyFilters(week, filters), [week, filters]);
@@ -118,6 +119,7 @@ export function PlannerPage() {
         <PlannerLoadError
           title={t('planning.hoursError.title')}
           description={t('planning.hoursError.body')}
+          retryLabel={t('planning.loadError.retry')}
           onRetry={() => void hoursQuery.refetch()}
         />
       ) : query.isPending || hoursQuery.isPending ? (
@@ -126,6 +128,7 @@ export function PlannerPage() {
         <PlannerLoadError
           title={t('planning.loadError.title')}
           description={t('planning.loadError.body')}
+          retryLabel={t('planning.loadError.retry')}
           onRetry={() => void query.refetch()}
         />
       ) : (

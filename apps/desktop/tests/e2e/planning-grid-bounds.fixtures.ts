@@ -12,7 +12,8 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
  * Driven exclusively through the running packaged app and the public preload
  * bridge (`window.api.invoke`): admin seed + `centerHours.save` (bare week
  * array, the exact request the Settings form persists) + `centerHours.get` for
- * the read-back proof. No renderer/domain/data implementation is imported.
+ * the read-back proof. `bootFresh` skips the save to reproduce the fresh-center
+ * empty week. No renderer/domain/data implementation is imported.
  * Every asserted string mirrors the i18n catalog (fr/ar.json).
  *
  * Launch switches (shared with the other suites):
@@ -105,6 +106,29 @@ export async function bootWithHours(locale: Locale, week: DayHours[]): Promise<L
     const api = (window as unknown as { api: Bridge }).api;
     await api.invoke('centerHours.save', w);
   }, week);
+
+  await win.reload();
+  await win.waitForLoadState('domcontentloaded');
+  return { app, win };
+}
+
+/**
+ * Launch fresh without persisting any hours — the fresh-center state the planner
+ * must seed from the domain's default week (09:00–18:00).
+ */
+export async function bootFresh(locale: Locale): Promise<Launched> {
+  const app = await electron.launch({
+    args: [MAIN_ENTRY, `--user-data-dir=${freshUserDataDir()}`],
+    env: { ...process.env, CS_LOCALE: locale, CS_PLAN: 'essentiel' },
+  });
+  const win = await app.firstWindow();
+  await win.waitForLoadState('domcontentloaded');
+
+  await win.evaluate(async (admin) => {
+    const api = (window as unknown as { api: Bridge }).api;
+    await api.invoke('admin.create', admin);
+    await api.invoke('auth.login', { ...admin, rememberDevice: true });
+  }, VALID_ADMIN);
 
   await win.reload();
   await win.waitForLoadState('domcontentloaded');

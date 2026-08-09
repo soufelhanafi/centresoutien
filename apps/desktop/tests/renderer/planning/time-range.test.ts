@@ -155,11 +155,25 @@ describe('blockPosition', () => {
     expect(pos.heightPercent).toBeCloseTo(4.17, 2);
   });
 
-  it('clamps a session ending after the range to the bottom edge with zero height', () => {
+  it('pins a session fully after the range to a bottom-edge sliver', () => {
     const range = deriveCenterHoursRange([]); // 08:00–20:00
     const pos = blockPosition(session({ start: '21:00', end: '22:00' }), range);
-    expect(pos.topPercent).toBe(100);
-    expect(pos.heightPercent).toBe(0);
+    expect(pos.topPercent).toBe(98);
+    expect(pos.heightPercent).toBe(2);
+  });
+
+  it('pins a session fully before the range to a top-edge sliver', () => {
+    const range = deriveCenterHoursRange([]); // 08:00–20:00
+    const pos = blockPosition(session({ start: '07:00', end: '07:30' }), range);
+    expect(pos.topPercent).toBe(0);
+    expect(pos.heightPercent).toBe(2);
+  });
+
+  it('keeps a session straddling the top edge clamped, with its in-range height', () => {
+    const range = deriveCenterHoursRange([]); // 08:00–20:00
+    const pos = blockPosition(session({ start: '07:30', end: '09:00' }), range);
+    expect(pos.topPercent).toBe(0);
+    expect(pos.heightPercent).toBeCloseTo(8.33, 2);
   });
 });
 

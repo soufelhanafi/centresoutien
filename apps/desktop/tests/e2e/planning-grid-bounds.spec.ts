@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
   STR,
+  bootFresh,
   bootWithHours,
   closedSundayWeek,
   closedWeek,
@@ -28,6 +29,8 @@ import {
  *   2. Closed days still render as a column, hatched and non-interactive
  *      (observable: `aria-hidden="true"`, `pointer-events: none`, 45° hatch).
  *   3. No day open → fallback 08:00–20:00.
+ *   4. Fresh center (no saved hours) → the domain's default week 09:00–18:00,
+ *      all columns open.
  *
  * Hours are seeded through the same public `centerHours.save` channel the
  * Settings form persists through; nothing is reached into implementation.
@@ -171,4 +174,41 @@ test('uniform open week keeps a tight gutter (19:00 top → 22:00 bottom)', asyn
   const { top, bottom } = await gutterEdges(win, expected);
   expect(top).toBe('19:00');
   expect(bottom).toBe('22:00');
+});
+
+// ---------------------------------------------------------------------------
+// Fresh center — no `centerHours.save` ever called: `centerHours.get` returns
+// an empty week, and the planner must seed the domain default (09:00–18:00),
+// not the grid's hard-coded 08:00–20:00 fallback. All seven columns open.
+// ---------------------------------------------------------------------------
+test('fresh center seeds the domain default week (09:00 top → 18:00 bottom, all open)', async () => {
+  const L = STR[locale()];
+  live = await bootFresh(locale());
+  const win = live.win;
+
+  // Proof the center really is fresh: no rows persisted.
+  expect(await readWeekHours(win)).toEqual([]);
+
+  await gotoPlanning(win, L);
+
+  const expected = hourLabels(9, 18);
+  await expect(win.getByText('18:00', { exact: true }).first()).toBeVisible();
+  for (const label of expected) {
+    await expect(win.getByText(label, { exact: true }).first()).toBeVisible();
+  }
+  // The default week, not the all-closed 08:00–20:00 fallback.
+  await expect(win.getByText('08:00', { exact: true })).toHaveCount(0);
+  await expect(win.getByText('20:00', { exact: true })).toHaveCount(0);
+
+  const { top, bottom } = await gutterEdges(win, expected);
+  expect(top).toBe('09:00');
+  expect(bottom).toBe('18:00');
+
+  // Every column is open: none aria-hidden.
+  const cols = dayColumns(win, '09:00');
+  await expect(cols).toHaveCount(7);
+  for (let i = 0; i < 7; i++) {
+    await expect(cols.nth(i)).not.toHaveAttribute('aria-hidden', 'true');
+    await expect(cols.nth(i)).toHaveCSS('pointer-events', 'auto');
+  }
 });

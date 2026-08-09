@@ -78,18 +78,29 @@ export type BlockPosition = {
 };
 
 /**
- * Positions a session vertically within the range: `top` and `height` as a
- * percentage of the column height, so the block scales with any row height the
- * grid chooses. Horizontal placement (which day, RTL mirroring) is the grid's
- * job, not this function's. Out-of-range sessions clamp to the visible edges —
- * a session created when the range was wider stays visible after the center
- * narrows its hours (SOU-184).
+ * Positions a session vertically within the range, as a percentage of the
+ * column height so blocks scale with any row height the grid chooses.
+ * Horizontal placement (which day, RTL mirroring) is the grid's job. A session
+ * straddling an edge clamps to it; one fully outside the range pins a minimum
+ * 2% sliver to the nearest edge so it stays findable after the center narrows
+ * its hours (SOU-184).
  */
 export function blockPosition(session: PlannerSessionView, range: TimeRange): BlockPosition {
   const rangeStart = range.startHour * 60;
-  const totalMinutes = (range.endHour - range.startHour) * 60;
-  const top = Math.min(100, Math.max(0, ((timeToMinutes(session.start) - rangeStart) / totalMinutes) * 100));
-  const bottom = Math.min(100, Math.max(0, ((timeToMinutes(session.end) - rangeStart) / totalMinutes) * 100));
+  const rangeEnd = range.endHour * 60;
+  const totalMinutes = rangeEnd - rangeStart;
+  const start = timeToMinutes(session.start);
+  const end = timeToMinutes(session.end);
+
+  if (end <= rangeStart || start >= rangeEnd) {
+    const sliver = 2;
+    return end <= rangeStart
+      ? { topPercent: 0, heightPercent: sliver }
+      : { topPercent: 100 - sliver, heightPercent: sliver };
+  }
+
+  const top = Math.min(100, Math.max(0, ((start - rangeStart) / totalMinutes) * 100));
+  const bottom = Math.min(100, Math.max(0, ((end - rangeStart) / totalMinutes) * 100));
   return { topPercent: top, heightPercent: Math.max(0, bottom - top) };
 }
 
