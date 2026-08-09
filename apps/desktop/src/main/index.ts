@@ -1,14 +1,16 @@
 /// <reference types="vite/client" />
 import { join } from 'node:path';
 import { app, dialog, BrowserWindow, ipcMain } from 'electron';
-import { PLANS } from '@centresoutien/domain';
+import { PLANS, CenterSwitchError } from '@centresoutien/domain';
 import type { PlanId, CenterCode } from '@centresoutien/domain';
 import { registerIpc } from './ipc/register';
 import { buildContainer, type Container } from './composition-root';
-import { createHandlers } from './ipc/handlers';
+import { CenterHost } from './center/center-host';
 import { createMainWindow } from './window';
 import { DATABASE_SCHEMA_AHEAD_MESSAGE, DatabaseSchemaAheadOfAppError } from '../data/sqlite/migration-runner';
 import { centreDbFileName, DatabaseKeyMismatchError, ensureDatabaseKeyed } from '../data/sqlite/db';
+import { FsCenterDirectory, type CenterSummary } from '../data/sqlite/center-directory';
+import { CENTER_CHANGED_EVENT, type CenterChangedEvent } from '../shared/ipc/center-events';
 import { hubDbFileName } from '../data/sqlite/hub/hub-store';
 import {
   DATABASE_KEY_MESSAGE,
@@ -65,6 +67,8 @@ function activePlanId(): PlanId {
 }
 
 let container: Container | null = null;
+let host: CenterHost | null = null;
+let mainWindow: BrowserWindow | null = null;
 
 /**
  * Embedded LAN hub (SOU-90): designated-laptop opt-in until the sync setup
@@ -169,7 +173,7 @@ function scheduleRestartIntoReal(): void {
  */
 function openWindow(locale: string | undefined): void {
   const preload = join(import.meta.dirname, '../preload/index.js');
-  createMainWindow(preload, {
+  mainWindow = createMainWindow(preload, {
     devUrl: process.env['ELECTRON_RENDERER_URL'],
     indexHtml: join(import.meta.dirname, '../renderer/index.html'),
     ...(locale ? { query: { locale } } : {}),
@@ -213,6 +217,41 @@ app.whenReady().then(async () => {
       await prepareDemoCenter({ dir, demoKey: key, appVersion: () => app.getVersion(), scheduleRestart });
     }
 
+    // Center switcher (SOU-96). The directory scans the userData dir for
+    // `centre-*.db`, deriving each center's own key to read its profile in
+    // isolation; the demo center is excluded (it has its own relaunch-based flow,
+    // not a peer to switch between). `centerSwitch` closures are threaded into
+    // every container so `SwitchCenter`/`center.list` resolve against the live
+    // host — `switchTo` drives the hot-swap, `listCenters` scans anchored on the
+    // currently-open center. The demo container gets none of this: it stays
+    // isolated (its `center.switch` uses the composition fallback).
+    const directory = new FsCenterDirectory(dir, (id) => centerDbKey(dir, id).key, [DEMO_CENTRE_ID]);
+    const centerSwitch = {
+      switchTo: (targetCentreId: string): Promise<void> =>
+        host
+          ? host.swapTo(targetCentreId)
+          : Promise.reject(new CenterSwitchError('center switching is not ready')),
+      listCenters: (): Promise<readonly CenterSummary[]> =>
+        Promise.resolve(directory.list(host?.currentCentreId ?? centreId)),
+    };
+    const buildCenterContainer = (targetCentreId: string): Container => {
+      const targetKeys = centerDbKey(dir, targetCentreId);
+      ensureDatabaseKeyed(join(dir, centreDbFileName(targetCentreId)), targetKeys.key, targetKeys.legacyKeys);
+      ensureDatabaseKeyed(join(dir, hubDbFileName(targetCentreId)), targetKeys.key, targetKeys.legacyKeys);
+      const peeked = directory.peek(targetCentreId);
+      const targetCenterCode = (peeked?.centerCode ?? `CS-${targetCentreId.toUpperCase()}`) as CenterCode;
+      return buildContainer({
+        centreId: targetCentreId,
+        centerCode: targetCenterCode,
+        key: targetKeys.key,
+        dir,
+        planId: activePlanId(),
+        appVersion: () => app.getVersion(),
+        scheduleRestart,
+        centerSwitch,
+      });
+    };
+
     container = buildContainer({
       centreId,
       centerCode,
@@ -254,7 +293,24 @@ app.whenReady().then(async () => {
       // collide with the real hub's port/token and expose demo data on the LAN;
       // being a client would pull real data into a session meant to be disposable.
       // hubServer/hubClient stay mutually exclusive (SOU-82) whenever demo isn't.
-      ...(demoRequested ? {} : hubServer ? { hubServer } : hubClient ? { hubClient } : {}),
+      // The switcher is likewise off in demo — the demo center stays isolated.
+      ...(demoRequested
+        ? {}
+        : { centerSwitch, ...(hubServer ? { hubServer } : hubClient ? { hubClient } : {}) }),
+    });
+
+    // The hot-swap host owns the live container from here on: `ipcMain` is wired
+    // once to its delegating handlers, and a `center.switch` re-points the
+    // delegation without touching `ipcMain` (SOU-96). Built for every center for a
+    // single IPC path; the demo center simply never reaches `swapTo` — its
+    // `center.switch` hits the composition fallback and rejects, so the switcher
+    // stays inert there.
+    host = new CenterHost({
+      initial: container,
+      initialCentreId: centreId,
+      buildForCenter: buildCenterContainer,
+      emitCenterChanged: (event: CenterChangedEvent) =>
+        mainWindow?.webContents.send(CENTER_CHANGED_EVENT, event),
     });
   } catch (error) {
     // A center DB migrated by a newer app build, then reopened after a rollback
@@ -285,9 +341,13 @@ app.whenReady().then(async () => {
     // `console.error` below, which only handles `whenReady()` itself rejecting.
     throw error;
   }
-  registerIpc(ipcMain, createHandlers(container.handlerDeps), {
-    isRestricted: container.isRestricted,
-    isSetupComplete: container.isSetupComplete,
+  // `host.ipcHandlers()` delegates every channel to whichever center is open, so
+  // a `center.switch` swaps the backing container without re-registering `ipcMain`
+  // (SOU-96). The restricted-mode gates likewise read the LIVE container, so a
+  // switch into an unlicensed center confines it exactly as a fresh launch would.
+  registerIpc(ipcMain, host.ipcHandlers(), {
+    isRestricted: host.isRestricted,
+    isSetupComplete: host.isSetupComplete,
   });
   // `CS_LOCALE` (dev override) wins over the persisted preference (SOU-31); the
   // language tab writes that preference via `preferences.locale.set`, read
@@ -301,8 +361,12 @@ app.whenReady().then(async () => {
 }, console.error);
 
 app.on('will-quit', () => {
-  container?.dispose();
+  // After a hot-swap the live container is the host's, not the initial `container`
+  // ref (SOU-96); dispose whichever is currently open. `dispose` guards against a
+  // double close, so falling back to `container` is safe when no host exists.
+  (host?.currentContainer ?? container)?.dispose();
   container = null;
+  host = null;
 });
 
 app.on('window-all-closed', () => {
