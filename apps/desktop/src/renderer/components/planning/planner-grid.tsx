@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { WEEKDAYS } from '@centresoutien/domain';
+import { WEEKDAYS, type WeekdayIndex } from '@centresoutien/domain';
 import { cn } from '@centresoutien/ui';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
-import { hourLabel, type TimeRange } from '../../lib/planning/time-range';
+import { hourLabel, type MinuteInterval, type TimeRange } from '../../lib/planning/time-range';
 import { PlannerDayColumn } from './planner-day-column';
 
 /** One hour of the day occupies this many pixels; gutter and columns share it. */
@@ -14,8 +14,8 @@ type PlannerGridProps = {
   sessions: readonly PlannerSessionView[];
   /** Vertical window, derived from the whole week so the grid stays stable while filtering. */
   range: TimeRange;
-  /** Day indexes whose column must render hatched and non-interactive. */
-  closedDays: ReadonlySet<number>;
+  /** Closed (hatched) intervals per weekday — whole column when closed, gaps under an override. */
+  closedSegmentsByDay: ReadonlyMap<WeekdayIndex, readonly MinuteInterval[]>;
   onSelect: (session: PlannerSessionView) => void;
   /** Shown centered over the grid when `sessions` is empty (week-empty vs no-match copy). */
   emptyLabel: string;
@@ -39,7 +39,7 @@ function groupByDay(sessions: readonly PlannerSessionView[]): Map<number, Planne
  * `WEEKDAYS`; RTL mirroring (Sunday on the right, headers flipped) is done once
  * by `dir="rtl"` on `<html>`, never by reversing the array here (CLAUDE.md §8).
  */
-export function PlannerGrid({ sessions, range, closedDays, onSelect, emptyLabel, className }: PlannerGridProps) {
+export function PlannerGrid({ sessions, range, closedSegmentsByDay, onSelect, emptyLabel, className }: PlannerGridProps) {
   const { t, i18n } = useTranslation();
   const byDay = groupByDay(sessions);
   const bodyHeight = (range.endHour - range.startHour) * HOUR_PX;
@@ -76,7 +76,7 @@ export function PlannerGrid({ sessions, range, closedDays, onSelect, emptyLabel,
             sessions={byDay.get(day) ?? []}
             range={range}
             hourPx={HOUR_PX}
-            closed={closedDays.has(day)}
+            closedSegments={closedSegmentsByDay.get(day) ?? []}
             onSelect={onSelect}
           />
         ))}
