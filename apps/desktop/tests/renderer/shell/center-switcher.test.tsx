@@ -8,6 +8,11 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   useNavigate: () => vi.fn(),
 }));
 
+vi.mock('../../../src/renderer/lib/center/center-gateway-instance', async () => {
+  const { createMockCenterGateway } = await import('../../../src/renderer/lib/center/center-gateway.mock');
+  return { centerGateway: createMockCenterGateway() };
+});
+
 import { CenterSwitcher } from '../../../src/renderer/components/shell/center-switcher';
 import { usePlanStore } from '../../../src/renderer/stores/plan-store';
 import i18n from '../../../src/renderer/i18n/config';

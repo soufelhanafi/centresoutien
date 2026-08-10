@@ -10,6 +10,11 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   useNavigate: () => navigateSpy,
 }));
 
+vi.mock('../../../src/renderer/lib/center/center-gateway-instance', async () => {
+  const { createMockCenterGateway } = await import('../../../src/renderer/lib/center/center-gateway.mock');
+  return { centerGateway: createMockCenterGateway() };
+});
+
 import { useSwitchCenter } from '../../../src/renderer/hooks/center/use-switch-center';
 import { useDashboardViewStore } from '../../../src/renderer/stores/dashboard-view-store';
 import { useCommandPaletteStore } from '../../../src/renderer/stores/command-palette-store';
