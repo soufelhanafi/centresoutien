@@ -14,18 +14,11 @@ import {
 } from './planning-block-clip.fixtures';
 
 /**
- * SOU-134 — a 1-hour planner session block must NOT clip its 3rd line
- * (`teacher · room`) at the smallest slot height (HOUR_PX = 56 → 56px tall).
- * Verified for a regular block AND the worst case (an exam-prep block, which
- * carries a KindBadge on line 1), in BOTH FR-LTR and AR-RTL (the `fr` and `ar`
- * Playwright projects). Cosmetic-only — no functional behavior asserted here.
- *
- * "Not clipped" is asserted two independent ways on the live block:
- *   1. block.scrollHeight <= block.clientHeight (+1px rounding) — no vertical
- *      overflow, i.e. the content (all three lines) fits inside the block box.
- *   2. the 3rd-line (`teacher · room`) element's bounding box sits fully within
- *      the block's bounding box (its bottom <= block bottom, its top >= block
- *      top, within 1px).
+ * SOU-134 — a 1h planner block (HOUR_PX = 56, the smallest slot) must not clip
+ * its 3rd line (`teacher · room`). exam-prep is the worst case: its KindBadge
+ * grows line 1. Checked in FR-LTR and AR-RTL. Two independent overflow checks
+ * live on the block: scrollHeight <= clientHeight, and the 3rd-line box sits
+ * within the block box.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -50,16 +43,16 @@ for (const kind of ['regular', 'exam-prep'] as const) {
     const subject = loc === 'ar' ? SUBJECT.ar : SUBJECT.fr;
     const teacher = loc === 'ar' ? TEACHER.nameAr : TEACHER.nameFr;
 
-    // All three lines are present in the grid: subject (line 1), the time range
-    // (line 2) and the teacher (line 3, alongside the room).
-    await expect(win.getByText(subject).first()).toBeVisible();
-    await expect(win.getByText('09:00', { exact: false }).first()).toBeVisible();
-    await expect(win.getByText(teacher).first()).toBeVisible();
-    await expect(win.getByText(ROOM.name).first()).toBeVisible();
+    // Scope every content assertion to the session button itself so line 2's
+    // `09:00` is the block's time range, never the identical hour-gutter label.
+    const block = win.locator('button').filter({ hasText: subject }).first();
+    await expect(block).toBeVisible();
+    await expect(block.getByText('09:00', { exact: false })).toBeVisible();
+    await expect(block.getByText(teacher)).toBeVisible();
+    await expect(block.getByText(ROOM.name)).toBeVisible();
 
-    // The exam-prep worst case carries the "PE" kind badge on line 1.
     if (kind === 'exam-prep') {
-      await expect(win.getByText(L.kind.examPrepShort, { exact: true }).first()).toBeVisible();
+      await expect(block.getByText(L.kind.examPrepShort, { exact: true })).toBeVisible();
     }
 
     const m = await measureBlock(win, {

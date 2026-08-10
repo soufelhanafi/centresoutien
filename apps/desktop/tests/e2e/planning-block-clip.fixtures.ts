@@ -11,17 +11,9 @@ import {
 } from './planning-sessions.fixtures';
 
 /**
- * Black-box fixtures for SOU-134 — the planner session block must NOT clip its
- * 3rd line (`teacher · room`) at the 1-hour row height (HOUR_PX = 56 → a 1h
- * block is 56px tall). Worst case is an exam-prep block (it carries a KindBadge
- * on line 1). Cosmetic-only fix.
- *
- * Everything is driven through the running packaged app and the public preload
- * bridge (`window.api.invoke`): reference data + one weekly session are seeded
- * through the SAME public channels the app uses (`room.create`,
- * `teacher.create`, `subject.create`, `group.create`, `weeklySession.create`).
- * No renderer / domain / data implementation is imported or read — the block
- * geometry is measured live from the rendered DOM.
+ * Black-box fixtures for SOU-134. Boot the packaged app, seed reference data +
+ * one weekly session through the public preload bridge only, then measure the
+ * rendered block geometry live. exam-prep is the worst case (KindBadge on line 1).
  */
 
 export { STR, DIRECTION, gotoPlanning, type Locale, type Launched };
@@ -34,11 +26,9 @@ export const ROOM = { name: 'Salle A' } as const;
 export const SUBJECT = { fr: 'Mathématiques', ar: 'الرياضيات' } as const;
 
 /**
- * Boot fresh (default 09:00–18:00 week, so a 09:00–10:00 session sits at the top
- * of the grid at exactly one row height), seed one room + one teacher + one
- * group of the given kind, then create a 1-hour weekly session bound to all
- * three so the block carries a subject (line 1, + PE badge when exam-prep), a
- * time range (line 2), and `teacher · room` (line 3).
+ * 09:00–10:00 sits at the top of the default 09:00–18:00 grid at exactly one row
+ * height (HOUR_PX), i.e. the smallest slot — the case that clips. Seeds one room,
+ * teacher and group of `kind`, then a 1h weekly session bound to all three.
  */
 export async function bootWithOneHourSession(
   locale: Locale,
@@ -83,15 +73,11 @@ export type BlockMetrics = {
 };
 
 /**
- * Locate the 1-hour session block live in the rendered grid and return the
- * measurements that decide "not clipped":
- *   - the block's own `scrollHeight` vs `clientHeight` (overflow ⇒ clipped), and
- *   - the 3rd-line (`teacher · room`) element's bounding box vs the block's box.
- *
- * The block is found black-box: the absolutely-positioned session button one row
- * tall (~56px, the 1h slot) whose text contains the subject, the room and the
- * teacher (either locale spelling). The 3rd line is the deepest descendant that
- * carries the room name (room is Latin, identical in both locales).
+ * Find the 1h block black-box — the absolutely-positioned ~56px button carrying
+ * subject + room + teacher (either locale spelling) — and measure overflow
+ * (scrollHeight vs clientHeight) plus the 3rd-line box vs the block box. The 3rd
+ * line is the deepest descendant holding the room name (Latin, identical in both
+ * locales).
  */
 export async function measureBlock(
   win: Page,
