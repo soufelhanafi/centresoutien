@@ -9,7 +9,6 @@ import { z } from 'zod';
 import { AppShell } from '../components/shell/app-shell';
 import { RouteNotFound } from '../components/shell/route-not-found';
 import { RouteError } from '../components/shell/route-error';
-import { ModulePlaceholder } from '../pages/module-placeholder';
 import { DashboardPage } from '../pages/dashboard/dashboard-page';
 import { SettingsPage } from '../pages/settings-page';
 import { StudentsPage } from '../pages/students/students-page';
@@ -26,6 +25,7 @@ import { PlannerPage } from '../pages/planning/planner-page';
 import { InvoicesPage } from '../pages/invoices/invoices-page';
 import { InvoiceDetailPage } from '../pages/invoices/invoice-detail-page';
 import { ArrearsPage } from '../pages/arrears/arrears-page';
+import { PaymentsPage } from '../pages/payments/payments-page';
 import { PayrollPage } from '../pages/payroll/payroll-page';
 import { SyncPage } from '../pages/sync/sync-page';
 import {
@@ -136,7 +136,7 @@ const arrearsRoute = createRoute({
 const paymentsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: paymentsModule.path,
-  component: () => <ModulePlaceholder module={paymentsModule} />,
+  component: PaymentsPage,
 });
 const payrollRoute = createRoute({
   getParentRoute: () => rootRoute,

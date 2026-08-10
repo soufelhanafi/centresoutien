@@ -2014,6 +2014,38 @@
       "generatedOn": "Générée le {{date}}"
     }
   },
+  "payments": {
+    "title": "Caisse",
+    "subtitle": "Encaissez les paiements du jour, enregistrez un règlement et suivez les derniers encaissements.",
+    "retry": "Réessayer",
+    "unknownStudent": "Élève inconnu",
+    "takings": {
+      "title": "Recette du jour",
+      "count": "{{count}} paiement(s)",
+      "byMethodLabel": "Recette du jour par mode de paiement",
+      "loadError": "Le chargement de la recette du jour a échoué."
+    },
+    "record": {
+      "title": "Enregistrer un paiement",
+      "subtitle": "Sélectionnez une facture ouverte pour encaisser un règlement.",
+      "search": "Rechercher un élève…",
+      "searchLabel": "Rechercher une facture par élève",
+      "action": "Encaisser",
+      "loadError": "Le chargement des factures a échoué.",
+      "emptyTitle": "Aucune facture ouverte",
+      "emptyBody": "Toutes les factures sont réglées. Rien à encaisser pour le moment.",
+      "noResultsTitle": "Aucun résultat",
+      "noResultsBody": "Aucune facture ouverte ne correspond à cette recherche."
+    },
+    "feed": {
+      "title": "Derniers encaissements",
+      "reversal": "Annulation",
+      "unknownStudent": "Élève inconnu",
+      "loadError": "Le chargement des encaissements a échoué.",
+      "emptyTitle": "Aucun encaissement",
+      "emptyBody": "Les paiements enregistrés apparaîtront ici."
+    }
+  },
   "license": {
     "title": "Activation de la licence",
     "subtitle": "Saisissez votre clé ou importez votre fichier de licence pour activer votre formule.",
