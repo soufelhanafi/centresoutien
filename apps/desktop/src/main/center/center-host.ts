@@ -113,7 +113,12 @@ export class CenterHost {
       this.handlers = createHandlers(next.handlerDeps);
       this.centreId = centreId;
       previous.dispose();
-      this.options.emitCenterChanged(await this.describe(next));
+      // Past the point of no return: `next` is now the open center. Computing or
+      // emitting `center.changed` reads `next`'s DB, so it can fail — but a failed
+      // notification must NOT re-report an already-committed swap as rejected, or
+      // the renderer's onSuccess never runs and it keeps showing the previous
+      // center while the backend serves the new one (a cross-tenant display risk).
+      await this.announceOpenCenter(next, centreId);
     } finally {
       this.swapping = false;
     }
@@ -125,6 +130,14 @@ export class CenterHost {
     } catch (error) {
       console.error('[center-switch] failed to open center', centreId, error);
       throw new CenterSwitchError(`center "${centreId}" could not be opened`);
+    }
+  }
+
+  private async announceOpenCenter(container: Container, centreId: string): Promise<void> {
+    try {
+      this.options.emitCenterChanged(await this.describe(container));
+    } catch (error) {
+      console.error('[center-switch] swap completed but center.changed emit failed', centreId, error);
     }
   }
 
