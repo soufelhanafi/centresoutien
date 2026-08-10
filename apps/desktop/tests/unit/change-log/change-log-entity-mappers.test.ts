@@ -374,6 +374,70 @@ describe('getRegisteredChangeLogEntityToRowMapper (sync-apply projection, SOU-13
   });
 });
 
+describe('getRegisteredChangeLogEntityToRowMapper — center_hours_overrides (SOU-199)', () => {
+  const HOURS = {
+    0: [{ open: '09:00', close: '15:00' }, { open: '21:00', close: '23:00' }],
+    1: [{ open: '09:00', close: '15:00' }],
+    2: [{ open: '09:00', close: '15:00' }],
+    3: [{ open: '09:00', close: '15:00' }],
+    4: [{ open: '09:00', close: '15:00' }],
+    5: [],
+    6: [{ open: '09:00', close: '15:00' }],
+  };
+
+  it('flattens dateRange onto start_date/end_date and serializes hoursByWeekday to JSON text', () => {
+    const mapper = getRegisteredChangeLogEntityToRowMapper('center_hours_overrides');
+    expect(mapper).toBeDefined();
+
+    const row = mapper!({
+      id: 'cho_00000000000000000000000001',
+      centerCode: 'CS-CASA-001',
+      deviceOrigin: 'dev_1',
+      createdAt: ISO,
+      updatedAt: ISO,
+      updatedBy: 'usr_1',
+      deletedAt: null,
+      version: 2,
+      dateRange: { start: '2026-02-18', end: '2026-03-19' },
+      hoursByWeekday: HOURS,
+    });
+
+    expect(row).toEqual({
+      id: 'cho_00000000000000000000000001',
+      center_code: 'CS-CASA-001',
+      device_origin: 'dev_1',
+      created_at: ISO,
+      updated_at: ISO,
+      updated_by: 'usr_1',
+      deleted_at: null,
+      version: 2,
+      start_date: '2026-02-18',
+      end_date: '2026-03-19',
+      hours_by_weekday: JSON.stringify(HOURS),
+    });
+  });
+
+  it('accepts Date instances and projects a tombstone onto deleted_at', () => {
+    const mapper = getRegisteredChangeLogEntityToRowMapper('center_hours_overrides')!;
+    const row = mapper({
+      id: 'cho_00000000000000000000000002',
+      centerCode: 'CS-CASA-001',
+      deviceOrigin: 'dev_1',
+      createdAt: new Date(ISO),
+      updatedAt: new Date(ISO),
+      updatedBy: 'usr_1',
+      deletedAt: new Date(ISO),
+      version: 3,
+      dateRange: { start: '2026-02-18', end: '2026-02-18' },
+      hoursByWeekday: HOURS,
+    });
+    expect(row['created_at']).toBe(ISO);
+    expect(row['deleted_at']).toBe(ISO);
+    expect(row['start_date']).toBe('2026-02-18');
+    expect(row['end_date']).toBe('2026-02-18');
+  });
+});
+
 describe('subjectBackupRowToEntity', () => {
   it('converts the flat workbook subjects row to the canonical domain Subject', () => {
     const subject = subjectBackupRowToEntity({

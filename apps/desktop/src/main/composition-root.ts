@@ -884,7 +884,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // Ramadan schedule overrides (SOU-165): generation consults the active override
   // for each date, taking precedence over the static weekly hours and skipping
   // dates whose fixed template time no longer fits the override's windows.
-  const centerHoursOverrideRepo = new SqliteCenterHoursOverrideRepository(db);
+  const centerHoursOverrideRepo = new SqliteCenterHoursOverrideRepository(db, changeLog);
   const generateSessions = new GenerateAndPersistSessions(
     concreteSessionRepo,
     sessionRepo,

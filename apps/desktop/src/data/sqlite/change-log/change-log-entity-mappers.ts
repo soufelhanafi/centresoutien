@@ -1,6 +1,7 @@
 import type {
   BackupRow,
   CenterCode,
+  CenterHoursOverride,
   DeviceId,
   Session,
   Subject,
@@ -176,6 +177,23 @@ function sessionEntityToRow(entity: unknown): Record<string, unknown> {
   };
 }
 
+function centerHoursOverrideEntityToRow(entity: unknown): Record<string, unknown> {
+  const override = entity as CenterHoursOverride;
+  return {
+    id: override.id,
+    center_code: override.centerCode,
+    device_origin: override.deviceOrigin,
+    created_at: toIsoString(override.createdAt),
+    updated_at: toIsoString(override.updatedAt),
+    updated_by: override.updatedBy,
+    deleted_at: override.deletedAt === null ? null : toIsoString(override.deletedAt),
+    version: override.version,
+    start_date: override.dateRange.start,
+    end_date: override.dateRange.end,
+    hours_by_weekday: JSON.stringify(override.hoursByWeekday),
+  };
+}
+
 // Default registration: `subjects` is the first repo-written entityType in the
 // log (SOU-79 representative slice); its payload is the nested domain Subject.
 registerChangeLogEntityToRowMapper('subjects', subjectEntityToRow);
@@ -184,3 +202,9 @@ registerChangeLogEntityToRowMapper('subjects', subjectEntityToRow);
 // project `groupId` onto `group_id` or laptop B renders the neutral fallback.
 registerChangeLogEntityToRowMapper('weekly_recurring_sessions', weeklyRecurringSessionEntityToRow);
 registerChangeLogEntityToRowMapper('sessions', sessionEntityToRow);
+// `center_hours_overrides` (SOU-199): a synced Ramadan-style hours override. Its
+// nested `dateRange.{start,end}` flatten to `start_date`/`end_date` and
+// `hoursByWeekday` serializes to the `hours_by_weekday` JSON text column, exactly
+// as the repository's own SAVE_SQL does — so a pulled override lands on laptop B's
+// real table instead of the neutral fallback.
+registerChangeLogEntityToRowMapper('center_hours_overrides', centerHoursOverrideEntityToRow);

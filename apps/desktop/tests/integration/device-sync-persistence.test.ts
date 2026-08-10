@@ -11,6 +11,8 @@ import {
   SyncEngine,
   type ConflictResolution,
   type CenterCode,
+  type CenterHoursOverride,
+  type CenterHoursOverrideId,
   type Clock,
   type DeviceId,
   type GroupId,
@@ -25,6 +27,7 @@ import {
   type WeekdayIndex,
   type WeeklyRecurringSession,
   type WeeklyRecurringSessionId,
+  type WeeklyTimeWindows,
 } from '@centresoutien/domain';
 import { openDatabase, openDatabaseAt } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
@@ -34,6 +37,7 @@ import { HttpSyncHubClient } from '../../src/data/sync/http-sync-hub-client';
 import { SqliteSubjectRepository } from '../../src/data/sqlite/repositories/subject-repository';
 import { SqliteSessionRepository } from '../../src/data/sqlite/repositories/session-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../../src/data/sqlite/repositories/weekly-recurring-session-repository';
+import { SqliteCenterHoursOverrideRepository } from '../../src/data/sqlite/repositories/center-hours-override-repository';
 import { SqliteChangeLogWriter } from '../../src/data/sqlite/change-log/sqlite-change-log-writer';
 import { SqliteLocalSyncRepository } from '../../src/data/sqlite/change-log/sqlite-sync-local-repository';
 import { SqliteDuplicateMatchSource } from '../../src/data/sqlite/change-log/sqlite-duplicate-match-source';
@@ -68,6 +72,30 @@ const ROOM = 'rom_00000000000000000000000001' as RoomId;
 const GROUP = 'grp_00000000000000000000000001' as GroupId;
 const WRS = 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId;
 const SESSION = 'ses_00000000000000000000000001' as SessionId;
+const OVERRIDE = 'cho_00000000000000000000000001' as CenterHoursOverrideId;
+
+const uniformWeek = (windows: { open: TimeOfDay; close: TimeOfDay }[]): WeeklyTimeWindows => ({
+  0: windows, 1: windows, 2: windows, 3: windows, 4: windows, 5: windows, 6: windows,
+});
+
+function makeOverride(over: Partial<CenterHoursOverride> = {}): CenterHoursOverride {
+  return {
+    id: OVERRIDE,
+    centerCode: CENTER,
+    deviceOrigin: DEV_A,
+    createdAt: AT,
+    updatedAt: AT,
+    updatedBy: USER_A,
+    deletedAt: null,
+    version: 0,
+    dateRange: { start: '2026-02-18', end: '2026-03-19' },
+    hoursByWeekday: uniformWeek([
+      { open: '09:00' as TimeOfDay, close: '15:00' as TimeOfDay },
+      { open: '21:00' as TimeOfDay, close: '23:00' as TimeOfDay },
+    ]),
+    ...over,
+  };
+}
 
 function makeSubject(over: Partial<Subject> = {}): Subject {
   return {
@@ -138,6 +166,7 @@ class Device {
   readonly subjects: SqliteSubjectRepository;
   readonly weeklySessions: SqliteWeeklyRecurringSessionRepository;
   readonly sessions: SqliteSessionRepository;
+  readonly overrides: SqliteCenterHoursOverrideRepository;
   private readonly local: SqliteLocalSyncRepository;
   private readonly outbox: ChangeLogOutbox;
   private readonly engine: SyncEngine;
@@ -155,6 +184,7 @@ class Device {
     this.subjects = new SqliteSubjectRepository(this.db, changeLog);
     this.weeklySessions = new SqliteWeeklyRecurringSessionRepository(this.db, changeLog);
     this.sessions = new SqliteSessionRepository(this.db, changeLog);
+    this.overrides = new SqliteCenterHoursOverrideRepository(this.db, changeLog);
     this.local = new SqliteLocalSyncRepository(this.db, clock, deviceId, CENTER);
     this.outbox = new ChangeLogOutbox(this.db, this.local, CENTER, deviceId, userId);
     this.matcher = new DuplicateMatcher(new SqliteDuplicateMatchSource(this.db));
@@ -571,5 +601,110 @@ describe('session natural-key conflict resolution (SOU-194)', () => {
       .prepare('SELECT session_id FROM attendance_records WHERE id = ?')
       .get(ATT) as { session_id: string };
     expect(row.session_id).toBe(SESSION_LO);
+  });
+});
+
+/*
+ * SOU-199 — a `center_hours_overrides` write now logs to `change_log`, so a
+ * Ramadan-style override created on one device propagates to another through the
+ * ordinary pull → resolve → push cycle and lands in the receiver's REAL
+ * `center_hours_overrides` table (visible to the generator + conflict check),
+ * not just the sync shadow. `version` counters + the retry loop decide ordering;
+ * no wall-clock last-writer-wins.
+ */
+describe('center-hours-override sync (SOU-199)', () => {
+  it('an override created on A appears in B’s real center_hours_overrides table after sync', async () => {
+    await a.overrides.save(makeOverride());
+    await a.sync();
+
+    expect(await b.overrides.findById(OVERRIDE)).toBeNull();
+
+    await b.sync();
+
+    const onB = await b.overrides.findById(OVERRIDE);
+    expect(onB).not.toBeNull();
+    expect(onB?.dateRange).toEqual({ start: '2026-02-18', end: '2026-03-19' });
+    expect(onB?.hoursByWeekday[0]).toEqual([
+      { open: '09:00', close: '15:00' },
+      { open: '21:00', close: '23:00' },
+    ]);
+    expect(onB?.version).toBe(1);
+    expect(onB?.deviceOrigin).toBe(DEV_A);
+  });
+
+  it('non-overlapping field edits (range vs hours) auto-merge; both real rows converge', async () => {
+    await a.overrides.save(makeOverride());
+    await a.sync();
+    await b.sync();
+
+    // A extends the date range; B rewrites the weekly hours — disjoint fields.
+    await a.overrides.save(makeOverride({ dateRange: { start: '2026-02-18', end: '2026-03-25' }, version: 1 }));
+    await b.overrides.save(
+      makeOverride({
+        hoursByWeekday: uniformWeek([{ open: '10:00' as TimeOfDay, close: '16:00' as TimeOfDay }]),
+        version: 1,
+      }),
+    );
+
+    await a.sync(); // A pushes the range change (hub v2)
+    await b.sync(); // B pulls v2, auto-merges its hours change, pushes (hub v3)
+    await a.sync(); // A pulls the merged result
+
+    expect(a.blockedCount()).toBe(0);
+    expect(b.blockedCount()).toBe(0);
+    const onA = await a.overrides.findById(OVERRIDE);
+    const onB = await b.overrides.findById(OVERRIDE);
+    expect(onA?.dateRange.end).toBe('2026-03-25');
+    expect(onA?.hoursByWeekday[1]).toEqual([{ open: '10:00', close: '16:00' }]);
+    expect(onB?.dateRange.end).toBe('2026-03-25');
+    expect(onB?.hoursByWeekday[1]).toEqual([{ open: '10:00', close: '16:00' }]);
+  });
+
+  it('same-field edits surface a field-clash; nothing is silently wall-clock overwritten', async () => {
+    await a.overrides.save(makeOverride());
+    await a.sync();
+    await b.sync();
+
+    // Both edit the SAME field (hoursByWeekday) from the same base version.
+    await a.overrides.save(
+      makeOverride({
+        hoursByWeekday: uniformWeek([{ open: '08:00' as TimeOfDay, close: '12:00' as TimeOfDay }]),
+        version: 1,
+      }),
+    );
+    await b.overrides.save(
+      makeOverride({
+        hoursByWeekday: uniformWeek([{ open: '14:00' as TimeOfDay, close: '18:00' as TimeOfDay }]),
+        version: 1,
+      }),
+    );
+
+    await a.sync(); // A wins the race to the hub (v2)
+    await b.sync(); // B pulls v2, its same-field edit clashes → blocked, not applied
+
+    expect(b.blockedCount()).toBe(1);
+    expect(b.firstBlockedKind()).toBe('field-clash');
+    // B keeps its own edit; A's value never silently clobbered it.
+    expect((await b.overrides.findById(OVERRIDE))?.hoursByWeekday[0]).toEqual([
+      { open: '14:00', close: '18:00' },
+    ]);
+  });
+
+  it('a soft-delete tombstone propagates to B and hides the override', async () => {
+    await a.overrides.save(makeOverride());
+    await a.sync();
+    await b.sync();
+    expect(await b.overrides.findById(OVERRIDE)).not.toBeNull();
+
+    await a.overrides.softDelete(OVERRIDE, new Date('2026-08-02T00:00:00Z'), USER_A);
+    await a.sync();
+    await b.sync();
+
+    // Live read hides it on B; the tombstone is present in the sync feed.
+    expect(await b.overrides.findById(OVERRIDE)).toBeNull();
+    const changed = await b.overrides.listChangedSince(AT);
+    const tombstone = changed.find((o) => o.id === OVERRIDE);
+    expect(tombstone).toBeDefined();
+    expect(tombstone?.deletedAt).toEqual(new Date('2026-08-02T00:00:00Z'));
   });
 });
