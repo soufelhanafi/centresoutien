@@ -4,10 +4,12 @@ import type {
   CenterHoursOverrideId,
   CenterHoursOverrideRepository,
   CenterCode,
+  ChangeLogWriter,
   DeviceId,
   UserId,
   WeeklyTimeWindows,
 } from '@centresoutien/domain';
+import { toEntityId } from '@centresoutien/domain';
 
 /** The `center_hours_overrides` table row shape as SQLite returns it. */
 type CenterHoursOverrideRow = {
@@ -63,24 +65,40 @@ const SAVE_SQL = `
  * (id, center_code, device_origin, created_at) are never rewritten on upsert.
  * `hours_by_weekday` round-trips as validated JSON text — the domain owns its
  * shape and ordering invariants, this layer only serializes it.
+ *
+ * Every write appends to the append-only `change_log` (SOU-199) inside the same
+ * transaction, so an override created or archived on one device propagates to the
+ * others through the ordinary sync feed instead of staying device-local.
  */
 export class SqliteCenterHoursOverrideRepository implements CenterHoursOverrideRepository {
-  constructor(private readonly db: DB) {}
+  constructor(
+    private readonly db: DB,
+    private readonly changeLog: ChangeLogWriter,
+  ) {}
 
   async save(override: CenterHoursOverride): Promise<void> {
-    this.db.prepare(SAVE_SQL).run({
-      id: override.id,
-      center_code: override.centerCode,
-      device_origin: override.deviceOrigin,
-      created_at: override.createdAt.toISOString(),
-      updated_at: override.updatedAt.toISOString(),
-      updated_by: override.updatedBy,
-      deleted_at: override.deletedAt ? override.deletedAt.toISOString() : null,
-      version: override.version,
-      start_date: override.dateRange.start,
-      end_date: override.dateRange.end,
-      hours_by_weekday: JSON.stringify(override.hoursByWeekday),
-    });
+    this.db.transaction(() => {
+      this.db.prepare(SAVE_SQL).run({
+        id: override.id,
+        center_code: override.centerCode,
+        device_origin: override.deviceOrigin,
+        created_at: override.createdAt.toISOString(),
+        updated_at: override.updatedAt.toISOString(),
+        updated_by: override.updatedBy,
+        deleted_at: override.deletedAt ? override.deletedAt.toISOString() : null,
+        version: override.version,
+        start_date: override.dateRange.start,
+        end_date: override.dateRange.end,
+        hours_by_weekday: JSON.stringify(override.hoursByWeekday),
+      });
+      this.changeLog.record({
+        entityType: 'center_hours_overrides',
+        entityId: toEntityId(override.id),
+        centerCode: override.centerCode,
+        intent: 'upsert',
+        entity: override,
+      });
+    })();
   }
 
   async findById(id: CenterHoursOverrideId): Promise<CenterHoursOverride | null> {
@@ -92,11 +110,25 @@ export class SqliteCenterHoursOverrideRepository implements CenterHoursOverrideR
 
   async softDelete(id: CenterHoursOverrideId, at: Date, by: UserId): Promise<void> {
     const iso = at.toISOString();
-    this.db
-      .prepare(
-        'UPDATE center_hours_overrides SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?',
-      )
-      .run(iso, iso, by, id);
+    this.db.transaction(() => {
+      const row = this.db
+        .prepare('SELECT * FROM center_hours_overrides WHERE id = ?')
+        .get(id) as CenterHoursOverrideRow | undefined;
+      if (!row) return;
+      this.db
+        .prepare(
+          'UPDATE center_hours_overrides SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?',
+        )
+        .run(iso, iso, by, id);
+      this.changeLog.record({
+        entityType: 'center_hours_overrides',
+        entityId: toEntityId(id),
+        centerCode: row.center_code as CenterCode,
+        intent: 'delete',
+        // The tombstoned domain entity — exactly the persisted state after the UPDATE.
+        entity: { ...fromRow(row), deletedAt: at, updatedAt: at, updatedBy: by },
+      });
+    })();
   }
 
   async listChangedSince(cursor: Date): Promise<readonly CenterHoursOverride[]> {

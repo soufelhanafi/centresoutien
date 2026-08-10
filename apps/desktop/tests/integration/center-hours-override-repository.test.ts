@@ -15,6 +15,7 @@ import type {
 import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteCenterHoursOverrideRepository } from '../../src/data/sqlite/repositories/center-hours-override-repository';
+import { changeLogWriterForTest } from './helpers/change-log';
 
 const KEY = 'passphrase-under-test';
 const REAL_MIGRATIONS = join(import.meta.dirname, '../../src/data/sqlite/migrations');
@@ -35,7 +36,7 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'cs-hours-override-'));
   db = openDatabase({ centreId: 'C1', key: KEY, dir });
   runMigrations(db, REAL_MIGRATIONS);
-  repo = new SqliteCenterHoursOverrideRepository(db);
+  repo = new SqliteCenterHoursOverrideRepository(db, changeLogWriterForTest(db));
 });
 afterEach(() => {
   db.close();
@@ -136,5 +137,83 @@ describe('SqliteCenterHoursOverrideRepository', () => {
         repo.save(makeOverride({ dateRange: { start: '2026-03-19', end: '2026-02-18' } })),
       ).rejects.toThrow();
     });
+  });
+});
+
+type ChangeLogRow = {
+  entity_type: string;
+  entity_id: string;
+  revision: number;
+  op: string;
+  payload: string;
+};
+
+function overrideLogRows(): ChangeLogRow[] {
+  return db
+    .prepare(
+      "SELECT entity_type, entity_id, revision, op, payload FROM change_log WHERE entity_type = 'center_hours_overrides' ORDER BY rowid",
+    )
+    .all() as ChangeLogRow[];
+}
+
+describe('SqliteCenterHoursOverrideRepository — change_log append (SOU-199)', () => {
+  it('appends one center_hours_overrides row per write with monotonic revision and derived op', async () => {
+    const override = makeOverride();
+    await repo.save(override);
+    await repo.save({ ...override, dateRange: { start: '2026-02-18', end: '2026-03-20' }, version: 1 });
+    await repo.softDelete(override.id, new Date('2026-04-01T00:00:00Z'), USER);
+
+    const rows = overrideLogRows();
+    expect(rows.map((r) => [r.revision, r.op])).toEqual([
+      [1, 'create'],
+      [2, 'update'],
+      [3, 'delete'],
+    ]);
+    expect(rows.every((r) => r.entity_id === override.id)).toBe(true);
+  });
+
+  it('stores the versioned DOMAIN entity (nested dateRange + hoursByWeekday), never the flat row', async () => {
+    const override = makeOverride();
+    await repo.save(override);
+
+    const [row] = overrideLogRows();
+    const payload = JSON.parse(row!.payload) as {
+      version: number;
+      entity: {
+        dateRange: { start: string; end: string };
+        hoursByWeekday: Record<string, unknown>;
+        deviceOrigin: string;
+      };
+    };
+    expect(payload.version).toBe(1);
+    expect(payload.entity.dateRange).toEqual({ start: '2026-02-18', end: '2026-03-19' });
+    expect(payload.entity.deviceOrigin).toBe(override.deviceOrigin);
+    expect(payload.entity.hoursByWeekday['0']).toEqual([
+      { open: '09:00', close: '15:00' },
+      { open: '21:00', close: '23:00' },
+    ]);
+    // The physical snake_case shape must NOT leak into the portable payload.
+    expect(row!.payload).not.toContain('start_date');
+    expect(row!.payload).not.toContain('hours_by_weekday');
+  });
+
+  it('logs the tombstoned domain entity on softDelete (deletedAt set)', async () => {
+    const override = makeOverride();
+    await repo.save(override);
+    await repo.softDelete(override.id, new Date('2026-04-01T00:00:00Z'), USER);
+
+    const rows = overrideLogRows();
+    const payload = JSON.parse(rows[rows.length - 1]!.payload) as {
+      entity: { deletedAt: string | null };
+    };
+    expect(payload.entity.deletedAt).toBe('2026-04-01T00:00:00.000Z');
+  });
+
+  it('rolls the log append back with the entity write on a failed save (single transaction)', async () => {
+    await expect(
+      repo.save(makeOverride({ dateRange: { start: '2026-03-19', end: '2026-02-18' } })),
+    ).rejects.toThrow();
+    expect(overrideLogRows()).toHaveLength(0);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM center_hours_overrides').get()).toEqual({ n: 0 });
   });
 });
