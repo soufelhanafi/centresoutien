@@ -2024,7 +2024,8 @@
     "unknownStudent": "Élève inconnu",
     "takings": {
       "title": "Recette du jour",
-      "count": "{{count}} paiement(s)",
+      "count_one": "{{count}} paiement",
+      "count_other": "{{count}} paiements",
       "byMethodLabel": "Recette du jour par mode de paiement",
       "loadError": "Le chargement de la recette du jour a échoué."
     },
