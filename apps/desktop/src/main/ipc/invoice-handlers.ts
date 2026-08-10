@@ -50,6 +50,7 @@ function toInvoiceListItemView(item: InvoiceListItem) {
   return {
     id: item.invoice.id,
     studentId: item.invoice.studentId,
+    studentName: { fr: item.studentName.fr, ar: item.studentName.ar },
     month: item.invoice.month,
     status: item.invoice.status,
     issuedAt: item.invoice.issuedAt ? item.invoice.issuedAt.toISOString() : null,

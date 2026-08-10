@@ -317,8 +317,6 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
       );
     }
 
-    const searchJoin =
-      filters.search !== undefined ? 'LEFT JOIN students s ON s.id = i.student_id' : '';
     if (filters.search !== undefined) {
       conditions.push('(LOWER(s.name_fr) LIKE @search OR LOWER(s.name_ar) LIKE @search)');
       params['search'] = `%${filters.search.toLowerCase()}%`;
@@ -339,9 +337,10 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
 
     const fetched = this.db
       .prepare(
-        `SELECT i.*, COALESCE(lt.total_mad, 0) AS total_mad, COALESCE(pt.net_paid_mad, 0) AS net_paid_mad
+        `SELECT i.*, COALESCE(lt.total_mad, 0) AS total_mad, COALESCE(pt.net_paid_mad, 0) AS net_paid_mad,
+                s.name_fr AS student_name_fr, s.name_ar AS student_name_ar
          FROM invoices i
-         ${searchJoin}
+         LEFT JOIN students s ON s.id = i.student_id
          LEFT JOIN (
            SELECT invoice_id, SUM(amount_mad) AS total_mad
            FROM invoice_lines
@@ -358,7 +357,12 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
          WHERE ${conditions.join(' AND ')}
          ${orderAndLimit}`,
       )
-      .all(params) as (InvoiceRow & { total_mad: number; net_paid_mad: number })[];
+      .all(params) as (InvoiceRow & {
+      total_mad: number;
+      net_paid_mad: number;
+      student_name_fr: string | null;
+      student_name_ar: string | null;
+    })[];
 
     const hasMore = paginated && fetched.length > pageSize;
     const headerRows = hasMore ? fetched.slice(0, pageSize) : fetched;
@@ -383,6 +387,7 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
 
     const rows: InvoiceListRow[] = headerRows.map((row) => ({
       invoice: invoiceFromRow(row),
+      studentName: { fr: row.student_name_fr ?? '', ar: row.student_name_ar ?? '' },
       lines: linesByInvoice.get(row.id) ?? [],
       totalMad: row.total_mad,
       netPaidMad: row.net_paid_mad,

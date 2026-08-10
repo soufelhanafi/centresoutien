@@ -27,6 +27,9 @@ export type ListInvoicesInput = {
 
 export type InvoiceListItem = {
   invoice: Invoice;
+  /** The invoice's student's bilingual name, resolved in the read row's join —
+   *  lets the picker label rows without a separate full-student-list fetch. */
+  studentName: { fr: string; ar: string };
   lines: readonly InvoiceLine[];
   totalMad: number;
   netPaidMad: number;
@@ -79,6 +82,7 @@ export class ListInvoices {
       const outstandingMad = Math.max(0, row.totalMad - row.netPaidMad);
       return {
         invoice: row.invoice,
+        studentName: row.studentName,
         lines: row.lines,
         totalMad: row.totalMad,
         netPaidMad: row.netPaidMad,

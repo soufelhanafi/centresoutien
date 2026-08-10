@@ -464,6 +464,23 @@ describe('SqliteInvoiceRepository', () => {
       expect((await repo.listInvoices(CENTER, { search: 'yass' })).rows.map((r) => r.invoice.id)).toEqual([a.id]);
       expect((await repo.listInvoices(CENTER, { search: 'سلمى' })).rows.map((r) => r.invoice.id)).toEqual([b.id]);
     });
+
+    it('exposes the resolved bilingual studentName from the students join', async () => {
+      const students = new SqliteStudentRepository(db);
+      await students.save(makeStudent(STUDENT_A, { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' }));
+
+      const withStudent = makeInvoice({ id: 'inv_00000000000000000000000091' as InvoiceId, studentId: STUDENT_A });
+      await repo.createDraft(withStudent, [makeLine(withStudent.id, { amountMad: 10000 })]);
+      // A second invoice whose student row never synced → empty-string fallback.
+      const orphan = makeInvoice({ id: 'inv_00000000000000000000000092' as InvoiceId, studentId: STUDENT_B });
+      await repo.createDraft(orphan, [makeLine(orphan.id, { amountMad: 10000 })]);
+
+      const byId = new Map(
+        (await repo.listInvoices(CENTER, {})).rows.map((r) => [r.invoice.id, r.studentName]),
+      );
+      expect(byId.get(withStudent.id)).toEqual({ fr: 'Yassine Alaoui', ar: 'ياسين العلوي' });
+      expect(byId.get(orphan.id)).toEqual({ fr: '', ar: '' });
+    });
   });
 
   describe('migration replay', () => {
