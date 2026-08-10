@@ -9,13 +9,16 @@ import { FieldMessage } from '../form/field-message';
 /** Blank defaults for the create flow. `code` is optional and starts empty. */
 export const EMPTY_SUBJECT_INPUT: SubjectInput = { name: { fr: '', ar: '' }, code: '' };
 
+/** A server-side field error from a failed save (e.g. `{ code: 'duplicate-subject-code' }`). */
+export type SubjectFormServerFieldError = { readonly code: string };
+
 type SubjectFormProps = {
   /** Lets the submit button live in the dialog footer, outside the `<form>`. */
   formId: string;
   defaultValues: SubjectInput;
   onSubmit: (values: SubjectInput) => void | Promise<void>;
-  /** Domain error code from a failed save (e.g. `duplicate-subject-code`), shown inline on the code field. */
-  serverCodeError?: string | null;
+  /** Server-side error on the code field, shown inline. Fresh identity per rejection. */
+  serverCodeError?: SubjectFormServerFieldError | null;
 };
 
 /**
@@ -29,7 +32,7 @@ export function SubjectForm({ formId, defaultValues, onSubmit, serverCodeError =
   const form = useForm<SubjectInput>({ resolver: zodResolver(subjectInputSchema), defaultValues });
 
   useEffect(() => {
-    if (serverCodeError) form.setError('code', { message: serverCodeError });
+    if (serverCodeError) form.setError('code', { message: serverCodeError.code });
     else form.clearErrors('code');
   }, [serverCodeError, form]);
 

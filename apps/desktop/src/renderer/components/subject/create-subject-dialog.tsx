@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SubjectInput } from '@centresoutien/domain';
 import {
@@ -13,7 +13,7 @@ import {
 } from '@centresoutien/ui';
 import { useCreateSubject } from '../../hooks/subject/use-create-subject';
 import { mapSubjectWriteError } from '../../lib/subjects/subject-write-error';
-import { SubjectForm, EMPTY_SUBJECT_INPUT } from './subject-form';
+import { SubjectForm, EMPTY_SUBJECT_INPUT, type SubjectFormServerFieldError } from './subject-form';
 
 /**
  * Create-subject flow: owns the mutation, toasts the result, closes on success.
@@ -31,12 +31,13 @@ export function CreateSubjectDialog({
   const { t } = useTranslation();
   const formId = useId();
   const create = useCreateSubject();
-  const [serverCodeError, setServerCodeError] = useState<string | null>(null);
+  const [serverCodeError, setServerCodeError] = useState<SubjectFormServerFieldError | null>(null);
 
-  const handleOpenChange = (next: boolean) => {
-    if (next) setServerCodeError(null);
-    onOpenChange(next);
-  };
+  // The parent toggles the controlled `open` directly (no DialogTrigger), so
+  // `onOpenChange(true)` never fires — clear any stale rejection on every open.
+  useEffect(() => {
+    if (open) setServerCodeError(null);
+  }, [open]);
 
   const handleSubmit = async (values: SubjectInput) => {
     try {
@@ -46,7 +47,10 @@ export function CreateSubjectDialog({
     } catch (error) {
       const code = mapSubjectWriteError(error);
       if (code === 'duplicate-subject-code') {
-        setServerCodeError(code);
+        // Fresh object identity so the form's effect re-runs even when the user
+        // resubmits the same duplicate after editing the field (the cleared
+        // inline error must be restored, not silently dropped).
+        setServerCodeError({ code });
         return;
       }
       setServerCodeError(null);
@@ -55,7 +59,7 @@ export function CreateSubjectDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('subjects.form.createTitle')}</DialogTitle>

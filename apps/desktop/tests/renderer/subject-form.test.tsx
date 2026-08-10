@@ -82,7 +82,7 @@ describe('SubjectForm — server field errors', () => {
         formId="subject-form"
         defaultValues={EMPTY_SUBJECT_INPUT}
         onSubmit={vi.fn()}
-        serverCodeError="duplicate-subject-code"
+        serverCodeError={{ code: 'duplicate-subject-code' }}
       />,
     );
 
@@ -97,7 +97,7 @@ describe('SubjectForm — server field errors', () => {
         formId="subject-form"
         defaultValues={EMPTY_SUBJECT_INPUT}
         onSubmit={vi.fn()}
-        serverCodeError="duplicate-subject-code"
+        serverCodeError={{ code: 'duplicate-subject-code' }}
       />,
     );
     const user = userEvent.setup();
@@ -106,5 +106,33 @@ describe('SubjectForm — server field errors', () => {
     await user.type(screen.getByLabelText('Code (optionnel)'), 'M');
 
     expect(screen.queryByText('Ce code est déjà utilisé par une autre matière')).not.toBeInTheDocument();
+  });
+
+  it('re-applies the inline error when a fresh identical rejection arrives after an edit', async () => {
+    const { rerender } = render(
+      <SubjectForm
+        formId="subject-form"
+        defaultValues={EMPTY_SUBJECT_INPUT}
+        onSubmit={vi.fn()}
+        serverCodeError={{ code: 'duplicate-subject-code' }}
+      />,
+    );
+    const user = userEvent.setup();
+    const errorText = 'Ce code est déjà utilisé par une autre matière';
+
+    expect(await screen.findByText(errorText)).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Code (optionnel)'), 'M');
+    expect(screen.queryByText(errorText)).not.toBeInTheDocument();
+
+    rerender(
+      <SubjectForm
+        formId="subject-form"
+        defaultValues={EMPTY_SUBJECT_INPUT}
+        onSubmit={vi.fn()}
+        serverCodeError={{ code: 'duplicate-subject-code' }}
+      />,
+    );
+
+    expect(await screen.findByText(errorText)).toBeInTheDocument();
   });
 });
