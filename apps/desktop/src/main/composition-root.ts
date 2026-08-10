@@ -290,6 +290,14 @@ export type ContainerOptions = {
     /** Whether the OPEN center is the demo center (`centreId === 'demo'`). */
     isDemoCenter: boolean;
     /**
+     * Whether THIS laptop is the active LAN hub host (SOU-190). A stable
+     * process-level fact the main entry resolves once (`hubServer !== null`),
+     * forwarded through `demo.status` so the renderer can confirm before a demo
+     * swap stops the embedded hub and cuts off teammates' sync. Never re-derived
+     * at swap time.
+     */
+    isHubHost: boolean;
+    /**
      * The demo login prefill for `demo.status` (SOU-186): the env-provided
      * credentials when the open center is the demo one, else `null`. Never throws.
      */
@@ -1300,6 +1308,7 @@ export function buildContainer(options: ContainerOptions): Container {
     // stub (never invoked — the demo channels require wiring to exist).
     demo: options.demo ?? {
       isDemoCenter: false,
+      isHubHost: false,
       login: () => null,
       create: () => Promise.reject(new Error('demo mode not wired')),
       wipe: () => Promise.reject(new Error('demo mode not wired')),

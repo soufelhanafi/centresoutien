@@ -4,8 +4,8 @@ import { Button, Card, CardContent } from '@centresoutien/ui';
 import { LanguageToggle } from '../language-toggle';
 import { LoginForm } from './login-form';
 import { ForgotPasswordFlow } from './forgot-password/forgot-password-flow';
-import { useCreateDemo } from '../../hooks/demo/use-create-demo';
-import { useDemoStatus } from '../../hooks/demo/use-demo-status';
+import { useCreateDemoWithHubGuard } from '../../hooks/demo/use-create-demo-with-hub-guard';
+import { DemoHubWarnDialog } from '../demo/demo-hub-warn-dialog';
 
 /**
  * The full-screen login page (SOU-27), shown by {@link AuthGate} when the device
@@ -19,10 +19,10 @@ import { useDemoStatus } from '../../hooks/demo/use-demo-status';
  */
 export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
   const { t } = useTranslation();
-  const createDemo = useCreateDemo();
-  const demoStatus = useDemoStatus();
-  const isDemo = demoStatus.data?.isDemo === true;
-  const demoLogin = demoStatus.data?.demoLogin ?? null;
+  const { create, status, hubWarnOpen, setHubWarnOpen, requestCreate, confirmCreate } =
+    useCreateDemoWithHubGuard();
+  const isDemo = status.data?.isDemo === true;
+  const demoLogin = status.data?.demoLogin ?? null;
   const [view, setView] = useState<'login' | 'forgot'>('login');
 
   return (
@@ -57,14 +57,14 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={createDemo.isPending || createDemo.isSuccess}
-                  onClick={() => createDemo.mutate()}
+                  disabled={status.isPending || create.isPending || create.isSuccess}
+                  onClick={requestCreate}
                 >
-                  {createDemo.isPending || createDemo.isSuccess
+                  {create.isPending || create.isSuccess
                     ? t('demo.intro.creating')
                     : t('auth.login.exploreDemo')}
                 </Button>
-                {createDemo.isError && (
+                {create.isError && (
                   <p role="alert" className="text-center text-sm text-destructive">
                     {t('demo.createError')}
                   </p>
@@ -77,6 +77,12 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
           )}
         </CardContent>
       </Card>
+      <DemoHubWarnDialog
+        open={hubWarnOpen}
+        onOpenChange={setHubWarnOpen}
+        pending={create.isPending}
+        onConfirm={confirmCreate}
+      />
     </main>
   );
 }

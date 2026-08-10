@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -28,10 +28,17 @@ afterEach(() => {
 
 describe('LoginScreen — demo entry (SOU-110 / SOU-186)', () => {
   it('shows the "Explorer la démo" entry under the login form', async () => {
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: false,
+    });
     renderLogin();
 
     const button = await screen.findByRole('button', { name: 'Explorer la démo' });
-    expect(button).toBeEnabled();
+    // The entry stays disabled until `demo.status` resolves (SOU-190 guard) —
+    // await the enabled state instead of asserting on first paint.
+    await waitFor(() => expect(button).toBeEnabled());
     expect(
       screen.getByText(
         "Essayez l'application avec un centre de démonstration pré-rempli. Aucune donnée réelle ne sera modifiée.",
@@ -41,6 +48,11 @@ describe('LoginScreen — demo entry (SOU-110 / SOU-186)', () => {
 
   it('creates the demo on click and hot-swaps in place — no restart screen', async () => {
     const create = vi.spyOn(demoGateway, 'create').mockResolvedValue({ isDemo: true });
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: false,
+    });
     const user = userEvent.setup();
     renderLogin();
 
@@ -78,8 +90,54 @@ describe('LoginScreen — demo entry (SOU-110 / SOU-186)', () => {
     expect(await screen.findByRole('button', { name: 'Explorer la démo' })).toBeInTheDocument();
   });
 
+  it('warns before creating when the laptop is the hub host; cancel does not create', async () => {
+    const create = vi.spyOn(demoGateway, 'create');
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: true,
+    });
+    const user = userEvent.setup();
+    renderLogin();
+
+    await user.click(await screen.findByRole('button', { name: 'Explorer la démo' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByText(/Cet ordinateur est le serveur de synchronisation/),
+    ).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getAllByRole('button', { name: 'Annuler' })[0]!);
+
+    expect(create).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('confirms the hub-host warning and proceeds with demo.create', async () => {
+    const create = vi.spyOn(demoGateway, 'create').mockResolvedValue({ isDemo: true });
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: true,
+    });
+    const user = userEvent.setup();
+    renderLogin();
+
+    await user.click(await screen.findByRole('button', { name: 'Explorer la démo' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Continuer quand même' }));
+
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
   it('disables the entry while the swap is in flight', async () => {
     const create = vi.spyOn(demoGateway, 'create');
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: false,
+    });
     let releaseCreate!: () => void;
     create.mockImplementation(
       () =>

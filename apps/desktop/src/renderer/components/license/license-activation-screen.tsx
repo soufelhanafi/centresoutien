@@ -3,7 +3,8 @@ import { Button, Card, CardContent } from '@centresoutien/ui';
 import { LanguageToggle } from '../language-toggle';
 import { LicenseStatusSummary } from './license-status-summary';
 import { LicenseActivationForm } from './license-activation-form';
-import { useCreateDemo } from '../../hooks/demo/use-create-demo';
+import { useCreateDemoWithHubGuard } from '../../hooks/demo/use-create-demo-with-hub-guard';
+import { DemoHubWarnDialog } from '../demo/demo-hub-warn-dialog';
 import type { LicenseStatusView } from '../../lib/license/license-contract';
 
 /**
@@ -20,7 +21,8 @@ import type { LicenseStatusView } from '../../lib/license/license-contract';
  */
 export function LicenseActivationScreen({ status }: { status: LicenseStatusView }) {
   const { t } = useTranslation();
-  const createDemo = useCreateDemo();
+  const { create, status: demoStatus, hubWarnOpen, setHubWarnOpen, requestCreate, confirmCreate } =
+    useCreateDemoWithHubGuard();
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 p-6">
@@ -48,14 +50,14 @@ export function LicenseActivationScreen({ status }: { status: LicenseStatusView 
             <Button
               type="button"
               variant="outline"
-              disabled={createDemo.isPending || createDemo.isSuccess}
-              onClick={() => createDemo.mutate()}
+              disabled={demoStatus.isPending || create.isPending || create.isSuccess}
+              onClick={requestCreate}
             >
-              {createDemo.isPending || createDemo.isSuccess
+              {create.isPending || create.isSuccess
                 ? t('demo.intro.creating')
                 : t('auth.login.exploreDemo')}
             </Button>
-            {createDemo.isError && (
+            {create.isError && (
               <p role="alert" className="text-center text-sm text-destructive">
                 {t('demo.createError')}
               </p>
@@ -63,6 +65,12 @@ export function LicenseActivationScreen({ status }: { status: LicenseStatusView 
           </div>
         </CardContent>
       </Card>
+      <DemoHubWarnDialog
+        open={hubWarnOpen}
+        onOpenChange={setHubWarnOpen}
+        pending={create.isPending}
+        onConfirm={confirmCreate}
+      />
     </main>
   );
 }
