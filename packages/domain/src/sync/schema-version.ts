@@ -1,4 +1,4 @@
-/**
+/*
  * The schema version of this domain's entity shapes (SOU-80). It is what a
  * device sends on every push and what the hub compares against itself before
  * accepting: if the device is older, the push is rejected with

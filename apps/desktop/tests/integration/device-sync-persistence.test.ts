@@ -604,7 +604,7 @@ describe('session natural-key conflict resolution (SOU-194)', () => {
   });
 });
 
-/**
+/*
  * SOU-199 — a `center_hours_overrides` write now logs to `change_log`, so a
  * Ramadan-style override created on one device propagates to another through the
  * ordinary pull → resolve → push cycle and lands in the receiver's REAL
