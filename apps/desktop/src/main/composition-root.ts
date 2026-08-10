@@ -612,6 +612,7 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
     options.centerCode,
     options.centreId === 'demo',
+    resolvePlanForPolicy,
   );
   const getLicenseStatus = new GetLicenseStatus(
     license,

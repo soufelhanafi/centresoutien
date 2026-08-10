@@ -91,6 +91,7 @@ export async function launch(
   options: { omitFeatures?: readonly string[] } = {},
 ): Promise<Launched> {
   const env: Record<string, string> = { ...process.env, CS_LOCALE: locale, CS_PLAN: plan };
+  delete env['CS_E2E_OMIT_FEATURES'];
   if (options.omitFeatures && options.omitFeatures.length > 0) {
     env['CS_E2E_OMIT_FEATURES'] = options.omitFeatures.join(',');
   }

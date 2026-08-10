@@ -76,6 +76,30 @@ describe('ActivateLicense', () => {
       expect(plan.activePlanId()).toBe('pro');
     });
 
+    it('uses the injected plan resolver when activating a valid license', () => {
+      const filteredPremium = {
+        ...PLANS.premium,
+        features: new Set([...PLANS.premium.features].filter((feature) => feature !== 'sync.multi-device')),
+      };
+      useCase = new ActivateLicense(
+        license,
+        store,
+        fakeMachineIdentity(MACHINE),
+        fakeClock(NOW),
+        plan,
+        CENTER,
+        false,
+        () => filteredPremium,
+      );
+      license.seedContent('RAW_FILTERED', { status: 'valid', claims: claims({ plan: 'premium' }) });
+
+      const result = useCase.execute({ rawLicense: 'RAW_FILTERED' });
+
+      expect(result.status).toBe('activated');
+      expect(plan.activePlanId()).toBe('premium');
+      expect(plan.has('sync.multi-device')).toBe(false);
+    });
+
     it('activates a valid license whose founder discount has lapsed, flagging it', () => {
       license.seedContent('RAW', {
         status: 'valid',
