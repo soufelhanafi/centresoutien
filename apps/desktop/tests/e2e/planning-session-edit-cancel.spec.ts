@@ -75,7 +75,7 @@ test('cancels a session and it disappears from the grid', async () => {
   await expect(editDialog).toBeVisible();
   await editDialog.getByRole('button', { name: L.cancelSession.trigger, exact: true }).click();
 
-  // Confirmation dialog — scoped by its title so we never hit the edit drawer's
+  // Confirmation dialog — scoped by its title so we never hit the edit dialog's
   // own trigger button of the same name.
   const confirm = win.getByRole('dialog').filter({ hasText: L.cancelSession.title });
   await expect(confirm).toBeVisible();
