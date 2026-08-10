@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SubjectInput } from '@centresoutien/domain';
 import {
@@ -17,8 +17,9 @@ import { SubjectForm, EMPTY_SUBJECT_INPUT } from './subject-form';
 
 /**
  * Create-subject flow: owns the mutation, toasts the result, closes on success.
- * A `DuplicateSubjectCodeError` (a code already live in this center) gets its own
- * localized toast; any other failure falls back to the generic save-error toast.
+ * A `DuplicateSubjectCodeError` (a code already live in this center) surfaces as
+ * an inline error on the code field (validation errors are inline per SOU-47
+ * AC); any other failure falls back to the generic save-error toast.
  */
 export function CreateSubjectDialog({
   open,
@@ -30,6 +31,12 @@ export function CreateSubjectDialog({
   const { t } = useTranslation();
   const formId = useId();
   const create = useCreateSubject();
+  const [serverCodeError, setServerCodeError] = useState<string | null>(null);
+
+  const handleOpenChange = (next: boolean) => {
+    if (next) setServerCodeError(null);
+    onOpenChange(next);
+  };
 
   const handleSubmit = async (values: SubjectInput) => {
     try {
@@ -38,18 +45,28 @@ export function CreateSubjectDialog({
       onOpenChange(false);
     } catch (error) {
       const code = mapSubjectWriteError(error);
+      if (code === 'duplicate-subject-code') {
+        setServerCodeError(code);
+        return;
+      }
+      setServerCodeError(null);
       toast.error(t(code ? `errors.${code}` : 'subjects.form.error'));
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('subjects.form.createTitle')}</DialogTitle>
           <DialogDescription>{t('subjects.form.createDescription')}</DialogDescription>
         </DialogHeader>
-        <SubjectForm formId={formId} defaultValues={EMPTY_SUBJECT_INPUT} onSubmit={handleSubmit} />
+        <SubjectForm
+          formId={formId}
+          defaultValues={EMPTY_SUBJECT_INPUT}
+          onSubmit={handleSubmit}
+          serverCodeError={serverCodeError}
+        />
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             {t('subjects.form.cancel')}

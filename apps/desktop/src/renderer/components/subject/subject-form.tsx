@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +14,8 @@ type SubjectFormProps = {
   formId: string;
   defaultValues: SubjectInput;
   onSubmit: (values: SubjectInput) => void | Promise<void>;
+  /** Domain error code from a failed save (e.g. `duplicate-subject-code`), shown inline on the code field. */
+  serverCodeError?: string | null;
 };
 
 /**
@@ -21,9 +24,15 @@ type SubjectFormProps = {
  * caller owns the mutation. `code` is not part of the update path (SOU-122): it
  * only ever renders here, never in {@link EditSubjectForm}.
  */
-export function SubjectForm({ formId, defaultValues, onSubmit }: SubjectFormProps) {
+export function SubjectForm({ formId, defaultValues, onSubmit, serverCodeError = null }: SubjectFormProps) {
   const { t } = useTranslation();
   const form = useForm<SubjectInput>({ resolver: zodResolver(subjectInputSchema), defaultValues });
+
+  useEffect(() => {
+    if (serverCodeError) form.setError('code', { message: serverCodeError });
+    else form.clearErrors('code');
+  }, [serverCodeError, form]);
+
   const submit = form.handleSubmit(async (values) => {
     await onSubmit(values);
   });
@@ -72,6 +81,10 @@ export function SubjectForm({ formId, defaultValues, onSubmit }: SubjectFormProp
                   placeholder={t('subjects.form.codePlaceholder')}
                   {...field}
                   value={field.value ?? ''}
+                  onChange={(event) => {
+                    field.onChange(event);
+                    form.clearErrors('code');
+                  }}
                 />
               </FormControl>
               <p className="text-xs text-muted-foreground">{t('subjects.form.codeHint')}</p>
