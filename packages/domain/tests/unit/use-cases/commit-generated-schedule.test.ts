@@ -25,6 +25,7 @@ import { InMemoryWeeklyRecurringSessionRepository } from '../fakes/in-memory-wee
 import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-repository';
 import { InMemorySessionRepository } from '../fakes/in-memory-session-repository';
 import { InMemoryHolidayRepository } from '../fakes/in-memory-holiday-repository';
+import { InMemoryCenterHoursOverrideRepository } from '../fakes/in-memory-center-hours-override-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 import { planWithoutFeature } from '../fakes/plans';
@@ -94,6 +95,7 @@ describe('CommitGeneratedSchedule', () => {
   let centerHoursRepo: InMemoryCenterHoursRepository;
   let concreteSessions: InMemorySessionRepository;
   let holidays: InMemoryHolidayRepository;
+  let centerHoursOverrides: InMemoryCenterHoursOverrideRepository;
   let useCase: CommitGeneratedSchedule;
 
   function build(plan: Plan = PLANS.premium, seed = 1): CommitGeneratedSchedule {
@@ -105,6 +107,7 @@ describe('CommitGeneratedSchedule', () => {
       groups,
       rooms,
       centerHoursRepo,
+      centerHoursOverrides,
       clock,
       ids,
       policy,
@@ -113,6 +116,7 @@ describe('CommitGeneratedSchedule', () => {
       concreteSessions,
       recurrences,
       holidays,
+      centerHoursOverrides,
       new GenerateSessions(clock, ids),
       policy,
     );
@@ -140,6 +144,7 @@ describe('CommitGeneratedSchedule', () => {
     centerHoursRepo = new InMemoryCenterHoursRepository();
     concreteSessions = new InMemorySessionRepository();
     holidays = new InMemoryHolidayRepository();
+    centerHoursOverrides = new InMemoryCenterHoursOverrideRepository();
     useCase = build();
   });
 
@@ -256,6 +261,7 @@ describe('CommitGeneratedSchedule', () => {
         groups,
         rooms,
         centerHoursRepo,
+        centerHoursOverrides,
         fakeClock('2026-07-01T00:00:00Z'),
         fakeIds(900),
         new PlanPolicy(PLANS.essentiel),
@@ -309,6 +315,7 @@ describe('CommitGeneratedSchedule', () => {
         groups,
         rooms,
         centerHoursRepo,
+        centerHoursOverrides,
         fakeClock('2026-07-01T00:00:00Z'),
         fakeIds(900),
         new PlanPolicy(PLANS.essentiel),

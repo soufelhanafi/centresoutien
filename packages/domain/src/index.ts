@@ -14,6 +14,13 @@ export type { PhoneNumber, PhoneRegion } from './value-objects/phone-number';
 export { normalizePhone, InvalidPhoneNumberError } from './value-objects/phone-number';
 export type { TimeOfDay } from './value-objects/time-of-day';
 export { TIME_OF_DAY_REGEX, isTimeOfDay, toMinutes, fromMinutes } from './value-objects/time-of-day';
+export type { TimeWindow } from './value-objects/time-window';
+export {
+  isValidTimeWindow,
+  timeWindowContains,
+  timeWindowsContain,
+  areOrderedNonOverlappingWindows,
+} from './value-objects/time-window';
 export type { WeekdayIndex } from './value-objects/weekday';
 export { WEEKDAYS, isWeekdayIndex } from './value-objects/weekday';
 export type { WeeklyBlock } from './value-objects/weekly-block';
@@ -24,6 +31,7 @@ export {
   eachDateInRange,
   daysBetween,
   addDays,
+  weekdayInWeekOf,
   endDateAfterWeekdayOccurrences,
 } from './value-objects/date-range';
 export { monthsEndingAt, monthDateRange, monthsBetween, previousMonth } from './value-objects/month';
@@ -175,6 +183,7 @@ export {
   DuplicateSubjectCodeError,
 } from './errors/subject-errors';
 export { HolidayNotFoundError } from './errors/holiday-errors';
+export { CenterHoursOverrideNotFoundError } from './errors/center-hours-override-errors';
 export {
   GroupSubjectUnavailableError,
   GroupNotFoundError,
@@ -215,6 +224,7 @@ export {
 } from './errors/payroll-errors';
 export {
   SessionOutsideCenterHoursError,
+  SessionOutsideOverrideHoursError,
   RoomConflictError,
   SessionOnHolidayError,
   TeacherConflictError,
@@ -264,6 +274,13 @@ export {
   DEFAULT_WEEKLY_HOURS,
 } from './schemas/center-hours';
 export type { WeekdayHoursInput, WeeklyHoursInput } from './schemas/center-hours';
+export {
+  centerHoursOverrideInputSchema,
+  timeWindowSchema,
+  dateRangeInputSchema,
+  hoursByWeekdaySchema,
+} from './schemas/center-hours-override';
+export type { CenterHoursOverrideInput } from './schemas/center-hours-override';
 export { loginInputSchema } from './schemas/login';
 export type { LoginInput } from './schemas/login';
 export {
@@ -374,6 +391,12 @@ export { STUDENT_ID_PREFIX } from './entities/student';
 export type { Student, StudentId } from './entities/student';
 export { CENTER_HOURS_ID_PREFIX, isClosed } from './entities/center-hours';
 export type { CenterHours, CenterHoursId } from './entities/center-hours';
+export { CENTER_HOURS_OVERRIDE_ID_PREFIX, windowsForWeekday } from './entities/center-hours-override';
+export type {
+  CenterHoursOverride,
+  CenterHoursOverrideId,
+  WeeklyTimeWindows,
+} from './entities/center-hours-override';
 export { ADMIN_ACCOUNT_ID_PREFIX } from './entities/admin-account';
 export type { AdminAccount, AdminAccountId } from './entities/admin-account';
 export { RECOVERY_CODE_ID_PREFIX } from './entities/recovery-code';
@@ -503,6 +526,7 @@ export { SUBJECT_USAGE_REFERENCE_KINDS } from './ports/subject-repository';
 export type { SubjectReferencePort } from './ports/subject-reference';
 export type { StudentRepository } from './ports/student-repository';
 export type { CenterHoursRepository } from './ports/center-hours-repository';
+export type { CenterHoursOverrideRepository } from './ports/center-hours-override-repository';
 export type { AdminAccountRepository } from './ports/admin-account-repository';
 export type { PasswordHasher } from './ports/password-hasher';
 export type { SecureRandom } from './ports/secure-random';
@@ -646,6 +670,14 @@ export type {
 export { teacherTeachesSubject } from './policies/teacher-teaches-subject';
 export { holidayCoversDate, holidayOn } from './policies/holiday-policy';
 export type { HolidayOccurrence } from './policies/holiday-policy';
+export {
+  overrideCoversDate,
+  activeOverrideOn,
+  resolveEffectiveWindows,
+  overrideWindowsOn,
+  dayHoursToWindows,
+} from './policies/center-hours-override-policy';
+export type { OverrideOccurrence } from './policies/center-hours-override-policy';
 export { circularWeekdayGaps, satisfiesMinGap, gapViolations } from './policies/weekday-gap';
 export type { WeekdayGap } from './policies/weekday-gap';
 export { detectSessionConflicts } from './policies/composite-session-conflicts';
@@ -901,6 +933,7 @@ export type {
   GenerateSessionsInput,
   GenerateSessionsResult,
   SkippedHolidayOccurrence,
+  SkippedOutsideHoursOccurrence,
 } from './use-cases/generate-sessions';
 export { GenerateAndPersistSessions } from './use-cases/generate-and-persist-sessions';
 export type {
@@ -988,6 +1021,14 @@ export { SaveCenterHours } from './use-cases/save-center-hours';
 export type { SaveCenterHoursInput } from './use-cases/save-center-hours';
 export { GetCenterHours } from './use-cases/get-center-hours';
 export type { GetCenterHoursInput } from './use-cases/get-center-hours';
+export { SaveCenterHoursOverride } from './use-cases/save-center-hours-override';
+export type { SaveCenterHoursOverrideInput } from './use-cases/save-center-hours-override';
+export { GetCenterHoursOverrides } from './use-cases/get-center-hours-overrides';
+export type { GetCenterHoursOverridesInput } from './use-cases/get-center-hours-overrides';
+export { GetActiveCenterHoursOverride } from './use-cases/get-active-center-hours-override';
+export type { GetActiveCenterHoursOverrideInput } from './use-cases/get-active-center-hours-override';
+export { ArchiveCenterHoursOverride } from './use-cases/archive-center-hours-override';
+export type { ArchiveCenterHoursOverrideInput } from './use-cases/archive-center-hours-override';
 export { CreateAdminAccount } from './use-cases/create-admin-account';
 export type { CreateAdminAccountInput } from './use-cases/create-admin-account';
 export { VerifyAdminPassword } from './use-cases/verify-admin-password';

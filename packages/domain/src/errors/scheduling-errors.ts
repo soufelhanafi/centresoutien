@@ -1,14 +1,24 @@
 import { DomainError } from './plan-errors';
 import type { EntityId } from '../value-objects/ids';
 import type { TimeOfDay } from '../value-objects/time-of-day';
+import type { TimeWindow } from '../value-objects/time-window';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import type { RoomId } from '../entities/room';
 import type { HolidayId } from '../entities/holiday';
 import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-session';
 import type { SessionId, GenerationBatchId } from '../entities/session';
 
-/** Why a session falls outside the center's opening hours. */
-export type OutsideCenterHoursReason = 'closed' | 'before-open' | 'after-close';
+/**
+ * Why a session falls outside the center's opening hours. `outside-windows`
+ * (SOU-165) is the multi-window case: the day is open but the session lands in a
+ * gap between windows — e.g. during the iftar break of a Ramadan override — so it
+ * is neither before the first open nor after the last close.
+ */
+export type OutsideCenterHoursReason =
+  | 'closed'
+  | 'before-open'
+  | 'after-close'
+  | 'outside-windows';
 
 /**
  * The minimal shape of an already-scheduled weekly session the room and teacher
@@ -46,6 +56,36 @@ export class SessionOutsideCenterHoursError extends DomainError {
     readonly close: TimeOfDay | null,
   ) {
     super(`Session on weekday ${dayOfWeek} is outside center hours (${reason}).`);
+  }
+}
+
+/**
+ * Thrown when a session is created or edited **interactively** on a date an
+ * active {@link CenterHoursOverride} covers and its `[start, end]` no longer fits
+ * any of that weekday's override windows (SOU-165). Unlike
+ * {@link SessionOutsideCenterHoursError} — which reports the *static* weekly hours
+ * — this one carries a stable `code = 'outside-windows'` so the renderer resolves
+ * the override-specific line (`errors.outside-windows`, "iftar / midday break")
+ * rather than the generic outside-hours message. The `reason` still distinguishes
+ * `before-open` / `after-close` / `outside-windows` / `closed` for callers that
+ * want the detail; the transported `code` is the single one the renderer maps.
+ *
+ * On a covered date the override's per-weekday `windows` **replace** the static
+ * hours entirely, so a slot outside static hours but inside an override window
+ * (e.g. 22:00–23:00 during a Ramadan late window) is accepted, while a slot
+ * inside static hours but in the override's iftar gap (e.g. 17:00–18:00) is
+ * rejected here. Dates no override covers keep raising
+ * {@link SessionOutsideCenterHoursError} against the static week, unchanged.
+ */
+export class SessionOutsideOverrideHoursError extends DomainError {
+  readonly code = 'outside-windows';
+
+  constructor(
+    readonly dayOfWeek: WeekdayIndex,
+    readonly reason: OutsideCenterHoursReason,
+    readonly windows: readonly TimeWindow[],
+  ) {
+    super(`Session on weekday ${dayOfWeek} is outside the active override's windows (${reason}).`);
   }
 }
 
