@@ -57,6 +57,7 @@ export function CenterSwitcherMenu({ centers, current, isSwitching, onSwitch }: 
               key={center.centreId}
               disabled={isCurrent || isSwitching}
               onSelect={() => onSwitch(center.centreId)}
+              aria-current={isCurrent ? 'true' : undefined}
               className="gap-2"
             >
               <Check
