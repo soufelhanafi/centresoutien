@@ -28,19 +28,19 @@ function minutesAgo(minutes: number): Date {
 
 describe('temp-pdf ownership', () => {
   it('recognizes only files matching our generated temp-PDF naming format', () => {
-    expect(isOwnedTempPdfName('planning-week-1712345678901.pdf')).toBe(true);
     expect(isOwnedTempPdfName('planning-week-1712345678901-ab12cd34.pdf')).toBe(true);
-    expect(isOwnedTempPdfName('facture-inv_x-1-1712345678901.pdf')).toBe(true);
-    expect(isOwnedTempPdfName('bulletin-paie-1-1712345678901.pdf')).toBe(true);
-    expect(isOwnedTempPdfName('recu-paiement-1-1712345678901.pdf')).toBe(true);
+    expect(isOwnedTempPdfName('facture-inv_x-1-1712345678901-ab12cd34.pdf')).toBe(true);
+    expect(isOwnedTempPdfName('bulletin-paie-1-1712345678901-ab12cd34.pdf')).toBe(true);
+    expect(isOwnedTempPdfName('recu-paiement-1-1712345678901-ab12cd34.pdf')).toBe(true);
     expect(isOwnedTempPdfName('rapport-revenus.pdf')).toBe(false);
     expect(isOwnedTempPdfName('planning-notes.txt')).toBe(false);
     expect(isOwnedTempPdfName('planning-week.pdf')).toBe(false);
     expect(isOwnedTempPdfName('planning-2024.pdf')).toBe(false);
     expect(isOwnedTempPdfName('planning-full.pdf')).toBe(false);
+    expect(isOwnedTempPdfName('planning-week-1712345678901.pdf')).toBe(false);
     expect(isOwnedTempPdfName('planning-report-1234567890.pdf')).toBe(false);
     expect(isOwnedTempPdfName('planning-report-946684799999.pdf')).toBe(false);
-    expect(isOwnedTempPdfName('planning-report-9999999999999.pdf')).toBe(false);
+    expect(isOwnedTempPdfName('planning-report-9999999999999-ab12cd34.pdf')).toBe(false);
   });
 
   it('names temp files with prefix, parts, a timestamp, and a unique suffix', () => {
@@ -78,7 +78,7 @@ describe('sweepStaleTempPdfsIn', () => {
   });
 
   it('removes only stale owned PDFs and leaves fresh and foreign files alone', () => {
-    const staleOwned = join(dir, 'planning-week-1712345678901.pdf');
+    const staleOwned = join(dir, 'planning-week-1712345678901-ab12cd34.pdf');
     const freshOwned = join(dir, 'facture-inv_x-2-1712345678999-ab12cd34.pdf');
     const staleForeign = join(dir, 'rapport-revenus.pdf');
     const staleNoPdf = join(dir, 'planning-notes.txt');
@@ -120,7 +120,7 @@ describe('sweepStaleTempPdfsIn', () => {
   });
 
   it('skips a directory that matches an owned temp-PDF name', () => {
-    const dirLikeFile = join(dir, 'planning-week-1712345678901.pdf');
+    const dirLikeFile = join(dir, 'planning-week-1712345678901-ab12cd34.pdf');
     mkdirSync(dirLikeFile);
     utimesSync(dirLikeFile, minutesAgo(10), minutesAgo(10));
 
@@ -141,8 +141,8 @@ describe('sweepStaleTempPdfs', () => {
   });
 
   it('uses the default five-minute freshness threshold via the Electron temp dir', () => {
-    const stale = join(dir, 'bulletin-paie-1-1712345678901.pdf');
-    const fresh = join(dir, 'recu-paiement-2-1712345678999.pdf');
+    const stale = join(dir, 'bulletin-paie-1-1712345678901-ab12cd34.pdf');
+    const fresh = join(dir, 'recu-paiement-2-1712345678999-ab12cd34.pdf');
     writeFileSync(stale, 'stale');
     writeFileSync(fresh, 'fresh');
     utimesSync(stale, minutesAgo(10), minutesAgo(10));
@@ -156,7 +156,7 @@ describe('sweepStaleTempPdfs', () => {
   });
 
   it('honors a caller-supplied threshold and temp dir', () => {
-    const oldFile = join(dir, 'facture-inv_x-1-1712345678901.pdf');
+    const oldFile = join(dir, 'facture-inv_x-1-1712345678901-ab12cd34.pdf');
     const recentFile = join(dir, 'planning-week-2-1712345678999-ab12cd34.pdf');
     writeFileSync(oldFile, 'old');
     writeFileSync(recentFile, 'recent');

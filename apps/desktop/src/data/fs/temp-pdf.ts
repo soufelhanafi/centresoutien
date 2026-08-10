@@ -9,7 +9,7 @@ const TEMP_PDF_PREFIXES = ['planning-', 'facture-', 'bulletin-paie-', 'recu-paie
 
 export type TempPdfPrefix = (typeof TEMP_PDF_PREFIXES)[number];
 
-const OWNED_TEMP_PDF_NAME = /^.+-(\d{13})(-[0-9a-f]{8})?\.pdf$/;
+const OWNED_TEMP_PDF_NAME = /^.+-(\d{13})-[0-9a-f]{8}\.pdf$/;
 const MIN_EPOCH_MS = Date.UTC(2000, 0, 1);
 
 function isPlausibleTimestamp(value: string): boolean {
