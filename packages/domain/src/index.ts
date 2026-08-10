@@ -99,6 +99,7 @@ export { entityKey } from './ports/sync-hub-port';
 export { normalizeNaturalKey, normalizeNameForMatch } from './policies/natural-key';
 // Username case-insensitive matching (SOU-153)
 export { normalizeUsername } from './policies/username-normalization';
+export { foldSearchText } from './policies/search-text-folding';
 
 // Group seat-capacity fit (SOU-176 — rooms attach at session creation)
 export { assertGroupFitsRoom } from './policies/group-seat-capacity';
@@ -192,6 +193,7 @@ export {
   InvalidInvoiceTransitionError,
   InvoiceNotFoundError,
   DuplicateInvoiceError,
+  InvalidInvoiceListQueryError,
 } from './errors/invoice-errors';
 export {
   PaymentNotFoundError,

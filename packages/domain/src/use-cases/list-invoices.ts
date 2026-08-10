@@ -4,6 +4,7 @@ import type { Invoice, InvoiceId } from '../entities/invoice';
 import type { InvoiceLine } from '../entities/invoice-line';
 import type { StudentId } from '../entities/student';
 import { paymentStatusOf, type PaymentStatus } from '../policies/payment-status';
+import { InvalidInvoiceListQueryError } from '../errors/invoice-errors';
 import type { CenterCode } from '../value-objects/ids';
 
 export type ListInvoicesInput = {
@@ -67,6 +68,10 @@ export class ListInvoices {
 
   async execute(input: ListInvoicesInput): Promise<ListInvoicesResult> {
     this.plan.require('core.invoicing');
+
+    if (input.pageSize !== undefined && input.paymentStatus !== undefined) {
+      throw new InvalidInvoiceListQueryError();
+    }
 
     const page = await this.invoices.listInvoices(input.centerCode, {
       ...(input.month !== undefined && { month: input.month }),

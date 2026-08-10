@@ -3,6 +3,7 @@ import { ListInvoices } from '../../../src/use-cases/list-invoices';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
+import { InvalidInvoiceListQueryError } from '../../../src/errors/invoice-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Invoice, InvoiceId, InvoiceStatus } from '../../../src/entities/invoice';
 import type { InvoiceLine, InvoiceLineId } from '../../../src/entities/invoice-line';
@@ -230,6 +231,36 @@ describe('ListInvoices', () => {
       const arabic = await build().execute({ centerCode: CENTER, search: 'سلمى' });
       expect(arabic.items).toHaveLength(1);
       expect(arabic.items[0]?.invoice.studentId).toBe(STUDENT_B);
+    });
+
+    it('matches diacritic-insensitively (é folds to e)', async () => {
+      const eric = makeInvoice({ studentId: STUDENT_A });
+      await invoices.createDraft(eric, [makeLine(eric.id, 20000)]);
+      invoices.setStudentName(STUDENT_A, { fr: 'Éric Benörî', ar: 'إريك' });
+
+      const { items } = await build().execute({ centerCode: CENTER, search: 'eric benori' });
+      expect(items).toHaveLength(1);
+      expect(items[0]?.invoice.studentId).toBe(STUDENT_A);
+    });
+  });
+
+  describe('query validation', () => {
+    it('rejects combining paymentStatus with pageSize (short-page landmine)', async () => {
+      await expect(
+        build().execute({ centerCode: CENTER, paymentStatus: 'unpaid', pageSize: 20 }),
+      ).rejects.toBeInstanceOf(InvalidInvoiceListQueryError);
+    });
+
+    it('allows paymentStatus alone and pageSize alone', async () => {
+      const invoice = makeInvoice();
+      await invoices.createDraft(invoice, [makeLine(invoice.id, 20000)]);
+
+      await expect(
+        build().execute({ centerCode: CENTER, paymentStatus: 'unpaid' }),
+      ).resolves.toMatchObject({ items: expect.any(Array) });
+      await expect(
+        build().execute({ centerCode: CENTER, pageSize: 20 }),
+      ).resolves.toMatchObject({ items: expect.any(Array) });
     });
   });
 

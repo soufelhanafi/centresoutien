@@ -465,6 +465,37 @@ describe('SqliteInvoiceRepository', () => {
       expect((await repo.listInvoices(CENTER, { search: 'سلمى' })).rows.map((r) => r.invoice.id)).toEqual([b.id]);
     });
 
+    it('searches diacritic-insensitively — accented fr name matches its folded form', async () => {
+      const students = new SqliteStudentRepository(db);
+      await students.save(makeStudent(STUDENT_A, { fr: 'Éric Benörî', ar: 'إريك بنعمر' }));
+
+      const inv = makeInvoice({ id: 'inv_00000000000000000000000101' as InvoiceId, studentId: STUDENT_A });
+      await repo.createDraft(inv, [makeLine(inv.id, { amountMad: 10000 })]);
+
+      // SQLite LOWER() would leave 'É' untouched and miss this; nfd_fold matches.
+      expect((await repo.listInvoices(CENTER, { search: 'eric benori' })).rows.map((r) => r.invoice.id)).toEqual([inv.id]);
+      // Arabic folds unchanged (no combining Latin marks).
+      expect((await repo.listInvoices(CENTER, { search: 'إريك' })).rows.map((r) => r.invoice.id)).toEqual([inv.id]);
+    });
+
+    it('treats _ and % in the term literally, not as LIKE wildcards', async () => {
+      const students = new SqliteStudentRepository(db);
+      await students.save(makeStudent(STUDENT_A, { fr: 'Groupe A_B', ar: 'مجموعة' }));
+      await students.save(makeStudent(STUDENT_B, { fr: 'Groupe AXB', ar: 'فريق' }));
+
+      const withUnderscore = makeInvoice({ id: 'inv_00000000000000000000000111' as InvoiceId, studentId: STUDENT_A });
+      await repo.createDraft(withUnderscore, [makeLine(withUnderscore.id, { amountMad: 10000 })]);
+      const withoutUnderscore = makeInvoice({ id: 'inv_00000000000000000000000112' as InvoiceId, studentId: STUDENT_B });
+      await repo.createDraft(withoutUnderscore, [makeLine(withoutUnderscore.id, { amountMad: 10000 })]);
+
+      // Unescaped, '_' is a single-char wildcard and would also match 'Groupe AXB'.
+      expect((await repo.listInvoices(CENTER, { search: 'a_b' })).rows.map((r) => r.invoice.id)).toEqual([
+        withUnderscore.id,
+      ]);
+      // '%' would match anything unescaped; here it matches only a literal percent.
+      expect((await repo.listInvoices(CENTER, { search: 'a%b' })).rows).toEqual([]);
+    });
+
     it('exposes the resolved bilingual studentName from the students join', async () => {
       const students = new SqliteStudentRepository(db);
       await students.save(makeStudent(STUDENT_A, { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' }));

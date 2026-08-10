@@ -1,5 +1,5 @@
 import type { Database as DB } from 'better-sqlite3';
-import { INVOICE_LIST_MAX_PAGE_SIZE } from '@centresoutien/domain';
+import { INVOICE_LIST_MAX_PAGE_SIZE, foldSearchText } from '@centresoutien/domain';
 import type {
   Invoice,
   InvoiceId,
@@ -318,8 +318,14 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
     }
 
     if (filters.search !== undefined) {
-      conditions.push('(LOWER(s.name_fr) LIKE @search OR LOWER(s.name_ar) LIKE @search)');
-      params['search'] = `%${filters.search.toLowerCase()}%`;
+      // Fold both sides identically (nfd_fold UDF === domain foldSearchText) for
+      // diacritic-insensitive matching, then escape LIKE's own metacharacters so a
+      // literal `%`/`_`/`\` in the term matches itself rather than acting as a wildcard.
+      const escaped = foldSearchText(filters.search).replace(/[\\%_]/g, '\\$&');
+      conditions.push(
+        "(nfd_fold(s.name_fr) LIKE @search ESCAPE '\\' OR nfd_fold(s.name_ar) LIKE @search ESCAPE '\\')",
+      );
+      params['search'] = `%${escaped}%`;
     }
 
     const paginated = filters.pageSize !== undefined;

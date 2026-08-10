@@ -11,6 +11,7 @@ import type {
 } from '../../../src/read-models/invoice-list-row';
 import { INVOICE_LIST_MAX_PAGE_SIZE } from '../../../src/read-models/invoice-list-row';
 import { invoiceTotalMad } from '../../../src/policies/invoice-total';
+import { foldSearchText } from '../../../src/policies/search-text-folding';
 
 /**
  * In-memory {@link InvoiceRepository} for unit tests. Inherits the soft-deletable
@@ -102,7 +103,7 @@ export class InMemoryInvoiceRepository
   }
 
   async listInvoices(centerCode: CenterCode, filters: InvoiceListFilters): Promise<InvoiceListPage> {
-    const search = filters.search?.toLowerCase();
+    const search = filters.search === undefined ? undefined : foldSearchText(filters.search);
     const matched = this.all()
       .filter((invoice) => invoice.deletedAt === null && invoice.centerCode === centerCode)
       .filter((invoice) => filters.month === undefined || invoice.month === filters.month)
@@ -155,9 +156,12 @@ export class InMemoryInvoiceRepository
     return row.totalMad - row.netPaidMad > 0;
   }
 
-  private nameMatches(studentId: StudentId, search: string): boolean {
+  private nameMatches(studentId: StudentId, foldedSearch: string): boolean {
     const name = this.studentNameById.get(studentId);
     if (name === undefined) return false;
-    return name.fr.toLowerCase().includes(search) || name.ar.toLowerCase().includes(search);
+    return (
+      foldSearchText(name.fr).includes(foldedSearch) ||
+      foldSearchText(name.ar).includes(foldedSearch)
+    );
   }
 }
