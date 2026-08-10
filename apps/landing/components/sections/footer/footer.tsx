@@ -39,22 +39,22 @@ const LINK_COLUMNS = [
     links: [
       { key: "features", href: "#fonctionnalites" },
       { key: "pricing", href: "#tarifs" },
-      { key: "download", href: "#" }, // TODO: real route
-      { key: "changelog", href: "#" }, // TODO: real route
+      { key: "download", href: "#" }, // TODO: real route (SOU-202)
+      { key: "changelog", href: "#" }, // TODO: real route (SOU-202)
     ],
   },
   {
     key: "resources",
     links: [
-      { key: "docs", href: "#" }, // TODO: real route
+      { key: "docs", href: "#" }, // TODO: real route (SOU-202)
       { key: "faq", href: "#faq" },
-      { key: "blog", href: "#" }, // TODO: real route
+      { key: "blog", href: "#" }, // TODO: real route (SOU-202)
     ],
   },
   {
     key: "company",
     links: [
-      { key: "about", href: "#" }, // TODO: real route
+      { key: "about", href: "#" }, // TODO: real route (SOU-202)
       { key: "contact", href: "#contact" },
       { key: "founder", href: "#programme-fondateur" },
     ],
@@ -62,10 +62,10 @@ const LINK_COLUMNS = [
   {
     key: "legal",
     links: [
-      { key: "legal_notice", href: "#" }, // TODO: real route
-      { key: "terms", href: "#" }, // TODO: real route
+      { key: "legal_notice", href: "#" }, // TODO: real route (SOU-202)
+      { key: "terms", href: "#" }, // TODO: real route (SOU-202)
       { key: "privacy", href: "/confidentialite" },
-      { key: "law0908", href: "#" }, // TODO: real route
+      { key: "law0908", href: "#" }, // TODO: real route (SOU-202)
     ],
   },
 ] as const;

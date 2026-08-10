@@ -2,14 +2,12 @@
 @import "@centresoutien/ui/styles/tokens.css";
 
 /* Shared design tokens (packages/ui) are the single source of truth — see
-   docs/design-tokens.md. Landing-local extensions only: the shared source maps
+   docs/design-tokens.md. Landing-local extension only: the shared source maps
    --font-sans to a static stack, but the landing serves fonts via next/font
-   CSS variables (Inter everywhere, Noto Sans Arabic on /ar routes), and the
-   button component needs a dedicated primary hover token. */
+   CSS variables (Inter everywhere, Noto Sans Arabic on /ar routes). */
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-arabic: var(--font-noto-arabic), var(--font-inter), sans-serif;
-  --color-primary-hover: #0d5f5a;
 }
 
 :root {

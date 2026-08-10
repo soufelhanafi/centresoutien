@@ -66,9 +66,9 @@ export function getOrganizationSchema(): OrganizationSchema {
     "@type": "Organization",
     name: "Centre Soutien",
     url: SITE_URL,
-    // TODO: replace with a real branded logo asset (e.g. /og/logo.png) once available.
+    // TODO: replace with a real branded logo asset (e.g. /og/logo.png) once available (SOU-202).
     logo: `${SITE_URL}/favicon.ico`,
-    // TODO: add real social profile URLs (do not invent ones that 404).
+    // TODO: add real social profile URLs (do not invent ones that 404) (SOU-202).
     sameAs: [],
   };
 }

@@ -15,7 +15,7 @@ type ShellProps = {
   ariaLabel: string;
   children: ReactNode;
   badge?: string;
-  dir?: "rtl";
+  dir?: "rtl" | undefined;
   className?: string;
 };
 
