@@ -1,13 +1,16 @@
 /// <reference types="vite/client" />
 import { join } from 'node:path';
 import { app, dialog, BrowserWindow, ipcMain } from 'electron';
-import { PLANS } from '@centresoutien/domain';
+import { PLANS, CenterSwitchError } from '@centresoutien/domain';
 import type { PlanId, CenterCode } from '@centresoutien/domain';
 import { buildContainer, type Container } from './composition-root';
 import { MainRuntime } from './main-runtime';
+import { CenterHost } from './center/center-host';
 import { createMainWindow } from './window';
 import { DATABASE_SCHEMA_AHEAD_MESSAGE, DatabaseSchemaAheadOfAppError } from '../data/sqlite/migration-runner';
 import { centreDbFileName, DatabaseKeyMismatchError, ensureDatabaseKeyed } from '../data/sqlite/db';
+import { FsCenterDirectory, type CenterSummary } from '../data/sqlite/center-directory';
+import { CENTER_CHANGED_EVENT, type CenterChangedEvent } from '../shared/ipc/center-events';
 import { hubDbFileName } from '../data/sqlite/hub/hub-store';
 import {
   DATABASE_KEY_MESSAGE,
@@ -65,6 +68,8 @@ function activePlanId(): PlanId {
 }
 
 let runtime: MainRuntime | null = null;
+let host: CenterHost | null = null;
+let mainWindow: BrowserWindow | null = null;
 
 /**
  * Embedded LAN hub (SOU-90): designated-laptop opt-in until the sync setup
@@ -153,7 +158,7 @@ function scheduleRestart(): void {
  */
 function openWindow(locale: string | undefined): void {
   const preload = join(import.meta.dirname, '../preload/index.js');
-  createMainWindow(preload, {
+  mainWindow = createMainWindow(preload, {
     devUrl: process.env['ELECTRON_RENDERER_URL'],
     indexHtml: join(import.meta.dirname, '../renderer/index.html'),
     ...(locale ? { query: { locale } } : {}),
@@ -178,16 +183,41 @@ app.whenReady().then(async () => {
     // still opens straight into the demo center below.
     const bootIntoDemo = process.argv.includes(DEMO_ARG) || process.env['CS_CENTRE'] === DEMO_CENTRE_ID;
 
-    // The single center-open path, reused by first boot AND the SOU-186 demo
-    // hot-swap. It re-keys and opens the target center's SQLCipher files, then
-    // wires a fresh container for it. The demo center keeps its own file, code,
+    // Center switcher (SOU-96). The directory scans the userData dir for
+    // `centre-*.db`, deriving each center's own key to read its profile in
+    // isolation; the demo center is excluded (it has its own hot-swap flow, not a
+    // peer to switch between). The `centerSwitch` closures are threaded into every
+    // real container so `SwitchCenter`/`center.list` resolve against the live
+    // host: `switchTo` drives the same `MainRuntime` hot-swap the demo toggle uses
+    // (via `CenterHost`, which adds the installed-center whitelist and the
+    // `center.changed` emit); `listCenters` scans anchored on the currently-open
+    // center. The demo container gets none of this — it stays isolated (its
+    // `center.switch` hits the composition fallback and rejects).
+    const directory = new FsCenterDirectory(dir, (id) => centerDbKey(dir, id).key, [DEMO_CENTRE_ID]);
+    const centerSwitch = {
+      switchTo: (targetCentreId: string): Promise<void> =>
+        host
+          ? host.swapTo(targetCentreId)
+          : Promise.reject(new CenterSwitchError('center switching is not ready')),
+      listCenters: (): Promise<readonly CenterSummary[]> =>
+        Promise.resolve(directory.list(runtime?.currentCentreId ?? realCentreId)),
+    };
+
+    // The single center-open path, reused by first boot, the SOU-186 demo
+    // hot-swap, AND the SOU-96 center switch. It re-keys and opens the target
+    // center's SQLCipher files, then wires a fresh container for it — re-scoping
+    // centerCode, plan, key, hub, and the switcher/demo closures together, which a
+    // bare DB-handle swap could not. The demo center keeps its own file, code,
     // license trust anchor (resolved by centreId inside `buildContainer`), plan,
-    // and stays out of sync (review s3) — so a swap re-scopes centerCode, plan,
-    // and key together, which a bare DB-handle swap could not (SOU-186).
-    const openCenter = (target: 'real' | 'demo'): Container => {
-      const isDemo = target === 'demo';
-      const centreId = isDemo ? DEMO_CENTRE_ID : realCentreId;
-      const centerCode = isDemo ? demoCenterCode() : realCenterCode;
+    // and stays out of sync (review s3); every other center re-provisions its own
+    // embedded hub across the swap (reviewer m3).
+    const openCenter = (centreId: string): Container => {
+      const isDemo = centreId === DEMO_CENTRE_ID;
+      const centerCode: CenterCode = isDemo
+        ? demoCenterCode()
+        : centreId === realCentreId
+          ? realCenterCode
+          : ((directory.peek(centreId)?.centerCode ?? `CS-${centreId.toUpperCase()}`) as CenterCode);
       // SOU-179: `CS_DB_KEY` is a dev/e2e-only override — a release build derives
       // the per-center key from the keychain. Re-key any DB still under a
       // pre-SOU-179 dev key (production passes no legacy keys, so a DB the derived
@@ -239,14 +269,14 @@ app.whenReady().then(async () => {
               scheduleRestart,
               admin,
             });
-            await runtime?.swapTo(() => openCenter('demo'));
+            await runtime?.swapTo(() => openCenter(DEMO_CENTRE_ID));
           },
           wipe: async () => {
             if (!isDemo) return;
             // Resolve the demo logo path from the still-open demo DB BEFORE the
             // swap disposes it, so the artefact wipe leaves zero residue (review m2).
             const logoPath = runtime ? readDemoLogoPath(runtime.currentDb) : null;
-            await runtime?.swapTo(() => openCenter('real'));
+            await runtime?.swapTo(() => openCenter(realCentreId));
             // The swap already returned us to the real center — that is the
             // user-visible outcome the renderer rehydrates against. A failure to
             // delete leftover demo artefacts (a busy/locked file) must NOT reject
@@ -264,7 +294,10 @@ app.whenReady().then(async () => {
         // collide with the real hub's port/token and expose demo data on the LAN;
         // being a client would pull real data into a session meant to be disposable.
         // hubServer/hubClient stay mutually exclusive (SOU-82) whenever demo isn't.
-        ...(isDemo ? {} : hubServer ? { hubServer } : hubClient ? { hubClient } : {}),
+        // The switcher is likewise off in demo — the demo center stays isolated.
+        ...(isDemo
+          ? {}
+          : { centerSwitch, ...(hubServer ? { hubServer } : hubClient ? { hubClient } : {}) }),
       });
     };
 
@@ -283,8 +316,25 @@ app.whenReady().then(async () => {
       }
     }
 
-    const initial = openCenter(bootIntoDemo ? 'demo' : 'real');
+    const initial = openCenter(bootIntoDemo ? DEMO_CENTRE_ID : realCentreId);
     runtime = new MainRuntime(ipcMain, initial);
+    // The center switcher (SOU-96) is the SECOND trigger of the one MainRuntime
+    // hot-swap (the demo toggle is the first): `ipcMain` is wired once by the
+    // runtime, and a `center.switch` re-points the live container through the same
+    // `swapTo` seam without touching `ipcMain`. `CenterHost` owns only the
+    // center-specific concerns on top of that — the installed-center whitelist
+    // (Greptile P1 path-traversal guard), the same-center short-circuit, and the
+    // `center.changed` emit. The demo center never reaches `swapTo` via the host:
+    // it carries no `centerSwitch` wiring, so its `center.switch` hits the
+    // composition fallback and rejects, keeping the switcher inert there.
+    host = new CenterHost({
+      runtime,
+      buildForCenter: openCenter,
+      listInstalledCentreIds: () =>
+        directory.list(runtime?.currentCentreId ?? realCentreId).map((center) => center.centreId),
+      emitCenterChanged: (event: CenterChangedEvent) =>
+        mainWindow?.webContents.send(CENTER_CHANGED_EVENT, event),
+    });
     // `CS_LOCALE` (dev override) wins over the persisted preference (SOU-31); the
     // language tab writes that preference via `preferences.locale.set`, read
     // synchronously here so it survives a restart without waiting on the renderer.
@@ -325,8 +375,12 @@ app.whenReady().then(async () => {
 }, console.error);
 
 app.on('will-quit', () => {
+  // The MainRuntime owns the live container after any hot-swap (demo toggle or
+  // center switch), so disposing it closes whichever center is currently open —
+  // the host only delegates, it holds no separate handle to release.
   runtime?.dispose();
   runtime = null;
+  host = null;
 });
 
 app.on('window-all-closed', () => {

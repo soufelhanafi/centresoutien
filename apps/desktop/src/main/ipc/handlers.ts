@@ -166,6 +166,7 @@ import { createPayrollHandlers, type PayrollHandlerDeps } from './payroll-handle
 import { createPaymentReceiptHandlers, type PaymentReceiptHandlerDeps } from './payment-receipt-handlers';
 import { createScheduleHandlers, type ScheduleHandlerDeps } from './schedule-handlers';
 import { createSyncHandlers, type SyncHandlerDeps } from './sync-handlers';
+import { createCenterSwitchHandlers, type CenterSwitchHandlerDeps } from './center-switch-handlers';
 import {
   createAttendanceReportingHandlers,
   type AttendanceReportingHandlerDeps,
@@ -687,7 +688,8 @@ export type HandlerDeps = BackupHandlerDeps &
   PaymentReceiptHandlerDeps &
   ScheduleHandlerDeps &
   AttendanceReportingHandlerDeps &
-  SyncHandlerDeps & {
+  SyncHandlerDeps &
+  CenterSwitchHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
   setActivePlan: (planId: PlanId) => void;
@@ -1612,6 +1614,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     ...createScheduleHandlers(deps),
     ...createAttendanceReportingHandlers(deps),
     ...createSyncHandlers(deps),
+    ...createCenterSwitchHandlers(deps),
   };
 
   // Dev-only plan switcher (SOU-98): `import.meta.env.DEV` is a build-time

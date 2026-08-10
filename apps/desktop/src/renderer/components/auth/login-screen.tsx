@@ -6,6 +6,9 @@ import { LoginForm } from './login-form';
 import { ForgotPasswordFlow } from './forgot-password/forgot-password-flow';
 import { useCreateDemoWithHubGuard } from '../../hooks/demo/use-create-demo-with-hub-guard';
 import { DemoHubWarnDialog } from '../demo/demo-hub-warn-dialog';
+import { LoginCenterSelector } from './login-center-selector';
+import { useFeature } from '../../hooks/use-feature';
+import { useCenters } from '../../hooks/center/use-centers';
 
 /**
  * The full-screen login page (SOU-27), shown by {@link AuthGate} when the device
@@ -23,7 +26,19 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
     useCreateDemoWithHubGuard();
   const isDemo = status.data?.isDemo === true;
   const demoLogin = status.data?.demoLogin ?? null;
-  const [view, setView] = useState<'login' | 'forgot'>('login');
+  const [view, setView] = useState<'login' | 'forgot' | 'selectCenter'>('login');
+  const canMultiCenter = useFeature('org.multi-center');
+  const centers = useCenters({ enabled: canMultiCenter });
+
+  // A Premium user with more than one local center picks which to enter before
+  // the app loads (SOU-96); everyone else goes straight in.
+  const handleAuthenticated = () => {
+    if (canMultiCenter && (centers.data?.length ?? 0) > 1) {
+      setView('selectCenter');
+    } else {
+      onAuthenticated();
+    }
+  };
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 p-6">
@@ -36,7 +51,9 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
             <LanguageToggle />
           </div>
 
-          {view === 'login' ? (
+          {view === 'selectCenter' ? (
+            <LoginCenterSelector onSelected={onAuthenticated} />
+          ) : view === 'login' ? (
             <>
               <header className="flex flex-col gap-1 text-center">
                 <h1 className="text-2xl font-semibold text-primary">{t('auth.title')}</h1>
@@ -44,7 +61,7 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
               </header>
               <LoginForm
                 key={isDemo ? 'demo' : 'real'}
-                onAuthenticated={onAuthenticated}
+                onAuthenticated={handleAuthenticated}
                 onForgotPassword={() => setView('forgot')}
                 isDemo={isDemo}
                 demoLogin={demoLogin}

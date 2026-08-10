@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { IpcMain } from 'electron';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { CenterCode, PlanId, SubjectId } from '@centresoutien/domain';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CenterSwitchError, type CenterCode, type PlanId, type SubjectId } from '@centresoutien/domain';
 import { buildContainer, type Container } from '../../src/main/composition-root';
 import { MainRuntime } from '../../src/main/main-runtime';
 import type { IpcChannel, IpcRequest, IpcResponse } from '../../src/shared/ipc/contract';
@@ -126,5 +126,172 @@ describe('MainRuntime demo/center hot-swap', () => {
     expect((await invoke('plan.get', {})).planId).toBe('essentiel');
 
     runtime.dispose();
+  });
+});
+
+// DRAIN_TIMEOUT_MS in main-runtime.ts. Kept in sync by hand — the constant is
+// module-private; the drain-timeout case drives it with fake timers rather than
+// waiting a real 5s.
+const DRAIN_TIMEOUT_MS = 5000;
+
+type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void };
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+type FakeContainerHooks = {
+  listStudents?: () => Promise<unknown[]>;
+  onDispose?: () => void;
+};
+
+/**
+ * SOU-193 concurrency (drain / reject-during-swap / timeout) now lives in
+ * `MainRuntime`. Driving it needs an IPC call whose handler can HANG, which real
+ * SQLCipher containers cannot do, so these cases use a hand-built container stub
+ * carrying only the `handlerDeps` the exercised channels read. The single
+ * `as unknown as Container` narrows the fake at this test-only boundary.
+ */
+function fakeContainer(centreId: string, hooks: FakeContainerHooks = {}): Container {
+  const centerCode = `CS-${centreId}`;
+  const handlerDeps = {
+    envelopeContext: () => ({ centerCode, updatedBy: 'u', deviceOrigin: 'd' }),
+    listStudents: { execute: hooks.listStudents ?? (() => Promise.resolve([])) },
+    currentCentreId: () => centreId,
+    activeCenterCode: () => centerCode,
+    listCenters: () => Promise.resolve([]),
+    getCenterProfile: { execute: () => Promise.resolve({ name: `Centre ${centreId}` }) },
+    switchCenter: { execute: () => Promise.resolve({ ok: true, centreId }) },
+  };
+  return {
+    handlerDeps,
+    isRestricted: () => false,
+    isSetupComplete: () => true,
+    readLocalePreference: () => undefined,
+    dispose: () => hooks.onDispose?.(),
+  } as unknown as Container;
+}
+
+/** A fake `ipcMain` recording the handler per channel so the test can invoke it. */
+function recordingRuntime(initial: Container): {
+  runtime: MainRuntime;
+  invoke: (channel: IpcChannel, request: unknown) => Promise<unknown>;
+} {
+  const registry = new Map<string, (event: unknown, request: unknown) => unknown>();
+  const ipcMain = {
+    handle(channel: string, listener: (event: unknown, request: unknown) => unknown) {
+      registry.set(channel, listener);
+    },
+  } as Pick<IpcMain, 'handle'>;
+  const runtime = new MainRuntime(ipcMain, initial);
+  return {
+    runtime,
+    invoke: (channel, request) => {
+      const listener = registry.get(channel);
+      if (!listener) throw new Error(`channel not registered: ${channel}`);
+      return Promise.resolve(listener(null, request));
+    },
+  };
+}
+
+describe('MainRuntime swap concurrency (SOU-193)', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('(a) drains an in-flight call before disposing the previous container', async () => {
+    const inFlight = createDeferred<unknown[]>();
+    let aDisposed = false;
+    const { runtime, invoke } = recordingRuntime(
+      fakeContainer('A', {
+        listStudents: () => inFlight.promise,
+        onDispose: () => (aDisposed = true),
+      }),
+    );
+
+    const outstanding = invoke('student.list', { search: '' });
+    const swap = runtime.swapTo(() => fakeContainer('B'));
+
+    await Promise.resolve();
+    expect(aDisposed).toBe(false);
+    expect(runtime.currentCentreId).toBe('A');
+
+    inFlight.resolve([]);
+    await outstanding;
+    await swap;
+
+    expect(aDisposed).toBe(true);
+    expect(runtime.currentCentreId).toBe('B');
+  });
+
+  it('(b) rejects new non-swap calls while swapping but exempts the swap-driving channels', async () => {
+    const inFlight = createDeferred<unknown[]>();
+    const { runtime, invoke } = recordingRuntime(
+      fakeContainer('A', { listStudents: () => inFlight.promise }),
+    );
+
+    const outstanding = invoke('student.list', { search: '' });
+    const swap = runtime.swapTo(() => fakeContainer('B'));
+
+    await expect(invoke('student.list', { search: '' })).rejects.toBeInstanceOf(CenterSwitchError);
+    // center.switch drives a swap, so it must not self-deadlock on the swapping guard.
+    await expect(invoke('center.switch', { centreId: 'A' })).resolves.toEqual({
+      ok: true,
+      centreId: 'A',
+    });
+
+    inFlight.resolve([]);
+    await outstanding;
+    await swap;
+    expect(runtime.currentCentreId).toBe('B');
+  });
+
+  it('(c) rejects a second overlapping swap while one is draining', async () => {
+    const inFlight = createDeferred<unknown[]>();
+    const { runtime, invoke } = recordingRuntime(
+      fakeContainer('A', { listStudents: () => inFlight.promise }),
+    );
+
+    const outstanding = invoke('student.list', { search: '' });
+    const first = runtime.swapTo(() => fakeContainer('B'));
+
+    await expect(runtime.swapTo(() => fakeContainer('C'))).rejects.toBeInstanceOf(CenterSwitchError);
+
+    inFlight.resolve([]);
+    await outstanding;
+    await first;
+    expect(runtime.currentCentreId).toBe('B');
+  });
+
+  it('(d) refuses the swap when an in-flight call does not settle within the drain window', async () => {
+    vi.useFakeTimers();
+    try {
+      const neverSettles = createDeferred<unknown[]>();
+      let aDisposed = false;
+      const { runtime, invoke } = recordingRuntime(
+        fakeContainer('A', {
+          listStudents: () => neverSettles.promise,
+          onDispose: () => (aDisposed = true),
+        }),
+      );
+
+      void invoke('student.list', { search: '' });
+      const swap = runtime.swapTo(() => fakeContainer('B')).catch((error: unknown) => error);
+
+      await vi.advanceTimersByTimeAsync(DRAIN_TIMEOUT_MS);
+
+      expect(await swap).toBeInstanceOf(CenterSwitchError);
+      expect(aDisposed).toBe(false);
+      expect(runtime.currentCentreId).toBe('A');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

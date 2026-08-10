@@ -1857,6 +1857,45 @@ export const ipcContract = {
     }),
     response: z.object({ path: z.string() }),
   },
+  // Center switcher (SOU-96). `center.list` scans the userData dir for
+  // `centre-*.db` files and projects each to its identity (`centreId` = the DB
+  // file discriminator, `centerCode` = the tenant code read from that center's
+  // own profile). `center.current` names the center whose DB is open right now.
+  // `center.switch` performs a live in-process hot-swap to another center — it is
+  // gated Premium (`org.multi-center`) in the domain and throws on a locked plan
+  // (`PlanFeatureUnavailableError`) or a failed open (`CenterSwitchError`). The
+  // swap is followed by a `center.changed` push event (see `center-events.ts`).
+  'center.list': {
+    request: z.object({}),
+    response: z.object({
+      centers: z.array(
+        z.object({
+          centreId: z.string(),
+          centerCode: z.string(),
+          displayName: z.string(),
+          isActive: z.boolean(),
+        }),
+      ),
+    }),
+  },
+  'center.current': {
+    request: z.object({}),
+    response: z.object({
+      centreId: z.string(),
+      centerCode: z.string(),
+      displayName: z.string(),
+    }),
+  },
+  'center.switch': {
+    // `centreId` becomes `centre-{id}.db` / `hub-{id}.db` under the userData dir,
+    // so the boundary rejects any id that could escape it (path separators, `..`,
+    // NUL) — a renderer-supplied traversal id must never reach path construction
+    // (SOU-96 Greptile P1). This is defense in depth; the authoritative guard is
+    // the installed-center whitelist in `CenterHost` (main), which only ever
+    // matches an id that names a real scanned `centre-*.db` file.
+    request: z.object({ centreId: z.string().min(1).regex(/^[A-Za-z0-9_-]+$/) }),
+    response: z.object({ ok: z.literal(true), centreId: z.string() }),
+  },
   // `center.logoBytes` reads back a stored logo so the renderer can re-display it
   // after a reload (the row keeps only the relative path, not the bytes). The data
   // adapter guards against path traversal and returns `null` for an unknown or

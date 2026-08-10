@@ -1,6 +1,7 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type { DesktopApi } from '../shared/ipc/api';
 import type { IpcChannel, IpcRequest, IpcResponse } from '../shared/ipc/contract';
+import { CENTER_CHANGED_EVENT, type CenterChangedEvent } from '../shared/ipc/center-events';
 
 /**
  * The only bridge across the isolation boundary. It forwards typed invocations
@@ -17,6 +18,15 @@ import type { IpcChannel, IpcRequest, IpcResponse } from '../shared/ipc/contract
 const api: DesktopApi = {
   invoke: <C extends IpcChannel>(channel: C, request: IpcRequest<C>): Promise<IpcResponse<C>> =>
     ipcRenderer.invoke(channel, request),
+  // Post-switch push event (SOU-96). Only the payload crosses the bridge — never
+  // the raw ipcRenderer or the `IpcRendererEvent` — and the returned disposer
+  // detaches the exact listener that was added.
+  onCenterChanged: (listener: (event: CenterChangedEvent) => void): (() => void) => {
+    const subscription = (_event: IpcRendererEvent, payload: CenterChangedEvent): void =>
+      listener(payload);
+    ipcRenderer.on(CENTER_CHANGED_EVENT, subscription);
+    return () => ipcRenderer.removeListener(CENTER_CHANGED_EVENT, subscription);
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);

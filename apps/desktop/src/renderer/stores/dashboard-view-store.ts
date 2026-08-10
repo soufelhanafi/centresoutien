@@ -6,6 +6,7 @@ export type DashboardView = 'basic' | 'advanced';
 type DashboardViewState = {
   view: DashboardView;
   setView: (view: DashboardView) => void;
+  reset: () => void;
 };
 
 /**
@@ -18,6 +19,9 @@ export const useDashboardViewStore = create<DashboardViewState>()(
     (set) => ({
       view: 'basic',
       setView: (view) => set({ view }),
+      // 'advanced' is Premium-gated; a center switch may land on a plan without it,
+      // so reset to the always-available 'basic' view to avoid a stale selection.
+      reset: () => set({ view: 'basic' }),
     }),
     { name: 'centre-soutien.dashboard-view' },
   ),
