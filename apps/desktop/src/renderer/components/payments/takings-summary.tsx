@@ -8,7 +8,7 @@ import { TakingsMethodBreakdown } from './takings-method-breakdown';
 /** Today's netted cash-desk takings: total + payment count + by-method split (SOU-198). */
 export function TakingsSummary() {
   const { t, i18n } = useTranslation();
-  const { query, summary } = useTodayTakings();
+  const query = useTodayTakings();
 
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-5 shadow-sm" aria-labelledby="takings-title">
@@ -44,13 +44,13 @@ export function TakingsSummary() {
         <>
           <div className="flex items-baseline justify-between gap-3">
             <Numeric className="text-2xl font-semibold text-foreground">
-              {formatMoneyMad(summary.netMad, i18n.language)}
+              {formatMoneyMad(query.data.netMad, i18n.language)}
             </Numeric>
             <p className="text-sm text-muted-foreground">
-              {t('payments.takings.count', { count: summary.paymentCount })}
+              {t('payments.takings.count', { count: query.data.paymentCount })}
             </p>
           </div>
-          <TakingsMethodBreakdown byMethod={summary.byMethod} />
+          <TakingsMethodBreakdown byMethod={query.data.byMethod} />
         </>
       )}
     </section>

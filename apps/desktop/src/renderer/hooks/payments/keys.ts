@@ -4,4 +4,5 @@ import type { RecentPaymentsQuery } from '../../lib/payments/recent-payment-view
 export const paymentKeys = {
   all: ['payments'] as const,
   recent: (query: RecentPaymentsQuery) => ['payments', 'recent', query] as const,
+  takings: (day: string) => ['payments', 'takings', day] as const,
 };

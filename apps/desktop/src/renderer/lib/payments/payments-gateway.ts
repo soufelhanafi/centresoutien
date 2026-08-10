@@ -1,4 +1,5 @@
 import type { RecentPaymentsQuery, RecentPaymentView } from './recent-payment-view';
+import type { DayTakingsView } from './day-takings-view';
 import { ipcPaymentsGateway } from './ipc-payments-gateway';
 
 /**
@@ -9,6 +10,8 @@ import { ipcPaymentsGateway } from './ipc-payments-gateway';
 export interface PaymentsGateway {
   /** The center's cross-invoice payment/reversal rows, most recent `paidOn` first. */
   listRecent(query: RecentPaymentsQuery): Promise<readonly RecentPaymentView[]>;
+  /** SQL-netted takings for a single `'YYYY-MM-DD'` day — cap-free, drives the header total. */
+  getDayTakings(day: string): Promise<DayTakingsView>;
 }
 
 /** The active gateway. */
