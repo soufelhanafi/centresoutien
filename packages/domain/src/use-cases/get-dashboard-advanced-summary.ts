@@ -74,7 +74,7 @@ export class GetDashboardAdvancedSummary {
   ): Promise<readonly MonthlyRevenuePoint[]> {
     return Promise.all(
       months.map(async (month) => {
-        const rows = await this.invoices.listInvoices(centerCode, { month });
+        const { rows } = await this.invoices.listInvoices(centerCode, { month });
         // Recognized to the invoice's billed month, not the payment date — same
         // convention as MonthlyFeeAttributionService (CLAUDE.md §6).
         const collectedMad = rows

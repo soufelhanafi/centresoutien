@@ -1322,14 +1322,27 @@ export const ipcContract = {
   // active UI locale, since a center may want to print a French copy while
   // running the app in Arabic (or vice versa). centerCode is injected in
   // main, never sent from the renderer. Gated by `core.invoicing`.
+  // `openOnly` (status != cancelled AND still owes money), `search` (student-name
+  // substring), `cursor`+`pageSize` (keyset pagination by ULID id, page bounded to
+  // 100) back the cash-desk payment picker (SOU-200) — all optional and additive to
+  // the existing month/studentId/invoiceId/paymentStatus filters. `nextCursor` is the
+  // last row's id when a paginated read has more pages, else null (also null for an
+  // unpaginated read). centerCode is injected in main, never sent from the renderer.
   'invoice.list': {
     request: z.object({
       month: z.string().optional(),
       studentId: z.string().optional(),
       invoiceId: z.string().optional(),
       paymentStatus: paymentStatusSchema.optional(),
+      openOnly: z.boolean().optional(),
+      search: z.string().optional(),
+      cursor: z.string().optional(),
+      pageSize: z.number().int().positive().max(100).optional(),
     }),
-    response: z.object({ invoices: z.array(invoiceListItemViewSchema) }),
+    response: z.object({
+      invoices: z.array(invoiceListItemViewSchema),
+      nextCursor: z.string().nullable(),
+    }),
   },
   'invoice.print': {
     request: z.object({ invoiceId: z.string(), locale: z.enum(['fr', 'ar']) }),

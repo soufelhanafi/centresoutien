@@ -13,9 +13,11 @@ import type {
   DeviceId,
   FormulaId,
   PaymentId,
+  Student,
   StudentId,
   UserId,
 } from '@centresoutien/domain';
+import { SqliteStudentRepository } from '../../src/data/sqlite/repositories/student-repository';
 import { openDatabase } from '../../src/data/sqlite/db';
 import {
   loadMigrations,
@@ -67,6 +69,26 @@ function makeInvoice(over: Partial<Invoice> = {}): Invoice {
     issuedAt: null,
     cancelledAt: null,
     ...over,
+  };
+}
+
+function makeStudent(id: StudentId, name: { fr: string; ar: string }): Student {
+  return {
+    id,
+    centerCode: CENTER,
+    deviceOrigin: DEVICE,
+    createdAt: AT,
+    updatedAt: AT,
+    updatedBy: USER,
+    deletedAt: null,
+    version: 0,
+    naturalKey: `${CENTER}::${name.fr.toLowerCase().replace(/\s+/g, '')}::2012-05-03`,
+    name,
+    birthDate: '2012-05-03',
+    level: '3AC',
+    school: null,
+    notes: null,
+    guardianIds: [],
   };
 }
 
@@ -306,7 +328,7 @@ describe('SqliteInvoiceRepository', () => {
       });
       await repo.createDraft(invoiceB, [makeLine(invoiceB.id, { amountMad: 30000 })]);
 
-      const rows = await repo.listInvoices(CENTER, {});
+      const { rows } = await repo.listInvoices(CENTER, {});
       expect(rows).toHaveLength(2);
       // Ordered newest month first.
       expect(rows[0]?.invoice.id).toBe(invoiceB.id);
@@ -328,13 +350,13 @@ describe('SqliteInvoiceRepository', () => {
       await payments.append(original);
       await payments.append({ ...makePaymentRow(invoice.id, 40000), kind: 'reversal', reversesPaymentId: original.id });
 
-      const rows = await repo.listInvoices(CENTER, {});
+      const { rows } = await repo.listInvoices(CENTER, {});
       expect(rows[0]?.netPaidMad).toBe(0);
     });
 
     it('an invoice with no lines and no payments reads total 0 / net 0', async () => {
       await repo.save(makeInvoice({ id: 'inv_00000000000000000000000024' as InvoiceId }));
-      const rows = await repo.listInvoices(CENTER, {});
+      const { rows } = await repo.listInvoices(CENTER, {});
       expect(rows).toHaveLength(1);
       expect(rows[0]?.totalMad).toBe(0);
       expect(rows[0]?.netPaidMad).toBe(0);
@@ -347,9 +369,9 @@ describe('SqliteInvoiceRepository', () => {
       const oct = makeInvoice({ id: 'inv_00000000000000000000000032' as InvoiceId, month: '2026-10', studentId: STUDENT_B });
       await repo.createDraft(oct, [makeLine(oct.id, { amountMad: 20000 })]);
 
-      expect((await repo.listInvoices(CENTER, { month: '2026-09' })).map((r) => r.invoice.id)).toEqual([sept.id]);
-      expect((await repo.listInvoices(CENTER, { studentId: STUDENT_B })).map((r) => r.invoice.id)).toEqual([oct.id]);
-      expect((await repo.listInvoices(CENTER, { invoiceId: oct.id })).map((r) => r.invoice.id)).toEqual([oct.id]);
+      expect((await repo.listInvoices(CENTER, { month: '2026-09' })).rows.map((r) => r.invoice.id)).toEqual([sept.id]);
+      expect((await repo.listInvoices(CENTER, { studentId: STUDENT_B })).rows.map((r) => r.invoice.id)).toEqual([oct.id]);
+      expect((await repo.listInvoices(CENTER, { invoiceId: oct.id })).rows.map((r) => r.invoice.id)).toEqual([oct.id]);
     });
 
     it('includes cancelled invoices (never hidden) but excludes soft-deleted ones', async () => {
@@ -364,7 +386,7 @@ describe('SqliteInvoiceRepository', () => {
       await repo.createDraft(discarded, [makeLine(discarded.id, { amountMad: 5000 })]);
       await repo.softDelete(discarded.id, new Date('2026-08-04T00:00:00Z'), USER);
 
-      const rows = await repo.listInvoices(CENTER, {});
+      const { rows } = await repo.listInvoices(CENTER, {});
       const ids = rows.map((r) => r.invoice.id);
       expect(ids).toContain(cancelled.id);
       expect(ids).not.toContain(discarded.id);
@@ -372,11 +394,75 @@ describe('SqliteInvoiceRepository', () => {
 
     it('never returns another center’s invoices', async () => {
       await repo.save(makeInvoice({ id: 'inv_00000000000000000000000051' as InvoiceId }));
-      expect(await repo.listInvoices('CS-RABAT-002' as CenterCode, {})).toEqual([]);
+      const page = await repo.listInvoices('CS-RABAT-002' as CenterCode, {});
+      expect(page.rows).toEqual([]);
+      expect(page.nextCursor).toBeNull();
     });
 
     it('returns an empty array for a center with no invoices', async () => {
-      expect(await repo.listInvoices(CENTER, {})).toEqual([]);
+      const page = await repo.listInvoices(CENTER, {});
+      expect(page.rows).toEqual([]);
+      expect(page.nextCursor).toBeNull();
+    });
+
+    it('openOnly returns only non-cancelled invoices that still owe money', async () => {
+      const payments = new SqlitePaymentRepository(db);
+
+      const paid = makeInvoice({ id: 'inv_00000000000000000000000061' as InvoiceId, studentId: STUDENT_A });
+      await repo.createDraft(paid, [makeLine(paid.id, { amountMad: 20000 })]);
+      await payments.append(makePaymentRow(paid.id, 20000)); // fully paid → excluded
+
+      const owing = makeInvoice({ id: 'inv_00000000000000000000000062' as InvoiceId, studentId: STUDENT_B });
+      await repo.createDraft(owing, [makeLine(owing.id, { amountMad: 30000 })]);
+      await payments.append(makePaymentRow(owing.id, 10000)); // partial → included
+
+      const cancelledOwing = makeInvoice({
+        id: 'inv_00000000000000000000000063' as InvoiceId,
+        status: 'cancelled',
+        cancelledAt: new Date('2026-08-03T00:00:00Z'),
+      });
+      await repo.createDraft(cancelledOwing, [makeLine(cancelledOwing.id, { amountMad: 40000 })]); // owes but cancelled → excluded
+
+      const { rows } = await repo.listInvoices(CENTER, { openOnly: true });
+      expect(rows.map((r) => r.invoice.id)).toEqual([owing.id]);
+    });
+
+    it('paginates by keyset (id DESC) with a nextCursor, then drains to null', async () => {
+      const ids = [
+        'inv_00000000000000000000000071',
+        'inv_00000000000000000000000072',
+        'inv_00000000000000000000000073',
+      ] as InvoiceId[];
+      for (const id of ids) {
+        const inv = makeInvoice({ id, studentId: STUDENT_A });
+        await repo.createDraft(inv, [makeLine(inv.id, { amountMad: 10000 })]);
+      }
+
+      const page1 = await repo.listInvoices(CENTER, { pageSize: 2 });
+      // id DESC → newest id first.
+      expect(page1.rows.map((r) => r.invoice.id)).toEqual([ids[2], ids[1]]);
+      expect(page1.nextCursor).toBe(ids[1]);
+
+      const page2 = await repo.listInvoices(CENTER, {
+        pageSize: 2,
+        cursor: page1.nextCursor ?? undefined,
+      });
+      expect(page2.rows.map((r) => r.invoice.id)).toEqual([ids[0]]);
+      expect(page2.nextCursor).toBeNull();
+    });
+
+    it('searches by the student’s fr/ar name substring', async () => {
+      const students = new SqliteStudentRepository(db);
+      await students.save(makeStudent(STUDENT_A, { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' }));
+      await students.save(makeStudent(STUDENT_B, { fr: 'Salma Bennani', ar: 'سلمى بناني' }));
+
+      const a = makeInvoice({ id: 'inv_00000000000000000000000081' as InvoiceId, studentId: STUDENT_A });
+      await repo.createDraft(a, [makeLine(a.id, { amountMad: 10000 })]);
+      const b = makeInvoice({ id: 'inv_00000000000000000000000082' as InvoiceId, studentId: STUDENT_B });
+      await repo.createDraft(b, [makeLine(b.id, { amountMad: 10000 })]);
+
+      expect((await repo.listInvoices(CENTER, { search: 'yass' })).rows.map((r) => r.invoice.id)).toEqual([a.id]);
+      expect((await repo.listInvoices(CENTER, { search: 'سلمى' })).rows.map((r) => r.invoice.id)).toEqual([b.id]);
     });
   });
 

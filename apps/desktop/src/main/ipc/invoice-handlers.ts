@@ -79,10 +79,11 @@ async function findInvoiceOrThrow(
   deps: InvoiceHandlerDeps,
   invoiceId: string,
 ): Promise<InvoiceListItem> {
-  const [item] = await deps.listInvoices.execute({
+  const { items } = await deps.listInvoices.execute({
     centerCode: deps.centerCode(),
     invoiceId: invoiceId as InvoiceId,
   });
+  const [item] = items;
   if (!item) throw new InvoiceNotFoundError(invoiceId as InvoiceId);
   return item;
 }
@@ -104,14 +105,18 @@ export function createInvoiceHandlers(
 > {
   return {
     'invoice.list': async (request) => {
-      const items = await deps.listInvoices.execute({
+      const { items, nextCursor } = await deps.listInvoices.execute({
         centerCode: deps.centerCode(),
         ...(request.month !== undefined && { month: request.month }),
         ...(request.studentId !== undefined && { studentId: request.studentId as StudentId }),
         ...(request.invoiceId !== undefined && { invoiceId: request.invoiceId as InvoiceId }),
         ...(request.paymentStatus !== undefined && { paymentStatus: request.paymentStatus }),
+        ...(request.openOnly !== undefined && { openOnly: request.openOnly }),
+        ...(request.search !== undefined && { search: request.search }),
+        ...(request.cursor !== undefined && { cursor: request.cursor }),
+        ...(request.pageSize !== undefined && { pageSize: request.pageSize }),
       });
-      return { invoices: items.map(toInvoiceListItemView) };
+      return { invoices: items.map(toInvoiceListItemView), nextCursor };
     },
     'invoice.print': async (request) => {
       const item = await findInvoiceOrThrow(deps, request.invoiceId);
