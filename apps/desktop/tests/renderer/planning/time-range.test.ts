@@ -5,6 +5,7 @@ import {
   deriveCenterHoursRange,
   deriveClosedDays,
   blockPosition,
+  formatTimeRange,
   hourLabel,
   type GridBounds,
   type TimeRange,
@@ -24,6 +25,15 @@ const OPEN_WEEK: CenterHoursWeek = [
   hoursRow(0, '10:00', '18:00'),
   hoursRow(1, '19:00', '22:00'),
 ];
+
+function expectedIntlTime(minutes: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(1970, 0, 1, 0, minutes)));
+}
 
 describe('timeToMinutes', () => {
   it('converts HH:mm to minutes since midnight', () => {
@@ -178,12 +188,18 @@ describe('blockPosition', () => {
 });
 
 describe('hourLabel', () => {
-  it('formats a whole hour as HH:00', () => {
-    expect(hourLabel(8)).toBe('08:00');
-    expect(hourLabel(19)).toBe('19:00');
+  it('formats a whole hour through Intl for the active locale', () => {
+    expect(hourLabel(8, 'fr')).toBe(expectedIntlTime(8 * 60, 'fr'));
+    expect(hourLabel(19, 'ar')).toBe(expectedIntlTime(19 * 60, 'ar'));
   });
 
   it('renders the end-of-day boundary hour 24 as 24:00', () => {
-    expect(hourLabel(24)).toBe('24:00');
+    expect(hourLabel(24, 'fr')).toBe('24:00');
+  });
+
+  it('formats time ranges through Intl', () => {
+    expect(formatTimeRange('09:30', '11:00', 'fr')).toBe(
+      `${expectedIntlTime(570, 'fr')} – ${expectedIntlTime(660, 'fr')}`,
+    );
   });
 });
