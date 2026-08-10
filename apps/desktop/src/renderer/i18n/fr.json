@@ -614,6 +614,7 @@
       "blockedTitle": "Impossible de supprimer cette matière",
       "blockedBody_one": "« {{name}} » est utilisée par {{count, number}} élément. Détachez-le d'abord, ou désactivez la matière à la place :",
       "blockedBody_other": "« {{name}} » est utilisée par {{count, number}} éléments. Détachez-les d'abord, ou désactivez la matière à la place :",
+      "referenceItem": "{{kind}} — {{label}}",
       "deactivateInstead": "Désactiver la matière"
     }
   },
