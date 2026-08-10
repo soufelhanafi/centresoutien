@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { app } from 'electron';
 import { readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -13,7 +14,7 @@ export function isOwnedTempPdfName(fileName: string): boolean {
 }
 
 export function tempPdfFileName(prefix: TempPdfPrefix, ...nameParts: readonly string[]): string {
-  return `${prefix}${nameParts.join('-')}-${Date.now()}.pdf`;
+  return `${prefix}${nameParts.join('-')}-${Date.now()}-${randomUUID().slice(0, 8)}.pdf`;
 }
 
 export function writeTempPdf(prefix: TempPdfPrefix, nameParts: readonly string[], bytes: Uint8Array): string {
@@ -35,7 +36,9 @@ export function sweepStaleTempPdfsIn(tempDir: string, staleOlderThanMs: number):
     if (!isOwnedTempPdfName(fileName)) continue;
     const filePath = join(tempDir, fileName);
     try {
-      if (now - statSync(filePath).mtimeMs >= staleOlderThanMs) {
+      const stat = statSync(filePath);
+      if (!stat.isFile()) continue;
+      if (now - stat.mtimeMs >= staleOlderThanMs) {
         rmSync(filePath, { force: true });
         removed += 1;
       }

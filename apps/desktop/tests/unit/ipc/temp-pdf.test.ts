@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -36,9 +36,10 @@ describe('temp-pdf ownership', () => {
     expect(isOwnedTempPdfName('planning-notes.txt')).toBe(false);
   });
 
-  it('names temp files with prefix, parts, and a timestamp', () => {
-    expect(tempPdfFileName('planning-', 'room-1')).toMatch(/^planning-room-1-\d+\.pdf$/);
-    expect(tempPdfFileName('facture-', 'inv_x', 'v2')).toMatch(/^facture-inv_x-v2-\d+\.pdf$/);
+  it('names temp files with prefix, parts, a timestamp, and a unique suffix', () => {
+    expect(tempPdfFileName('planning-', 'room-1')).toMatch(/^planning-room-1-\d+-[0-9a-f]{8}\.pdf$/);
+    expect(tempPdfFileName('facture-', 'inv_x', 'v2')).toMatch(/^facture-inv_x-v2-\d+-[0-9a-f]{8}\.pdf$/);
+    expect(tempPdfFileName('facture-', 'inv_x')).not.toBe(tempPdfFileName('facture-', 'inv_x'));
   });
 });
 
@@ -55,7 +56,7 @@ describe('writeTempPdf', () => {
     const tempPath = writeTempPdf('recu-paiement-', ['pay_1'], bytes);
 
     expect(tempPath.startsWith(electronMock.tempDir)).toBe(true);
-    expect(tempPath).toMatch(/recu-paiement-pay_1-\d+\.pdf$/);
+    expect(tempPath).toMatch(/recu-paiement-pay_1-\d+-[0-9a-f]{8}\.pdf$/);
     expect(existsSync(tempPath)).toBe(true);
   });
 });
@@ -94,6 +95,17 @@ describe('sweepStaleTempPdfsIn', () => {
   it('never throws when the temp dir does not exist', () => {
     expect(() => sweepStaleTempPdfsIn(join(dir, 'missing'), STALE_TEMP_PDF_AGE_MS)).not.toThrow();
     expect(sweepStaleTempPdfsIn(join(dir, 'missing'), STALE_TEMP_PDF_AGE_MS)).toBe(0);
+  });
+
+  it('skips a directory that matches an owned temp-PDF name', () => {
+    const dirLikeFile = join(dir, 'planning-week-1.pdf');
+    mkdirSync(dirLikeFile);
+    utimesSync(dirLikeFile, minutesAgo(10), minutesAgo(10));
+
+    const removed = sweepStaleTempPdfsIn(dir, STALE_TEMP_PDF_AGE_MS);
+
+    expect(removed).toBe(0);
+    expect(existsSync(dirLikeFile)).toBe(true);
   });
 });
 

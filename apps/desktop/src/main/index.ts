@@ -168,9 +168,9 @@ app.whenReady().then(async () => {
   // in dev).
   try {
     // Stale temp PDFs from earlier runs (SOU-163): best-effort sweep BEFORE any
-    // new print can land. The freshness threshold keeps a freshly printed file
-    // alive while the OS viewer reads it — a file still that young was written
-    // by the current session, not left over.
+    // new print can land. The freshness threshold keeps a recently printed file
+    // alive while the OS viewer reads it — a file younger than the threshold
+    // cannot predate the previous session by more than a few minutes.
     sweepStaleTempPdfs();
     const hubServer = resolveHubConfig();
     // A hub host already wires its own client at its own listener; only a device
