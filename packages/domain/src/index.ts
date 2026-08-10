@@ -198,6 +198,7 @@ export {
   CannotReverseReversalError,
   PaymentAlreadyReversedError,
   PaymentExceedsBalanceError,
+  InvalidPaymentDateRangeError,
 } from './errors/payment-errors';
 export {
   TooManyActiveSubscriptionsError,
@@ -448,6 +449,8 @@ export type {
 export type { WeeklySessionView } from './read-models/weekly-session-view';
 export type { InvoiceListRow, InvoiceListFilters } from './read-models/invoice-list-row';
 export type { OverdueInvoiceLineView } from './read-models/overdue-invoice-view';
+export type { RecentPaymentView, RecentPaymentsFilters } from './read-models/recent-payment-view';
+export type { DayTakings } from './read-models/day-takings';
 export type {
   DashboardBasicSummary,
   MoneyDelta,
@@ -568,6 +571,9 @@ export type {
 export type { FormulaRepository } from './ports/formula-repository';
 // Payment ledger (SOU-93) — append-only; the SQLite adapter adds a trigger safety net.
 export type { PaymentReader, PaymentRepository } from './ports/payment-repository';
+// Recent-payments cash-desk feed (SOU-198) — cross-invoice read model served by the
+// same SQLite adapter that owns `payments`, mirroring OverdueInvoiceViewReadPort.
+export type { RecentPaymentsReadPort } from './ports/recent-payments-read-port';
 // StudentSubscription repository (SOU-63) — port + SQLite adapter land together.
 export type { StudentSubscriptionRepository } from './ports/student-subscription-repository';
 // TeacherPayrollRule repository (SOU-70) — port declared here; SQLite adapter +
@@ -793,6 +799,14 @@ export type {
   GetInvoicePaymentSummaryInput,
   InvoicePaymentSummary,
 } from './use-cases/get-invoice-payment-summary';
+export {
+  ListRecentPayments,
+  RECENT_PAYMENTS_DEFAULT_LIMIT,
+  RECENT_PAYMENTS_MAX_LIMIT,
+} from './use-cases/list-recent-payments';
+export type { ListRecentPaymentsInput } from './use-cases/list-recent-payments';
+export { GetDayTakings } from './use-cases/get-day-takings';
+export type { GetDayTakingsInput } from './use-cases/get-day-takings';
 export { ListInvoices } from './use-cases/list-invoices';
 export type { ListInvoicesInput, InvoiceListItem } from './use-cases/list-invoices';
 export { ListOverdueInvoices } from './use-cases/list-overdue-invoices';
