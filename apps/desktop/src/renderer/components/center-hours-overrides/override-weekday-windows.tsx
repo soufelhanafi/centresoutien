@@ -1,4 +1,4 @@
-import { useFieldArray, useFormContext } from 'react-hook-form';
+import { useFieldArray, useFormContext, useFormState } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import type { WeekdayIndex } from '@centresoutien/domain';
@@ -10,6 +10,15 @@ type OverrideWeekdayWindowsProps = {
   index: number;
   dayOfWeek: WeekdayIndex;
 };
+
+/** Reads the day-level window-list error code (e.g. `windows-overlap`) set by the
+ *  schema at `days.<index>.windows`, which no single input owns. */
+function windowListErrorCode(windowsError: unknown): string {
+  if (windowsError === null || typeof windowsError !== 'object') return '';
+  const record = windowsError as { message?: unknown; root?: { message?: unknown } };
+  const message = record.message ?? record.root?.message;
+  return typeof message === 'string' ? message : '';
+}
 
 /**
  * One weekday of the override editor: an open/closed toggle and, when open, its
@@ -23,7 +32,9 @@ export function OverrideWeekdayWindows({ index, dayOfWeek }: OverrideWeekdayWind
   const { t } = useTranslation();
   const { control } = useFormContext<OverrideFormValues>();
   const { fields, append, remove } = useFieldArray({ control, name: `days.${index}.windows` });
+  const { errors } = useFormState({ control, name: `days.${index}.windows` });
   const isOpen = fields.length > 0;
+  const listErrorCode = windowListErrorCode(errors.days?.[index]?.windows);
 
   const onToggle = (checked: boolean) => {
     if (checked) append(defaultWindow());
@@ -56,6 +67,11 @@ export function OverrideWeekdayWindows({ index, dayOfWeek }: OverrideWeekdayWind
               onRemove={() => remove(windowIndex)}
             />
           ))}
+          {listErrorCode ? (
+            <p role="alert" className="text-sm font-medium text-destructive">
+              {t(`errors.${listErrorCode}`)}
+            </p>
+          ) : null}
           <Button
             type="button"
             variant="outline"

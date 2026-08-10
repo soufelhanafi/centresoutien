@@ -25,6 +25,14 @@ function firstErrorCode(values: OverrideFormValues): string | undefined {
   return result.success ? undefined : result.error.issues[0]?.message;
 }
 
+function issueFor(values: OverrideFormValues, path: readonly (string | number)[]) {
+  const result = overrideFormSchema.safeParse(values);
+  if (result.success) return undefined;
+  return result.error.issues.find(
+    (issue) => JSON.stringify(issue.path) === JSON.stringify(path),
+  );
+}
+
 describe('emptyOverrideForm / defaultWindow', () => {
   it('seeds an empty date range and all seven weekdays closed', () => {
     const form = emptyOverrideForm();
@@ -56,13 +64,14 @@ describe('overrideFormSchema (reuses the domain predicates)', () => {
     expect(overrideFormSchema.safeParse(form).success).toBe(true);
   });
 
-  it('rejects a window whose close is not after its open (windows-overlap)', () => {
+  it('flags a window whose close is not after its open on that window close field (invalid-time)', () => {
     const form = baseForm();
     form.days[1] = { dayOfWeek: 1, windows: [{ open: '16:00', close: '10:00' }] };
-    expect(firstErrorCode(form)).toBe('windows-overlap');
+    const issue = issueFor(form, ['days', 1, 'windows', 0, 'close']);
+    expect(issue?.message).toBe('invalid-time');
   });
 
-  it('rejects overlapping windows within a day', () => {
+  it('flags overlapping windows on the day window list (windows-overlap)', () => {
     const form = baseForm();
     form.days[1] = {
       dayOfWeek: 1,
@@ -71,7 +80,14 @@ describe('overrideFormSchema (reuses the domain predicates)', () => {
         { open: '12:00', close: '18:00' },
       ],
     };
-    expect(firstErrorCode(form)).toBe('windows-overlap');
+    const issue = issueFor(form, ['days', 1, 'windows']);
+    expect(issue?.message).toBe('windows-overlap');
+  });
+
+  it('reports only the per-window defect when a window is malformed, not overlap', () => {
+    const form = baseForm();
+    form.days[1] = { dayOfWeek: 1, windows: [{ open: '16:00', close: '10:00' }] };
+    expect(issueFor(form, ['days', 1, 'windows'])).toBeUndefined();
   });
 
   it('rejects an end date before the start date', () => {
