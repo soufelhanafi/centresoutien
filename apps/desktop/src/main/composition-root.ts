@@ -239,6 +239,7 @@ export type ContainerOptions = {
   centerCode: CenterCode; // tenant code stamped on entities
   key: string; // SQLCipher passphrase — the per-center derived key (SOU-179)
   dir: string; // directory holding the center DB files
+  tempDir: string; // Electron-resolved temp dir for *.print PDF artifacts (SOU-163)
   planId: PlanId;
   appVersion: () => string;
   /** Backup restore (SOU-102) swaps the live DB file and closes its handle —
@@ -1249,6 +1250,7 @@ export function buildContainer(options: ContainerOptions): Container {
     getGroupAttendanceSheet,
     listWeekSessions,
     scheduleRenderer,
+    tempDir: options.tempDir,
     generateSessions,
     undoGenerationBatch,
     recordSessionAttendance,

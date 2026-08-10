@@ -1,15 +1,7 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-
-const electronMock = vi.hoisted(() => ({ tempDir: '' }));
-
-vi.mock('electron', () => ({
-  app: {
-    getPath: (name: string) => (name === 'temp' ? electronMock.tempDir : ''),
-  },
-}));
 
 import {
   STALE_TEMP_PDF_AGE_MS,
@@ -26,6 +18,10 @@ function minutesAgo(minutes: number): Date {
   return new Date(Date.now() - minutes * MINUTE);
 }
 
+function tempDir(): string {
+  return mkdtempSync(join(tmpdir(), 'cs-temp-pdf-test-'));
+}
+
 describe('temp-pdf ownership', () => {
   it('recognizes only files matching our generated temp-PDF naming format', () => {
     expect(isOwnedTempPdfName('planning-week-1712345678901-ab12cd34.pdf')).toBe(true);
@@ -39,7 +35,6 @@ describe('temp-pdf ownership', () => {
     expect(isOwnedTempPdfName('planning-full.pdf')).toBe(false);
     expect(isOwnedTempPdfName('planning-week-1712345678901.pdf')).toBe(false);
     expect(isOwnedTempPdfName('planning-report-1234567890.pdf')).toBe(false);
-    expect(isOwnedTempPdfName('planning-report-946684799999.pdf')).toBe(false);
     expect(isOwnedTempPdfName('planning-report-9999999999999-ab12cd34.pdf')).toBe(false);
   });
 
@@ -51,18 +46,19 @@ describe('temp-pdf ownership', () => {
 });
 
 describe('writeTempPdf', () => {
+  let dir: string;
   beforeEach(() => {
-    electronMock.tempDir = mkdtempSync(join(tmpdir(), 'cs-temp-pdf-test-'));
+    dir = tempDir();
   });
   afterEach(() => {
-    rmSync(electronMock.tempDir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
   });
 
-  it('writes the bytes into the Electron temp dir and returns the path', () => {
+  it('writes the bytes into the given temp dir and returns the path', () => {
     const bytes = new Uint8Array([37, 80, 68, 70]);
-    const tempPath = writeTempPdf('recu-paiement-', ['pay_1'], bytes);
+    const tempPath = writeTempPdf(dir, 'recu-paiement-', ['pay_1'], bytes);
 
-    expect(tempPath.startsWith(electronMock.tempDir)).toBe(true);
+    expect(tempPath.startsWith(dir)).toBe(true);
     expect(tempPath).toMatch(/recu-paiement-pay_1-\d+-[0-9a-f]{8}\.pdf$/);
     expect(existsSync(tempPath)).toBe(true);
   });
@@ -71,7 +67,7 @@ describe('writeTempPdf', () => {
 describe('sweepStaleTempPdfsIn', () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'cs-temp-pdf-sweep-'));
+    dir = tempDir();
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
@@ -134,28 +130,27 @@ describe('sweepStaleTempPdfsIn', () => {
 describe('sweepStaleTempPdfs', () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'cs-temp-pdf-sweep2-'));
+    dir = tempDir();
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('uses the default five-minute freshness threshold via the Electron temp dir', () => {
+  it('sweeps the given temp dir with the default five-minute freshness threshold', () => {
     const stale = join(dir, 'bulletin-paie-1-1712345678901-ab12cd34.pdf');
     const fresh = join(dir, 'recu-paiement-2-1712345678999-ab12cd34.pdf');
     writeFileSync(stale, 'stale');
     writeFileSync(fresh, 'fresh');
     utimesSync(stale, minutesAgo(10), minutesAgo(10));
-    electronMock.tempDir = dir;
 
-    const removed = sweepStaleTempPdfs();
+    const removed = sweepStaleTempPdfs(dir);
 
     expect(removed).toBe(1);
     expect(existsSync(stale)).toBe(false);
     expect(existsSync(fresh)).toBe(true);
   });
 
-  it('honors a caller-supplied threshold and temp dir', () => {
+  it('uses a custom freshness threshold through the injected sweep core', () => {
     const oldFile = join(dir, 'facture-inv_x-1-1712345678901-ab12cd34.pdf');
     const recentFile = join(dir, 'planning-week-2-1712345678999-ab12cd34.pdf');
     writeFileSync(oldFile, 'old');
@@ -163,7 +158,7 @@ describe('sweepStaleTempPdfs', () => {
     utimesSync(oldFile, minutesAgo(10), minutesAgo(10));
     utimesSync(recentFile, minutesAgo(2), minutesAgo(2));
 
-    const removed = sweepStaleTempPdfs({ tempDir: dir, staleOlderThanMs: 5 * MINUTE });
+    const removed = sweepStaleTempPdfsIn(dir, 5 * MINUTE);
 
     expect(removed).toBe(1);
     expect(existsSync(oldFile)).toBe(false);

@@ -14,6 +14,7 @@ export type ScheduleHandlerDeps = ScheduleAssemblyDeps & {
   listWeekSessions: ListWeekSessionsUseCase;
   scheduleRenderer: SchedulePdfRenderer;
   centerCode: () => CenterCode;
+  tempDir: string;
 };
 
 /**
@@ -33,7 +34,7 @@ export function createScheduleHandlers(
       const sessions = await deps.listWeekSessions.execute({ centerCode: deps.centerCode() });
       const pdfInput = await buildSchedulePdfInput(deps, sessions, request.view, request.locale);
       const bytes = await deps.scheduleRenderer.render(pdfInput);
-      const tempPath = writeTempPdf('planning-', [request.view.scope], bytes);
+      const tempPath = writeTempPdf(deps.tempDir, 'planning-', [request.view.scope], bytes);
       await shell.openPath(tempPath);
       return { ok: true };
     },

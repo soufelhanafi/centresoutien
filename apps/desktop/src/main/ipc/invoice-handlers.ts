@@ -31,6 +31,7 @@ export type InvoiceHandlerDeps = PdfAssemblyDeps & {
   invoicePdfRenderer: InvoicePdfRendererPort;
   centerCode: () => CenterCode;
   updatedBy: () => UserId;
+  tempDir: string;
 };
 
 function toInvoiceLineView(line: InvoiceLine) {
@@ -116,7 +117,7 @@ export function createInvoiceHandlers(
       const item = await findInvoiceOrThrow(deps, request.invoiceId);
       const pdfInput = await buildInvoicePdfInput(deps, deps.centerCode(), item, request.locale);
       const bytes = await deps.invoicePdfRenderer.render(pdfInput);
-      const tempPath = writeTempPdf('facture-', [item.invoice.id], bytes);
+      const tempPath = writeTempPdf(deps.tempDir, 'facture-', [item.invoice.id], bytes);
       await shell.openPath(tempPath);
       return { ok: true };
     },

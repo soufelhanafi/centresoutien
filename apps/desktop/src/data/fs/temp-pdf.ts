@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { app } from 'electron';
 import { readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -10,25 +9,23 @@ const TEMP_PDF_PREFIXES = ['planning-', 'facture-', 'bulletin-paie-', 'recu-paie
 export type TempPdfPrefix = (typeof TEMP_PDF_PREFIXES)[number];
 
 const OWNED_TEMP_PDF_NAME = /^.+-(\d{13})-[0-9a-f]{8}\.pdf$/;
-const MIN_EPOCH_MS = Date.UTC(2000, 0, 1);
 
-function isPlausibleTimestamp(value: string): boolean {
-  const ms = Number(value);
-  return Number.isSafeInteger(ms) && ms >= MIN_EPOCH_MS && ms <= Date.now() + 86_400_000;
+function isFutureDated(value: string): boolean {
+  return Number(value) > Date.now() + 86_400_000;
 }
 
 export function isOwnedTempPdfName(fileName: string): boolean {
   if (!TEMP_PDF_PREFIXES.some((prefix) => fileName.startsWith(prefix))) return false;
   const match = OWNED_TEMP_PDF_NAME.exec(fileName);
-  return match !== null && isPlausibleTimestamp(match[1]!);
+  return match !== null && !isFutureDated(match[1]!);
 }
 
 export function tempPdfFileName(prefix: TempPdfPrefix, ...nameParts: readonly string[]): string {
   return `${prefix}${nameParts.join('-')}-${Date.now()}-${randomUUID().slice(0, 8)}.pdf`;
 }
 
-export function writeTempPdf(prefix: TempPdfPrefix, nameParts: readonly string[], bytes: Uint8Array): string {
-  const tempPath = join(app.getPath('temp'), tempPdfFileName(prefix, ...nameParts));
+export function writeTempPdf(tempDir: string, prefix: TempPdfPrefix, nameParts: readonly string[], bytes: Uint8Array): string {
+  const tempPath = join(tempDir, tempPdfFileName(prefix, ...nameParts));
   writeFileSync(tempPath, bytes);
   return tempPath;
 }
@@ -59,6 +56,6 @@ export function sweepStaleTempPdfsIn(tempDir: string, staleOlderThanMs: number):
   return removed;
 }
 
-export function sweepStaleTempPdfs(options: { tempDir?: string; staleOlderThanMs?: number } = {}): number {
-  return sweepStaleTempPdfsIn(options.tempDir ?? app.getPath('temp'), options.staleOlderThanMs ?? STALE_TEMP_PDF_AGE_MS);
+export function sweepStaleTempPdfs(tempDir: string): number {
+  return sweepStaleTempPdfsIn(tempDir, STALE_TEMP_PDF_AGE_MS);
 }

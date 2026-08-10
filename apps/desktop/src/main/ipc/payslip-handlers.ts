@@ -10,6 +10,7 @@ export type GeneratePayslipPdfUseCase = Pick<GeneratePayslipPdf, 'execute'>;
 export type PayslipHandlerDeps = {
   generatePayslipPdf: GeneratePayslipPdfUseCase;
   centerCode: () => CenterCode;
+  tempDir: string;
 };
 
 /**
@@ -29,7 +30,7 @@ export function createPayslipHandlers(
         teacherPayoutId: request.teacherPayoutId as TeacherPayoutId,
         locale: request.locale,
       });
-      const tempPath = writeTempPdf('bulletin-paie-', [payoutId], bytes);
+      const tempPath = writeTempPdf(deps.tempDir, 'bulletin-paie-', [payoutId], bytes);
       await shell.openPath(tempPath);
       return { ok: true };
     },

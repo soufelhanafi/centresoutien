@@ -43,6 +43,7 @@ export function writeDemoLicenseFile(dir: string): void {
 
 export type PrepareDemoCenterOptions = {
   dir: string;
+  tempDir: string;
   /** The demo DB key — `resolveCenterKey(vault, 'demo')`. */
   demoKey: string;
   appVersion: () => string;
@@ -92,6 +93,7 @@ export async function prepareDemoCenter(options: PrepareDemoCenterOptions): Prom
     centerCode: DEMO_CENTER_CODE,
     key: options.demoKey,
     dir: options.dir,
+    tempDir: options.tempDir,
     planId: 'premium',
     appVersion: options.appVersion,
     scheduleRestart: options.scheduleRestart,

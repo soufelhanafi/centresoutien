@@ -10,6 +10,7 @@ export type GeneratePaymentReceiptPdfUseCase = Pick<GeneratePaymentReceiptPdf, '
 export type PaymentReceiptHandlerDeps = {
   generatePaymentReceiptPdf: GeneratePaymentReceiptPdfUseCase;
   centerCode: () => CenterCode;
+  tempDir: string;
 };
 
 /**
@@ -29,7 +30,7 @@ export function createPaymentReceiptHandlers(
         paymentId: request.paymentId as PaymentId,
         locale: request.locale,
       });
-      const tempPath = writeTempPdf('recu-paiement-', [paymentId], bytes);
+      const tempPath = writeTempPdf(deps.tempDir, 'recu-paiement-', [paymentId], bytes);
       await shell.openPath(tempPath);
       return { ok: true };
     },

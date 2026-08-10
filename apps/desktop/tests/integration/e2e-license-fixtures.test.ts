@@ -70,6 +70,7 @@ function build(license = trustedAdapter()) {
     centerCode: CENTER,
     key: KEY,
     dir,
+    tempDir: dir,
     planId: 'essentiel',
     appVersion: () => '2.0.0',
     scheduleRestart: () => {},
