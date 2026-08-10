@@ -23,13 +23,13 @@ describe('PlannerGrid — hour gutter labels', () => {
 
   it('renders the end-of-day boundary label for a close after 23:00', () => {
     const range = deriveCenterHoursRange([hoursRow(0, '09:00', '23:30')]);
-    render(<PlannerGrid sessions={[]} range={range} closedDays={new Set()} onSelect={noop} emptyLabel="" />);
+    render(<PlannerGrid sessions={[]} range={range} closedSegmentsByDay={new Map()} onSelect={noop} emptyLabel="" />);
     expect(screen.getByText('24:00')).toBeDefined();
   });
 
   it('renders the top and bottom labels of a regular range', () => {
     const range = deriveCenterHoursRange([hoursRow(0, '09:00', '18:00')]);
-    render(<PlannerGrid sessions={[]} range={range} closedDays={new Set()} onSelect={noop} emptyLabel="" />);
+    render(<PlannerGrid sessions={[]} range={range} closedSegmentsByDay={new Map()} onSelect={noop} emptyLabel="" />);
     expect(screen.getByText('09:00')).toBeDefined();
     expect(screen.getByText('18:00')).toBeDefined();
     expect(screen.queryByText('24:00')).toBeNull();
@@ -38,7 +38,7 @@ describe('PlannerGrid — hour gutter labels', () => {
   it('renders hour labels through Intl for Arabic', async () => {
     await i18n.changeLanguage('ar');
     const range = deriveCenterHoursRange([hoursRow(0, '09:00', '18:00')]);
-    render(<PlannerGrid sessions={[]} range={range} closedDays={new Set()} onSelect={noop} emptyLabel="" />);
+    render(<PlannerGrid sessions={[]} range={range} closedSegmentsByDay={new Map()} onSelect={noop} emptyLabel="" />);
     expect(screen.getByText(expectedIntlHour(9, 'ar'))).toBeDefined();
   });
 });

@@ -4,10 +4,16 @@ import { Plus, CalendarDays, Wand2 } from 'lucide-react';
 import { Button, ErrorState } from '@centresoutien/ui';
 import { useWeekSessions } from '../../hooks/planning/use-week-sessions';
 import { useCenterHours } from '../../hooks/center-hours/use-center-hours';
+import { useActiveCenterHoursOverride } from '../../hooks/center-hours-overrides/use-active-center-hours-override';
 import { useTeachers } from '../../hooks/teacher/use-teachers';
 import { useFeature } from '../../hooks/use-feature';
 import { localizedName } from '../../lib/teachers/localized-name';
 import { resolvePersistedWeek } from '../../lib/center-hours';
+import { todayIsoDate } from '../../lib/center-hours-overrides/dates';
+import {
+  deriveClosedSegmentsByDay,
+  deriveOverrideAwareRange,
+} from '../../lib/center-hours-overrides/planner-closures';
 import { PlannerToolbar } from '../../components/planning/planner-toolbar';
 import { PlannerGrid } from '../../components/planning/planner-grid';
 import { PlannerGridSkeleton } from '../../components/planning/planner-grid-skeleton';
@@ -24,7 +30,6 @@ import {
   type FilterOptions,
   type PlannerFilters,
 } from '../../lib/planning/filters';
-import { deriveCenterHoursRange, deriveClosedDays } from '../../lib/planning/time-range';
 
 /** Full-width error panel for a failed planner query, with a retry action. */
 function PlannerLoadError({
@@ -71,13 +76,25 @@ export function PlannerPage() {
   const [generating, setGenerating] = useState(false);
 
   const hoursQuery = useCenterHours();
+  // A dated override (Ramadan, a holiday week) takes effect on today's local
+  // date; its failure is soft — the planner falls back to the base weekly hours
+  // rather than blocking the grid (SOU-165).
+  const today = useMemo(() => todayIsoDate(), []);
+  const overrideQuery = useActiveCenterHoursOverride(today);
+  const activeOverride = overrideQuery.data ?? null;
   const week = useMemo(() => query.data ?? [], [query.data]);
   // A fresh center persists no hours rows (an empty array, never undefined), so
   // fall back to the domain's seed week (09:00–18:00) and agree with the
   // Settings form instead of a hard-coded window (SOU-184).
   const hoursWeek = resolvePersistedWeek(hoursQuery.data?.week);
-  const range = useMemo(() => deriveCenterHoursRange(hoursWeek), [hoursWeek]);
-  const closedDays = useMemo(() => deriveClosedDays(hoursWeek), [hoursWeek]);
+  const range = useMemo(
+    () => deriveOverrideAwareRange(hoursWeek, activeOverride),
+    [hoursWeek, activeOverride],
+  );
+  const closedSegmentsByDay = useMemo(
+    () => deriveClosedSegmentsByDay(hoursWeek, activeOverride, range),
+    [hoursWeek, activeOverride, range],
+  );
   const filtered = useMemo(() => applyFilters(week, filters), [week, filters]);
 
   const locale = i18n.language;
@@ -146,7 +163,7 @@ export function PlannerPage() {
             className="min-h-0 flex-1"
             sessions={filtered}
             range={range}
-            closedDays={closedDays}
+            closedSegmentsByDay={closedSegmentsByDay}
             onSelect={setSelected}
             emptyLabel={week.length === 0 ? t('planning.empty.week') : t('planning.empty.noMatch')}
           />

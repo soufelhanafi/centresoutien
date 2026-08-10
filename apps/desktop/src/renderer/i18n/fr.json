@@ -184,6 +184,7 @@
     "security-questions-must-be-distinct": "Choisissez trois questions différentes",
     "invalid-time": "Heure invalide",
     "close-before-open": "La fermeture doit être après l'ouverture",
+    "windows-overlap": "Les créneaux d'un même jour ne doivent pas se chevaucher",
     "closed-partial": "Indiquez l'ouverture et la fermeture, ou fermez le jour",
     "incomplete-week": "La semaine doit comporter les sept jours",
     "invalid-weekday": "Jour invalide",
@@ -1655,6 +1656,37 @@
       "4": "Jeudi",
       "5": "Vendredi",
       "6": "Samedi"
+    }
+  },
+  "centerHoursOverrides": {
+    "title": "Horaires exceptionnels",
+    "subtitle": "Définissez des horaires spécifiques pour une période donnée (Ramadan, semaine de vacances). Ils remplacent les horaires habituels pendant ces dates.",
+    "new": "Ajouter une période",
+    "empty": {
+      "title": "Aucun horaire exceptionnel",
+      "body": "Vos horaires habituels s'appliquent toute l'année. Ajoutez une période pour des horaires spécifiques, comme le Ramadan.",
+      "cta": "Ajouter une période"
+    },
+    "loadError": {
+      "title": "Le chargement des horaires exceptionnels a échoué.",
+      "body": "Impossible de récupérer les périodes d'horaires exceptionnels.",
+      "retry": "Réessayer"
+    },
+    "form": {
+      "createTitle": "Ajouter une période d'horaires exceptionnels",
+      "createDescription": "Choisissez la période, puis les horaires d'ouverture de chaque jour. Ajoutez un deuxième créneau pour une coupure en milieu de journée (iftar).",
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "weekdaysHeading": "Horaires par jour",
+      "openLabel": "Ouverture",
+      "closeLabel": "Fermeture",
+      "addWindow": "Ajouter un créneau",
+      "removeWindow": "Supprimer le créneau",
+      "create": "Enregistrer la période",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Période d'horaires enregistrée",
+      "error": "L'enregistrement a échoué. Réessayez."
     }
   },
   "auth": {

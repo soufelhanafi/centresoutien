@@ -99,11 +99,57 @@ export function deriveClosedDays(week: readonly WeekdayHoursInput[]): ReadonlySe
   return closed;
 }
 
+/** A half-open interval of minutes-since-midnight, `[start, end)`. */
+export type MinuteInterval = {
+  readonly start: number;
+  readonly end: number;
+};
+
+/**
+ * The closed intervals of a day: the complement of its open windows within the
+ * grid's visible range. An empty `openWindows` yields the whole range (a fully
+ * closed day); two windows with a lunch/iftar break yield the gap between them,
+ * plus any time before the first open and after the last close (SOU-165). Inputs
+ * need not be sorted — they are ordered by start here.
+ */
+export function complementWithinRange(
+  openWindows: readonly MinuteInterval[],
+  range: TimeRange,
+): MinuteInterval[] {
+  const rangeStart = range.startHour * 60;
+  const rangeEnd = range.endHour * 60;
+  const sorted = [...openWindows].sort((a, b) => a.start - b.start);
+  const closed: MinuteInterval[] = [];
+  let cursor = rangeStart;
+  for (const window of sorted) {
+    const start = Math.max(window.start, rangeStart);
+    const end = Math.min(window.end, rangeEnd);
+    if (start > cursor) closed.push({ start: cursor, end: start });
+    cursor = Math.max(cursor, end);
+  }
+  if (cursor < rangeEnd) closed.push({ start: cursor, end: rangeEnd });
+  return closed;
+}
+
 /** A block's vertical placement inside its day column, as percentages of height. */
 export type BlockPosition = {
   readonly topPercent: number;
   readonly heightPercent: number;
 };
+
+/**
+ * Positions a raw minute interval vertically within the range, as percentages of
+ * the column height — the hatched-segment counterpart to {@link blockPosition}.
+ * Both edges clamp to the visible window.
+ */
+export function segmentPosition(interval: MinuteInterval, range: TimeRange): BlockPosition {
+  const rangeStart = range.startHour * 60;
+  const rangeEnd = range.endHour * 60;
+  const total = rangeEnd - rangeStart;
+  const top = Math.min(100, Math.max(0, ((interval.start - rangeStart) / total) * 100));
+  const bottom = Math.min(100, Math.max(0, ((interval.end - rangeStart) / total) * 100));
+  return { topPercent: top, heightPercent: Math.max(0, bottom - top) };
+}
 
 /**
  * Positions a session vertically within the range, as a percentage of the
