@@ -1,0 +1,738 @@
+{
+  "metadata": {
+    "title": "Centre Soutien — logiciel de gestion scolaire au Maroc",
+    "description": "Gérez élèves, enseignants, planning et factures de votre centre de soutien scolaire, hors ligne. Application desktop pensée pour les centres marocains."
+  },
+  "header": {
+    "brand": "Centre Soutien",
+    "logo_mark": "CS",
+    "home_aria": "Centre Soutien — accueil",
+    "nav_aria": "Navigation principale",
+    "nav": {
+      "features": "Fonctionnalités",
+      "pricing": "Tarifs",
+      "founder": "Programme Fondateur",
+      "faq": "FAQ",
+      "contact": "Contact"
+    },
+    "cta": {
+      "download": "Télécharger"
+    },
+    "menu": {
+      "open": "Ouvrir le menu",
+      "close": "Fermer le menu"
+    },
+    "language": {
+      "aria": "Choisir la langue",
+      "french": "Français",
+      "arabic": "العربية"
+    }
+  },
+  "hero": {
+    "badge": "🇲🇦 Fabriqué au Maroc",
+    "headline": "Gérez votre centre de soutien <highlight>sans Excel, sans stress.</highlight>",
+    "subheadline": "Planning, élèves, enseignants et factures — tout au même endroit, hors ligne, sur votre ordinateur.",
+    "cta": {
+      "primary": "Essai gratuit 14 jours",
+      "secondary": "Voir la démo"
+    },
+    "trust": {
+      "no_card": "Sans carte bancaire",
+      "quick_install": "Installation en 5 min",
+      "local_data": "Données stockées localement"
+    },
+    "mockup": {
+      "aria": "Aperçu du tableau de bord de l'application Centre Soutien",
+      "window_title": "Centre Soutien — Tableau de bord",
+      "center_name": "Centre Al Massar",
+      "nav": {
+        "dashboard": "Tableau de bord",
+        "planning": "Planning",
+        "students": "Élèves",
+        "teachers": "Enseignants",
+        "rooms": "Salles",
+        "invoices": "Factures"
+      },
+      "greeting": "Bonjour, Karim 👋",
+      "date_line": "Lundi 27 juillet 2026 · Rentrée dans 5 semaines",
+      "sync": "Synchronisé",
+      "stats": {
+        "students": {
+          "label": "Élèves",
+          "value": "147",
+          "delta": "+12 ce mois"
+        },
+        "teachers": {
+          "label": "Enseignants",
+          "value": "8",
+          "delta": "6 disponibles"
+        },
+        "revenue": {
+          "label": "Recettes",
+          "value": "48 250",
+          "unit": "MAD",
+          "delta": "+8% vs juin"
+        },
+        "unpaid": {
+          "label": "Impayés",
+          "value": "3",
+          "delta": "1 250 MAD"
+        }
+      },
+      "table": {
+        "title": "Prochaines séances",
+        "today": "Aujourd'hui",
+        "rows": {
+          "one": {
+            "time": "15h00",
+            "name": "Youssef El Amrani",
+            "detail": "Mathématiques",
+            "room": "Salle 2",
+            "price": "350 MAD"
+          },
+          "two": {
+            "time": "16h30",
+            "name": "Fatima Zahra Bennani",
+            "detail": "Physique-Chimie",
+            "room": "Salle 1",
+            "price": "400 MAD"
+          },
+          "three": {
+            "time": "18h00",
+            "name": "Groupe Bac SVT · 6 élèves",
+            "detail": "",
+            "room": "Salle 3",
+            "price": "1 200 MAD"
+          }
+        }
+      }
+    }
+  },
+  "problem": {
+    "eyebrow": "Le problème",
+    "heading": "Vous reconnaissez-vous ?",
+    "subheading": "Ce que nous avons entendu dans 40 centres à Casablanca, Rabat et Fès.",
+    "cards": {
+      "excel": {
+        "title": "Excel qui plante en pleine rentrée",
+        "body": "Cinq onglets, trois formules cassées, un fichier perdu. Le fichier maître n'a plus qu'un seul maître : la panique."
+      },
+      "invoices": {
+        "title": "Factures oubliées, impayés qui s'accumulent",
+        "body": "Vous savez qui doit, mais pas depuis quand. Chaque mois recommence sur un carnet différent."
+      },
+      "rooms": {
+        "title": "Deux profs dans la même salle",
+        "body": "Il est 16h55, deux enseignants attendent devant la porte. Personne n'avait vu le conflit sur le planning papier."
+      }
+    }
+  },
+  "features": {
+    "eyebrow": "Fonctionnalités",
+    "heading": "Pensé pour un vrai centre, pas pour un tableur.",
+    "subheading": "Six modules qui remplacent, un à un, les feuilles Excel que vous traînez depuis des années.",
+    "items": {
+      "rooms": {
+        "eyebrow": "01 — Salles",
+        "heading": "Chaque salle, avec ses équipements et sa disponibilité.",
+        "points": [
+          "Capacité, équipements et notes par salle.",
+          "Voyants temps réel : libre, occupée, bientôt libre.",
+          "Historique d'utilisation pour repérer les salles sous-exploitées."
+        ],
+        "mockup": {
+          "aria": "Aperçu de l'écran Salles et équipements de l'application",
+          "title": "Salles & équipements",
+          "action": "+ Nouvelle salle",
+          "places": "places",
+          "rooms": [
+            {
+              "name": "Salle 1 · Sciences",
+              "status": "Libre",
+              "capacity": "12",
+              "equip": "Tableau blanc, vidéoprojecteur"
+            },
+            {
+              "name": "Salle 2 · Maths",
+              "status": "Occupée",
+              "capacity": "8",
+              "equip": "Tableau craie"
+            },
+            {
+              "name": "Salle 3 · Grande",
+              "status": "Libre",
+              "capacity": "20",
+              "equip": "Climatisation"
+            },
+            {
+              "name": "Salle 4 · Langues",
+              "status": "Bientôt libre",
+              "capacity": "10",
+              "equip": "Enceintes"
+            }
+          ]
+        }
+      },
+      "planning": {
+        "eyebrow": "02 — Planning",
+        "heading": "Un planning hebdomadaire qui détecte les conflits avant vous.",
+        "points": [
+          "Séances récurrentes : créez une fois, elles se répètent toute l'année.",
+          "Détection automatique : deux profs, même salle, même horaire → alerte.",
+          "Vue jour, semaine, mois — impression au format A4."
+        ],
+        "mockup": {
+          "aria": "Aperçu du planning hebdomadaire avec détection de conflit",
+          "title": "Planning · Semaine",
+          "range": "Lun–Sam",
+          "days": [
+            "Lun",
+            "Mar",
+            "Mer",
+            "Jeu",
+            "Ven",
+            "Sam"
+          ],
+          "sessions": [
+            {
+              "time": "15h",
+              "label": "Maths · S2"
+            },
+            {
+              "time": "16h",
+              "label": "Français · S3"
+            },
+            {
+              "time": "16h",
+              "label": "Conflit · S1"
+            },
+            {
+              "time": "17h",
+              "label": "Arabe · S4"
+            }
+          ]
+        }
+      },
+      "teachers": {
+        "eyebrow": "03 — Enseignants",
+        "heading": "Fiches profs avec disponibilités et taux horaires.",
+        "points": [
+          "Matières, niveaux et créneaux disponibles par enseignant.",
+          "Taux horaire fixe ou variable selon niveau.",
+          "Calcul automatique des heures et de la rémunération mensuelle."
+        ],
+        "mockup": {
+          "aria": "Aperçu d'une fiche enseignant avec disponibilités et taux horaire",
+          "initials": "AH",
+          "name": "Amine Hassani",
+          "role": "Enseignant · Mathématiques, Physique-Chimie",
+          "rate": "180",
+          "rateUnit": "MAD/h",
+          "rateLabel": "Taux horaire",
+          "tags": [
+            "Tronc commun",
+            "Bac Sciences",
+            "Bac Éco"
+          ],
+          "availabilityLabel": "Disponibilités",
+          "availability": [
+            {
+              "day": "L",
+              "hours": "15–20h"
+            },
+            {
+              "day": "M",
+              "hours": "15–20h"
+            },
+            {
+              "day": "M",
+              "hours": "—"
+            },
+            {
+              "day": "J",
+              "hours": "15–20h"
+            },
+            {
+              "day": "V",
+              "hours": "15–19h"
+            },
+            {
+              "day": "S",
+              "hours": "9–17h"
+            }
+          ]
+        }
+      },
+      "students": {
+        "eyebrow": "04 — Élèves",
+        "heading": "Fiches élèves avec présences et suivi de progression.",
+        "points": [
+          "Coordonnées parents, niveau scolaire, matières suivies.",
+          "Présences et absences pointées en un clic.",
+          "Notes internes partagées avec les enseignants concernés."
+        ],
+        "mockup": {
+          "aria": "Aperçu de la liste des élèves avec présence et solde",
+          "title": "Élèves",
+          "count": "147 inscrits",
+          "search": "Rechercher",
+          "columns": {
+            "name": "Élève",
+            "level": "Niveau",
+            "attendance": "Présence",
+            "balance": "Solde"
+          },
+          "rows": [
+            {
+              "name": "Youssef El Amrani",
+              "level": "2ème Bac Sc.",
+              "attendance": "96%",
+              "balance": "À jour"
+            },
+            {
+              "name": "Fatima Zahra Bennani",
+              "level": "1ère Bac Sc.",
+              "attendance": "100%",
+              "balance": "À jour"
+            },
+            {
+              "name": "Mehdi Chraibi",
+              "level": "Tronc commun",
+              "attendance": "78%",
+              "balance": "−350 MAD"
+            },
+            {
+              "name": "Salma Ouazzani",
+              "level": "2ème Bac Éco",
+              "attendance": "92%",
+              "balance": "À jour"
+            }
+          ]
+        }
+      },
+      "billing": {
+        "eyebrow": "05 — Facturation",
+        "heading": "Facturation mensuelle automatique, en dirhams.",
+        "points": [
+          "Génération en un clic pour toutes les familles, à la date de votre choix.",
+          "Suivi des paiements, relances automatiques par WhatsApp ou email.",
+          "PDF prêts à imprimer, conformes à la loi 09-08."
+        ],
+        "mockup": {
+          "aria": "Aperçu d'une facture mensuelle en dirhams",
+          "label": "Facture",
+          "number": "2026-07-042",
+          "issuedLabel": "Émise le",
+          "issuedDate": "27/07/2026",
+          "dueLabel": "Échéance le",
+          "dueDate": "05/08/2026",
+          "billedTo": "Facturé à",
+          "client": "M. Rachid El Amrani",
+          "clientDetail": "Parent de Youssef El Amrani · 2ème Bac Sc.",
+          "columns": {
+            "item": "Prestation",
+            "hours": "Heures",
+            "total": "Total"
+          },
+          "lines": [
+            {
+              "item": "Mathématiques · juillet",
+              "hours": "8h",
+              "total": "1 600 MAD"
+            },
+            {
+              "item": "Physique-Chimie · juillet",
+              "hours": "6h",
+              "total": "1 200 MAD"
+            }
+          ],
+          "totalLabel": "Total TTC",
+          "totalValue": "2 800 MAD"
+        }
+      },
+      "bilingual": {
+        "eyebrow": "06 — Bilingue",
+        "heading": "Interface FR/AR avec RTL natif — pas un plâtre.",
+        "points": [
+          "Basculement immédiat, à tout moment, dans toute l'application.",
+          "Impression des factures et plannings en français ou en arabe.",
+          "Typographie soignée avec Noto Sans Arabic."
+        ],
+        "mockup": {
+          "ariaFr": "Aperçu de l'interface en français",
+          "ariaAr": "Aperçu de l'interface en arabe, de droite à gauche",
+          "badgeFr": "FR",
+          "badgeAr": "ع",
+          "fr": {
+            "title": "Élèves",
+            "count": "147 inscrits",
+            "rows": [
+              {
+                "name": "Youssef El Amrani",
+                "level": "Bac Sc."
+              },
+              {
+                "name": "Fatima Bennani",
+                "level": "Bac Sc."
+              },
+              {
+                "name": "Mehdi Chraibi",
+                "level": "TC"
+              }
+            ]
+          },
+          "ar": {
+            "title": "التلاميذ",
+            "count": "147 مسجّل",
+            "rows": [
+              {
+                "name": "يوسف العمراني",
+                "level": "باك علوم"
+              },
+              {
+                "name": "فاطمة الزهراء بناني",
+                "level": "باك علوم"
+              },
+              {
+                "name": "مهدي الشرايبي",
+                "level": "ج مشترك"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "how_it_works": {
+    "eyebrow": "Comment ça marche",
+    "heading": "De l'installation au premier planning, en moins de 10 minutes.",
+    "steps": {
+      "install": {
+        "number": "01",
+        "title": "Installer",
+        "body": "Téléchargez le programme (Windows ou Mac) et lancez-le. Aucun compte à créer, aucune connexion requise. <strong>1 minute.</strong>"
+      },
+      "setup": {
+        "number": "02",
+        "title": "Configurer votre centre",
+        "body": "Ajoutez vos salles, vos enseignants, importez vos élèves depuis Excel. Un assistant vous guide étape par étape. <strong>5 minutes.</strong>"
+      },
+      "daily": {
+        "number": "03",
+        "title": "Gérer au quotidien",
+        "body": "Planning, présences, factures — chaque tâche à la bonne place. Vos données restent sur votre ordinateur. <strong>Chaque jour.</strong>"
+      }
+    }
+  },
+  "pricing": {
+    "eyebrow": "Tarifs",
+    "heading": "Un tarif clair, payé une fois par an.",
+    "subheading": "Tous les prix sont en dirhams marocains, TVA incluse. Paiement annuel unique.",
+    "badge_recommended": "RECOMMANDÉ",
+    "per_year": "MAD/an",
+    "per_month_equiv": "MAD/mois équivalent",
+    "tiers": {
+      "essentiel": {
+        "name": "Essentiel",
+        "description": "Pour petits centres qui démarrent.",
+        "price": "1 490",
+        "monthly": "≈ 124 MAD/mois équivalent",
+        "cta": "Commencer l'essai",
+        "features": {
+          "0": "Jusqu'à 50 élèves",
+          "1": "2 enseignants",
+          "2": "1 salle",
+          "3": "Planning et facturation basique",
+          "4": "Support par email"
+        }
+      },
+      "pro": {
+        "name": "Pro",
+        "description": "Pour la plupart des centres, la formule la plus complète.",
+        "price": "3 490",
+        "monthly": "≈ 291 MAD/mois équivalent",
+        "cta": "Commencer l'essai",
+        "features": {
+          "0": "Jusqu'à 200 élèves",
+          "1": "10 enseignants",
+          "2": "5 salles",
+          "3": "Facturation avancée + relances",
+          "4": "Détection de conflits de planning",
+          "5": "Support prioritaire"
+        }
+      },
+      "premium": {
+        "name": "Premium",
+        "description": "Pour centres établis avec plusieurs enseignants.",
+        "price": "6 490",
+        "monthly": "≈ 541 MAD/mois équivalent",
+        "cta": "Nous contacter",
+        "features": {
+          "0": "Élèves illimités",
+          "1": "Enseignants illimités",
+          "2": "Salles illimitées",
+          "3": "Support prioritaire téléphonique",
+          "4": "Formation sur site incluse"
+        }
+      }
+    },
+    "comparison": {
+      "title": "Comparatif détaillé",
+      "rows": {
+        "0": {
+          "label": "Élèves",
+          "essentiel": "50",
+          "pro": "200",
+          "premium": "Illimités"
+        },
+        "1": {
+          "label": "Enseignants",
+          "essentiel": "2",
+          "pro": "10",
+          "premium": "Illimités"
+        },
+        "2": {
+          "label": "Salles",
+          "essentiel": "1",
+          "pro": "5",
+          "premium": "Illimitées"
+        },
+        "3": {
+          "label": "Planning avec détection de conflits",
+          "essentiel": "—",
+          "pro": "✓",
+          "premium": "✓"
+        },
+        "4": {
+          "label": "Relances automatiques WhatsApp/email",
+          "essentiel": "—",
+          "pro": "✓",
+          "premium": "✓"
+        },
+        "5": {
+          "label": "Support prioritaire téléphonique",
+          "essentiel": "—",
+          "pro": "—",
+          "premium": "✓"
+        },
+        "6": {
+          "label": "Formation sur site",
+          "essentiel": "—",
+          "pro": "—",
+          "premium": "✓"
+        }
+      }
+    },
+    "footnote": "Paiement annuel · Facturation en dirhams · TVA incluse"
+  },
+  "faq": {
+    "eyebrow": "FAQ",
+    "heading": "Questions fréquentes",
+    "items": {
+      "offline": {
+        "question": "L'application fonctionne-t-elle sans internet ?",
+        "answer": "Oui. Centre Soutien est une application de bureau qui fonctionne 100% hors ligne. Toutes vos données sont stockées localement sur votre ordinateur. Internet n'est requis que pour les mises à jour et le support."
+      },
+      "storage": {
+        "question": "Où sont stockées mes données ?",
+        "answer": "Sur votre ordinateur, dans une base de données chiffrée. Rien n'est envoyé sur nos serveurs. Vous êtes seul propriétaire de vos données, conformément à la loi 09-08."
+      },
+      "updates": {
+        "question": "Comment se passent les mises à jour ?",
+        "answer": "L'application vérifie discrètement les nouvelles versions et vous propose d'installer les correctifs à un moment qui vous convient. Aucune interruption pendant une séance."
+      },
+      "multi_center": {
+        "question": "Puis-je gérer plusieurs centres ?",
+        "answer": "Oui, à partir de la formule Pro. Chaque centre a son propre espace, ses propres élèves et sa propre facturation, dans une seule installation."
+      },
+      "support": {
+        "question": "Comment fonctionne le support ?",
+        "answer": "Par email pour Essentiel, prioritaire pour Pro (réponse sous 4h ouvrées), et par téléphone en français ou en darija pour Premium. Une base de connaissances complète est disponible dans l'app."
+      },
+      "trial": {
+        "question": "Puis-je essayer avant d'acheter ?",
+        "answer": "Oui, 14 jours gratuits sans carte bancaire. Toutes les fonctionnalités de la formule Pro sont accessibles pendant l'essai."
+      },
+      "refund": {
+        "question": "Politique de remboursement ?",
+        "answer": "30 jours satisfait ou remboursé, sans justification. Un simple email suffit."
+      },
+      "training": {
+        "question": "Formation incluse ?",
+        "answer": "Une session de prise en main d'une heure en visioconférence est incluse dans Pro. Premium inclut une formation sur site d'une journée pour votre équipe."
+      }
+    }
+  },
+  "testimonials": {
+    "eyebrow": "Témoignages",
+    "heading": "Ce qu'en disent les directeurs.",
+    "rating_label": "5 étoiles sur 5",
+    "cards": {
+      "karim": {
+        "quote": "Avant, je passais mes dimanches sur Excel. Maintenant, j'ai retrouvé mes week-ends.",
+        "name": "Karim Alaoui",
+        "role": "Directeur · Centre Al Massar · Casablanca"
+      },
+      "nadia": {
+        "quote": "Les factures sortent en un clic, en dirhams, avec les bons noms. C'est la première fois qu'on ne s'engueule plus avec les parents à la fin du mois.",
+        "name": "Nadia Benjelloun",
+        "role": "Directrice · Éduq'Plus · Rabat"
+      },
+      "hicham": {
+        "quote": "Mon secrétariat parle arabe, moi en français, les deux versions se synchronisent. On travaille enfin sur le même outil.",
+        "name": "Hicham Tazi",
+        "role": "Fondateur · Centre Atlas · Fès"
+      }
+    }
+  },
+  "final_cta": {
+    "heading": "Prêt à quitter Excel ?",
+    "subheading": "14 jours d'essai, sans carte bancaire. Vous ne réinstallez plus Excel après.",
+    "cta": {
+      "download": "Télécharger",
+      "demo": "Planifier une démo"
+    }
+  },
+  "footer": {
+    "brand": "Centre Soutien",
+    "tagline": "Le logiciel de gestion pensé pour les centres de soutien scolaire marocains.",
+    "columns": {
+      "product": {
+        "title": "Produit",
+        "links": {
+          "features": "Fonctionnalités",
+          "pricing": "Tarifs",
+          "download": "Téléchargement",
+          "changelog": "Nouveautés"
+        }
+      },
+      "resources": {
+        "title": "Ressources",
+        "links": {
+          "docs": "Documentation",
+          "faq": "FAQ",
+          "blog": "Blog"
+        }
+      },
+      "company": {
+        "title": "Entreprise",
+        "links": {
+          "about": "À propos",
+          "contact": "Contact",
+          "founder": "Programme Fondateur"
+        }
+      },
+      "legal": {
+        "title": "Légal",
+        "links": {
+          "legal_notice": "Mentions légales",
+          "terms": "CGV",
+          "privacy": "Confidentialité",
+          "law0908": "Loi 09-08"
+        }
+      }
+    },
+    "copyright": "© 2026 Centre Soutien · Fabriqué au Maroc 🇲🇦",
+    "social": {
+      "linkedin": "Centre Soutien sur LinkedIn",
+      "youtube": "Centre Soutien sur YouTube"
+    }
+  },
+  "founder": {
+    "badge": "★ Inscriptions ouvertes · 20 places",
+    "heading": "Programme Fondateur",
+    "body": "Vingt centres partenaires soigneusement sélectionnés bénéficient d'un accompagnement privilégié d'un an — sessions de travail directes avec l'équipe produit, formation approfondie, et influence directe sur la feuille de route — en échange de leurs retours honnêtes et détaillés.",
+    "note": "Places limitées. Sélection sur dossier. Réponse sous 5 jours ouvrés.",
+    "stats": {
+      "places": {
+        "value": "20",
+        "label": "places disponibles"
+      },
+      "duration": {
+        "value": "12 mois",
+        "label": "d'accompagnement"
+      },
+      "one_on_one": {
+        "value": "1:1",
+        "label": "avec le fondateur"
+      }
+    },
+    "form": {
+      "title": "Postuler au programme",
+      "subtitle": "Toutes les candidatures sont lues personnellement.",
+      "fields": {
+        "center": {
+          "label": "Nom du centre",
+          "placeholder": "Centre Al Massar"
+        },
+        "city": {
+          "label": "Ville",
+          "placeholder": "Casablanca"
+        },
+        "students": {
+          "label": "Élèves actuels",
+          "placeholder": "Choisir…",
+          "options": {
+            "lt50": "Moins de 50",
+            "50-150": "50 à 150",
+            "150-300": "150 à 300",
+            "gt300": "Plus de 300"
+          }
+        },
+        "email": {
+          "label": "Email",
+          "placeholder": "karim@almassar.ma"
+        },
+        "phone": {
+          "label": "Téléphone"
+        }
+      },
+      "consent": "J'accepte que Centre Soutien collecte ces informations dans le cadre du Programme Fondateur. Données conservées 24 mois maximum, jamais transmises à des tiers. <link>Politique de confidentialité</link> — droits d'accès, de rectification et de suppression (loi 09-08).",
+      "submit": "Postuler",
+      "submitting": "Envoi…",
+      "success_title": "Candidature reçue 🎉",
+      "success_body": "Merci. Nous revenons vers vous sous 5 jours ouvrés.",
+      "toast_success": "Votre candidature a bien été envoyée.",
+      "toast_validation": "Veuillez corriger les champs en rouge.",
+      "toast_error": "Une erreur est survenue. Réessayez dans un instant.",
+      "errors": {
+        "centerName": "Indiquez le nom du centre (2 caractères min).",
+        "city": "Indiquez la ville.",
+        "studentsRange": "Choisissez une tranche d'élèves.",
+        "email": "Indiquez une adresse email valide.",
+        "phone": "Indiquez un numéro marocain valide.",
+        "consent": "Vous devez accepter la politique de confidentialité."
+      }
+    }
+  },
+  "confidentialite": {
+    "meta_title": "Politique de confidentialité — Centre Soutien",
+    "meta_description": "Ce que Centre Soutien collecte via le Programme Fondateur, la durée de conservation et vos droits au titre de la loi 09-08.",
+    "breadcrumb": "Confidentialité",
+    "heading": "Politique de confidentialité",
+    "updated": "Dernière mise à jour : 28 juillet 2026",
+    "intro": "Cette page décrit les données personnelles que Centre Soutien collecte via le formulaire du Programme Fondateur, pourquoi elles sont collectées, combien de temps elles sont conservées et les droits dont vous disposez au titre de la loi 09-08.",
+    "sections": {
+      "collected": {
+        "title": "Données collectées",
+        "body": "Le formulaire du Programme Fondateur collecte : le nom du centre, la ville, une tranche indicative du nombre d'élèves, une adresse email et un numéro de téléphone. Aucune autre donnée n'est collectée sur ce site."
+      },
+      "purpose": {
+        "title": "Finalité",
+        "body": "Ces informations servent uniquement à étudier votre candidature au Programme Fondateur et à vous recontacter. Elles ne sont jamais transmises à des tiers ni utilisées à des fins publicitaires."
+      },
+      "retention": {
+        "title": "Durée de conservation",
+        "body": "Les candidatures sont conservées 24 mois maximum, puis supprimées."
+      },
+      "access": {
+        "title": "Accès",
+        "body": "Les candidatures sont reçues par email par l'équipe de Centre Soutien. L'acheminement de l'email est assuré par notre prestataire technique Resend."
+      },
+      "rights": {
+        "title": "Vos droits (loi 09-08)",
+        "body": "Vous disposez d'un droit d'accès, de rectification, d'opposition et de suppression de vos données. Pour l'exercer, écrivez-nous à privacy@centresoutien.com."
+      }
+    }
+  }
+}
