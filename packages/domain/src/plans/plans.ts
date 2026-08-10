@@ -7,41 +7,44 @@
  */
 export type PlanId = 'essentiel' | 'pro' | 'premium';
 
-export type FeatureFlag =
+export const FEATURE_FLAGS = [
   // core (every plan)
-  | 'core.rooms'
-  | 'core.teachers'
-  | 'core.students'
-  | 'core.groups'
-  | 'core.subjects'
-  | 'core.formulas'
-  | 'core.calendar.week'
-  | 'core.invoicing'
-  | 'core.parents'
-  | 'core.attendance'
-  | 'settings.center-hours'
-  | 'settings.holidays'
-  | 'dashboard.basic'
+  'core.rooms',
+  'core.teachers',
+  'core.students',
+  'core.groups',
+  'core.subjects',
+  'core.formulas',
+  'core.calendar.week',
+  'core.invoicing',
+  'core.parents',
+  'core.attendance',
+  'settings.center-hours',
+  'settings.holidays',
+  'dashboard.basic',
   // pro
-  | 'core.invoicing.partial-paid'
-  | 'core.invoice-template.customize'
-  | 'core.exam-prep'
-  | 'payroll.teacher'
-  | 'payroll.teacher.fixed'
-  | 'payroll.teacher.percentage'
-  | 'io.excel.export'
-  | 'io.excel.import'
-  | 'io.excel.sync'
-  | 'planning.custom-grid'
+  'core.invoicing.partial-paid',
+  'core.invoice-template.customize',
+  'core.exam-prep',
+  'payroll.teacher',
+  'payroll.teacher.fixed',
+  'payroll.teacher.percentage',
+  'io.excel.export',
+  'io.excel.import',
+  'io.excel.sync',
+  'planning.custom-grid',
   // premium
-  | 'dashboard.advanced'
-  | 'planning.random-auto'
-  | 'sync.multi-device'
-  | 'sync.cloud'
-  | 'sync.conflict-resolution'
-  | 'org.multi-center'
-  | 'limits.students.unlimited'
-  | 'limits.teachers.unlimited';
+  'dashboard.advanced',
+  'planning.random-auto',
+  'sync.multi-device',
+  'sync.cloud',
+  'sync.conflict-resolution',
+  'org.multi-center',
+  'limits.students.unlimited',
+  'limits.teachers.unlimited',
+] as const;
+
+export type FeatureFlag = (typeof FEATURE_FLAGS)[number];
 
 export type PlanLimits = {
   maxStudents: number | 'unlimited';

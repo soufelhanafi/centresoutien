@@ -51,7 +51,10 @@ import {
   ROOM_ID_PREFIX,
   TEACHER_ID_PREFIX,
   TIME_OF_DAY_REGEX,
+  FEATURE_FLAGS,
 } from '@centresoutien/domain';
+
+const featureFlagSchema = z.enum(FEATURE_FLAGS);
 
 /** The center profile as it crosses the IPC boundary — envelope dates stay in main. */
 const centerDto = z.object({
@@ -819,7 +822,7 @@ export const ipcContract = {
   },
   'plan.get': {
     request: z.object({}),
-    response: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']) }),
+    response: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']), features: z.array(featureFlagSchema) }),
   },
   // Demo mode (SOU-110): a sales tool that builds a SEPARATE, deterministic
   // demo DB (`centreId: 'demo'`). `demo.status` reports whether the currently-open

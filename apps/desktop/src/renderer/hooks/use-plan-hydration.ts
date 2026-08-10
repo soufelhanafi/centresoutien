@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { PlanId } from '@centresoutien/domain';
+import type { FeatureFlag, PlanId } from '@centresoutien/domain';
 import { usePlanStore } from '../stores/plan-store';
 
 /**
@@ -9,11 +9,11 @@ import { usePlanStore } from '../stores/plan-store';
  * and after a center switch, since the plan is per-center (a switch must re-read
  * it, never carry the previous center's entitlements over).
  */
-export async function loadActivePlan(setPlan: (id: PlanId) => void): Promise<void> {
+export async function loadActivePlan(setPlan: (id: PlanId, features?: readonly FeatureFlag[]) => void): Promise<void> {
   try {
     const result = await window.api?.invoke('plan.get', {});
     if (result) {
-      setPlan(result.planId);
+      setPlan(result.planId, result.features);
     }
   } catch {
     // keep the current plan on a failed read

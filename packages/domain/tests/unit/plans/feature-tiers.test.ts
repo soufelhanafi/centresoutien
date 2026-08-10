@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { FEATURE_TIER, minimumPlanFor } from '../../../src/plans/feature-tiers';
-import { PLANS } from '../../../src/plans/plans';
+import { FEATURE_FLAGS, PLANS } from '../../../src/plans/plans';
 import type { FeatureFlag, PlanId } from '../../../src/plans/plans';
 
-const allFlags = Object.keys(FEATURE_TIER) as FeatureFlag[];
+const allFlags: readonly FeatureFlag[] = FEATURE_FLAGS;
 const planRank: Record<PlanId, number> = { essentiel: 0, pro: 1, premium: 2 };
 
 describe('FEATURE_TIER map', () => {
@@ -13,6 +13,7 @@ describe('FEATURE_TIER map', () => {
     for (const flag of allFlags) {
       expect(['essentiel', 'pro', 'premium']).toContain(FEATURE_TIER[flag]);
     }
+    expect(Object.keys(FEATURE_TIER).sort()).toEqual([...FEATURE_FLAGS].sort());
     expect(allFlags.length).toBe(PLANS.premium.features.size);
   });
 
