@@ -5,9 +5,12 @@ import { CloseTeacherPayrollRule } from '../../../src/use-cases/close-teacher-pa
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
-import { TeacherPayrollRuleNotFoundError } from '../../../src/errors/payroll-errors';
+import {
+  InvalidPayrollRuleReplacementMonthError,
+  TeacherPayrollRuleNotFoundError,
+  TooManyActivePayrollRulesError,
+} from '../../../src/errors/payroll-errors';
 import { TeacherNotFoundError } from '../../../src/errors/people-errors';
-import { TooManyActivePayrollRulesError } from '../../../src/errors/payroll-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import type { Teacher, TeacherId } from '../../../src/entities/teacher';
@@ -152,6 +155,27 @@ describe('ReplaceTeacherPayrollRule', () => {
   });
 
   describe('overlap guard (at-most-one-active-per-teacher)', () => {
+    it.each(['2026-08', '2026-09'] as const)(
+      'rejects a replacement starting in %s because it is not after the active rule start month',
+      async (startMonth) => {
+        const activeId = await seedOpenRule();
+
+        await expect(
+          replace().execute({
+            kind: 'fixed-monthly',
+            teacherId: TEACHER_ID,
+            amountMad: 300000,
+            startMonth,
+            endMonth: null,
+            centerCode: CENTER,
+            deviceOrigin: DEVICE,
+            updatedBy: USER,
+            activeRuleId: activeId,
+          }),
+        ).rejects.toBeInstanceOf(InvalidPayrollRuleReplacementMonthError);
+      },
+    );
+
     it('rejects a replacement that overlaps a different live rule of the same teacher', async () => {
       const activeId = await seedOpenRule();
       await close.execute({ centerCode: CENTER, ruleId: activeId, endMonth: '2026-12', updatedBy: USER });
@@ -340,4 +364,3 @@ describe('ReplaceTeacherPayrollRule', () => {
     });
   });
 });
-

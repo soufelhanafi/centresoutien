@@ -2,11 +2,13 @@ import { resolveDomainErrorCode } from '../ipc/resolve-domain-error-code';
 
 export type SubscriptionWriteErrorCode =
   | 'too-many-active-subscriptions'
+  | 'invalid-subscription-replacement-month'
   | 'student-subscription-not-found'
   | 'student-not-found';
 
 const CODES = new Set<string>([
   'too-many-active-subscriptions',
+  'invalid-subscription-replacement-month',
   'student-subscription-not-found',
   'student-not-found',
 ] satisfies SubscriptionWriteErrorCode[]);

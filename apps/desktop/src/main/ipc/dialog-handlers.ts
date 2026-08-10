@@ -12,7 +12,7 @@ function filterName(extensions: readonly string[]): string {
 /**
  * Native folder/file picker handlers (SOU-102, SOU-44), split out like
  * `backup-handlers.ts`. Needs only the {@link DialogPathRegistry} to turn every
- * picked path into a one-time token — no domain use case involved. Attaches to
+ * picked path into a short-lived token — no domain use case involved. Attaches to
  * the focused window when there is one so the dialog is modal; falls back to an
  * unattached dialog otherwise (still works, just not modal).
  */

@@ -42,6 +42,19 @@ export class TeacherPayrollRuleNotFoundError extends DomainError {
   }
 }
 
+export class InvalidPayrollRuleReplacementMonthError extends DomainError {
+  readonly code = 'invalid-payroll-rule-replacement-month';
+
+  constructor(
+    readonly activeStartMonth: string,
+    readonly replacementStartMonth: string,
+  ) {
+    super(
+      `Replacement payroll rule must start after active payroll rule month "${activeStartMonth}", got "${replacementStartMonth}".`,
+    );
+  }
+}
+
 /**
  * Thrown when {@link GeneratePayslipPdf} (SOU-75) is asked for a payout id with
  * no live row in the current center — unknown, already soft-deleted, or

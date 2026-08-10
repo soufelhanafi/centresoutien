@@ -20,6 +20,7 @@ import type { StudentId } from '../entities/student';
 import type { SubjectId } from '../entities/subject';
 import { StudentNotFoundError } from '../errors/student-errors';
 import {
+  InvalidSubscriptionReplacementMonthError,
   StudentSubscriptionNotFoundError,
   TooManyActiveSubscriptionsError,
 } from '../errors/subscription-errors';
@@ -89,6 +90,9 @@ export class ReplaceStudentSubscription {
     const active = await this.subscriptions.findById(input.activeSubscriptionId);
     if (active === null || active.centerCode !== input.centerCode) {
       throw new StudentSubscriptionNotFoundError(input.activeSubscriptionId);
+    }
+    if (fields.startMonth <= active.startMonth) {
+      throw new InvalidSubscriptionReplacementMonthError(active.startMonth, fields.startMonth);
     }
 
     const sameKind = await this.subscriptions.listLiveByStudentAndKind(studentId, fields.kind);

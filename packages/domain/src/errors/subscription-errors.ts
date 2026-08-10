@@ -44,3 +44,16 @@ export class StudentSubscriptionNotFoundError extends DomainError {
     super(`No live student subscription with id "${id}".`);
   }
 }
+
+export class InvalidSubscriptionReplacementMonthError extends DomainError {
+  readonly code = 'invalid-subscription-replacement-month';
+
+  constructor(
+    readonly activeStartMonth: string,
+    readonly replacementStartMonth: string,
+  ) {
+    super(
+      `Replacement subscription must start after active subscription month "${activeStartMonth}", got "${replacementStartMonth}".`,
+    );
+  }
+}

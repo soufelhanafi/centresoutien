@@ -6,6 +6,7 @@ import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
 import {
+  InvalidSubscriptionReplacementMonthError,
   StudentSubscriptionNotFoundError,
   TooManyActiveSubscriptionsError,
 } from '../../../src/errors/subscription-errors';
@@ -158,6 +159,28 @@ describe('ReplaceStudentSubscription', () => {
   });
 
   describe('overlap guard (at-most-one-active-per-kind)', () => {
+    it.each(['2026-08', '2026-09'] as const)(
+      'rejects a replacement starting in %s because it is not after the active subscription start month',
+      async (startMonth) => {
+        const activeId = await seedOpen();
+
+        await expect(
+          replace().execute({
+            studentId: STUDENT_ID,
+            formulaId: 'fml_00000000000000000000000009',
+            kind: 'regular',
+            subjectIds: [SUBJECT],
+            startMonth,
+            endMonth: null,
+            centerCode: CENTER,
+            deviceOrigin: DEVICE,
+            updatedBy: USER,
+            activeSubscriptionId: activeId,
+          }),
+        ).rejects.toBeInstanceOf(InvalidSubscriptionReplacementMonthError);
+      },
+    );
+
     it('rejects a replacement that overlaps a different live subscription of same kind', async () => {
       const activeId = await seedOpen();
       await close.execute({
