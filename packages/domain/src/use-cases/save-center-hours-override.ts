@@ -6,7 +6,6 @@ import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import type { DateRange } from '../value-objects/date-range';
 import type { TimeOfDay } from '../value-objects/time-of-day';
 import type { TimeWindow } from '../value-objects/time-window';
-import type { WeekdayIndex } from '../value-objects/weekday';
 import { newEnvelope } from '../entities/envelope';
 import { applyWrite } from '../entities/write';
 import { CenterHoursOverrideNotFoundError } from '../errors/center-hours-override-errors';
@@ -90,24 +89,26 @@ export class SaveCenterHoursOverride {
   }
 }
 
-/** Fold the seven validated `{ dayOfWeek, windows }` rows into the weekday tuple. */
+/** Brand the validated `{ open, close }` window strings into {@link TimeWindow}s. */
+function toWindows(
+  windows: CenterHoursOverrideInput['hoursByWeekday'][0],
+): readonly TimeWindow[] {
+  return windows.map(
+    (window): TimeWindow => ({ open: window.open as TimeOfDay, close: window.close as TimeOfDay }),
+  );
+}
+
+/** Brand every weekday's window list, preserving the `0..6` keyed shape. */
 function toWeeklyTimeWindows(
-  rows: CenterHoursOverrideInput['hoursByWeekday'],
+  hoursByWeekday: CenterHoursOverrideInput['hoursByWeekday'],
 ): WeeklyTimeWindows {
-  const windowsFor = (dayOfWeek: WeekdayIndex): readonly TimeWindow[] => {
-    const row = rows.find((candidate) => candidate.dayOfWeek === dayOfWeek);
-    if (row === undefined) return [];
-    return row.windows.map(
-      (window): TimeWindow => ({ open: window.open as TimeOfDay, close: window.close as TimeOfDay }),
-    );
+  return {
+    0: toWindows(hoursByWeekday[0]),
+    1: toWindows(hoursByWeekday[1]),
+    2: toWindows(hoursByWeekday[2]),
+    3: toWindows(hoursByWeekday[3]),
+    4: toWindows(hoursByWeekday[4]),
+    5: toWindows(hoursByWeekday[5]),
+    6: toWindows(hoursByWeekday[6]),
   };
-  return [
-    windowsFor(0),
-    windowsFor(1),
-    windowsFor(2),
-    windowsFor(3),
-    windowsFor(4),
-    windowsFor(5),
-    windowsFor(6),
-  ];
 }

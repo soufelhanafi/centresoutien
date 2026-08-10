@@ -14,6 +14,12 @@ import type {
   WeeklyRecurringSessionId,
 } from '../../../src/entities/weekly-recurring-session';
 import type { Holiday, HolidayId } from '../../../src/entities/holiday';
+import type {
+  CenterHoursOverride,
+  CenterHoursOverrideId,
+  WeeklyTimeWindows,
+} from '../../../src/entities/center-hours-override';
+import type { TimeWindow } from '../../../src/value-objects/time-window';
 import type { RoomId } from '../../../src/entities/room';
 import type { GroupId } from '../../../src/entities/group';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
@@ -21,6 +27,7 @@ import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import { InMemorySessionRepository } from '../fakes/in-memory-session-repository';
 import { InMemoryWeeklyRecurringSessionRepository } from '../fakes/in-memory-weekly-recurring-session-repository';
 import { InMemoryHolidayRepository } from '../fakes/in-memory-holiday-repository';
+import { InMemoryCenterHoursOverrideRepository } from '../fakes/in-memory-center-hours-override-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 
@@ -81,6 +88,7 @@ describe('GenerateAndPersistSessions', () => {
   let sessions: InMemorySessionRepository;
   let recurrences: InMemoryWeeklyRecurringSessionRepository;
   let holidays: InMemoryHolidayRepository;
+  let overrides: InMemoryCenterHoursOverrideRepository;
   let useCase: GenerateAndPersistSessions;
 
   function build(plan: Plan = PLANS.essentiel, seed = 1): GenerateAndPersistSessions {
@@ -88,6 +96,7 @@ describe('GenerateAndPersistSessions', () => {
       sessions,
       recurrences,
       holidays,
+      overrides,
       new GenerateSessions(fakeClock(CLOCK_ISO), fakeIds(seed)),
       new PlanPolicy(plan),
     );
@@ -97,6 +106,7 @@ describe('GenerateAndPersistSessions', () => {
     sessions = new InMemorySessionRepository();
     recurrences = new InMemoryWeeklyRecurringSessionRepository();
     holidays = new InMemoryHolidayRepository();
+    overrides = new InMemoryCenterHoursOverrideRepository();
     await recurrences.save(recurring());
     useCase = build();
   });
@@ -171,6 +181,32 @@ describe('GenerateAndPersistSessions', () => {
       const result = await useCase.execute(input({ overrideHolidayDates: ['2026-01-15'] }));
       expect(datesOf(result.sessions)).toContain('2026-01-15');
       expect(result.skippedHolidays).toEqual([]);
+    });
+
+    it('consults active center-hours overrides: skips dates whose slot no longer fits (SOU-165)', async () => {
+      // A Ramadan-style override over the whole month: Thursday only opens 12:00–15:00,
+      // so the 09:00–10:30 template no longer fits and no Thursday materializes.
+      const closed: readonly TimeWindow[] = [];
+      const hoursByWeekday: WeeklyTimeWindows = {
+        0: closed, 1: closed, 2: closed, 3: closed,
+        4: [{ open: '12:00' as TimeOfDay, close: '15:00' as TimeOfDay }],
+        5: closed, 6: closed,
+      };
+      const override: CenterHoursOverride = {
+        id: 'cho_00000000000000000000000001' as CenterHoursOverrideId,
+        ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
+        dateRange: { start: '2026-01-01', end: '2026-01-31' },
+        hoursByWeekday,
+      };
+      await overrides.save(override);
+
+      const result = await useCase.execute(input());
+      expect(result.sessions).toEqual([]);
+      expect(result.skippedOutsideHours.map((s) => s.date)).toEqual([
+        '2026-01-01', '2026-01-08', '2026-01-15', '2026-01-22', '2026-01-29',
+      ]);
+      // Nothing was persisted for those dates.
+      expect(await sessions.listForRange(CENTER, { start: '2026-01-01', end: '2026-01-31' })).toEqual([]);
     });
   });
 

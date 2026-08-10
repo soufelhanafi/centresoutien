@@ -10,21 +10,14 @@ export const CENTER_HOURS_OVERRIDE_ID_PREFIX = 'cho';
 export type CenterHoursOverrideId = Brand<string, 'CenterHoursOverrideId'>;
 
 /**
- * One window list per weekday, indexed `0 = Sunday … 6 = Saturday`. A weekday's
+ * One window list per weekday, keyed `0 = Sunday … 6 = Saturday`. A weekday's
  * empty list means the center is closed that day for the duration of the
  * override. Each list is ordered and non-overlapping (see
  * {@link areOrderedNonOverlappingWindows}), so a day can carry an iftar break
- * (`09:00–15:00` then `21:00–23:00`) as two windows.
+ * (`09:00–15:00` then `21:00–23:00`) as two windows. Keyed by weekday (not a
+ * positional tuple) so a caller reads `hoursByWeekday[dayOfWeek]` directly.
  */
-export type WeeklyTimeWindows = readonly [
-  readonly TimeWindow[],
-  readonly TimeWindow[],
-  readonly TimeWindow[],
-  readonly TimeWindow[],
-  readonly TimeWindow[],
-  readonly TimeWindow[],
-  readonly TimeWindow[],
-];
+export type WeeklyTimeWindows = Record<WeekdayIndex, readonly TimeWindow[]>;
 
 /**
  * A time-boxed replacement of the center's weekly opening hours for an inclusive

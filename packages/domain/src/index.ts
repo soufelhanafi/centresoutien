@@ -275,12 +275,9 @@ export {
   centerHoursOverrideInputSchema,
   timeWindowSchema,
   dateRangeInputSchema,
-  OVERRIDE_WEEKDAYS,
+  hoursByWeekdaySchema,
 } from './schemas/center-hours-override';
-export type {
-  CenterHoursOverrideInput,
-  WeekdayWindowsInput,
-} from './schemas/center-hours-override';
+export type { CenterHoursOverrideInput } from './schemas/center-hours-override';
 export { loginInputSchema } from './schemas/login';
 export type { LoginInput } from './schemas/login';
 export {
@@ -1011,6 +1008,8 @@ export { SaveCenterHoursOverride } from './use-cases/save-center-hours-override'
 export type { SaveCenterHoursOverrideInput } from './use-cases/save-center-hours-override';
 export { GetCenterHoursOverrides } from './use-cases/get-center-hours-overrides';
 export type { GetCenterHoursOverridesInput } from './use-cases/get-center-hours-overrides';
+export { GetActiveCenterHoursOverride } from './use-cases/get-active-center-hours-override';
+export type { GetActiveCenterHoursOverrideInput } from './use-cases/get-active-center-hours-override';
 export { ArchiveCenterHoursOverride } from './use-cases/archive-center-hours-override';
 export type { ArchiveCenterHoursOverrideInput } from './use-cases/archive-center-hours-override';
 export { CreateAdminAccount } from './use-cases/create-admin-account';

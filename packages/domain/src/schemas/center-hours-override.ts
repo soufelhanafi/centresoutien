@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import { TIME_OF_DAY_REGEX, toMinutes, type TimeOfDay } from '../value-objects/time-of-day';
+import { TIME_OF_DAY_REGEX, type TimeOfDay } from '../value-objects/time-of-day';
 import { areOrderedNonOverlappingWindows, type TimeWindow } from '../value-objects/time-window';
-import { WEEKDAYS } from '../value-objects/weekday';
 import { isCalendarDate } from './student';
 
 /**
@@ -14,10 +13,12 @@ import { isCalendarDate } from './student';
  * boundary, and the use-case input.
  *
  * `dateRange` is an inclusive `YYYY-MM-DD` civil range (`end >= start`).
- * `hoursByWeekday` carries exactly seven rows, one per distinct weekday `0..6`,
- * each with an ordered, non-overlapping window list — an empty list is a closed
- * day. Times are 24-hour `'HH:mm'`; a window never crosses midnight (`close >
- * open`, enforced inside the ordered-non-overlapping check).
+ * `hoursByWeekday` is keyed `0..6` (Sunday…Saturday), each an ordered,
+ * non-overlapping window list — an empty list is a closed day. Any malformed
+ * window (`close <= open`), overlap, or out-of-order pair fails one check and
+ * surfaces the single `windows-overlap` error code (matching the renderer's
+ * client-side validation). Times are 24-hour `'HH:mm'`; a window never crosses
+ * midnight.
  */
 
 const timeString = z.string().regex(TIME_OF_DAY_REGEX, { message: 'invalid-time' });
@@ -25,6 +26,17 @@ const timeString = z.string().regex(TIME_OF_DAY_REGEX, { message: 'invalid-time'
 export const timeWindowSchema = z.object({
   open: timeString,
   close: timeString,
+});
+
+const windowListSchema = z.array(timeWindowSchema).superRefine((windows, ctx) => {
+  const parsed = windows.map(
+    (window): TimeWindow => ({ open: window.open as TimeOfDay, close: window.close as TimeOfDay }),
+  );
+  // One check covers all three defects — malformed window (close <= open),
+  // overlap, and out-of-order — reported under the single `windows-overlap` code.
+  if (!areOrderedNonOverlappingWindows(parsed)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'windows-overlap' });
+  }
 });
 
 const calendarDate = z
@@ -40,41 +52,16 @@ export const dateRangeInputSchema = z
     }
   });
 
-const weekdayWindowsSchema = z
-  .object({
-    dayOfWeek: z
-      .number()
-      .int({ message: 'invalid-weekday' })
-      .min(0, { message: 'invalid-weekday' })
-      .max(6, { message: 'invalid-weekday' }),
-    windows: z.array(timeWindowSchema),
-  })
-  .superRefine((row, ctx) => {
-    const windows = row.windows.map(
-      (window): TimeWindow => ({ open: window.open as TimeOfDay, close: window.close as TimeOfDay }),
-    );
-    for (const window of windows) {
-      if (toMinutes(window.close) <= toMinutes(window.open)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'close-before-open', path: ['windows'] });
-        return;
-      }
-    }
-    if (!areOrderedNonOverlappingWindows(windows)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'windows-overlap', path: ['windows'] });
-    }
-  });
-
-export type WeekdayWindowsInput = z.infer<typeof weekdayWindowsSchema>;
-
-const hoursByWeekdaySchema = z
-  .array(weekdayWindowsSchema)
-  .length(7, { message: 'incomplete-week' })
-  .superRefine((rows, ctx) => {
-    const days = new Set(rows.map((row) => row.dayOfWeek));
-    if (days.size !== 7) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'incomplete-week' });
-    }
-  });
+/** The seven weekday window lists, keyed `0..6` — every day required (a closed day is `[]`). */
+export const hoursByWeekdaySchema = z.object({
+  0: windowListSchema,
+  1: windowListSchema,
+  2: windowListSchema,
+  3: windowListSchema,
+  4: windowListSchema,
+  5: windowListSchema,
+  6: windowListSchema,
+});
 
 export const centerHoursOverrideInputSchema = z.object({
   dateRange: dateRangeInputSchema,
@@ -82,6 +69,3 @@ export const centerHoursOverrideInputSchema = z.object({
 });
 
 export type CenterHoursOverrideInput = z.infer<typeof centerHoursOverrideInputSchema>;
-
-/** The seven weekday indices in order — the canonical row order the use case emits. */
-export const OVERRIDE_WEEKDAYS = WEEKDAYS;
