@@ -5,7 +5,11 @@ import type {
   PaymentKind,
   PaymentMethod,
   PaymentRepository,
+  RecentPaymentsReadPort,
+  RecentPaymentView,
+  RecentPaymentsFilters,
   InvoiceId,
+  StudentId,
   CenterCode,
   DeviceId,
   UserId,
@@ -94,6 +98,37 @@ const SUM_FOR_INVOICE_SQL = `
   WHERE invoice_id = ? AND deleted_at IS NULL
 `;
 
+/** The `payments` ⋈ `invoices` ⋈ `students` row shape behind
+ *  {@link RecentPaymentsReadPort.listRecentPayments} (SOU-198). `student_*` are null
+ *  when the payment's invoice header (or its student) hasn't synced to this device. */
+type RecentPaymentQueryRow = {
+  id: string;
+  invoice_id: string;
+  kind: string;
+  amount_mad: number;
+  method: string;
+  paid_on: string;
+  student_id: string | null;
+  student_name_fr: string | null;
+  student_name_ar: string | null;
+};
+
+function recentPaymentFromRow(row: RecentPaymentQueryRow): RecentPaymentView {
+  return {
+    id: row.id as PaymentId,
+    invoiceId: row.invoice_id as InvoiceId,
+    kind: row.kind as PaymentKind,
+    amountMad: row.amount_mad,
+    method: row.method as PaymentMethod,
+    paidOn: row.paid_on,
+    studentId: row.student_id === null ? null : (row.student_id as StudentId),
+    studentName:
+      row.student_name_fr === null || row.student_name_ar === null
+        ? null
+        : { fr: row.student_name_fr, ar: row.student_name_ar },
+  };
+}
+
 /**
  * SQLite adapter for {@link PaymentRepository}. Pure translation between the port and
  * SQL — no business decisions. The ledger is append-only: the sole writer is `append`
@@ -101,8 +136,12 @@ const SUM_FOR_INVOICE_SQL = `
  * no row can ever be mutated even outside this class. Every read hides tombstones
  * (`deleted_at IS NULL`) for uniformity, though payments are never tombstoned. Mirrors
  * {@link SqliteInvoiceRepository}.
+ *
+ * Also implements {@link RecentPaymentsReadPort} (SOU-198) — the cash-desk feed's
+ * cross-invoice read, anchored on `payments` like every other read this class owns,
+ * mirroring how `SqliteInvoiceRepository` carries `OverdueInvoiceViewReadPort`.
  */
-export class SqlitePaymentRepository implements PaymentRepository {
+export class SqlitePaymentRepository implements PaymentRepository, RecentPaymentsReadPort {
   constructor(private readonly db: DB) {}
 
   async append(payment: Payment): Promise<void> {
@@ -133,5 +172,47 @@ export class SqlitePaymentRepository implements PaymentRepository {
       .prepare('SELECT * FROM payments WHERE updated_at > ? ORDER BY updated_at')
       .all(cursor.toISOString()) as PaymentRow[];
     return rows.map(paymentFromRow);
+  }
+
+  // The cash-desk feed (SOU-198): every live payment/reversal of the center, most
+  // recent paid_on first (ties broken by the ULID id, itself time-sortable), within
+  // the optional inclusive paid_on window and capped at `filters.limit`. The two LEFT
+  // JOINs resolve the row's label cheaply on primary keys — an unsynced invoice/student
+  // leaves the label null, exactly like the Impayés read's student join. Center-scoped
+  // and tombstone-hiding like every sibling read; the caller nets payments vs reversals.
+  async listRecentPayments(
+    centerCode: CenterCode,
+    filters: RecentPaymentsFilters,
+  ): Promise<readonly RecentPaymentView[]> {
+    const conditions = ['p.center_code = @center_code', 'p.deleted_at IS NULL'];
+    const params: Record<string, string | number> = {
+      center_code: centerCode,
+      limit: filters.limit,
+    };
+    if (filters.from !== undefined) {
+      conditions.push('p.paid_on >= @from');
+      params['from'] = filters.from;
+    }
+    if (filters.to !== undefined) {
+      conditions.push('p.paid_on <= @to');
+      params['to'] = filters.to;
+    }
+
+    const rows = this.db
+      .prepare(
+        `SELECT p.id AS id, p.invoice_id AS invoice_id, p.kind AS kind,
+                p.amount_mad AS amount_mad, p.method AS method, p.paid_on AS paid_on,
+                i.student_id AS student_id,
+                s.name_fr AS student_name_fr, s.name_ar AS student_name_ar
+         FROM payments p
+         LEFT JOIN invoices i ON i.id = p.invoice_id
+         LEFT JOIN students s ON s.id = i.student_id
+         WHERE ${conditions.join(' AND ')}
+         ORDER BY p.paid_on DESC, p.id DESC
+         LIMIT @limit`,
+      )
+      .all(params) as RecentPaymentQueryRow[];
+
+    return rows.map(recentPaymentFromRow);
   }
 }

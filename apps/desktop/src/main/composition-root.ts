@@ -52,6 +52,7 @@ import {
   RecordPayment,
   VoidPayment,
   GetInvoicePaymentSummary,
+  ListRecentPayments,
   EnrollStudent,
   UnenrollStudent,
   CreateTeacher,
@@ -707,6 +708,10 @@ export function buildContainer(options: ContainerOptions): Container {
   const recordPayment = new RecordPayment(paymentRepo, invoiceRepo, clock, ids, plan);
   const voidPayment = new VoidPayment(paymentRepo, clock, ids, plan);
   const getInvoicePaymentSummary = new GetInvoicePaymentSummary(paymentRepo, invoiceRepo, plan);
+  // The cash-desk feed (SOU-198): the one cross-invoice payment read. Reuses the same
+  // SqlitePaymentRepository, which also implements RecentPaymentsReadPort — one adapter,
+  // several ports, exactly like SqliteInvoiceRepository carries the Impayés read.
+  const listRecentPayments = new ListRecentPayments(paymentRepo, plan);
   // The monthly generation job (SOU-68): first caller of CreateInvoiceDraft, which
   // shipped unwired in SOU-67. Idempotent re-runs are CreateInvoiceDraft's own
   // one-invoice-per-student-per-month guard, not a separate check here.
@@ -1251,6 +1256,7 @@ export function buildContainer(options: ContainerOptions): Container {
     recordPayment,
     voidPayment,
     getInvoicePaymentSummary,
+    listRecentPayments,
     generateMonthlyInvoices,
     listInvoices,
     listOverdueInvoices,

@@ -63,6 +63,8 @@ import type {
   RecordPayment,
   VoidPayment,
   GetInvoicePaymentSummary,
+  ListRecentPayments,
+  RecentPaymentView,
   GenerateMonthlyInvoices,
   Payment,
   InvoiceId,
@@ -218,6 +220,7 @@ export type ListStudentSubscriptionsUseCase = Pick<ListStudentSubscriptions, 'ex
 export type RecordPaymentUseCase = Pick<RecordPayment, 'execute'>;
 export type VoidPaymentUseCase = Pick<VoidPayment, 'execute'>;
 export type GetInvoicePaymentSummaryUseCase = Pick<GetInvoicePaymentSummary, 'execute'>;
+export type ListRecentPaymentsUseCase = Pick<ListRecentPayments, 'execute'>;
 export type GenerateMonthlyInvoicesUseCase = Pick<GenerateMonthlyInvoices, 'execute'>;
 export type EnrollStudentUseCase = Pick<EnrollStudent, 'execute'>;
 export type UnenrollStudentUseCase = Pick<UnenrollStudent, 'execute'>;
@@ -446,6 +449,22 @@ function toPaymentView(payment: Payment) {
     reversesPaymentId: payment.reversesPaymentId,
     note: payment.note,
     createdAt: payment.createdAt.toISOString(),
+  };
+}
+
+/** Project a cross-invoice recent-payment read-model row to its boundary DTO
+ *  (SOU-198). The read model is already envelope-free with a day-string `paidOn`,
+ *  so this is a near-identity mapping — no dates to serialize. */
+function toRecentPaymentView(row: RecentPaymentView) {
+  return {
+    id: row.id,
+    invoiceId: row.invoiceId,
+    kind: row.kind,
+    amountMad: row.amountMad,
+    method: row.method,
+    paidOn: row.paidOn,
+    studentId: row.studentId,
+    studentName: row.studentName,
   };
 }
 
@@ -738,6 +757,7 @@ export type HandlerDeps = BackupHandlerDeps &
   recordPayment: RecordPaymentUseCase;
   voidPayment: VoidPaymentUseCase;
   getInvoicePaymentSummary: GetInvoicePaymentSummaryUseCase;
+  listRecentPayments: ListRecentPaymentsUseCase;
   generateMonthlyInvoices: GenerateMonthlyInvoicesUseCase;
   enrollStudent: EnrollStudentUseCase;
   unenrollStudent: UnenrollStudentUseCase;
@@ -1204,6 +1224,15 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
         status: summary.status,
         payments: summary.payments.map(toPaymentView),
       };
+    },
+    'payment.recent': async (request) => {
+      const rows = await deps.listRecentPayments.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        ...(request.from !== undefined && { from: request.from }),
+        ...(request.to !== undefined && { to: request.to }),
+        ...(request.limit !== undefined && { limit: request.limit }),
+      });
+      return { payments: rows.map(toRecentPaymentView) };
     },
     'invoice.generateMonthly': async (request) => {
       return deps.generateMonthlyInvoices.execute({
