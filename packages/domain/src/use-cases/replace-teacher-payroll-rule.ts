@@ -18,6 +18,7 @@ import {
 import type { TeacherId } from '../entities/teacher';
 import { TeacherNotFoundError } from '../errors/people-errors';
 import {
+  InvalidPayrollRuleReplacementMonthError,
   TeacherPayrollRuleNotFoundError,
   TooManyActivePayrollRulesError,
 } from '../errors/payroll-errors';
@@ -89,6 +90,9 @@ export class ReplaceTeacherPayrollRule {
     const active = await this.rules.findById(input.activeRuleId);
     if (active === null || active.centerCode !== input.centerCode) {
       throw new TeacherPayrollRuleNotFoundError(input.activeRuleId);
+    }
+    if (fields.startMonth <= active.startMonth) {
+      throw new InvalidPayrollRuleReplacementMonthError(active.startMonth, fields.startMonth);
     }
 
     const live = await this.rules.listLiveByTeacher(teacherId);
