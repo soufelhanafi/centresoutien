@@ -213,3 +213,77 @@ describe('SqlitePaymentRepository.listRecentPayments (RecentPaymentsReadPort)', 
     expect(await paymentRepo.listRecentPayments(CENTER, { limit: 50 })).toEqual([]);
   });
 });
+
+describe('SqlitePaymentRepository.getDayTakings (RecentPaymentsReadPort)', () => {
+  beforeEach(() => {
+    paySeq = 0;
+  });
+
+  it('nets payments and reversals in SQL across invoices, grouped by method', async () => {
+    await paymentRepo.append(makePayment({ invoiceId: INVOICE_A, method: 'cash', amountMad: 30000 }));
+    await paymentRepo.append(makePayment({ invoiceId: INVOICE_B, method: 'transfer', amountMad: 20000 }));
+    const reversed = makePayment({ invoiceId: INVOICE_A, method: 'cash', amountMad: 30000 });
+    await paymentRepo.append(reversed);
+    await paymentRepo.append(
+      makePayment({ invoiceId: INVOICE_A, kind: 'reversal', method: 'cash', amountMad: 5000, reversesPaymentId: reversed.id }),
+    );
+
+    const takings = await paymentRepo.getDayTakings(CENTER, '2026-08-10');
+
+    expect(takings.netMad).toBe(75000); // 30000 + 20000 + 30000 − 5000
+    expect(takings.paymentCount).toBe(3); // three payment rows, the reversal excluded
+    expect(takings.byMethod).toEqual({ cash: 55000, cheque: 0, transfer: 20000, other: 0 });
+  });
+
+  it('returns a negative net for a reversal-only day', async () => {
+    const original = makePayment({ paidOn: '2026-08-09' });
+    await paymentRepo.append(original);
+    await paymentRepo.append(
+      makePayment({ kind: 'reversal', method: 'cheque', amountMad: 15000, reversesPaymentId: original.id }),
+    );
+
+    const takings = await paymentRepo.getDayTakings(CENTER, '2026-08-10');
+    expect(takings.netMad).toBe(-15000);
+    expect(takings.paymentCount).toBe(0);
+    expect(takings.byMethod.cheque).toBe(-15000);
+  });
+
+  it('returns an all-zero, non-null shape for a day with no rows', async () => {
+    const takings = await paymentRepo.getDayTakings(CENTER, '2026-08-10');
+    expect(takings).toEqual({
+      netMad: 0,
+      paymentCount: 0,
+      byMethod: { cash: 0, cheque: 0, transfer: 0, other: 0 },
+    });
+  });
+
+  it('excludes soft-deleted rows (deleted_at IS NULL)', async () => {
+    await paymentRepo.append(makePayment({ amountMad: 20000 }));
+    // deleted_at is settable at INSERT (the trigger only blocks UPDATE/DELETE); the
+    // read must still hide it, uniform with every sibling read.
+    await paymentRepo.append(makePayment({ amountMad: 99000, deletedAt: AT }));
+
+    const takings = await paymentRepo.getDayTakings(CENTER, '2026-08-10');
+    expect(takings.netMad).toBe(20000);
+    expect(takings.paymentCount).toBe(1);
+  });
+
+  it('never crosses a center boundary', async () => {
+    await paymentRepo.append(makePayment({ amountMad: 20000 }));
+    await paymentRepo.append(makePayment({ centerCode: OTHER_CENTER, amountMad: 99000 }));
+
+    expect((await paymentRepo.getDayTakings(CENTER, '2026-08-10')).netMad).toBe(20000);
+  });
+
+  it('totals a day with more than 200 rows correctly — the row cap is gone', async () => {
+    const ROW_COUNT = 250;
+    for (let i = 0; i < ROW_COUNT; i += 1) {
+      await paymentRepo.append(makePayment({ method: 'cash', amountMad: 100 }));
+    }
+
+    const takings = await paymentRepo.getDayTakings(CENTER, '2026-08-10');
+    expect(takings.paymentCount).toBe(ROW_COUNT);
+    expect(takings.netMad).toBe(ROW_COUNT * 100); // 25000, unaffected by any feed cap
+    expect(takings.byMethod.cash).toBe(ROW_COUNT * 100);
+  });
+});

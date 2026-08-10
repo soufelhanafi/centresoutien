@@ -65,6 +65,7 @@ import type {
   GetInvoicePaymentSummary,
   ListRecentPayments,
   RecentPaymentView,
+  GetDayTakings,
   GenerateMonthlyInvoices,
   Payment,
   InvoiceId,
@@ -221,6 +222,7 @@ export type RecordPaymentUseCase = Pick<RecordPayment, 'execute'>;
 export type VoidPaymentUseCase = Pick<VoidPayment, 'execute'>;
 export type GetInvoicePaymentSummaryUseCase = Pick<GetInvoicePaymentSummary, 'execute'>;
 export type ListRecentPaymentsUseCase = Pick<ListRecentPayments, 'execute'>;
+export type GetDayTakingsUseCase = Pick<GetDayTakings, 'execute'>;
 export type GenerateMonthlyInvoicesUseCase = Pick<GenerateMonthlyInvoices, 'execute'>;
 export type EnrollStudentUseCase = Pick<EnrollStudent, 'execute'>;
 export type UnenrollStudentUseCase = Pick<UnenrollStudent, 'execute'>;
@@ -758,6 +760,7 @@ export type HandlerDeps = BackupHandlerDeps &
   voidPayment: VoidPaymentUseCase;
   getInvoicePaymentSummary: GetInvoicePaymentSummaryUseCase;
   listRecentPayments: ListRecentPaymentsUseCase;
+  getDayTakings: GetDayTakingsUseCase;
   generateMonthlyInvoices: GenerateMonthlyInvoicesUseCase;
   enrollStudent: EnrollStudentUseCase;
   unenrollStudent: UnenrollStudentUseCase;
@@ -1233,6 +1236,17 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
         ...(request.limit !== undefined && { limit: request.limit }),
       });
       return { payments: rows.map(toRecentPaymentView) };
+    },
+    'payment.takings': async (request) => {
+      const takings = await deps.getDayTakings.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        day: request.day,
+      });
+      return {
+        netMad: takings.netMad,
+        paymentCount: takings.paymentCount,
+        byMethod: takings.byMethod,
+      };
     },
     'invoice.generateMonthly': async (request) => {
       return deps.generateMonthlyInvoices.execute({

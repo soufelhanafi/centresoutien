@@ -2,6 +2,7 @@ import type { RecentPaymentsReadPort } from '../ports/recent-payments-read-port'
 import type { RecentPaymentView, RecentPaymentsFilters } from '../read-models/recent-payment-view';
 import type { PlanPolicy } from '../plans/plan-policy';
 import type { CenterCode } from '../value-objects/ids';
+import { InvalidPaymentDateRangeError } from '../errors/payment-errors';
 
 /** Rows returned when the caller passes no `limit` — a full cash-desk feed page. */
 export const RECENT_PAYMENTS_DEFAULT_LIMIT = 50;
@@ -40,6 +41,10 @@ export class ListRecentPayments {
 
   async execute(input: ListRecentPaymentsInput): Promise<readonly RecentPaymentView[]> {
     this.plan.require('core.invoicing');
+
+    if (input.from !== undefined && input.to !== undefined && input.from > input.to) {
+      throw new InvalidPaymentDateRangeError(input.from, input.to);
+    }
 
     const filters: RecentPaymentsFilters = {
       limit: this.clampLimit(input.limit),

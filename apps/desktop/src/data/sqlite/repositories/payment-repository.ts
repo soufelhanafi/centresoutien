@@ -8,12 +8,14 @@ import type {
   RecentPaymentsReadPort,
   RecentPaymentView,
   RecentPaymentsFilters,
+  DayTakings,
   InvoiceId,
   StudentId,
   CenterCode,
   DeviceId,
   UserId,
 } from '@centresoutien/domain';
+import { PAYMENT_METHODS } from '@centresoutien/domain';
 
 /** The `payments` table row shape as SQLite returns it. */
 type PaymentRow = {
@@ -214,5 +216,40 @@ export class SqlitePaymentRepository implements PaymentRepository, RecentPayment
       .all(params) as RecentPaymentQueryRow[];
 
     return rows.map(recentPaymentFromRow);
+  }
+
+  // The cash-desk header total (SOU-198): one GROUP BY method aggregate over the day's
+  // live rows, netting reversals in SQL (Σ payments − Σ reversals) so the figure never
+  // depends on a row cap — a day with thousands of rows still totals correctly. The four
+  // method keys are seeded to 0 first, so an absent method stays 0 and the shape is
+  // stable. Center-scoped and tombstone-hiding like every sibling read.
+  async getDayTakings(centerCode: CenterCode, day: string): Promise<DayTakings> {
+    const rows = this.db
+      .prepare(
+        `SELECT method,
+                COALESCE(SUM(CASE WHEN kind = 'reversal' THEN -amount_mad ELSE amount_mad END), 0) AS net_mad,
+                SUM(CASE WHEN kind = 'payment' THEN 1 ELSE 0 END) AS payment_count
+         FROM payments
+         WHERE center_code = @center_code AND deleted_at IS NULL AND paid_on = @day
+         GROUP BY method`,
+      )
+      .all({ center_code: centerCode, day }) as {
+      method: string;
+      net_mad: number;
+      payment_count: number;
+    }[];
+
+    const byMethod = Object.fromEntries(
+      PAYMENT_METHODS.map((method) => [method, 0]),
+    ) as Record<PaymentMethod, number>;
+    let netMad = 0;
+    let paymentCount = 0;
+    for (const row of rows) {
+      byMethod[row.method as PaymentMethod] = row.net_mad;
+      netMad += row.net_mad;
+      paymentCount += row.payment_count;
+    }
+
+    return { netMad, paymentCount, byMethod };
   }
 }

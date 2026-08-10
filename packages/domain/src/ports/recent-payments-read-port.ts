@@ -1,4 +1,5 @@
 import type { RecentPaymentView, RecentPaymentsFilters } from '../read-models/recent-payment-view';
+import type { DayTakings } from '../read-models/day-takings';
 import type { CenterCode } from '../value-objects/ids';
 
 /**
@@ -26,4 +27,14 @@ export interface RecentPaymentsReadPort {
     centerCode: CenterCode,
     filters: RecentPaymentsFilters,
   ): Promise<readonly RecentPaymentView[]>;
+
+  /**
+   * The net money taken by `centerCode` on `day` (`'YYYY-MM-DD'`, inclusive), netted
+   * **in SQL** (`Σ payments − Σ reversals`) so the total never depends on a row cap —
+   * a day with more rows than any feed page still totals correctly. Center-scoped and
+   * tombstone-hiding like every sibling read. Always resolves a fully-populated
+   * {@link DayTakings}: a day with no rows returns `netMad: 0`, `paymentCount: 0`, and
+   * all four `byMethod` keys at `0` — never null.
+   */
+  getDayTakings(centerCode: CenterCode, day: string): Promise<DayTakings>;
 }

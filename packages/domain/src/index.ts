@@ -198,6 +198,7 @@ export {
   CannotReverseReversalError,
   PaymentAlreadyReversedError,
   PaymentExceedsBalanceError,
+  InvalidPaymentDateRangeError,
 } from './errors/payment-errors';
 export {
   TooManyActiveSubscriptionsError,
@@ -449,6 +450,7 @@ export type { WeeklySessionView } from './read-models/weekly-session-view';
 export type { InvoiceListRow, InvoiceListFilters } from './read-models/invoice-list-row';
 export type { OverdueInvoiceLineView } from './read-models/overdue-invoice-view';
 export type { RecentPaymentView, RecentPaymentsFilters } from './read-models/recent-payment-view';
+export type { DayTakings } from './read-models/day-takings';
 export type {
   DashboardBasicSummary,
   MoneyDelta,
@@ -803,6 +805,8 @@ export {
   RECENT_PAYMENTS_MAX_LIMIT,
 } from './use-cases/list-recent-payments';
 export type { ListRecentPaymentsInput } from './use-cases/list-recent-payments';
+export { GetDayTakings } from './use-cases/get-day-takings';
+export type { GetDayTakingsInput } from './use-cases/get-day-takings';
 export { ListInvoices } from './use-cases/list-invoices';
 export type { ListInvoicesInput, InvoiceListItem } from './use-cases/list-invoices';
 export { ListOverdueInvoices } from './use-cases/list-overdue-invoices';

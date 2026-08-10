@@ -53,6 +53,7 @@ import {
   VoidPayment,
   GetInvoicePaymentSummary,
   ListRecentPayments,
+  GetDayTakings,
   EnrollStudent,
   UnenrollStudent,
   CreateTeacher,
@@ -712,6 +713,9 @@ export function buildContainer(options: ContainerOptions): Container {
   // SqlitePaymentRepository, which also implements RecentPaymentsReadPort — one adapter,
   // several ports, exactly like SqliteInvoiceRepository carries the Impayés read.
   const listRecentPayments = new ListRecentPayments(paymentRepo, plan);
+  // The cash-desk header total (SOU-198): the day-takings aggregate, netted in SQL so it
+  // is independent of the recent-feed row cap. Same SqlitePaymentRepository / read port.
+  const getDayTakings = new GetDayTakings(paymentRepo, plan);
   // The monthly generation job (SOU-68): first caller of CreateInvoiceDraft, which
   // shipped unwired in SOU-67. Idempotent re-runs are CreateInvoiceDraft's own
   // one-invoice-per-student-per-month guard, not a separate check here.
@@ -1257,6 +1261,7 @@ export function buildContainer(options: ContainerOptions): Container {
     voidPayment,
     getInvoicePaymentSummary,
     listRecentPayments,
+    getDayTakings,
     generateMonthlyInvoices,
     listInvoices,
     listOverdueInvoices,
