@@ -46,7 +46,7 @@ export function ArchiveGroupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('groups.archive.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('groups.archive.title')}</DialogTitle>
           <DialogDescription>{t('groups.archive.body', { name })}</DialogDescription>

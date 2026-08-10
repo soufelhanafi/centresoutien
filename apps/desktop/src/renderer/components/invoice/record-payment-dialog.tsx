@@ -75,7 +75,7 @@ export function RecordPaymentDialog({ invoiceId, outstandingMad, open, onOpenCha
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('invoices.detail.payment.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('invoices.detail.payment.title')}</DialogTitle>
           <DialogDescription>{t('invoices.detail.payment.description')}</DialogDescription>

@@ -9,6 +9,8 @@ import type { Parent } from '../../../src/entities/parent';
 import type { Teacher } from '../../../src/entities/teacher';
 import type { Student } from '../../../src/entities/student';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
+import type { SessionDedupStore } from '../../../src/sync/session-dedup';
+import type { SubjectCodeCollisionStore } from '../../../src/sync/subject-code-collision';
 import type { InMemorySyncLocalRepository } from '../fakes/in-memory-sync-local-repository';
 
 /** Shared fixtures for the sync-engine specs — same hub, two laptops, converge. */
@@ -45,6 +47,8 @@ export function makeEngine(input: {
   userCanResolve?: boolean;
   maxAttempts?: number;
   plan?: PlanPolicy;
+  sessionDedupStore?: SessionDedupStore;
+  subjectCollisionStore?: SubjectCodeCollisionStore;
 }): SyncEngine {
   return new SyncEngine({
     hub: input.hub,
@@ -56,6 +60,8 @@ export function makeEngine(input: {
     centreId: CENTER,
     userCanResolve: input.userCanResolve ?? true,
     ...(input.maxAttempts !== undefined ? { maxAttempts: input.maxAttempts } : {}),
+    ...(input.sessionDedupStore !== undefined ? { sessionDedupStore: input.sessionDedupStore } : {}),
+    ...(input.subjectCollisionStore !== undefined ? { subjectCollisionStore: input.subjectCollisionStore } : {}),
   });
 }
 

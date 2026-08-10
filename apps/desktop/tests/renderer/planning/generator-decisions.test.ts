@@ -11,7 +11,7 @@ import type {
 } from '../../../src/renderer/lib/planning/session-generator-gateway';
 
 function block(over: Partial<GeneratorBlockProposal> = {}): GeneratorBlockProposal {
-  return { dayOfWeek: 1, start: '09:00', end: '10:00', roomId: 'room_a', ...over };
+  return { dayOfWeek: 1, start: '09:00', end: '10:00', roomId: 'room_a', teacherId: null, ...over };
 }
 
 function result(over: Partial<GeneratorPreviewResult> = {}): GeneratorPreviewResult {
@@ -64,6 +64,34 @@ describe('conflictingBlockKeys', () => {
       ],
     });
     expect([...conflictingBlockKeys(preview)]).toEqual([blockKey('group_1', block({ roomId: 'room_a' }))]);
+  });
+
+  it('marks a block only when the exact slot and teacher match a teacher double-booking', () => {
+    const preview = result({
+      proposals: [
+        {
+          groupId: 'group_1',
+          blocks: [
+            block({ teacherId: 'teacher_a' }),
+            block({ start: '09:30', end: '10:30', teacherId: 'teacher_a' }),
+            block({ teacherId: 'teacher_b' }),
+          ],
+          gapViolations: [],
+        },
+      ],
+      conflicts: [
+        {
+          kind: 'teacher',
+          groupId: 'group_1',
+          teacherId: 'teacher_a',
+          dayOfWeek: 1,
+          start: '09:00',
+          end: '10:00',
+          conflicts: [],
+        },
+      ],
+    });
+    expect([...conflictingBlockKeys(preview)]).toEqual([blockKey('group_1', block({ teacherId: 'teacher_a' }))]);
   });
 
   it('leaves a clean run with no conflicting blocks', () => {

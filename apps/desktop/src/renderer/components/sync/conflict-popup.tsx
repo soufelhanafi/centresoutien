@@ -26,7 +26,7 @@ export function ConflictPopup({ conflicts }: { conflicts: readonly SyncConflictV
   };
 
   return (
-    <DialogContent className="max-h-[85vh] w-full max-w-3xl overflow-y-auto">
+    <DialogContent closeLabel={t('common.close')} className="max-h-[85vh] w-full max-w-3xl overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{t('sync.popup.title')}</DialogTitle>
       </DialogHeader>

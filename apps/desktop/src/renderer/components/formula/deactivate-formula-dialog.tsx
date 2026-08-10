@@ -44,7 +44,7 @@ export function DeactivateFormulaDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('formulas.deactivate.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('formulas.deactivate.title')}</DialogTitle>
           <DialogDescription>{t('formulas.deactivate.body', { name })}</DialogDescription>

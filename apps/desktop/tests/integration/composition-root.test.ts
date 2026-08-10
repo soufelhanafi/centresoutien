@@ -785,7 +785,7 @@ describe('composition root', () => {
     const preview = await dispatch('session.generator.preview', config);
     expect(preview.proposals).toHaveLength(1);
     expect(preview.proposals[0]).toMatchObject({ groupId });
-    expect(preview.proposals[0]?.blocks).toEqual([{ dayOfWeek: 1, start: '09:00', end: '10:00', roomId }]);
+    expect(preview.proposals[0]?.blocks).toEqual([{ dayOfWeek: 1, start: '09:00', end: '10:00', roomId, teacherId: null }]);
     expect(preview.conflicts).toEqual([]);
 
     const commit = await dispatch('session.generator.commit', {
@@ -825,6 +825,69 @@ describe('composition root', () => {
     db.close();
     expect(materialized.length).toBeGreaterThan(0);
     expect(materialized.every((s) => s.recurringSessionId === template.recurringSessionId)).toBe(true);
+  });
+
+  it('projects teacher conflicts from session.generator.preview across IPC', async () => {
+    const container = build('premium');
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+
+    const { id: subjectId } = await dispatch('subject.create', {
+      name: { fr: 'Mathématiques', ar: 'الرياضيات' },
+    });
+    const { id: teacherId } = await dispatch('teacher.create', {
+      name: { fr: 'Nadia El Fassi', ar: 'نادية الفاسي' },
+      phone: '0612345678',
+      cin: null,
+      email: null,
+      subjectIds: [subjectId],
+    });
+    const { id: roomAId } = await dispatch('room.create', { name: 'Salle A', capacity: 20 });
+    const { id: roomBId } = await dispatch('room.create', { name: 'Salle B', capacity: 20 });
+    const { id: groupId } = await dispatch('group.create', {
+      subjectId,
+      teacherId,
+      roomId: roomAId,
+      level: '2ème Bac',
+      capacity: 15,
+      kind: 'regular',
+    });
+    await dispatch('weeklySession.create', {
+      roomId: roomBId,
+      teacherId,
+      groupId,
+      dayOfWeek: 1,
+      start: '09:30',
+      end: '10:30',
+      active: true,
+      validFrom: null,
+      validTo: null,
+    });
+
+    const preview = await dispatch('session.generator.preview', {
+      scope: { groups: [groupId], teachers: 'all' as const },
+      kind: 'regular' as const,
+      weekdayPool: [1],
+      sessionsPerWeek: 1,
+      minGapDays: 1,
+      sessionDurationMinutes: 60,
+      range: { startDate: '2026-09-01', endDate: '2026-09-30' },
+      mode: 'auto' as const,
+    });
+
+    expect(preview.proposals[0]?.blocks[0]).toMatchObject({ dayOfWeek: 1, start: '09:00', end: '10:00', teacherId });
+    expect(preview.conflicts).toContainEqual({
+      kind: 'teacher',
+      groupId,
+      teacherId,
+      dayOfWeek: 1,
+      start: '09:00',
+      end: '10:00',
+      conflicts: [
+        expect.objectContaining({ roomId: roomBId, teacherId, dayOfWeek: 1, start: '09:30', end: '10:30' }),
+      ],
+    });
+
+    container.dispose();
   });
 
   // A stale preview must never silently overwrite a slot someone else booked in

@@ -12,6 +12,34 @@ export function timeToMinutes(time: string): number {
   return hours * 60 + minutes;
 }
 
+const timeFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function getTimeFormatter(locale: string): Intl.DateTimeFormat {
+  const cached = timeFormatters.get(locale);
+  if (cached) return cached;
+  const formatter = new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: 'UTC',
+  });
+  timeFormatters.set(locale, formatter);
+  return formatter;
+}
+
+export function formatMinutesOfDay(minutes: number, locale: string): string {
+  if (minutes === 24 * 60) return '24:00';
+  return getTimeFormatter(locale).format(new Date(Date.UTC(1970, 0, 1, 0, minutes)));
+}
+
+export function formatTimeOfDay(time: string, locale: string): string {
+  return formatMinutesOfDay(timeToMinutes(time), locale);
+}
+
+export function formatTimeRange(start: string, end: string, locale: string): string {
+  return `${formatTimeOfDay(start, locale)} – ${formatTimeOfDay(end, locale)}`;
+}
+
 /** The vertical span the grid renders, as whole hours. */
 export type TimeRange = {
   /** First visible hour (0–23), floored from the earliest opening time. */
@@ -105,10 +133,9 @@ export function blockPosition(session: PlannerSessionView, range: TimeRange): Bl
 }
 
 /**
- * The gutter label for a whole-hour tick, `'HH:00'`. The end-of-day boundary
- * hour 24 renders as `'24:00'` — the bottom label when a center stays open past
- * 23:00, so a 23:30 close still shows sessions up to that hour.
+ * The gutter label for a whole-hour tick. The end-of-day boundary hour 24 stays
+ * as `24:00`, so a 23:30 close still shows sessions up to that hour.
  */
-export function hourLabel(hour: number): string {
-  return `${String(hour).padStart(2, '0')}:00`;
+export function hourLabel(hour: number, locale: string): string {
+  return formatMinutesOfDay(hour * 60, locale);
 }

@@ -27,8 +27,13 @@ export type Locale = 'fr' | 'ar';
 
 // Non-secret throwaway admin (assembled at runtime; secret-scan friendly).
 export const VALID_ADMIN = { username: 'directrice', password: ['Casa', '2026', '!'].join('') } as const;
-// SOU-110 acceptance criterion 6: demo admin.
-export const DEMO_ADMIN = { username: 'demo', password: ['Demo', '2026', '!'].join('') } as const;
+// SOU-186: the demo admin lives ONLY in the environment (no credential literal in
+// source). `global-setup.ts` sets `CS_DEMO_USERNAME` / `CS_DEMO_PASSWORD` before
+// any worker forks, so the app under test and this reference read the same values.
+export const DEMO_ADMIN = {
+  username: process.env['CS_DEMO_USERNAME'] ?? '',
+  password: process.env['CS_DEMO_PASSWORD'] ?? '',
+} as const;
 
 export const REAL_DB = 'centre-local.db';
 export const DEMO_DB = 'centre-demo.db';
@@ -49,9 +54,16 @@ export const D: Record<
     wipeDialogTitle: string;
     wipeDialogConfirm: string;
     wipeDialogCancel: string;
+    hubWarnTitle: string;
+    hubWarnBody: string;
+    hubWarnCancel: string;
+    hubWarnConfirm: string;
     restartingTitle: string;
     loginExploreDemo: string;
     loginExploreDemoHint: string;
+    loginSubmit: string;
+    loginDemoPrefillTitle: string;
+    usernameLabel: string;
   }
 > = {
   fr: {
@@ -69,10 +81,18 @@ export const D: Record<
     wipeDialogTitle: 'Supprimer le centre de démonstration ?',
     wipeDialogConfirm: 'Supprimer la démo',
     wipeDialogCancel: 'Annuler',
+    hubWarnTitle: 'Cet ordinateur est le serveur de synchronisation',
+    hubWarnBody:
+      'Pendant la démo, la synchronisation des autres ordinateurs du centre sera en pause.',
+    hubWarnCancel: 'Annuler',
+    hubWarnConfirm: 'Continuer quand même',
     restartingTitle: "Redémarrage de l'application…",
     loginExploreDemo: 'Explorer la démo',
     loginExploreDemoHint:
-      "Essayez l'application avec un centre de démonstration pré-rempli. L'application redémarrera ; aucune donnée réelle ne sera modifiée.",
+      "Essayez l'application avec un centre de démonstration pré-rempli. Aucune donnée réelle ne sera modifiée.",
+    loginSubmit: 'Se connecter',
+    loginDemoPrefillTitle: 'Connexion démo',
+    usernameLabel: "Nom d'utilisateur",
   },
   ar: {
     settingsNav: 'الإعدادات',
@@ -89,10 +109,17 @@ export const D: Record<
     wipeDialogTitle: 'حذف المركز التجريبي؟',
     wipeDialogConfirm: 'حذف المركز التجريبي',
     wipeDialogCancel: 'إلغاء',
+    hubWarnTitle: 'هذا الحاسوب هو خادم المزامنة',
+    hubWarnBody: 'أثناء العرض التجريبي، ستتوقف مزامنة أجهزة المركز الأخرى مؤقتاً.',
+    hubWarnCancel: 'إلغاء',
+    hubWarnConfirm: 'المتابعة على أي حال',
     restartingTitle: 'إعادة تشغيل التطبيق…',
     loginExploreDemo: 'استكشاف الوضع التجريبي',
     loginExploreDemoHint:
-      'جرّب التطبيق بمركز تجريبي معبأ مسبقاً. سيعاد تشغيل التطبيق ولن يتم تعديل أي بيانات حقيقية.',
+      'جرّب التطبيق بمركز تجريبي معبأ مسبقاً. لن يتم تعديل أي بيانات حقيقية.',
+    loginSubmit: 'تسجيل الدخول',
+    loginDemoPrefillTitle: 'تسجيل الدخول التجريبي',
+    usernameLabel: 'اسم المستخدم',
   },
 };
 

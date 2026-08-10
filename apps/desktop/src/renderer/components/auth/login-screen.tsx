@@ -4,9 +4,9 @@ import { Button, Card, CardContent } from '@centresoutien/ui';
 import { LanguageToggle } from '../language-toggle';
 import { LoginForm } from './login-form';
 import { ForgotPasswordFlow } from './forgot-password/forgot-password-flow';
+import { useCreateDemoWithHubGuard } from '../../hooks/demo/use-create-demo-with-hub-guard';
+import { DemoHubWarnDialog } from '../demo/demo-hub-warn-dialog';
 import { LoginCenterSelector } from './login-center-selector';
-import { DemoRestarting } from '../demo/demo-restarting';
-import { useCreateDemo } from '../../hooks/demo/use-create-demo';
 import { useFeature } from '../../hooks/use-feature';
 import { useCenters } from '../../hooks/center/use-centers';
 
@@ -16,12 +16,16 @@ import { useCenters } from '../../hooks/center/use-centers';
  * onboarding feel like one product. The language toggle stays reachable here — the
  * admin may want to switch before their first sign-in. The "forgot password" flow
  * (SOU-156) swaps into the same card so recovery feels part of one product. The
- * "Explorer la démo" entry (SOU-110) sits under the form and relaunches the app
- * into a seeded demo center; on success the card shows the restarting state.
+ * "Explorer la démo" entry (SOU-110) sits under the form and hot-swaps into a
+ * seeded demo center in place (SOU-186); on success the gates re-evaluate against
+ * the demo DB and drop the user straight in — no restart, no reload.
  */
 export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
   const { t } = useTranslation();
-  const createDemo = useCreateDemo();
+  const { create, status, hubWarnOpen, setHubWarnOpen, requestCreate, confirmCreate } =
+    useCreateDemoWithHubGuard();
+  const isDemo = status.data?.isDemo === true;
+  const demoLogin = status.data?.demoLogin ?? null;
   const [view, setView] = useState<'login' | 'forgot' | 'selectCenter'>('login');
   const canMultiCenter = useFeature('org.multi-center');
   const centers = useCenters({ enabled: canMultiCenter });
@@ -47,9 +51,7 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
             <LanguageToggle />
           </div>
 
-          {createDemo.isSuccess ? (
-            <DemoRestarting />
-          ) : view === 'selectCenter' ? (
+          {view === 'selectCenter' ? (
             <LoginCenterSelector onSelected={onAuthenticated} />
           ) : view === 'login' ? (
             <>
@@ -58,9 +60,13 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
                 <p className="text-sm text-muted-foreground">{t('auth.subtitle')}</p>
               </header>
               <LoginForm
+                key={isDemo ? 'demo' : 'real'}
                 onAuthenticated={handleAuthenticated}
                 onForgotPassword={() => setView('forgot')}
+                isDemo={isDemo}
+                demoLogin={demoLogin}
               />
+              {!isDemo && (
               <div className="flex flex-col gap-2 border-t border-border pt-6">
                 <p className="text-center text-xs text-muted-foreground">
                   {t('auth.login.exploreDemoHint')}
@@ -68,23 +74,32 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={createDemo.isPending}
-                  onClick={() => createDemo.mutate()}
+                  disabled={status.isPending || create.isPending || create.isSuccess}
+                  onClick={requestCreate}
                 >
-                  {createDemo.isPending ? t('demo.intro.creating') : t('auth.login.exploreDemo')}
+                  {create.isPending || create.isSuccess
+                    ? t('demo.intro.creating')
+                    : t('auth.login.exploreDemo')}
                 </Button>
-                {createDemo.isError && (
+                {create.isError && (
                   <p role="alert" className="text-center text-sm text-destructive">
                     {t('demo.createError')}
                   </p>
                 )}
               </div>
+              )}
             </>
           ) : (
             <ForgotPasswordFlow onClose={() => setView('login')} />
           )}
         </CardContent>
       </Card>
+      <DemoHubWarnDialog
+        open={hubWarnOpen}
+        onOpenChange={setHubWarnOpen}
+        pending={create.isPending}
+        onConfirm={confirmCreate}
+      />
     </main>
   );
 }

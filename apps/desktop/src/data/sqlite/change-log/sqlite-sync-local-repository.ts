@@ -428,6 +428,72 @@ export class SqliteLocalSyncRepository
     })();
   }
 
+  /**
+   * A human settled a session natural-key conflict (SOU-194) — the resolution
+   * of a delete-vs-edit / field-clash that blocked on the local occupied row.
+   * The chosen data survives under the lower-ULID winner id: when the loser is
+   * local (`fromId`), the row is rewritten in place to the winner id + chosen
+   * data and its attendance re-pointed; the loser's shadow is retired (block
+   * cleared, version recorded so re-delivery is skipped); and the choice is
+   * stored as a fresh pending push under the winner id. The natural-key slot
+   * never frees, so the subsequent `markSynced` projection updates the winner
+   * row instead of INSERTing into a slot the loser still holds.
+   */
+  resolveSessionNaturalKey(input: {
+    fromId: EntityId;
+    winnerId: EntityId;
+    loserId: EntityId;
+    entity: Record<string, unknown>;
+    inboundVersion: number;
+    baseVersion: number;
+    op: ChangeLogOp;
+    changedFields: readonly string[];
+    updatedBy: UserId;
+    at: Date;
+  }): void {
+    this.db.transaction(() => {
+      if (input.fromId !== input.winnerId) {
+        this.rewriteSessionRowInPlace(input.fromId, input.winnerId, input.entity, input.baseVersion);
+        this.db.prepare(RE_POINT_ATTENDANCE_SQL).run({
+          to_id: input.winnerId,
+          from_id: input.fromId,
+          center_code: this.centerCode,
+        });
+      }
+      this.db.prepare(UPSERT_STATE_SQL).run({
+        entity_type: SESSION_ENTITY_TYPE,
+        entity_id: input.loserId,
+        version: input.inboundVersion,
+        entity_json: JSON.stringify({ ...input.entity, id: input.loserId, version: input.inboundVersion }),
+        center_code: this.centerCode,
+      });
+      this.db.prepare(UPSERT_STATE_SQL).run({
+        entity_type: SESSION_ENTITY_TYPE,
+        entity_id: input.winnerId,
+        version: input.baseVersion,
+        entity_json: JSON.stringify({ ...input.entity, version: input.baseVersion }),
+        center_code: this.centerCode,
+      });
+      const pending = {
+        baseVersion: input.baseVersion,
+        op: input.op,
+        entity: { ...input.entity, version: input.baseVersion },
+        changedFields: [...input.changedFields],
+        seq: ++this.seqCounter,
+        at: input.at.toISOString(),
+        updatedBy: input.updatedBy,
+      };
+      this.db.prepare(SET_PENDING_SQL).run({
+        entity_type: SESSION_ENTITY_TYPE,
+        entity_id: input.winnerId,
+        pending_json: JSON.stringify(pending),
+        entity_json: JSON.stringify({ ...input.entity, version: input.baseVersion }),
+        base_version: input.baseVersion,
+        seq: this.seqCounter,
+      });
+    })();
+  }
+
   private rewriteSessionRowInPlace(
     fromId: EntityId,
     toId: EntityId,

@@ -5,14 +5,23 @@ import { ipcSessionGeneratorGateway } from './ipc-session-generator-gateway';
 export type GeneratorPreviewConfig = IpcRequest<'session.generator.preview'>;
 /** The `[startDate, endDate]` / `[startDate, occurrenceCount]` window the run fills. */
 export type GeneratorRange = GeneratorPreviewConfig['range'];
-/** The dry-run result: proposals + non-blocking conflicts, zero persistence. */
-export type GeneratorPreviewResult = IpcResponse<'session.generator.preview'>;
+type IpcGeneratorPreviewResult = IpcResponse<'session.generator.preview'>;
+type IpcGeneratorGroupProposal = IpcGeneratorPreviewResult['proposals'][number];
+type IpcGeneratorBlockProposal = IpcGeneratorGroupProposal['blocks'][number];
+
+/** A non-blocking preview warning: center-hours, room, or teacher double-booking. */
+export type GeneratorConflict = IpcGeneratorPreviewResult['conflicts'][number];
+/** One proposed block (weekday + `[start, end)` + assigned room/teacher). */
+export type GeneratorBlockProposal = IpcGeneratorBlockProposal;
 /** One group's proposed weekly pattern as the preview returns it. */
-export type GeneratorGroupProposal = GeneratorPreviewResult['proposals'][number];
-/** One proposed block (weekday + `[start, end)` + assigned room). */
-export type GeneratorBlockProposal = GeneratorGroupProposal['blocks'][number];
-/** A non-blocking preview warning: a center-hours overrun or a room double-booking. */
-export type GeneratorConflict = GeneratorPreviewResult['conflicts'][number];
+export type GeneratorGroupProposal = Omit<IpcGeneratorGroupProposal, 'blocks'> & {
+  readonly blocks: readonly GeneratorBlockProposal[];
+};
+/** The dry-run result: proposals + non-blocking conflicts, zero persistence. */
+export type GeneratorPreviewResult = Omit<IpcGeneratorPreviewResult, 'proposals' | 'conflicts'> & {
+  readonly proposals: readonly GeneratorGroupProposal[];
+  readonly conflicts: readonly GeneratorConflict[];
+};
 
 /** The confirmed proposals + window echoed back to commit (`session.generator.commit`). */
 export type GeneratorCommitInput = IpcRequest<'session.generator.commit'>;

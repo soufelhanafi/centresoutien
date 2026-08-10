@@ -4,6 +4,7 @@ import { KindBadge } from '@centresoutien/ui';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 import { subjectColor } from '../../lib/planning/subject-color';
 import { localizedText } from '../../lib/planning/localized-text';
+import { formatTimeRange } from '../../lib/planning/time-range';
 
 type SessionBlockProps = {
   session: PlannerSessionView;
@@ -38,16 +39,20 @@ export function SessionBlock({ session, style, onSelect }: SessionBlockProps) {
         color: color.foreground,
         borderInlineStartColor: color.border,
       }}
-      className="absolute flex flex-col gap-0.5 overflow-hidden rounded-md border-s-[3px] p-1.5 text-start text-xs leading-none shadow-sm ring-offset-background transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+      className="absolute flex flex-col gap-0.5 overflow-hidden rounded-md border-s-[3px] p-1 text-start text-xs leading-none shadow-sm ring-offset-background transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
     >
       <span className="flex items-center justify-between gap-1">
         <span className="truncate font-semibold">{subject}</span>
         {session.kind === 'exam-prep' ? (
-          <KindBadge kind="exam-prep" label={t('planning.kind.examPrepShort')} className="shrink-0 px-1 py-0 text-[10px]" />
+          <KindBadge
+            kind="exam-prep"
+            label={t('planning.kind.examPrepShort')}
+            className="shrink-0 px-1 py-0 text-[10px] leading-none"
+          />
         ) : null}
       </span>
-      <span className="tabular-nums opacity-90">
-        {session.start} – {session.end}
+      <span dir="ltr" className="tabular-nums opacity-90">
+        {formatTimeRange(session.start, session.end, i18n.language)}
       </span>
       {meta ? <span className="truncate opacity-80">{meta}</span> : null}
     </button>

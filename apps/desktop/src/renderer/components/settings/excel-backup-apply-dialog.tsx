@@ -28,7 +28,7 @@ export function ExcelBackupApplyDialog({ open, onOpenChange, onConfirm, pending 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('settings.backup.excel.confirmCancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('settings.backup.excel.confirmTitle')}</DialogTitle>
           <DialogDescription>{t('settings.backup.excel.confirmBody')}</DialogDescription>

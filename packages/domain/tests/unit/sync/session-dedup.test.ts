@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { ChangeResolver } from '../../../src/sync/resolve-changes';
 import type { SessionDedup, SessionDedupStore } from '../../../src/sync/session-dedup';
-import type { SyncConflict, ConflictSide } from '../../../src/sync/conflicts';
+import type { SyncConflict } from '../../../src/sync/conflicts';
 import type { HubChange } from '../../../src/ports/sync-hub-port';
-import type { EntityId, UserId } from '../../../src/value-objects/ids';
+import type { EntityId } from '../../../src/value-objects/ids';
 import { fakeClock } from '../fakes/clock';
 import { InMemorySyncLocalRepository } from '../fakes/in-memory-sync-local-repository';
+import { InMemorySessionDedupStore } from '../fakes/in-memory-session-dedup-store';
 import { CENTER, DEV_A, USER_A, USER_B, DEV_B, matcherFor } from './sync-engine-helpers';
 
 /**
@@ -39,64 +40,9 @@ const sessionEntity = (id: EntityId, over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-/** Fake collision store over the in-memory shadow repo (mirrors the SQLite adapter). */
-class FakeSessionDedupStore implements SessionDedupStore {
-  constructor(private readonly local: InMemorySyncLocalRepository) {}
-
-  findSessionByNaturalKey(
-    recurringSessionId: string,
-    date: string,
-    excludeId: EntityId,
-  ): { id: EntityId; deletedAt: string | null } | null {
-    for (const entity of Object.values(this.local.allEntities())) {
-      const id = entity['id'];
-      if (
-        String(id ?? '').startsWith('ses_') &&
-        id !== excludeId &&
-        entity['recurringSessionId'] === recurringSessionId &&
-        entity['date'] === date
-      ) {
-        return { id: id as EntityId, deletedAt: entity['deletedAt'] == null ? null : String(entity['deletedAt']) };
-      }
-    }
-    return null;
-  }
-
-  lastLocalSide(entityId: EntityId): ConflictSide | null {
-    const state = this.local.getLocalState('sessions', entityId);
-    if (!state) return null;
-    return {
-      updatedBy: state.entity['updatedBy'] as UserId,
-      deviceId: DEV_A,
-      op: state.entity['deletedAt'] == null ? 'update' : 'delete',
-      seq: 0,
-      at: clock.now(),
-      changedFields: [],
-      entity: state.entity,
-    };
-  }
-
-  absorbSessionAsWinner(input: {
-    fromId: EntityId;
-    toId: EntityId;
-    entity: Record<string, unknown>;
-    version: number;
-  }): void {
-    // The physical in-place rewrite + attendance re-point is the SQLite
-    // adapter's job; the in-memory fake has no unique-index constraint, so
-    // recording the winner as applied is a faithful stand-in for the outcome.
-    this.local.applyInbound('sessions', input.toId, input.entity, input.version);
-  }
-
-  retireInboundSession(input: {
-    keptId: EntityId;
-    retiredId: EntityId;
-    entity: Record<string, unknown>;
-    version: number;
-  }): void {
-    this.local.applyInbound('sessions', input.retiredId, input.entity, input.version);
-  }
-}
+/** Shared in-memory collision store over the in-memory shadow repo. */
+const dedupStore = (local: InMemorySyncLocalRepository): SessionDedupStore =>
+  new InMemorySessionDedupStore(local, clock, DEV_A);
 
 function resolverFor(local: InMemorySyncLocalRepository, store: SessionDedupStore | null): ChangeResolver {
   return new ChangeResolver(local, clock, DEV_A, USER_A, CENTER, null, store);
@@ -126,7 +72,7 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
 
     const conflicts: SyncConflict[] = [];
     const dedups: SessionDedup[] = [];
-    const applied = resolverFor(local, new FakeSessionDedupStore(local)).resolveBatch(
+    const applied = resolverFor(local, dedupStore(local)).resolveBatch(
       [inboundSession(SES_LO)],
       conflicts,
       matcherFor(local),
@@ -148,7 +94,7 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
     local.applyInbound('sessions', SES_LO, sessionEntity(SES_LO), 1); // pre-existing local occurrence
 
     const dedups: SessionDedup[] = [];
-    const applied = resolverFor(local, new FakeSessionDedupStore(local)).resolveBatch(
+    const applied = resolverFor(local, dedupStore(local)).resolveBatch(
       [inboundSession(SES_HI)],
       [],
       matcherFor(local),
@@ -170,7 +116,7 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
     local.applyInbound('sessions', SES_LO, sessionEntity(SES_LO, { date: '2026-09-01' }), 1);
 
     const dedups: SessionDedup[] = [];
-    resolverFor(local, new FakeSessionDedupStore(local)).resolveBatch(
+    resolverFor(local, dedupStore(local)).resolveBatch(
       [inboundSession(SES_HI)],
       [],
       matcherFor(local),
@@ -188,7 +134,7 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
 
     const conflicts: SyncConflict[] = [];
     const dedups: SessionDedup[] = [];
-    resolverFor(local, new FakeSessionDedupStore(local)).resolveBatch(
+    resolverFor(local, dedupStore(local)).resolveBatch(
       [
         inboundSession(SES_HI, {
           op: 'delete',
@@ -219,7 +165,7 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
     );
 
     const conflicts: SyncConflict[] = [];
-    resolverFor(local, new FakeSessionDedupStore(local)).resolveBatch(
+    resolverFor(local, dedupStore(local)).resolveBatch(
       [inboundSession(SES_HI)],
       conflicts,
       matcherFor(local),
@@ -238,7 +184,7 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
 
     const conflicts: SyncConflict[] = [];
     const dedups: SessionDedup[] = [];
-    resolverFor(local, new FakeSessionDedupStore(local)).resolveBatch(
+    resolverFor(local, dedupStore(local)).resolveBatch(
       [inboundSession(SES_LO)],
       conflicts,
       matcherFor(local),
@@ -259,7 +205,7 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
     local.applyInbound('sessions', SES_HI, sessionEntity(SES_HI, { deletedAt: new Date('2026-08-02T00:00:00Z') }), 1);
 
     const dedups: SessionDedup[] = [];
-    const applied = resolverFor(local, new FakeSessionDedupStore(local)).resolveBatch(
+    const applied = resolverFor(local, dedupStore(local)).resolveBatch(
       [
         inboundSession(SES_LO, {
           op: 'delete',
@@ -292,7 +238,7 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
     local.applyInbound('sessions', SES_HI, sessionEntity(SES_HI), 1);
 
     const dedups: SessionDedup[] = [];
-    const resolver = resolverFor(local, new FakeSessionDedupStore(local));
+    const resolver = resolverFor(local, dedupStore(local));
     resolver.resolveBatch([inboundSession(SES_LO)], [], matcherFor(local), [], dedups);
     const appliedAgain = resolver.resolveBatch([inboundSession(SES_LO)], [], matcherFor(local), [], dedups);
 

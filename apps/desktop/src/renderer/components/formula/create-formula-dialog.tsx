@@ -45,7 +45,7 @@ export function CreateFormulaDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('formulas.form.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('formulas.form.createTitle')}</DialogTitle>
           <DialogDescription>{t('formulas.form.createDescription')}</DialogDescription>

@@ -293,6 +293,19 @@ export type ContainerOptions = {
   demo?: {
     /** Whether the OPEN center is the demo center (`centreId === 'demo'`). */
     isDemoCenter: boolean;
+    /**
+     * Whether THIS laptop is the active LAN hub host (SOU-190). A stable
+     * process-level fact the main entry resolves once (`hubServer !== null`),
+     * forwarded through `demo.status` so the renderer can confirm before a demo
+     * swap stops the embedded hub and cuts off teammates' sync. Never re-derived
+     * at swap time.
+     */
+    isHubHost: boolean;
+    /**
+     * The demo login prefill for `demo.status` (SOU-186): the env-provided
+     * credentials when the open center is the demo one, else `null`. Never throws.
+     */
+    login: () => { username: string; password: string } | null;
     /** Build + seed the demo DB, write its license, then relaunch into demo mode. */
     create: () => Promise<void>;
     /** Dispose the open demo container, delete every demo artefact, relaunch to the real center. */
@@ -340,14 +353,15 @@ export type Container = {
   readLocalePreference: () => LocalePreference | null;
   /**
    * The live restricted-mode gate (SOU-104): `true` while the license is non-active,
-   * so the IPC dispatcher answers only `license.status` / `license.activate`. Passed
-   * to `registerIpc`; re-evaluated per call, never a startup snapshot. This is the
+   * so the IPC dispatcher answers only `license.status` / `license.activate`. Fed
+   * to the dispatcher by `MainRuntime`; re-evaluated per call, never a startup
+   * snapshot. This is the
    * server-side hard lock that supersedes the deferred SOU-173.
    */
   isRestricted: () => boolean;
   /**
    * The trusted first-run state (SOU-104): `true` once an admin account exists —
-   * the durable marker that setup finished. Passed to `registerIpc` so the
+   * the durable marker that setup finished. Fed to the dispatcher by `MainRuntime` so the
    * restricted-mode gate closes the wizard's bootstrap channels on an already
    * configured center whose license later lapses, while still allowing them on a
    * fresh install where the wizard has yet to create the center + admin.
@@ -1078,9 +1092,9 @@ export function buildContainer(options: ContainerOptions): Container {
   // to itself over localhost through the SAME SyncHubPort client as every other
   // device — this container never special-cases the hub machine. The listener
   // binds the configured port (fire-and-forget, like the scheduled backup): a
-  // failed bind (port in use) is logged, never fatal, and the sync page (SOU-81)
-  // surfaces hub health. Real hub designation/setup UX is a later ticket; the
-  // option is wired here so the seam exists before its consumer.
+  // transient busy port is retried, then logged if it still fails; the sync page
+  // (SOU-81) surfaces hub health. Real hub designation/setup UX is a later
+  // ticket; the option is wired here so the seam exists before its consumer.
   let hubServerInstance: HubServer | null = null;
   let hubStore: SqliteHubStore | null = null;
   let syncHub: SyncHubPort | null = null;
@@ -1090,7 +1104,7 @@ export function buildContainer(options: ContainerOptions): Container {
     applyMigrations(hubStore.db, toMigrations(hubMigrationFiles));
     hubStore.registerCenter(options.centerCode, hubConfig.token, clock.now());
     hubServerInstance = new HubServer(hubStore, hubConfig.port, hubConfig.bindHost);
-    void hubServerInstance.start().catch((error: unknown) => {
+    void hubServerInstance.start({ retries: 10, retryDelayMs: 150 }).catch((error: unknown) => {
       console.error('[hub] failed to start on port', hubConfig.port, error);
     });
     syncHub = new HttpSyncHubClient({
@@ -1145,7 +1159,7 @@ export function buildContainer(options: ContainerOptions): Container {
         sessionDedupStore: localSyncRepository,
       })
     : null;
-  const resolveConflict = new ResolveConflict(localSyncRepository, clock, plan);
+  const resolveConflict = new ResolveConflict(localSyncRepository, clock, plan, localSyncRepository);
 
   const attemptLogin = new AttemptLogin(
     verifyAdminPassword,
@@ -1339,6 +1353,8 @@ export function buildContainer(options: ContainerOptions): Container {
     // stub (never invoked — the demo channels require wiring to exist).
     demo: options.demo ?? {
       isDemoCenter: false,
+      isHubHost: false,
+      login: () => null,
       create: () => Promise.reject(new Error('demo mode not wired')),
       wipe: () => Promise.reject(new Error('demo mode not wired')),
     },

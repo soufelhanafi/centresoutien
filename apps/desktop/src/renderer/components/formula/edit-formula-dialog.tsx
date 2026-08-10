@@ -50,7 +50,7 @@ export function EditFormulaDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('formulas.form.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('formulas.form.editTitle')}</DialogTitle>
           <DialogDescription>{t('formulas.form.editDescription')}</DialogDescription>

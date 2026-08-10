@@ -7,9 +7,11 @@ import type { InMemorySyncLocalRepository } from '../fakes/in-memory-sync-local-
 import { InMemorySyncLocalRepository as InMemorySyncLocalRepo } from '../fakes/in-memory-sync-local-repository';
 import { InMemorySyncHub } from '../fakes/in-memory-sync-hub';
 import type { InMemorySyncHub as HubType } from '../fakes/in-memory-sync-hub';
+import { InMemorySessionDedupStore } from '../fakes/in-memory-session-dedup-store';
 import { fakeClock } from '../fakes/clock';
 import type { Clock } from '../../../src/ports/clock';
 import { CENTER, DEV_A, DEV_B, S1, USER_A, USER_B, makeEngine, matcherFor, studentEntity } from '../sync/sync-engine-helpers';
+import type { EntityId } from '../../../src/value-objects/ids';
 
 /**
  * `ResolveConflict` settles a clash a human already decided on. The engine
@@ -35,10 +37,10 @@ describe('ResolveConflict', () => {
     | { choice: 'take-theirs' }
     | { choice: 'per-field'; fields: Record<string, 'mine' | 'theirs'> };
 
-  const resolve = (entityId: string, resolution: Resolution) =>
+  const resolve = (entityId: EntityId, resolution: Resolution) =>
     useCase().execute({
       entityType: 'students',
-      entityId: entityId as never,
+      entityId,
       deviceId: DEV_B,
       updatedBy: USER_B,
       resolution,
@@ -173,5 +175,200 @@ describe('ResolveConflict', () => {
     await fieldClashOnB();
     await resolve(S1, { choice: 'take-mine' });
     await expect(resolve(S1, { choice: 'take-theirs' })).rejects.toBeInstanceOf(ConflictNotFoundError);
+  });
+});
+
+/**
+ * SOU-194 — resolving a session natural-key conflict (delete-vs-edit /
+ * field-clash, keyed on the local occupied row) must be natural-key-aware:
+ * the human's choice survives under the lower-ULID WINNER id with the loser
+ * retired, so `take-theirs` can never re-wedge `ux_sessions_recurrence_date`
+ * at the next `markSynced` projection and `take-mine` never leaves the winner
+ * silently un-applied (the cursor consumed it). Real engine → conflict →
+ * resolve → sync, in memory.
+ */
+describe('ResolveConflict — session natural-key (SOU-194)', () => {
+  let clock: Clock;
+  let b: InMemorySyncLocalRepository;
+
+  beforeEach(() => {
+    clock = fakeClock('2026-08-01T10:00:00Z');
+    b = new InMemorySyncLocalRepo(clock, DEV_B);
+  });
+
+  const SES_LO = 'ses_00000000000000000000000001' as EntityId; // lower ULID
+  const SES_HI = 'ses_00000000000000000000000002' as EntityId; // higher ULID
+  const WRS = 'wrs_00000000000000000000000001';
+
+  const sessionEntity = (id: EntityId, over: Record<string, unknown> = {}) => ({
+    id,
+    recurringSessionId: WRS,
+    generationBatchId: null,
+    roomId: 'rom_00000000000000000000000001',
+    teacherId: null,
+    groupId: 'grp_00000000000000000000000001',
+    date: '2026-09-05',
+    start: '09:00',
+    end: '10:30',
+    deletedAt: null,
+    ...over,
+  });
+
+  const dedupStore = (local: InMemorySyncLocalRepository) =>
+    new InMemorySessionDedupStore(local, clock, DEV_B);
+
+  const resolve = (entityId: EntityId, resolution: { choice: 'take-mine' | 'take-theirs' } | { choice: 'per-field'; fields: Record<string, 'mine' | 'theirs'> }) =>
+    new ResolveConflict(b, clock, new PlanPolicy(PLANS.premium), dedupStore(b)).execute({
+      entityType: 'sessions',
+      entityId,
+      deviceId: DEV_B,
+      updatedBy: USER_B,
+      resolution,
+    });
+
+  const pendingFor = (entityId: EntityId) => b.listPending().find((p) => p.entityId === entityId);
+
+  /** A deletes the lower-ULID winner, B holds the higher-ULID loser live: B blocks on a delete-vs-edit keyed on its own row. */
+  async function deleteVsEditWhereBIsLoser(): Promise<HubType> {
+    const hub = new InMemorySyncHub(clock);
+    const a = new InMemorySyncLocalRepo(clock, DEV_A);
+    a.writeLocal('sessions', SES_LO, sessionEntity(SES_LO), [], USER_A);
+    a.writeLocalDelete('sessions', SES_LO, USER_A);
+    await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A }).run(matcherFor(a));
+
+    b.writeLocal('sessions', SES_HI, sessionEntity(SES_HI), [], USER_B);
+    await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B, sessionDedupStore: dedupStore(b) }).run(
+      matcherFor(b),
+    );
+    const conflict = b.listBlocked()[0];
+    expect(conflict?.kind).toBe('delete-vs-edit');
+    expect(conflict?.entityId).toBe(SES_HI);
+    return hub;
+  }
+
+  it('take-theirs on a delete-vs-edit writes the winner id, clears the loser block, and the push is accepted — no wedge', async () => {
+    const hub = await deleteVsEditWhereBIsLoser();
+
+    await resolve(SES_HI, { choice: 'take-theirs' });
+
+    expect(b.listBlocked()).toHaveLength(0);
+    expect(b.isBlocked('sessions', SES_HI)).toBe(false);
+    const pending = pendingFor(SES_LO);
+    expect(pending?.op).toBe('delete');
+    expect(pending?.entity['id']).toBe(SES_LO);
+    expect(pending?.baseVersion).toBeGreaterThan(0);
+    // No pending under the loser — the retired row cannot resurrect.
+    expect(pendingFor(SES_HI)).toBeUndefined();
+
+    const result = await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B, sessionDedupStore: dedupStore(b) }).run(
+      matcherFor(b),
+    );
+    expect(result.status).toBe('synced');
+    expect(result.conflicts).toHaveLength(0);
+  });
+
+  it('take-mine on a delete-vs-edit keeps the local choice under the winner id — the survivor is live', async () => {
+    const hub = await deleteVsEditWhereBIsLoser();
+
+    await resolve(SES_HI, { choice: 'take-mine' });
+
+    const pending = pendingFor(SES_LO);
+    expect(pending?.entity['id']).toBe(SES_LO);
+    expect(pending?.entity['deletedAt']).toBeNull();
+    expect(b.isBlocked('sessions', SES_HI)).toBe(false);
+
+    const result = await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B, sessionDedupStore: dedupStore(b) }).run(
+      matcherFor(b),
+    );
+    expect(result.status).toBe('synced');
+  });
+
+  it('take-mine when the LOCAL row is the winner re-bases onto its own canonical version, not the inbound\'s', async () => {
+    const hub = new InMemorySyncHub(clock);
+    const a = new InMemorySyncLocalRepo(clock, DEV_A);
+    a.writeLocal('sessions', SES_HI, sessionEntity(SES_HI), [], USER_A);
+    await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A }).run(matcherFor(a));
+
+    b.writeLocal('sessions', SES_LO, sessionEntity(SES_LO), [], USER_B);
+    b.writeLocalDelete('sessions', SES_LO, USER_B);
+    await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B, sessionDedupStore: dedupStore(b) }).run(
+      matcherFor(b),
+    );
+    expect(b.listBlocked()[0]?.kind).toBe('delete-vs-edit');
+    expect(b.listBlocked()[0]?.entityId).toBe(SES_LO);
+
+    await resolve(SES_LO, { choice: 'take-mine' });
+
+    const pending = pendingFor(SES_LO);
+    // Local-only winner never pushed → base 0; the inbound's version is NOT used.
+    expect(pending?.baseVersion).toBe(0);
+    expect(pending?.op).toBe('delete');
+
+    const result = await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B, sessionDedupStore: dedupStore(b) }).run(
+      matcherFor(b),
+    );
+    expect(result.status).toBe('synced');
+  });
+
+  it('field-clash per-field resolution survives under the winner id', async () => {
+    const hub = new InMemorySyncHub(clock);
+    const a = new InMemorySyncLocalRepo(clock, DEV_A);
+    a.writeLocal('sessions', SES_LO, sessionEntity(SES_LO), [], USER_A);
+    await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A }).run(matcherFor(a));
+
+    b.writeLocal('sessions', SES_HI, sessionEntity(SES_HI), [], USER_B);
+    b.writeLocal('sessions', SES_HI, sessionEntity(SES_HI, { roomId: 'rom_EDITED' }), ['roomId'], USER_B);
+    await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B, sessionDedupStore: dedupStore(b) }).run(
+      matcherFor(b),
+    );
+    const conflict = b.listBlocked()[0];
+    expect(conflict?.kind).toBe('field-clash');
+    expect(conflict?.entityId).toBe(SES_HI);
+
+    await resolve(SES_HI, { choice: 'per-field', fields: { roomId: 'theirs' } });
+
+    const pending = pendingFor(SES_LO);
+    expect(pending?.entity['id']).toBe(SES_LO);
+    expect(pending?.entity['roomId']).toBe('rom_00000000000000000000000001');
+    expect(b.isBlocked('sessions', SES_HI)).toBe(false);
+    expect(pendingFor(SES_HI)).toBeUndefined();
+  });
+
+  it('a SYNCED local winner re-bases onto its own canonical version (not 0), so the push is accepted', async () => {
+    const hub = new InMemorySyncHub(clock);
+
+    // B syncs its lower-ULID winner (v1 on the hub) BEFORE A ever creates the
+    // inbound — so the winner is canonical locally, then edited offline.
+    b.writeLocal('sessions', SES_LO, sessionEntity(SES_LO), [], USER_B);
+    await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B, sessionDedupStore: dedupStore(b) }).run(
+      matcherFor(b),
+    );
+    b.writeLocal('sessions', SES_LO, sessionEntity(SES_LO, { roomId: 'rom_EDITED' }), ['roomId'], USER_B);
+
+    const a = new InMemorySyncLocalRepo(clock, DEV_A);
+    a.writeLocal('sessions', SES_HI, sessionEntity(SES_HI), [], USER_A);
+    await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A }).run(matcherFor(a));
+
+    await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B, sessionDedupStore: dedupStore(b) }).run(
+      matcherFor(b),
+    );
+    const conflict = b.listBlocked()[0];
+    expect(conflict?.kind).toBe('field-clash');
+    expect(conflict?.entityId).toBe(SES_LO);
+
+    await resolve(SES_LO, { choice: 'take-mine' });
+
+    const pending = pendingFor(SES_LO);
+    expect(pending?.entity['id']).toBe(SES_LO);
+    expect(pending?.entity['roomId']).toBe('rom_EDITED');
+    // Synced at v1 → the survivor re-bases onto 1 (NOT the inbound's version, and
+    // NOT 0), so the resolution push is accepted and advances the hub.
+    expect(pending?.baseVersion).toBe(1);
+
+    const result = await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B, sessionDedupStore: dedupStore(b) }).run(
+      matcherFor(b),
+    );
+    expect(result.status).toBe('synced');
+    expect(hub.canonicalEntity(CENTER, 'sessions', SES_LO)?.version).toBe(2);
   });
 });

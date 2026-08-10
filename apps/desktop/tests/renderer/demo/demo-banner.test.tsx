@@ -25,7 +25,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('DemoBanner (SOU-110)', () => {
+describe('DemoBanner (SOU-110 / SOU-186)', () => {
   it('renders nothing when the open center is not the demo', async () => {
     const status = vi.spyOn(demoGateway, 'status').mockResolvedValue({ isDemo: false });
     renderBanner();
@@ -44,9 +44,11 @@ describe('DemoBanner (SOU-110)', () => {
     expect(screen.getByRole('button', { name: 'Supprimer' })).toBeInTheDocument();
   });
 
-  it('wipes only after confirmation, then swaps to the restarting state', async () => {
-    const wipe = vi.spyOn(demoGateway, 'wipe').mockResolvedValue({ relaunching: true });
-    vi.spyOn(demoGateway, 'status').mockResolvedValue({ isDemo: true });
+  it('wipes after confirmation, then the strip unmounts once back on the real center', async () => {
+    const wipe = vi.spyOn(demoGateway, 'wipe').mockResolvedValue({ isDemo: false });
+    vi.spyOn(demoGateway, 'status')
+      .mockResolvedValueOnce({ isDemo: true })
+      .mockResolvedValue({ isDemo: false });
     const user = userEvent.setup();
     renderBanner();
 
@@ -57,11 +59,14 @@ describe('DemoBanner (SOU-110)', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Supprimer la démo' }));
 
     expect(wipe).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText("Redémarrage de l'application…")).toBeInTheDocument();
+    // No restart: the swap flips the demo status to false and the strip simply
+    // unmounts — never a "restarting" state.
+    await waitFor(() => expect(screen.queryByText('MODE DÉMO')).not.toBeInTheDocument());
+    expect(screen.queryByText("Redémarrage de l'application…")).not.toBeInTheDocument();
   });
 
   it('keeps the banner intact when the wipe dialog is cancelled', async () => {
-    const wipe = vi.spyOn(demoGateway, 'wipe').mockResolvedValue({ relaunching: true });
+    const wipe = vi.spyOn(demoGateway, 'wipe').mockResolvedValue({ isDemo: false });
     vi.spyOn(demoGateway, 'status').mockResolvedValue({ isDemo: true });
     const user = userEvent.setup();
     renderBanner();

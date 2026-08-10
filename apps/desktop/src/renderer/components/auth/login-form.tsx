@@ -17,6 +17,7 @@ import {
 import { FieldMessage } from '../form/field-message';
 import { useLogin } from '../../hooks/auth/use-login';
 import { LockoutNotice } from './lockout-notice';
+import type { DemoLogin } from '../../lib/demo/demo-contract';
 
 // `rememberDevice` is a plain toggle here — always present, defaulted by the
 // checkbox — so we drop the domain schema's `.default()` to keep the form's input
@@ -43,16 +44,23 @@ type Feedback =
 export function LoginForm({
   onAuthenticated,
   onForgotPassword,
+  isDemo = false,
+  demoLogin = null,
 }: {
   onAuthenticated: () => void;
   onForgotPassword: () => void;
+  isDemo?: boolean;
+  demoLogin?: DemoLogin | null;
 }) {
   const { t } = useTranslation();
   const login = useLogin();
   const [feedback, setFeedback] = useState<Feedback>(null);
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
-    defaultValues: { username: '', password: '', rememberDevice: false },
+    defaultValues:
+      isDemo && demoLogin
+        ? { username: demoLogin.username, password: demoLogin.password, rememberDevice: false }
+        : { username: '', password: '', rememberDevice: false },
   });
 
   const clearLock = useCallback(() => setFeedback(null), []);
@@ -77,6 +85,19 @@ export function LoginForm({
   return (
     <Form {...form}>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+        {isDemo && demoLogin ? (
+          <div className="flex flex-col gap-1 rounded-md border border-primary/30 bg-primary/5 p-3 text-start">
+            <p className="text-sm font-medium text-primary">{t('auth.login.demoPrefill.title')}</p>
+            <p className="text-xs text-muted-foreground">{t('auth.login.demoPrefill.hint')}</p>
+            <p className="text-xs text-muted-foreground">
+              {t('auth.login.demoPrefill.credentials', {
+                username: demoLogin.username,
+                password: demoLogin.password,
+              })}
+            </p>
+          </div>
+        ) : null}
+
         <FormField
           control={form.control}
           name="username"

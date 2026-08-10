@@ -5,13 +5,14 @@
  * directly — so swapping the mock for the real IPC adapter is a one-line
  * change with no component edits.
  *
- * The three channels:
- *  - `demo.status` (request `{}`) -> `{ isDemo }` — whether the currently-open
- *    center is the demo center.
- *  - `demo.create` (request `{}`) -> `{ relaunching: true }` — creates + seeds
- *    the demo DB, then the app relaunches into demo mode.
- *  - `demo.wipe`  (request `{}`) -> `{ relaunching: true }` — deletes every
- *    demo artefact and relaunches into the real center.
+ * The three channels (SOU-186 hot-swap — no process restart, no window reload):
+ *  - `demo.status` (request `{}`) -> `{ isDemo, demoLogin, isHubHost }` — whether
+ *    the currently-open center is the demo center, the demo login prefill, and
+ *    whether this device is the LAN hub host (SOU-190).
+ *  - `demo.create` (request `{}`) -> `{ isDemo: true }` — creates + seeds the
+ *    demo DB, then hot-swaps the open center to it; resolves AFTER the swap.
+ *  - `demo.wipe`  (request `{}`) -> `{ isDemo: false }` — swaps back to the real
+ *    center, then deletes every demo artefact; resolves AFTER the swap.
  */
 export const demoChannels = {
   status: 'demo.status',
@@ -19,12 +20,35 @@ export const demoChannels = {
   wipe: 'demo.wipe',
 } as const;
 
-/** `demo.status` response — whether the open center is the demo center. */
-export type DemoStatusResponse = {
-  isDemo: boolean;
+/** The demo admin credentials the login screen prefills with (SOU-186). */
+export type DemoLogin = {
+  username: string;
+  password: string;
 };
 
-/** `demo.create` / `demo.wipe` response — the app is about to restart. */
+/**
+ * `demo.status` response — whether the open center is the demo center, plus the
+ * demo login prefill (SOU-186) and whether this device is the LAN hub host
+ * (SOU-190). `demoLogin` is non-null ONLY when the open center IS the demo
+ * center AND main has the `CS_DEMO_*` env vars set; the renderer holds no
+ * credential literal of its own and reads them only from here. `isHubHost`
+ * reports whether this laptop is the CONFIGURED hub host (embedded hub enabled
+ * at boot — `CS_HUB_ENABLED` + `CS_HUB_TOKEN` + `CS_HUB_PORT` +
+ * `CS_HUB_BIND_HOST`), regardless of which center is open; the renderer uses it
+ * to warn before `demo.create`, which stops the hub.
+ */
+export type DemoStatusResponse = {
+  isDemo: boolean;
+  demoLogin: DemoLogin | null;
+  isHubHost: boolean;
+};
+
+/**
+ * `demo.create` / `demo.wipe` response — the demo hot-swap that just completed
+ * (SOU-186). `create` resolves `{ isDemo: true }`, `wipe` resolves
+ * `{ isDemo: false }`, always AFTER the in-process DB swap; the renderer reacts
+ * off the resolved promise (cache-invalidate + store-reset), never a reload.
+ */
 export type DemoMutationResponse = {
-  relaunching: true;
+  isDemo: boolean;
 };

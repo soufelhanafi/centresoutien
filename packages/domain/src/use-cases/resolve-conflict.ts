@@ -5,6 +5,8 @@ import type { LocalSyncRepository } from '../sync/sync-local-repository';
 import type { ChangeLogOp } from '../sync/change-log-writer';
 import { ConflictNotFoundError, ConflictNotPerFieldResolvableError } from '../errors/sync-errors';
 import type { DeviceId, EntityId, UserId } from '../value-objects/ids';
+import { SESSION_ENTITY_TYPE, type SessionDedupStore } from '../sync/session-dedup';
+import { resolveSessionCollision } from '../policies/session-collision-policy';
 
 /**
  * A human's decision on one unresolved sync conflict — the "conflits en
@@ -51,11 +53,16 @@ export class ResolveConflict {
     private readonly local: LocalSyncRepository,
     private readonly clock: Clock,
     private readonly plan: PlanPolicy,
+    private readonly sessionDedups: SessionDedupStore | null = null,
   ) {}
 
   async execute(input: ResolveConflictInput): Promise<void> {
     this.plan.require('sync.conflict-resolution');
     const conflict = this.findBlocked(input.entityType, input.entityId);
+    if (this.sessionDedups !== null && conflict.entityType === SESSION_ENTITY_TYPE) {
+      this.resolveSessionConflict(conflict, input, this.sessionDedups);
+      return;
+    }
     const resolved = this.buildResolvedEntity(conflict, input.resolution);
     const now = this.clock.now();
     this.local.resolveBlocked({
@@ -67,6 +74,68 @@ export class ResolveConflict {
       op: resolved.op,
       updatedBy: input.updatedBy,
       at: now,
+    });
+  }
+
+  /**
+   * A session natural-key conflict spans TWO ids for the same
+   * `(recurring_session_id, date)` slot (SOU-188): the conflict is keyed on the
+   * local occupied row, while the hub's canonical lives under the other id. The
+   * human's choice therefore survives under the lower-ULID winner id, and the
+   * loser is retired — otherwise take-theirs re-wedges `ux_sessions_recurrence_date`
+   * at the next `markSynced` projection, and take-mine leaves permanent silent
+   * divergence (the winner was consumed by the cursor, never applied).
+   */
+  private resolveSessionConflict(
+    conflict: SyncConflict,
+    input: ResolveConflictInput,
+    sessionDedups: SessionDedupStore,
+  ): void {
+    // Duplicates are merged via MergeParents / MergeStudents (SOU-92), never
+    // settled here — mirrors `buildResolvedEntity`, and narrows the union so
+    // the natural-key fields below are typed.
+    if (conflict.kind === 'probable-duplicate') {
+      throw new ConflictNotFoundError(conflict.entityType, conflict.keptId);
+    }
+    const resolved = this.buildResolvedEntity(conflict, input.resolution);
+    const mineId = conflict.mine.entity['id'];
+    const theirsId = conflict.theirs.entity['id'];
+    // Defensive: only natural-key clashes (two different session ids) need the
+    // dedup settlement; a generic session clash on a single row keeps the plain
+    // path.
+    if (typeof mineId !== 'string' || typeof theirsId !== 'string' || mineId === theirsId) {
+      this.local.resolveBlocked({
+        entityType: input.entityType,
+        entityId: input.entityId,
+        entity: resolved.entity,
+        changedFields: resolved.changedFields,
+        baseVersion: resolved.baseVersion,
+        op: resolved.op,
+        updatedBy: input.updatedBy,
+        at: this.clock.now(),
+      });
+      return;
+    }
+    const { winnerId, loserId } = resolveSessionCollision(mineId as EntityId, theirsId as EntityId);
+    // The resolution push is based on the SURVIVOR's canonical version, not the
+    // conflict's (which is the inbound side's): re-basing a local-only winner
+    // onto the inbound's version would make the push stale against the hub's
+    // unknown-entity base (0).
+    const baseVersion =
+      winnerId === theirsId
+        ? conflict.version
+        : (this.local.getLocalState(SESSION_ENTITY_TYPE, winnerId)?.version ?? 0);
+    sessionDedups.resolveSessionNaturalKey({
+      fromId: conflict.entityId,
+      winnerId,
+      loserId,
+      entity: { ...resolved.entity, id: winnerId },
+      inboundVersion: conflict.version,
+      baseVersion,
+      op: resolved.op,
+      changedFields: resolved.changedFields,
+      updatedBy: input.updatedBy,
+      at: this.clock.now(),
     });
   }
 

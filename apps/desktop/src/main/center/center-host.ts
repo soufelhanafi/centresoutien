@@ -1,128 +1,97 @@
 import { CenterSwitchError } from '@centresoutien/domain';
 import type { Container } from '../composition-root';
-import { createHandlers } from '../ipc/handlers';
 import { currentCenterSummary } from '../ipc/center-switch-handlers';
-import type { IpcChannel, RegisterableIpcHandlers } from '../../shared/ipc/contract';
 import type { CenterChangedEvent } from '../../shared/ipc/center-events';
 
-const DRAIN_POLL_MS = 5;
-const DRAIN_TIMEOUT_MS = 5000;
+/**
+ * Structurally valid center-id charset (SOU-96 Greptile P1, defense in depth).
+ * `centreId` becomes `centre-{id}.db` / `hub-{id}.db` under the userData dir, so a
+ * renderer-supplied id with a path separator, `..`, or a NUL byte could probe or
+ * create SQLCipher files OUTSIDE userData. The installed-center whitelist below is
+ * the authoritative guard (an attacker cannot name a file that isn't there); this
+ * regex rejects the obvious traversal shapes before the whitelist even runs.
+ */
+const SAFE_CENTRE_ID = /^[A-Za-z0-9_-]+$/;
 
 /**
- * `center.switch` is the one channel exempt from in-flight counting: it is the
- * call that DRIVES the swap, so counting it would deadlock the drain (the drain
- * would wait for the switch call that is waiting for the drain).
+ * The mechanical hot-swap primitive {@link CenterHost} drives. Implemented by
+ * `MainRuntime`, which owns the live container + `ipcMain` delegation for the
+ * whole process; the center switcher is one of its two triggers (the demo toggle
+ * is the other). Kept as a narrow structural seam so the host unit-tests without
+ * a real `MainRuntime` or an Electron `ipcMain`.
  */
-const UNCOUNTED_CHANNELS: ReadonlySet<string> = new Set<IpcChannel>(['center.switch']);
+export type CenterSwapRuntime = {
+  readonly currentCentreId: string;
+  readonly currentContainer: Container;
+  swapTo(build: () => Container): Promise<void>;
+};
 
 export type CenterHostOptions = {
-  initial: Container;
-  initialCentreId: string;
+  runtime: CenterSwapRuntime;
   /** Opens + migrates the target center's DB and wires a fresh container for it.
    *  Throws if the target cannot be opened — the host converts that to a
-   *  `CenterSwitchError` and leaves the current center untouched. */
+   *  `CenterSwitchError` and (via the runtime) leaves the current center untouched. */
   buildForCenter: (centreId: string) => Container;
+  /** The `centreId`s of the centers actually installed on this machine (the
+   *  userData `centre-*.db` scan, demo excluded). The switch target MUST be one of
+   *  these — the Greptile P1 path-traversal whitelist. */
+  listInstalledCentreIds: () => readonly string[];
   emitCenterChanged: (event: CenterChangedEvent) => void;
 };
 
 /**
- * Owns the live, in-process center hot-swap for the app shell (SOU-96). The
- * Electron main process registers `host.ipcHandlers()` with `ipcMain` ONCE; every
- * dispatch is delegated to whichever container is currently open, so a switch
- * never has to unwire/rewire `ipcMain`.
+ * The center-switcher trigger for the app shell (SOU-96). It owns only the
+ * center-specific concerns — the installed-center whitelist, the same-center
+ * short-circuit, and the `center.changed` emit — and delegates the mechanical
+ * close-one / open-another swap (drain in-flight work, build the target, dispose
+ * the previous DB handle) to the injected {@link CenterSwapRuntime}. That runtime
+ * is the single owner of the live container and the `ipcMain` delegation, so a
+ * switch never has to unwire/rewire `ipcMain`, and the demo toggle and the center
+ * switch share one hot-swap mechanism instead of two.
  *
  * A switch = close-one / open-another (CLAUDE.md §5ter — the center is the tenant,
- * one DB file each): drain in-flight work, build the target container, atomically
- * point the delegation at it, then dispose the previous one (closing its DB). The
- * previous container is disposed only AFTER the new one is open, so a failed open
- * never leaves the app center-less.
- *
- * Concurrency (SOU-193): the desktop is single-operator. New non-switch calls are
- * rejected while a switch is in progress, and the drain waits for any call already
- * running to settle before the old DB is closed — so an in-flight query can never
- * hit a half-closed handle. If a call somehow does not settle within the drain
- * window the switch is refused (never forced), because disposing a DB out from
- * under a live query is the exact use-after-free hazard SOU-193 guards against.
+ * one DB file each). The runtime disposes the previous container only AFTER the
+ * new one is open, so a failed open never leaves the app center-less.
  */
 export class CenterHost {
-  private container: Container;
-  private handlers: RegisterableIpcHandlers;
-  private centreId: string;
-  private inFlight = 0;
-  private swapping = false;
-
-  constructor(private readonly options: CenterHostOptions) {
-    this.container = options.initial;
-    this.handlers = createHandlers(options.initial.handlerDeps);
-    this.centreId = options.initialCentreId;
-  }
+  constructor(private readonly options: CenterHostOptions) {}
 
   get currentContainer(): Container {
-    return this.container;
+    return this.options.runtime.currentContainer;
   }
 
   get currentCentreId(): string {
-    return this.centreId;
-  }
-
-  isRestricted = (): boolean => this.container.isRestricted();
-  isSetupComplete = (): boolean => this.container.isSetupComplete();
-
-  /**
-   * A stable handler map for `registerIpc`. Every channel delegates to the
-   * currently-open container's handler; non-switch calls are wrapped with
-   * in-flight tracking and rejected while a swap runs. Registered once — the
-   * delegation, not `ipcMain`, is what changes on a switch.
-   */
-  ipcHandlers(): RegisterableIpcHandlers {
-    return new Proxy({} as RegisterableIpcHandlers, {
-      has: (_target, channel) => typeof channel === 'string' && channel in this.handlers,
-      get: (_target, channel) => {
-        if (typeof channel !== 'string' || !(channel in this.handlers)) return undefined;
-        return this.wrap(channel);
-      },
-    });
-  }
-
-  private wrap(channel: string) {
-    return async (request: unknown): Promise<unknown> => {
-      const handler = (this.handlers as Record<string, ((req: unknown) => unknown) | undefined>)[
-        channel
-      ];
-      if (!handler) throw new Error(`No handler registered for IPC channel: ${channel}`);
-      if (UNCOUNTED_CHANNELS.has(channel)) return handler(request);
-      if (this.swapping) throw new CenterSwitchError('a center switch is in progress');
-      this.inFlight += 1;
-      try {
-        return await handler(request);
-      } finally {
-        this.inFlight -= 1;
-      }
-    };
+    return this.options.runtime.currentCentreId;
   }
 
   swapTo = async (centreId: string): Promise<void> => {
-    if (centreId === this.centreId) return;
-    if (this.swapping) throw new CenterSwitchError('a center switch is already in progress');
-    this.swapping = true;
-    try {
-      await this.drain();
-      const next = this.openTarget(centreId);
-      const previous = this.container;
-      this.container = next;
-      this.handlers = createHandlers(next.handlerDeps);
-      this.centreId = centreId;
-      previous.dispose();
-      // Past the point of no return: `next` is now the open center. Computing or
-      // emitting `center.changed` reads `next`'s DB, so it can fail — but a failed
-      // notification must NOT re-report an already-committed swap as rejected, or
-      // the renderer's onSuccess never runs and it keeps showing the previous
-      // center while the backend serves the new one (a cross-tenant display risk).
-      await this.announceOpenCenter(next, centreId);
-    } finally {
-      this.swapping = false;
-    }
+    if (centreId === this.options.runtime.currentCentreId) return;
+    this.assertInstalledCenter(centreId);
+    await this.options.runtime.swapTo(() => this.openTarget(centreId));
+    // Past the point of no return: `centreId` is now the open center. Computing or
+    // emitting `center.changed` reads its DB, so it can fail — but a failed
+    // notification must NOT re-report an already-committed swap as rejected, or
+    // the renderer's onSuccess never runs and it keeps showing the previous center
+    // while the backend serves the new one (a cross-tenant display risk).
+    await this.announceOpenCenter(centreId);
   };
+
+  /**
+   * Greptile P1 (path traversal). The requested `centreId` flows into
+   * `centre-{id}.db` / `hub-{id}.db` path construction; validate it BEFORE any
+   * path is built or any DB is opened. Authoritative check: it must be one of the
+   * centers actually discovered on disk — an id that names no installed file is
+   * rejected here, so a traversal id can never reach `openTarget`. The structural
+   * regex is defense in depth for the same class of input.
+   */
+  private assertInstalledCenter(centreId: string): void {
+    if (!SAFE_CENTRE_ID.test(centreId)) {
+      throw new CenterSwitchError(`invalid center id "${centreId}"`);
+    }
+    if (!this.options.listInstalledCentreIds().includes(centreId)) {
+      throw new CenterSwitchError(`center "${centreId}" is not installed`);
+    }
+  }
 
   private openTarget(centreId: string): Container {
     try {
@@ -133,9 +102,9 @@ export class CenterHost {
     }
   }
 
-  private async announceOpenCenter(container: Container, centreId: string): Promise<void> {
+  private async announceOpenCenter(centreId: string): Promise<void> {
     try {
-      this.options.emitCenterChanged(await this.describe(container));
+      this.options.emitCenterChanged(await this.describe(this.options.runtime.currentContainer));
     } catch (error) {
       console.error('[center-switch] swap completed but center.changed emit failed', centreId, error);
     }
@@ -148,18 +117,4 @@ export class CenterHost {
       getCenterProfile: container.handlerDeps.getCenterProfile,
     });
   }
-
-  private async drain(): Promise<void> {
-    const deadline = Date.now() + DRAIN_TIMEOUT_MS;
-    while (this.inFlight > 0) {
-      if (Date.now() >= deadline) {
-        throw new CenterSwitchError('center is busy — please retry the switch');
-      }
-      await delay(DRAIN_POLL_MS);
-    }
-  }
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

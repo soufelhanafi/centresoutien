@@ -63,20 +63,28 @@ export function conflictsByGroup(
 
 /** A stable identity for one proposed block within its group (weekday + slot + room). */
 export function blockKey(groupId: string, block: GeneratorBlockProposal): string {
-  return `${groupId}|${block.dayOfWeek}|${block.start}|${block.end}|${block.roomId}`;
+  return `${groupId}|${block.dayOfWeek}|${block.start}|${block.end}|${block.roomId}|${block.teacherId ?? 'none'}`;
 }
 
 function blockMatchesAnyConflict(
   block: GeneratorBlockProposal,
   conflicts: readonly GeneratorConflict[],
 ): boolean {
-  return conflicts.some(
-    (conflict) =>
-      conflict.dayOfWeek === block.dayOfWeek &&
+  return conflicts.some((conflict) => {
+    if (conflict.dayOfWeek !== block.dayOfWeek) return false;
+    if (conflict.kind === 'teacher') {
+      return (
+        block.teacherId === conflict.teacherId &&
+        conflict.start === block.start &&
+        conflict.end === block.end
+      );
+    }
+    return (
       conflict.start === block.start &&
       conflict.end === block.end &&
-      (conflict.kind === 'hours' || conflict.roomId === block.roomId),
-  );
+      (conflict.kind === 'hours' || conflict.roomId === block.roomId)
+    );
+  });
 }
 
 /**

@@ -21,7 +21,6 @@ export const DialogOverlay = React.forwardRef<
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 export type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
-  /** Accessible label for the close button — pass a translated string (SOU-21). */
   closeLabel?: string;
 };
 
