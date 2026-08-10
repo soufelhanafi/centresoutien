@@ -51,6 +51,7 @@ import {
   ROOM_ID_PREFIX,
   TEACHER_ID_PREFIX,
   TIME_OF_DAY_REGEX,
+  INVOICE_LIST_MAX_PAGE_SIZE,
 } from '@centresoutien/domain';
 
 /** The center profile as it crosses the IPC boundary — envelope dates stay in main. */
@@ -1340,9 +1341,9 @@ export const ipcContract = {
       invoiceId: z.string().optional(),
       paymentStatus: paymentStatusSchema.optional(),
       openOnly: z.boolean().optional(),
-      search: z.string().optional(),
+      search: z.string().max(200).optional(),
       cursor: z.string().optional(),
-      pageSize: z.number().int().positive().max(100).optional(),
+      pageSize: z.number().int().positive().max(INVOICE_LIST_MAX_PAGE_SIZE).optional(),
     }),
     response: z.object({
       invoices: z.array(invoiceListItemViewSchema),

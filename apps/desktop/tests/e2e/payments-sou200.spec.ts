@@ -136,11 +136,12 @@ test('AC3 — open-invoice picker pages at 20, searches by name, excludes cancel
   expect(openCount).toBe(26);
 
   await gotoPayments(win, L);
-  await win.waitForTimeout(600);
 
   // Page size 20: exactly one page of record-actions before "load more".
   await expect(win.getByRole('button', { name: X.loadMore })).toBeVisible();
-  expect(await recordActionCount(win, L.record.action), 'first page shows page-size 20').toBe(20);
+  await expect
+    .poll(() => recordActionCount(win, L.record.action), { message: 'first page shows page-size 20' })
+    .toBe(20);
 
   // Rows are labelled by student name.
   const firstPageName = locale() === 'ar' ? 'تلميذ 25' : 'Eleve 25';
@@ -152,8 +153,11 @@ test('AC3 — open-invoice picker pages at 20, searches by name, excludes cancel
 
   // "Load more" (cursor page 2) reveals the rest — 26 open total, none duplicated beyond that.
   await win.getByRole('button', { name: X.loadMore }).click();
-  await win.waitForTimeout(500);
-  expect(await recordActionCount(win, L.record.action), 'after one load-more all 26 open invoices are listed').toBe(26);
+  await expect
+    .poll(() => recordActionCount(win, L.record.action), {
+      message: 'after one load-more all 26 open invoices are listed',
+    })
+    .toBe(26);
   await expect(win.getByRole('button', { name: X.loadMore })).toHaveCount(0);
 
   // Name search narrows to the single matching student (server-side filter).
@@ -161,16 +165,22 @@ test('AC3 — open-invoice picker pages at 20, searches by name, excludes cancel
   const searchTargetName = locale() === 'ar' ? PICKER_NAMES.searchTarget.ar : PICKER_NAMES.searchTarget.fr;
   const search = win.getByPlaceholder(X.searchPlaceholder);
   await search.fill(searchToken);
-  await win.waitForTimeout(700);
 
   await expect(win.getByText(searchTargetName).first()).toBeVisible();
-  expect(await recordActionCount(win, L.record.action), 'search narrows to the single matching open invoice').toBe(1);
+  await expect
+    .poll(() => recordActionCount(win, L.record.action), {
+      message: 'search narrows to the single matching open invoice',
+    })
+    .toBe(1);
   await expect(win.getByText(firstPageName)).toHaveCount(0);
 
   // Searching the cancelled student's name yields no open invoice to collect.
   await search.fill(cancelledName);
-  await win.waitForTimeout(700);
-  expect(await recordActionCount(win, L.record.action), 'cancelled invoice is not collectable via search').toBe(0);
+  await expect
+    .poll(() => recordActionCount(win, L.record.action), {
+      message: 'cancelled invoice is not collectable via search',
+    })
+    .toBe(0);
   await expect(win.getByText(X.noResultsTitle).first()).toBeVisible();
 
   await win.screenshot({ path: `test-results/sou200-picker-pagination-${locale()}.png`, fullPage: true });

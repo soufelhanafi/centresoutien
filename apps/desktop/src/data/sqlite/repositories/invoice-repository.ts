@@ -346,6 +346,9 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
         `SELECT i.*, COALESCE(lt.total_mad, 0) AS total_mad, COALESCE(pt.net_paid_mad, 0) AS net_paid_mad,
                 s.name_fr AS student_name_fr, s.name_ar AS student_name_ar
          FROM invoices i
+         -- Intentionally no s.deleted_at filter: an outstanding invoice must keep
+         -- showing (and stay searchable by) its payer's name after the student is
+         -- archived. The invoice itself, not the student join, decides visibility.
          LEFT JOIN students s ON s.id = i.student_id
          LEFT JOIN (
            SELECT invoice_id, SUM(amount_mad) AS total_mad

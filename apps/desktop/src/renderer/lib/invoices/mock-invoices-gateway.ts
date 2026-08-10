@@ -1,4 +1,4 @@
-import { paymentStatusOf } from '@centresoutien/domain';
+import { foldSearchText, paymentStatusOf } from '@centresoutien/domain';
 import type {
   InvoiceListFilters,
   InvoiceListItemView,
@@ -16,6 +16,17 @@ function matches(invoice: InvoiceListItemView, filters: InvoiceListFilters): boo
   return true;
 }
 
+/**
+ * Mirror the production diacritic-insensitive student-name substring match
+ * (SQLite `nfd_fold` UDF === domain `foldSearchText`). A row with no resolved
+ * student name never matches a non-empty term, exactly like the SQL `LEFT JOIN`.
+ */
+function studentNameMatches(invoice: InvoiceListItemView, foldedTerm: string): boolean {
+  const name = invoice.studentName;
+  if (!name) return false;
+  return foldSearchText(name.fr).includes(foldedTerm) || foldSearchText(name.ar).includes(foldedTerm);
+}
+
 /** In-memory stand-in for the not-yet-published invoice channels (see `invoices-gateway.ts`). */
 export class MockInvoicesGateway implements InvoicesGateway {
   private readonly invoices = new Map<string, InvoiceListItemView>(INVOICE_SEED.map((i) => [i.id, i]));
@@ -29,8 +40,11 @@ export class MockInvoicesGateway implements InvoicesGateway {
   }
 
   async listOpen(query: OpenInvoicesQuery): Promise<OpenInvoicesPage> {
+    const term = query.search?.trim() ?? '';
+    const foldedTerm = term === '' ? '' : foldSearchText(term);
     const open = [...this.invoices.values()]
       .filter((invoice) => invoice.status !== 'cancelled' && invoice.outstandingMad > 0)
+      .filter((invoice) => foldedTerm === '' || studentNameMatches(invoice, foldedTerm))
       .sort((a, b) => b.id.localeCompare(a.id));
 
     const cursor = query.cursor;
