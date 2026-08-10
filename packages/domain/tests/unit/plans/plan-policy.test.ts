@@ -49,6 +49,10 @@ describe('PlanPolicy.setActivePlan', () => {
     expect(new PlanPolicy(locked).activePlanId()).toBe('essentiel');
   });
 
+  it('activeFeatures() reflects the exact active feature set', () => {
+    expect(new PlanPolicy(locked).activeFeatures()).toEqual(['core.students']);
+  });
+
   it('setActivePlan swaps the active plan so gating follows the new tier', () => {
     const policy = new PlanPolicy(locked);
     expect(policy.has('payroll.teacher')).toBe(false);

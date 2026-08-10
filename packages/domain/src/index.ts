@@ -111,7 +111,7 @@ export type { SoftDeletableRepository } from './repositories/soft-deletable';
 
 // Plans & gating
 export type { PlanId, FeatureFlag, PlanLimits, Plan } from './plans/plans';
-export { PLANS } from './plans/plans';
+export { FEATURE_FLAGS, PLANS } from './plans/plans';
 export { FEATURE_TIER, minimumPlanFor } from './plans/feature-tiers';
 export { PlanPolicy } from './plans/plan-policy';
 export { DomainError, PlanFeatureUnavailableError, PlanLimitExceededError } from './errors/plan-errors';

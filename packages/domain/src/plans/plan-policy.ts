@@ -24,6 +24,10 @@ export class PlanPolicy {
     return this.plan.id;
   }
 
+  activeFeatures(): readonly FeatureFlag[] {
+    return [...this.plan.features];
+  }
+
   has(feature: FeatureFlag): boolean {
     return this.plan.features.has(feature);
   }

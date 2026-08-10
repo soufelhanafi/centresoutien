@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PLANS } from '../../../src/plans/plans';
+import { FEATURE_FLAGS, PLANS } from '../../../src/plans/plans';
 import type { FeatureFlag, PlanId } from '../../../src/plans/plans';
 
 const ids: PlanId[] = ['essentiel', 'pro', 'premium'];
@@ -65,6 +65,10 @@ describe('PLANS registry', () => {
     }
     // essentiel/pro carry exactly this set — no more, no less.
     expect(PLANS.essentiel.features.size).toBe(everywhere.length);
+  });
+
+  it('exports the complete feature flag list once', () => {
+    expect([...FEATURE_FLAGS].sort()).toEqual([...PLANS.premium.features].sort());
   });
 
   it('sets unlimited limits on all three tiers', () => {

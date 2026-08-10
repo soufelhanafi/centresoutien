@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { STR, bootWithClash, type Launched, type Locale } from './sync-conflicts.fixtures';
 
 /**
@@ -8,15 +8,10 @@ import { STR, bootWithClash, type Launched, type Locale } from './sync-conflicts
  * DROPPING the `sync.multi-device` flag, NOT by picking a plan id — the shipped
  * MVP tiers (SOU-83) grant that flag to essentiel / pro / premium alike.
  *
- * Consequently the NEGATIVE path (a plan LACKING `sync.multi-device` renders the
- * full-page plan gate, hides the nav entry, and the use case throws
- * `PlanFeatureUnavailableError`) is NOT reachable through the packaged app's
- * launch seam: `CS_PLAN` / `E2eSyntheticLicense` only select a whole tier, and
- * every tier includes `sync.multi-device`. There is no e2e feature-drop knob.
- * That branch is instead proven at the component + domain layer:
- *   - apps/desktop/tests/renderer/sync/sync-page.test.tsx (full-page gate, FR+AR)
- *   - packages/domain plan-lock unit tests (use-case safety net)
- * which is the sanctioned split per CLAUDE.md §9.
+ * SOU-187 adds the NEGATIVE path seam: `CS_E2E_OMIT_FEATURES` can drop a flag
+ * from a real plan in the dedicated e2e build only. This lets the packaged app
+ * prove the full-page plan gate, locked nav entry, and domain `PlanPolicy` throw
+ * without changing shipped plan membership.
  *
  * What IS black-box provable here (the shipped reality, flag PRESENT): the
  * Synchronisation entry is a live nav link and the page renders the WORKING sync
@@ -31,6 +26,31 @@ const GATE_TITLE: Record<Locale, string> = {
   fr: 'Réservé à un plan supérieur',
   ar: 'غير متاح في خطتك',
 };
+
+const GATE_CTA: Record<Locale, string> = {
+  fr: 'Débloquer avec Premium',
+  ar: 'افتح مع بريميوم',
+};
+
+async function navigateToHash(win: Page, hash: string): Promise<void> {
+  await win.evaluate((target) => {
+    window.location.hash = target;
+  }, hash);
+}
+
+async function runSyncThroughBridge(win: Page): Promise<string> {
+  return win.evaluate(async () => {
+    try {
+      await (window as unknown as { api: { invoke: (channel: string, request: unknown) => Promise<unknown> } }).api.invoke(
+        'sync.run',
+        {},
+      );
+      return '';
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+  });
+}
 
 let live: Launched | null = null;
 test.afterEach(async () => {
@@ -55,3 +75,24 @@ for (const plan of ['essentiel', 'premium'] as const) {
     await expect(win.locator('html')).toHaveAttribute('dir', L.dir);
   });
 }
+
+test('premium minus sync.multi-device renders sync as locked and domain-gated', async () => {
+  const L = STR[locale()];
+  live = await bootWithClash(locale(), 'premium', false, { omitFeatures: ['sync.multi-device'] });
+  const win = live.win;
+
+  const nav = win.getByRole('navigation', { name: L.navAria });
+  await expect(nav.getByRole('link', { name: L.nav, exact: true })).toHaveCount(0);
+  const lockedNav = nav.getByRole('button', { name: L.nav, exact: true });
+  await expect(lockedNav).toBeVisible();
+  await expect(lockedNav).toBeDisabled();
+
+  await navigateToHash(win, '#/sync');
+  await expect(win.getByText(GATE_TITLE[locale()])).toBeVisible();
+  await expect(win.getByRole('button', { name: GATE_CTA[locale()] })).toBeVisible();
+  await expect(win.locator('html')).toHaveAttribute('dir', L.dir);
+
+  const error = await runSyncThroughBridge(win);
+  expect(error).toContain('PlanFeatureUnavailableError');
+  expect(error).toContain('sync.multi-device');
+});

@@ -4,6 +4,7 @@ import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   PLANS,
+  FEATURE_FLAGS,
   PlanPolicy,
   resolveActivePlan,
   isRestrictedMode,
@@ -134,6 +135,8 @@ import {
 } from '@centresoutien/domain';
 import type {
   PlanId,
+  FeatureFlag,
+  Plan,
   CenterCode,
   DeviceId,
   UserId,
@@ -438,6 +441,40 @@ export function resolveStartupPlanId(
   return isDev ? devFallback : 'essentiel';
 }
 
+function activeFeatureSet(planId: PlanId): Set<FeatureFlag> {
+  return new Set(PLANS[planId].features);
+}
+
+function isFeatureFlag(value: string): value is FeatureFlag {
+  return FEATURE_FLAGS.includes(value as FeatureFlag);
+}
+
+function parseE2eOmittedFeatures(raw: string | undefined, planId: PlanId): readonly FeatureFlag[] {
+  if (!raw) return [];
+  const activeFeatures = activeFeatureSet(planId);
+  return raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+    .map((value) => {
+      if (!isFeatureFlag(value) || !activeFeatures.has(value)) {
+        throw new Error(`CS_E2E_OMIT_FEATURES contains unknown or inactive feature: ${value}`);
+      }
+      return value;
+    });
+}
+
+function resolvePlanForPolicy(planId: PlanId): Plan {
+  const base = PLANS[planId];
+  const omitted = __CS_E2E__ ? parseE2eOmittedFeatures(process.env['CS_E2E_OMIT_FEATURES'], planId) : [];
+  if (omitted.length === 0) return base;
+  const omittedSet = new Set(omitted);
+  return {
+    ...base,
+    features: new Set([...base.features].filter((feature) => !omittedSet.has(feature))),
+  };
+}
+
 /**
  * The one place concrete adapters are constructed and injected into use cases.
  * Opens the center database, migrates it, wires the SQLite repositories to the
@@ -521,7 +558,7 @@ export function buildContainer(options: ContainerOptions): Container {
     options.planId,
     import.meta.env.DEV,
   );
-  const plan = new PlanPolicy(PLANS[activePlanId]);
+  const plan = new PlanPolicy(resolvePlanForPolicy(activePlanId));
 
   // The server-side restricted-mode hard lock (SOU-104), superseding the deferred
   // SOU-173. Until the license resolves to `active`, the IPC dispatcher answers
@@ -577,6 +614,7 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
     options.centerCode,
     options.centreId === 'demo',
+    resolvePlanForPolicy,
   );
   const getLicenseStatus = new GetLicenseStatus(
     license,
@@ -1214,6 +1252,7 @@ export function buildContainer(options: ContainerOptions): Container {
   const handlerDeps: HandlerDeps = {
     appVersion: options.appVersion,
     activePlanId: () => plan.activePlanId(),
+    activePlanFeatures: () => plan.activeFeatures(),
     setActivePlan: (planId) => plan.setActivePlan(PLANS[planId]),
     getLicenseStatus,
     activateLicense,

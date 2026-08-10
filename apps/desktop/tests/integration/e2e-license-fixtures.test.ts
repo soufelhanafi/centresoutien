@@ -89,7 +89,7 @@ describe('committed e2e license fixtures (SOU-172)', () => {
       license: signWithTestKey(claims({ plan: 'premium', centersAllowed: 3 })),
     });
     expect(result).toMatchObject({ status: 'activated', plan: 'premium', centersAllowed: 3 });
-    expect(await dispatch('plan.get', {})).toEqual({ planId: 'premium' });
+    expect(await dispatch('plan.get', {})).toMatchObject({ planId: 'premium' });
     expect(await dispatch('license.status', {})).toMatchObject({
       status: 'active',
       plan: 'premium',

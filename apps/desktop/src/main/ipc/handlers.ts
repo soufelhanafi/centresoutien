@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import type {
   PlanId,
+  FeatureFlag,
   GetLicenseStatus,
   ActivateLicense,
   CreateSubject,
@@ -713,6 +714,7 @@ export type HandlerDeps = BackupHandlerDeps &
   CenterSwitchHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
+  activePlanFeatures: () => readonly FeatureFlag[];
   setActivePlan: (planId: PlanId) => void;
   getLicenseStatus: GetLicenseStatusUseCase;
   activateLicense: ActivateLicenseUseCase;
@@ -843,6 +845,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     }),
     'plan.get': () => ({
       planId: deps.activePlanId(),
+      features: [...deps.activePlanFeatures()],
     }),
     'license.status': () => deps.getLicenseStatus.execute(),
     'license.activate': (request) => deps.activateLicense.execute({ rawLicense: request.license }),
