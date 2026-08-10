@@ -22,11 +22,43 @@ export type InvoiceListRow = {
   readonly netPaidMad: number;
 };
 
-/** Structural filters `listInvoices` applies in SQL — cheap, indexed columns only.
- *  The derived payment-status filter is NOT here; it is applied by `ListInvoices`
- *  in-memory once `totalMad`/`netPaidMad` are known. */
+/** Upper bound the adapter clamps `pageSize` to — a single bounded page is never
+ *  a whole-center dump. Also the ceiling the IPC request schema enforces. */
+export const INVOICE_LIST_MAX_PAGE_SIZE = 100;
+
+/** Structural filters `listInvoices` applies in SQL — cheap, indexed columns only,
+ *  plus the two SQL-side derived filters keyset pagination needs applied *before*
+ *  the LIMIT: `openOnly` and `search`.
+ *
+ *  The tri-state derived payment-status filter is NOT here; it stays in
+ *  `ListInvoices` in-memory (its enum formula must live in exactly one place).
+ *  `openOnly` is the one derived predicate the adapter DOES apply, because it is a
+ *  plain arithmetic `outstanding > 0` on the join's already-computed totals — not
+ *  the status enum — and because a filter that runs after the page LIMIT would
+ *  return short, wrongly-cursored pages. */
 export type InvoiceListFilters = {
   month?: string;
   studentId?: StudentId;
   invoiceId?: InvoiceId;
+  /** `status !== 'cancelled' && outstandingMad > 0` — the "still owes money"
+   *  set backing the cash-desk payment picker (SOU-200). Applied in SQL. */
+  openOnly?: boolean;
+  /** Case-insensitive substring over the student's `fr`/`ar` name. Applied in SQL. */
+  search?: string;
+  /** Keyset cursor: exclusive upper-bound invoice id. Pages descend by `id`
+   *  (ULIDs are time-sortable), so "the next page" is every row with `id < cursor`.
+   *  Omitted for the first page. Only honored when `pageSize` is set. */
+  cursor?: string;
+  /** Bounded page size. When set, the read is paginated (ordered by `id DESC`) and
+   *  returns a `nextCursor`; the adapter clamps to {@link INVOICE_LIST_MAX_PAGE_SIZE}.
+   *  When omitted, every matching row is returned and `nextCursor` is `null`. */
+  pageSize?: number;
+};
+
+/** One page of {@link InvoiceListRow}s plus the keyset cursor to fetch the next one
+ *  (`null` when this is the last page or the read was unpaginated). Returned by
+ *  {@link InvoiceRepository.listInvoices}. */
+export type InvoiceListPage = {
+  readonly rows: readonly InvoiceListRow[];
+  readonly nextCursor: string | null;
 };

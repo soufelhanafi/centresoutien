@@ -342,7 +342,7 @@ export async function seedDemoCenter(deps: DemoSeedDeps, ctx: DemoSeedContext): 
   await deps.generateMonthlyInvoices.execute({ month: DEMO_ANCHOR_MONTH, ...env });
   const invoiceIds: InvoiceId[] = [];
   for (const month of ['2026-08', DEMO_ANCHOR_MONTH]) {
-    const rows = await deps.listInvoices.execute({ centerCode: ctx.centerCode, month });
+    const { items: rows } = await deps.listInvoices.execute({ centerCode: ctx.centerCode, month });
     for (const row of rows) {
       await deps.issueInvoice.execute({ centerCode: ctx.centerCode, invoiceId: row.invoice.id, updatedBy: ctx.updatedBy });
       invoiceIds.push(row.invoice.id);
@@ -356,7 +356,9 @@ export async function seedDemoCenter(deps: DemoSeedDeps, ctx: DemoSeedContext): 
   const augCount = Math.floor(invoiceIds.length / 2);
   for (let i = 0; i < invoiceIds.length; i += 1) {
     const invoiceId = invoiceIds[i]!;
-    const [invoice] = await deps.listInvoices.execute({
+    const {
+      items: [invoice],
+    } = await deps.listInvoices.execute({
       centerCode: ctx.centerCode,
       invoiceId,
     });

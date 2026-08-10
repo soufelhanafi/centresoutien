@@ -1,4 +1,5 @@
 import type { Database as DB } from 'better-sqlite3';
+import { INVOICE_LIST_MAX_PAGE_SIZE } from '@centresoutien/domain';
 import type {
   Invoice,
   InvoiceId,
@@ -8,6 +9,7 @@ import type {
   InvoiceStatus,
   InvoiceListRow,
   InvoiceListFilters,
+  InvoiceListPage,
   CenterCode,
   DeviceId,
   FormulaId,
@@ -283,12 +285,20 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
   // header row; a second batched IN(...) query then fetches every matched
   // invoice's lines in one round trip. Mirrors the anti-N+1 shape of
   // `ListGroupsWithCounts`'s batch count read.
+  //
+  // `openOnly` and `search` are applied here in SQL (unlike the tri-state derived
+  // paymentStatus, which stays in `ListInvoices`): keyset pagination clamps rows
+  // with a LIMIT, so any filter that ran after the LIMIT would hand back short,
+  // wrongly-cursored pages. `openOnly` is a plain `outstanding > 0` on the join's
+  // already-computed totals, not the status enum, so it duplicates no formula.
+  // Pagination (`pageSize` set) descends by ULID id — a keyset `id < cursor`, never
+  // an OFFSET — and over-fetches one row to decide whether a `nextCursor` exists.
   async listInvoices(
     centerCode: CenterCode,
     filters: InvoiceListFilters,
-  ): Promise<readonly InvoiceListRow[]> {
+  ): Promise<InvoiceListPage> {
     const conditions = ['i.center_code = @center_code', 'i.deleted_at IS NULL'];
-    const params: Record<string, string> = { center_code: centerCode };
+    const params: Record<string, string | number> = { center_code: centerCode };
     if (filters.month !== undefined) {
       conditions.push('i.month = @month');
       params['month'] = filters.month;
@@ -301,11 +311,37 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
       conditions.push('i.id = @invoice_id');
       params['invoice_id'] = filters.invoiceId;
     }
+    if (filters.openOnly === true) {
+      conditions.push(
+        "i.status <> 'cancelled' AND (COALESCE(lt.total_mad, 0) - COALESCE(pt.net_paid_mad, 0)) > 0",
+      );
+    }
 
-    const headerRows = this.db
+    const searchJoin =
+      filters.search !== undefined ? 'LEFT JOIN students s ON s.id = i.student_id' : '';
+    if (filters.search !== undefined) {
+      conditions.push('(LOWER(s.name_fr) LIKE @search OR LOWER(s.name_ar) LIKE @search)');
+      params['search'] = `%${filters.search.toLowerCase()}%`;
+    }
+
+    const paginated = filters.pageSize !== undefined;
+    let orderAndLimit = 'ORDER BY i.month DESC, i.created_at DESC';
+    let pageSize = 0;
+    if (paginated) {
+      pageSize = Math.min(Math.max(1, filters.pageSize ?? 1), INVOICE_LIST_MAX_PAGE_SIZE);
+      if (filters.cursor !== undefined) {
+        conditions.push('i.id < @cursor');
+        params['cursor'] = filters.cursor;
+      }
+      orderAndLimit = 'ORDER BY i.id DESC LIMIT @limit';
+      params['limit'] = pageSize + 1;
+    }
+
+    const fetched = this.db
       .prepare(
         `SELECT i.*, COALESCE(lt.total_mad, 0) AS total_mad, COALESCE(pt.net_paid_mad, 0) AS net_paid_mad
          FROM invoices i
+         ${searchJoin}
          LEFT JOIN (
            SELECT invoice_id, SUM(amount_mad) AS total_mad
            FROM invoice_lines
@@ -320,11 +356,15 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
            GROUP BY invoice_id
          ) pt ON pt.invoice_id = i.id
          WHERE ${conditions.join(' AND ')}
-         ORDER BY i.month DESC, i.created_at DESC`,
+         ${orderAndLimit}`,
       )
       .all(params) as (InvoiceRow & { total_mad: number; net_paid_mad: number })[];
 
-    if (headerRows.length === 0) return [];
+    const hasMore = paginated && fetched.length > pageSize;
+    const headerRows = hasMore ? fetched.slice(0, pageSize) : fetched;
+    const nextCursor = hasMore ? (headerRows[headerRows.length - 1]?.id ?? null) : null;
+
+    if (headerRows.length === 0) return { rows: [], nextCursor: null };
 
     const placeholders = headerRows.map(() => '?').join(', ');
     const lineRows = this.db
@@ -341,12 +381,13 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
       else linesByInvoice.set(lineRow.invoice_id, [line]);
     }
 
-    return headerRows.map((row) => ({
+    const rows: InvoiceListRow[] = headerRows.map((row) => ({
       invoice: invoiceFromRow(row),
       lines: linesByInvoice.get(row.id) ?? [],
       totalMad: row.total_mad,
       netPaidMad: row.net_paid_mad,
     }));
+    return { rows, nextCursor };
   }
 
   async listByCenterMonth(centerCode: CenterCode, month: string): Promise<readonly Invoice[]> {

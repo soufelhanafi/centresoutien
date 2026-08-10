@@ -46,12 +46,12 @@ export class DashboardBasicMetricsBuilder {
     centerCode: CenterCode,
     month: string,
   ): Promise<DashboardBasicSummary['argent']> {
-    const [currentRows, previousRows] = await Promise.all([
+    const [currentPage, previousPage] = await Promise.all([
       this.deps.invoices.listInvoices(centerCode, { month }),
       this.deps.invoices.listInvoices(centerCode, { month: previousMonth(month) }),
     ]);
-    const current = monthlyMoney(currentRows);
-    const previous = monthlyMoney(previousRows);
+    const current = monthlyMoney(currentPage.rows);
+    const previous = monthlyMoney(previousPage.rows);
     const delta = (value: number, baseline: number): MoneyDelta => ({
       deltaPercent: deltaPercent(value, baseline),
     });

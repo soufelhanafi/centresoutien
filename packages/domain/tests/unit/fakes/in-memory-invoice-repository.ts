@@ -4,7 +4,12 @@ import type { Invoice, InvoiceId } from '../../../src/entities/invoice';
 import type { InvoiceLine } from '../../../src/entities/invoice-line';
 import type { StudentId } from '../../../src/entities/student';
 import type { CenterCode, UserId } from '../../../src/value-objects/ids';
-import type { InvoiceListRow, InvoiceListFilters } from '../../../src/read-models/invoice-list-row';
+import type {
+  InvoiceListRow,
+  InvoiceListFilters,
+  InvoiceListPage,
+} from '../../../src/read-models/invoice-list-row';
+import { INVOICE_LIST_MAX_PAGE_SIZE } from '../../../src/read-models/invoice-list-row';
 import { invoiceTotalMad } from '../../../src/policies/invoice-total';
 
 /**
@@ -19,6 +24,7 @@ export class InMemoryInvoiceRepository
 {
   private readonly lines: InvoiceLine[] = [];
   private readonly netPaidByInvoice = new Map<InvoiceId, number>();
+  private readonly studentNameById = new Map<StudentId, { fr: string; ar: string }>();
 
   async createDraft(invoice: Invoice, lines: readonly InvoiceLine[]): Promise<void> {
     await this.save(invoice);
@@ -88,30 +94,68 @@ export class InMemoryInvoiceRepository
     this.netPaidByInvoice.set(invoiceId, amountMad);
   }
 
-  async listInvoices(
-    centerCode: CenterCode,
-    filters: InvoiceListFilters,
-  ): Promise<readonly InvoiceListRow[]> {
-    const rows = this.all()
+  /** test-only convenience: seed the student's bilingual name the `search` filter
+   *  matches on — mirrors the SQLite adapter's students join without wiring a whole
+   *  StudentRepository into this fake. Unknown students never match a search. */
+  setStudentName(studentId: StudentId, name: { fr: string; ar: string }): void {
+    this.studentNameById.set(studentId, name);
+  }
+
+  async listInvoices(centerCode: CenterCode, filters: InvoiceListFilters): Promise<InvoiceListPage> {
+    const search = filters.search?.toLowerCase();
+    const matched = this.all()
       .filter((invoice) => invoice.deletedAt === null && invoice.centerCode === centerCode)
       .filter((invoice) => filters.month === undefined || invoice.month === filters.month)
       .filter((invoice) => filters.studentId === undefined || invoice.studentId === filters.studentId)
       .filter((invoice) => filters.invoiceId === undefined || invoice.id === filters.invoiceId)
-      .sort(
-        (a, b) => b.month.localeCompare(a.month) || b.createdAt.getTime() - a.createdAt.getTime(),
-      );
+      .filter((invoice) => filters.openOnly !== true || this.isOpen(invoice))
+      .filter((invoice) => search === undefined || this.nameMatches(invoice.studentId, search))
+      .map((invoice) => this.toRow(invoice));
 
-    return rows.map((invoice) => {
-      const lines = this.lines
-        .filter((line) => line.deletedAt === null && line.invoiceId === invoice.id)
-        .sort((a, b) => a.id.localeCompare(b.id))
-        .map((line) => structuredClone(line));
-      return {
-        invoice,
-        lines,
-        totalMad: invoiceTotalMad(lines),
-        netPaidMad: this.netPaidByInvoice.get(invoice.id) ?? 0,
-      };
-    });
+    const paginated = filters.pageSize !== undefined;
+    if (!paginated) {
+      const rows = matched.sort(
+        (a, b) =>
+          b.invoice.month.localeCompare(a.invoice.month) ||
+          b.invoice.createdAt.getTime() - a.invoice.createdAt.getTime(),
+      );
+      return { rows, nextCursor: null };
+    }
+
+    const cursor = filters.cursor;
+    const pageSize = Math.min(Math.max(1, filters.pageSize ?? 1), INVOICE_LIST_MAX_PAGE_SIZE);
+    const ordered = matched
+      .filter((row) => cursor === undefined || row.invoice.id < cursor)
+      .sort((a, b) => b.invoice.id.localeCompare(a.invoice.id));
+
+    const rows = ordered.slice(0, pageSize);
+    const nextCursor =
+      ordered.length > pageSize ? (rows[rows.length - 1]?.invoice.id ?? null) : null;
+    return { rows, nextCursor };
+  }
+
+  private toRow(invoice: Invoice): InvoiceListRow {
+    const lines = this.lines
+      .filter((line) => line.deletedAt === null && line.invoiceId === invoice.id)
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((line) => structuredClone(line));
+    return {
+      invoice,
+      lines,
+      totalMad: invoiceTotalMad(lines),
+      netPaidMad: this.netPaidByInvoice.get(invoice.id) ?? 0,
+    };
+  }
+
+  private isOpen(invoice: Invoice): boolean {
+    if (invoice.status === 'cancelled') return false;
+    const row = this.toRow(invoice);
+    return row.totalMad - row.netPaidMad > 0;
+  }
+
+  private nameMatches(studentId: StudentId, search: string): boolean {
+    const name = this.studentNameById.get(studentId);
+    if (name === undefined) return false;
+    return name.fr.toLowerCase().includes(search) || name.ar.toLowerCase().includes(search);
   }
 }

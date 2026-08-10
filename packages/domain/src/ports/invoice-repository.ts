@@ -3,7 +3,7 @@ import type { Invoice, InvoiceId } from '../entities/invoice';
 import type { InvoiceLine } from '../entities/invoice-line';
 import type { StudentId } from '../entities/student';
 import type { CenterCode } from '../value-objects/ids';
-import type { InvoiceListRow, InvoiceListFilters } from '../read-models/invoice-list-row';
+import type { InvoiceListPage, InvoiceListFilters } from '../read-models/invoice-list-row';
 
 /**
  * Persistence port for the Invoice aggregate (SOU-67). The `Invoice` header is the
@@ -57,18 +57,23 @@ export interface InvoiceRepository extends SoftDeletableRepository<InvoiceId, In
 
   /**
    * Batch read for the invoice list + detail screens (SOU-69): every live invoice
-   * matching the structural filters (`month` / `studentId` / `invoiceId`, all
-   * optional — an empty filter set is "every live invoice of the center"), each
-   * paired with its lines and its total/net-paid, computed in the adapter's join —
-   * **two queries total, never one per invoice**. Cancelled invoices are included
-   * (never hidden); the caller badges them by `invoice.status`. The derived
-   * payment-status filter (unpaid/partially-paid/paid) is NOT applied here — see
-   * {@link ListInvoices}. Ordered newest month first.
+   * matching the structural filters (`month` / `studentId` / `invoiceId` /
+   * `openOnly` / `search`, all optional — an empty filter set is "every live
+   * invoice of the center"), each paired with its lines and its total/net-paid,
+   * computed in the adapter's join — **two queries total, never one per invoice**.
+   * Cancelled invoices are included (never hidden); the caller badges them by
+   * `invoice.status`. The tri-state derived payment-status filter is NOT applied
+   * here — see {@link ListInvoices}.
+   *
+   * Unpaginated (`pageSize` unset): every match, ordered newest month first,
+   * `nextCursor: null`. Paginated (`pageSize` set): a single bounded page ordered
+   * by `id DESC` (keyset, not OFFSET), with `nextCursor` set to the last row's id
+   * when more rows remain — pass it back as `cursor` for the next page.
    */
   listInvoices(
     centerCode: CenterCode,
     filters: InvoiceListFilters,
-  ): Promise<readonly InvoiceListRow[]>;
+  ): Promise<InvoiceListPage>;
 
   /**
    * Every **live** header for `(centerCode, month)`, any status — the center-wide read
