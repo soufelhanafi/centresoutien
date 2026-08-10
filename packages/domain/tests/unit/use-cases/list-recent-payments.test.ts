@@ -7,11 +7,13 @@ import {
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
+import { InvalidPaymentDateRangeError } from '../../../src/errors/payment-errors';
 import type { RecentPaymentsReadPort } from '../../../src/ports/recent-payments-read-port';
 import type {
   RecentPaymentView,
   RecentPaymentsFilters,
 } from '../../../src/read-models/recent-payment-view';
+import type { DayTakings } from '../../../src/read-models/day-takings';
 import type { PaymentId } from '../../../src/entities/payment';
 import type { InvoiceId } from '../../../src/entities/invoice';
 import type { StudentId } from '../../../src/entities/student';
@@ -58,6 +60,11 @@ class FakeRecentPaymentsReadPort implements RecentPaymentsReadPort {
           studentName: row.studentName,
         }),
       );
+  }
+
+  async getDayTakings(): Promise<DayTakings> {
+    // Not exercised by ListRecentPayments — GetDayTakings has its own suite.
+    return { netMad: 0, paymentCount: 0, byMethod: { cash: 0, cheque: 0, transfer: 0, other: 0 } };
   }
 }
 
@@ -181,6 +188,21 @@ describe('ListRecentPayments', () => {
       const { useCase, port } = build([seed()]);
       await useCase.execute({ centerCode: CENTER, limit: 25 });
       expect(port.lastFilters?.limit).toBe(25);
+    });
+  });
+
+  describe('validation', () => {
+    it('throws InvalidPaymentDateRangeError when from is after to', async () => {
+      const { useCase } = build([seed()]);
+      await expect(
+        useCase.execute({ centerCode: CENTER, from: '2026-08-31', to: '2026-08-01' }),
+      ).rejects.toBeInstanceOf(InvalidPaymentDateRangeError);
+    });
+
+    it('accepts an equal from/to (single day) without throwing', async () => {
+      const { useCase } = build([seed({ paidOn: '2026-08-10' })]);
+      const rows = await useCase.execute({ centerCode: CENTER, from: '2026-08-10', to: '2026-08-10' });
+      expect(rows).toHaveLength(1);
     });
   });
 

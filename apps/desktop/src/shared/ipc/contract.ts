@@ -192,6 +192,11 @@ const paymentViewSchema = z.object({
   createdAt: z.string(),
 });
 
+// A calendar day at the IPC boundary — a strict `YYYY-MM-DD` string. Reused by the
+// cash-desk payment reads (SOU-198) so a malformed date is rejected at the boundary
+// rather than silently mis-filtering an indexed `paid_on` comparison downstream.
+const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
 // One row of the cash-desk "recent payments" feed (SOU-198) — the cross-invoice
 // projection behind the `/payments` page (today's takings + recent feed). Unlike
 // `paymentViewSchema` (scoped to one invoice's ledger), each row carries its own
@@ -207,6 +212,23 @@ const recentPaymentViewSchema = z.object({
   paidOn: z.string(),
   studentId: z.string().nullable(),
   studentName: z.object({ fr: z.string(), ar: z.string() }).nullable(),
+});
+
+// The cash-desk header's day total (SOU-198) — the net money taken on one calendar
+// day, netted in SQL so it is independent of the `payment.recent` row cap. `netMad`
+// (signed centimes, can be negative on a reversal-heavy day, never null); `paymentCount`
+// (payment rows only, reversals excluded — the "N paiements" label); `byMethod` (same
+// signed net split, all four keys always present). Single source of truth for the
+// renderer's `DayTakingsView` type.
+const dayTakingsSchema = z.object({
+  netMad: z.number().int(),
+  paymentCount: z.number().int().nonnegative(),
+  byMethod: z.object({
+    cash: z.number().int(),
+    cheque: z.number().int(),
+    transfer: z.number().int(),
+    other: z.number().int(),
+  }),
 });
 
 // The derived payment status of an invoice (SOU-93) — never stored, always a function
@@ -1217,11 +1239,24 @@ export const ipcContract = {
   // renderer. Gated by `core.invoicing` (every plan), same as `payment.summary`.
   'payment.recent': {
     request: z.object({
-      from: z.string().optional(),
-      to: z.string().optional(),
+      from: dayString.optional(),
+      to: dayString.optional(),
       limit: z.number().int().positive().max(200).optional(),
     }),
     response: z.object({ payments: z.array(recentPaymentViewSchema) }),
+  },
+  // Day-takings header total (SOU-198) — the cash-desk `/payments` header's "today's
+  // takings". Nets reversals in SQL (Σ payments − Σ reversals) over a single calendar
+  // day, so the total is independent of the `payment.recent` row cap: a day with more
+  // than 200 payment/reversal rows still totals correctly. `paymentCount` counts
+  // `payment` rows only (reversals excluded) — the "N paiements" label; `byMethod`
+  // carries the same signed net split, all four method keys always present (0 when
+  // absent). Pure read over existing Payment rows — no write path, no new entity.
+  // centerCode is injected in main, never sent from the renderer. Gated by
+  // `core.invoicing` (every plan), same as `payment.summary`.
+  'payment.takings': {
+    request: z.object({ day: dayString }),
+    response: dayTakingsSchema,
   },
   // Payment receipt print/export (SOU-101). Renders a single ledger row (a
   // `payment` or a `reversal`) to the same bilingual FR/AR `pdf-lib` layout
@@ -1996,6 +2031,9 @@ export type InvoicePaymentSummaryDto = z.infer<typeof invoicePaymentSummarySchem
 
 /** One cash-desk recent-payment DTO — the renderer's `RecentPaymentView` aliases this. */
 export type RecentPaymentDto = z.infer<typeof recentPaymentViewSchema>;
+
+/** The cash-desk day-takings header DTO — the renderer's `DayTakingsView` aliases this. */
+export type DayTakingsDto = z.infer<typeof dayTakingsSchema>;
 
 /** The invoice list/detail DTO — the renderer's `InvoiceListItemView` aliases this. */
 export type InvoiceListItemDto = z.infer<typeof invoiceListItemViewSchema>;

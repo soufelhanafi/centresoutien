@@ -42,6 +42,22 @@ export class PaymentAlreadyReversedError extends DomainError {
 }
 
 /**
+ * Thrown when the recent-payments feed is asked for a window whose `from` is after its
+ * `to` — an inverted range that could only be a caller bug (silently returning `[]`
+ * would hide it). The renderer resolves the stable `invalid-payment-date-range` code.
+ */
+export class InvalidPaymentDateRangeError extends DomainError {
+  readonly code = 'invalid-payment-date-range';
+
+  constructor(
+    readonly from: string,
+    readonly to: string,
+  ) {
+    super(`Recent-payments window "from" (${from}) is after "to" (${to}).`);
+  }
+}
+
+/**
  * Thrown when `RecordPayment` is asked to append more than the outstanding balance
  * (SOU-101 KICKOFF: overpayment is blocked outright, not clamped — there is no
  * credit-note entity). The renderer resolves the stable `payment-exceeds-balance`
