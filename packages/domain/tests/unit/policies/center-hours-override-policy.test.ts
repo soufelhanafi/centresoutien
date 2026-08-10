@@ -3,6 +3,7 @@ import {
   overrideCoversDate,
   activeOverrideOn,
   resolveEffectiveWindows,
+  overrideWindowsOn,
   dayHoursToWindows,
 } from '../../../src/policies/center-hours-override-policy';
 import type { DayHours } from '../../../src/policies/session-conflict-policy';
@@ -127,6 +128,34 @@ describe('resolveEffectiveWindows', () => {
 
   it('returns null (no constraint) when no override covers and no static day is supplied', () => {
     expect(resolveEffectiveWindows('2026-05-04', monday, [], null)).toBeNull();
+  });
+});
+
+describe('overrideWindowsOn', () => {
+  const monday = 1 as WeekdayIndex;
+
+  it('returns the covering override windows for the weekday', () => {
+    const ov = override('cho_1', '2026-02-18', '2026-03-19', uniformWeek([w('14:00', '17:00'), w('21:00', '23:00')]));
+    expect(overrideWindowsOn('2026-03-02', monday, [ov])).toEqual([w('14:00', '17:00'), w('21:00', '23:00')]);
+  });
+
+  it('returns undefined (no override → keep static hours) when none covers the date', () => {
+    const ov = override('cho_1', '2026-02-18', '2026-03-19', uniformWeek([w('14:00', '17:00')]));
+    expect(overrideWindowsOn('2026-05-04', monday, [ov])).toBeUndefined();
+  });
+
+  it('returns an empty list (defined) when the covering override closes that weekday', () => {
+    const closedMonday: WeeklyTimeWindows = {
+      0: [w('09:00', '15:00')],
+      1: [],
+      2: [w('09:00', '15:00')],
+      3: [w('09:00', '15:00')],
+      4: [w('09:00', '15:00')],
+      5: [w('09:00', '15:00')],
+      6: [w('09:00', '15:00')],
+    };
+    const ov = override('cho_1', '2026-02-18', '2026-03-19', closedMonday);
+    expect(overrideWindowsOn('2026-03-02', monday, [ov])).toEqual([]);
   });
 });
 

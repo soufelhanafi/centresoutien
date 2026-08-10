@@ -1,5 +1,6 @@
 import type { WeeklyRecurringSessionRepository } from '../ports/weekly-recurring-session-repository';
 import type { CenterHoursRepository } from '../ports/center-hours-repository';
+import type { CenterHoursOverrideRepository } from '../ports/center-hours-override-repository';
 import type { GroupRepository } from '../ports/group-repository';
 import type { RoomRepository } from '../ports/room-repository';
 import type { Clock } from '../ports/clock';
@@ -11,6 +12,8 @@ import type { TimeOfDay } from '../value-objects/time-of-day';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import { applyWrite } from '../entities/write';
 import { assertGroupFitsRoom } from '../policies/group-seat-capacity';
+import { overrideWindowsOn } from '../policies/center-hours-override-policy';
+import { weekdayInWeekOf } from '../value-objects/date-range';
 import { GroupNotFoundError } from '../errors/group-errors';
 import { RoomNotFoundError } from '../errors/room-errors';
 import {
@@ -64,6 +67,7 @@ export class UpdateWeeklyRecurringSession {
     private readonly groups: GroupRepository,
     private readonly rooms: RoomRepository,
     private readonly centerHours: CenterHoursRepository,
+    private readonly overrides: CenterHoursOverrideRepository,
     private readonly clock: Clock,
     private readonly plan: PlanPolicy,
   ) {}
@@ -107,7 +111,13 @@ export class UpdateWeeklyRecurringSession {
     const refs = (await this.sessions.listRefsForDay(input.centerCode, dayOfWeek)).filter(
       (ref) => (ref.id as string) !== (input.id as string),
     );
-    assertScheduleFree({ roomId, teacherId, dayOfWeek, start, end }, refs, week);
+    const slotDate = weekdayInWeekOf(this.clock.now().toISOString().slice(0, 10), dayOfWeek);
+    const overrideWindows = overrideWindowsOn(
+      slotDate,
+      dayOfWeek,
+      await this.overrides.listOverlapping(input.centerCode, slotDate, slotDate),
+    );
+    assertScheduleFree({ roomId, teacherId, dayOfWeek, start, end }, refs, week, overrideWindows);
 
     const { next, changedFields } = applyWrite(
       existing,

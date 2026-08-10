@@ -31,6 +31,7 @@ export {
   eachDateInRange,
   daysBetween,
   addDays,
+  weekdayInWeekOf,
   endDateAfterWeekdayOccurrences,
 } from './value-objects/date-range';
 export { monthsEndingAt, monthDateRange, monthsBetween, previousMonth } from './value-objects/month';
@@ -222,6 +223,7 @@ export {
 } from './errors/payroll-errors';
 export {
   SessionOutsideCenterHoursError,
+  SessionOutsideOverrideHoursError,
   RoomConflictError,
   SessionOnHolidayError,
   TeacherConflictError,
@@ -666,6 +668,7 @@ export {
   overrideCoversDate,
   activeOverrideOn,
   resolveEffectiveWindows,
+  overrideWindowsOn,
   dayHoursToWindows,
 } from './policies/center-hours-override-policy';
 export type { OverrideOccurrence } from './policies/center-hours-override-policy';
