@@ -83,6 +83,10 @@ export class SqliteStudentSubscriptionRepository implements StudentSubscriptionR
   constructor(private readonly db: DB) {}
 
   async save(subscription: StudentSubscription): Promise<void> {
+    this.saveRow(subscription);
+  }
+
+  private saveRow(subscription: StudentSubscription): void {
     this.db.prepare(SAVE_SQL).run({
       id: subscription.id,
       center_code: subscription.centerCode,
@@ -167,8 +171,8 @@ export class SqliteStudentSubscriptionRepository implements StudentSubscriptionR
     created: StudentSubscription,
   ): Promise<void> {
     this.db.transaction(() => {
-      this.save(closed);
-      this.save(created);
+      this.saveRow(closed);
+      this.saveRow(created);
     })();
   }
 }

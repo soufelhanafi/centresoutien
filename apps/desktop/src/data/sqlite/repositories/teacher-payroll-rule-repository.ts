@@ -79,6 +79,10 @@ export class SqliteTeacherPayrollRuleRepository implements TeacherPayrollRuleRep
   constructor(private readonly db: DB) {}
 
   async save(rule: TeacherPayrollRule): Promise<void> {
+    this.saveRow(rule);
+  }
+
+  private saveRow(rule: TeacherPayrollRule): void {
     this.db.prepare(SAVE_SQL).run({
       id: rule.id,
       center_code: rule.centerCode,
@@ -139,8 +143,8 @@ export class SqliteTeacherPayrollRuleRepository implements TeacherPayrollRuleRep
    */
   async replaceLiveRule(closed: TeacherPayrollRule, created: TeacherPayrollRule): Promise<void> {
     this.db.transaction(() => {
-      this.save(closed);
-      this.save(created);
+      this.saveRow(closed);
+      this.saveRow(created);
     })();
   }
 }
