@@ -38,6 +38,9 @@ jobs:
       - name: Build desktop
         run: pnpm build
 
+      - name: Build landing
+        run: pnpm --filter @centresoutien/landing build
+
   e2e:
     runs-on: macos-latest
     steps:

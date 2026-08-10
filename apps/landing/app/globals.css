@@ -1,44 +1,15 @@
 @import "tailwindcss";
+@import "@centresoutien/ui/styles/tokens.css";
 
-/*
-  Design tokens for Centre Soutien, mirrored from the design source of truth
-  (html-design/Centre Soutien Landing.dc.html). Brand teal #0F766E on a
-  white/slate surface. Values are exposed as Tailwind v4 theme tokens so
-  utilities like `bg-primary`, `text-muted-foreground`, `border-border` work.
-*/
+/* Shared design tokens (packages/ui) are the single source of truth — see
+   docs/design-tokens.md. Landing-local extensions only: the shared source maps
+   --font-sans to a static stack, but the landing serves fonts via next/font
+   CSS variables (Inter everywhere, Noto Sans Arabic on /ar routes), and the
+   button component needs a dedicated primary hover token. */
 @theme {
-  --color-background: #ffffff;
-  --color-foreground: #0f172a;
-
-  --color-card: #ffffff;
-  --color-card-foreground: #0f172a;
-
-  --color-primary: #0f766e;
-  --color-primary-hover: #0d5f5a;
-  --color-primary-foreground: #ffffff;
-
-  --color-secondary: #f1f5f9;
-  --color-secondary-foreground: #0f172a;
-
-  --color-muted: #f1f5f9;
-  --color-muted-foreground: #64748b;
-
-  --color-accent: #f1f5f9;
-  --color-accent-foreground: #0f172a;
-
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #ffffff;
-
-  --color-border: #e2e8f0;
-  --color-input: #e2e8f0;
-  --color-ring: #0f766e;
-
-  --radius: 0.5rem;
-
-  /* Font stacks. The CSS variables are set by next/font in the locale layout:
-     Inter everywhere, Noto Sans Arabic only on /ar routes. */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-arabic: var(--font-noto-arabic), var(--font-inter), sans-serif;
+  --color-primary-hover: #0d5f5a;
 }
 
 :root {
