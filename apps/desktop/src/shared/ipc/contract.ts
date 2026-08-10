@@ -40,6 +40,7 @@ import {
   verifySecurityAnswersSchema,
   SECURITY_QUESTION_KEYS,
   weeklyHoursSchema,
+  centerHoursOverrideInputSchema,
   loginInputSchema,
   centerProfileSchema,
   CENTER_LOGO_PATH_MAX,
@@ -603,7 +604,7 @@ const generatedScheduleConflictViewSchema = z.discriminatedUnion('kind', [
     dayOfWeek: generatorWeekday,
     start: z.string(),
     end: z.string(),
-    reason: z.enum(['closed', 'before-open', 'after-close']),
+    reason: z.enum(['closed', 'before-open', 'after-close', 'outside-windows']),
     open: z.string().nullable(),
     close: z.string().nullable(),
   }),
@@ -800,6 +801,43 @@ const centerHoursViewSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6),
   open: z.string().nullable(),
   close: z.string().nullable(),
+});
+
+// One opening window (SOU-165), 24h `'HH:mm'`. Several per weekday model an iftar
+// break. Reused by the override view and the generator's skipped-hours report.
+const timeWindowViewSchema = z.object({ open: z.string(), close: z.string() });
+
+// The seven weekday window lists as a `0..6`-keyed record (the renderer aliases
+// `Record<0..6, TimeWindow[]>`); a weekday's empty list is a closed day. Reused by
+// the override view and the save request so both sides share one shape.
+const hoursByWeekdayViewSchema = z.object({
+  0: z.array(timeWindowViewSchema),
+  1: z.array(timeWindowViewSchema),
+  2: z.array(timeWindowViewSchema),
+  3: z.array(timeWindowViewSchema),
+  4: z.array(timeWindowViewSchema),
+  5: z.array(timeWindowViewSchema),
+  6: z.array(timeWindowViewSchema),
+});
+
+// The display shape of a center-hours override across the IPC boundary (SOU-165):
+// envelope stripped, dates + the `0..6`-keyed weekday window record passed
+// through. `archived` is derived from the soft-delete tombstone in main.
+const centerHoursOverrideViewSchema = z.object({
+  id: z.string(),
+  dateRange: z.object({ start: z.string(), end: z.string() }),
+  hoursByWeekday: hoursByWeekdayViewSchema,
+  archived: z.boolean(),
+  createdAt: z.string(),
+});
+
+// One date `session.generate` skipped because the template's fixed time no longer
+// fits an active override's windows (SOU-165). `windows` is that date's effective
+// override windows (empty = closed under the override), so the renderer can show
+// when the center is actually open and let the admin re-time the slot.
+const generatedSkippedOutsideHoursSchema = z.object({
+  date: z.string(),
+  windows: z.array(timeWindowViewSchema),
 });
 
 // Kept in sync with the renderer's `LOCALES` (`renderer/i18n/direction.ts`) and
@@ -1533,6 +1571,9 @@ export const ipcContract = {
       // Dates this run skipped for falling on a holiday (SOU-161), unless named
       // in the request's `overrideHolidayDates`. Empty when nothing was skipped.
       skippedHolidays: z.array(generatedSkippedHolidaySchema),
+      // Dates this run skipped because the template's fixed time fell outside an
+      // active center-hours override's windows (SOU-165). Empty when none did.
+      skippedOutsideHours: z.array(generatedSkippedOutsideHoursSchema),
     }),
   },
   // Bulk undo of one generator run (SOU-160). The renderer's "Undo this batch"
@@ -1743,6 +1784,38 @@ export const ipcContract = {
   'centerHours.save': {
     request: weeklyHoursSchema,
     response: z.object({ week: z.array(centerHoursViewSchema) }),
+  },
+  // Center-hours overrides (SOU-165) — a time-boxed weekly-hours replacement for
+  // Ramadan-style periods. All three gate `settings.center-hours` (every plan) in
+  // the use case; centerCode/device/user are injected in main, never sent.
+  // `list` with no `range` returns every live override (the Settings list); with a
+  // range, only those intersecting it (what the calendar/generator render).
+  'centerHoursOverride.list': {
+    request: z.object({
+      range: z.object({ start: z.string(), end: z.string() }).optional(),
+    }),
+    response: z.object({ overrides: z.array(centerHoursOverrideViewSchema) }),
+  },
+  // The single override in effect on one civil date (`YYYY-MM-DD`), or null when
+  // none covers it — the renderer's per-day "which hours apply today" read. When
+  // several overlap the date, the greatest id wins (deterministic across devices).
+  'centerHoursOverride.getActive': {
+    request: z.object({ date: z.string() }),
+    response: z.object({ override: centerHoursOverrideViewSchema.nullable() }),
+  },
+  // Create (omit `id`) or edit (supply `id`) one override. The body is the domain's
+  // own `centerHoursOverrideInputSchema` (inclusive date range, seven ordered
+  // non-overlapping weekday window lists), validated once here and reused by the
+  // form via zodResolver.
+  'centerHoursOverride.save': {
+    request: centerHoursOverrideInputSchema.extend({ id: z.string().optional() }),
+    response: z.object({ override: centerHoursOverrideViewSchema }),
+  },
+  // Soft-delete one override. Idempotent at the boundary (an unknown/already-
+  // archived id still reports ok), mirroring `holiday.archive`.
+  'centerHoursOverride.archive': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
   },
   // Login (SOU-27). `auth.login` is the throttled entry point: it counts failed
   // attempts, enforces the 5-try / 15-minute lockout, and — when the "remember

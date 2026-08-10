@@ -88,6 +88,10 @@ import {
   SecurityQuestionThrottlePolicy,
   SaveCenterHours,
   GetCenterHours,
+  SaveCenterHoursOverride,
+  GetCenterHoursOverrides,
+  GetActiveCenterHoursOverride,
+  ArchiveCenterHoursOverride,
   AttemptLogin,
   LoginThrottlePolicy,
   DeviceSessionService,
@@ -183,6 +187,7 @@ import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositor
 import { SqliteSessionRepository } from '../data/sqlite/repositories/session-repository';
 import { SqliteAttendanceRepository } from '../data/sqlite/repositories/attendance-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
+import { SqliteCenterHoursOverrideRepository } from '../data/sqlite/repositories/center-hours-override-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SqliteRecoveryCodeRepository } from '../data/sqlite/repositories/recovery-code-repository';
 import { SqliteSecurityQuestionRepository } from '../data/sqlite/repositories/security-question-repository';
@@ -811,10 +816,15 @@ export function buildContainer(options: ContainerOptions): Container {
   // recurrence template (the WRS repo above) and the center's holidays, runs the
   // pure generator, and upserts idempotently on (recurringSessionId, date).
   const concreteSessionRepo = new SqliteSessionRepository(db, changeLog);
+  // Ramadan schedule overrides (SOU-165): generation consults the active override
+  // for each date, taking precedence over the static weekly hours and skipping
+  // dates whose fixed template time no longer fits the override's windows.
+  const centerHoursOverrideRepo = new SqliteCenterHoursOverrideRepository(db);
   const generateSessions = new GenerateAndPersistSessions(
     concreteSessionRepo,
     sessionRepo,
     holidayRepo,
+    centerHoursOverrideRepo,
     new GenerateSessions(clock, ids),
     plan,
   );
@@ -932,6 +942,13 @@ export function buildContainer(options: ContainerOptions): Container {
   const centerHoursRepo = new SqliteCenterHoursRepository(db);
   const saveCenterHours = new SaveCenterHours(centerHoursRepo, clock, ids, plan);
   const getCenterHours = new GetCenterHours(centerHoursRepo, plan);
+  // Ramadan schedule overrides (SOU-165): CRUD on the time-boxed weekly-hours
+  // replacement the generator above already reads. Same `settings.center-hours`
+  // gate as the static hours screen (every plan).
+  const saveCenterHoursOverride = new SaveCenterHoursOverride(centerHoursOverrideRepo, clock, ids, plan);
+  const getCenterHoursOverrides = new GetCenterHoursOverrides(centerHoursOverrideRepo, plan);
+  const getActiveCenterHoursOverride = new GetActiveCenterHoursOverride(centerHoursOverrideRepo, plan);
+  const archiveCenterHoursOverride = new ArchiveCenterHoursOverride(centerHoursOverrideRepo, clock, plan);
 
   // Weekly recurring session write path (SOU-131): create/update run the SOU-55
   // composite conflict check (room + teacher + hours) against the same
@@ -1259,6 +1276,10 @@ export function buildContainer(options: ContainerOptions): Container {
     commitGeneratedSchedule,
     saveCenterHours,
     getCenterHours,
+    saveCenterHoursOverride,
+    getCenterHoursOverrides,
+    getActiveCenterHoursOverride,
+    archiveCenterHoursOverride,
     envelopeContext: () => context,
     adminExists: () => adminRepo.exists(),
     adminUsername: async () => {
