@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import Database from 'better-sqlite3-multiple-ciphers';
 import type { Database as DB } from 'better-sqlite3';
-import { normalizeUsername } from '@centresoutien/domain';
+import { normalizeUsername, foldSearchText } from '@centresoutien/domain';
 
 /**
  * SQLCipher-encrypted database access — one file per center (CLAUDE.md §5quater,
@@ -32,6 +32,12 @@ export function openDatabaseAt(file: string, key: string): DB {
   // queries can never diverge on accented casing.
   db.function('normalize_username', { deterministic: true }, (username: unknown) =>
     normalizeUsername(String(username)),
+  );
+  // Diacritic-insensitive fold for name search (SOU-200). Wraps the one domain
+  // foldSearchText so the folded query term and the folded column always match;
+  // NULL passes through so an unsynced student row simply never matches.
+  db.function('nfd_fold', { deterministic: true }, (text: unknown) =>
+    text == null ? null : foldSearchText(String(text)),
   );
   return db;
 }

@@ -1,5 +1,10 @@
 import type { RecordPaymentFields } from '@centresoutien/domain';
-import type { InvoiceListFilters, InvoiceListItemView } from './invoice-view';
+import type {
+  InvoiceListFilters,
+  InvoiceListItemView,
+  OpenInvoicesPage,
+  OpenInvoicesQuery,
+} from './invoice-view';
 import type { InvoicePaymentSummaryView } from './payment-view';
 import { ipcInvoicesGateway } from './ipc-invoices-gateway';
 
@@ -13,6 +18,12 @@ export type RecordPaymentInput = RecordPaymentFields;
  */
 export interface InvoicesGateway {
   list(filters: InvoiceListFilters): Promise<readonly InvoiceListItemView[]>;
+  /**
+   * One keyset page of the center's still-open invoices (`openOnly`, SQL-side),
+   * filtered by student name — the cash-desk payment picker's bounded read
+   * (SOU-200), replacing the old full-list fetch + client filter.
+   */
+  listOpen(query: OpenInvoicesQuery): Promise<OpenInvoicesPage>;
   get(id: string): Promise<InvoiceListItemView | null>;
   recordPayment(input: RecordPaymentInput): Promise<InvoiceListItemView>;
   /** Moves a draft invoice to `issued`. Returns the updated invoice (write-then-read-back). */

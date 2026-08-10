@@ -107,6 +107,7 @@ export { entityKey } from './ports/sync-hub-port';
 export { normalizeNaturalKey, normalizeNameForMatch } from './policies/natural-key';
 // Username case-insensitive matching (SOU-153)
 export { normalizeUsername } from './policies/username-normalization';
+export { foldSearchText } from './policies/search-text-folding';
 
 // Group seat-capacity fit (SOU-176 — rooms attach at session creation)
 export { assertGroupFitsRoom } from './policies/group-seat-capacity';
@@ -201,6 +202,7 @@ export {
   InvalidInvoiceTransitionError,
   InvoiceNotFoundError,
   DuplicateInvoiceError,
+  InvalidInvoiceListQueryError,
 } from './errors/invoice-errors';
 export {
   PaymentNotFoundError,
@@ -470,7 +472,8 @@ export type {
 
 // Read models (denormalized, envelope-free — never persisted)
 export type { WeeklySessionView } from './read-models/weekly-session-view';
-export type { InvoiceListRow, InvoiceListFilters } from './read-models/invoice-list-row';
+export type { InvoiceListRow, InvoiceListFilters, InvoiceListPage } from './read-models/invoice-list-row';
+export { INVOICE_LIST_MAX_PAGE_SIZE } from './read-models/invoice-list-row';
 export type { OverdueInvoiceLineView } from './read-models/overdue-invoice-view';
 export type { RecentPaymentView, RecentPaymentsFilters } from './read-models/recent-payment-view';
 export type { DayTakings } from './read-models/day-takings';
@@ -840,7 +843,7 @@ export type { ListRecentPaymentsInput } from './use-cases/list-recent-payments';
 export { GetDayTakings } from './use-cases/get-day-takings';
 export type { GetDayTakingsInput } from './use-cases/get-day-takings';
 export { ListInvoices } from './use-cases/list-invoices';
-export type { ListInvoicesInput, InvoiceListItem } from './use-cases/list-invoices';
+export type { ListInvoicesInput, InvoiceListItem, ListInvoicesResult } from './use-cases/list-invoices';
 export { ListOverdueInvoices } from './use-cases/list-overdue-invoices';
 export type {
   ListOverdueInvoicesInput,

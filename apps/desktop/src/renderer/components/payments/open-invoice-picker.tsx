@@ -2,32 +2,32 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, ReceiptText } from 'lucide-react';
 import { Button, EmptyState, ErrorState, Input, Skeleton } from '@centresoutien/ui';
-import { useInvoices } from '../../hooks/invoice/use-invoices';
-import { useStudents } from '../../hooks/student/use-students';
-import { filterInvoicesBySearch } from '../../lib/invoices/list-utils';
+import { useOpenInvoices } from '../../hooks/invoice/use-open-invoices';
+import { useDebouncedValue } from '../../hooks/use-debounced-value';
 import { OpenInvoiceRow } from './open-invoice-row';
 
-/** Picks an open invoice (outstanding balance, not cancelled) to record a payment against. */
+const SEARCH_DEBOUNCE_MS = 200;
+
+/**
+ * Picks an open invoice (outstanding balance, not cancelled) to record a payment
+ * against. Sources its rows from the bounded server-side `openOnly` read —
+ * name-searched and keyset-paginated (SOU-200) — so the renderer never loads or
+ * filters the whole invoice list. Each row's student name is resolved server-side
+ * on the read row, so no full-student-list fetch is needed.
+ */
 export function OpenInvoicePicker() {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
-  const invoicesQuery = useInvoices({});
-  const studentsQuery = useStudents('');
+  const debouncedSearch = useDebouncedValue(search.trim(), SEARCH_DEBOUNCE_MS);
 
-  const studentsById = useMemo(
-    () => new Map((studentsQuery.data ?? []).map((student) => [student.id, student])),
-    [studentsQuery.data],
+  const invoicesQuery = useOpenInvoices(debouncedSearch);
+
+  const openInvoices = useMemo(
+    () => (invoicesQuery.data?.pages ?? []).flatMap((page) => page.invoices),
+    [invoicesQuery.data],
   );
 
-  const openInvoices = useMemo(() => {
-    const open = (invoicesQuery.data ?? []).filter(
-      (invoice) => invoice.status !== 'cancelled' && invoice.outstandingMad > 0,
-    );
-    return filterInvoicesBySearch(open, studentsById, search);
-  }, [invoicesQuery.data, studentsById, search]);
-
-  const hasOpenInvoices =
-    (invoicesQuery.data ?? []).some((invoice) => invoice.status !== 'cancelled' && invoice.outstandingMad > 0);
+  const isSearching = debouncedSearch.length > 0;
 
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-4" aria-labelledby="record-payment-title">
@@ -75,17 +75,30 @@ export function OpenInvoicePicker() {
       {invoicesQuery.data && openInvoices.length === 0 && (
         <EmptyState
           icon={<ReceiptText className="h-5 w-5" aria-hidden="true" />}
-          title={hasOpenInvoices ? t('payments.record.noResultsTitle') : t('payments.record.emptyTitle')}
-          description={hasOpenInvoices ? t('payments.record.noResultsBody') : t('payments.record.emptyBody')}
+          title={isSearching ? t('payments.record.noResultsTitle') : t('payments.record.emptyTitle')}
+          description={isSearching ? t('payments.record.noResultsBody') : t('payments.record.emptyBody')}
         />
       )}
 
       {invoicesQuery.data && openInvoices.length > 0 && (
-        <ul className="divide-y divide-border rounded-lg border border-border">
-          {openInvoices.map((invoice) => (
-            <OpenInvoiceRow key={invoice.id} invoice={invoice} student={studentsById.get(invoice.studentId)} />
-          ))}
-        </ul>
+        <>
+          <ul className="divide-y divide-border rounded-lg border border-border">
+            {openInvoices.map((invoice) => (
+              <OpenInvoiceRow key={invoice.id} invoice={invoice} />
+            ))}
+          </ul>
+          {invoicesQuery.hasNextPage && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              disabled={invoicesQuery.isFetchingNextPage}
+              onClick={() => void invoicesQuery.fetchNextPage()}
+            >
+              {t('payments.record.loadMore')}
+            </Button>
+          )}
+        </>
       )}
     </section>
   );

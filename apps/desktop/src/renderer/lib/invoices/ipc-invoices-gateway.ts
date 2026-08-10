@@ -1,4 +1,9 @@
-import type { InvoiceListFilters, InvoiceListItemView } from './invoice-view';
+import type {
+  InvoiceListFilters,
+  InvoiceListItemView,
+  OpenInvoicesPage,
+  OpenInvoicesQuery,
+} from './invoice-view';
 import type { InvoicePaymentSummaryView } from './payment-view';
 import type { InvoicesGateway, RecordPaymentInput } from './invoices-gateway';
 
@@ -16,6 +21,16 @@ class IpcInvoicesGateway implements InvoicesGateway {
       ...(filters.paymentStatus !== undefined && { paymentStatus: filters.paymentStatus }),
     });
     return invoices;
+  }
+
+  async listOpen(query: OpenInvoicesQuery): Promise<OpenInvoicesPage> {
+    const { invoices, nextCursor } = await window.api.invoke('invoice.list', {
+      openOnly: true,
+      ...(query.search !== undefined && query.search !== '' && { search: query.search }),
+      ...(query.pageSize !== undefined && { pageSize: query.pageSize }),
+      ...(query.cursor !== undefined && { cursor: query.cursor }),
+    });
+    return { invoices, nextCursor };
   }
 
   async get(id: string): Promise<InvoiceListItemView | null> {

@@ -2129,7 +2129,12 @@
     "unknownStudent": "تلميذ غير معروف",
     "takings": {
       "title": "مداخيل اليوم",
-      "count": "{{count}} دفعة",
+      "count_zero": "لا دفعات",
+      "count_one": "دفعة واحدة",
+      "count_two": "دفعتان",
+      "count_few": "{{count}} دفعات",
+      "count_many": "{{count}} دفعة",
+      "count_other": "{{count}} دفعة",
       "byMethodLabel": "مداخيل اليوم حسب طريقة الأداء",
       "loadError": "تعذّر تحميل مداخيل اليوم."
     },
@@ -2139,6 +2144,7 @@
       "search": "ابحث عن تلميذ…",
       "searchLabel": "ابحث عن فاتورة حسب التلميذ",
       "action": "تحصيل",
+      "loadMore": "عرض المزيد",
       "loadError": "تعذّر تحميل الفواتير.",
       "emptyTitle": "لا توجد فاتورة مفتوحة",
       "emptyBody": "جميع الفواتير مؤدّاة. لا شيء للتحصيل حاليًا.",

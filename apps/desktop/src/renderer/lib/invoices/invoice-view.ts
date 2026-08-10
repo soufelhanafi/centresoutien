@@ -21,6 +21,13 @@ export type InvoiceLineView = {
 export type InvoiceListItemView = {
   readonly id: string;
   readonly studentId: string;
+  /**
+   * The invoice's student's bilingual name, resolved server-side (SOU-200) so the
+   * cash-desk picker labels rows without a separate full-student-list fetch.
+   * Optional on the wire; the main-process handler always populates it (empty
+   * `{ fr:'', ar:'' }` only until the student row has synced).
+   */
+  readonly studentName?: { readonly fr: string; readonly ar: string } | undefined;
   readonly month: string;
   readonly status: InvoiceStatus;
   readonly issuedAt: string | null;
@@ -36,4 +43,22 @@ export type InvoiceListFilters = {
   readonly month?: string;
   readonly studentId?: string;
   readonly paymentStatus?: PaymentStatus;
+};
+
+/**
+ * One bounded page of the cash-desk "open invoices" read (SOU-200): the
+ * still-owes-money set (`openOnly`, SQL-applied) filtered by student name and
+ * keyset-paginated. `cursor` is the previous page's `nextCursor`; omit it for
+ * the first page.
+ */
+export type OpenInvoicesQuery = {
+  readonly search?: string;
+  readonly cursor?: string;
+  readonly pageSize?: number;
+};
+
+/** A page of open invoices plus the keyset cursor to fetch the next one (`null` = last page). */
+export type OpenInvoicesPage = {
+  readonly invoices: readonly InvoiceListItemView[];
+  readonly nextCursor: string | null;
 };

@@ -2066,7 +2066,8 @@
     "unknownStudent": "Élève inconnu",
     "takings": {
       "title": "Recette du jour",
-      "count": "{{count}} paiement(s)",
+      "count_one": "{{count}} paiement",
+      "count_other": "{{count}} paiements",
       "byMethodLabel": "Recette du jour par mode de paiement",
       "loadError": "Le chargement de la recette du jour a échoué."
     },
@@ -2076,6 +2077,7 @@
       "search": "Rechercher un élève…",
       "searchLabel": "Rechercher une facture par élève",
       "action": "Encaisser",
+      "loadMore": "Afficher plus",
       "loadError": "Le chargement des factures a échoué.",
       "emptyTitle": "Aucune facture ouverte",
       "emptyBody": "Toutes les factures sont réglées. Rien à encaisser pour le moment.",

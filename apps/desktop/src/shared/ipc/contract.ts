@@ -52,6 +52,7 @@ import {
   ROOM_ID_PREFIX,
   TEACHER_ID_PREFIX,
   TIME_OF_DAY_REGEX,
+  INVOICE_LIST_MAX_PAGE_SIZE,
   FEATURE_FLAGS,
 } from '@centresoutien/domain';
 
@@ -415,6 +416,11 @@ const invoiceLineViewSchema = z.object({
 const invoiceListItemViewSchema = z.object({
   id: z.string(),
   studentId: z.string(),
+  // The invoice's student's bilingual name, resolved server-side in the list read
+  // (SOU-200) so the open-invoice picker needs no separate full-student-list fetch.
+  // Optional on the wire only so pre-existing renderer fixtures stay valid while the
+  // picker adopts it; the main-process handler always populates it.
+  studentName: bilingualTextSchema.optional(),
   month: z.string(),
   status: invoiceStatusSchema,
   issuedAt: z.string().nullable(),
@@ -1363,14 +1369,27 @@ export const ipcContract = {
   // active UI locale, since a center may want to print a French copy while
   // running the app in Arabic (or vice versa). centerCode is injected in
   // main, never sent from the renderer. Gated by `core.invoicing`.
+  // `openOnly` (status != cancelled AND still owes money), `search` (student-name
+  // substring), `cursor`+`pageSize` (keyset pagination by ULID id, page bounded to
+  // 100) back the cash-desk payment picker (SOU-200) — all optional and additive to
+  // the existing month/studentId/invoiceId/paymentStatus filters. `nextCursor` is the
+  // last row's id when a paginated read has more pages, else null (also null for an
+  // unpaginated read). centerCode is injected in main, never sent from the renderer.
   'invoice.list': {
     request: z.object({
       month: z.string().optional(),
       studentId: z.string().optional(),
       invoiceId: z.string().optional(),
       paymentStatus: paymentStatusSchema.optional(),
+      openOnly: z.boolean().optional(),
+      search: z.string().max(200).optional(),
+      cursor: z.string().optional(),
+      pageSize: z.number().int().positive().max(INVOICE_LIST_MAX_PAGE_SIZE).optional(),
     }),
-    response: z.object({ invoices: z.array(invoiceListItemViewSchema) }),
+    response: z.object({
+      invoices: z.array(invoiceListItemViewSchema),
+      nextCursor: z.string().nullable(),
+    }),
   },
   'invoice.print': {
     request: z.object({ invoiceId: z.string(), locale: z.enum(['fr', 'ar']) }),

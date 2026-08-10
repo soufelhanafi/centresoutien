@@ -4,6 +4,7 @@ import type { Invoice, InvoiceId } from '../entities/invoice';
 import type { InvoiceLine } from '../entities/invoice-line';
 import type { StudentId } from '../entities/student';
 import { paymentStatusOf, type PaymentStatus } from '../policies/payment-status';
+import { InvalidInvoiceListQueryError } from '../errors/invoice-errors';
 import type { CenterCode } from '../value-objects/ids';
 
 export type ListInvoicesInput = {
@@ -14,16 +15,35 @@ export type ListInvoicesInput = {
   /** The derived payment status (unpaid/partially-paid/paid) — NOT the lifecycle
    *  `status` on {@link Invoice}. Applied in-memory once totals are known. */
   paymentStatus?: PaymentStatus;
+  /** `status !== 'cancelled' && outstandingMad > 0` — the cash-desk payment
+   *  picker's "still owes" set (SOU-200). Applied in SQL by the adapter. */
+  openOnly?: boolean;
+  /** Case-insensitive substring over the student's `fr`/`ar` name (SOU-200). */
+  search?: string;
+  /** Keyset cursor for the next page (exclusive upper-bound invoice id). */
+  cursor?: string;
+  /** Bounded page size; when set, the read is paginated and returns a `nextCursor`. */
+  pageSize?: number;
 };
 
 export type InvoiceListItem = {
   invoice: Invoice;
+  /** The invoice's student's bilingual name, resolved in the read row's join —
+   *  lets the picker label rows without a separate full-student-list fetch. */
+  studentName: { fr: string; ar: string };
   lines: readonly InvoiceLine[];
   totalMad: number;
   netPaidMad: number;
   /** `max(0, total − netPaid)` — never negative, so overpayment reads as 0 owed. */
   outstandingMad: number;
   status: PaymentStatus;
+};
+
+/** One page of resolved invoice rows plus the keyset cursor to fetch the next one
+ *  (`null` when this was the last page or the read was unpaginated). */
+export type ListInvoicesResult = {
+  items: readonly InvoiceListItem[];
+  nextCursor: string | null;
 };
 
 /**
@@ -46,19 +66,28 @@ export class ListInvoices {
     private readonly plan: PlanPolicy,
   ) {}
 
-  async execute(input: ListInvoicesInput): Promise<readonly InvoiceListItem[]> {
+  async execute(input: ListInvoicesInput): Promise<ListInvoicesResult> {
     this.plan.require('core.invoicing');
 
-    const rows = await this.invoices.listInvoices(input.centerCode, {
+    if (input.pageSize !== undefined && input.paymentStatus !== undefined) {
+      throw new InvalidInvoiceListQueryError();
+    }
+
+    const page = await this.invoices.listInvoices(input.centerCode, {
       ...(input.month !== undefined && { month: input.month }),
       ...(input.studentId !== undefined && { studentId: input.studentId }),
       ...(input.invoiceId !== undefined && { invoiceId: input.invoiceId }),
+      ...(input.openOnly !== undefined && { openOnly: input.openOnly }),
+      ...(input.search !== undefined && { search: input.search }),
+      ...(input.cursor !== undefined && { cursor: input.cursor }),
+      ...(input.pageSize !== undefined && { pageSize: input.pageSize }),
     });
 
-    const items = rows.map((row) => {
+    const items = page.rows.map((row) => {
       const outstandingMad = Math.max(0, row.totalMad - row.netPaidMad);
       return {
         invoice: row.invoice,
+        studentName: row.studentName,
         lines: row.lines,
         totalMad: row.totalMad,
         netPaidMad: row.netPaidMad,
@@ -67,7 +96,11 @@ export class ListInvoices {
       };
     });
 
-    if (input.paymentStatus === undefined) return items;
-    return items.filter((item) => item.status === input.paymentStatus);
+    const filtered =
+      input.paymentStatus === undefined
+        ? items
+        : items.filter((item) => item.status === input.paymentStatus);
+
+    return { items: filtered, nextCursor: page.nextCursor };
   }
 }

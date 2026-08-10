@@ -1,5 +1,10 @@
-import { paymentStatusOf } from '@centresoutien/domain';
-import type { InvoiceListFilters, InvoiceListItemView } from './invoice-view';
+import { foldSearchText, paymentStatusOf } from '@centresoutien/domain';
+import type {
+  InvoiceListFilters,
+  InvoiceListItemView,
+  OpenInvoicesPage,
+  OpenInvoicesQuery,
+} from './invoice-view';
 import type { InvoicePaymentSummaryView, PaymentView } from './payment-view';
 import type { InvoicesGateway, RecordPaymentInput } from './invoices-gateway';
 import { INVOICE_SEED } from './mock-invoices-seed';
@@ -9,6 +14,17 @@ function matches(invoice: InvoiceListItemView, filters: InvoiceListFilters): boo
   if (filters.studentId !== undefined && invoice.studentId !== filters.studentId) return false;
   if (filters.paymentStatus !== undefined && invoice.paymentStatus !== filters.paymentStatus) return false;
   return true;
+}
+
+/**
+ * Mirror the production diacritic-insensitive student-name substring match
+ * (SQLite `nfd_fold` UDF === domain `foldSearchText`). A row with no resolved
+ * student name never matches a non-empty term, exactly like the SQL `LEFT JOIN`.
+ */
+function studentNameMatches(invoice: InvoiceListItemView, foldedTerm: string): boolean {
+  const name = invoice.studentName;
+  if (!name) return false;
+  return foldSearchText(name.fr).includes(foldedTerm) || foldSearchText(name.ar).includes(foldedTerm);
 }
 
 /** In-memory stand-in for the not-yet-published invoice channels (see `invoices-gateway.ts`). */
@@ -21,6 +37,23 @@ export class MockInvoicesGateway implements InvoicesGateway {
     return [...this.invoices.values()]
       .filter((invoice) => matches(invoice, filters))
       .sort((a, b) => b.month.localeCompare(a.month));
+  }
+
+  async listOpen(query: OpenInvoicesQuery): Promise<OpenInvoicesPage> {
+    const term = query.search?.trim() ?? '';
+    const foldedTerm = term === '' ? '' : foldSearchText(term);
+    const open = [...this.invoices.values()]
+      .filter((invoice) => invoice.status !== 'cancelled' && invoice.outstandingMad > 0)
+      .filter((invoice) => foldedTerm === '' || studentNameMatches(invoice, foldedTerm))
+      .sort((a, b) => b.id.localeCompare(a.id));
+
+    const cursor = query.cursor;
+    const afterCursor =
+      cursor === undefined ? open : open.filter((invoice) => invoice.id.localeCompare(cursor) < 0);
+    const pageSize = query.pageSize ?? afterCursor.length;
+    const page = afterCursor.slice(0, pageSize);
+    const hasMore = afterCursor.length > page.length;
+    return { invoices: page, nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null };
   }
 
   async get(id: string): Promise<InvoiceListItemView | null> {

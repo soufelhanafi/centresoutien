@@ -52,3 +52,20 @@ export class DuplicateInvoiceError extends DomainError {
     super(`Student "${studentId}" already has a live invoice for ${month}.`);
   }
 }
+
+/**
+ * Thrown when `ListInvoices` is asked to combine `pageSize` (keyset pagination,
+ * applied in SQL before the LIMIT) with `paymentStatus` (the tri-state derived
+ * filter, applied in-memory after the page is fetched). The two are mutually
+ * exclusive: filtering after the LIMIT would return short pages and a `nextCursor`
+ * that skips rows. The open-invoice picker uses `openOnly` (SQL-side) instead. The
+ * renderer resolves the stable `invalid-invoice-list-query` code; the domain stays
+ * i18n-agnostic.
+ */
+export class InvalidInvoiceListQueryError extends DomainError {
+  readonly code = 'invalid-invoice-list-query';
+
+  constructor() {
+    super('paymentStatus cannot be combined with pageSize: paginate with openOnly instead.');
+  }
+}

@@ -26,7 +26,7 @@ export function RecentPaymentRow({ payment }: { payment: RecentPaymentView }) {
         </p>
       </div>
       <Numeric className={`shrink-0 text-sm font-medium ${isReversal ? 'text-[var(--badge-destructive-fg)]' : 'text-foreground'}`}>
-        {isReversal ? `- ${formatMoneyMad(payment.amountMad, i18n.language)}` : formatMoneyMad(payment.amountMad, i18n.language)}
+        {formatMoneyMad(isReversal ? -payment.amountMad : payment.amountMad, i18n.language)}
       </Numeric>
     </li>
   );

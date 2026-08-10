@@ -10,6 +10,7 @@ export const INVOICE_SEED: readonly InvoiceListItemView[] = [
   {
     id: 'inv_01HW0SEED00000000000000001',
     studentId: 'stu_01HW0SEED0000000000000001',
+    studentName: { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' },
     month: '2026-07',
     status: 'draft',
     issuedAt: null,
@@ -30,6 +31,7 @@ export const INVOICE_SEED: readonly InvoiceListItemView[] = [
   {
     id: 'inv_01HW0SEED00000000000000002',
     studentId: 'stu_01HW0SEED0000000000000002',
+    studentName: { fr: 'Salma Bennani', ar: 'سلمى بناني' },
     month: '2026-07',
     status: 'issued',
     issuedAt: '2026-07-01T08:00:00.000Z',
@@ -50,6 +52,7 @@ export const INVOICE_SEED: readonly InvoiceListItemView[] = [
   {
     id: 'inv_01HW0SEED00000000000000003',
     studentId: 'stu_01HW0SEED0000000000000003',
+    studentName: { fr: 'Omar Idrissi', ar: 'عمر الإدريسي' },
     month: '2026-07',
     status: 'issued',
     issuedAt: '2026-07-01T08:00:00.000Z',
@@ -70,6 +73,7 @@ export const INVOICE_SEED: readonly InvoiceListItemView[] = [
   {
     id: 'inv_01HW0SEED00000000000000004',
     studentId: 'stu_01HW0SEED0000000000000001',
+    studentName: { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' },
     month: '2026-06',
     status: 'issued',
     issuedAt: '2026-06-01T08:00:00.000Z',
@@ -97,6 +101,7 @@ export const INVOICE_SEED: readonly InvoiceListItemView[] = [
   {
     id: 'inv_01HW0SEED00000000000000005',
     studentId: 'stu_01HW0SEED0000000000000002',
+    studentName: { fr: 'Salma Bennani', ar: 'سلمى بناني' },
     month: '2026-06',
     status: 'cancelled',
     issuedAt: '2026-06-01T08:00:00.000Z',
