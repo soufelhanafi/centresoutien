@@ -18,11 +18,11 @@
 -- Ramadan are edited and reasoned about together, so the range is the unit.
 --
 -- start_date/end_date are inclusive civil dates ('YYYY-MM-DD'); a single-day
--- override has start_date == end_date. hours_by_weekday is a JSON array of exactly
--- seven window lists indexed by weekday (0=Sunday … 6=Saturday); each list is an
--- ordered, non-overlapping array of { "open": "HH:mm", "close": "HH:mm" } — an
--- empty list is a closed day. The shape + ordering invariants are enforced by the
--- domain schema; SQLite only stores the validated JSON text.
+-- override has start_date == end_date. hours_by_weekday is a JSON object keyed
+-- "0".."6" (0=Sunday … 6=Saturday); each value is an ordered, non-overlapping
+-- array of { "open": "HH:mm", "close": "HH:mm" } — an empty array is a closed day.
+-- The shape + ordering invariants are enforced by the domain schema; SQLite only
+-- stores the validated JSON text.
 --
 -- Additive-only. No backfill (new table). Logical undo is DROP TABLE
 -- center_hours_overrides.
