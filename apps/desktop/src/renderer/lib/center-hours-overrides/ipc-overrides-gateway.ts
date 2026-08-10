@@ -10,8 +10,11 @@ import type { CenterHoursOverrideInput, CenterHoursOverrideView } from './overri
  * the persisted override so the cache primes from exactly what was stored.
  */
 class IpcCenterHoursOverridesGateway implements CenterHoursOverridesGateway {
-  async list(): Promise<readonly CenterHoursOverrideView[]> {
-    const { overrides } = await window.api.invoke('centerHoursOverride.list', {});
+  async list(range?: { start: string; end: string }): Promise<readonly CenterHoursOverrideView[]> {
+    const { overrides } = await window.api.invoke(
+      'centerHoursOverride.list',
+      range ? { range } : {},
+    );
     return overrides;
   }
 

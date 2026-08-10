@@ -14,14 +14,15 @@ import { ipcCenterHoursOverridesGateway } from './ipc-overrides-gateway';
  * - `centerHoursOverride.getActive` ← {@link getActive} — the override in effect
  *   on a given `YYYY-MM-DD`, or `null`.
  * - `centerHoursOverride.list`      ← {@link list} — every live override for the
- *   Settings manager.
+ *   Settings manager, or (with a `range`) only those intersecting it, which the
+ *   planner uses to gray out the visible week's closed time per column.
  * - `centerHoursOverride.archive`   ← {@link archive} — soft-deletes one override.
  *
  * The in-memory `MockCenterHoursOverridesGateway` stays in the tree for unit
  * tests, which exercise the same interface without Electron.
  */
 export interface CenterHoursOverridesGateway {
-  list(): Promise<readonly CenterHoursOverrideView[]>;
+  list(range?: { start: string; end: string }): Promise<readonly CenterHoursOverrideView[]>;
   save(input: CenterHoursOverrideInput): Promise<CenterHoursOverrideView>;
   getActive(date: string): Promise<CenterHoursOverrideView | null>;
   archive(id: string): Promise<void>;

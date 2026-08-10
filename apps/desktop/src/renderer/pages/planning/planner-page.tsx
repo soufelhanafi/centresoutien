@@ -4,7 +4,7 @@ import { Plus, CalendarDays, Wand2 } from 'lucide-react';
 import { Button, ErrorState } from '@centresoutien/ui';
 import { useWeekSessions } from '../../hooks/planning/use-week-sessions';
 import { useCenterHours } from '../../hooks/center-hours/use-center-hours';
-import { useActiveCenterHoursOverride } from '../../hooks/center-hours-overrides/use-active-center-hours-override';
+import { useCenterHoursOverridesInRange } from '../../hooks/center-hours-overrides/use-center-hours-overrides-in-range';
 import { useTeachers } from '../../hooks/teacher/use-teachers';
 import { useFeature } from '../../hooks/use-feature';
 import { useTodayIsoDate } from '../../hooks/use-today-iso-date';
@@ -13,6 +13,8 @@ import { resolvePersistedWeek } from '../../lib/center-hours';
 import {
   deriveClosedSegmentsByDay,
   deriveOverrideAwareRange,
+  weekColumnDates,
+  weekDateSpan,
 } from '../../lib/center-hours-overrides/planner-closures';
 import { PlannerToolbar } from '../../components/planning/planner-toolbar';
 import { PlannerGrid } from '../../components/planning/planner-grid';
@@ -76,25 +78,28 @@ export function PlannerPage() {
   const [generating, setGenerating] = useState(false);
 
   const hoursQuery = useCenterHours();
-  // A dated override (Ramadan, a holiday week) takes effect on today's local
-  // date; its failure is soft — the planner falls back to the base weekly hours
-  // rather than blocking the grid (SOU-165). `today` advances across midnight so
-  // an overnight-mounted planner doesn't pin yesterday's override.
+  // Dated overrides (Ramadan, a holiday week) are resolved PER COLUMN against each
+  // visible day's own civil date, so a boundary week grays out only the days the
+  // override actually covers (SOU-165). The failure is soft — the planner falls
+  // back to the base weekly hours rather than blocking the grid. `today` advances
+  // across midnight so an overnight-mounted planner doesn't pin yesterday's week.
   const today = useTodayIsoDate();
-  const overrideQuery = useActiveCenterHoursOverride(today);
-  const activeOverride = overrideQuery.data ?? null;
+  const weekDates = useMemo(() => weekColumnDates(today), [today]);
+  const span = useMemo(() => weekDateSpan(weekDates), [weekDates]);
+  const overridesQuery = useCenterHoursOverridesInRange(span.start, span.end);
+  const overrides = useMemo(() => overridesQuery.data ?? [], [overridesQuery.data]);
   const week = useMemo(() => query.data ?? [], [query.data]);
   // A fresh center persists no hours rows (an empty array, never undefined), so
   // fall back to the domain's seed week (09:00–18:00) and agree with the
   // Settings form instead of a hard-coded window (SOU-184).
   const hoursWeek = resolvePersistedWeek(hoursQuery.data?.week);
   const range = useMemo(
-    () => deriveOverrideAwareRange(hoursWeek, activeOverride),
-    [hoursWeek, activeOverride],
+    () => deriveOverrideAwareRange(hoursWeek, overrides, weekDates),
+    [hoursWeek, overrides, weekDates],
   );
   const closedSegmentsByDay = useMemo(
-    () => deriveClosedSegmentsByDay(hoursWeek, activeOverride, range),
-    [hoursWeek, activeOverride, range],
+    () => deriveClosedSegmentsByDay(hoursWeek, overrides, weekDates, range),
+    [hoursWeek, overrides, weekDates, range],
   );
   const filtered = useMemo(() => applyFilters(week, filters), [week, filters]);
 

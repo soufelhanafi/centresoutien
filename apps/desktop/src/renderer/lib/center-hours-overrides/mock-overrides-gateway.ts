@@ -19,9 +19,14 @@ export class MockCenterHoursOverridesGateway implements CenterHoursOverridesGate
   // `getActive`'s newest-wins tiebreak is deterministic in tests.
   private saveSequence = 0;
 
-  async list(): Promise<readonly CenterHoursOverrideView[]> {
+  async list(range?: { start: string; end: string }): Promise<readonly CenterHoursOverrideView[]> {
     return [...this.overrides.values()]
       .filter((override) => !override.archived)
+      .filter(
+        (override) =>
+          range === undefined ||
+          (override.dateRange.start <= range.end && override.dateRange.end >= range.start),
+      )
       .sort((a, b) => b.dateRange.start.localeCompare(a.dateRange.start));
   }
 
