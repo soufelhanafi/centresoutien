@@ -10,6 +10,8 @@ SOU-87).
 ```bash
 pnpm --filter @centresoutien/desktop dist       # current platform's installer
 pnpm --filter @centresoutien/desktop dist:mac   # dmg (must run on macOS)
+pnpm --filter @centresoutien/desktop dist:mac:arm64 # Apple Silicon dmg
+pnpm --filter @centresoutien/desktop dist:mac:x64   # Intel Mac dmg
 pnpm --filter @centresoutien/desktop dist:win   # NSIS installer (must run on Windows)
 ```
 
@@ -28,15 +30,14 @@ Their compiled `.node` binaries are only valid for the OS/arch that produced
 them — there is no cross-compile step in this setup. Building `dist:win` on
 macOS (or vice versa) would silently bundle the wrong binary and crash on
 first database access. `dist` builds only for the host platform for this
-reason; `.github/workflows/package.yml` runs a `macos-latest` / `windows-
-latest` matrix (manual `workflow_dispatch`) so each installer is built on
-its real target OS.
+reason; `.github/workflows/package.yml` runs a `macos-latest` arm64 / `macos-
+13` x64 / `windows-latest` x64 matrix (manual `workflow_dispatch`) so each
+installer is built on its real target OS/arch.
 
-The macOS build is `arm64`-only for the same reason — the dev machine that
-builds it only has an arm64 toolchain/native binaries installed. An `x64`
-mac target can be added once it's actually needed (extra CI runner or a
-configured `pnpm.supportedArchitectures` fetch — see `dependency not found
-on disk` warnings in the electron-builder log for what's missing).
+The macOS build ships as two separate dmg artifacts instead of one universal
+dmg. Universal packaging would need both native-module architectures present
+in one build and a reliable `lipo` path; separate runners keep native-module
+verification honest.
 
 ## Signing
 
@@ -119,13 +120,13 @@ packing. The failure mode is silent until first launch: packaging succeeds,
 project's optionalDependencies`"), but the shipped app throws `Failed to
 load native binding` on first use.
 
-Fix: declare the platform package we actually ship as a **direct**
-`optionalDependency` of `apps/desktop/package.json` (currently
-`@node-rs/argon2-darwin-arm64` and `@node-rs/argon2-win32-x64-msvc`,
-matching the `mac`/`win` targets in `electron-builder.yml`). A direct
-dependency gets pnpm's normal top-level hoisted symlink, which packs
-correctly. If a new target arch/OS is added to `electron-builder.yml`, add
-its matching `@node-rs/argon2-*` package here too.
+Fix: declare the platform packages we actually ship as **direct**
+`optionalDependencies` of `apps/desktop/package.json` (currently
+`@node-rs/argon2-darwin-arm64`, `@node-rs/argon2-darwin-x64`, and
+`@node-rs/argon2-win32-x64-msvc`, matching the package workflow matrix). A
+direct dependency gets pnpm's normal top-level hoisted symlink, which packs
+correctly. If a new target arch/OS is added to `electron-builder.yml`, add its
+matching `@node-rs/argon2-*` package here too.
 
 The `Verify native modules load in packaged app` CI step exists because of
 this exact bug: a green `electron-builder` exit code does not prove the

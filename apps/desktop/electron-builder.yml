@@ -25,14 +25,10 @@ npmRebuild: false
 mac:
   category: public.app-category.education
   icon: build/icon.png
-  # arm64 only: native modules (better-sqlite3-multiple-ciphers, @node-rs/argon2)
-  # are compiled/fetched for the build machine's own arch, so a single run
-  # cannot correctly produce both a x64 and an arm64 dmg — see PACKAGING.md.
-  # CI builds each platform on its own runner (.github/workflows/package.yml).
+  # Native modules are compiled/fetched for one arch per runner. CI builds
+  # separate arm64 and x64 dmg artifacts instead of a universal binary.
   target:
     - target: dmg
-      arch:
-        - arm64
   # No paid Developer ID cert yet (SOU-86 KICKOFF: deferred to a follow-up).
   # Explicitly disables signing rather than letting electron-builder pick up
   # an unrelated cert it finds in the local keychain. See PACKAGING.md for the
