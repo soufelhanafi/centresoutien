@@ -19,6 +19,7 @@ import { resolveDomainErrorCode } from '../ipc/resolve-domain-error-code';
 export type SessionWriteErrorCode =
   | 'malformed-session-time'
   | 'session-outside-center-hours'
+  | 'outside-windows'
   | 'room-conflict'
   | 'teacher-conflict'
   | 'invalid-session-validity-range'
@@ -35,6 +36,7 @@ export type SessionWriteErrorCode =
 const DECODED_CODE_TO_RENDERER_CODE: Readonly<Record<string, SessionWriteErrorCode>> = {
   'malformed-session-time': 'malformed-session-time',
   SessionOutsideCenterHoursError: 'session-outside-center-hours',
+  'outside-windows': 'outside-windows',
   RoomConflictError: 'room-conflict',
   TeacherConflictError: 'teacher-conflict',
   'invalid-session-validity-range': 'invalid-session-validity-range',
