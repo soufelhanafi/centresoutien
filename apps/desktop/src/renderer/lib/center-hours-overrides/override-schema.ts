@@ -4,6 +4,7 @@ import {
   DEFAULT_CLOSE,
   DEFAULT_OPEN,
   isCalendarDate,
+  isValidTimeWindow,
   TIME_OF_DAY_REGEX,
   WEEKDAYS,
   type TimeOfDay,
@@ -24,6 +25,14 @@ import type { CenterHoursOverrideInput, HoursByWeekday, TimeWindow } from './ove
  * input's `0..6`-keyed `hoursByWeekday` record; {@link overrideFormToInput} folds
  * the array back into that record at the save boundary, which the domain then
  * re-validates through the very same schema.
+ *
+ * Unlike the domain schema (which folds every window defect into a single
+ * `windows-overlap` code), the form splits the defect so each error lands where
+ * the user can act on it (SOU-165 QA S2a/S2b): a malformed window (`close ≤ open`)
+ * attaches to that window's `close` field as `invalid-time`, while a genuine
+ * overlap or out-of-order pair attaches to the day's window list as
+ * `windows-overlap`. The domain remains the authority; this only routes the same
+ * failures to renderable field paths.
  */
 
 const timeString = z.string().regex(TIME_OF_DAY_REGEX, { message: 'invalid-time' });
@@ -40,7 +49,17 @@ const weekdayFormSchema = z
       open: window.open as TimeOfDay,
       close: window.close as TimeOfDay,
     }));
-    if (!areOrderedNonOverlappingWindows(windows)) {
+    windows.forEach((window, windowIndex) => {
+      if (!isValidTimeWindow(window)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'invalid-time',
+          path: ['windows', windowIndex, 'close'],
+        });
+      }
+    });
+    const everyWindowWellFormed = windows.every(isValidTimeWindow);
+    if (everyWindowWellFormed && !areOrderedNonOverlappingWindows(windows)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'windows-overlap', path: ['windows'] });
     }
   });
