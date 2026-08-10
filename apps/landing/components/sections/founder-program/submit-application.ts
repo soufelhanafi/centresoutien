@@ -68,8 +68,15 @@ export async function submitFounderApplication(
       ipHash,
       userAgent: h.get("user-agent") ?? "unknown",
     });
+    lastSubmissionByIp.set(ipHash, now);
     return { status: "success" };
-  } catch {
+  } catch (err) {
+    // Log only the stable failure code — never Resend's message (may echo
+    // recipient data) nor any form contents.
+    console.error(
+      "[founder] submission failed",
+      err instanceof Error ? err.message : "unknown",
+    );
     return { status: "error", error: "server_error" };
   }
 }

@@ -715,7 +715,7 @@
     "sections": {
       "collected": {
         "title": "Données collectées",
-        "body": "Le formulaire du Programme Fondateur collecte : le nom du centre, la ville, une tranche indicative du nombre d'élèves, une adresse email et un numéro de téléphone. À la soumission, une empreinte (hash) de votre adresse IP et la chaîne User-Agent de votre navigateur sont également collectées pour protéger le formulaire contre le spam et les doublons. Aucune autre donnée n'est collectée sur ce site."
+        "body": "Le formulaire du Programme Fondateur collecte : le nom du centre, la ville, une tranche indicative du nombre d'élèves, une adresse email et un numéro de téléphone. À la soumission, une empreinte non réversible de votre adresse IP et des informations techniques sur votre navigateur sont également collectées pour protéger le formulaire contre le spam et les doublons. Aucune autre donnée n'est collectée sur ce site."
       },
       "purpose": {
         "title": "Finalité",
