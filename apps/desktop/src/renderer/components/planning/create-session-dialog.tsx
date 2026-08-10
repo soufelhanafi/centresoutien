@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from '@centresoutien/ui';
 import { useCreateSession } from '../../hooks/planning/use-create-session';
 import { useSessionFormOptions } from '../../hooks/planning/use-session-form-options';
-import { SessionFormSheet } from './session-form-sheet';
+import { SessionFormDialog } from './session-form-dialog';
 import {
   EMPTY_SESSION_INPUT,
   toSessionInput,
@@ -46,7 +46,7 @@ export function CreateSessionDialog({
   };
 
   return (
-    <SessionFormSheet
+    <SessionFormDialog
       mode="create"
       open={open}
       onOpenChange={close}

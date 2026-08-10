@@ -4,7 +4,7 @@ import { toast } from '@centresoutien/ui';
 import { useUpdateSession } from '../../hooks/planning/use-update-session';
 import { useCancelSession } from '../../hooks/planning/use-cancel-session';
 import { useSessionFormOptions } from '../../hooks/planning/use-session-form-options';
-import { SessionFormSheet } from './session-form-sheet';
+import { SessionFormDialog } from './session-form-dialog';
 import { CancelSessionDialog } from './cancel-session-dialog';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 import {
@@ -41,7 +41,7 @@ function toFormInput(session: PlannerSessionView): SessionFormInput {
 /**
  * Edit-session flow opened from a grid block (SOU-131): edits the weekly slot,
  * surfaces scheduling conflicts inline, and offers a cancel (soft-delete) action
- * behind a confirmation. Owns the mutations; the sheet is presentational.
+ * behind a confirmation. Owns the mutations; the dialog is presentational.
  */
 export function SessionTemplateDialog({ session, onOpenChange }: SessionTemplateDialogProps) {
   const { t } = useTranslation();
@@ -79,7 +79,7 @@ export function SessionTemplateDialog({ session, onOpenChange }: SessionTemplate
 
   return (
     <>
-      <SessionFormSheet
+      <SessionFormDialog
         mode="edit"
         open
         onOpenChange={onOpenChange}

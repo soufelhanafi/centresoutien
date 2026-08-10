@@ -2,12 +2,12 @@ import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Button,
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Skeleton,
 } from '@centresoutien/ui';
 import { SessionForm } from './session-form';
@@ -16,14 +16,14 @@ import type { SessionFormInput, SessionFormValues } from '../../lib/planning/ses
 import type { SessionFormOptions } from '../../lib/planning/session-options';
 import type { SessionWriteErrorCode } from '../../lib/planning/session-write-error';
 
-/** The submit-related props, bundled so the sheet stays under the prop ceiling. */
+/** The submit-related props, bundled so the dialog stays under the prop ceiling. */
 type SessionSubmission = {
   pending: boolean;
   errorCodes: readonly SessionWriteErrorCode[];
   onSubmit: (values: SessionFormValues) => void | Promise<void>;
 };
 
-type SessionFormSheetProps = {
+type SessionFormDialogProps = {
   mode: 'create' | 'edit';
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -36,12 +36,12 @@ type SessionFormSheetProps = {
 };
 
 /**
- * Presentational shell for the create/edit session drawer. Owns no mutation — the
+ * Presentational shell for the create/edit session dialog. Owns no mutation — the
  * flow wrapper passes `submission` and (in edit mode) `onCancelSession`. Waits for
  * the picker options before rendering the form, showing skeletons meanwhile, and
- * surfaces scheduling conflicts inline above the fields. Mirrors `GroupFormSheet`.
+ * surfaces scheduling conflicts inline above the fields.
  */
-export function SessionFormSheet({
+export function SessionFormDialog({
   mode,
   open,
   onOpenChange,
@@ -49,20 +49,20 @@ export function SessionFormSheet({
   options,
   submission,
   onCancelSession,
-}: SessionFormSheetProps) {
+}: SessionFormDialogProps) {
   const { t } = useTranslation();
   const formId = useId();
   const submitLabel = mode === 'create' ? t('planning.form.create') : t('planning.form.save');
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="end" closeLabel={t('planning.form.cancel')} className="flex flex-col">
-        <SheetHeader>
-          <SheetTitle>{t(`planning.form.${mode}Title`)}</SheetTitle>
-          <SheetDescription>{t(`planning.form.${mode}Description`)}</SheetDescription>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent closeLabel={t('planning.form.cancel')} className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t(`planning.form.${mode}Title`)}</DialogTitle>
+          <DialogDescription>{t(`planning.form.${mode}Description`)}</DialogDescription>
+        </DialogHeader>
 
-        <div className="-mx-1 flex-1 space-y-4 overflow-y-auto px-1 py-4">
+        <div className="space-y-4 py-2">
           <SessionConflictAlert codes={submission.errorCodes} />
           {options ? (
             <SessionForm
@@ -80,7 +80,7 @@ export function SessionFormSheet({
           )}
         </div>
 
-        <SheetFooter className="sm:justify-between">
+        <DialogFooter className="sm:justify-between">
           {onCancelSession ? (
             <Button type="button" variant="destructive" onClick={onCancelSession}>
               {t('planning.cancelSession.trigger')}
@@ -96,8 +96,8 @@ export function SessionFormSheet({
               {submission.pending ? t('planning.form.saving') : submitLabel}
             </Button>
           </div>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

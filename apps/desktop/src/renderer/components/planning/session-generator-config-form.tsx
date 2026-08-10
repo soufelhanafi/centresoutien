@@ -18,7 +18,7 @@ import { GeneratorRangeFields } from './generator-range-fields';
  * mutation and passes `onSubmit` (which runs the dry run) and any `errorCode`
  * from a rejected preview (an infeasible config or a center with no rooms) to
  * surface inline above the fields. The submit button lives in the dialog footer
- * via `formId`, mirroring `SessionFormSheet`.
+ * via `formId`, mirroring `SessionFormDialog`.
  */
 export function SessionGeneratorConfigForm({
   formId,
