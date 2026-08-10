@@ -64,11 +64,11 @@ describe('overrideFormSchema (reuses the domain predicates)', () => {
     expect(overrideFormSchema.safeParse(form).success).toBe(true);
   });
 
-  it('flags a window whose close is not after its open on that window close field (invalid-time)', () => {
+  it('flags a well-formed window whose close is not after its open on that window close field (close-before-open)', () => {
     const form = baseForm();
     form.days[1] = { dayOfWeek: 1, windows: [{ open: '16:00', close: '10:00' }] };
     const issue = issueFor(form, ['days', 1, 'windows', 0, 'close']);
-    expect(issue?.message).toBe('invalid-time');
+    expect(issue?.message).toBe('close-before-open');
   });
 
   it('flags overlapping windows on the day window list (windows-overlap)', () => {

@@ -56,7 +56,7 @@ describe('OverrideForm — French', () => {
     fireEvent.change(screen.getByLabelText('Fermeture'), { target: { value: '08:00' } });
     await user.click(screen.getByRole('button', { name: 'submit' }));
 
-    expect(await screen.findByText('Heure invalide')).toBeInTheDocument();
+    expect(await screen.findByText("La fermeture doit être après l'ouverture")).toBeInTheDocument();
     expect(screen.getByLabelText('Fermeture')).toHaveAttribute('aria-invalid', 'true');
     expect(onSubmit).not.toHaveBeenCalled();
   });
@@ -90,7 +90,7 @@ describe('OverrideForm — Arabic (RTL)', () => {
     fireEvent.change(screen.getByLabelText('الإغلاق'), { target: { value: '08:00' } });
     await user.click(screen.getByRole('button', { name: 'submit' }));
 
-    expect(await screen.findByText('وقت غير صالح')).toBeInTheDocument();
+    expect(await screen.findByText('يجب أن يكون وقت الإغلاق بعد وقت الفتح')).toBeInTheDocument();
     expect(screen.getByLabelText('الإغلاق')).toHaveAttribute('aria-invalid', 'true');
   });
 });
