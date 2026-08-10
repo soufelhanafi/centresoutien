@@ -128,7 +128,7 @@ export function GroupAttendanceSheetDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent closeLabel={t('common.close')} className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>{t('attendance.groupSheet.title', { name: localizedName(group.subjectName, i18n.language) })}</DialogTitle>
         </DialogHeader>

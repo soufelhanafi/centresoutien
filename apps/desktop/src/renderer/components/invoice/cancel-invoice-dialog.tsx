@@ -45,7 +45,7 @@ export function CancelInvoiceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('invoices.detail.cancelInvoice.dismiss')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('invoices.detail.cancelInvoice.title')}</DialogTitle>
           <DialogDescription>

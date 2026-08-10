@@ -75,7 +75,7 @@ export function AddStudentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('groups.roster.addCancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('groups.roster.addTitle')}</DialogTitle>
           <DialogDescription>{t('groups.roster.addDescription')}</DialogDescription>

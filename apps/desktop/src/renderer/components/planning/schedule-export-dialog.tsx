@@ -38,7 +38,7 @@ export function ScheduleExportDialog() {
           {t('planning.export.trigger')}
         </Button>
       </DialogTrigger>
-      <DialogContent closeLabel={t('planning.export.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('planning.export.title')}</DialogTitle>
           <DialogDescription>{t('planning.export.description')}</DialogDescription>

@@ -41,7 +41,7 @@ export function ArchiveStudentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('students.archive.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('students.archive.title')}</DialogTitle>
           <DialogDescription>

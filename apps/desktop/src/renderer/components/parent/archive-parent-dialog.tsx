@@ -40,7 +40,7 @@ export function ArchiveParentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('parents.archive.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('parents.archive.title')}</DialogTitle>
           <DialogDescription>

@@ -70,7 +70,7 @@ export function DeleteSubjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent closeLabel={t('subjects.delete.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         {blocked ? (
           <>
             <DialogHeader>

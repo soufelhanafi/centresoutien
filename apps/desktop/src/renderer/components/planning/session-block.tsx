@@ -4,6 +4,7 @@ import { KindBadge } from '@centresoutien/ui';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 import { subjectColor } from '../../lib/planning/subject-color';
 import { localizedText } from '../../lib/planning/localized-text';
+import { formatTimeRange } from '../../lib/planning/time-range';
 
 type SessionBlockProps = {
   session: PlannerSessionView;
@@ -46,8 +47,8 @@ export function SessionBlock({ session, style, onSelect }: SessionBlockProps) {
           <KindBadge kind="exam-prep" label={t('planning.kind.examPrepShort')} className="shrink-0 px-1 py-0 text-[10px]" />
         ) : null}
       </span>
-      <span className="tabular-nums opacity-90">
-        {session.start} – {session.end}
+      <span dir="ltr" className="tabular-nums opacity-90">
+        {formatTimeRange(session.start, session.end, i18n.language)}
       </span>
       {meta ? <span className="truncate opacity-80">{meta}</span> : null}
     </button>

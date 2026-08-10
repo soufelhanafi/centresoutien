@@ -38,7 +38,7 @@ export function ArchiveHolidayDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('holidays.archive.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('holidays.archive.title')}</DialogTitle>
           <DialogDescription>{t('holidays.archive.body', { name })}</DialogDescription>

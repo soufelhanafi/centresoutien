@@ -40,7 +40,7 @@ function groupByDay(sessions: readonly PlannerSessionView[]): Map<number, Planne
  * by `dir="rtl"` on `<html>`, never by reversing the array here (CLAUDE.md §8).
  */
 export function PlannerGrid({ sessions, range, closedDays, onSelect, emptyLabel, className }: PlannerGridProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const byDay = groupByDay(sessions);
   const bodyHeight = (range.endHour - range.startHour) * HOUR_PX;
 
@@ -66,7 +66,7 @@ export function PlannerGrid({ sessions, range, closedDays, onSelect, emptyLabel,
               className="absolute end-0 -translate-y-1/2 pe-2 text-[11px] tabular-nums text-muted-foreground"
               style={{ top: (hour - range.startHour) * HOUR_PX }}
             >
-              {hourLabel(hour)}
+              {hourLabel(hour, i18n.language)}
             </span>
           ))}
         </div>
