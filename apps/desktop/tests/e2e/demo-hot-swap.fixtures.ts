@@ -1,5 +1,5 @@
 import { existsSync, mkdtempSync } from 'node:fs';
-import { createServer } from 'node:net';
+import { connect, createServer, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
@@ -53,7 +53,7 @@ export function freshUserDataDir(): string {
   return mkdtempSync(join(tmpdir(), 'cs-e2e-demoswap-'));
 }
 
-export type BootedReal = { app: ElectronApplication; win: Page; dir: string };
+export type BootedReal = { app: ElectronApplication; win: Page; dir: string; hubPort?: number };
 
 /**
  * Launch a fresh real center (premium via the global-setup license seam), seed
@@ -71,10 +71,12 @@ export async function bootRealCenter(
 ): Promise<BootedReal> {
   const dir = freshUserDataDir();
   const env: Record<string, string> = { ...process.env, CS_LOCALE: locale, CS_PLAN: 'premium' };
+  let hubPort: number | undefined;
   if (opts.hubHost) {
+    hubPort = await freePort();
     env['CS_HUB_ENABLED'] = '1';
     env['CS_HUB_TOKEN'] = HUB_TOKEN;
-    env['CS_HUB_PORT'] = String(await freePort());
+    env['CS_HUB_PORT'] = String(hubPort);
     env['CS_HUB_BIND_HOST'] = '127.0.0.1';
   }
   const app = await electron.launch({
@@ -84,7 +86,7 @@ export async function bootRealCenter(
   const win = await app.firstWindow();
   await win.waitForLoadState('domcontentloaded');
   await seedAdminAndLogin(win);
-  return { app, win, dir };
+  return { app, win, dir, hubPort };
 }
 
 /** The OS process id backing the Electron app — unchanged across a hot-swap, changed by a relaunch. */
@@ -189,4 +191,43 @@ export async function forceClose(app?: ElectronApplication): Promise<void> {
   }
   await Promise.race([app.close().catch(() => {}), new Promise((r) => setTimeout(r, 1500))]);
   await new Promise((r) => setTimeout(r, 200));
+}
+
+/**
+ * Black-box probe of the embedded hub: a TCP connect to the loopback port it was
+ * told to bind (`CS_HUB_BIND_HOST`/`CS_HUB_PORT`). `true` = something is
+ * listening, `false` = refused. Used to verify SOU-190 AC5 — the hub stops for
+ * the demo duration and comes back on wipe — without touching any implementation.
+ */
+export async function hubListening(port: number, connectTimeoutMs = 1500): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket: Socket = connect({ host: '127.0.0.1', port });
+    const done = (listening: boolean) => {
+      socket.destroy();
+      resolve(listening);
+    };
+    socket.setTimeout(connectTimeoutMs);
+    socket.once('connect', () => done(true));
+    socket.once('timeout', () => done(false));
+    socket.once('error', () => done(false));
+  });
+}
+
+/**
+ * Poll `hubListening` until it matches `expected` (or the timeout lapses). The
+ * hub start/stop is async in the main process, so asserting a single probe is
+ * flaky — this waits for the observable state.
+ */
+export async function waitForHub(
+  port: number,
+  expected: boolean,
+  timeoutMs = 30_000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  let state = await hubListening(port);
+  while (state !== expected && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 400));
+    state = await hubListening(port);
+  }
+  return state === expected;
 }
