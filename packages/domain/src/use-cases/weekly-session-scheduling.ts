@@ -8,6 +8,7 @@ import type { CenterHours } from '../entities/center-hours';
 import type { RoomId } from '../entities/room';
 import type { EntityId } from '../value-objects/ids';
 import type { TimeOfDay } from '../value-objects/time-of-day';
+import type { TimeWindow } from '../value-objects/time-window';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import { DEFAULT_WEEKLY_HOURS } from '../schemas/center-hours';
 
@@ -60,13 +61,24 @@ export function toCompositeCandidate(fields: ScheduleCandidateFields): Composite
  * the most-blocking conflict when the slot clashes; a free slot returns. The
  * caller pre-scopes `existing` (same center, that weekday, alive) and — on edit —
  * excludes the row being edited so a slot never clashes with itself.
+ *
+ * When `overrideWindows` is supplied (SOU-165: an active center-hours override
+ * covers the slot's concrete date), those windows replace the static `week` for
+ * the hours check and an out-of-window slot throws
+ * {@link SessionOutsideOverrideHoursError} (`code:'outside-windows'`) instead of
+ * the static outside-hours error. Absent → the static hours check runs unchanged.
  */
 export function assertScheduleFree(
   fields: ScheduleCandidateFields,
   existing: readonly ScheduledSessionRef[],
   week: readonly DayHours[],
+  overrideWindows?: readonly TimeWindow[],
 ): void {
-  const conflicts = detectSessionConflicts(toCompositeCandidate(fields), { existing, week });
+  const context =
+    overrideWindows !== undefined
+      ? { existing, week, overrideWindows }
+      : { existing, week };
+  const conflicts = detectSessionConflicts(toCompositeCandidate(fields), context);
   const first = conflicts[0];
   if (first) throw first.error;
 }

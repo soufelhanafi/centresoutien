@@ -1,5 +1,6 @@
 import type { WeeklyRecurringSessionRepository } from '../ports/weekly-recurring-session-repository';
 import type { CenterHoursRepository } from '../ports/center-hours-repository';
+import type { CenterHoursOverrideRepository } from '../ports/center-hours-override-repository';
 import type { GroupRepository } from '../ports/group-repository';
 import type { RoomRepository } from '../ports/room-repository';
 import type { Clock } from '../ports/clock';
@@ -12,6 +13,8 @@ import type { TimeOfDay } from '../value-objects/time-of-day';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import { newEnvelope } from '../entities/envelope';
 import { assertGroupFitsRoom } from '../policies/group-seat-capacity';
+import { overrideWindowsOn } from '../policies/center-hours-override-policy';
+import { weekdayInWeekOf } from '../value-objects/date-range';
 import { GroupNotFoundError } from '../errors/group-errors';
 import { RoomNotFoundError } from '../errors/room-errors';
 import {
@@ -59,7 +62,14 @@ export type CreateWeeklyRecurringSessionInput = WeeklyRecurringSessionInput & {
  * Then the SOU-55 composite conflict check (malformed time → outside center
  * hours → room overlap → teacher overlap) runs against the center's live refs
  * for that weekday and throws the most-blocking standard scheduling error when
- * the slot clashes — unless `allowScheduleConflict` is `true` (SOU-183), in which
+ * the slot clashes. When an active {@link CenterHoursOverride} covers the slot's
+ * concrete date (SOU-165) — the occurrence of `dayOfWeek` in the current clock
+ * week, since the planner it is added from always renders the current week — the
+ * override's per-weekday windows **replace** the static hours for that check: a
+ * slot outside static hours but inside an override window is accepted, and one in
+ * the override's iftar gap is rejected with {@link SessionOutsideOverrideHoursError}
+ * (`code:'outside-windows'`). Dates no override covers keep the static check
+ * exactly as before — unless `allowScheduleConflict` is `true` (SOU-183), in which
  * case that single check is skipped and the row is stamped
  * `conflictAccepted = true` to record the intentional double-book. The seat-fit
  * gate and the group/room not-found checks are never skipped. The row is then
@@ -75,6 +85,7 @@ export class CreateWeeklyRecurringSession {
     private readonly groups: GroupRepository,
     private readonly rooms: RoomRepository,
     private readonly centerHours: CenterHoursRepository,
+    private readonly overrides: CenterHoursOverrideRepository,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
     private readonly plan: PlanPolicy,
@@ -107,7 +118,13 @@ export class CreateWeeklyRecurringSession {
     if (!forced) {
       const week = resolveWeek(await this.centerHours.listForCenter(input.centerCode));
       const existing = await this.sessions.listRefsForDay(input.centerCode, dayOfWeek);
-      assertScheduleFree({ roomId, teacherId, dayOfWeek, start, end }, existing, week);
+      const slotDate = weekdayInWeekOf(this.clock.now().toISOString().slice(0, 10), dayOfWeek);
+      const overrideWindows = overrideWindowsOn(
+        slotDate,
+        dayOfWeek,
+        await this.overrides.listOverlapping(input.centerCode, slotDate, slotDate),
+      );
+      assertScheduleFree({ roomId, teacherId, dayOfWeek, start, end }, existing, week, overrideWindows);
     }
 
     const session = createWeeklyRecurringSession({

@@ -13,6 +13,7 @@ import {
   MalformedSessionTimeError,
   RoomConflictError,
   SessionOutsideCenterHoursError,
+  SessionOutsideOverrideHoursError,
   TeacherConflictError,
   InvalidSessionValidityRangeError,
 } from '../../../src/errors/scheduling-errors';
@@ -25,11 +26,17 @@ import type { Group, GroupId } from '../../../src/entities/group';
 import type { Room, RoomId } from '../../../src/entities/room';
 import type { SubjectId } from '../../../src/entities/subject';
 import type { CenterHours, CenterHoursId } from '../../../src/entities/center-hours';
+import type {
+  CenterHoursOverride,
+  CenterHoursOverrideId,
+  WeeklyTimeWindows,
+} from '../../../src/entities/center-hours-override';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import type { WeekdayIndex } from '../../../src/value-objects/weekday';
 import { InMemoryWeeklyRecurringSessionRepository } from '../fakes/in-memory-weekly-recurring-session-repository';
 import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-repository';
+import { InMemoryCenterHoursOverrideRepository } from '../fakes/in-memory-center-hours-override-repository';
 import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
 import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
 import { fakeClock } from '../fakes/clock';
@@ -120,11 +127,30 @@ function seededHours(dayOfWeek: WeekdayIndex, open: string | null, close: string
   };
 }
 
+function windows(...pairs: [string, string][]): readonly { open: TimeOfDay; close: TimeOfDay }[] {
+  return pairs.map(([open, close]) => ({ open: open as TimeOfDay, close: close as TimeOfDay }));
+}
+
+function weekWindows(byDay: Partial<Record<WeekdayIndex, readonly { open: TimeOfDay; close: TimeOfDay }[]>>): WeeklyTimeWindows {
+  return { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], ...byDay } as WeeklyTimeWindows;
+}
+
+function seededOverride(dateRange: { start: string; end: string }, hoursByWeekday: WeeklyTimeWindows): CenterHoursOverride {
+  seq += 1;
+  return {
+    id: `cho_${String(seq).padStart(26, '0')}` as CenterHoursOverrideId,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
+    dateRange,
+    hoursByWeekday,
+  };
+}
+
 describe('CreateWeeklyRecurringSession', () => {
   let sessions: InMemoryWeeklyRecurringSessionRepository;
   let groups: InMemoryGroupRepository;
   let rooms: InMemoryRoomRepository;
   let hours: InMemoryCenterHoursRepository;
+  let overrides: InMemoryCenterHoursOverrideRepository;
   let useCase: CreateWeeklyRecurringSession;
 
   beforeEach(async () => {
@@ -132,6 +158,7 @@ describe('CreateWeeklyRecurringSession', () => {
     groups = new InMemoryGroupRepository();
     rooms = new InMemoryRoomRepository();
     hours = new InMemoryCenterHoursRepository();
+    overrides = new InMemoryCenterHoursOverrideRepository();
     await groups.save(makeGroup());
     await rooms.save(makeRoom());
     useCase = new CreateWeeklyRecurringSession(
@@ -139,6 +166,7 @@ describe('CreateWeeklyRecurringSession', () => {
       groups,
       rooms,
       hours,
+      overrides,
       fakeClock('2026-07-29T10:00:00Z'),
       fakeIds(),
       new PlanPolicy(PLANS.essentiel),
@@ -211,6 +239,7 @@ describe('CreateWeeklyRecurringSession', () => {
         groups,
         rooms,
         hours,
+        overrides,
         fakeClock(),
         fakeIds(),
         new PlanPolicy(planWithout),
@@ -434,6 +463,112 @@ describe('CreateWeeklyRecurringSession', () => {
       await rooms.clear();
       const session = await useCase.execute(validInput());
       expect(session.roomId).toBe(ROOM);
+    });
+  });
+
+  // SOU-165 / QA S4: on a date an active override covers, the override's per-weekday
+  // windows REPLACE the static hours for interactive session creation. The clock is
+  // Monday 2026-08-10 (the E2E's system date); the current week is Sun 2026-08-09 ..
+  // Sat 2026-08-15, so the Monday override window governs a Monday slot.
+  describe('active center-hours override precedence (SOU-165)', () => {
+    const MONDAY = 1 as WeekdayIndex;
+    const IFTAR_WEEK = { start: '2026-08-09', end: '2026-08-15' };
+    const OTHER_WEEK = { start: '2026-09-06', end: '2026-09-12' };
+
+    function useCaseOnMonday(): CreateWeeklyRecurringSession {
+      return new CreateWeeklyRecurringSession(
+        sessions,
+        groups,
+        rooms,
+        hours,
+        overrides,
+        fakeClock('2026-08-10T10:00:00Z'),
+        fakeIds(),
+        new PlanPolicy(PLANS.premium),
+      );
+    }
+
+    async function seedIftarOverride(): Promise<void> {
+      await overrides.save(
+        seededOverride(IFTAR_WEEK, weekWindows({ [MONDAY]: windows(['14:00', '17:00'], ['21:00', '23:00']) })),
+      );
+    }
+
+    it('accepts a slot that fits entirely inside an override window', async () => {
+      await seedIftarOverride();
+      const session = await useCaseOnMonday().execute(
+        validInput({ dayOfWeek: MONDAY, start: '15:00' as TimeOfDay, end: '16:00' as TimeOfDay }),
+      );
+      expect(session.start).toBe('15:00');
+      expect(sessions.all()).toHaveLength(1);
+    });
+
+    it('rejects a slot in the iftar gap with SessionOutsideOverrideHoursError (code outside-windows)', async () => {
+      await seedIftarOverride();
+      const error = await useCaseOnMonday()
+        .execute(validInput({ dayOfWeek: MONDAY, start: '17:00' as TimeOfDay, end: '18:00' as TimeOfDay }))
+        .catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(SessionOutsideOverrideHoursError);
+      expect((error as SessionOutsideOverrideHoursError).code).toBe('outside-windows');
+      expect((error as SessionOutsideOverrideHoursError).reason).toBe('outside-windows');
+      expect(sessions.all()).toHaveLength(0);
+    });
+
+    it('rejects a slot inside static hours but before the first override window (S4: 09:00–10:00 was wrongly created)', async () => {
+      await seedIftarOverride();
+      const error = await useCaseOnMonday()
+        .execute(validInput({ dayOfWeek: MONDAY, start: '09:00' as TimeOfDay, end: '10:00' as TimeOfDay }))
+        .catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(SessionOutsideOverrideHoursError);
+      expect((error as SessionOutsideOverrideHoursError).code).toBe('outside-windows');
+      expect(sessions.all()).toHaveLength(0);
+    });
+
+    it('accepts a slot inside an override window but outside static hours (S4: 22:00–23:00 was wrongly rejected)', async () => {
+      await seedIftarOverride();
+      const session = await useCaseOnMonday().execute(
+        validInput({ dayOfWeek: MONDAY, start: '22:00' as TimeOfDay, end: '23:00' as TimeOfDay }),
+      );
+      expect(session.start).toBe('22:00');
+      expect(sessions.all()).toHaveLength(1);
+    });
+
+    it('rejects any slot when the override closes that weekday (empty window list)', async () => {
+      await overrides.save(seededOverride(IFTAR_WEEK, weekWindows({ [MONDAY]: [] })));
+      const error = await useCaseOnMonday()
+        .execute(validInput({ dayOfWeek: MONDAY, start: '15:00' as TimeOfDay, end: '16:00' as TimeOfDay }))
+        .catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(SessionOutsideOverrideHoursError);
+      expect((error as SessionOutsideOverrideHoursError).reason).toBe('closed');
+      expect(sessions.all()).toHaveLength(0);
+    });
+
+    it('falls back to static hours on a date no active override covers', async () => {
+      // Override covers a LATER week, so the current Monday uses static 09:00–18:00:
+      // a 22:00 slot is rejected as static outside-hours, NOT the override error.
+      await overrides.save(
+        seededOverride(OTHER_WEEK, weekWindows({ [MONDAY]: windows(['14:00', '17:00'], ['21:00', '23:00']) })),
+      );
+      const error = await useCaseOnMonday()
+        .execute(validInput({ dayOfWeek: MONDAY, start: '22:00' as TimeOfDay, end: '23:00' as TimeOfDay }))
+        .catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(SessionOutsideCenterHoursError);
+      expect(error).not.toBeInstanceOf(SessionOutsideOverrideHoursError);
+      expect(sessions.all()).toHaveLength(0);
+    });
+
+    it('still accepts an in-window slot when the override is active but the slot is forced past a room double-book', async () => {
+      await seedIftarOverride();
+      await sessions.save(seededSession({ dayOfWeek: MONDAY, start: '15:00' as TimeOfDay, end: '16:00' as TimeOfDay }));
+      const session = await useCaseOnMonday().execute(
+        validInput({
+          dayOfWeek: MONDAY,
+          start: '15:30' as TimeOfDay,
+          end: '16:30' as TimeOfDay,
+          allowScheduleConflict: true,
+        }),
+      );
+      expect(session.conflictAccepted).toBe(true);
     });
   });
 });

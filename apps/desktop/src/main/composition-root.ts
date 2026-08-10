@@ -960,6 +960,7 @@ export function buildContainer(options: ContainerOptions): Container {
     groupRepo,
     roomRepo,
     centerHoursRepo,
+    centerHoursOverrideRepo,
     clock,
     ids,
     plan,
@@ -969,6 +970,7 @@ export function buildContainer(options: ContainerOptions): Container {
     groupRepo,
     roomRepo,
     centerHoursRepo,
+    centerHoursOverrideRepo,
     clock,
     plan,
   );

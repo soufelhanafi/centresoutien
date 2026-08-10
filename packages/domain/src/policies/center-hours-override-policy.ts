@@ -6,6 +6,24 @@ import type { DayHours } from './session-conflict-policy';
 import type { TimeWindow } from '../value-objects/time-window';
 import type { WeekdayIndex } from '../value-objects/weekday';
 
+/**
+ * The effective opening windows for interactive session validation on `date` when
+ * an active override covers it, or `undefined` when none does (SOU-165). Used by
+ * the ad-hoc create/edit path to decide whether the static center hours or the
+ * override's per-weekday windows govern the slot: `undefined` means "no override
+ * in effect — keep checking against the static hours". An override that closes
+ * `dayOfWeek` yields an empty window list (a defined value), which the hours check
+ * then rejects as `closed`.
+ */
+export function overrideWindowsOn(
+  date: string,
+  dayOfWeek: WeekdayIndex,
+  overrides: readonly CenterHoursOverride[],
+): readonly TimeWindow[] | undefined {
+  const active = activeOverrideOn(date, overrides);
+  return active === null ? undefined : windowsForWeekday(active.hoursByWeekday, dayOfWeek);
+}
+
 /** The subset of an override the date resolution reads — decoupled from the envelope. */
 export type OverrideOccurrence = Pick<
   CenterHoursOverride,

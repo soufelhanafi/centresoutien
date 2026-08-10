@@ -6,9 +6,11 @@ import type {
 } from '../../../src/policies/composite-session-conflicts';
 import type { DayHours } from '../../../src/policies/session-conflict-policy';
 import type { ScheduledSessionRef } from '../../../src/errors/scheduling-errors';
+import { SessionOutsideOverrideHoursError } from '../../../src/errors/scheduling-errors';
 import type { CenterCode, EntityId } from '../../../src/value-objects/ids';
 import type { RoomId } from '../../../src/entities/room';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
+import type { TimeWindow } from '../../../src/value-objects/time-window';
 
 const ROOM_A = 'rom_a' as RoomId;
 const ROOM_B = 'rom_b' as RoomId;
@@ -139,6 +141,75 @@ describe('detectSessionConflicts', () => {
         context([]),
       );
       expect(result.map((c) => c.kind)).toEqual(['malformed']);
+    });
+  });
+
+  // SOU-165: when overrideWindows are supplied they replace the static week for
+  // the hours check, and a miss is the override-specific error (code outside-windows).
+  describe('active override windows (SOU-165)', () => {
+    const iftar: readonly TimeWindow[] = [
+      { open: '14:00' as TimeOfDay, close: '17:00' as TimeOfDay },
+      { open: '21:00' as TimeOfDay, close: '23:00' as TimeOfDay },
+    ];
+    const withWindows = (existing: readonly ScheduledSessionRef[]): ConflictCheckContext => ({
+      existing,
+      week,
+      overrideWindows: iftar,
+    });
+
+    it('accepts a slot inside an override window that is outside static hours', () => {
+      const result = detectSessionConflicts(
+        candidate({ teacherId: undefined, start: '22:00' as TimeOfDay, end: '23:00' as TimeOfDay }),
+        withWindows([]),
+      );
+      expect(result).toEqual([]);
+    });
+
+    it('reports the override error for a slot in the iftar gap', () => {
+      const result = detectSessionConflicts(
+        candidate({ teacherId: undefined, start: '17:00' as TimeOfDay, end: '18:00' as TimeOfDay }),
+        withWindows([]),
+      );
+      expect(result.map((c) => c.kind)).toEqual(['hours']);
+      const error = result[0]?.kind === 'hours' ? result[0].error : null;
+      expect(error).toBeInstanceOf(SessionOutsideOverrideHoursError);
+      expect((error as SessionOutsideOverrideHoursError).code).toBe('outside-windows');
+      expect((error as SessionOutsideOverrideHoursError).reason).toBe('outside-windows');
+    });
+
+    it('reports the override error (before-open) for a slot inside static hours but before the first window', () => {
+      const result = detectSessionConflicts(
+        candidate({ teacherId: undefined, start: '09:00' as TimeOfDay, end: '10:00' as TimeOfDay }),
+        withWindows([]),
+      );
+      const error = result[0]?.kind === 'hours' ? result[0].error : null;
+      expect(error).toBeInstanceOf(SessionOutsideOverrideHoursError);
+      expect((error as SessionOutsideOverrideHoursError).reason).toBe('before-open');
+    });
+
+    it('reports closed for an empty override window list', () => {
+      const result = detectSessionConflicts(candidate({ teacherId: undefined }), {
+        existing: [],
+        week,
+        overrideWindows: [],
+      });
+      const error = result[0]?.kind === 'hours' ? result[0].error : null;
+      expect(error).toBeInstanceOf(SessionOutsideOverrideHoursError);
+      expect((error as SessionOutsideOverrideHoursError).reason).toBe('closed');
+    });
+
+    it('still aggregates room + teacher clashes alongside the override hours miss', () => {
+      const result = detectSessionConflicts(
+        candidate({ start: '17:00' as TimeOfDay, end: '18:00' as TimeOfDay }),
+        withWindows([
+          ref('r1', ROOM_A, undefined, '17:00', '18:00'),
+          ref('t1', ROOM_B, TEACHER_A, '17:00', '18:00'),
+        ]),
+      );
+      expect(result.map((c) => c.kind)).toEqual(['hours', 'room', 'teacher']);
+      expect(result[0]?.kind === 'hours' && result[0].error).toBeInstanceOf(
+        SessionOutsideOverrideHoursError,
+      );
     });
   });
 
