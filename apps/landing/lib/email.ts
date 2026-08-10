@@ -14,10 +14,11 @@ const STUDENT_RANGE_LABELS: Record<FounderApplication["studentsRange"], string> 
   gt300: "300+",
 };
 
-/**
+/*
  * Sends the team notification. Returns { sent: false } in development when
  * Resend is not configured (so the flow stays testable) and throws in
- * production. Never logs PII.
+ * production — including when the Resend API itself reports an error, so the
+ * caller never shows a success state for a lost application. Never logs PII.
  */
 export async function sendFounderNotification(
   data: FounderApplication,
@@ -48,12 +49,16 @@ export async function sendFounderNotification(
     `User-Agent : ${meta.userAgent}`,
   ].join("\n");
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from,
     to,
     replyTo: data.email,
     subject: `Candidature Programme Fondateur — ${data.centerName}`,
     text,
   });
+  if (error) {
+    // Deliberately opaque: Resend's message may echo recipient data.
+    throw new Error("email_send_failed");
+  }
   return { sent: true };
 }

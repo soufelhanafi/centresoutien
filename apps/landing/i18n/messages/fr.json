@@ -710,12 +710,12 @@
     "meta_description": "Ce que Centre Soutien collecte via le Programme Fondateur, la durée de conservation et vos droits au titre de la loi 09-08.",
     "breadcrumb": "Confidentialité",
     "heading": "Politique de confidentialité",
-    "updated": "Dernière mise à jour : 28 juillet 2026",
+    "updated": "Dernière mise à jour : 10 août 2026",
     "intro": "Cette page décrit les données personnelles que Centre Soutien collecte via le formulaire du Programme Fondateur, pourquoi elles sont collectées, combien de temps elles sont conservées et les droits dont vous disposez au titre de la loi 09-08.",
     "sections": {
       "collected": {
         "title": "Données collectées",
-        "body": "Le formulaire du Programme Fondateur collecte : le nom du centre, la ville, une tranche indicative du nombre d'élèves, une adresse email et un numéro de téléphone. Aucune autre donnée n'est collectée sur ce site."
+        "body": "Le formulaire du Programme Fondateur collecte : le nom du centre, la ville, une tranche indicative du nombre d'élèves, une adresse email et un numéro de téléphone. À la soumission, une empreinte non réversible de votre adresse IP et des informations techniques sur votre navigateur sont également collectées pour protéger le formulaire contre le spam et les doublons. Aucune autre donnée n'est collectée sur ce site."
       },
       "purpose": {
         "title": "Finalité",
