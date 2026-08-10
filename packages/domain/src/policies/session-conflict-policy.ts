@@ -4,10 +4,12 @@ import {
   SessionOnHolidayError,
   SessionOutsideCenterHoursError,
   TeacherConflictError,
+  type OutsideCenterHoursReason,
   type ScheduledSessionRef,
 } from '../errors/scheduling-errors';
 import { holidayOn, type HolidayOccurrence } from './holiday-policy';
 import { toMinutes, type TimeOfDay } from '../value-objects/time-of-day';
+import { timeWindowsContain, type TimeWindow } from '../value-objects/time-window';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import type { RoomId } from '../entities/room';
 import type { EntityId } from '../value-objects/ids';
@@ -89,6 +91,38 @@ export const SessionConflictPolicy = {
       return new SessionOutsideCenterHoursError(candidate.dayOfWeek, 'after-close', day.open, day.close);
     }
     return null;
+  },
+
+  /**
+   * The date-aware, multi-window sibling of {@link withinCenterHours} (SOU-165):
+   * a candidate must fall entirely inside one of the day's opening `windows`. The
+   * caller resolves `windows` for the concrete date first (override precedence
+   * over static hours lives in `resolveEffectiveWindows`), so this check is a
+   * pure fit test and never reads a date itself. Boundaries are inclusive.
+   *
+   * An empty `windows` is a closed day (`closed`). A range that starts before the
+   * first window opens is `before-open`; one that ends after the last window
+   * closes is `after-close`; one that lands in a gap between windows — the iftar
+   * break — is `outside-windows`. The `open`/`close` carried are the day's first
+   * open and last close so the renderer can say when the center is actually open.
+   */
+  withinWindows(
+    candidate: SessionTimeCandidate,
+    windows: readonly TimeWindow[],
+  ): SessionOutsideCenterHoursError | null {
+    const first = windows[0];
+    const last = windows[windows.length - 1];
+    if (first === undefined || last === undefined) {
+      return new SessionOutsideCenterHoursError(candidate.dayOfWeek, 'closed', null, null);
+    }
+    if (timeWindowsContain(windows, candidate.start, candidate.end)) return null;
+    const reason: OutsideCenterHoursReason =
+      toMinutes(candidate.start) < toMinutes(first.open)
+        ? 'before-open'
+        : toMinutes(candidate.end) > toMinutes(last.close)
+          ? 'after-close'
+          : 'outside-windows';
+    return new SessionOutsideCenterHoursError(candidate.dayOfWeek, reason, first.open, last.close);
   },
 
   /**

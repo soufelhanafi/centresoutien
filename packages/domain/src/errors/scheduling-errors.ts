@@ -7,8 +7,17 @@ import type { HolidayId } from '../entities/holiday';
 import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-session';
 import type { SessionId, GenerationBatchId } from '../entities/session';
 
-/** Why a session falls outside the center's opening hours. */
-export type OutsideCenterHoursReason = 'closed' | 'before-open' | 'after-close';
+/**
+ * Why a session falls outside the center's opening hours. `outside-windows`
+ * (SOU-165) is the multi-window case: the day is open but the session lands in a
+ * gap between windows — e.g. during the iftar break of a Ramadan override — so it
+ * is neither before the first open nor after the last close.
+ */
+export type OutsideCenterHoursReason =
+  | 'closed'
+  | 'before-open'
+  | 'after-close'
+  | 'outside-windows';
 
 /**
  * The minimal shape of an already-scheduled weekly session the room and teacher
