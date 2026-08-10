@@ -3,6 +3,7 @@
     "title": "Centre Soutien"
   },
   "common": {
+    "close": "Fermer",
     "undo": "Annuler"
   },
   "nav": {
@@ -1644,6 +1645,8 @@
     "loadError": "Le chargement des horaires a échoué.",
     "loadErrorBody": "Impossible de récupérer les horaires du centre.",
     "retry": "Réessayer",
+    "defaultHint": "Tant que vous n'avez pas enregistré vos horaires, les séances sont vérifiées avec une fenêtre par défaut de 09:00 à 18:00.",
+    "dismissDefaultHint": "Masquer cette information",
     "weekdays": {
       "0": "Dimanche",
       "1": "Lundi",

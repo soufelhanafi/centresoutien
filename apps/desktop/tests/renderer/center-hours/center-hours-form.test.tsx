@@ -34,6 +34,16 @@ function stubIpc() {
   return invoke;
 }
 
+function stubIpcWithWeek(week: Row[]) {
+  const invoke = vi.fn(async (channel: string, req: unknown) => {
+    if (channel === 'centerHours.get') return { week };
+    if (channel === 'centerHours.save') return { week: req };
+    return {};
+  });
+  window.api.invoke = invoke as typeof window.api.invoke;
+  return invoke;
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -50,11 +60,32 @@ describe('CenterHoursSettings — French', () => {
 
     const save = await screen.findByRole('button', { name: 'Enregistrer les horaires' });
     expect(screen.getByText('Lundi')).toBeInTheDocument();
+    expect(screen.getByText(/fenêtre par défaut de 09:00 à 18:00/)).toBeInTheDocument();
 
     await user.click(save);
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith('centerHours.save', defaultWeek));
     expect(await screen.findByText('Horaires enregistrés')).toBeInTheDocument();
+    expect(screen.queryByText(/fenêtre par défaut de 09:00 à 18:00/)).not.toBeInTheDocument();
+  });
+
+  it('hides the default-hours hint once dismissed', async () => {
+    const user = userEvent.setup();
+    stubIpc();
+    renderSettings();
+
+    await screen.findByText(/fenêtre par défaut de 09:00 à 18:00/);
+    await user.click(screen.getByRole('button', { name: 'Masquer cette information' }));
+
+    expect(screen.queryByText(/fenêtre par défaut de 09:00 à 18:00/)).not.toBeInTheDocument();
+  });
+
+  it('does not show the default-hours hint when hours already exist', async () => {
+    stubIpcWithWeek(defaultWeek);
+    renderSettings();
+
+    await screen.findByRole('button', { name: 'Enregistrer les horaires' });
+    expect(screen.queryByText(/fenêtre par défaut de 09:00 à 18:00/)).not.toBeInTheDocument();
   });
 
   it('closes a day via its toggle and saves null hours for it', async () => {
@@ -82,6 +113,7 @@ describe('CenterHoursSettings — Arabic (RTL)', () => {
 
     expect(await screen.findByRole('button', { name: 'حفظ المواعيد' })).toBeInTheDocument();
     expect(screen.getByText('مواعيد العمل')).toBeInTheDocument();
+    expect(screen.getByText(/نافذة افتراضية من 09:00 إلى 18:00/)).toBeInTheDocument();
     expect(screen.getByText('الإثنين')).toBeInTheDocument();
   });
 });

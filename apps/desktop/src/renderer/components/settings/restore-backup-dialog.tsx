@@ -27,7 +27,7 @@ export function RestoreBackupDialog({ open, onOpenChange, onConfirm, pending }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('settings.backup.confirmDismiss')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('settings.backup.confirmTitle')}</DialogTitle>
           <DialogDescription>{t('settings.backup.confirmBody')}</DialogDescription>

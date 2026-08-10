@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { WEEKDAYS } from '@centresoutien/domain';
 import { Clock } from 'lucide-react';
@@ -15,6 +16,7 @@ import { CenterHoursForm } from './center-hours-form';
 export function CenterHoursSettings() {
   const { t } = useTranslation();
   const query = useCenterHours();
+  const [dismissedDefaultHint, setDismissedDefaultHint] = useState(false);
 
   if (query.isPending) {
     return (
@@ -47,5 +49,11 @@ export function CenterHoursSettings() {
     );
   }
 
-  return <CenterHoursForm initialWeek={seedWeek(query.data.week)} />;
+  return (
+    <CenterHoursForm
+      initialWeek={seedWeek(query.data.week)}
+      showDefaultHoursHint={query.data.week.length === 0 && !dismissedDefaultHint}
+      onDismissDefaultHoursHint={() => setDismissedDefaultHint(true)}
+    />
+  );
 }

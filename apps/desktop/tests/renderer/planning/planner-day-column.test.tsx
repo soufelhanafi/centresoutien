@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PlannerDayColumn } from '../../../src/renderer/components/planning/planner-day-column';
 import { deriveCenterHoursRange } from '../../../src/renderer/lib/planning/time-range';
@@ -52,5 +52,26 @@ describe('PlannerDayColumn — closed day', () => {
     );
 
     expect(container.querySelector('button')).not.toBeNull();
+  });
+
+  it('formats session block times through Intl', async () => {
+    await i18n.changeLanguage('ar');
+    render(
+      <PlannerDayColumn
+        sessions={[session({ dayOfWeek: 0, start: '09:30', end: '11:00' })]}
+        range={range}
+        hourPx={56}
+        closed={false}
+        onSelect={() => {}}
+      />,
+    );
+
+    const start = new Intl.DateTimeFormat('ar', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+      timeZone: 'UTC',
+    }).format(new Date(Date.UTC(1970, 0, 1, 9, 30)));
+    expect(screen.getByText(new RegExp(start))).toHaveAttribute('dir', 'ltr');
   });
 });

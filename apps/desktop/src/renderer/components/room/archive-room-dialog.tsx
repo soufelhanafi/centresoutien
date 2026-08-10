@@ -37,7 +37,7 @@ export function ArchiveRoomDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('rooms.archive.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('rooms.archive.title')}</DialogTitle>
           <DialogDescription>{t('rooms.archive.body', { name: room.name })}</DialogDescription>

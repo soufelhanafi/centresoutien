@@ -98,7 +98,7 @@ export function ChangeSubscriptionDialog({
 
   return (
     <Dialog open={target !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent closeLabel={t('students.subscription.wizard.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t(`students.subscription.wizard.${titleKey}`)}</DialogTitle>
           <DialogDescription>{t(`students.subscription.wizard.${descriptionKey}`)}</DialogDescription>

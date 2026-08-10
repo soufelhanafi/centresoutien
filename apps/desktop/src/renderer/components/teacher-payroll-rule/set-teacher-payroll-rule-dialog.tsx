@@ -94,7 +94,7 @@ export function SetTeacherPayrollRuleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('teachers.detail.payroll.form.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>
             {t(activeRule ? 'teachers.detail.payroll.form.changeTitle' : 'teachers.detail.payroll.form.createTitle')}

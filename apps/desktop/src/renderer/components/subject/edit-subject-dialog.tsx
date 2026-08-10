@@ -41,7 +41,7 @@ export function EditSubjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('subjects.form.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('subjects.form.editTitle')}</DialogTitle>
           <DialogDescription>{t('subjects.form.editDescription')}</DialogDescription>

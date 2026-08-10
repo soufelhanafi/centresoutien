@@ -26,7 +26,7 @@ export function DemoWipeDialog({ open, onOpenChange, onConfirm, pending }: DemoW
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('demo.wipeDialog.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('demo.wipeDialog.title')}</DialogTitle>
           <DialogDescription>{t('demo.wipeDialog.body')}</DialogDescription>

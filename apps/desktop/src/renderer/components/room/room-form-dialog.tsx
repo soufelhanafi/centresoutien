@@ -34,7 +34,7 @@ export function RoomFormDialog({ mode, open, onOpenChange, defaultValues, pendin
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('rooms.form.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t(`rooms.form.${mode}Title`)}</DialogTitle>
           <DialogDescription>{t(`rooms.form.${mode}Description`)}</DialogDescription>

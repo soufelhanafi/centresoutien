@@ -40,7 +40,7 @@ export function HolidayFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('holidays.form.cancel')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t(`holidays.form.${mode}Title`)}</DialogTitle>
           <DialogDescription>{t(`holidays.form.${mode}Description`)}</DialogDescription>

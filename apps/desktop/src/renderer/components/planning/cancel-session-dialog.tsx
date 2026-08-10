@@ -26,7 +26,7 @@ export function CancelSessionDialog({ open, onOpenChange, onConfirm, pending }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('planning.cancelSession.dismiss')}>
+      <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('planning.cancelSession.title')}</DialogTitle>
           <DialogDescription>{t('planning.cancelSession.body')}</DialogDescription>
