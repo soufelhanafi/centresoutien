@@ -176,12 +176,9 @@ export class SqlitePaymentRepository implements PaymentRepository, RecentPayment
     return rows.map(paymentFromRow);
   }
 
-  // The cash-desk feed (SOU-198): every live payment/reversal of the center, most
-  // recent paid_on first (ties broken by the ULID id, itself time-sortable), within
-  // the optional inclusive paid_on window and capped at `filters.limit`. The two LEFT
-  // JOINs resolve the row's label cheaply on primary keys — an unsynced invoice/student
-  // leaves the label null, exactly like the Impayés read's student join. Center-scoped
-  // and tombstone-hiding like every sibling read; the caller nets payments vs reversals.
+  // The LEFT JOINs leave the student label null for an invoice/student that has not
+  // synced yet — the same degradation the Impayés read accepts. Rows are returned
+  // un-netted; the caller nets payments against reversals.
   async listRecentPayments(
     centerCode: CenterCode,
     filters: RecentPaymentsFilters,
@@ -218,11 +215,8 @@ export class SqlitePaymentRepository implements PaymentRepository, RecentPayment
     return rows.map(recentPaymentFromRow);
   }
 
-  // The cash-desk header total (SOU-198): one GROUP BY method aggregate over the day's
-  // live rows, netting reversals in SQL (Σ payments − Σ reversals) so the figure never
-  // depends on a row cap — a day with thousands of rows still totals correctly. The four
-  // method keys are seeded to 0 first, so an absent method stays 0 and the shape is
-  // stable. Center-scoped and tombstone-hiding like every sibling read.
+  // Nets reversals in SQL (Σ payments − Σ reversals) so the day total never depends on a
+  // row cap — the reason this exists apart from the capped `payment.recent` feed.
   async getDayTakings(centerCode: CenterCode, day: string): Promise<DayTakings> {
     const rows = this.db
       .prepare(

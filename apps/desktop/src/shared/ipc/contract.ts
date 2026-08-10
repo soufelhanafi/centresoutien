@@ -192,10 +192,24 @@ const paymentViewSchema = z.object({
   createdAt: z.string(),
 });
 
-// A calendar day at the IPC boundary — a strict `YYYY-MM-DD` string. Reused by the
-// cash-desk payment reads (SOU-198) so a malformed date is rejected at the boundary
-// rather than silently mis-filtering an indexed `paid_on` comparison downstream.
-const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+// A calendar day at the IPC boundary — a real `YYYY-MM-DD` date. The `.refine` rejects
+// impossible days the shape alone would pass (e.g. `2026-02-30`); otherwise they reach
+// the SQL reads and return an empty feed / zero takings, indistinguishable from a valid
+// day with no activity. Reused by the cash-desk payment reads (SOU-198).
+const isRealCalendarDay = (value: string): boolean => {
+  const [year, month, day] = value.split('-').map(Number) as [number, number, number];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+};
+
+const dayString = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine(isRealCalendarDay, { message: 'must be a real calendar date (YYYY-MM-DD)' });
 
 // One row of the cash-desk "recent payments" feed (SOU-198) — the cross-invoice
 // projection behind the `/payments` page (today's takings + recent feed). Unlike
