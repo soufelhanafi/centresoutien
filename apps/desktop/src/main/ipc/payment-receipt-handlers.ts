@@ -2,7 +2,7 @@ import { dialog, shell, BrowserWindow } from 'electron';
 import { writeFileSync } from 'node:fs';
 import type { GeneratePaymentReceiptPdf, PaymentId, CenterCode } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
-import { writeTempPdf } from './temp-pdf';
+import { writeTempPdf } from '../../data/fs/temp-pdf';
 
 export type GeneratePaymentReceiptPdfUseCase = Pick<GeneratePaymentReceiptPdf, 'execute'>;
 

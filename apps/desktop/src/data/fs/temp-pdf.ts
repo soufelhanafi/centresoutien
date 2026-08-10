@@ -9,8 +9,10 @@ const TEMP_PDF_PREFIXES = ['planning-', 'facture-', 'bulletin-paie-', 'recu-paie
 
 export type TempPdfPrefix = (typeof TEMP_PDF_PREFIXES)[number];
 
+const OWNED_TEMP_PDF_NAME = /^.+-(\d{10,13})(-[0-9a-f]{8})?\.pdf$/;
+
 export function isOwnedTempPdfName(fileName: string): boolean {
-  return TEMP_PDF_PREFIXES.some((prefix) => fileName.startsWith(prefix)) && fileName.endsWith('.pdf');
+  return TEMP_PDF_PREFIXES.some((prefix) => fileName.startsWith(prefix)) && OWNED_TEMP_PDF_NAME.test(fileName);
 }
 
 export function tempPdfFileName(prefix: TempPdfPrefix, ...nameParts: readonly string[]): string {

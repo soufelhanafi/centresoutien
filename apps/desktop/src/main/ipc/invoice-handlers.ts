@@ -16,7 +16,7 @@ import type {
 import { InvoiceNotFoundError } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import { buildInvoicePdfInput, type PdfAssemblyDeps } from './invoice-pdf-assembly';
-import { writeTempPdf } from './temp-pdf';
+import { writeTempPdf } from '../../data/fs/temp-pdf';
 
 export type ListInvoicesUseCase = Pick<ListInvoices, 'execute'>;
 export type IssueInvoiceUseCase = Pick<IssueInvoice, 'execute'>;

@@ -34,7 +34,7 @@ test.afterEach(async () => {
 });
 
 const STALE_AGE_MIN = 6; // comfortably older than the 5-minute sweep threshold
-const tag = () => `${Date.now()}-${locale()}`;
+const tag = () => `${locale()}-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 
 // ---------------------------------------------------------------------------
 // AC1 — stale owned temp PDFs do not survive. One file per owned prefix, all

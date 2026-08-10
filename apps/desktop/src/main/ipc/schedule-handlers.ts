@@ -4,7 +4,7 @@ import type { CenterCode, ListWeekSessions } from '@centresoutien/domain';
 import type { PdfLibScheduleRenderer } from '../../data/pdf/pdf-lib-schedule-renderer';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import { buildSchedulePdfInput, type ScheduleAssemblyDeps } from './schedule-pdf-assembly';
-import { writeTempPdf } from './temp-pdf';
+import { writeTempPdf } from '../../data/fs/temp-pdf';
 
 export type ListWeekSessionsUseCase = Pick<ListWeekSessions, 'execute'>;
 export type SchedulePdfRenderer = Pick<PdfLibScheduleRenderer, 'render'>;
