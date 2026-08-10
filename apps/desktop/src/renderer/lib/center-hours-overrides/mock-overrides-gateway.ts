@@ -15,6 +15,9 @@ function newId(): string {
 
 export class MockCenterHoursOverridesGateway implements CenterHoursOverridesGateway {
   private readonly overrides = new Map<string, CenterHoursOverrideView>();
+  // A monotonic save counter, not the wall clock, stamps `createdAt`, so
+  // `getActive`'s newest-wins tiebreak is deterministic in tests.
+  private saveSequence = 0;
 
   async list(): Promise<readonly CenterHoursOverrideView[]> {
     return [...this.overrides.values()]
@@ -28,7 +31,7 @@ export class MockCenterHoursOverridesGateway implements CenterHoursOverridesGate
       dateRange: input.dateRange,
       hoursByWeekday: input.hoursByWeekday,
       archived: false,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date((this.saveSequence += 1) * 1000).toISOString(),
     };
     this.overrides.set(override.id, override);
     return override;

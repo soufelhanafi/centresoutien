@@ -7,9 +7,9 @@ import { useCenterHours } from '../../hooks/center-hours/use-center-hours';
 import { useActiveCenterHoursOverride } from '../../hooks/center-hours-overrides/use-active-center-hours-override';
 import { useTeachers } from '../../hooks/teacher/use-teachers';
 import { useFeature } from '../../hooks/use-feature';
+import { useTodayIsoDate } from '../../hooks/use-today-iso-date';
 import { localizedName } from '../../lib/teachers/localized-name';
 import { resolvePersistedWeek } from '../../lib/center-hours';
-import { todayIsoDate } from '../../lib/center-hours-overrides/dates';
 import {
   deriveClosedSegmentsByDay,
   deriveOverrideAwareRange,
@@ -78,8 +78,9 @@ export function PlannerPage() {
   const hoursQuery = useCenterHours();
   // A dated override (Ramadan, a holiday week) takes effect on today's local
   // date; its failure is soft — the planner falls back to the base weekly hours
-  // rather than blocking the grid (SOU-165).
-  const today = useMemo(() => todayIsoDate(), []);
+  // rather than blocking the grid (SOU-165). `today` advances across midnight so
+  // an overnight-mounted planner doesn't pin yesterday's override.
+  const today = useTodayIsoDate();
   const overrideQuery = useActiveCenterHoursOverride(today);
   const activeOverride = overrideQuery.data ?? null;
   const week = useMemo(() => query.data ?? [], [query.data]);
