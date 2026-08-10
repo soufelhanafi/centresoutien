@@ -1,66 +1,60 @@
 import { z } from 'zod';
 import {
+  areOrderedNonOverlappingWindows,
   DEFAULT_CLOSE,
   DEFAULT_OPEN,
+  isCalendarDate,
   TIME_OF_DAY_REGEX,
   WEEKDAYS,
+  type TimeOfDay,
   type WeekdayIndex,
 } from '@centresoutien/domain';
-import { timeToMinutes } from '../planning/time-range';
-import type { CenterHoursOverrideInput, TimeWindow } from './override-view';
+import type { CenterHoursOverrideInput, HoursByWeekday, TimeWindow } from './override-view';
 
 /**
- * Client-side validation for the dated-override form (SOU-165). It mirrors the
- * domain rule set so the user sees errors before the save round-trips: every
- * window's close is after its open, a day's windows are ordered and never
- * overlap (the mid-day iftar gap is the space *between* two windows, not an
- * overlap), and the date range's end is on or after its start. Messages are
- * stable **error codes**, resolved by `FieldMessage` via `t('errors.<code>')`,
- * so the schema stays i18n-agnostic.
+ * Client-side validation for the dated-override form (SOU-165). It reuses the
+ * domain's own predicates — `isCalendarDate` for the range and
+ * `areOrderedNonOverlappingWindows` for each day's windows — so the form's rules
+ * are the *same* code the `centerHoursOverride.save` use case enforces, never a
+ * re-implementation. Any window defect (close ≤ open, overlap, out-of-order)
+ * surfaces the single `windows-overlap` code, exactly as the domain schema does.
  *
- * The form models the week as an ordered seven-row array (Sunday first) for
- * React Hook Form's nested field arrays; {@link overrideFormToInput} folds it
- * back into the domain's `hoursByWeekday` record at the save boundary.
+ * The form models the week as an ordered seven-row array (Sunday first) because
+ * React Hook Form's typed `FieldPath`/`useFieldArray` don't address the domain
+ * input's `0..6`-keyed `hoursByWeekday` record; {@link overrideFormToInput} folds
+ * the array back into that record at the save boundary, which the domain then
+ * re-validates through the very same schema.
  */
 
 const timeString = z.string().regex(TIME_OF_DAY_REGEX, { message: 'invalid-time' });
 
-const timeWindowSchema = z
-  .object({ open: timeString, close: timeString })
-  .superRefine((window, ctx) => {
-    if (timeToMinutes(window.close) <= timeToMinutes(window.open)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'close-before-open', path: ['close'] });
+const timeWindowFormSchema = z.object({ open: timeString, close: timeString });
+
+const weekdayFormSchema = z
+  .object({
+    dayOfWeek: z.number().int().min(0).max(6),
+    windows: z.array(timeWindowFormSchema),
+  })
+  .superRefine((day, ctx) => {
+    const windows = day.windows.map((window) => ({
+      open: window.open as TimeOfDay,
+      close: window.close as TimeOfDay,
+    }));
+    if (!areOrderedNonOverlappingWindows(windows)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'windows-overlap', path: ['windows'] });
     }
   });
 
-const weekdayWindowsSchema = z
-  .object({
-    dayOfWeek: z.number().int().min(0).max(6),
-    windows: z.array(timeWindowSchema),
-  })
-  .superRefine((day, ctx) => {
-    for (let i = 1; i < day.windows.length; i += 1) {
-      const previous = day.windows[i - 1];
-      const current = day.windows[i];
-      if (previous === undefined || current === undefined) continue;
-      if (timeToMinutes(current.open) < timeToMinutes(previous.close)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'windows-overlap',
-          path: ['windows', i, 'open'],
-        });
-      }
-    }
-  });
+const dateField = z.string().refine(isCalendarDate, { message: 'invalid-date' });
 
 export const overrideFormSchema = z
   .object({
-    startDate: z.string().min(1, { message: 'required' }),
-    endDate: z.string().min(1, { message: 'required' }),
-    days: z.array(weekdayWindowsSchema).length(7),
+    startDate: dateField,
+    endDate: dateField,
+    days: z.array(weekdayFormSchema).length(7),
   })
   .superRefine((values, ctx) => {
-    if (values.startDate !== '' && values.endDate !== '' && values.endDate < values.startDate) {
+    if (isCalendarDate(values.startDate) && isCalendarDate(values.endDate) && values.endDate < values.startDate) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'end-before-start', path: ['endDate'] });
     }
   });
@@ -81,9 +75,9 @@ export function emptyOverrideForm(): OverrideFormValues {
   };
 }
 
-/** Folds the ordered seven-row form back into the domain's `hoursByWeekday` record. */
+/** Folds the ordered seven-row form into the domain's `hoursByWeekday` record + date range. */
 export function overrideFormToInput(values: OverrideFormValues): CenterHoursOverrideInput {
-  const hoursByWeekday = {} as Record<WeekdayIndex, readonly TimeWindow[]>;
+  const hoursByWeekday = {} as Record<WeekdayIndex, TimeWindow[]>;
   for (const day of values.days) {
     hoursByWeekday[day.dayOfWeek as WeekdayIndex] = day.windows.map((window) => ({
       open: window.open,
@@ -92,6 +86,6 @@ export function overrideFormToInput(values: OverrideFormValues): CenterHoursOver
   }
   return {
     dateRange: { start: values.startDate, end: values.endDate },
-    hoursByWeekday,
+    hoursByWeekday: hoursByWeekday as HoursByWeekday,
   };
 }

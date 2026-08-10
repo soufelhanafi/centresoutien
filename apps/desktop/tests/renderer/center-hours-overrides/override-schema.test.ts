@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  defaultWindow,
   emptyOverrideForm,
   overrideFormSchema,
   overrideFormToInput,
@@ -24,7 +25,21 @@ function firstErrorCode(values: OverrideFormValues): string | undefined {
   return result.success ? undefined : result.error.issues[0]?.message;
 }
 
-describe('overrideFormSchema', () => {
+describe('emptyOverrideForm / defaultWindow', () => {
+  it('seeds an empty date range and all seven weekdays closed', () => {
+    const form = emptyOverrideForm();
+    expect(form.startDate).toBe('');
+    expect(form.endDate).toBe('');
+    expect(form.days).toHaveLength(7);
+    expect(form.days.every((day) => day.windows.length === 0)).toBe(true);
+  });
+
+  it('seeds a new window from the domain defaults (09:00–18:00)', () => {
+    expect(defaultWindow()).toEqual({ open: '09:00', close: '18:00' });
+  });
+});
+
+describe('overrideFormSchema (reuses the domain predicates)', () => {
   it('accepts a dated range with a single open window', () => {
     expect(overrideFormSchema.safeParse(baseForm()).success).toBe(true);
   });
@@ -41,10 +56,10 @@ describe('overrideFormSchema', () => {
     expect(overrideFormSchema.safeParse(form).success).toBe(true);
   });
 
-  it('rejects a window whose close is not after its open', () => {
+  it('rejects a window whose close is not after its open (windows-overlap)', () => {
     const form = baseForm();
     form.days[1] = { dayOfWeek: 1, windows: [{ open: '16:00', close: '10:00' }] };
-    expect(firstErrorCode(form)).toBe('close-before-open');
+    expect(firstErrorCode(form)).toBe('windows-overlap');
   });
 
   it('rejects overlapping windows within a day', () => {
@@ -64,9 +79,9 @@ describe('overrideFormSchema', () => {
     expect(firstErrorCode(form)).toBe('end-before-start');
   });
 
-  it('requires both dates', () => {
+  it('rejects an empty (non-calendar) date', () => {
     const form = { ...baseForm(), startDate: '', endDate: '' };
-    expect(firstErrorCode(form)).toBe('required');
+    expect(firstErrorCode(form)).toBe('invalid-date');
   });
 });
 

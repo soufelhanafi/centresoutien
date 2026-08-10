@@ -27,6 +27,7 @@ function overrideWith(windowsByDay: Partial<Record<WeekdayIndex, readonly TimeWi
     id: 'cho_test',
     dateRange: { start: '2026-03-01', end: '2026-03-30' },
     hoursByWeekday: hoursByWeekday as HoursByWeekday,
+    archived: false,
     createdAt: '2026-02-01T00:00:00.000Z',
   };
 }

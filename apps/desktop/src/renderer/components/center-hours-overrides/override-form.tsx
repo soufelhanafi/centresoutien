@@ -21,8 +21,10 @@ type OverrideFormProps = {
 
 /**
  * The dated-override editor: an inclusive date range plus per-weekday windows,
- * validated by {@link overrideFormSchema} (close after open, no overlap, end on
- * or after start). Presentation only — the caller owns the mutation. Date inputs
+ * validated by {@link overrideFormSchema}, which reuses the domain's own
+ * predicates (close after open, ordered non-overlapping windows, end on or after
+ * start). {@link overrideFormToInput} folds the seven-row array into the domain
+ * input at submit. Presentation only — the caller owns the mutation. Date inputs
  * stay LTR; the weekday grid mirrors cleanly via logical properties.
  */
 export function OverrideForm({ formId, onSubmit }: OverrideFormProps) {

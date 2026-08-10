@@ -16,7 +16,8 @@ type OverrideWeekdayWindowsProps = {
  * ordered list of windows with add/remove controls. Toggling open seeds the
  * first window from the domain defaults; toggling closed clears every window (an
  * empty list is the closed state). Adding a second window is how a center models
- * a mid-day iftar break. Reuses the shared weekday labels (`centerHours.weekdays`).
+ * a mid-day iftar break. The field array binds to the form's `days.<index>.windows`
+ * list; weekday labels reuse `centerHours.weekdays`.
  */
 export function OverrideWeekdayWindows({ index, dayOfWeek }: OverrideWeekdayWindowsProps) {
   const { t } = useTranslation();

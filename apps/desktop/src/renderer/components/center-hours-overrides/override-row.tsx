@@ -1,28 +1,45 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CalendarRange } from 'lucide-react';
+import { CalendarRange, Trash2 } from 'lucide-react';
 import { WEEKDAYS } from '@centresoutien/domain';
+import { Button } from '@centresoutien/ui';
 import { formatTimeRange } from '../../lib/planning/time-range';
 import { formatIsoDate } from '../../lib/center-hours-overrides/dates';
 import type { CenterHoursOverrideView } from '../../lib/center-hours-overrides/override-view';
+import { OverrideArchiveDialog } from './override-archive-dialog';
 
 /**
- * One saved override: its date range and, per weekday, the open windows (a
- * mid-day gap reads as two ranges) or "Fermé". Read-only — the manager creates
- * overrides; editing an active period is a new override. Weekday labels reuse
- * the shared `centerHours.weekdays` keys; times format through `Intl` per locale.
+ * One saved override: its date range, an archive (soft-delete) action, and per
+ * weekday the open windows (a mid-day gap reads as two ranges) or "Fermé".
+ * Editing an active period is a new override, so the only mutation here is
+ * archive. Weekday labels reuse the shared `centerHours.weekdays` keys; times
+ * format through `Intl` per locale.
  */
 export function OverrideRow({ override }: { override: CenterHoursOverrideView }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   return (
     <li className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        <CalendarRange className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-        <span dir="ltr">
-          {formatIsoDate(override.dateRange.start, locale)} –{' '}
-          {formatIsoDate(override.dateRange.end, locale)}
-        </span>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <CalendarRange className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <span dir="ltr">
+            {formatIsoDate(override.dateRange.start, locale)} –{' '}
+            {formatIsoDate(override.dateRange.end, locale)}
+          </span>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="shrink-0 text-muted-foreground hover:text-destructive"
+          onClick={() => setArchiveOpen(true)}
+        >
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+          <span className="sr-only">{t('centerHoursOverrides.archive.action')}</span>
+        </Button>
       </div>
       <dl className="mt-3 grid gap-x-6 gap-y-1 sm:grid-cols-2">
         {WEEKDAYS.map((day) => {
@@ -41,6 +58,8 @@ export function OverrideRow({ override }: { override: CenterHoursOverrideView })
           );
         })}
       </dl>
+
+      <OverrideArchiveDialog override={override} open={archiveOpen} onOpenChange={setArchiveOpen} />
     </li>
   );
 }

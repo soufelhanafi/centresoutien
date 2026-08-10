@@ -1,5 +1,5 @@
 import type { CenterHoursOverrideInput, CenterHoursOverrideView } from './override-view';
-import { mockCenterHoursOverridesGateway } from './mock-overrides-gateway';
+import { ipcCenterHoursOverridesGateway } from './ipc-overrides-gateway';
 
 /**
  * The seam the dated-override UI depends on (Dependency Inversion). Hooks call
@@ -8,23 +8,25 @@ import { mockCenterHoursOverridesGateway } from './mock-overrides-gateway';
  *
  * ## Contract status (SOU-165 frontend ↔ domain)
  *
- * Requested channels, to be published by the domain in parallel:
+ * All four channels are published with their SQLite-backed IPC handlers, so this
+ * ships against the real {@link ipcCenterHoursOverridesGateway}:
  * - `centerHoursOverride.save`      ← {@link save} — persists a dated override.
  * - `centerHoursOverride.getActive` ← {@link getActive} — the override in effect
  *   on a given `YYYY-MM-DD`, or `null`.
- * - `centerHoursOverride.list`      ← {@link list} — every override for the
- *   Settings manager (equivalently "get active override for the full range").
+ * - `centerHoursOverride.list`      ← {@link list} — every live override for the
+ *   Settings manager.
+ * - `centerHoursOverride.archive`   ← {@link archive} — soft-deletes one override.
  *
- * Ships against {@link mockCenterHoursOverridesGateway} until the
- * "[PUBLISHED] domain contract" note lands, then a new `ipc-overrides-gateway`
- * maps each method onto its channel and this constant flips to it.
+ * The in-memory `MockCenterHoursOverridesGateway` stays in the tree for unit
+ * tests, which exercise the same interface without Electron.
  */
 export interface CenterHoursOverridesGateway {
   list(): Promise<readonly CenterHoursOverrideView[]>;
   save(input: CenterHoursOverrideInput): Promise<CenterHoursOverrideView>;
   getActive(date: string): Promise<CenterHoursOverrideView | null>;
+  archive(id: string): Promise<void>;
 }
 
-/** The active gateway. Swapping the mock for the real IPC adapter is this one line. */
+/** The active gateway: the real IPC adapter. Swapping it is this one line. */
 export const centerHoursOverridesGateway: CenterHoursOverridesGateway =
-  mockCenterHoursOverridesGateway;
+  ipcCenterHoursOverridesGateway;

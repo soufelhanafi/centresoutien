@@ -1,48 +1,28 @@
-import type { WeekdayIndex } from '@centresoutien/domain';
+import type { CenterHoursOverrideInput } from '@centresoutien/domain';
+import type { IpcResponse } from '../../../shared/ipc/contract';
 
 /**
- * Presentation types for dated center-hours overrides (SOU-165).
- *
- * ## Contract status (frontend ↔ domain)
- *
- * The domain publishes `TimeWindow`, `CenterHoursOverride`, and its save/get-active
- * use cases in parallel; until the "[PUBLISHED] domain contract" note lands these
- * mirror the agreed shapes so the UI runs end-to-end against
- * {@link ../center-hours-overrides/overrides-gateway.CenterHoursOverridesGateway}.
- * When the domain types ship, re-alias these to the published boundary DTOs (as
- * `HolidayView` aliases `HolidayDto`) rather than re-declaring the fields, so the
- * two never drift.
+ * Presentation types for dated center-hours overrides (SOU-165), tied to the
+ * published boundary. The view aliases the `centerHoursOverride.getActive` DTO
+ * (`centerHoursOverrideViewSchema` in `shared/ipc/contract`) so the renderer type
+ * can never drift from the wire shape, exactly as `HolidayView` aliases its DTO.
+ * The editable input is the domain's own `CenterHoursOverrideInput` (the same
+ * schema the save channel and the form's zodResolver validate).
  */
 
-/** One open interval within a day: 24-hour `'HH:mm'` open → close. */
-export type TimeWindow = {
-  readonly open: string;
-  readonly close: string;
-};
+/** Presentation projection of a `CenterHoursOverride`: envelope stripped, `archived` derived in main. */
+export type CenterHoursOverrideView = NonNullable<
+  IpcResponse<'centerHoursOverride.getActive'>['override']
+>;
 
-/**
- * Per-weekday open windows. An empty array means the day is closed for the whole
- * override period. Windows are ordered by `open` and never overlap — the schema
- * enforces both, mirroring the domain rule.
- */
-export type HoursByWeekday = Readonly<Record<WeekdayIndex, readonly TimeWindow[]>>;
+/** One open interval within a day: 24-hour `'HH:mm'` open → close (boundary shape, strings). */
+export type TimeWindow = CenterHoursOverrideView['hoursByWeekday'][0][number];
+
+/** Per-weekday open windows, keyed `0..6`. An empty list is a closed day. */
+export type HoursByWeekday = CenterHoursOverrideView['hoursByWeekday'];
 
 /** Inclusive `YYYY-MM-DD` date range the override applies to. */
-export type OverrideDateRange = {
-  readonly start: string;
-  readonly end: string;
-};
-
-/** Presentation projection of a `CenterHoursOverride`, envelope stripped. */
-export type CenterHoursOverrideView = {
-  readonly id: string;
-  readonly dateRange: OverrideDateRange;
-  readonly hoursByWeekday: HoursByWeekday;
-  readonly createdAt: string;
-};
+export type OverrideDateRange = CenterHoursOverrideView['dateRange'];
 
 /** The editable fields when saving an override (no id, no envelope). */
-export type CenterHoursOverrideInput = {
-  readonly dateRange: OverrideDateRange;
-  readonly hoursByWeekday: HoursByWeekday;
-};
+export type { CenterHoursOverrideInput };
