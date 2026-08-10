@@ -15,7 +15,9 @@ import type { CenterCode } from '../../../src/value-objects/ids';
  * SQLite adapter's semantics: live subjects only, tombstoned references excluded,
  * `canDelete === (inUseCount === 0)`. The named breakdown defaults to `[]` and is
  * arranged with {@link setReferences} only by tests that need it — callers that
- * only care about the count keep `setUsageCount` alone.
+ * only care about the count keep `setUsageCount` alone. `setReferences` derives
+ * the count from `refs.length`, so the read model can never report the impossible
+ * state `references.length !== inUseCount`.
  */
 export class InMemorySubjectRepository
   extends InMemorySoftDeletableRepository<SubjectId, Subject>
@@ -29,9 +31,10 @@ export class InMemorySubjectRepository
     this.usage.set(id, count);
   }
 
-  /** Arrange the named-reference breakdown a `listWithUsage` row should report. */
+  /** Arrange the named-reference breakdown; the count follows from `refs.length` so both stay consistent. */
   setReferences(id: SubjectId, refs: readonly SubjectUsageReference[]): void {
     this.references.set(id, refs);
+    this.usage.set(id, refs.length);
   }
 
   async findByCode(centerCode: CenterCode, code: string): Promise<Subject | null> {
@@ -62,12 +65,13 @@ export class InMemorySubjectRepository
       // then id as a stable tiebreak for equal names.
       .sort((a, b) => a.name.fr.localeCompare(b.name.fr) || a.id.localeCompare(b.id))
       .map((row) => {
-        const inUseCount = this.usage.get(row.id) ?? 0;
+        const refs = this.references.get(row.id);
+        const inUseCount = refs ? refs.length : (this.usage.get(row.id) ?? 0);
         return {
           subject: structuredClone(row),
           inUseCount,
           canDelete: inUseCount === 0,
-          references: this.references.get(row.id) ?? [],
+          references: refs ?? [],
         };
       });
   }
