@@ -15,6 +15,11 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/coverage/**',
       '.claude/worktrees/**',
+      // apps/landing is the imported Next.js marketing site: it owns its own
+      // eslint-config-next flat config (`apps/landing/eslint.config.mjs`) and
+      // is linted via `pnpm --filter @centresoutien/landing lint`, not the
+      // desktop-strict ruleset here.
+      'apps/landing/**',
     ],
   },
   ...base,

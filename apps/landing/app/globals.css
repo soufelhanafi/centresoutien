@@ -1,0 +1,62 @@
+@import "tailwindcss";
+@import "@centresoutien/ui/styles/tokens.css";
+
+/* Shared design tokens (packages/ui) are the single source of truth — see
+   docs/design-tokens.md. Landing-local extension only: the shared source maps
+   --font-sans to a static stack, but the landing serves fonts via next/font
+   CSS variables (Inter everywhere, Noto Sans Arabic on /ar routes). */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-arabic: var(--font-noto-arabic), var(--font-inter), sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+
+/* Arabic locale: switch the base family to Noto Sans Arabic. */
+html[dir="rtl"] body {
+  font-family: var(--font-arabic);
+}
+
+/* Mobile nav dropdown — short entrance, disabled under reduced-motion. */
+@keyframes mobile-nav-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mobile-nav-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.mobile-nav-panel {
+  animation: mobile-nav-panel-in 150ms ease-out;
+}
+
+.mobile-nav-scrim {
+  animation: mobile-nav-scrim-in 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-nav-panel,
+  .mobile-nav-scrim {
+    animation: none;
+  }
+}
