@@ -8,6 +8,7 @@ import { BACKUP_SHEETS, sheetColumnNames, findBackupSheet } from '@centresoutien
 import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteBackupStore } from '../../src/data/sqlite/repositories/backup-store';
+import { SHEET_SQL } from '../../src/data/sqlite/repositories/backup-store-sheets';
 import { SqliteChangeLogWriter } from '../../src/data/sqlite/change-log/sqlite-change-log-writer';
 import { ExcelBackupAdapter } from '../../src/data/excel/backup-excel-adapter';
 
@@ -249,6 +250,12 @@ describe('SqliteBackupStore + ExcelBackupAdapter round-trip', () => {
     await excel.writeWorkbook(workbookPath, { sheets });
     const read = await excel.readWorkbook(workbookPath);
     expect(read.sheets.map((sheet) => sheet.name)).toEqual(BACKUP_SHEETS.map((spec) => spec.name));
+  });
+
+  it('keeps domain restore conflict policy aligned with SQL apply behavior', () => {
+    for (const spec of BACKUP_SHEETS) {
+      expect(SHEET_SQL[spec.name].conflict, spec.name).toBe(spec.restoreConflict);
+    }
   });
 
   it('rolls the whole import back when one row violates a constraint', async () => {

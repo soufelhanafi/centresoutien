@@ -11,7 +11,7 @@ type DialogPathEntry = {
 const MAX_AGE_MS = 10 * 60 * 1000;
 
 /**
- * One-time handle for a path the user picked in a native dialog (SOU-44, M3).
+ * Opaque, short-lived handle for a path the user picked in a native dialog (SOU-44, M3).
  * The renderer never sends a raw filesystem path to the backup channels — it
  * sends an opaque token that main issued from the dialog's own result, so a
  * compromised renderer cannot make the main process write to / read from an
