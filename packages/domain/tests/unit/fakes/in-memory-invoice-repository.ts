@@ -139,8 +139,10 @@ export class InMemoryInvoiceRepository
       .filter((line) => line.deletedAt === null && line.invoiceId === invoice.id)
       .sort((a, b) => a.id.localeCompare(b.id))
       .map((line) => structuredClone(line));
+    const name = this.studentNameById.get(invoice.studentId);
     return {
       invoice,
+      studentName: { fr: name?.fr ?? '', ar: name?.ar ?? '' },
       lines,
       totalMad: invoiceTotalMad(lines),
       netPaidMad: this.netPaidByInvoice.get(invoice.id) ?? 0,

@@ -17,6 +17,10 @@ import type { StudentId } from '../entities/student';
  */
 export type InvoiceListRow = {
   readonly invoice: Invoice;
+  /** The invoice's student's bilingual name, resolved in the same join — lets the
+   *  open-invoice picker label rows without a separate full-student-list fetch.
+   *  Empty strings only when the student row hasn't (yet) synced to this device. */
+  readonly studentName: { fr: string; ar: string };
   readonly lines: readonly InvoiceLine[];
   readonly totalMad: number;
   readonly netPaidMad: number;

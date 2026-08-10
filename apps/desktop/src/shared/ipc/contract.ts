@@ -411,6 +411,11 @@ const invoiceLineViewSchema = z.object({
 const invoiceListItemViewSchema = z.object({
   id: z.string(),
   studentId: z.string(),
+  // The invoice's student's bilingual name, resolved server-side in the list read
+  // (SOU-200) so the open-invoice picker needs no separate full-student-list fetch.
+  // Optional on the wire only so pre-existing renderer fixtures stay valid while the
+  // picker adopts it; the main-process handler always populates it.
+  studentName: bilingualTextSchema.optional(),
   month: z.string(),
   status: invoiceStatusSchema,
   issuedAt: z.string().nullable(),

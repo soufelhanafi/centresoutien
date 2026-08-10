@@ -233,6 +233,25 @@ describe('ListInvoices', () => {
     });
   });
 
+  describe('studentName', () => {
+    it('carries the resolved bilingual student name on each row', async () => {
+      const invoice = makeInvoice({ studentId: STUDENT_A });
+      await invoices.createDraft(invoice, [makeLine(invoice.id, 20000)]);
+      invoices.setStudentName(STUDENT_A, { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' });
+
+      const { items } = await build().execute({ centerCode: CENTER });
+      expect(items[0]?.studentName).toEqual({ fr: 'Yassine Alaoui', ar: 'ياسين العلوي' });
+    });
+
+    it('falls back to empty strings when the student has not synced yet', async () => {
+      const invoice = makeInvoice({ studentId: STUDENT_B });
+      await invoices.createDraft(invoice, [makeLine(invoice.id, 20000)]);
+
+      const { items } = await build().execute({ centerCode: CENTER });
+      expect(items[0]?.studentName).toEqual({ fr: '', ar: '' });
+    });
+  });
+
   describe('cursor pagination', () => {
     it('returns a bounded page plus a nextCursor, then the second page, then null', async () => {
       // Three open invoices; id ascends with invoiceSeq, so DESC order is 3rd, 2nd, 1st.
