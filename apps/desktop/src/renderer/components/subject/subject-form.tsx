@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
@@ -8,11 +9,16 @@ import { FieldMessage } from '../form/field-message';
 /** Blank defaults for the create flow. `code` is optional and starts empty. */
 export const EMPTY_SUBJECT_INPUT: SubjectInput = { name: { fr: '', ar: '' }, code: '' };
 
+/** A server-side field error from a failed save (e.g. `{ code: 'duplicate-subject-code' }`). */
+export type SubjectFormServerFieldError = { readonly code: string };
+
 type SubjectFormProps = {
   /** Lets the submit button live in the dialog footer, outside the `<form>`. */
   formId: string;
   defaultValues: SubjectInput;
   onSubmit: (values: SubjectInput) => void | Promise<void>;
+  /** Server-side error on the code field, shown inline. Fresh identity per rejection. */
+  serverCodeError?: SubjectFormServerFieldError | null;
 };
 
 /**
@@ -21,9 +27,15 @@ type SubjectFormProps = {
  * caller owns the mutation. `code` is not part of the update path (SOU-122): it
  * only ever renders here, never in {@link EditSubjectForm}.
  */
-export function SubjectForm({ formId, defaultValues, onSubmit }: SubjectFormProps) {
+export function SubjectForm({ formId, defaultValues, onSubmit, serverCodeError = null }: SubjectFormProps) {
   const { t } = useTranslation();
   const form = useForm<SubjectInput>({ resolver: zodResolver(subjectInputSchema), defaultValues });
+
+  useEffect(() => {
+    if (serverCodeError) form.setError('code', { message: serverCodeError.code });
+    else form.clearErrors('code');
+  }, [serverCodeError, form]);
+
   const submit = form.handleSubmit(async (values) => {
     await onSubmit(values);
   });
@@ -72,6 +84,10 @@ export function SubjectForm({ formId, defaultValues, onSubmit }: SubjectFormProp
                   placeholder={t('subjects.form.codePlaceholder')}
                   {...field}
                   value={field.value ?? ''}
+                  onChange={(event) => {
+                    field.onChange(event);
+                    form.clearErrors('code');
+                  }}
                 />
               </FormControl>
               <p className="text-xs text-muted-foreground">{t('subjects.form.codeHint')}</p>

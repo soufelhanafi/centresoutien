@@ -70,3 +70,69 @@ describe('SubjectForm — Arabic (RTL)', () => {
     expect(await screen.findAllByText('هذا الحقل مطلوب')).toHaveLength(2);
   });
 });
+
+describe('SubjectForm — server field errors', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('fr');
+  });
+
+  it('shows an inline error on the code field for a duplicate-code rejection', async () => {
+    render(
+      <SubjectForm
+        formId="subject-form"
+        defaultValues={EMPTY_SUBJECT_INPUT}
+        onSubmit={vi.fn()}
+        serverCodeError={{ code: 'duplicate-subject-code' }}
+      />,
+    );
+
+    expect(
+      await screen.findByText('Ce code est déjà utilisé par une autre matière'),
+    ).toBeInTheDocument();
+  });
+
+  it('clears the server error as soon as the code field is edited', async () => {
+    render(
+      <SubjectForm
+        formId="subject-form"
+        defaultValues={EMPTY_SUBJECT_INPUT}
+        onSubmit={vi.fn()}
+        serverCodeError={{ code: 'duplicate-subject-code' }}
+      />,
+    );
+    const user = userEvent.setup();
+
+    expect(await screen.findByText('Ce code est déjà utilisé par une autre matière')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Code (optionnel)'), 'M');
+
+    expect(screen.queryByText('Ce code est déjà utilisé par une autre matière')).not.toBeInTheDocument();
+  });
+
+  it('re-applies the inline error when a fresh identical rejection arrives after an edit', async () => {
+    const { rerender } = render(
+      <SubjectForm
+        formId="subject-form"
+        defaultValues={EMPTY_SUBJECT_INPUT}
+        onSubmit={vi.fn()}
+        serverCodeError={{ code: 'duplicate-subject-code' }}
+      />,
+    );
+    const user = userEvent.setup();
+    const errorText = 'Ce code est déjà utilisé par une autre matière';
+
+    expect(await screen.findByText(errorText)).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Code (optionnel)'), 'M');
+    expect(screen.queryByText(errorText)).not.toBeInTheDocument();
+
+    rerender(
+      <SubjectForm
+        formId="subject-form"
+        defaultValues={EMPTY_SUBJECT_INPUT}
+        onSubmit={vi.fn()}
+        serverCodeError={{ code: 'duplicate-subject-code' }}
+      />,
+    );
+
+    expect(await screen.findByText(errorText)).toBeInTheDocument();
+  });
+});

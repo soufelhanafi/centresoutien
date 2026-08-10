@@ -14,7 +14,7 @@ import { useArchiveSubject } from '../../hooks/subject/use-archive-subject';
 import { useUpdateSubject } from '../../hooks/subject/use-update-subject';
 import { mapSubjectWriteError } from '../../lib/subjects/subject-write-error';
 import type { SubjectUsageView } from '../../lib/subjects/subject-view';
-import { localizedSubjectName } from '../../lib/subjects/localized-name';
+import { localizedSubjectName, pickLocalized } from '../../lib/subjects/localized-name';
 
 /**
  * The "Supprimer" dialog: one entry point, two faces. When `canDelete` is true
@@ -82,9 +82,10 @@ export function DeleteSubjectDialog({
             <ul className="max-h-40 list-disc space-y-1 overflow-y-auto ps-5 text-sm text-foreground">
               {usage.references.map((reference) => (
                 <li key={`${reference.kind}-${reference.id}`}>
-                  {t(`subjects.referenceKind.${reference.kind}`)}
-                  {' — '}
-                  {i18n.language === 'ar' ? reference.label.ar : reference.label.fr}
+                  {t('subjects.delete.referenceItem', {
+                    kind: t(`subjects.referenceKind.${reference.kind}`),
+                    label: pickLocalized(reference.label, i18n.language),
+                  })}
                 </li>
               ))}
             </ul>

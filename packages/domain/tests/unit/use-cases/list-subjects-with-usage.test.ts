@@ -67,6 +67,23 @@ describe('ListSubjectsWithUsage', () => {
     expect(rows.find((r) => r.subject.id === free.id)?.references).toEqual([]);
   });
 
+  it('derives the count from the named breakdown so the two never drift', async () => {
+    const referenced = await seed({ fr: 'Mathématiques', ar: 'الرياضيات' });
+    const groupRef = {
+      kind: 'group' as const,
+      id: 'grp_00000000000000000000000001' as EntityId,
+      label: { fr: '3ème Bac', ar: '3ème Bac' },
+    };
+    subjects.setReferences(referenced.id, [groupRef, groupRef]);
+
+    const math = (await useCase.execute({ centerCode: CENTER })).find(
+      (r) => r.subject.id === referenced.id,
+    );
+
+    expect(math).toMatchObject({ inUseCount: 2, references: [groupRef, groupRef] });
+    expect(math?.inUseCount).toBe(math?.references.length);
+  });
+
   it('throws PlanFeatureUnavailableError when the plan lacks core.subjects', async () => {
     const planWithout: Plan = {
       id: 'essentiel',

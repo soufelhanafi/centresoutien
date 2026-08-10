@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SubjectInput } from '@centresoutien/domain';
 import {
@@ -13,12 +13,13 @@ import {
 } from '@centresoutien/ui';
 import { useCreateSubject } from '../../hooks/subject/use-create-subject';
 import { mapSubjectWriteError } from '../../lib/subjects/subject-write-error';
-import { SubjectForm, EMPTY_SUBJECT_INPUT } from './subject-form';
+import { SubjectForm, EMPTY_SUBJECT_INPUT, type SubjectFormServerFieldError } from './subject-form';
 
 /**
  * Create-subject flow: owns the mutation, toasts the result, closes on success.
- * A `DuplicateSubjectCodeError` (a code already live in this center) gets its own
- * localized toast; any other failure falls back to the generic save-error toast.
+ * A `DuplicateSubjectCodeError` (a code already live in this center) surfaces as
+ * an inline error on the code field (validation errors are inline per SOU-47
+ * AC); any other failure falls back to the generic save-error toast.
  */
 export function CreateSubjectDialog({
   open,
@@ -30,6 +31,13 @@ export function CreateSubjectDialog({
   const { t } = useTranslation();
   const formId = useId();
   const create = useCreateSubject();
+  const [serverCodeError, setServerCodeError] = useState<SubjectFormServerFieldError | null>(null);
+
+  // The parent toggles the controlled `open` directly (no DialogTrigger), so
+  // `onOpenChange(true)` never fires — clear any stale rejection on every open.
+  useEffect(() => {
+    if (open) setServerCodeError(null);
+  }, [open]);
 
   const handleSubmit = async (values: SubjectInput) => {
     try {
@@ -38,6 +46,14 @@ export function CreateSubjectDialog({
       onOpenChange(false);
     } catch (error) {
       const code = mapSubjectWriteError(error);
+      if (code === 'duplicate-subject-code') {
+        // Fresh object identity so the form's effect re-runs even when the user
+        // resubmits the same duplicate after editing the field (the cleared
+        // inline error must be restored, not silently dropped).
+        setServerCodeError({ code });
+        return;
+      }
+      setServerCodeError(null);
       toast.error(t(code ? `errors.${code}` : 'subjects.form.error'));
     }
   };
@@ -49,7 +65,12 @@ export function CreateSubjectDialog({
           <DialogTitle>{t('subjects.form.createTitle')}</DialogTitle>
           <DialogDescription>{t('subjects.form.createDescription')}</DialogDescription>
         </DialogHeader>
-        <SubjectForm formId={formId} defaultValues={EMPTY_SUBJECT_INPUT} onSubmit={handleSubmit} />
+        <SubjectForm
+          formId={formId}
+          defaultValues={EMPTY_SUBJECT_INPUT}
+          onSubmit={handleSubmit}
+          serverCodeError={serverCodeError}
+        />
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             {t('subjects.form.cancel')}

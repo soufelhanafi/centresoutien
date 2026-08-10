@@ -578,6 +578,7 @@
       "deactivate": "تعطيل",
       "activate": "إعادة التفعيل",
       "delete": "حذف",
+      "deleteBlockedHint_zero": "غير مستخدمة في أي عنصر — عطّلها بدلاً من ذلك.",
       "deleteBlockedHint_one": "مستخدمة في عنصر واحد — عطّلها بدلاً من ذلك.",
       "deleteBlockedHint_two": "مستخدمة في عنصرين — عطّلها بدلاً من ذلك.",
       "deleteBlockedHint_few": "مستخدمة في {{count, number}} عناصر — عطّلها بدلاً من ذلك.",
@@ -632,11 +633,13 @@
       "success": "تم حذف المادة",
       "error": "فشل الحذف. حاول مرة أخرى.",
       "blockedTitle": "تعذّر حذف هذه المادة",
+      "blockedBody_zero": "« {{name}} » غير مستخدمة في أي عنصر حالياً. أعد المحاولة، أو عطّل المادة بدلاً من ذلك:",
       "blockedBody_one": "« {{name}} » مستخدمة في عنصر واحد. افصله أولًا، أو عطّل المادة بدلاً من ذلك:",
       "blockedBody_two": "« {{name}} » مستخدمة في عنصرين. افصلهما أولًا، أو عطّل المادة بدلاً من ذلك:",
       "blockedBody_few": "« {{name}} » مستخدمة في {{count, number}} عناصر. افصلها أولًا، أو عطّل المادة بدلاً من ذلك:",
       "blockedBody_many": "« {{name}} » مستخدمة في {{count, number}} عنصرًا. افصلها أولًا، أو عطّل المادة بدلاً من ذلك:",
       "blockedBody_other": "« {{name}} » مستخدمة في {{count, number}} عنصر. افصلها أولًا، أو عطّل المادة بدلاً من ذلك:",
+      "referenceItem": "{{kind}} — {{label}}",
       "deactivateInstead": "تعطيل المادة"
     }
   },
