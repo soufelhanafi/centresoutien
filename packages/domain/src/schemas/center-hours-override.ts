@@ -28,10 +28,13 @@ export const timeWindowSchema = z.object({
   close: timeString,
 });
 
+/** Brand a regex-validated `{ open, close }` string pair into a {@link TimeWindow}. */
+export function toTimeWindow(window: { open: string; close: string }): TimeWindow {
+  return { open: window.open as TimeOfDay, close: window.close as TimeOfDay };
+}
+
 const windowListSchema = z.array(timeWindowSchema).superRefine((windows, ctx) => {
-  const parsed = windows.map(
-    (window): TimeWindow => ({ open: window.open as TimeOfDay, close: window.close as TimeOfDay }),
-  );
+  const parsed = windows.map(toTimeWindow);
   // One check covers all three defects — malformed window (close <= open),
   // overlap, and out-of-order — reported under the single `windows-overlap` code.
   if (!areOrderedNonOverlappingWindows(parsed)) {

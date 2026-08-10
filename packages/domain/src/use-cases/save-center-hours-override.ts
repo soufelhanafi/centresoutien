@@ -4,13 +4,13 @@ import type { IdGenerator } from '../ports/id-generator';
 import type { PlanPolicy } from '../plans/plan-policy';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import type { DateRange } from '../value-objects/date-range';
-import type { TimeOfDay } from '../value-objects/time-of-day';
 import type { TimeWindow } from '../value-objects/time-window';
 import { newEnvelope } from '../entities/envelope';
 import { applyWrite } from '../entities/write';
 import { CenterHoursOverrideNotFoundError } from '../errors/center-hours-override-errors';
 import {
   centerHoursOverrideInputSchema,
+  toTimeWindow,
   type CenterHoursOverrideInput,
 } from '../schemas/center-hours-override';
 import {
@@ -93,9 +93,7 @@ export class SaveCenterHoursOverride {
 function toWindows(
   windows: CenterHoursOverrideInput['hoursByWeekday'][0],
 ): readonly TimeWindow[] {
-  return windows.map(
-    (window): TimeWindow => ({ open: window.open as TimeOfDay, close: window.close as TimeOfDay }),
-  );
+  return windows.map(toTimeWindow);
 }
 
 /** Brand every weekday's window list, preserving the `0..6` keyed shape. */
