@@ -38,6 +38,9 @@ describe('temp-pdf ownership', () => {
     expect(isOwnedTempPdfName('planning-week.pdf')).toBe(false);
     expect(isOwnedTempPdfName('planning-2024.pdf')).toBe(false);
     expect(isOwnedTempPdfName('planning-full.pdf')).toBe(false);
+    expect(isOwnedTempPdfName('planning-report-1234567890.pdf')).toBe(false);
+    expect(isOwnedTempPdfName('planning-report-946684799999.pdf')).toBe(false);
+    expect(isOwnedTempPdfName('planning-report-9999999999999.pdf')).toBe(false);
   });
 
   it('names temp files with prefix, parts, a timestamp, and a unique suffix', () => {
