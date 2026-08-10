@@ -9,7 +9,6 @@ import {
   type BootedReal,
   type Locale,
 } from './demo-hot-swap.fixtures';
-import { DEMO_ADMIN } from './demo-mode.fixtures';
 
 /**
  * SOU-190 — when the demoing laptop is the active LAN hub host, `demo.create`
@@ -181,14 +180,8 @@ test('HW4 — wipe shows NO warning and restores the hub', async () => {
   await expect(
     win.getByText(t.loginDemoPrefillTitle, { exact: false }),
   ).toBeVisible({ timeout: 90_000 });
-  // SOU-186 prefills the demo creds for a one-click sign-in. That prefill is
-  // intermittently missed (pre-existing demo-mode race — see QA report); fill
-  // the deterministic e2e demo creds whenever either field is empty so the wipe
-  // flow under test is never blocked by it.
-  const user = win.getByRole('textbox', { name: t.usernameLabel });
-  const password = win.getByLabel(loc === 'fr' ? 'Mot de passe' : 'كلمة المرور', { exact: true });
-  if ((await user.inputValue()) !== DEMO_ADMIN.username) await user.fill(DEMO_ADMIN.username);
-  if ((await password.inputValue()) !== DEMO_ADMIN.password) await password.fill(DEMO_ADMIN.password);
+  // SOU-186 prefills the demo creds for a one-click sign-in (SOU-195 makes the
+  // swap-onto-login prefill deterministic — no fallback fill needed).
   await win.getByRole('button', { name: t.loginSubmit, exact: true }).click();
   const banner = win.getByRole('banner').filter({ hasText: t.bannerLabel });
   await expect(banner, 'signed into the demo center').toBeVisible({ timeout: 60_000 });

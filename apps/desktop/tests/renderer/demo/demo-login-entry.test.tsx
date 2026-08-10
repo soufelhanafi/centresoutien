@@ -4,7 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LoginScreen } from '../../../src/renderer/components/auth/login-screen';
 import { demoGateway } from '../../../src/renderer/lib/demo/demo-gateway';
-import type { DemoMutationResponse } from '../../../src/renderer/lib/demo/demo-contract';
+import type {
+  DemoMutationResponse,
+  DemoStatusResponse,
+} from '../../../src/renderer/lib/demo/demo-contract';
 import i18n from '../../../src/renderer/i18n/config';
 
 function renderLogin(onAuthenticated = vi.fn()) {
@@ -155,5 +158,41 @@ describe('LoginScreen — demo entry (SOU-110 / SOU-186)', () => {
     releaseCreate();
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
     expect(screen.getByRole('button', { name: 'Création…' })).toBeDisabled();
+  });
+
+  it('prefills the demo credentials after a create hot-swap completes (SOU-195 regression)', async () => {
+    vi.spyOn(demoGateway, 'create').mockResolvedValue({ isDemo: true });
+    const demoStatus: DemoStatusResponse = {
+      isDemo: true,
+      demoLogin: { username: 'demo', password: ['Demo', 'unit', '1'].join('') },
+      isHubHost: false,
+    };
+    const status = vi.spyOn(demoGateway, 'status');
+    // Call 1: the pre-swap real center. Call 2 (the post-swap status read) stays
+    // pending until released, reproducing the race where the login form would
+    // mount with `demoLogin` still missing. Calls 3+ (the invalidation refetch)
+    // resolve instantly.
+    let releaseStatus!: (value: DemoStatusResponse) => void;
+    status
+      .mockResolvedValueOnce({ isDemo: false, demoLogin: null, isHubHost: false })
+      .mockImplementationOnce(
+        () =>
+          new Promise<DemoStatusResponse>((resolve) => {
+            releaseStatus = () => resolve(demoStatus);
+          }),
+      )
+      .mockResolvedValue(demoStatus);
+    const user = userEvent.setup();
+    renderLogin();
+
+    await user.click(await screen.findByRole('button', { name: 'Explorer la démo' }));
+    await screen.findByRole('button', { name: 'Création…' });
+
+    releaseStatus();
+
+    // The swap must publish the FULL demo status before the form mounts; a
+    // partial `{ isDemo: true }` left it empty with no way to refill.
+    await waitFor(() => expect(screen.getByLabelText("Nom d'utilisateur")).toHaveValue('demo'));
+    expect(screen.getByText('Connexion démo')).toBeInTheDocument();
   });
 });
