@@ -4,8 +4,9 @@ import { z } from "zod";
 export const STUDENT_RANGES = ["lt50", "50-150", "150-300", "gt300"] as const;
 export type StudentRange = (typeof STUDENT_RANGES)[number];
 
-// Moroccan phone: +212 or leading 0, then digits/spaces/dashes (>= 9 more chars).
-const MOROCCAN_PHONE = /^(?:\+212|0)[\d\s-]{9,}$/;
+// Moroccan phone: +212 or leading 0, then exactly 9 digits (spaces/dashes
+// allowed only between digits — never counted toward the digit total).
+const MOROCCAN_PHONE = /^(?:\+212|0)(?:[\s-]?\d){9}$/;
 
 /** Single source of truth for the founder application, used client + server. */
 export const founderApplicationSchema = z.object({

@@ -48,6 +48,15 @@ export default defineWorkspace([
   },
   {
     test: {
+      name: 'landing',
+      root: './apps/landing',
+      environment: 'node',
+      include: ['lib/**/*.test.ts'],
+      passWithNoTests: true,
+    },
+  },
+  {
+    test: {
       name: 'tools',
       root: '.',
       environment: 'node',
