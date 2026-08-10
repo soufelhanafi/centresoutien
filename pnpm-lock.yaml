@@ -102,6 +102,9 @@ importers:
       '@node-rs/argon2-darwin-arm64':
         specifier: 2.0.2
         version: 2.0.2
+      '@node-rs/argon2-darwin-x64':
+        specifier: 2.0.2
+        version: 2.0.2
       '@node-rs/argon2-win32-x64-msvc':
         specifier: 2.0.2
         version: 2.0.2

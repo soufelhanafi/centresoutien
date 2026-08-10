@@ -2,10 +2,10 @@ name: Package
 
 # Manual only — installers are heavy artifacts and this ticket (SOU-86) ships
 # self-signed dev builds for controlled demo installs, not a public release
-# channel. Each OS builds on its own runner because better-sqlite3-multiple-
-# ciphers and @node-rs/argon2 are native modules: their compiled binaries are
-# only correct for the OS/arch that built them, so a single machine cannot
-# cross-produce a working Windows installer from macOS (see PACKAGING.md).
+# channel. Each OS/arch builds on its own runner because better-sqlite3-
+# multiple-ciphers and @node-rs/argon2 are native modules: their compiled
+# binaries are only correct for the OS/arch that built them, so a single
+# machine cannot cross-produce a working installer (see PACKAGING.md).
 on:
   workflow_dispatch:
 
@@ -18,11 +18,16 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            script: dist:mac
-            artifact: dmg
+            script: dist:mac:arm64
+            artifact: macos-arm64-dmg
+            appDir: mac-arm64
+          - os: macos-13
+            script: dist:mac:x64
+            artifact: macos-x64-dmg
+            appDir: mac
           - os: windows-latest
             script: dist:win
-            artifact: nsis
+            artifact: windows-x64-nsis
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +74,7 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          cd apps/desktop/dist/mac-arm64
+          cd "apps/desktop/dist/${{ matrix.appDir }}"
           ELECTRON_RUN_AS_NODE=1 "./Centre Soutien.app/Contents/MacOS/Centre Soutien" -e "
             require('./Centre Soutien.app/Contents/Resources/app.asar/node_modules/better-sqlite3-multiple-ciphers');
             require('./Centre Soutien.app/Contents/Resources/app.asar/node_modules/@node-rs/argon2');
