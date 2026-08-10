@@ -32,6 +32,7 @@ function openCenter(centreId: string, centerCode: string, planId: PlanId): Conta
     centerCode: centerCode as CenterCode,
     key: KEY,
     dir,
+    tempDir: dir,
     planId,
     appVersion: () => '2.0.0',
     scheduleRestart: () => {},

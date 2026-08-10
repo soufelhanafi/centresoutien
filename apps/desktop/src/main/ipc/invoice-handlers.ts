@@ -1,6 +1,5 @@
-import { app, dialog, shell, BrowserWindow } from 'electron';
+import { dialog, shell, BrowserWindow } from 'electron';
 import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type {
   ListInvoices,
   IssueInvoice,
@@ -17,6 +16,7 @@ import type {
 import { InvoiceNotFoundError } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import { buildInvoicePdfInput, type PdfAssemblyDeps } from './invoice-pdf-assembly';
+import { writeTempPdf } from '../../data/fs/temp-pdf';
 
 export type ListInvoicesUseCase = Pick<ListInvoices, 'execute'>;
 export type IssueInvoiceUseCase = Pick<IssueInvoice, 'execute'>;
@@ -31,6 +31,7 @@ export type InvoiceHandlerDeps = PdfAssemblyDeps & {
   invoicePdfRenderer: InvoicePdfRendererPort;
   centerCode: () => CenterCode;
   updatedBy: () => UserId;
+  tempDir: string;
 };
 
 function toInvoiceLineView(line: InvoiceLine) {
@@ -116,8 +117,7 @@ export function createInvoiceHandlers(
       const item = await findInvoiceOrThrow(deps, request.invoiceId);
       const pdfInput = await buildInvoicePdfInput(deps, deps.centerCode(), item, request.locale);
       const bytes = await deps.invoicePdfRenderer.render(pdfInput);
-      const tempPath = join(app.getPath('temp'), `facture-${item.invoice.id}-${Date.now()}.pdf`);
-      writeFileSync(tempPath, bytes);
+      const tempPath = writeTempPdf(deps.tempDir, 'facture-', [item.invoice.id], bytes);
       await shell.openPath(tempPath);
       return { ok: true };
     },

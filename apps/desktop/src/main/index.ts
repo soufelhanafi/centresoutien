@@ -31,6 +31,7 @@ import {
   wipeDemoArtefacts,
 } from './demo/demo-center';
 import { demoAdminCredentials, demoAdminCredentialsOrNull } from './demo/demo-admin-credentials';
+import { sweepStaleTempPdfs } from '../data/fs/temp-pdf';
 
 /** argv flag that puts the app into demo mode on relaunch (SOU-110). */
 const DEMO_ARG = '--demo';
@@ -171,6 +172,11 @@ app.whenReady().then(async () => {
   // fixed centreId ('demo') entered via the `--demo` relaunch flag (or CS_CENTRE=demo
   // in dev).
   try {
+    // Stale temp PDFs from earlier runs (SOU-163): best-effort sweep BEFORE any
+    // new print can land. The freshness threshold keeps a recently printed file
+    // alive while the OS viewer reads it — a file younger than the threshold
+    // cannot predate the previous session by more than a few minutes.
+    sweepStaleTempPdfs(app.getPath('temp'));
     const hubServer = resolveHubConfig();
     // A hub host already wires its own client at its own listener; only a device
     // that serves no hub can point at an external one (SOU-82).
@@ -230,6 +236,7 @@ app.whenReady().then(async () => {
         centerCode,
         key,
         dir,
+        tempDir: app.getPath('temp'),
         planId: activePlanId(),
         appVersion: () => app.getVersion(),
         scheduleRestart,
@@ -264,6 +271,7 @@ app.whenReady().then(async () => {
             // (Greptile P1). Seeding is deterministic, so re-entry is byte-identical.
             await prepareDemoCenter({
               dir,
+              tempDir: app.getPath('temp'),
               demoKey,
               appVersion: () => app.getVersion(),
               scheduleRestart,
@@ -308,6 +316,7 @@ app.whenReady().then(async () => {
       if (!demoCenterSeeded(dir, demoKey)) {
         await prepareDemoCenter({
           dir,
+          tempDir: app.getPath('temp'),
           demoKey,
           appVersion: () => app.getVersion(),
           scheduleRestart,

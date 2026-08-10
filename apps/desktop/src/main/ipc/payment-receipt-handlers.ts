@@ -1,8 +1,8 @@
-import { app, dialog, shell, BrowserWindow } from 'electron';
+import { dialog, shell, BrowserWindow } from 'electron';
 import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type { GeneratePaymentReceiptPdf, PaymentId, CenterCode } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
+import { writeTempPdf } from '../../data/fs/temp-pdf';
 
 export type GeneratePaymentReceiptPdfUseCase = Pick<GeneratePaymentReceiptPdf, 'execute'>;
 
@@ -10,6 +10,7 @@ export type GeneratePaymentReceiptPdfUseCase = Pick<GeneratePaymentReceiptPdf, '
 export type PaymentReceiptHandlerDeps = {
   generatePaymentReceiptPdf: GeneratePaymentReceiptPdfUseCase;
   centerCode: () => CenterCode;
+  tempDir: string;
 };
 
 /**
@@ -29,8 +30,7 @@ export function createPaymentReceiptHandlers(
         paymentId: request.paymentId as PaymentId,
         locale: request.locale,
       });
-      const tempPath = join(app.getPath('temp'), `recu-paiement-${paymentId}-${Date.now()}.pdf`);
-      writeFileSync(tempPath, bytes);
+      const tempPath = writeTempPdf(deps.tempDir, 'recu-paiement-', [paymentId], bytes);
       await shell.openPath(tempPath);
       return { ok: true };
     },
