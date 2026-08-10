@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { Search, ReceiptText } from 'lucide-react';
 import { Button, EmptyState, ErrorState, Input, Skeleton } from '@centresoutien/ui';
 import { useOpenInvoices } from '../../hooks/invoice/use-open-invoices';
-import { useStudents } from '../../hooks/student/use-students';
 import { useDebouncedValue } from '../../hooks/use-debounced-value';
 import { OpenInvoiceRow } from './open-invoice-row';
 
@@ -13,8 +12,8 @@ const SEARCH_DEBOUNCE_MS = 200;
  * Picks an open invoice (outstanding balance, not cancelled) to record a payment
  * against. Sources its rows from the bounded server-side `openOnly` read —
  * name-searched and keyset-paginated (SOU-200) — so the renderer never loads or
- * filters the whole invoice list. Student names come from the cached student
- * list, since the invoice row DTO carries only `studentId`.
+ * filters the whole invoice list. Each row's student name is resolved server-side
+ * on the read row, so no full-student-list fetch is needed.
  */
 export function OpenInvoicePicker() {
   const { t } = useTranslation();
@@ -22,12 +21,6 @@ export function OpenInvoicePicker() {
   const debouncedSearch = useDebouncedValue(search.trim(), SEARCH_DEBOUNCE_MS);
 
   const invoicesQuery = useOpenInvoices(debouncedSearch);
-  const studentsQuery = useStudents('');
-
-  const studentsById = useMemo(
-    () => new Map((studentsQuery.data ?? []).map((student) => [student.id, student])),
-    [studentsQuery.data],
-  );
 
   const openInvoices = useMemo(
     () => (invoicesQuery.data?.pages ?? []).flatMap((page) => page.invoices),
@@ -91,7 +84,7 @@ export function OpenInvoicePicker() {
         <>
           <ul className="divide-y divide-border rounded-lg border border-border">
             {openInvoices.map((invoice) => (
-              <OpenInvoiceRow key={invoice.id} invoice={invoice} student={studentsById.get(invoice.studentId)} />
+              <OpenInvoiceRow key={invoice.id} invoice={invoice} />
             ))}
           </ul>
           {invoicesQuery.hasNextPage && (

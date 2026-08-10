@@ -21,6 +21,13 @@ export type InvoiceLineView = {
 export type InvoiceListItemView = {
   readonly id: string;
   readonly studentId: string;
+  /**
+   * The invoice's student's bilingual name, resolved server-side (SOU-200) so the
+   * cash-desk picker labels rows without a separate full-student-list fetch.
+   * Optional on the wire; the main-process handler always populates it (empty
+   * `{ fr:'', ar:'' }` only until the student row has synced).
+   */
+  readonly studentName?: { readonly fr: string; readonly ar: string } | undefined;
   readonly month: string;
   readonly status: InvoiceStatus;
   readonly issuedAt: string | null;

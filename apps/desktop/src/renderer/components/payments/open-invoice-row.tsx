@@ -2,23 +2,18 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleDollarSign } from 'lucide-react';
 import { Button, Numeric } from '@centresoutien/ui';
-import type { StudentView } from '../../lib/students/student-view';
 import type { InvoiceListItemView } from '../../lib/invoices/invoice-view';
 import { formatMonth, formatMoneyMad } from '../../lib/format';
 import { RecordPaymentDialog } from '../invoice/record-payment-dialog';
 
 /** One open invoice with an inline "record payment" action, reusing the SOU-101 dialog. */
-export function OpenInvoiceRow({
-  invoice,
-  student,
-}: {
-  invoice: InvoiceListItemView;
-  student: StudentView | undefined;
-}) {
+export function OpenInvoiceRow({ invoice }: { invoice: InvoiceListItemView }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'ar' ? 'ar' : 'fr';
+  const otherLocale = locale === 'fr' ? 'ar' : 'fr';
   const [payOpen, setPayOpen] = useState(false);
-  const studentName = student ? student.name[locale] : t('payments.unknownStudent');
+  const studentName =
+    invoice.studentName?.[locale] || invoice.studentName?.[otherLocale] || t('payments.unknownStudent');
 
   return (
     <li className="flex items-center justify-between gap-3 px-4 py-3">
