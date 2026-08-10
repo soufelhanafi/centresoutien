@@ -2,7 +2,7 @@ import type { CenterCode } from '../value-objects/ids';
 import type { Clock } from '../ports/clock';
 import type { LicensePort, LicenseStorePort, MachineIdentity } from '../ports/license-port';
 import type { PlanPolicy } from '../plans/plan-policy';
-import { PLANS } from '../plans/plans';
+import { PLANS, type Plan, type PlanId } from '../plans/plans';
 import {
   evaluateLicenseBinding,
   isFounderDiscountExpired,
@@ -13,6 +13,8 @@ export type ActivateLicenseInput = {
   /** The raw license envelope: the text the user pasted or the imported file's bytes. */
   readonly rawLicense: string;
 };
+
+export type ResolveLicensePlan = (planId: PlanId) => Plan;
 
 /**
  * Activates a license supplied through the activation screen (SOU-104): verify the
@@ -34,6 +36,7 @@ export class ActivateLicense {
     private readonly plan: PlanPolicy,
     private readonly centerCode: CenterCode,
     private readonly demoAnchorTrusted: boolean,
+    private readonly resolvePlan: ResolveLicensePlan = (planId) => PLANS[planId],
   ) {}
 
   execute(input: ActivateLicenseInput): LicenseActivationResult {
@@ -62,7 +65,7 @@ export class ActivateLicense {
     }
 
     this.store.save(input.rawLicense);
-    this.plan.setActivePlan(PLANS[claims.plan]);
+    this.plan.setActivePlan(this.resolvePlan(claims.plan));
 
     return {
       status: 'activated',

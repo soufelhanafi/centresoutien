@@ -24,6 +24,7 @@ import type {
 import {
   GroupFullError,
   GroupNotFoundError,
+  PLANS,
   WeeklyRecurringSessionNotFoundError,
   GenerationBatchNotFoundError,
 } from '@centresoutien/domain';
@@ -261,6 +262,7 @@ const stubGenerateSessions: GenerateAndPersistSessionsUseCase = {
       },
     ],
     skippedHolidays: [],
+    skippedOutsideHours: [],
   }),
 };
 
@@ -393,6 +395,7 @@ const dispatch = createIpcDispatcher(
     restoreGroup: stubRestoreGroup,
     appVersion: () => '2.0.0',
     activePlanId: () => 'pro',
+    activePlanFeatures: () => [...PLANS.pro.features],
     createSubject: stubCreateSubject,
     createParent: stubCreateParent,
     listWeekSessions: stubListWeekSessions,
@@ -425,7 +428,10 @@ describe('createIpcDispatcher', () => {
   });
 
   it('runs the plan.get handler', async () => {
-    await expect(dispatch('plan.get', {})).resolves.toEqual({ planId: 'pro' });
+    await expect(dispatch('plan.get', {})).resolves.toEqual({
+      planId: 'pro',
+      features: [...PLANS.pro.features],
+    });
   });
 
   it('runs subject.create and returns the new id', async () => {
@@ -498,6 +504,7 @@ describe('createIpcDispatcher', () => {
         },
       ],
       skippedHolidays: [],
+      skippedOutsideHours: [],
     });
   });
 

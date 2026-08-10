@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import type {
   PlanId,
+  FeatureFlag,
   GetLicenseStatus,
   ActivateLicense,
   CreateSubject,
@@ -122,6 +123,12 @@ import type {
   SaveCenterHours,
   GetCenterHours,
   CenterHours,
+  SaveCenterHoursOverride,
+  GetCenterHoursOverrides,
+  GetActiveCenterHoursOverride,
+  ArchiveCenterHoursOverride,
+  CenterHoursOverride,
+  CenterHoursOverrideId,
   AttemptLogin,
   GenerateRecoveryCodes,
   VerifyRecoveryCode,
@@ -149,6 +156,7 @@ import {
   GroupNotFoundError,
   TeacherNotFoundError,
   HolidayNotFoundError,
+  CenterHoursOverrideNotFoundError,
   NotAuthenticatedError,
   SECURITY_QUESTION_KEYS,
 } from '@centresoutien/domain';
@@ -258,6 +266,10 @@ export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
 export type ChangeAdminPasswordUseCase = Pick<ChangeAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
 export type GetCenterHoursUseCase = Pick<GetCenterHours, 'execute'>;
+export type SaveCenterHoursOverrideUseCase = Pick<SaveCenterHoursOverride, 'execute'>;
+export type GetCenterHoursOverridesUseCase = Pick<GetCenterHoursOverrides, 'execute'>;
+export type GetActiveCenterHoursOverrideUseCase = Pick<GetActiveCenterHoursOverride, 'execute'>;
+export type ArchiveCenterHoursOverrideUseCase = Pick<ArchiveCenterHoursOverride, 'execute'>;
 export type AttemptLoginUseCase = Pick<AttemptLogin, 'execute'>;
 export type GenerateRecoveryCodesUseCase = Pick<GenerateRecoveryCodes, 'execute'>;
 export type VerifyRecoveryCodeUseCase = Pick<VerifyRecoveryCode, 'execute'>;
@@ -523,6 +535,30 @@ function toHolidayView(holiday: Holiday) {
   };
 }
 
+/** Project a CenterHoursOverride to its boundary DTO: envelope stripped, dates
+ *  passed through, `archived` derived from the soft-delete tombstone.
+ *  `hoursByWeekday` crosses the wire as the same `0..6`-keyed record the domain
+ *  entity carries (the renderer aliases `Record<0..6, TimeWindow[]>`). */
+function toCenterHoursOverrideView(override: CenterHoursOverride) {
+  const dayWindows = (dayOfWeek: WeekdayIndex) =>
+    override.hoursByWeekday[dayOfWeek].map((window) => ({ open: window.open, close: window.close }));
+  return {
+    id: override.id,
+    dateRange: { start: override.dateRange.start, end: override.dateRange.end },
+    hoursByWeekday: {
+      0: dayWindows(0),
+      1: dayWindows(1),
+      2: dayWindows(2),
+      3: dayWindows(3),
+      4: dayWindows(4),
+      5: dayWindows(5),
+      6: dayWindows(6),
+    },
+    archived: override.deletedAt !== null,
+    createdAt: override.createdAt.toISOString(),
+  };
+}
+
 /** Project an enriched weekly-session view to its boundary DTO: branded
  *  `TimeOfDay`/id values widened to plain strings for the wire; the join-derived
  *  fields (room/teacher names, subject, level, kind) pass through with their
@@ -713,6 +749,7 @@ export type HandlerDeps = BackupHandlerDeps &
   CenterSwitchHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
+  activePlanFeatures: () => readonly FeatureFlag[];
   setActivePlan: (planId: PlanId) => void;
   getLicenseStatus: GetLicenseStatusUseCase;
   activateLicense: ActivateLicenseUseCase;
@@ -794,6 +831,10 @@ export type HandlerDeps = BackupHandlerDeps &
   commitGeneratedSchedule: CommitGeneratedScheduleUseCase;
   saveCenterHours: SaveCenterHoursUseCase;
   getCenterHours: GetCenterHoursUseCase;
+  saveCenterHoursOverride: SaveCenterHoursOverrideUseCase;
+  getCenterHoursOverrides: GetCenterHoursOverridesUseCase;
+  getActiveCenterHoursOverride: GetActiveCenterHoursOverrideUseCase;
+  archiveCenterHoursOverride: ArchiveCenterHoursOverrideUseCase;
   envelopeContext: () => EnvelopeContext;
   adminExists: AdminExists;
   adminUsername: () => Promise<string>;
@@ -843,6 +884,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     }),
     'plan.get': () => ({
       planId: deps.activePlanId(),
+      features: [...deps.activePlanFeatures()],
     }),
     'license.status': () => deps.getLicenseStatus.execute(),
     'license.activate': (request) => deps.activateLicense.execute({ rawLicense: request.license }),
@@ -1435,14 +1477,15 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     },
     'session.generate': async (request) => {
       const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
-      const { generationBatchId, sessions, skippedHolidays } = await deps.generateSessions.execute({
-        centerCode,
-        recurringSessionId: request.recurringSessionId as WeeklyRecurringSessionId,
-        range: { start: request.from, end: request.to },
-        deviceOrigin,
-        updatedBy,
-        overrideHolidayDates: request.overrideHolidayDates ?? [],
-      });
+      const { generationBatchId, sessions, skippedHolidays, skippedOutsideHours } =
+        await deps.generateSessions.execute({
+          centerCode,
+          recurringSessionId: request.recurringSessionId as WeeklyRecurringSessionId,
+          range: { start: request.from, end: request.to },
+          deviceOrigin,
+          updatedBy,
+          overrideHolidayDates: request.overrideHolidayDates ?? [],
+        });
       return {
         generationBatchId,
         sessions: sessions.map(toSessionView),
@@ -1450,6 +1493,10 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
           date: skipped.date,
           holidayId: skipped.holiday.id,
           holidayName: skipped.holiday.name,
+        })),
+        skippedOutsideHours: skippedOutsideHours.map((skipped) => ({
+          date: skipped.date,
+          windows: skipped.windows.map((window) => ({ open: window.open, close: window.close })),
         })),
       };
     },
@@ -1551,6 +1598,49 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     'centerHours.save': async (request) => {
       const week = await deps.saveCenterHours.execute({ ...deps.envelopeContext(), week: request });
       return { week: toWeekView(week) };
+    },
+    'centerHoursOverride.list': async (request) => {
+      const overrides = await deps.getCenterHoursOverrides.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        ...(request.range !== undefined ? { range: request.range } : {}),
+      });
+      return { overrides: overrides.map(toCenterHoursOverrideView) };
+    },
+    'centerHoursOverride.getActive': async (request) => {
+      const override = await deps.getActiveCenterHoursOverride.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        date: request.date,
+      });
+      return { override: override === null ? null : toCenterHoursOverrideView(override) };
+    },
+    'centerHoursOverride.save': async (request) => {
+      const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
+      const override = await deps.saveCenterHoursOverride.execute({
+        centerCode,
+        deviceOrigin,
+        updatedBy,
+        ...(request.id !== undefined ? { id: request.id as CenterHoursOverrideId } : {}),
+        dateRange: request.dateRange,
+        hoursByWeekday: request.hoursByWeekday,
+      });
+      return { override: toCenterHoursOverrideView(override) };
+    },
+    'centerHoursOverride.archive': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      try {
+        await deps.archiveCenterHoursOverride.execute({
+          centerCode,
+          overrideId: request.id as CenterHoursOverrideId,
+          updatedBy,
+        });
+      } catch (error) {
+        // Archiving is idempotent at the boundary: an already-archived or unknown
+        // override means the desired end-state (row inactive) already holds, so
+        // report success instead of a generic error toast. The domain use case
+        // still throws so other callers/tests stay strict. Mirrors holiday.archive.
+        if (!(error instanceof CenterHoursOverrideNotFoundError)) throw error;
+      }
+      return { ok: true };
     },
     'admin.exists': async () => ({ exists: await deps.adminExists() }),
     'admin.create': async (request) => {

@@ -4,6 +4,7 @@ import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   PLANS,
+  FEATURE_FLAGS,
   PlanPolicy,
   resolveActivePlan,
   isRestrictedMode,
@@ -90,6 +91,10 @@ import {
   SecurityQuestionThrottlePolicy,
   SaveCenterHours,
   GetCenterHours,
+  SaveCenterHoursOverride,
+  GetCenterHoursOverrides,
+  GetActiveCenterHoursOverride,
+  ArchiveCenterHoursOverride,
   AttemptLogin,
   LoginThrottlePolicy,
   DeviceSessionService,
@@ -134,6 +139,8 @@ import {
 } from '@centresoutien/domain';
 import type {
   PlanId,
+  FeatureFlag,
+  Plan,
   CenterCode,
   DeviceId,
   UserId,
@@ -189,6 +196,7 @@ import { SqliteWeeklyRecurringSessionRepository } from '../data/sqlite/repositor
 import { SqliteSessionRepository } from '../data/sqlite/repositories/session-repository';
 import { SqliteAttendanceRepository } from '../data/sqlite/repositories/attendance-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
+import { SqliteCenterHoursOverrideRepository } from '../data/sqlite/repositories/center-hours-override-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SqliteRecoveryCodeRepository } from '../data/sqlite/repositories/recovery-code-repository';
 import { SqliteSecurityQuestionRepository } from '../data/sqlite/repositories/security-question-repository';
@@ -438,6 +446,40 @@ export function resolveStartupPlanId(
   return isDev ? devFallback : 'essentiel';
 }
 
+function activeFeatureSet(planId: PlanId): Set<FeatureFlag> {
+  return new Set(PLANS[planId].features);
+}
+
+function isFeatureFlag(value: string): value is FeatureFlag {
+  return FEATURE_FLAGS.includes(value as FeatureFlag);
+}
+
+function parseE2eOmittedFeatures(raw: string | undefined, planId: PlanId): readonly FeatureFlag[] {
+  if (!raw) return [];
+  const activeFeatures = activeFeatureSet(planId);
+  return raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+    .map((value) => {
+      if (!isFeatureFlag(value) || !activeFeatures.has(value)) {
+        throw new Error(`CS_E2E_OMIT_FEATURES contains unknown or inactive feature: ${value}`);
+      }
+      return value;
+    });
+}
+
+function resolvePlanForPolicy(planId: PlanId): Plan {
+  const base = PLANS[planId];
+  const omitted = __CS_E2E__ ? parseE2eOmittedFeatures(process.env['CS_E2E_OMIT_FEATURES'], planId) : [];
+  if (omitted.length === 0) return base;
+  const omittedSet = new Set(omitted);
+  return {
+    ...base,
+    features: new Set([...base.features].filter((feature) => !omittedSet.has(feature))),
+  };
+}
+
 /**
  * The one place concrete adapters are constructed and injected into use cases.
  * Opens the center database, migrates it, wires the SQLite repositories to the
@@ -521,7 +563,7 @@ export function buildContainer(options: ContainerOptions): Container {
     options.planId,
     import.meta.env.DEV,
   );
-  const plan = new PlanPolicy(PLANS[activePlanId]);
+  const plan = new PlanPolicy(resolvePlanForPolicy(activePlanId));
 
   // The server-side restricted-mode hard lock (SOU-104), superseding the deferred
   // SOU-173. Until the license resolves to `active`, the IPC dispatcher answers
@@ -577,6 +619,7 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
     options.centerCode,
     options.centreId === 'demo',
+    resolvePlanForPolicy,
   );
   const getLicenseStatus = new GetLicenseStatus(
     license,
@@ -838,10 +881,15 @@ export function buildContainer(options: ContainerOptions): Container {
   // recurrence template (the WRS repo above) and the center's holidays, runs the
   // pure generator, and upserts idempotently on (recurringSessionId, date).
   const concreteSessionRepo = new SqliteSessionRepository(db, changeLog);
+  // Ramadan schedule overrides (SOU-165): generation consults the active override
+  // for each date, taking precedence over the static weekly hours and skipping
+  // dates whose fixed template time no longer fits the override's windows.
+  const centerHoursOverrideRepo = new SqliteCenterHoursOverrideRepository(db);
   const generateSessions = new GenerateAndPersistSessions(
     concreteSessionRepo,
     sessionRepo,
     holidayRepo,
+    centerHoursOverrideRepo,
     new GenerateSessions(clock, ids),
     plan,
   );
@@ -982,6 +1030,13 @@ export function buildContainer(options: ContainerOptions): Container {
   const centerHoursRepo = new SqliteCenterHoursRepository(db);
   const saveCenterHours = new SaveCenterHours(centerHoursRepo, clock, ids, plan);
   const getCenterHours = new GetCenterHours(centerHoursRepo, plan);
+  // Ramadan schedule overrides (SOU-165): CRUD on the time-boxed weekly-hours
+  // replacement the generator above already reads. Same `settings.center-hours`
+  // gate as the static hours screen (every plan).
+  const saveCenterHoursOverride = new SaveCenterHoursOverride(centerHoursOverrideRepo, clock, ids, plan);
+  const getCenterHoursOverrides = new GetCenterHoursOverrides(centerHoursOverrideRepo, plan);
+  const getActiveCenterHoursOverride = new GetActiveCenterHoursOverride(centerHoursOverrideRepo, plan);
+  const archiveCenterHoursOverride = new ArchiveCenterHoursOverride(centerHoursOverrideRepo, clock, plan);
 
   // Weekly recurring session write path (SOU-131): create/update run the SOU-55
   // composite conflict check (room + teacher + hours) against the same
@@ -993,6 +1048,7 @@ export function buildContainer(options: ContainerOptions): Container {
     groupRepo,
     roomRepo,
     centerHoursRepo,
+    centerHoursOverrideRepo,
     clock,
     ids,
     plan,
@@ -1002,6 +1058,7 @@ export function buildContainer(options: ContainerOptions): Container {
     groupRepo,
     roomRepo,
     centerHoursRepo,
+    centerHoursOverrideRepo,
     clock,
     plan,
   );
@@ -1214,6 +1271,7 @@ export function buildContainer(options: ContainerOptions): Container {
   const handlerDeps: HandlerDeps = {
     appVersion: options.appVersion,
     activePlanId: () => plan.activePlanId(),
+    activePlanFeatures: () => plan.activeFeatures(),
     setActivePlan: (planId) => plan.setActivePlan(PLANS[planId]),
     getLicenseStatus,
     activateLicense,
@@ -1312,6 +1370,10 @@ export function buildContainer(options: ContainerOptions): Container {
     commitGeneratedSchedule,
     saveCenterHours,
     getCenterHours,
+    saveCenterHoursOverride,
+    getCenterHoursOverrides,
+    getActiveCenterHoursOverride,
+    archiveCenterHoursOverride,
     envelopeContext: () => context,
     adminExists: () => adminRepo.exists(),
     adminUsername: async () => {

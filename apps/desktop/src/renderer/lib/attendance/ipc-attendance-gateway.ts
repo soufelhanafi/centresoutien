@@ -1,6 +1,7 @@
 import type { AttendanceGateway } from './attendance-gateway';
 import type { AttendanceRecordView, RollCallRecordInput, WeeklySlotOption } from './attendance-view';
 import type { StudentAttendanceReport, GroupAttendanceSheetView } from './attendance-reporting-view';
+import { SessionOutsideOverrideHoursError } from './session-outside-override-hours-error';
 
 /**
  * The real {@link AttendanceGateway}. `weeklySlotsForGroup` reads `session.week`
@@ -24,13 +25,19 @@ class IpcAttendanceGateway implements AttendanceGateway {
   }
 
   async resolveSession(recurringSessionId: string, date: string): Promise<{ sessionId: string }> {
-    const { sessions } = await window.api.invoke('session.generate', {
+    const { sessions, skippedOutsideHours } = await window.api.invoke('session.generate', {
       recurringSessionId,
       from: date,
       to: date,
     });
     const [session] = sessions;
     if (session === undefined) {
+      // The generator skips a date whose fixed slot no longer fits an active
+      // override's windows (the iftar gap, SOU-165); surface that specifically so
+      // roll-call tells the admin to re-time, not a generic failure.
+      if (skippedOutsideHours.some((skipped) => skipped.date === date)) {
+        throw new SessionOutsideOverrideHoursError(date);
+      }
       throw new Error(`no session materialized for ${recurringSessionId} on ${date}`);
     }
     return { sessionId: session.id };

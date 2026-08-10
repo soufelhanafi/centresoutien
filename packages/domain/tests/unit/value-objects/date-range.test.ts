@@ -4,6 +4,7 @@ import {
   eachDateInRange,
   daysBetween,
   addDays,
+  weekdayInWeekOf,
   endDateAfterWeekdayOccurrences,
 } from '../../../src/value-objects/date-range';
 import type { WeekdayIndex } from '../../../src/value-objects/weekday';
@@ -24,6 +25,28 @@ describe('weekdayOf', () => {
 
   it('is timezone-free — the same civil date always yields the same weekday', () => {
     expect(weekdayOf('2027-01-01')).toBe(5); // Friday (2026 is not a leap year)
+  });
+});
+
+describe('weekdayInWeekOf', () => {
+  // The week runs Sunday 2026-08-09 .. Saturday 2026-08-15; 2026-08-10 is Monday.
+  it.each([
+    ['2026-08-10', 0, '2026-08-09'], // Sunday of that week
+    ['2026-08-10', 1, '2026-08-10'], // Monday itself
+    ['2026-08-10', 3, '2026-08-12'], // Wednesday
+    ['2026-08-10', 6, '2026-08-15'], // Saturday
+  ])('from %s, weekday %i is %s', (reference, weekday, expected) => {
+    expect(weekdayInWeekOf(reference, weekday as WeekdayIndex)).toBe(expected);
+  });
+
+  it('resolves the same week from any day within it (Wednesday reference → same Monday)', () => {
+    expect(weekdayInWeekOf('2026-08-12', 1 as WeekdayIndex)).toBe('2026-08-10');
+    expect(weekdayInWeekOf('2026-08-15', 1 as WeekdayIndex)).toBe('2026-08-10');
+  });
+
+  it('crosses a month boundary correctly', () => {
+    // 2026-09-02 is a Wednesday; the Sunday of its week is 2026-08-30.
+    expect(weekdayInWeekOf('2026-09-02', 0 as WeekdayIndex)).toBe('2026-08-30');
   });
 });
 

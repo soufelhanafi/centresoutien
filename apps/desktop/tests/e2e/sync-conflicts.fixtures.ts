@@ -84,10 +84,20 @@ function freshUserDataDir(): string {
   return mkdtempSync(join(tmpdir(), 'cs-e2e-sync-'));
 }
 
-export async function launch(locale: Locale, plan: PlanId, userDataDir: string): Promise<Launched> {
+export async function launch(
+  locale: Locale,
+  plan: PlanId,
+  userDataDir: string,
+  options: { omitFeatures?: readonly string[] } = {},
+): Promise<Launched> {
+  const env: Record<string, string> = { ...process.env, CS_LOCALE: locale, CS_PLAN: plan };
+  delete env['CS_E2E_OMIT_FEATURES'];
+  if (options.omitFeatures && options.omitFeatures.length > 0) {
+    env['CS_E2E_OMIT_FEATURES'] = options.omitFeatures.join(',');
+  }
   const app = await electron.launch({
     args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
-    env: { ...process.env, CS_LOCALE: locale, CS_PLAN: plan },
+    env,
   });
   const win = await app.firstWindow();
   await win.waitForLoadState('domcontentloaded');
@@ -122,9 +132,14 @@ async function seedFieldClash(win: Page): Promise<void> {
  * Launch, provision the admin, seed a blocked conflict (if requested) through
  * the app's own connection, then reload so the shell + inbox pick it up.
  */
-export async function bootWithClash(locale: Locale, plan: PlanId, seed: boolean): Promise<Launched> {
+export async function bootWithClash(
+  locale: Locale,
+  plan: PlanId,
+  seed: boolean,
+  options: { omitFeatures?: readonly string[] } = {},
+): Promise<Launched> {
   const userDataDir = freshUserDataDir();
-  const live = await launch(locale, plan, userDataDir);
+  const live = await launch(locale, plan, userDataDir, options);
   await provisionAdmin(live.win);
   if (seed) await seedFieldClash(live.win);
   await live.win.reload();

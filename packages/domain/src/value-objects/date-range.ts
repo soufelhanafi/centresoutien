@@ -152,6 +152,20 @@ export function endDateAfterWeekdayOccurrences(
 }
 
 /**
+ * The civil date of `weekday` inside the Sunday-started week that contains
+ * `reference` (SOU-165). A weekly-recurring-session template carries no single
+ * date, only a `dayOfWeek`; the interactive planner it is created/edited from
+ * always renders the current real week, so "does an active override govern this
+ * slot?" is answered against the occurrence of that weekday in the same week as
+ * `reference` (the injected clock's civil date). Sunday-first mirrors
+ * {@link weekdayOf}'s `0 = Sunday` convention.
+ */
+export function weekdayInWeekOf(reference: string, weekday: WeekdayIndex): string {
+  const sundayStart = addDays(reference, -weekdayOf(reference));
+  return addDays(sundayStart, weekday);
+}
+
+/**
  * Every civil date in `[start, end]`, inclusive, in chronological order; empty
  * when `end < start`. Steps one civil day at a time with month/year rollover —
  * no `Date`, no timezone, no DST — so a day is always exactly one increment and

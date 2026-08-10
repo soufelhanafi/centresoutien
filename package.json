@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "pnpm -r typecheck",
-    "lint": "eslint .",
+    "lint": "eslint . && pnpm --filter @centresoutien/landing lint",
     "gate": "node scripts/pre-merge-gate.mjs",
     "test": "pnpm --filter @centresoutien/desktop rebuild:node && vitest run --coverage",
     "test:watch": "pnpm --filter @centresoutien/desktop rebuild:node && vitest",

@@ -3,13 +3,15 @@ import {
   type DayHours,
   type RoomSessionCandidate,
 } from './session-conflict-policy';
-import type {
-  MalformedSessionTimeError,
-  RoomConflictError,
-  ScheduledSessionRef,
-  SessionOutsideCenterHoursError,
-  TeacherConflictError,
+import {
+  SessionOutsideOverrideHoursError,
+  type MalformedSessionTimeError,
+  type RoomConflictError,
+  type ScheduledSessionRef,
+  type SessionOutsideCenterHoursError,
+  type TeacherConflictError,
 } from '../errors/scheduling-errors';
+import type { TimeWindow } from '../value-objects/time-window';
 import type { EntityId } from '../value-objects/ids';
 
 /**
@@ -27,7 +29,11 @@ export type ConflictSeverity = 'error' | 'warning';
  */
 export type SessionConflict =
   | { kind: 'malformed'; severity: 'error'; error: MalformedSessionTimeError }
-  | { kind: 'hours'; severity: 'error'; error: SessionOutsideCenterHoursError }
+  | {
+      kind: 'hours';
+      severity: 'error';
+      error: SessionOutsideCenterHoursError | SessionOutsideOverrideHoursError;
+    }
   | { kind: 'room'; severity: 'error'; error: RoomConflictError }
   | { kind: 'teacher'; severity: 'error'; error: TeacherConflictError };
 
@@ -46,6 +52,16 @@ export type CompositeSessionCandidate = RoomSessionCandidate & {
 export type ConflictCheckContext = {
   existing: readonly ScheduledSessionRef[];
   week: readonly DayHours[];
+  /**
+   * The effective opening windows for the candidate's concrete date when an
+   * active center-hours override covers it (SOU-165). When present, they
+   * **replace** the static `week` for the hours check: the candidate must fit
+   * entirely inside one window, and a miss is reported as a
+   * {@link SessionOutsideOverrideHoursError} (transported `code:'outside-windows'`)
+   * so the renderer shows the override-specific line. Absent → the static
+   * {@link SessionConflictPolicy.withinCenterHours} check runs unchanged.
+   */
+  overrideWindows?: readonly TimeWindow[];
 };
 
 /**
@@ -54,6 +70,11 @@ export type ConflictCheckContext = {
  * most-blocking first. A malformed time range short-circuits — the overlap and
  * hours checks assume a positive-duration interval. An empty list means the slot
  * is free. Pure: no I/O, no clock; the caller supplies the scoped week and refs.
+ *
+ * On a date an active override covers (SOU-165), the caller passes
+ * `overrideWindows`; those windows replace the static `week` for the hours check
+ * and a miss surfaces as an {@link SessionOutsideOverrideHoursError} instead of
+ * the static {@link SessionOutsideCenterHoursError}.
  */
 export function detectSessionConflicts(
   candidate: CompositeSessionCandidate,
@@ -64,7 +85,7 @@ export function detectSessionConflicts(
 
   const conflicts: SessionConflict[] = [];
 
-  const hours = SessionConflictPolicy.withinCenterHours(candidate, context.week);
+  const hours = detectHoursConflict(candidate, context);
   if (hours) conflicts.push({ kind: 'hours', severity: 'error', error: hours });
 
   const room = SessionConflictPolicy.roomConflict(candidate, context.existing);
@@ -77,4 +98,25 @@ export function detectSessionConflicts(
   }
 
   return conflicts;
+}
+
+/**
+ * The hours conflict for a candidate: against its date's active-override windows
+ * when the caller supplied them (raising the override-specific error), otherwise
+ * against the static week.
+ */
+function detectHoursConflict(
+  candidate: CompositeSessionCandidate,
+  context: ConflictCheckContext,
+): SessionOutsideCenterHoursError | SessionOutsideOverrideHoursError | null {
+  if (context.overrideWindows === undefined) {
+    return SessionConflictPolicy.withinCenterHours(candidate, context.week);
+  }
+  const violation = SessionConflictPolicy.withinWindows(candidate, context.overrideWindows);
+  if (violation === null) return null;
+  return new SessionOutsideOverrideHoursError(
+    candidate.dayOfWeek,
+    violation.reason,
+    context.overrideWindows,
+  );
 }

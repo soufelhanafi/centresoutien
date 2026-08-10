@@ -301,7 +301,7 @@ describe('composition root', () => {
     const first = build('pro');
     const dispatch1 = createIpcDispatcher(createHandlers(first.handlerDeps));
     await dispatch1('center.save', { name: 'Centre Pro', address: '', phone: '', email: '', logoPath: null });
-    expect(await dispatch1('plan.get', {})).toEqual({ planId: 'pro' });
+    expect(await dispatch1('plan.get', {})).toMatchObject({ planId: 'pro' });
     first.dispose();
 
     // Rebuild with a lower override. Under SOU-28 the stored 'pro' row would have
@@ -309,7 +309,7 @@ describe('composition root', () => {
     // override wins and the display mirror is rewritten to match.
     const second = build('essentiel');
     const dispatch2 = createIpcDispatcher(createHandlers(second.handlerDeps));
-    expect(await dispatch2('plan.get', {})).toEqual({ planId: 'essentiel' });
+    expect(await dispatch2('plan.get', {})).toMatchObject({ planId: 'essentiel' });
     expect((await dispatch2('center.get', {})).center).toMatchObject({ plan: 'essentiel' });
     second.dispose();
   });
@@ -327,7 +327,7 @@ describe('composition root', () => {
 
     const container = build('essentiel', license);
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
-    expect(await dispatch('plan.get', {})).toEqual({ planId: 'premium' });
+    expect(await dispatch('plan.get', {})).toMatchObject({ planId: 'premium' });
     expect((await dispatch('center.save', { name: 'C', address: '', phone: '', email: '', logoPath: null })).center).toMatchObject({ plan: 'premium' });
     container.dispose();
   });
@@ -345,7 +345,7 @@ describe('composition root', () => {
 
     const container = build('essentiel', license);
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
-    expect(await dispatch('plan.get', {})).toEqual({ planId: 'essentiel' });
+    expect(await dispatch('plan.get', {})).toMatchObject({ planId: 'essentiel' });
     container.dispose();
   });
 
@@ -361,7 +361,7 @@ describe('composition root', () => {
     const container = build('essentiel', adapter());
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
 
-    expect(await dispatch('plan.get', {})).toEqual({ planId: 'essentiel' });
+    expect(await dispatch('plan.get', {})).toMatchObject({ planId: 'essentiel' });
     expect((await dispatch('license.status', {})).status).toBe('missing');
 
     const raw = signedLicenseFile(
@@ -380,7 +380,7 @@ describe('composition root', () => {
 
     const result = await dispatch('license.activate', { license: raw });
     expect(result).toMatchObject({ status: 'activated', plan: 'premium', centersAllowed: 3 });
-    expect(await dispatch('plan.get', {})).toEqual({ planId: 'premium' });
+    expect(await dispatch('plan.get', {})).toMatchObject({ planId: 'premium' });
     expect(await dispatch('license.status', {})).toMatchObject({
       status: 'active',
       plan: 'premium',
@@ -392,7 +392,7 @@ describe('composition root', () => {
     // The write survives a restart: a fresh container reads premium off disk.
     const rebuilt = build('essentiel', adapter());
     const dispatch2 = createIpcDispatcher(createHandlers(rebuilt.handlerDeps));
-    expect(await dispatch2('plan.get', {})).toEqual({ planId: 'premium' });
+    expect(await dispatch2('plan.get', {})).toMatchObject({ planId: 'premium' });
     rebuilt.dispose();
   });
 
@@ -424,7 +424,7 @@ describe('composition root', () => {
       status: 'rejected',
       reason: 'wrong-center',
     });
-    expect(await dispatch('plan.get', {})).toEqual({ planId: 'essentiel' });
+    expect(await dispatch('plan.get', {})).toMatchObject({ planId: 'essentiel' });
     expect(existsSync(licensePath)).toBe(false);
     container.dispose();
   });
@@ -477,7 +477,7 @@ describe('composition root', () => {
     const b1 = buildCenter('B', centerB, pathB);
     const db1 = createIpcDispatcher(createHandlers(b1.handlerDeps));
     expect((await db1('license.status', {})).status).toBe('missing');
-    expect(await db1('plan.get', {})).toEqual({ planId: 'essentiel' });
+    expect(await db1('plan.get', {})).toMatchObject({ planId: 'essentiel' });
 
     // Activating B writes B's own slot, leaving A's file untouched.
     expect((await db1('license.activate', { license: licenseFor(centerB) })).status).toBe(
@@ -491,7 +491,7 @@ describe('composition root', () => {
     // regression the reviewer flagged (B's activation had overwritten A's slot).
     const a2 = buildCenter('A', centerA, pathA);
     const da2 = createIpcDispatcher(createHandlers(a2.handlerDeps));
-    expect(await da2('plan.get', {})).toEqual({ planId: 'premium' });
+    expect(await da2('plan.get', {})).toMatchObject({ planId: 'premium' });
     expect((await da2('license.status', {})).status).toBe('active');
     a2.dispose();
   });

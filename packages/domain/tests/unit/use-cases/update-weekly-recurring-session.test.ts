@@ -12,6 +12,8 @@ import { RoomNotFoundError } from '../../../src/errors/room-errors';
 import {
   MalformedSessionTimeError,
   RoomConflictError,
+  SessionOutsideCenterHoursError,
+  SessionOutsideOverrideHoursError,
   TeacherConflictError,
   InvalidSessionValidityRangeError,
   WeeklyRecurringSessionNotFoundError,
@@ -24,10 +26,17 @@ import type {
 import type { Group, GroupId } from '../../../src/entities/group';
 import type { Room, RoomId } from '../../../src/entities/room';
 import type { SubjectId } from '../../../src/entities/subject';
+import type {
+  CenterHoursOverride,
+  CenterHoursOverrideId,
+  WeeklyTimeWindows,
+} from '../../../src/entities/center-hours-override';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
+import type { WeekdayIndex } from '../../../src/value-objects/weekday';
 import { InMemoryWeeklyRecurringSessionRepository } from '../fakes/in-memory-weekly-recurring-session-repository';
 import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-repository';
+import { InMemoryCenterHoursOverrideRepository } from '../fakes/in-memory-center-hours-override-repository';
 import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
 import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
 import { fakeClock } from '../fakes/clock';
@@ -110,11 +119,30 @@ function editInput(
   };
 }
 
+function windows(...pairs: [string, string][]): readonly { open: TimeOfDay; close: TimeOfDay }[] {
+  return pairs.map(([open, close]) => ({ open: open as TimeOfDay, close: close as TimeOfDay }));
+}
+
+function weekWindows(byDay: Partial<Record<WeekdayIndex, readonly { open: TimeOfDay; close: TimeOfDay }[]>>): WeeklyTimeWindows {
+  return { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], ...byDay } as WeeklyTimeWindows;
+}
+
+function seededOverride(dateRange: { start: string; end: string }, hoursByWeekday: WeeklyTimeWindows): CenterHoursOverride {
+  seq += 1;
+  return {
+    id: `cho_${String(seq).padStart(26, '0')}` as CenterHoursOverrideId,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
+    dateRange,
+    hoursByWeekday,
+  };
+}
+
 describe('UpdateWeeklyRecurringSession', () => {
   let sessions: InMemoryWeeklyRecurringSessionRepository;
   let groups: InMemoryGroupRepository;
   let rooms: InMemoryRoomRepository;
   let hours: InMemoryCenterHoursRepository;
+  let overrides: InMemoryCenterHoursOverrideRepository;
   let clock: ReturnType<typeof fakeClock>;
   let useCase: UpdateWeeklyRecurringSession;
 
@@ -123,10 +151,11 @@ describe('UpdateWeeklyRecurringSession', () => {
     groups = new InMemoryGroupRepository();
     rooms = new InMemoryRoomRepository();
     hours = new InMemoryCenterHoursRepository();
+    overrides = new InMemoryCenterHoursOverrideRepository();
     await groups.save(makeGroup());
     await rooms.save(makeRoom());
     clock = fakeClock('2026-08-01T12:00:00Z');
-    useCase = new UpdateWeeklyRecurringSession(sessions, groups, rooms, hours, clock, new PlanPolicy(PLANS.essentiel));
+    useCase = new UpdateWeeklyRecurringSession(sessions, groups, rooms, hours, overrides, clock, new PlanPolicy(PLANS.essentiel));
   });
 
   describe('happy path', () => {
@@ -244,10 +273,66 @@ describe('UpdateWeeklyRecurringSession', () => {
         features: new Set<FeatureFlag>(),
         limits: PLANS.essentiel.limits,
       };
-      useCase = new UpdateWeeklyRecurringSession(sessions, groups, rooms, hours, clock, new PlanPolicy(planWithout));
+      useCase = new UpdateWeeklyRecurringSession(sessions, groups, rooms, hours, overrides, clock, new PlanPolicy(planWithout));
       await expect(useCase.execute(editInput(existing.id))).rejects.toBeInstanceOf(
         PlanFeatureUnavailableError,
       );
+    });
+  });
+
+  // SOU-165 / QA S4: editing a session onto a covered date must honor the override
+  // windows too, not only the static hours. Clock is Monday 2026-08-10.
+  describe('active center-hours override precedence (SOU-165)', () => {
+    const MONDAY = 1 as WeekdayIndex;
+    const IFTAR_WEEK = { start: '2026-08-09', end: '2026-08-15' };
+
+    function useCaseOnMonday(): UpdateWeeklyRecurringSession {
+      return new UpdateWeeklyRecurringSession(
+        sessions,
+        groups,
+        rooms,
+        hours,
+        overrides,
+        fakeClock('2026-08-10T10:00:00Z'),
+        new PlanPolicy(PLANS.premium),
+      );
+    }
+
+    async function seedIftarOverride(): Promise<void> {
+      await overrides.save(
+        seededOverride(IFTAR_WEEK, weekWindows({ [MONDAY]: windows(['14:00', '17:00'], ['21:00', '23:00']) })),
+      );
+    }
+
+    it('rejects an edit that moves a slot into the override iftar gap', async () => {
+      await seedIftarOverride();
+      const existing = seededSession({ dayOfWeek: MONDAY, start: '15:00' as TimeOfDay, end: '16:00' as TimeOfDay });
+      await sessions.save(existing);
+      const error = await useCaseOnMonday()
+        .execute(editInput(existing.id, { dayOfWeek: MONDAY, start: '17:00' as TimeOfDay, end: '18:00' as TimeOfDay }))
+        .catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(SessionOutsideOverrideHoursError);
+      expect((error as SessionOutsideOverrideHoursError).code).toBe('outside-windows');
+    });
+
+    it('accepts an edit into a late override window that is outside static hours', async () => {
+      await seedIftarOverride();
+      const existing = seededSession({ dayOfWeek: MONDAY, start: '15:00' as TimeOfDay, end: '16:00' as TimeOfDay });
+      await sessions.save(existing);
+      const updated = await useCaseOnMonday().execute(
+        editInput(existing.id, { dayOfWeek: MONDAY, start: '22:00' as TimeOfDay, end: '23:00' as TimeOfDay }),
+      );
+      expect(updated.start).toBe('22:00');
+    });
+
+    it('falls back to the static outside-hours error when no override covers the slot', async () => {
+      const existing = seededSession({ dayOfWeek: MONDAY, start: '09:00' as TimeOfDay, end: '10:00' as TimeOfDay });
+      await sessions.save(existing);
+      const error = await useCaseOnMonday()
+        .execute(editInput(existing.id, { dayOfWeek: MONDAY, start: '22:00' as TimeOfDay, end: '23:00' as TimeOfDay }))
+        .catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(SessionOutsideCenterHoursError);
+      expect(error).not.toBeInstanceOf(SessionOutsideOverrideHoursError);
     });
   });
 
