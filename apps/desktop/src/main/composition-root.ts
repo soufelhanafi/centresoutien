@@ -1044,9 +1044,9 @@ export function buildContainer(options: ContainerOptions): Container {
   // to itself over localhost through the SAME SyncHubPort client as every other
   // device — this container never special-cases the hub machine. The listener
   // binds the configured port (fire-and-forget, like the scheduled backup): a
-  // failed bind (port in use) is logged, never fatal, and the sync page (SOU-81)
-  // surfaces hub health. Real hub designation/setup UX is a later ticket; the
-  // option is wired here so the seam exists before its consumer.
+  // transient busy port is retried, then logged if it still fails; the sync page
+  // (SOU-81) surfaces hub health. Real hub designation/setup UX is a later
+  // ticket; the option is wired here so the seam exists before its consumer.
   let hubServerInstance: HubServer | null = null;
   let hubStore: SqliteHubStore | null = null;
   let syncHub: SyncHubPort | null = null;
@@ -1056,7 +1056,7 @@ export function buildContainer(options: ContainerOptions): Container {
     applyMigrations(hubStore.db, toMigrations(hubMigrationFiles));
     hubStore.registerCenter(options.centerCode, hubConfig.token, clock.now());
     hubServerInstance = new HubServer(hubStore, hubConfig.port, hubConfig.bindHost);
-    void hubServerInstance.start().catch((error: unknown) => {
+    void hubServerInstance.start({ retries: 10, retryDelayMs: 150 }).catch((error: unknown) => {
       console.error('[hub] failed to start on port', hubConfig.port, error);
     });
     syncHub = new HttpSyncHubClient({
