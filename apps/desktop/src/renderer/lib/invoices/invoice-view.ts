@@ -37,3 +37,21 @@ export type InvoiceListFilters = {
   readonly studentId?: string;
   readonly paymentStatus?: PaymentStatus;
 };
+
+/**
+ * One bounded page of the cash-desk "open invoices" read (SOU-200): the
+ * still-owes-money set (`openOnly`, SQL-applied) filtered by student name and
+ * keyset-paginated. `cursor` is the previous page's `nextCursor`; omit it for
+ * the first page.
+ */
+export type OpenInvoicesQuery = {
+  readonly search?: string;
+  readonly cursor?: string;
+  readonly pageSize?: number;
+};
+
+/** A page of open invoices plus the keyset cursor to fetch the next one (`null` = last page). */
+export type OpenInvoicesPage = {
+  readonly invoices: readonly InvoiceListItemView[];
+  readonly nextCursor: string | null;
+};

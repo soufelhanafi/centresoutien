@@ -1,5 +1,10 @@
 import { paymentStatusOf } from '@centresoutien/domain';
-import type { InvoiceListFilters, InvoiceListItemView } from './invoice-view';
+import type {
+  InvoiceListFilters,
+  InvoiceListItemView,
+  OpenInvoicesPage,
+  OpenInvoicesQuery,
+} from './invoice-view';
 import type { InvoicePaymentSummaryView, PaymentView } from './payment-view';
 import type { InvoicesGateway, RecordPaymentInput } from './invoices-gateway';
 import { INVOICE_SEED } from './mock-invoices-seed';
@@ -21,6 +26,20 @@ export class MockInvoicesGateway implements InvoicesGateway {
     return [...this.invoices.values()]
       .filter((invoice) => matches(invoice, filters))
       .sort((a, b) => b.month.localeCompare(a.month));
+  }
+
+  async listOpen(query: OpenInvoicesQuery): Promise<OpenInvoicesPage> {
+    const open = [...this.invoices.values()]
+      .filter((invoice) => invoice.status !== 'cancelled' && invoice.outstandingMad > 0)
+      .sort((a, b) => b.id.localeCompare(a.id));
+
+    const cursor = query.cursor;
+    const afterCursor =
+      cursor === undefined ? open : open.filter((invoice) => invoice.id.localeCompare(cursor) < 0);
+    const pageSize = query.pageSize ?? afterCursor.length;
+    const page = afterCursor.slice(0, pageSize);
+    const hasMore = afterCursor.length > page.length;
+    return { invoices: page, nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null };
   }
 
   async get(id: string): Promise<InvoiceListItemView | null> {

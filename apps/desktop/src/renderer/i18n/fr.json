@@ -2035,6 +2035,7 @@
       "search": "Rechercher un élève…",
       "searchLabel": "Rechercher une facture par élève",
       "action": "Encaisser",
+      "loadMore": "Afficher plus",
       "loadError": "Le chargement des factures a échoué.",
       "emptyTitle": "Aucune facture ouverte",
       "emptyBody": "Toutes les factures sont réglées. Rien à encaisser pour le moment.",
