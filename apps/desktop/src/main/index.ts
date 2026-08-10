@@ -28,6 +28,7 @@ import {
   wipeDemoArtefacts,
 } from './demo/demo-center';
 import { demoAdminCredentials, demoAdminCredentialsOrNull } from './demo/demo-admin-credentials';
+import { sweepStaleTempPdfs } from './ipc/temp-pdf';
 
 /** argv flag that puts the app into demo mode on relaunch (SOU-110). */
 const DEMO_ARG = '--demo';
@@ -166,6 +167,11 @@ app.whenReady().then(async () => {
   // fixed centreId ('demo') entered via the `--demo` relaunch flag (or CS_CENTRE=demo
   // in dev).
   try {
+    // Stale temp PDFs from earlier runs (SOU-163): best-effort sweep BEFORE any
+    // new print can land. The freshness threshold keeps a freshly printed file
+    // alive while the OS viewer reads it — a file still that young was written
+    // by the current session, not left over.
+    sweepStaleTempPdfs();
     const hubServer = resolveHubConfig();
     // A hub host already wires its own client at its own listener; only a device
     // that serves no hub can point at an external one (SOU-82).
