@@ -1,8 +1,13 @@
 import type { SessionRepository } from '../ports/session-repository';
 import type { WeeklyRecurringSessionRepository } from '../ports/weekly-recurring-session-repository';
 import type { HolidayRepository } from '../ports/holiday-repository';
+import type { CenterHoursOverrideRepository } from '../ports/center-hours-override-repository';
 import type { PlanPolicy } from '../plans/plan-policy';
-import type { GenerateSessions, SkippedHolidayOccurrence } from './generate-sessions';
+import type {
+  GenerateSessions,
+  SkippedHolidayOccurrence,
+  SkippedOutsideHoursOccurrence,
+} from './generate-sessions';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import type { DateRange } from '../value-objects/date-range';
 import type { GenerationBatchId, Session } from '../entities/session';
@@ -38,6 +43,8 @@ export type GenerateAndPersistSessionsResult = {
   sessions: readonly Session[];
   /** Every date this run skipped for falling on a holiday (SOU-161), straight from the generator. */
   skippedHolidays: readonly SkippedHolidayOccurrence[];
+  /** Every date this run skipped for falling outside an active override's windows (SOU-165). */
+  skippedOutsideHours: readonly SkippedOutsideHoursOccurrence[];
 };
 
 /**
@@ -74,6 +81,7 @@ export class GenerateAndPersistSessions {
     private readonly sessions: SessionRepository,
     private readonly recurrences: WeeklyRecurringSessionRepository,
     private readonly holidays: HolidayRepository,
+    private readonly overrides: CenterHoursOverrideRepository,
     private readonly generator: GenerateSessions,
     private readonly plan: PlanPolicy,
   ) {}
@@ -87,9 +95,15 @@ export class GenerateAndPersistSessions {
     }
 
     const holidays = await this.holidays.listActive(input.centerCode);
-    const { sessions: generated, skippedHolidays } = this.generator.execute({
+    const overrides = await this.overrides.listOverlapping(
+      input.centerCode,
+      input.range.start,
+      input.range.end,
+    );
+    const { sessions: generated, skippedHolidays, skippedOutsideHours } = this.generator.execute({
       recurring,
       holidays,
+      overrides,
       range: input.range,
       deviceOrigin: input.deviceOrigin,
       updatedBy: input.updatedBy,
@@ -102,6 +116,6 @@ export class GenerateAndPersistSessions {
     // `null` only when the run made zero occurrences.
     const generationBatchId = generated[0]?.generationBatchId ?? null;
     const sessions = await this.sessions.listForRange(input.centerCode, input.range);
-    return { generationBatchId, sessions, skippedHolidays };
+    return { generationBatchId, sessions, skippedHolidays, skippedOutsideHours };
   }
 }

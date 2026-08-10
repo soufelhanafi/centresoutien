@@ -3,10 +3,15 @@ import type { IdGenerator } from '../ports/id-generator';
 import type { DeviceId, UserId } from '../value-objects/ids';
 import type { DateRange } from '../value-objects/date-range';
 import type { HolidayOccurrence } from '../policies/holiday-policy';
+import type { CenterHoursOverride } from '../entities/center-hours-override';
+import type { TimeWindow } from '../value-objects/time-window';
 import type { WeeklyRecurringSession } from '../entities/weekly-recurring-session';
 import { newEnvelope } from '../entities/envelope';
 import { eachDateInRange, weekdayOf } from '../value-objects/date-range';
 import { holidayOn } from '../policies/holiday-policy';
+import { activeOverrideOn } from '../policies/center-hours-override-policy';
+import { windowsForWeekday } from '../entities/center-hours-override';
+import { timeWindowsContain } from '../value-objects/time-window';
 import {
   GENERATION_BATCH_ID_PREFIX,
   SESSION_ID_PREFIX,
@@ -33,6 +38,16 @@ export type GenerateSessionsInput = {
    * holiday date is skipped, exactly as before this field existed.
    */
   overrideHolidayDates?: readonly string[];
+  /**
+   * Active center-hours overrides (SOU-165), already scoped to the center by the
+   * caller. On a date an override covers, the template's fixed `[start, end]` must
+   * fit entirely inside one of that weekday's override windows or the date is
+   * skipped and reported in `skippedOutsideHours`. Dates no override covers are
+   * never hours-checked here (the template already passed static-hours validation
+   * at creation, or was intentionally forced), so this defaults to none and, when
+   * empty, reproduces the pre-SOU-165 behavior exactly.
+   */
+  overrides?: readonly CenterHoursOverride[];
 };
 
 /** One date the run would have materialized if it weren't a holiday. */
@@ -41,10 +56,25 @@ export type SkippedHolidayOccurrence = {
   readonly holiday: HolidayOccurrence;
 };
 
+/**
+ * One date an active override forced to be skipped because the template's fixed
+ * time range no longer fits any of that weekday's override windows (SOU-165) —
+ * e.g. a 17:00–19:00 slot during a Ramadan day that only opens 09:00–15:00 and
+ * 21:00–23:00. `windows` is that date's effective override windows (empty = the
+ * center is closed that day under the override) so a preview can explain the skip
+ * and let the admin re-time the slot.
+ */
+export type SkippedOutsideHoursOccurrence = {
+  readonly date: string;
+  readonly windows: readonly TimeWindow[];
+};
+
 export type GenerateSessionsResult = {
   readonly sessions: readonly Session[];
   /** Every date skipped for falling on a holiday, in ascending date order (SOU-161). */
   readonly skippedHolidays: readonly SkippedHolidayOccurrence[];
+  /** Every date skipped for falling outside an active override's windows (SOU-165), ascending. */
+  readonly skippedOutsideHours: readonly SkippedOutsideHoursOccurrence[];
 };
 
 /**
@@ -95,13 +125,14 @@ export class GenerateSessions {
   ) {}
 
   execute(input: GenerateSessionsInput): GenerateSessionsResult {
-    const { recurring, holidays, range, overrideHolidayDates = [] } = input;
-    const overrides = new Set(overrideHolidayDates);
+    const { recurring, holidays, range, overrideHolidayDates = [], overrides: hoursOverrides = [] } = input;
+    const overriddenHolidayDates = new Set(overrideHolidayDates);
     const sessions: Session[] = [];
     const skippedHolidays: SkippedHolidayOccurrence[] = [];
+    const skippedOutsideHours: SkippedOutsideHoursOccurrence[] = [];
     // A paused template (SOU-52 `active` toggle) materializes nothing — the slot is
     // still on the grid but produces no dated occurrences until it is resumed.
-    if (!recurring.active) return { sessions, skippedHolidays };
+    if (!recurring.active) return { sessions, skippedHolidays, skippedOutsideHours };
     const generationBatchId = this.ids.next(GENERATION_BATCH_ID_PREFIX) as GenerationBatchId;
     for (const date of eachDateInRange(range)) {
       if (weekdayOf(date) !== recurring.dayOfWeek) continue;
@@ -111,13 +142,21 @@ export class GenerateSessions {
       if (recurring.validFrom !== null && date < recurring.validFrom) continue;
       if (recurring.validTo !== null && date > recurring.validTo) continue;
       const holiday = holidayOn(date, holidays);
-      if (holiday !== null && !overrides.has(date)) {
+      if (holiday !== null && !overriddenHolidayDates.has(date)) {
         skippedHolidays.push({ date, holiday });
         continue;
       }
+      const override = activeOverrideOn(date, hoursOverrides);
+      if (override !== null) {
+        const windows = windowsForWeekday(override.hoursByWeekday, recurring.dayOfWeek);
+        if (!timeWindowsContain(windows, recurring.start, recurring.end)) {
+          skippedOutsideHours.push({ date, windows });
+          continue;
+        }
+      }
       sessions.push(this.materialize(recurring, date, input, generationBatchId));
     }
-    return { sessions, skippedHolidays };
+    return { sessions, skippedHolidays, skippedOutsideHours };
   }
 
   private materialize(
