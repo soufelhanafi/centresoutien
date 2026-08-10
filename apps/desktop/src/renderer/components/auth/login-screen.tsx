@@ -57,7 +57,7 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={create.isPending || create.isSuccess}
+                  disabled={status.isPending || create.isPending || create.isSuccess}
                   onClick={requestCreate}
                 >
                   {create.isPending || create.isSuccess

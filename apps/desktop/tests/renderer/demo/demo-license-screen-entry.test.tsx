@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -38,14 +38,26 @@ afterEach(() => {
 
 describe('LicenseActivationScreen — demo entry (SOU-110, review M2 / SOU-186)', () => {
   it('shows the "Explorer la démo" entry on an unlicensed (restricted) screen', async () => {
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: false,
+    });
     renderScreen();
 
     const button = await screen.findByRole('button', { name: 'Explorer la démo' });
-    expect(button).toBeEnabled();
+    // The entry stays disabled until `demo.status` resolves (SOU-190 guard) —
+    // await the enabled state instead of asserting on first paint.
+    await waitFor(() => expect(button).toBeEnabled());
   });
 
   it('creates the demo on click and hot-swaps in place — no restart screen', async () => {
     const create = vi.spyOn(demoGateway, 'create').mockResolvedValue({ isDemo: true });
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: false,
+    });
     const user = userEvent.setup();
     renderScreen();
 
@@ -101,6 +113,11 @@ describe('LicenseActivationScreen — demo entry (SOU-110, review M2 / SOU-186)'
 
   it('surfaces a create failure as an alert', async () => {
     vi.spyOn(demoGateway, 'create').mockRejectedValue(new Error('seed failed'));
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: false,
+    });
     const user = userEvent.setup();
     renderScreen();
 

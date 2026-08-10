@@ -28,7 +28,7 @@ export function DemoHubWarnDialog({ open, onOpenChange, onConfirm, pending }: De
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('demo.hubWarn.cancel')}>
+      <DialogContent closeLabel={t('demo.hubWarn.close')}>
         <DialogHeader>
           <DialogTitle>{t('demo.hubWarn.title')}</DialogTitle>
           <DialogDescription>{t('demo.hubWarn.body')}</DialogDescription>

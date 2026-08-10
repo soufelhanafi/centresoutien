@@ -65,10 +65,10 @@ test('HW1 — hub-host create shows the warning; cancel keeps the real center (n
     await expect(win.locator('html')).toHaveAttribute('dir', 'rtl');
   }
 
-  // When: cancelling. The footer cancel button shares its accessible name with
-  // the dialog's close (X) button, so target the last matching button — the
-  // footer renders after the header X in DOM order.
-  await dialog.getByRole('button', { name: t.hubWarnCancel, exact: true }).last().click();
+  // When: cancelling. The dialog's close (X) button shares its accessible name
+  // with the footer cancel button, so target the first matching button — the
+  // footer cancel renders before the close X in DOM order.
+  await dialog.getByRole('button', { name: t.hubWarnCancel, exact: true }).first().click();
 
   // Then: the dialog closes and the real center stays untouched.
   await expect(dialog).not.toBeVisible();

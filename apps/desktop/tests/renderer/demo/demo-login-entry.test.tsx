@@ -28,10 +28,17 @@ afterEach(() => {
 
 describe('LoginScreen — demo entry (SOU-110 / SOU-186)', () => {
   it('shows the "Explorer la démo" entry under the login form', async () => {
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: false,
+    });
     renderLogin();
 
     const button = await screen.findByRole('button', { name: 'Explorer la démo' });
-    expect(button).toBeEnabled();
+    // The entry stays disabled until `demo.status` resolves (SOU-190 guard) —
+    // await the enabled state instead of asserting on first paint.
+    await waitFor(() => expect(button).toBeEnabled());
     expect(
       screen.getByText(
         "Essayez l'application avec un centre de démonstration pré-rempli. Aucune donnée réelle ne sera modifiée.",
@@ -41,6 +48,11 @@ describe('LoginScreen — demo entry (SOU-110 / SOU-186)', () => {
 
   it('creates the demo on click and hot-swaps in place — no restart screen', async () => {
     const create = vi.spyOn(demoGateway, 'create').mockResolvedValue({ isDemo: true });
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: false,
+    });
     const user = userEvent.setup();
     renderLogin();
 
@@ -121,6 +133,11 @@ describe('LoginScreen — demo entry (SOU-110 / SOU-186)', () => {
 
   it('disables the entry while the swap is in flight', async () => {
     const create = vi.spyOn(demoGateway, 'create');
+    vi.spyOn(demoGateway, 'status').mockResolvedValue({
+      isDemo: false,
+      demoLogin: null,
+      isHubHost: false,
+    });
     let releaseCreate!: () => void;
     create.mockImplementation(
       () =>

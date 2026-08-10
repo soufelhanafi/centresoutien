@@ -21,7 +21,7 @@ import type { LicenseStatusView } from '../../lib/license/license-contract';
  */
 export function LicenseActivationScreen({ status }: { status: LicenseStatusView }) {
   const { t } = useTranslation();
-  const { create, hubWarnOpen, setHubWarnOpen, requestCreate, confirmCreate } =
+  const { create, status: demoStatus, hubWarnOpen, setHubWarnOpen, requestCreate, confirmCreate } =
     useCreateDemoWithHubGuard();
 
   return (
@@ -50,7 +50,7 @@ export function LicenseActivationScreen({ status }: { status: LicenseStatusView 
             <Button
               type="button"
               variant="outline"
-              disabled={create.isPending || create.isSuccess}
+              disabled={demoStatus.isPending || create.isPending || create.isSuccess}
               onClick={requestCreate}
             >
               {create.isPending || create.isSuccess

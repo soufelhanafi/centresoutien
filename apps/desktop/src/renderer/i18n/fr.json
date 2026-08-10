@@ -2148,7 +2148,8 @@
       "title": "Cet ordinateur est le serveur de synchronisation",
       "body": "Pendant la démo, la synchronisation des autres ordinateurs du centre sera en pause.",
       "confirm": "Continuer quand même",
-      "cancel": "Annuler"
+      "cancel": "Annuler",
+      "close": "Fermer"
     },
     "error": {
       "loading": "Vérification du mode démo…",
