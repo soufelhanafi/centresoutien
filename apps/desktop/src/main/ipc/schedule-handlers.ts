@@ -1,10 +1,10 @@
-import { app, dialog, shell, BrowserWindow } from 'electron';
+import { dialog, shell, BrowserWindow } from 'electron';
 import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type { CenterCode, ListWeekSessions } from '@centresoutien/domain';
 import type { PdfLibScheduleRenderer } from '../../data/pdf/pdf-lib-schedule-renderer';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import { buildSchedulePdfInput, type ScheduleAssemblyDeps } from './schedule-pdf-assembly';
+import { writeTempPdf } from './temp-pdf';
 
 export type ListWeekSessionsUseCase = Pick<ListWeekSessions, 'execute'>;
 export type SchedulePdfRenderer = Pick<PdfLibScheduleRenderer, 'render'>;
@@ -33,8 +33,7 @@ export function createScheduleHandlers(
       const sessions = await deps.listWeekSessions.execute({ centerCode: deps.centerCode() });
       const pdfInput = await buildSchedulePdfInput(deps, sessions, request.view, request.locale);
       const bytes = await deps.scheduleRenderer.render(pdfInput);
-      const tempPath = join(app.getPath('temp'), `planning-${request.view.scope}-${Date.now()}.pdf`);
-      writeFileSync(tempPath, bytes);
+      const tempPath = writeTempPdf('planning-', [request.view.scope], bytes);
       await shell.openPath(tempPath);
       return { ok: true };
     },

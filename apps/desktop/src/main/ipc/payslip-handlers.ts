@@ -1,8 +1,8 @@
-import { app, dialog, shell, BrowserWindow } from 'electron';
+import { dialog, shell, BrowserWindow } from 'electron';
 import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type { GeneratePayslipPdf, TeacherPayoutId, CenterCode } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
+import { writeTempPdf } from './temp-pdf';
 
 export type GeneratePayslipPdfUseCase = Pick<GeneratePayslipPdf, 'execute'>;
 
@@ -29,8 +29,7 @@ export function createPayslipHandlers(
         teacherPayoutId: request.teacherPayoutId as TeacherPayoutId,
         locale: request.locale,
       });
-      const tempPath = join(app.getPath('temp'), `bulletin-paie-${payoutId}-${Date.now()}.pdf`);
-      writeFileSync(tempPath, bytes);
+      const tempPath = writeTempPdf('bulletin-paie-', [payoutId], bytes);
       await shell.openPath(tempPath);
       return { ok: true };
     },
