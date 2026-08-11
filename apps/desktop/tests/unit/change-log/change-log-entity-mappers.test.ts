@@ -118,8 +118,8 @@ describe('getChangeLogEntityToRowMapper', () => {
     ],
     [
       'center_hours',
-      { id: 'cen_01', dayOfWeek: 0, open: '08:00', close: '18:00' },
-      { day_of_week: 0, open: '08:00', close: '18:00' },
+      { id: 'cen_01', dayOfWeek: 0, windows: '[{"open":"08:00","close":"18:00"}]' },
+      { day_of_week: 0, windows: '[{"open":"08:00","close":"18:00"}]' },
     ],
   ] as const)(
     'resolves the fallback by PHYSICAL TABLE NAME for multi-word sheet %s (B1 regression)',

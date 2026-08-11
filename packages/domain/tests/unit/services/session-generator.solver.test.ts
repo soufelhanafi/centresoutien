@@ -34,11 +34,10 @@ const TEACHER_1 = 'tch_00000000000000000000000001' as EntityId;
 
 /** Center open 09:00–18:00 Mon–Sat; Sunday closed. */
 const centerHours: readonly DayHours[] = [
-  { dayOfWeek: SUN, open: null, close: null },
+  { dayOfWeek: SUN, windows: [] },
   ...[MON, TUE, WED, THU, FRI, SAT].map((dayOfWeek) => ({
     dayOfWeek,
-    open: '09:00' as TimeOfDay,
-    close: '18:00' as TimeOfDay,
+    windows: [{ open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay }],
   })),
 ];
 
