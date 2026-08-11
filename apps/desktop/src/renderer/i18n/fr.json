@@ -1312,6 +1312,10 @@
     "conflict": {
       "title": "Conflit de planning"
     },
+    "allSessions": {
+      "noSubject": "Sans matière",
+      "noRoom": "Sans salle"
+    },
     "cancelSession": {
       "trigger": "Annuler la séance",
       "title": "Annuler cette séance ?",
