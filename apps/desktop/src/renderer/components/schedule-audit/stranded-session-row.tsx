@@ -42,7 +42,10 @@ export function StrandedSessionRow({ stranded }: { stranded: StrandedSessionView
         <p className="truncate text-sm font-semibold text-foreground">
           {subject}
           {session.level ? (
-            <span className="text-muted-foreground font-normal"> · {session.level}</span>
+            <span className="text-muted-foreground font-normal">
+              <span aria-hidden="true"> · </span>
+              {session.level}
+            </span>
           ) : null}
         </p>
         <p className="text-xs text-muted-foreground">
