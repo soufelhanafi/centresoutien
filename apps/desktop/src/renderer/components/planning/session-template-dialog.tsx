@@ -10,7 +10,6 @@ import type { PlannerSessionView } from '../../lib/planning/planner-view';
 import { toFormInput } from '../../lib/planning/session-view-to-form';
 import {
   toSessionInput,
-  type SessionFormInput,
   type SessionFormValues,
 } from '../../lib/planning/session-form-schema';
 import {
