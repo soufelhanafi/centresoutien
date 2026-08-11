@@ -15,12 +15,10 @@ export interface DesktopApi {
    * unsubscribe function — call it on unmount to detach the ipcRenderer listener.
    */
   onCenterChanged(listener: (event: CenterChangedEvent) => void): () => void;
-  /**
-   * Subscribe to updater status (SOU-87). Fires as electron-updater checks,
-   * downloads, and finishes. Returns an unsubscribe function — call it on
-   * unmount to detach the ipcRenderer listener.
-   */
+  // Subscribe to updater status (SOU-87). Fires as electron-updater checks,
+  // downloads, and finishes. Returns an unsubscribe function — call it on
+  // unmount to detach the ipcRenderer listener.
   onUpdateStatus(listener: (event: UpdateStatusEvent) => void): () => void;
-  /** Ask main to quit and install a downloaded update now (SOU-87). */
+  // Ask main to quit and install a downloaded update now (SOU-87).
   restartNow(): void;
 }

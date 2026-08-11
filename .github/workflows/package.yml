@@ -59,7 +59,7 @@ jobs:
 
       - name: Package (${{ matrix.artifact }})
         env:
-          GH_TOKEN: ${{ secrets.CS_RELEASES_TOKEN }}
+          GH_TOKEN: ${{ inputs.publish && secrets.CS_RELEASES_TOKEN || '' }}
         run: pnpm --filter @centresoutien/desktop ${{ matrix.script }} --publish ${{ inputs.publish && 'always' || 'never' }}
 
       # A green `electron-builder` exit code only proves packaging didn't

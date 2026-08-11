@@ -72,6 +72,7 @@ function activePlanId(): PlanId {
 let runtime: MainRuntime | null = null;
 let host: CenterHost | null = null;
 let mainWindow: BrowserWindow | null = null;
+let disposeAutoUpdater: (() => void) | null = null;
 
 /**
  * Embedded LAN hub (SOU-90): designated-laptop opt-in until the sync setup
@@ -353,10 +354,10 @@ app.whenReady().then(async () => {
     // SOU-87: auto-update. Self-guards via app.isPackaged (off in dev/e2e).
     // isMacSigned is false until the macOS Developer ID signing ticket ships —
     // macOS runs check-only and never attempts a (failing) unsigned apply.
-    initAutoUpdater({
+    disposeAutoUpdater = initAutoUpdater({
       isMacSigned: false,
       getWebContents: () => mainWindow?.webContents ?? null,
-    });
+    }).dispose;
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) openWindow(locale);
     });
@@ -398,6 +399,8 @@ app.on('will-quit', () => {
   runtime?.dispose();
   runtime = null;
   host = null;
+  disposeAutoUpdater?.();
+  disposeAutoUpdater = null;
 });
 
 app.on('window-all-closed', () => {

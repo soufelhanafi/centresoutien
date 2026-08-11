@@ -5,12 +5,10 @@ import type { UpdateStatusEvent } from '../../shared/ipc/update-events';
 
 const UPDATE_TOAST_ID = 'app-update-ready';
 
-/**
- * SOU-87: surfaces a downloaded update as a persistent toast with a restart
- * action. Only the `downloaded` state is user-facing — checking/downloading are
- * silent by design. On Windows the restart applies the update; on unsigned
- * macOS the download never completes, so this toast simply never appears there.
- */
+// SOU-87: surfaces a downloaded update as a persistent toast with a restart
+// action. Only the `downloaded` state is user-facing — checking/downloading are
+// silent by design. On Windows the restart applies the update; on unsigned
+// macOS the download never completes, so this toast simply never appears there.
 export function useAppUpdate(): void {
   const { t } = useTranslation();
 

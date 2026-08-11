@@ -1,7 +1,7 @@
-/** How the updater may behave on this build. `enabled` gates running the
- * updater at all; `canApply` gates auto-download + quitAndInstall. macOS is
- * check-only until a Developer ID signing ticket lands, because Squirrel.Mac
- * refuses to apply unsigned updates. */
+// How the updater may behave on this build. `enabled` gates running the
+// updater at all; `canApply` gates auto-download + quitAndInstall. macOS is
+// check-only until a Developer ID signing ticket lands, because Squirrel.Mac
+// refuses to apply unsigned updates.
 export type UpdaterCapability = {
   enabled: boolean;
   canApply: boolean;
