@@ -741,7 +741,7 @@
     "breadcrumb": "Mentions légales",
     "heading": "Mentions légales",
     "updated": "Dernière mise à jour : 11 août 2026",
-    "intro": "Conformément à la loi 09-08 relative à la protection des données à caractère personnel, les informations suivantes identifient l'éditeur et l'hébergeur du site Centre Soutien.",
+    "intro": "Conformément aux règles de transparence applicables à la publication en ligne, les informations suivantes identifient l'éditeur et l'hébergeur du site Centre Soutien.",
     "sections": {
       "editor": {
         "title": "Éditeur du site",
@@ -782,8 +782,8 @@
         "body": "Le paiement est exigible à la souscription, par virement bancaire ou tout autre moyen proposé lors de la commande. L'accès au logiciel est activé après encaissement du paiement."
       },
       "refund": {
-        "title": "Droit de rétractation",
-        "body": "Conformément aux dispositions applicables au Maroc, l'abonnement peut être résilié et remboursé pendant la période d'essai de 14 jours si le logiciel n'a pas été utilisé. Au-delà, aucune demande de remboursement n'est acceptée sauf décision exceptionnelle de Centre Soutien."
+        "title": "Politique de remboursement",
+        "body": "Vous disposez de 14 jours gratuits pour essayer le logiciel. Après l'achat, vous êtes couvert par notre garantie de 30 jours satisfait ou remboursé : si le logiciel ne répond pas à vos attentes, écrivez-nous simplement à contact@centresoutien.com dans les 30 jours suivant l'achat et nous procéderons au remboursement, sans justification."
       },
       "liability": {
         "title": "Responsabilité",

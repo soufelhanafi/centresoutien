@@ -19,7 +19,7 @@ export async function LegalArticle({
   path,
   sections,
 }: LegalArticleProps) {
-  const t = await getTranslations(namespace);
+  const t = await getTranslations({ locale, namespace });
 
   return (
     <main className="mx-auto max-w-3xl px-8 py-24">
