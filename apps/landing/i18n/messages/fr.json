@@ -735,6 +735,31 @@
       }
     }
   },
+  "a_propos": {
+    "meta_title": "À propos — Centre Soutien",
+    "meta_description": "Qui est derrière Centre Soutien, le logiciel de gestion pensé pour les centres de soutien scolaire marocains.",
+    "breadcrumb": "À propos",
+    "heading": "À propos de Centre Soutien",
+    "intro": "Centre Soutien est un logiciel de gestion dédié aux centres de soutien scolaire au Maroc : gestion des élèves, des professeurs, des groupes, des séances hebdomadaires et de la facturation mensuelle en dirhams, dans un outil qui fonctionne hors ligne.",
+    "sections": {
+      "mission": {
+        "title": "Notre mission",
+        "body": "Les directeurs de centres de soutien scolaire passent leur temps à gérer des tableurs, des cahiers et des paiements éparpillés. Notre mission est de leur rendre ce temps : un outil unique, simple et fiable qui centralise la gestion pédagogique et administrative de leur centre."
+      },
+      "product": {
+        "title": "Un logiciel pensé pour le Maroc",
+        "body": "Centre Soutien est bilingue français-arabe avec une interface RTL native, facture en dirhams marocains (MAD) et fonctionne 100 % hors ligne, sur un ordinateur portable. Les données restent chez vous, chiffrées — vos élèves ne sont pas dans un cloud étranger."
+      },
+      "values": {
+        "title": "Nos valeurs",
+        "body": "Simplicité d'abord : une secrétaire doit pouvoir s'en servir sans formation. Fiabilité : pas de perte de données, synchronisation sûre entre plusieurs ordinateurs. Proximité : nous construisons avec les directeurs de centres, qui sont nos premiers utilisateurs."
+      },
+      "contact": {
+        "title": "Nous contacter",
+        "body": "Une question, un besoin spécifique, un retour d'expérience ? Écrivez-nous à contact@centresoutien.com ou via le Programme Fondateur — nous répondons à chaque message."
+      }
+    }
+  },
   "mentions_legales": {
     "meta_title": "Mentions légales — Centre Soutien",
     "meta_description": "Éditeur, hébergeur et informations légales du site Centre Soutien.",
