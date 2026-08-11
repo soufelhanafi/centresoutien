@@ -1,4 +1,5 @@
 import type { SessionOccurrenceViewReadPort } from '../ports/session-occurrence-view-read-port';
+import type { Clock } from '../ports/clock';
 import type { HolidayRepository } from '../ports/holiday-repository';
 import type { CenterHoursRepository } from '../ports/center-hours-repository';
 import type { CenterHoursOverrideRepository } from '../ports/center-hours-override-repository';
@@ -71,6 +72,11 @@ export type AuditSessionsOutsideEffectiveHoursInput = {
  * cross a tenant boundary. Rides under `settings.center-hours` (every plan) — the
  * audit exists to explain the effect of a center-hours/holiday change, so it
  * shares that feature's gate rather than adding a new flag.
+ *
+ * The sweep is bounded to today-and-forward (UTC civil date from the injected
+ * `Clock`): the report is a call to action on sessions that will still happen,
+ * so a past occurrence — which may already carry recorded attendance — is never
+ * surfaced or offered for cancellation.
  */
 export class AuditSessionsOutsideEffectiveHours {
   constructor(
@@ -79,6 +85,7 @@ export class AuditSessionsOutsideEffectiveHours {
     private readonly centerHours: CenterHoursRepository,
     private readonly overrides: CenterHoursOverrideRepository,
     private readonly plan: PlanPolicy,
+    private readonly clock: Clock,
   ) {}
 
   async execute(
@@ -97,8 +104,10 @@ export class AuditSessionsOutsideEffectiveHours {
       week.map((day) => [day.dayOfWeek, day]),
     );
 
+    const today = this.clock.now().toISOString().slice(0, 10);
     const sessionsOutsideEffectiveHours: StrandedSession[] = [];
     for (const session of sessions) {
+      if (session.date < today) continue;
       const reason = this.reasonFor(session, holidays, overrides, staticDayByWeekday);
       if (reason !== null) sessionsOutsideEffectiveHours.push({ session, reason });
     }

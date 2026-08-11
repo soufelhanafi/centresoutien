@@ -109,13 +109,19 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
   let centerHours: InMemoryCenterHoursRepository;
   let overrides: InMemoryCenterHoursOverrideRepository;
 
-  function build(plan: Plan = PLANS.essentiel): AuditSessionsOutsideEffectiveHours {
+  // Anchor "today" before every seeded occurrence (all in Jan 2026) so the
+  // today-forward floor keeps them; the dedicated floor suite overrides it.
+  function build(
+    plan: Plan = PLANS.essentiel,
+    clock = fakeClock('2026-01-01T00:00:00Z'),
+  ): AuditSessionsOutsideEffectiveHours {
     return new AuditSessionsOutsideEffectiveHours(
       occurrences,
       holidays,
       centerHours,
       overrides,
       new PlanPolicy(plan),
+      clock,
     );
   }
 
@@ -269,6 +275,34 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
       const result = await build().execute({ centerCode: CENTER });
       expect(result.sessionsOutsideEffectiveHours).toEqual([
         { session: both, reason: 'on-holiday' },
+      ]);
+    });
+  });
+
+  describe('today-forward floor', () => {
+    it('excludes a past stranded occurrence but keeps a same-shape one dated today', async () => {
+      // Both are Thursdays with a 13:00 slot the center (open 09:00–12:00) no
+      // longer covers; only the past one is filtered by the date floor.
+      const past = occurrence({
+        date: '2025-12-25',
+        start: '13:00' as TimeOfDay,
+        end: '14:00' as TimeOfDay,
+      });
+      const todayStranded = occurrence({
+        date: '2026-01-01',
+        start: '13:00' as TimeOfDay,
+        end: '14:00' as TimeOfDay,
+      });
+      occurrences.seed(past);
+      occurrences.seed(todayStranded);
+
+      const result = await build(
+        PLANS.essentiel,
+        fakeClock('2026-01-01T08:00:00Z'),
+      ).execute({ centerCode: CENTER });
+
+      expect(result.sessionsOutsideEffectiveHours).toEqual([
+        { session: todayStranded, reason: 'outside-center-hours' },
       ]);
     });
   });

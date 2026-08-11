@@ -1051,6 +1051,7 @@ export function buildContainer(options: ContainerOptions): Container {
     centerHoursRepo,
     centerHoursOverrideRepo,
     plan,
+    clock,
   );
 
   // Per-occurrence cancel (SOU-201): soft-deletes a single stranded dated session
