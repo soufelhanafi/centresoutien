@@ -58,18 +58,19 @@ export type GridBounds = {
 
 /**
  * The grid's minute bounds: the earliest opening and the latest closing time
- * across the week's open days. Closed days (`open` or `close` null) are excluded
- * from the min/max; when no day is open the grid falls back to the default
- * 08:00–20:00 window. Sessions never extend the bounds — the grid shows exactly
- * what the center says it is open for (SOU-184).
+ * across every window of the week's open days. Closed days (no windows) are
+ * excluded from the min/max; when no day is open the grid falls back to the
+ * default 08:00–20:00 window. Sessions never extend the bounds — the grid shows
+ * exactly what the center says it is open for (SOU-184).
  */
 export function getGridBounds(week: readonly WeekdayHoursInput[]): GridBounds {
   let start = Number.POSITIVE_INFINITY;
   let end = Number.NEGATIVE_INFINITY;
   for (const row of week) {
-    if (row.open === null || row.close === null) continue;
-    start = Math.min(start, timeToMinutes(row.open));
-    end = Math.max(end, timeToMinutes(row.close));
+    for (const window of row.windows) {
+      start = Math.min(start, timeToMinutes(window.open));
+      end = Math.max(end, timeToMinutes(window.close));
+    }
   }
   if (start > end) return { start: DEFAULT_START_HOUR * 60, end: DEFAULT_END_HOUR * 60 };
   return { start, end };
@@ -90,11 +91,11 @@ export function deriveCenterHoursRange(week: readonly WeekdayHoursInput[]): Time
   return { startHour, endHour, hours };
 }
 
-/** The day indexes whose rows are closed and must render hatched in the grid. */
+/** The day indexes whose rows are closed (no windows) and must render hatched in the grid. */
 export function deriveClosedDays(week: readonly WeekdayHoursInput[]): ReadonlySet<number> {
   const closed = new Set<number>();
   for (const row of week) {
-    if (row.open === null || row.close === null) closed.add(row.dayOfWeek);
+    if (row.windows.length === 0) closed.add(row.dayOfWeek);
   }
   return closed;
 }

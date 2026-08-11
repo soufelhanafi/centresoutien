@@ -90,8 +90,11 @@ function staticDayIntervals(
   day: WeekdayIndex,
 ): MinuteInterval[] {
   const row = week.find((entry) => entry.dayOfWeek === day);
-  if (row === undefined || row.open === null || row.close === null) return [];
-  return [{ start: timeToMinutes(row.open), end: timeToMinutes(row.close) }];
+  if (row === undefined) return [];
+  return row.windows.map((window) => ({
+    start: timeToMinutes(window.open),
+    end: timeToMinutes(window.close),
+  }));
 }
 
 /** The open windows governing one column: the override's when covered, else static. */
@@ -100,11 +103,11 @@ function effectiveDayIntervals(
   overrides: readonly CenterHoursOverrideView[],
   weekDates: ReadonlyMap<WeekdayIndex, string>,
   day: WeekdayIndex,
-): { intervals: MinuteInterval[]; covered: boolean } {
+): MinuteInterval[] {
   const date = weekDates.get(day);
   const override = date === undefined ? null : activeOverrideForDate(date, overrides);
-  if (override !== null) return { intervals: overrideDayIntervals(override, day), covered: true };
-  return { intervals: staticDayIntervals(week, day), covered: false };
+  if (override !== null) return overrideDayIntervals(override, day);
+  return staticDayIntervals(week, day);
 }
 
 /**
@@ -121,7 +124,7 @@ export function deriveOverrideAwareRange(
   let start = Number.POSITIVE_INFINITY;
   let end = Number.NEGATIVE_INFINITY;
   for (const day of WEEKDAYS) {
-    for (const interval of effectiveDayIntervals(week, overrides, weekDates, day).intervals) {
+    for (const interval of effectiveDayIntervals(week, overrides, weekDates, day)) {
       start = Math.min(start, interval.start);
       end = Math.max(end, interval.end);
     }
@@ -136,10 +139,10 @@ export function deriveOverrideAwareRange(
 
 /**
  * The closed (hatched) segments per weekday, resolved per column against its own
- * date. A day an override covers hatches the complement of its open windows within
- * `range` (edges + any iftar gap). A day under the static rule keeps the existing
- * planner look: a closed day hatches the whole column, an open day has no partial
- * hatch even when a sibling column widened the visible range.
+ * date. Every column hatches the complement of its effective open windows within
+ * `range` — the edges and any mid-day/iftar gap. A day with no windows (static
+ * closed or a closed-override day) yields the whole range, so `isFullyClosed`
+ * still recognizes it as fully closed (SOU-197).
  */
 export function deriveClosedSegmentsByDay(
   week: readonly WeekdayHoursInput[],
@@ -148,15 +151,8 @@ export function deriveClosedSegmentsByDay(
   range: TimeRange,
 ): ReadonlyMap<WeekdayIndex, readonly MinuteInterval[]> {
   const byDay = new Map<WeekdayIndex, readonly MinuteInterval[]>();
-  const fullRange: MinuteInterval = { start: range.startHour * 60, end: range.endHour * 60 };
-
   for (const day of WEEKDAYS) {
-    const { intervals, covered } = effectiveDayIntervals(week, overrides, weekDates, day);
-    if (covered) {
-      byDay.set(day, complementWithinRange(intervals, range));
-      continue;
-    }
-    byDay.set(day, intervals.length === 0 ? [fullRange] : []);
+    byDay.set(day, complementWithinRange(effectiveDayIntervals(week, overrides, weekDates, day), range));
   }
   return byDay;
 }
