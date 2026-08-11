@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { DirectionProvider, Toaster, TooltipProvider } from '@centresoutien/ui';
+import { useAppUpdate } from './hooks/use-app-update';
 import { useHtmlDirection } from './hooks/use-html-direction';
 import { usePlanHydration } from './hooks/use-plan-hydration';
 import { useThemeEffect } from './hooks/use-theme';
@@ -20,6 +21,7 @@ export function App() {
   const direction = useHtmlDirection();
   usePlanHydration();
   useThemeEffect();
+  useAppUpdate();
 
   return (
     <QueryClientProvider client={queryClient}>

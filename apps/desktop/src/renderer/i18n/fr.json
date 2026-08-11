@@ -2252,5 +2252,10 @@
     },
     "createError": "La création du centre de démonstration a échoué. Réessayez.",
     "wipeError": "La suppression du centre de démonstration a échoué. Réessayez."
+  },
+  "update": {
+    "readyTitle": "Mise à jour prête",
+    "readyDescription": "La version {{version}} sera installée au prochain démarrage.",
+    "restartNow": "Redémarrer maintenant"
   }
 }
