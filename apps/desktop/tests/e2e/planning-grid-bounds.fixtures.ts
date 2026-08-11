@@ -27,7 +27,7 @@ export const MAIN_ENTRY = join(dirname, '../../out/main/index.js');
 
 export type Locale = 'fr' | 'ar';
 
-export type DayHours = { dayOfWeek: number; open: string | null; close: string | null };
+export type DayHours = { dayOfWeek: number; windows: { open: string; close: string }[] };
 
 export const STR: Record<
   Locale,
@@ -52,25 +52,29 @@ export function freshUserDataDir(): string {
 
 /** Every weekday open on the same window. */
 export function openWeek(open: string, close: string): DayHours[] {
-  return [0, 1, 2, 3, 4, 5, 6].map((d) => ({ dayOfWeek: d, open, close }));
+  return [0, 1, 2, 3, 4, 5, 6].map((d) => ({ dayOfWeek: d, windows: [{ open, close }] }));
 }
 
 /** Every weekday closed. */
 export function closedWeek(): DayHours[] {
-  return [0, 1, 2, 3, 4, 5, 6].map((d) => ({ dayOfWeek: d, open: null, close: null }));
+  return [0, 1, 2, 3, 4, 5, 6].map((d) => ({ dayOfWeek: d, windows: [] }));
 }
 
 /** SOU-184 ticket scenario: Sunday 10:00–18:00, other six days 19:00–22:00. */
 export function ticketWeek(): DayHours[] {
   return [0, 1, 2, 3, 4, 5, 6].map((d) =>
-    d === 0 ? { dayOfWeek: d, open: '10:00', close: '18:00' } : { dayOfWeek: d, open: '19:00', close: '22:00' },
+    d === 0
+      ? { dayOfWeek: d, windows: [{ open: '10:00', close: '18:00' }] }
+      : { dayOfWeek: d, windows: [{ open: '19:00', close: '22:00' }] },
   );
 }
 
 /** Sunday closed, other six days 19:00–22:00. */
 export function closedSundayWeek(): DayHours[] {
   return [0, 1, 2, 3, 4, 5, 6].map((d) =>
-    d === 0 ? { dayOfWeek: d, open: null, close: null } : { dayOfWeek: d, open: '19:00', close: '22:00' },
+    d === 0
+      ? { dayOfWeek: d, windows: [] }
+      : { dayOfWeek: d, windows: [{ open: '19:00', close: '22:00' }] },
   );
 }
 

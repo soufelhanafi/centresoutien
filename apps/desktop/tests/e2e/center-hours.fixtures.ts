@@ -48,7 +48,7 @@ export const STR: Record<Locale, {
     loadError: 'Le chargement des horaires a échoué.',
     weekdays: ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'],
     toggleAria: (day) => `Ouvert le ${day}`,
-    errCloseBeforeOpen: "La fermeture doit être après l'ouverture",
+    errCloseBeforeOpen: "Fenêtre d'ouverture invalide : la fermeture doit être après l'ouverture",
     errInvalidTime: 'Heure invalide',
     settingsNav: 'Paramètres',
     dashboardNav: 'Tableau de bord',
@@ -65,7 +65,7 @@ export const STR: Record<Locale, {
     loadError: 'فشل تحميل المواعيد.',
     weekdays: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
     toggleAria: (day) => `مفتوح يوم ${day}`,
-    errCloseBeforeOpen: 'يجب أن يكون وقت الإغلاق بعد وقت الفتح',
+    errCloseBeforeOpen: 'نافذة فتح غير صالحة: يجب أن يكون الإغلاق بعد الفتح',
     errInvalidTime: 'وقت غير صالح',
     settingsNav: 'الإعدادات',
     dashboardNav: 'لوحة القيادة',
@@ -122,5 +122,6 @@ export function adminExists(win: Page): Promise<boolean> {
   });
 }
 
-export const openInput = (win: Page, day: number) => win.locator(`input[name="week.${day}.open"]`);
-export const closeInput = (win: Page, day: number) => win.locator(`input[name="week.${day}.close"]`);
+/** The first window's open/close inputs of a weekday row (a fresh day seeds one window). */
+export const openInput = (win: Page, day: number) => win.locator(`input[name="week.${day}.windows.0.open"]`);
+export const closeInput = (win: Page, day: number) => win.locator(`input[name="week.${day}.windows.0.close"]`);

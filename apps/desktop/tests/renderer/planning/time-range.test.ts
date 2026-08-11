@@ -11,7 +11,7 @@ import {
   type TimeRange,
 } from '../../../src/renderer/lib/planning/time-range';
 import type { CenterHoursWeek } from '../../../src/renderer/lib/center-hours';
-import { hoursRow, session } from './_fixtures';
+import { hoursRow, session, windowsRow } from './_fixtures';
 
 /** The hour labels `deriveCenterHoursRange` fills between two whole hours. */
 function hoursBetween(startHour: number, endHour: number): number[] {
@@ -54,11 +54,16 @@ describe('getGridBounds', () => {
       'excludes closed days from both min and max',
       [
         hoursRow(0, '07:00', '18:00'),
-        hoursRow(1, null, '23:00'), // closed (open null) — must not pull end later
-        hoursRow(2, '05:00', null), // closed (close null) — must not pull start earlier
+        hoursRow(1, null, '23:00'), // closed — must not pull end later
+        hoursRow(2, '05:00', null), // closed — must not pull start earlier
         hoursRow(3, '09:00', '21:00'),
       ],
       { start: 420, end: 1260 }, // 07:00–21:00
+    ],
+    [
+      'spans the first open to the last close across a day with a mid-day break',
+      [windowsRow(0, [{ open: '09:00', close: '12:00' }, { open: '14:00', close: '18:00' }])],
+      { start: 540, end: 1080 }, // 09:00–18:00
     ],
     [
       'falls back to 08:00–20:00 when every day is closed',

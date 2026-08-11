@@ -19,7 +19,8 @@ import type {
 } from '../../../src/renderer/lib/center-hours-overrides/override-view';
 
 function hoursRow(dayOfWeek: WeekdayIndex, open: string | null, close: string | null): WeekdayHoursInput {
-  return { dayOfWeek, open, close };
+  if (open === null || close === null) return { dayOfWeek, windows: [] };
+  return { dayOfWeek, windows: [{ open, close }] };
 }
 
 function overrideWith(
@@ -195,9 +196,9 @@ describe('boundary week — per-column resolution (SOU-165 reviewer #3)', () => 
     expect(isFullyClosed(byDay.get(0) ?? [], range)).toBe(true);
   });
 
-  it('Wednesday (outside the override) keeps static hours with no partial hatch', () => {
-    // 2026-08-12 is outside the override → static open day → identical to today's
-    // behavior: no hatch even though a sibling column widened the range to 23:00.
-    expect(byDay.get(3)).toEqual([]);
+  it('Wednesday (outside the override) keeps static hours, hatching only its closed tail', () => {
+    // 2026-08-12 is outside the override → static 09:00–18:00 within a range the
+    // Monday override widened to 23:00 → the 18:00–23:00 tail is hatched (SOU-197).
+    expect(byDay.get(3)).toEqual([{ start: 1080, end: 1380 }]);
   });
 });
