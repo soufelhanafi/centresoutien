@@ -35,8 +35,23 @@ function fromRow(row: CenterHoursRow): CenterHours {
     deletedAt: row.deleted_at === null ? null : new Date(row.deleted_at),
     version: row.version,
     dayOfWeek: row.day_of_week as WeekdayIndex,
-    windows: JSON.parse(row.windows) as readonly TimeWindow[],
+    windows: parseWindows(row.windows),
   };
+}
+
+/**
+ * The `windows` column holds validated JSON written through the domain schema
+ * (and, since SOU-197, the backup import validates it too). A corrupted cell
+ * must never crash a read (listChangedSince feeds sync) — parse defensively and
+ * degrade to a closed day rather than throwing.
+ */
+function parseWindows(raw: string): readonly TimeWindow[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as readonly TimeWindow[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 const SAVE_SQL = `

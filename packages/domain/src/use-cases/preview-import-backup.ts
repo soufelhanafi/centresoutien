@@ -1,5 +1,5 @@
 import { findBackupSheet } from '../backup/backup-workbook';
-import { classifyImportRow } from '../backup/classify-rows';
+import { classifyImportRow, normalizeBackupRow } from '../backup/classify-rows';
 import {
   emptyImportCounts,
   type BackupImportPreview,
@@ -56,7 +56,9 @@ export class PreviewImportBackup {
       for (const [offset, row] of sheet.rows.entries()) {
         const classification = classifyImportRow({
           spec,
-          row,
+          // Legacy center-hours rows (open/close, no windows) are upcast first
+          // so preview and apply classify the same normalized row (lockstep).
+          row: normalizeBackupRow(spec, row),
           existingIds: knownIds,
           existingNaturalKeys: knownNaturalKeys,
           centerCode: input.centerCode,
