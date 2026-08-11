@@ -16,6 +16,8 @@ import {
 // through the default import under electron-vite's ESM output.
 const { autoUpdater } = electronUpdater;
 
+let initialized = false;
+
 export type AutoUpdaterDeps = {
   isMacSigned: boolean;
   getWebContents: () => WebContents | null;
@@ -30,6 +32,10 @@ export function initAutoUpdater(deps: AutoUpdaterDeps): void {
   if (!capability.enabled) {
     return;
   }
+  if (initialized) {
+    return;
+  }
+  initialized = true;
 
   autoUpdater.autoDownload = capability.canApply;
   autoUpdater.autoInstallOnAppQuit = capability.canApply;
@@ -44,19 +50,28 @@ export function initAutoUpdater(deps: AutoUpdaterDeps): void {
     deps.getWebContents()?.send(UPDATE_STATUS_EVENT, event);
   };
 
+  let updateReady = false;
+
   autoUpdater.on('checking-for-update', () => emit({ state: 'checking' }));
   autoUpdater.on('update-available', (info) => emit({ state: 'available', version: info.version }));
   autoUpdater.on('update-not-available', () => emit({ state: 'not-available' }));
   autoUpdater.on('download-progress', (progress) =>
     emit({ state: 'downloading', percent: Math.round(progress.percent) }),
   );
-  autoUpdater.on('update-downloaded', (info) => emit({ state: 'downloaded', version: info.version }));
+  autoUpdater.on('update-downloaded', (info) => {
+    updateReady = true;
+    emit({ state: 'downloaded', version: info.version });
+  });
   // Errors are logged and surfaced as a status, never thrown into a modal — an
   // offline center must never see an update crash.
   autoUpdater.on('error', (error) => emit({ state: 'error', message: error.message }));
 
   if (capability.canApply) {
-    ipcMain.on(UPDATE_RESTART_COMMAND, () => autoUpdater.quitAndInstall());
+    ipcMain.on(UPDATE_RESTART_COMMAND, () => {
+      if (updateReady) {
+        autoUpdater.quitAndInstall();
+      }
+    });
   }
 
   let lastCheckAt: number | null = null;

@@ -8,6 +8,11 @@ name: Package
 # machine cannot cross-produce a working installer (see PACKAGING.md).
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish a GitHub Release to centresoutien-releases (auto-update feed)'
+        type: boolean
+        default: false
 
 jobs:
   package:
@@ -55,7 +60,7 @@ jobs:
       - name: Package (${{ matrix.artifact }})
         env:
           GH_TOKEN: ${{ secrets.CS_RELEASES_TOKEN }}
-        run: pnpm --filter @centresoutien/desktop ${{ matrix.script }} --publish always
+        run: pnpm --filter @centresoutien/desktop ${{ matrix.script }} --publish ${{ inputs.publish && 'always' || 'never' }}
 
       # A green `electron-builder` exit code only proves packaging didn't
       # throw — it does NOT prove the native modules it bundled actually
