@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Download } from "lucide-react";
 import { Link } from "@/i18n/navigation";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { NAV_LINKS } from "./nav-links";
 import { LanguageToggle } from "./language-toggle";
 import { MobileNav } from "./mobile-nav";
@@ -45,10 +45,13 @@ export async function Header() {
 
         <div className="hidden items-center gap-2.5 md:flex">
           <LanguageToggle />
-          <Button variant="primary" size="sm">
+          <Link
+            href="#programme-fondateur"
+            className={buttonVariants({ variant: "primary", size: "sm" })}
+          >
             <Download aria-hidden="true" />
             {t("cta.download")}
-          </Button>
+          </Link>
         </div>
 
         <MobileNav />

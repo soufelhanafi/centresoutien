@@ -10,7 +10,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, Menu, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Button } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { NAV_LINKS } from "./nav-links";
 import { LanguageToggle } from "./language-toggle";
 
@@ -121,15 +123,17 @@ export function MobileNav() {
                 ))}
               </nav>
               <div className="mt-3 flex flex-col gap-3 border-t border-border pt-4">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="w-full"
+                <Link
+                  href="#programme-fondateur"
                   onClick={() => setOpen(false)}
+                  className={cn(
+                    buttonVariants({ variant: "primary", size: "sm" }),
+                    "w-full",
+                  )}
                 >
                   <Download aria-hidden="true" />
                   {t("cta.download")}
-                </Button>
+                </Link>
                 <LanguageToggle />
               </div>
             </div>

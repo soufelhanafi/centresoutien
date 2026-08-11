@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Check, Play } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
+import { buttonVariants } from "@/components/ui/button";
 import { DashboardMockup } from "./dashboard-mockup";
 
 const TRUST_ITEMS = ["no_card", "quick_install", "local_data"] as const;
@@ -29,13 +30,23 @@ export async function Hero() {
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <Button variant="primary" size="lg" className="shadow-lg shadow-primary/25">
+          <Link
+            href="#programme-fondateur"
+            className={buttonVariants({
+              variant: "primary",
+              size: "lg",
+              className: "shadow-lg shadow-primary/25",
+            })}
+          >
             {t("cta.primary")}
-          </Button>
-          <Button variant="outline" size="lg">
+          </Link>
+          <Link
+            href="#programme-fondateur"
+            className={buttonVariants({ variant: "outline", size: "lg" })}
+          >
             <Play aria-hidden="true" className="fill-primary text-primary" />
             {t("cta.secondary")}
-          </Button>
+          </Link>
         </div>
 
         <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-[13.5px] text-muted-foreground">
