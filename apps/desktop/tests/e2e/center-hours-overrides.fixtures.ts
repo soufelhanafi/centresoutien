@@ -176,7 +176,7 @@ export async function fillOverrideDialog(
   L: (typeof OV)[Locale],
   opts: { start: string; end: string; weekday: number; windows: WindowSpec[] },
 ): Promise<Locator> {
-  await win.getByRole('button', { name: L.addPeriod, exact: true }).click();
+  await win.getByRole('button', { name: L.addPeriod, exact: true }).first().click();
   const dialog = win.getByRole('dialog', { name: L.formTitle });
   await dialog.waitFor();
   await dialog.locator('input[name="startDate"]').fill(opts.start);
