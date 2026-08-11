@@ -65,9 +65,8 @@ export function activeOverrideOn<T extends OverrideOccurrence>(
  * - An override covering `date` wins: its per-weekday window list is returned
  *   verbatim (an empty list means the center is closed that day under the
  *   override).
- * - Otherwise the static weekday hours apply: an open day becomes a single
- *   window `[open, close]`, a closed day (or a weekday absent from `staticDay`)
- *   becomes an empty list.
+ * - Otherwise the static weekday hours apply: the day's own `windows` are
+ *   returned verbatim (an empty list means the center is closed that day).
  * - When no override covers `date` **and** `staticDay` is `null`, the caller has
  *   supplied no hours constraint at all: the result is `null`, meaning "do not
  *   enforce hours for this date" (the session generator materializes without a
@@ -85,8 +84,8 @@ export function resolveEffectiveWindows(
   return dayHoursToWindows(staticDay);
 }
 
-/** A static weekday row as a window list: `[]` when closed, one window otherwise. */
+/** A static weekday row's windows are already the effective window list — an
+ *  open day passes through as-is, a closed day (windows `[]`) stays `[]`. */
 export function dayHoursToWindows(day: DayHours): readonly TimeWindow[] {
-  if (day.open === null || day.close === null) return [];
-  return [{ open: day.open, close: day.close }];
+  return day.windows;
 }

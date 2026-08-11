@@ -36,8 +36,10 @@ export function resolveWeek(rows: readonly CenterHours[]): readonly DayHours[] {
   if (rows.length > 0) return rows;
   return DEFAULT_WEEKLY_HOURS.map((day) => ({
     dayOfWeek: day.dayOfWeek as WeekdayIndex,
-    open: day.open as TimeOfDay | null,
-    close: day.close as TimeOfDay | null,
+    windows: day.windows.map((window) => ({
+      open: window.open as TimeOfDay,
+      close: window.close as TimeOfDay,
+    })),
   }));
 }
 

@@ -24,12 +24,12 @@ export type WeeklyBlock = {
 /**
  * Build a {@link WeeklyBlock} that opens exactly when the center opens on
  * `dayOfWeek` and runs for `durationMinutes` — the placement rule the session
- * generator uses (SOU-158: `start = CenterHours.open`, `end = start +
- * sessionDurationMinutes`). `durationMinutes` must be a positive integer.
- * Whether the resulting `end` still sits inside opening hours, or collides with
- * an already-committed session on the real calendar, is a conflict check owned
- * by SOU-161, not this pure builder; a block that would run past midnight
- * throws via {@link fromMinutes}.
+ * generator uses (SOU-158: `start = CenterHours` first window's `open`, `end =
+ * start + sessionDurationMinutes`). `durationMinutes` must be a positive
+ * integer. Whether the resulting `end` still sits inside opening hours, or
+ * collides with an already-committed session on the real calendar, is a conflict
+ * check owned by SOU-161, not this pure builder; a block that would run past
+ * midnight throws via {@link fromMinutes}.
  */
 export function weeklyBlockFromOpen(
   dayOfWeek: WeekdayIndex,

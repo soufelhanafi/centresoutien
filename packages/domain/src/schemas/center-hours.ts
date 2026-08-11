@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TIME_OF_DAY_REGEX, toMinutes, type TimeOfDay } from '../value-objects/time-of-day';
+import { isValidTimeWindow, type TimeWindow } from '../value-objects/time-window';
 import { WEEKDAYS, type WeekdayIndex } from '../value-objects/weekday';
 
 /**
@@ -10,39 +11,50 @@ import { WEEKDAYS, type WeekdayIndex } from '../value-objects/weekday';
  * `t(\`errors.${code}\`)`. This schema validates the form (zodResolver), the IPC
  * boundary, and the use-case input.
  *
- * Times are 24-hour `'HH:mm'`; a closed day is `open` and `close` both `null`.
- * Overnight ranges (close ≤ open) are rejected — a center day never crosses
- * midnight.
+ * A weekday's `windows` is an ordered, non-overlapping list of 24-hour
+ * `'HH:mm'` ranges (SOU-197): one window is a plain single-shift day, two model
+ * the mid-day break, and an empty list means closed that day. Windows are
+ * validated per-entry (`close > open`, code `invalid-window`) and as a list —
+ * out-of-order (`windows-not-sorted`) or overlapping (`overlapping-windows`)
+ * lists are rejected. Overnight ranges are rejected — a center day never
+ * crosses midnight.
  */
 
 const timeString = z.string().regex(TIME_OF_DAY_REGEX, { message: 'invalid-time' });
 
-export const weekdayHoursSchema = z
-  .object({
-    dayOfWeek: z
-      .number()
-      .int({ message: 'invalid-weekday' })
-      .min(0, { message: 'invalid-weekday' })
-      .max(6, { message: 'invalid-weekday' }),
-    open: timeString.nullable(),
-    close: timeString.nullable(),
-  })
-  .superRefine((row, ctx) => {
-    const openSet = row.open !== null;
-    const closeSet = row.close !== null;
-    // A day is either fully closed (both null) or fully open (both set).
-    if (openSet !== closeSet) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'closed-partial',
-        path: [closeSet ? 'open' : 'close'],
-      });
+const windowSchema = z.object({ open: timeString, close: timeString });
+
+const windowsListSchema = z.array(windowSchema).superRefine((windows, ctx) => {
+  const parsed: TimeWindow[] = windows.map((window) => ({
+    open: window.open as TimeOfDay,
+    close: window.close as TimeOfDay,
+  }));
+  if (parsed.some((window) => !isValidTimeWindow(window))) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid-window' });
+    return;
+  }
+  for (let i = 1; i < parsed.length; i += 1) {
+    const previous = parsed[i - 1]!;
+    const current = parsed[i]!;
+    if (toMinutes(current.open) < toMinutes(previous.open)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'windows-not-sorted' });
       return;
     }
-    if (openSet && closeSet && toMinutes(row.close as TimeOfDay) <= toMinutes(row.open as TimeOfDay)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'close-before-open', path: ['close'] });
+    if (toMinutes(current.open) < toMinutes(previous.close)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'overlapping-windows' });
+      return;
     }
-  });
+  }
+});
+
+export const weekdayHoursSchema = z.object({
+  dayOfWeek: z
+    .number()
+    .int({ message: 'invalid-weekday' })
+    .min(0, { message: 'invalid-weekday' })
+    .max(6, { message: 'invalid-weekday' }),
+  windows: windowsListSchema,
+});
 
 export type WeekdayHoursInput = z.infer<typeof weekdayHoursSchema>;
 
@@ -59,9 +71,8 @@ export const weeklyHoursSchema = z
 
 export type WeeklyHoursInput = z.infer<typeof weeklyHoursSchema>;
 
-/** Default weekday times the Settings/wizard form seeds from before the user saves. */
-export const DEFAULT_OPEN = '09:00';
-export const DEFAULT_CLOSE = '18:00';
+/** Default opening window the Settings/wizard form seeds from before the user saves. */
+export const DEFAULT_WINDOW = { open: '09:00', close: '18:00' } as const;
 
 /**
  * A fresh center has no saved rows (the migration backfills nothing). The domain
@@ -69,5 +80,5 @@ export const DEFAULT_CLOSE = '18:00';
  * first save: every day open 09:00–18:00, adjusted by the user.
  */
 export const DEFAULT_WEEKLY_HOURS: readonly WeekdayHoursInput[] = WEEKDAYS.map(
-  (dayOfWeek: WeekdayIndex) => ({ dayOfWeek, open: DEFAULT_OPEN, close: DEFAULT_CLOSE }),
+  (dayOfWeek: WeekdayIndex) => ({ dayOfWeek, windows: [DEFAULT_WINDOW] }),
 );

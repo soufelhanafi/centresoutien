@@ -33,7 +33,7 @@ export type TeacherSessionCandidate = SessionTimeCandidate & {
 };
 
 /** Just the fields the hours checks read — decoupled from the full envelope. */
-export type DayHours = Pick<CenterHours, 'dayOfWeek' | 'open' | 'close'>;
+export type DayHours = Pick<CenterHours, 'dayOfWeek' | 'windows'>;
 
 /**
  * Strict half-open overlap: two intervals clash only when each starts before the
@@ -66,31 +66,24 @@ export const SessionConflictPolicy = {
   },
 
   /**
-   * A session must fall on an open day and sit within `[open, close]`. A missing
-   * or closed day, a start before open, or an end after close each yield a
-   * {@link SessionOutsideCenterHoursError}. Boundaries are inclusive — a session
-   * may start exactly at open and end exactly at close.
+   * A session must fall on an open day and sit entirely inside one of the day's
+   * opening `windows` — never across a break (SOU-197: the mid-day gap is
+   * closed). Delegates to the same fit test as {@link withinWindows} so the
+   * static week and a dated override share one rule. A missing or closed day, a
+   * start before the first window, an end after the last, or a slot landing in a
+   * gap each yield a {@link SessionOutsideCenterHoursError}. Boundaries are
+   * inclusive — a session may start exactly at a window's open and end exactly
+   * at its close.
    */
   withinCenterHours(
     candidate: SessionTimeCandidate,
     week: readonly DayHours[],
   ): SessionOutsideCenterHoursError | null {
     const day = week.find((hours) => hours.dayOfWeek === candidate.dayOfWeek) ?? null;
-    if (day === null || day.open === null || day.close === null) {
-      return new SessionOutsideCenterHoursError(
-        candidate.dayOfWeek,
-        'closed',
-        day?.open ?? null,
-        day?.close ?? null,
-      );
+    if (day === null) {
+      return new SessionOutsideCenterHoursError(candidate.dayOfWeek, 'closed', null, null);
     }
-    if (toMinutes(candidate.start) < toMinutes(day.open)) {
-      return new SessionOutsideCenterHoursError(candidate.dayOfWeek, 'before-open', day.open, day.close);
-    }
-    if (toMinutes(candidate.end) > toMinutes(day.close)) {
-      return new SessionOutsideCenterHoursError(candidate.dayOfWeek, 'after-close', day.open, day.close);
-    }
-    return null;
+    return withinWindowsFit(candidate, day.windows);
   },
 
   /**
@@ -110,19 +103,7 @@ export const SessionConflictPolicy = {
     candidate: SessionTimeCandidate,
     windows: readonly TimeWindow[],
   ): SessionOutsideCenterHoursError | null {
-    const first = windows[0];
-    const last = windows[windows.length - 1];
-    if (first === undefined || last === undefined) {
-      return new SessionOutsideCenterHoursError(candidate.dayOfWeek, 'closed', null, null);
-    }
-    if (timeWindowsContain(windows, candidate.start, candidate.end)) return null;
-    const reason: OutsideCenterHoursReason =
-      toMinutes(candidate.start) < toMinutes(first.open)
-        ? 'before-open'
-        : toMinutes(candidate.end) > toMinutes(last.close)
-          ? 'after-close'
-          : 'outside-windows';
-    return new SessionOutsideCenterHoursError(candidate.dayOfWeek, reason, first.open, last.close);
+    return withinWindowsFit(candidate, windows);
   },
 
   /**
@@ -189,3 +170,28 @@ export const SessionConflictPolicy = {
     return new TeacherConflictError(candidate.teacherId, candidate.dayOfWeek, conflicts);
   },
 } as const;
+
+/**
+ * The one window-fit test every hours check shares (SOU-197): does `[start, end]`
+ * sit entirely inside one of `windows`? Empty `windows` is a closed day
+ * (`closed`); a miss is classified as `before-open`, `after-close`, or
+ * `outside-windows` from the day's first open and last close.
+ */
+function withinWindowsFit(
+  candidate: SessionTimeCandidate,
+  windows: readonly TimeWindow[],
+): SessionOutsideCenterHoursError | null {
+  const first = windows[0];
+  const last = windows[windows.length - 1];
+  if (first === undefined || last === undefined) {
+    return new SessionOutsideCenterHoursError(candidate.dayOfWeek, 'closed', null, null);
+  }
+  if (timeWindowsContain(windows, candidate.start, candidate.end)) return null;
+  const reason: OutsideCenterHoursReason =
+    toMinutes(candidate.start) < toMinutes(first.open)
+      ? 'before-open'
+      : toMinutes(candidate.end) > toMinutes(last.close)
+        ? 'after-close'
+        : 'outside-windows';
+  return new SessionOutsideCenterHoursError(candidate.dayOfWeek, reason, first.open, last.close);
+}
