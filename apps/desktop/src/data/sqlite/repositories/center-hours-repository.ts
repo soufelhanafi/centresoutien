@@ -5,8 +5,8 @@ import type {
   CenterHoursRepository,
   CenterCode,
   DeviceId,
+  TimeWindow,
   UserId,
-  TimeOfDay,
   WeekdayIndex,
 } from '@centresoutien/domain';
 
@@ -21,8 +21,7 @@ type CenterHoursRow = {
   deleted_at: string | null;
   version: number;
   day_of_week: number;
-  open: string | null;
-  close: string | null;
+  windows: string;
 };
 
 function fromRow(row: CenterHoursRow): CenterHours {
@@ -36,32 +35,33 @@ function fromRow(row: CenterHoursRow): CenterHours {
     deletedAt: row.deleted_at === null ? null : new Date(row.deleted_at),
     version: row.version,
     dayOfWeek: row.day_of_week as WeekdayIndex,
-    open: row.open === null ? null : (row.open as TimeOfDay),
-    close: row.close === null ? null : (row.close as TimeOfDay),
+    windows: JSON.parse(row.windows) as readonly TimeWindow[],
   };
 }
 
 const SAVE_SQL = `
   INSERT INTO center_hours
     (id, center_code, device_origin, created_at, updated_at, updated_by,
-     deleted_at, version, day_of_week, open, close)
+     deleted_at, version, day_of_week, windows)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
-     @deleted_at, @version, @day_of_week, @open, @close)
+     @deleted_at, @version, @day_of_week, @windows)
   ON CONFLICT(id) DO UPDATE SET
     updated_at = excluded.updated_at,
     updated_by = excluded.updated_by,
     deleted_at = excluded.deleted_at,
     version    = excluded.version,
-    open       = excluded.open,
-    close      = excluded.close
+    windows    = excluded.windows
 `;
 
 /**
  * SQLite adapter for {@link CenterHoursRepository}. Pure translation between the
  * port and SQL — no business decisions. Reads hide tombstones; `listChangedSince`
  * (the sync feed) includes them. Identity columns (id, center_code, device_origin,
- * created_at, day_of_week) are never rewritten on upsert.
+ * created_at, day_of_week) are never rewritten on upsert. `windows` round-trips
+ * as validated JSON text — the domain owns its shape and ordering invariants,
+ * this layer only serializes it. The legacy `open`/`close` columns are dead
+ * (migration 0041) and never read or written here.
  */
 export class SqliteCenterHoursRepository implements CenterHoursRepository {
   constructor(private readonly db: DB) {}
@@ -77,8 +77,7 @@ export class SqliteCenterHoursRepository implements CenterHoursRepository {
       deleted_at: hours.deletedAt ? hours.deletedAt.toISOString() : null,
       version: hours.version,
       day_of_week: hours.dayOfWeek,
-      open: hours.open,
-      close: hours.close,
+      windows: JSON.stringify(hours.windows),
     });
   }
 
