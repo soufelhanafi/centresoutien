@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import i18n from '../../../src/renderer/i18n/config';
 import { AllSessionsDrawer } from '../../../src/renderer/components/planning/all-sessions-drawer';
+import { plannerGateway } from '../../../src/renderer/lib/planning/planner-gateway';
 import type { PlannerSessionView } from '../../../src/renderer/lib/planning/planner-view';
 
 const sessions: PlannerSessionView[] = [
@@ -11,7 +12,7 @@ const sessions: PlannerSessionView[] = [
 ];
 
 vi.mock('../../../src/renderer/lib/planning/planner-gateway', () => ({
-  plannerGateway: { listWeek: () => Promise.resolve(sessions) },
+  plannerGateway: { listWeek: vi.fn(() => Promise.resolve(sessions)) },
 }));
 vi.mock('../../../src/renderer/hooks/planning/use-session-form-options', () => ({
   useSessionFormOptions: () => ({ data: { rooms: [], teachers: [], groups: [] } }),
@@ -27,7 +28,10 @@ function renderDrawer() {
 }
 
 describe('AllSessionsDrawer', () => {
-  beforeEach(() => { void i18n.changeLanguage('fr'); });
+  beforeEach(() => {
+    void i18n.changeLanguage('fr');
+    vi.mocked(plannerGateway.listWeek).mockResolvedValue(sessions);
+  });
 
   it('lists sessions grouped by weekday', async () => {
     renderDrawer();
@@ -46,5 +50,11 @@ describe('AllSessionsDrawer', () => {
     await i18n.changeLanguage('ar');
     renderDrawer();
     expect(await screen.findByText(/رياضيات/)).toBeInTheDocument();
+  });
+
+  it('shows a load-error message when the sessions fetch fails', async () => {
+    vi.mocked(plannerGateway.listWeek).mockRejectedValue(new Error('boom'));
+    renderDrawer();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Impossible|charger/i);
   });
 });

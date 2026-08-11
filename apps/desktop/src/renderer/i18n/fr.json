@@ -1317,7 +1317,8 @@
       "open": "Toutes les séances",
       "title": "Toutes les séances",
       "regenNote": "Modifier l'heure d'une séance affecte les prochaines générations ; les dates déjà planifiées doivent être régénérées.",
-      "empty": "Aucune séance hebdomadaire pour le moment."
+      "empty": "Aucune séance hebdomadaire pour le moment.",
+      "loadError": "Impossible de charger les séances. Réessayez."
     },
     "cancelSession": {
       "trigger": "Annuler la séance",

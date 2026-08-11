@@ -110,7 +110,7 @@ export function PlannerToolbar({ filters, options, onChange, onReset }: PlannerT
         </Button>
       ) : null}
 
-      <Button type="button" variant="outline" onClick={() => setAllSessionsOpen(true)}>
+      <Button type="button" variant="outline" size="sm" onClick={() => setAllSessionsOpen(true)}>
         <CalendarRange className="me-2 h-4 w-4" aria-hidden="true" />
         {t('planning.allSessions.open')}
       </Button>

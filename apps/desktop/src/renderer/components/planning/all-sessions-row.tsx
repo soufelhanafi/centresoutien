@@ -28,6 +28,7 @@ function summaryLabel(session: PlannerSessionView, subject: string): string {
 export function AllSessionsRow({ session }: { session: PlannerSessionView }) {
   const { t, i18n } = useTranslation();
   const formId = useId();
+  const panelId = useId();
   const [expanded, setExpanded] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [errorCodes, setErrorCodes] = useState<readonly SessionWriteErrorCode[]>([]);
@@ -67,6 +68,7 @@ export function AllSessionsRow({ session }: { session: PlannerSessionView }) {
         variant="ghost"
         className="flex w-full items-center justify-between gap-2 px-3 py-2 text-start"
         aria-expanded={expanded}
+        aria-controls={panelId}
         onClick={() => setExpanded((open) => !open)}
       >
         <span className="truncate">{summaryLabel(session, subject)}</span>
@@ -80,7 +82,7 @@ export function AllSessionsRow({ session }: { session: PlannerSessionView }) {
       </Button>
 
       {expanded ? (
-        <div className="space-y-4 border-t border-border p-3">
+        <div id={panelId} className="space-y-4 border-t border-border p-3">
           <SessionConflictAlert codes={errorCodes} />
           {options.data ? (
             <SessionForm

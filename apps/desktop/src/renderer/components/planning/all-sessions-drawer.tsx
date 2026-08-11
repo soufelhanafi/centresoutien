@@ -32,7 +32,7 @@ export function AllSessionsDrawer({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const { data, isLoading } = useWeekSessions();
+  const { data, isLoading, isError } = useWeekSessions();
   const groups = groupByWeekday(data ?? []);
 
   return (
@@ -49,6 +49,10 @@ export function AllSessionsDrawer({
               <Skeleton key={row} className="h-12 w-full" />
             ))}
           </div>
+        ) : isError ? (
+          <p role="alert" className="py-8 text-center text-sm text-destructive">
+            {t('planning.allSessions.loadError')}
+          </p>
         ) : groups.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
             {t('planning.allSessions.empty')}
