@@ -1313,7 +1313,11 @@
       "title": "Conflit de planning"
     },
     "allSessions": {
-      "noRoom": "Sans salle"
+      "noRoom": "Sans salle",
+      "open": "Toutes les séances",
+      "title": "Toutes les séances",
+      "regenNote": "Modifier l'heure d'une séance affecte les prochaines générations ; les dates déjà planifiées doivent être régénérées.",
+      "empty": "Aucune séance hebdomadaire pour le moment."
     },
     "cancelSession": {
       "trigger": "Annuler la séance",
