@@ -98,6 +98,11 @@ Object.defineProperty(window, 'api', {
           return { reply: 'pong: test', appVersion: '0.0.0' };
       }
     },
+    // Stub the preload push/command channels for the updater (SOU-87) so
+    // <App> mounts without crashing; useAppUpdate() subscribes on mount and
+    // needs a callable disposer for its effect cleanup.
+    onUpdateStatus: () => () => {},
+    restartNow: () => {},
   },
 });
 
