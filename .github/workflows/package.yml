@@ -70,13 +70,19 @@ jobs:
       # headlessly (no window, no display server needed).
       #
       # Requires through `app.asar`, NOT `app.asar.unpacked`, on purpose:
-      # the real app does `require('@node-rs/argon2')` as a bare specifier
-      # from inside the packed asar, which Node then resolves by walking
-      # node_modules *inside the asar virtual filesystem* (Electron
-      # transparently redirects individual unpacked files as it reads
-      # them). Requiring the unpacked path directly — the first version of
-      # this check — skips that resolution walk entirely and can pass even
-      # when the real app-launch require chain is broken.
+      # the real app does `require('better-sqlite3-multiple-ciphers')` as a
+      # bare specifier from inside the packed asar, which Node then resolves
+      # by walking node_modules *inside the asar virtual filesystem* (Electron
+      # transparently redirects the individual unpacked .node file as it reads
+      # it). Requiring the unpacked path directly — the first version of this
+      # check — skips that resolution walk entirely and can pass even when the
+      # real app-launch require chain is broken.
+      #
+      # Only better-sqlite3-multiple-ciphers remains native. Password hashing
+      # moved to hash-wasm (pure WebAssembly, no .node) precisely because the
+      # native @node-rs/argon2 binary loaded on the CI runner yet threw
+      # "Failed to load native binding" on clean Windows machines that lack its
+      # MSVC runtime — a failure no runner-side check can catch (SOU-86).
       - name: Verify native modules load in packaged app (macOS)
         if: runner.os == 'macOS'
         shell: bash
@@ -84,7 +90,6 @@ jobs:
           cd "apps/desktop/dist/${{ matrix.appDir }}"
           ELECTRON_RUN_AS_NODE=1 "./Centre Soutien.app/Contents/MacOS/Centre Soutien" -e "
             require('./Centre Soutien.app/Contents/Resources/app.asar/node_modules/better-sqlite3-multiple-ciphers');
-            require('./Centre Soutien.app/Contents/Resources/app.asar/node_modules/@node-rs/argon2');
             console.log('native modules OK');
           "
 
@@ -95,7 +100,6 @@ jobs:
           cd apps/desktop/dist/win-unpacked
           ELECTRON_RUN_AS_NODE=1 "./Centre Soutien.exe" -e "
             require('./resources/app.asar/node_modules/better-sqlite3-multiple-ciphers');
-            require('./resources/app.asar/node_modules/@node-rs/argon2');
             console.log('native modules OK');
           "
 

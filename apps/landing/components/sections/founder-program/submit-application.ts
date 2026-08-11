@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { founderApplicationSchema } from "@/lib/validators";
 import { sendFounderNotification } from "@/lib/email";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export type FounderFormState =
   | { status: "idle" }
@@ -13,9 +14,6 @@ export type FounderFormState =
       error: "validation_failed" | "server_error";
       fieldErrors?: Record<string, string>;
     };
-
-// Best-effort in-memory throttle (per instance; not durable — see spec §11).
-const lastSubmissionByIp = new Map<string, number>();
 
 function hashIp(ip: string): string {
   const salt = process.env.IP_HASH_SALT ?? "centresoutien";
@@ -52,15 +50,20 @@ export async function submitFounderApplication(
   }
 
   const h = await headers();
-  const ip = (h.get("x-forwarded-for") ?? "").split(",")[0]?.trim() || "unknown";
+  // Trust the platform-set `x-real-ip` when present; otherwise take the
+  // RIGHTMOST `x-forwarded-for` entry — Vercel appends the real client IP at
+  // the end, so the leftmost value is attacker-controlled and must never key
+  // the limiter (SOU-207).
+  const forwarded = (h.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const ip = h.get("x-real-ip")?.trim() || forwarded.at(-1) || "unknown";
   const ipHash = hashIp(ip);
 
-  const now = Date.now();
-  const last = lastSubmissionByIp.get(ipHash);
-  if (last && now - last < 60_000) {
+  if (!(await checkRateLimit(ipHash))) {
     return { status: "error", error: "server_error" };
   }
-  lastSubmissionByIp.set(ipHash, now);
 
   try {
     await sendFounderNotification(parsed.data, {
@@ -68,7 +71,6 @@ export async function submitFounderApplication(
       ipHash,
       userAgent: h.get("user-agent") ?? "unknown",
     });
-    lastSubmissionByIp.set(ipHash, now);
     return { status: "success" };
   } catch (err) {
     // Log only the stable failure code — never Resend's message (may echo

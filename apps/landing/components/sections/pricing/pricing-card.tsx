@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // One pricing tier card. The middle "Pro" tier is `highlighted`: dark slate
@@ -76,15 +77,18 @@ export async function PricingCard({
         <span dir="ltr">{t(`tiers.${tierId}.monthly`)}</span>
       </p>
 
-      <Button
-        variant={highlighted ? "secondary" : "outline"}
+      <Link
+        href={{ pathname: "/", hash: "programme-fondateur" }}
         className={cn(
+          buttonVariants({
+            variant: highlighted ? "secondary" : "outline",
+          }),
           "mt-5 w-full",
           highlighted && "bg-white text-slate-900 hover:bg-slate-100",
         )}
       >
         {t(`tiers.${tierId}.cta`)}
-      </Button>
+      </Link>
 
       <ul
         className={cn(

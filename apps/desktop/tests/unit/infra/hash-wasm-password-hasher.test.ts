@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { Argon2PasswordHasher } from '../../../src/main/infra/argon2-password-hasher';
+import { HashWasmPasswordHasher } from '../../../src/main/infra/hash-wasm-password-hasher';
 
-const hasher = new Argon2PasswordHasher();
+const hasher = new HashWasmPasswordHasher();
 
-describe('Argon2PasswordHasher', () => {
+describe('HashWasmPasswordHasher', () => {
   it('produces an Argon2id PHC hash that does not contain the plaintext', async () => {
     const hash = await hasher.hash('Casa2026!');
     expect(hash).toMatch(/^\$argon2id\$/);
@@ -27,5 +27,12 @@ describe('Argon2PasswordHasher', () => {
   it('uses a random salt: two hashes of the same password differ', async () => {
     const [a, b] = await Promise.all([hasher.hash('Casa2026!'), hasher.hash('Casa2026!')]);
     expect(a).not.toBe(b);
+  });
+
+  it('verifies a hash produced by the previous @node-rs/argon2 adapter (seamless migration)', async () => {
+    const legacyNodeRsHash =
+      '$argon2id$v=19$m=19456,t=2,p=1$MhHQ4Nv+kdqSNGJDRQXWwA$kByr1G+PbFgjPEyqcRrby0Zv78WnH6jBF5NzIG5d9cM';
+    expect(await hasher.verify(legacyNodeRsHash, 'Casa2026!')).toBe(true);
+    expect(await hasher.verify(legacyNodeRsHash, 'Wrong2026!')).toBe(false);
   });
 });

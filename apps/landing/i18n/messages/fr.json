@@ -639,13 +639,13 @@
     }
   },
   "founder": {
-    "badge": "★ Inscriptions ouvertes · 20 places",
+    "badge": "★ Inscriptions ouvertes · {count} places",
     "heading": "Programme Fondateur",
-    "body": "Vingt centres partenaires soigneusement sélectionnés bénéficient d'un accompagnement privilégié d'un an — sessions de travail directes avec l'équipe produit, formation approfondie, et influence directe sur la feuille de route — en échange de leurs retours honnêtes et détaillés.",
+    "body": "{count} centres partenaires soigneusement sélectionnés bénéficient d'un accompagnement privilégié d'un an — sessions de travail directes avec l'équipe produit, formation approfondie, et influence directe sur la feuille de route — en échange de leurs retours honnêtes et détaillés.",
     "note": "Places limitées. Sélection sur dossier. Réponse sous 5 jours ouvrés.",
     "stats": {
       "places": {
-        "value": "20",
+        "value": "{count}",
         "label": "places disponibles"
       },
       "duration": {
