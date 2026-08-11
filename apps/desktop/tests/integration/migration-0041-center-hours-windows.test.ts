@@ -153,7 +153,7 @@ describe('0041 center_hours_split_day', () => {
     const migrateCopy = (file: string): HoursRow[] => {
       const db = openDatabaseAt(file, KEY);
       applyMigrations(db, loadMigrations(REAL_MIGRATIONS));
-      const rows = hoursRows(db);
+      const rows = hoursRows(db, ['windows']);
       db.close();
       return rows;
     };
