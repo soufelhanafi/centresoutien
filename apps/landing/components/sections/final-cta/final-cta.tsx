@@ -26,7 +26,7 @@ export async function FinalCta() {
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link
-            href="#programme-fondateur"
+            href={{ pathname: "/", hash: "programme-fondateur" }}
             className={buttonVariants({
               size: "lg",
               className: "bg-white text-primary hover:bg-teal-50",
@@ -36,7 +36,7 @@ export async function FinalCta() {
             {t("cta.download")}
           </Link>
           <Link
-            href="#programme-fondateur"
+            href={{ pathname: "/", hash: "programme-fondateur" }}
             className={buttonVariants({
               size: "lg",
               variant: "outline",

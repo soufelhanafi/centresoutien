@@ -78,7 +78,7 @@ export async function PricingCard({
       </p>
 
       <Link
-        href="#programme-fondateur"
+        href={{ pathname: "/", hash: "programme-fondateur" }}
         className={cn(
           buttonVariants({
             variant: highlighted ? "secondary" : "outline",

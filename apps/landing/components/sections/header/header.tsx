@@ -46,7 +46,7 @@ export async function Header() {
         <div className="hidden items-center gap-2.5 md:flex">
           <LanguageToggle />
           <Link
-            href="#programme-fondateur"
+            href={{ pathname: "/", hash: "programme-fondateur" }}
             className={buttonVariants({ variant: "primary", size: "sm" })}
           >
             <Download aria-hidden="true" />

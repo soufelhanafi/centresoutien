@@ -124,7 +124,7 @@ export function MobileNav() {
               </nav>
               <div className="mt-3 flex flex-col gap-3 border-t border-border pt-4">
                 <Link
-                  href="#programme-fondateur"
+                  href={{ pathname: "/", hash: "programme-fondateur" }}
                   onClick={() => setOpen(false)}
                   className={cn(
                     buttonVariants({ variant: "primary", size: "sm" }),

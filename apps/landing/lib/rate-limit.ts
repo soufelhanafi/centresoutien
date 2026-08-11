@@ -6,6 +6,7 @@ import { Redis } from "@upstash/redis";
 // stopgap below. KICKOFF decision: a lead form may accept a rare duplicate
 // rather than drop a real application on a Redis outage.
 const WINDOW_MS = 60_000;
+const MAX_FALLBACK_ENTRIES = 5_000;
 const lastSeenFallback = new Map<string, number>();
 
 const hasUpstashCredentials =
@@ -41,13 +42,26 @@ export async function checkRateLimit(identifier: string): Promise<boolean> {
       const { success } = await ratelimit.limit(identifier);
       return success;
     } catch (err) {
+      // Log a stable code only — err.message may echo the REST endpoint URL.
       console.warn(
-        "[rate-limit] Upstash check failed, falling back to in-memory map",
-        err instanceof Error ? err.message : "unknown",
+        "[rate-limit] Upstash check failed; using in-memory fallback",
+        err instanceof Error ? err.constructor.name : "unknown",
       );
     }
   }
   const now = Date.now();
+  // Prune expired identifiers (Map preserves insertion order, so the first
+  // still-fresh entry means everything after it is fresh too).
+  for (const [key, last] of lastSeenFallback) {
+    if (now - last < WINDOW_MS) break;
+    lastSeenFallback.delete(key);
+  }
+  // Bounded memory even under many distinct identifiers (e.g. a NAT IP pool).
+  while (lastSeenFallback.size >= MAX_FALLBACK_ENTRIES) {
+    const oldest = lastSeenFallback.keys().next().value;
+    if (oldest === undefined) break;
+    lastSeenFallback.delete(oldest);
+  }
   const last = lastSeenFallback.get(identifier);
   if (last && now - last < WINDOW_MS) return false;
   lastSeenFallback.set(identifier, now);

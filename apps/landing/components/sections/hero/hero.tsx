@@ -31,7 +31,7 @@ export async function Hero() {
 
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
-            href="#programme-fondateur"
+            href={{ pathname: "/", hash: "programme-fondateur" }}
             className={buttonVariants({
               variant: "primary",
               size: "lg",
@@ -41,7 +41,7 @@ export async function Hero() {
             {t("cta.primary")}
           </Link>
           <Link
-            href="#programme-fondateur"
+            href={{ pathname: "/", hash: "programme-fondateur" }}
             className={buttonVariants({ variant: "outline", size: "lg" })}
           >
             <Play aria-hidden="true" className="fill-primary text-primary" />
