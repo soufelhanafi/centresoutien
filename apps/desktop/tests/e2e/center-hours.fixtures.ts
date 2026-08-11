@@ -33,6 +33,16 @@ export const STR: Record<Locale, {
   toggleAria: (day: string) => string;
   errCloseBeforeOpen: string;
   errInvalidTime: string;
+  windowsLabel: string;
+  addWindow: string;
+  removeWindow: string;
+  errWindowsOverlap: string;
+  errOutsideHours: string;
+  navPlanning: string; // sidebar entry that opens the Planning screen
+  plannerTitle: string;
+  newSession: string;
+  createSession: string;
+  roomLabel: string;
   settingsNav: string; // sidebar entry that opens the Paramètres screen
   dashboardNav: string; // sidebar entry that opens the Tableau de bord screen
   dir: 'ltr' | 'rtl';
@@ -50,6 +60,16 @@ export const STR: Record<Locale, {
     toggleAria: (day) => `Ouvert le ${day}`,
     errCloseBeforeOpen: "Fenêtre d'ouverture invalide : la fermeture doit être après l'ouverture",
     errInvalidTime: 'Heure invalide',
+    windowsLabel: "Créneaux d'ouverture",
+    addWindow: 'Ajouter un créneau',
+    removeWindow: 'Supprimer le créneau',
+    errWindowsOverlap: "Les créneaux d'un même jour ne doivent pas se chevaucher",
+    errOutsideHours: "La séance est en dehors des horaires d'ouverture du centre",
+    navPlanning: 'Planning',
+    plannerTitle: 'Planning hebdomadaire',
+    newSession: 'Nouvelle séance',
+    createSession: 'Créer la séance',
+    roomLabel: 'Salle',
     settingsNav: 'Paramètres',
     dashboardNav: 'Tableau de bord',
     dir: 'ltr',
@@ -67,6 +87,16 @@ export const STR: Record<Locale, {
     toggleAria: (day) => `مفتوح يوم ${day}`,
     errCloseBeforeOpen: 'نافذة فتح غير صالحة: يجب أن يكون الإغلاق بعد الفتح',
     errInvalidTime: 'وقت غير صالح',
+    windowsLabel: 'فترات الفتح',
+    addWindow: 'إضافة فترة زمنية',
+    removeWindow: 'حذف الفترة الزمنية',
+    errWindowsOverlap: 'يجب ألّا تتداخل الفترات الزمنية في اليوم نفسه',
+    errOutsideHours: 'الحصة خارج أوقات عمل المركز',
+    navPlanning: 'الجدولة',
+    plannerTitle: 'الجدول الأسبوعي',
+    newSession: 'حصة جديدة',
+    createSession: 'إنشاء الحصة',
+    roomLabel: 'القاعة',
     settingsNav: 'الإعدادات',
     dashboardNav: 'لوحة القيادة',
     dir: 'rtl',
@@ -125,3 +155,26 @@ export function adminExists(win: Page): Promise<boolean> {
 /** The first window's open/close inputs of a weekday row (a fresh day seeds one window). */
 export const openInput = (win: Page, day: number) => win.locator(`input[name="week.${day}.windows.0.open"]`);
 export const closeInput = (win: Page, day: number) => win.locator(`input[name="week.${day}.windows.0.close"]`);
+
+/** Window `w`'s open/close inputs of a weekday (0 = first window, added ones follow). */
+export const windowOpenInput = (win: Page, day: number, w: number) =>
+  win.locator(`input[name="week.${day}.windows.${w}.open"]`);
+export const windowCloseInput = (win: Page, day: number, w: number) =>
+  win.locator(`input[name="week.${day}.windows.${w}.close"]`);
+
+/** The nearest window bar (open+close inputs + its remove button) of window `w`. */
+export const windowBar = (win: Page, day: number, w: number) =>
+  win
+    .locator(`input[name="week.${day}.windows.${w}.open"]`)
+    .locator('xpath=ancestor::div[contains(@class,"items-end")][1]');
+
+/** The weekday's window list container — holds every window bar and the add-window button. */
+export const windowList = (win: Page, day: number) => windowBar(win, day, 0).locator('xpath=..');
+
+/** "Add a window" button of a weekday row (accessible name is locale-specific). */
+export const addWindowButton = (win: Page, day: number, name: string) =>
+  windowList(win, day).getByRole('button', { name });
+
+/** "Remove window `w`" button of a weekday row (accessible name is locale-specific). */
+export const removeWindowButton = (win: Page, day: number, w: number, name: string) =>
+  windowBar(win, day, w).getByRole('button', { name });
