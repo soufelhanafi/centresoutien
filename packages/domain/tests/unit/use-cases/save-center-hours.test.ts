@@ -16,8 +16,7 @@ const USER = 'usr_00000000000000000000000001' as UserId;
 function fullWeek(): WeeklyHoursInput {
   return [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
     dayOfWeek,
-    open: '09:00',
-    close: '18:00',
+    windows: [{ open: '09:00', close: '18:00' }],
   })) as WeeklyHoursInput;
 }
 
@@ -50,8 +49,7 @@ describe('SaveCenterHours', () => {
       expect(saved.map((row) => row.dayOfWeek)).toEqual([0, 1, 2, 3, 4, 5, 6]);
       for (const row of saved) {
         expect(row.id).toMatch(/^chr_/);
-        expect(row.open).toBe('09:00');
-        expect(row.close).toBe('18:00');
+        expect(row.windows).toEqual([{ open: '09:00', close: '18:00' }]);
         expect(row.centerCode).toBe(CENTER);
         expect(row.deviceOrigin).toBe(DEVICE);
         expect(row.updatedBy).toBe(USER);
@@ -62,14 +60,31 @@ describe('SaveCenterHours', () => {
       expect(await hours.listForCenter(CENTER)).toHaveLength(7);
     });
 
-    it('persists a closed day as open/close null', async () => {
+    it('persists a closed day as an empty window list', async () => {
       const week = fullWeek();
-      week[0] = { dayOfWeek: 0, open: null, close: null }; // close Sunday
+      week[0] = { dayOfWeek: 0, windows: [] }; // close Sunday
       const saved = await useCase.execute(validInput({ week }));
 
       const sunday = saved.find((row) => row.dayOfWeek === 0);
-      expect(sunday?.open).toBeNull();
-      expect(sunday?.close).toBeNull();
+      expect(sunday?.windows).toEqual([]);
+    });
+
+    it('persists a split day as two windows', async () => {
+      const week = fullWeek();
+      week[1] = {
+        dayOfWeek: 1,
+        windows: [
+          { open: '09:00', close: '12:00' },
+          { open: '14:00', close: '18:00' },
+        ],
+      }; // Monday: mid-day break
+      const saved = await useCase.execute(validInput({ week }));
+
+      const monday = saved.find((row) => row.dayOfWeek === 1);
+      expect(monday?.windows).toEqual([
+        { open: '09:00', close: '12:00' },
+        { open: '14:00', close: '18:00' },
+      ]);
     });
   });
 
@@ -91,13 +106,13 @@ describe('SaveCenterHours', () => {
       clock.advance(60_000);
 
       const week = fullWeek();
-      week[1] = { dayOfWeek: 1, open: '08:00', close: '18:00' }; // change Monday only
+      week[1] = { dayOfWeek: 1, windows: [{ open: '08:00', close: '18:00' }] }; // change Monday only
       const second = await useCase.execute(validInput({ week }));
 
       const monBefore = first.find((row) => row.dayOfWeek === 1);
       const monAfter = second.find((row) => row.dayOfWeek === 1);
       expect(monAfter?.id).toBe(monBefore?.id); // same row, edited in place
-      expect(monAfter?.open).toBe('08:00');
+      expect(monAfter?.windows).toEqual([{ open: '08:00', close: '18:00' }]);
       expect(monAfter?.updatedAt).toEqual(new Date('2026-07-29T10:01:00Z'));
 
       const tueBefore = first.find((row) => row.dayOfWeek === 2);
@@ -127,9 +142,9 @@ describe('SaveCenterHours', () => {
       expect(hours.all()).toHaveLength(0);
     });
 
-    it('rejects an overnight range and persists nothing', async () => {
+    it('rejects an overnight window and persists nothing', async () => {
       const week = fullWeek();
-      week[2] = { dayOfWeek: 2, open: '18:00', close: '09:00' };
+      week[2] = { dayOfWeek: 2, windows: [{ open: '18:00', close: '09:00' }] };
       await expect(useCase.execute(validInput({ week }))).rejects.toThrow();
       expect(hours.all()).toHaveLength(0);
     });

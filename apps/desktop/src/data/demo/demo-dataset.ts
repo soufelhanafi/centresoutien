@@ -31,14 +31,14 @@ export const DEMO_CENTER_PROFILE = {
 };
 
 /** Weekly center hours: Mon–Sat 09:00–18:00, Sunday closed. */
-export const DEMO_WEEK: ReadonlyArray<{ dayOfWeek: number; open: string | null; close: string | null }> = [
-  { dayOfWeek: 0, open: null, close: null }, // dimanche
-  { dayOfWeek: 1, open: '09:00', close: '18:00' },
-  { dayOfWeek: 2, open: '09:00', close: '18:00' },
-  { dayOfWeek: 3, open: '09:00', close: '18:00' },
-  { dayOfWeek: 4, open: '09:00', close: '18:00' },
-  { dayOfWeek: 5, open: '09:00', close: '18:00' },
-  { dayOfWeek: 6, open: '09:00', close: '18:00' },
+export const DEMO_WEEK: ReadonlyArray<{ dayOfWeek: number; windows: { open: string; close: string }[] }> = [
+  { dayOfWeek: 0, windows: [] }, // dimanche
+  { dayOfWeek: 1, windows: [{ open: '09:00', close: '18:00' }] },
+  { dayOfWeek: 2, windows: [{ open: '09:00', close: '18:00' }] },
+  { dayOfWeek: 3, windows: [{ open: '09:00', close: '18:00' }] },
+  { dayOfWeek: 4, windows: [{ open: '09:00', close: '18:00' }] },
+  { dayOfWeek: 5, windows: [{ open: '09:00', close: '18:00' }] },
+  { dayOfWeek: 6, windows: [{ open: '09:00', close: '18:00' }] },
 ];
 
 /** The eight subjects of the demo catalog, with their codes (FR/AR bilingual). */

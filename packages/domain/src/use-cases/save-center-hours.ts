@@ -4,6 +4,7 @@ import type { IdGenerator } from '../ports/id-generator';
 import type { PlanPolicy } from '../plans/plan-policy';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import type { TimeOfDay } from '../value-objects/time-of-day';
+import type { TimeWindow } from '../value-objects/time-window';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import { newEnvelope } from '../entities/envelope';
 import { applyWrite } from '../entities/write';
@@ -44,8 +45,10 @@ export class SaveCenterHours {
     const saved: CenterHours[] = [];
     for (const day of week) {
       const dayOfWeek = day.dayOfWeek as WeekdayIndex;
-      const open = day.open as TimeOfDay | null;
-      const close = day.close as TimeOfDay | null;
+      const windows: readonly TimeWindow[] = day.windows.map((window) => ({
+        open: window.open as TimeOfDay,
+        close: window.close as TimeOfDay,
+      }));
 
       const existing = await this.hours.findByDay(input.centerCode, dayOfWeek);
       if (existing === null) {
@@ -60,8 +63,7 @@ export class SaveCenterHours {
             this.clock,
           ),
           dayOfWeek,
-          open,
-          close,
+          windows,
         };
         await this.hours.save(created);
         saved.push(created);
@@ -70,7 +72,7 @@ export class SaveCenterHours {
 
       const { next, changedFields } = applyWrite(
         existing,
-        { open, close },
+        { windows },
         { clock: this.clock, updatedBy: input.updatedBy },
       );
       if (changedFields.length > 0) {

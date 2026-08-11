@@ -21,8 +21,8 @@ const TEACHER_A = 'tea_00000000000000000000000001' as EntityId;
 
 /** Center open Mon+Tue 09:00–10:00 — narrow on purpose so a 90-minute block overruns it. */
 const centerHours: readonly DayHours[] = [
-  { dayOfWeek: MON, open: '09:00' as TimeOfDay, close: '10:00' as TimeOfDay },
-  { dayOfWeek: TUE, open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay },
+  { dayOfWeek: MON, windows: [{ open: '09:00' as TimeOfDay, close: '10:00' as TimeOfDay }] },
+  { dayOfWeek: TUE, windows: [{ open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay }] },
 ];
 
 function autoConfig(over: Partial<SessionGeneratorConfig> = {}): SessionGeneratorConfig {

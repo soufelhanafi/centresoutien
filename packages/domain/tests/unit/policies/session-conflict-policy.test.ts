@@ -3,13 +3,19 @@ import { SessionConflictPolicy } from '../../../src/policies/session-conflict-po
 import { SessionOutsideCenterHoursError } from '../../../src/errors/scheduling-errors';
 import type { SessionTimeCandidate } from '../../../src/policies/session-conflict-policy';
 import type { CenterHours } from '../../../src/entities/center-hours';
+import type { TimeWindow } from '../../../src/value-objects/time-window';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import type { WeekdayIndex } from '../../../src/value-objects/weekday';
 
-type DayHours = Pick<CenterHours, 'dayOfWeek' | 'open' | 'close'>;
+type DayHours = Pick<CenterHours, 'dayOfWeek' | 'windows'>;
 
-function day(dayOfWeek: WeekdayIndex, open: string | null, close: string | null): DayHours {
-  return { dayOfWeek, open: open as TimeOfDay | null, close: close as TimeOfDay | null };
+const w = (open: string, close: string): TimeWindow => ({
+  open: open as TimeOfDay,
+  close: close as TimeOfDay,
+});
+
+function day(dayOfWeek: WeekdayIndex, windows: readonly TimeWindow[]): DayHours {
+  return { dayOfWeek, windows };
 }
 
 function candidate(dayOfWeek: WeekdayIndex, start: string, end: string): SessionTimeCandidate {
@@ -18,13 +24,13 @@ function candidate(dayOfWeek: WeekdayIndex, start: string, end: string): Session
 
 // A week open Mon–Sat 09:00–18:00, Sunday closed.
 const week: DayHours[] = [
-  day(0, null, null),
-  day(1, '09:00', '18:00'),
-  day(2, '09:00', '18:00'),
-  day(3, '09:00', '18:00'),
-  day(4, '09:00', '18:00'),
-  day(5, '09:00', '18:00'),
-  day(6, '09:00', '18:00'),
+  day(0, []),
+  day(1, [w('09:00', '18:00')]),
+  day(2, [w('09:00', '18:00')]),
+  day(3, [w('09:00', '18:00')]),
+  day(4, [w('09:00', '18:00')]),
+  day(5, [w('09:00', '18:00')]),
+  day(6, [w('09:00', '18:00')]),
 ];
 
 describe('SessionConflictPolicy.withinCenterHours', () => {
@@ -47,7 +53,7 @@ describe('SessionConflictPolicy.withinCenterHours', () => {
 
     it('flags a weekday absent from the week as closed', () => {
       const error = SessionConflictPolicy.withinCenterHours(candidate(3, '10:00', '11:00'), [
-        day(1, '09:00', '18:00'),
+        day(1, [w('09:00', '18:00')]),
       ]);
       expect(error?.reason).toBe('closed');
       expect(error?.open).toBeNull();
@@ -63,6 +69,36 @@ describe('SessionConflictPolicy.withinCenterHours', () => {
       const error = SessionConflictPolicy.withinCenterHours(candidate(1, '17:00', '18:30'), week);
       expect(error?.reason).toBe('after-close');
       expect(error?.close).toBe('18:00');
+    });
+  });
+
+  // SOU-197: a weekday can carry two windows split by the mid-day break.
+  describe('split day (mid-day break)', () => {
+    const splitWeek: DayHours[] = [day(1, [w('09:00', '12:00'), w('14:00', '18:00')])];
+
+    it('accepts a session inside the first window', () => {
+      expect(SessionConflictPolicy.withinCenterHours(candidate(1, '10:00', '11:00'), splitWeek)).toBeNull();
+    });
+
+    it('accepts a session inside the second window', () => {
+      expect(SessionConflictPolicy.withinCenterHours(candidate(1, '15:00', '16:00'), splitWeek)).toBeNull();
+    });
+
+    it('accepts a session touching the second window boundaries (inclusive)', () => {
+      expect(SessionConflictPolicy.withinCenterHours(candidate(1, '14:00', '18:00'), splitWeek)).toBeNull();
+    });
+
+    it('rejects a session spanning the mid-day break as outside-windows', () => {
+      const error = SessionConflictPolicy.withinCenterHours(candidate(1, '11:30', '14:30'), splitWeek);
+      expect(error?.reason).toBe('outside-windows');
+      // The day's first open and last close are reported so the renderer can show when it's open.
+      expect(error?.open).toBe('09:00');
+      expect(error?.close).toBe('18:00');
+    });
+
+    it('rejects a session entirely inside the break as outside-windows', () => {
+      const error = SessionConflictPolicy.withinCenterHours(candidate(1, '12:30', '13:00'), splitWeek);
+      expect(error?.reason).toBe('outside-windows');
     });
   });
 });

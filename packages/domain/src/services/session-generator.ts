@@ -518,7 +518,8 @@ export class SessionGenerator {
   private openTimeByWeekday(centerHours: readonly DayHours[]): ReadonlyMap<WeekdayIndex, TimeOfDay> {
     const openByWeekday = new Map<WeekdayIndex, TimeOfDay>();
     for (const day of centerHours) {
-      if (day.open !== null) openByWeekday.set(day.dayOfWeek, day.open);
+      const first = day.windows[0];
+      if (first !== undefined) openByWeekday.set(day.dayOfWeek, first.open);
     }
     return openByWeekday;
   }

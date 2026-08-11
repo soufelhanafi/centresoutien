@@ -1,6 +1,8 @@
 import type { BackupRow, BackupSheetSpec } from './backup-workbook';
 import { hasIdPrefix } from '../value-objects/ids';
 import type { CenterCode } from '../value-objects/ids';
+import type { TimeOfDay } from '../value-objects/time-of-day';
+import { areOrderedNonOverlappingWindows, type TimeWindow } from '../value-objects/time-window';
 
 /**
  * Row-level validation and import classification for the backup engine (SOU-44).
@@ -65,8 +67,62 @@ export function validateBackupRow(
       reasons.push(`bad-type:${column.name}`);
       continue;
     }
+    // SOU-197 stores a weekday's windows as one opaque JSON string on the
+    // center-hours sheet. A hand-edited workbook can carry valid JSON that
+    // violates the ordered/non-overlapping window invariants — or no JSON at
+    // all — so parse and shape-check here rather than trusting the cell.
+    if (column.name === 'windows') {
+      const windows = parseWindowsJson(value as string);
+      if (windows === null || !areOrderedNonOverlappingWindows(windows)) {
+        reasons.push('invalid-windows');
+      }
+    }
   }
   return reasons;
+}
+
+/**
+ * Parse a center-hours `windows` cell (a JSON array of `{ open, close }` objects)
+ * into typed windows, or `null` when the text is not such an array. Structural
+ * validity (each window well-formed, ordered, non-overlapping) is checked by the
+ * caller via {@link areOrderedNonOverlappingWindows}; this only handles the
+ * JSON decoding and array-of-records shape.
+ */
+function parseWindowsJson(value: string): readonly TimeWindow[] | null {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return null;
+    const windows: TimeWindow[] = [];
+    for (const entry of parsed) {
+      if (typeof entry !== 'object' || entry === null) return null;
+      const record = entry as { open?: unknown; close?: unknown };
+      if (typeof record.open !== 'string' || typeof record.close !== 'string') return null;
+      windows.push({ open: record.open as TimeOfDay, close: record.close as TimeOfDay });
+    }
+    return windows;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A legacy center-hours backup (pre-SOU-197) exported one `open`/`close` pair per
+ * weekday instead of the current `windows` list. On import, such rows carry no
+ * `windows` column and would be classified invalid and silently dropped — losing
+ * the center's hours. Upcast them the same way the 0041 migration backfills:
+ * an open day becomes a single window, a closed (`null`/`null`) day becomes `[]`.
+ * Rows that already carry `windows` pass through unchanged.
+ */
+export function normalizeBackupRow(spec: BackupSheetSpec, row: BackupRow): BackupRow {
+  if (spec.name !== 'center-hours') return row;
+  if ('windows' in row) return row;
+  const open = row['open'];
+  const close = row['close'];
+  const windows =
+    typeof open === 'string' && typeof close === 'string'
+      ? JSON.stringify([{ open, close }])
+      : '[]';
+  return { ...row, windows };
 }
 
 /**

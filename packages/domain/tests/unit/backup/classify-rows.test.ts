@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { findBackupSheet, type BackupRow } from '../../../src/backup/backup-workbook';
-import { classifyImportRow, validateBackupRow } from '../../../src/backup/classify-rows';
+import {
+  classifyImportRow,
+  normalizeBackupRow,
+  validateBackupRow,
+} from '../../../src/backup/classify-rows';
 import type { CenterCode } from '../../../src/value-objects/ids';
 import { CENTER, validBackupRow, validId } from './helpers';
 
@@ -127,5 +131,64 @@ describe('classifyImportRow', () => {
       const row = validBackupRow('parents', { id: undefined, createdAt: null, deletedAt: null }, ['id', 'deviceOrigin', 'updatedAt', 'updatedBy', 'version']);
       expect(validateBackupRow(findBackupSheet('parents')!, row)).toEqual([]);
     });
+  });
+
+  describe('center-hours windows (SOU-197)', () => {
+    it('accepts a valid windows JSON string', () => {
+      const spec = findBackupSheet('center-hours')!;
+      const row = validBackupRow('center-hours', {
+        windows: JSON.stringify([
+          { open: '09:00', close: '12:00' },
+          { open: '14:00', close: '18:00' },
+        ]),
+      });
+      expect(validateBackupRow(spec, row)).toEqual([]);
+    });
+
+    it('rejects a windows cell that is not valid JSON', () => {
+      const spec = findBackupSheet('center-hours')!;
+      expect(validateBackupRow(spec, validBackupRow('center-hours', { windows: 'not-json' }))).toContain(
+        'invalid-windows',
+      );
+    });
+
+    it('rejects overlapping windows even when the JSON parses', () => {
+      const spec = findBackupSheet('center-hours')!;
+      const row = validBackupRow('center-hours', {
+        windows: JSON.stringify([
+          { open: '09:00', close: '15:00' },
+          { open: '14:00', close: '18:00' },
+        ]),
+      });
+      expect(validateBackupRow(spec, row)).toContain('invalid-windows');
+    });
+  });
+});
+
+describe('normalizeBackupRow (legacy center-hours open/close → windows)', () => {
+  it('upcasts a legacy open row to a single window', () => {
+    const spec = findBackupSheet('center-hours')!;
+    const legacy = { id: validId('chr'), centerCode: CENTER, dayOfWeek: 1, open: '09:00', close: '18:00' };
+    expect(normalizeBackupRow(spec, legacy)['windows']).toBe(
+      JSON.stringify([{ open: '09:00', close: '18:00' }]),
+    );
+  });
+
+  it('upcasts a legacy closed day (open/close null) to an empty window list', () => {
+    const spec = findBackupSheet('center-hours')!;
+    const legacy = { id: validId('chr'), centerCode: CENTER, dayOfWeek: 1, open: null, close: null };
+    expect(normalizeBackupRow(spec, legacy)['windows']).toBe('[]');
+  });
+
+  it('leaves a row that already carries windows untouched', () => {
+    const spec = findBackupSheet('center-hours')!;
+    const row = validBackupRow('center-hours', { windows: '[]' });
+    expect(normalizeBackupRow(spec, row)).toBe(row);
+  });
+
+  it('leaves other sheets untouched', () => {
+    const spec = findBackupSheet('rooms')!;
+    const row = validBackupRow('rooms');
+    expect(normalizeBackupRow(spec, row)).toBe(row);
   });
 });

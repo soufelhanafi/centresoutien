@@ -856,18 +856,20 @@ const formulaViewSchema = z.object({
   active: z.boolean(),
 });
 
+// One opening window (SOU-165), 24h `'HH:mm'`. Several per weekday model an iftar
+// or mid-day break. Reused by the center-hours view, the override view, and the
+// generator's skipped-hours report.
+const timeWindowViewSchema = z.object({ open: z.string(), close: z.string() });
+
 // The display shape of one weekday's hours returned to the renderer: the
-// user-visible fields only, envelope stripped. `open`/`close` are `'HH:mm'` or
-// null (closed). Reused by both centerHours responses.
+// user-visible fields only, envelope stripped. `windows` is the day's ordered,
+// non-overlapping opening list (SOU-197) — one entry is a single-shift day, two
+// model the mid-day break, and an empty list is a closed day. Reused by both
+// centerHours responses.
 const centerHoursViewSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6),
-  open: z.string().nullable(),
-  close: z.string().nullable(),
+  windows: z.array(timeWindowViewSchema),
 });
-
-// One opening window (SOU-165), 24h `'HH:mm'`. Several per weekday model an iftar
-// break. Reused by the override view and the generator's skipped-hours report.
-const timeWindowViewSchema = z.object({ open: z.string(), close: z.string() });
 
 // The seven weekday window lists as a `0..6`-keyed record (the renderer aliases
 // `Record<0..6, TimeWindow[]>`); a weekday's empty list is a closed day. Reused by

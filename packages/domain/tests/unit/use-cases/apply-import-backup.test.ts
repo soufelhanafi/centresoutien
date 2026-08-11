@@ -188,6 +188,54 @@ describe('ApplyImportBackup', () => {
     expect(store.allRows('parents')).toHaveLength(1);
   });
 
+  it('restores a legacy pre-SOU-197 center-hours row (open/close) as a windows row', async () => {
+    const legacyOpen = {
+      id: 'chr_01HWAAAAAAAAAAAAAAAAAAAAAA',
+      centerCode: CENTER,
+      deviceOrigin: 'dev_00000000000000000000000001',
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+      updatedBy: 'usr_00000000000000000000000001',
+      deletedAt: null,
+      version: 0,
+      dayOfWeek: 1,
+      open: '09:00',
+      close: '18:00',
+    };
+    const legacyClosed = { ...legacyOpen, id: 'chr_01HWAAAAAAAAAAAAAAAAAAAAAB', dayOfWeek: 2, open: null, close: null };
+
+    await seedWorkbook([
+      {
+        name: 'center-hours',
+        columns: ['id', 'centerCode', 'createdAt', 'dayOfWeek', 'open', 'close'],
+        rows: [legacyOpen, legacyClosed],
+      },
+    ]);
+
+    const result = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+    expect(result.counts).toEqual({ created: 2, updated: 0, duplicate: 0, invalid: 0 });
+
+    const saved = store.allRows('center-hours');
+    expect(saved.find((row) => row['dayOfWeek'] === 1)?.['windows']).toBe(
+      JSON.stringify([{ open: '09:00', close: '18:00' }]),
+    );
+    expect(saved.find((row) => row['dayOfWeek'] === 2)?.['windows']).toBe('[]');
+  });
+
+  it('skips a center-hours row whose windows cell is not valid window JSON', async () => {
+    await seedWorkbook([
+      {
+        name: 'center-hours',
+        columns: ['id', 'centerCode', 'dayOfWeek', 'windows'],
+        rows: [validBackupRow('center-hours', { windows: 'not-json' })],
+      },
+    ]);
+
+    const result = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+    expect(result.counts).toEqual({ created: 0, updated: 0, duplicate: 0, invalid: 1 });
+    expect(store.allRows('center-hours')).toHaveLength(0);
+  });
+
   it('wraps a store failure in BackupImportApplyError (atomic rollback)', async () => {
     store.applyError = new Error('UNIQUE constraint failed');
     await seedWorkbook([

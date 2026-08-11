@@ -1,18 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { isClosed } from '../../../src/entities/center-hours';
-import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
+import type { TimeWindow } from '../../../src/value-objects/time-window';
+
+const w = (open: string, close: string): TimeWindow => ({ open, close } as TimeWindow);
 
 describe('isClosed', () => {
-  it('is closed when both open and close are null', () => {
-    expect(isClosed({ open: null, close: null })).toBe(true);
+  it('is closed when the day has no windows', () => {
+    expect(isClosed({ windows: [] })).toBe(true);
   });
 
-  it('is open when both times are set', () => {
-    expect(isClosed({ open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay })).toBe(false);
+  it('is open when the day has at least one window', () => {
+    expect(isClosed({ windows: [w('09:00', '18:00')] })).toBe(false);
   });
 
-  it('treats a half-set row (a state the DB CHECK forbids) as closed', () => {
-    expect(isClosed({ open: '09:00' as TimeOfDay, close: null })).toBe(true);
-    expect(isClosed({ open: null, close: '18:00' as TimeOfDay })).toBe(true);
+  it('is open for a split-day (two windows)', () => {
+    expect(isClosed({ windows: [w('09:00', '15:00'), w('21:00', '23:00')] })).toBe(false);
   });
 });

@@ -3,13 +3,23 @@ import type { CenterHoursWeek } from '../../../src/renderer/lib/center-hours';
 
 let seq = 0;
 
-/** One weekday's opening hours row, as `centerHours.get` returns it. */
+/** One weekday's opening-hours row, as `centerHours.get` returns it. A null
+ *  open or close collapses to a closed day (no windows). */
 export function hoursRow(
   dayOfWeek: number,
   open: string | null,
   close: string | null,
 ): CenterHoursWeek[number] {
-  return { dayOfWeek, open, close };
+  if (open === null || close === null) return { dayOfWeek, windows: [] };
+  return { dayOfWeek, windows: [{ open, close }] };
+}
+
+/** A weekday row with an explicit window list (e.g. a mid-day break). */
+export function windowsRow(
+  dayOfWeek: number,
+  windows: readonly { open: string; close: string }[],
+): CenterHoursWeek[number] {
+  return { dayOfWeek, windows: windows.map((window) => ({ ...window })) };
 }
 
 /** Build a `PlannerSessionView` with sane defaults; override only what a test cares about. */

@@ -40,11 +40,10 @@ const TEACHER_2 = 'tch_00000000000000000000000002' as EntityId;
 function centerHours(over: Partial<Record<WeekdayIndex, DayHours>> = {}): readonly DayHours[] {
   const openWeek: WeekdayIndex[] = [MON, TUE, WED, THU, FRI, SAT];
   const week: DayHours[] = [
-    { dayOfWeek: SUN, open: null, close: null },
+    { dayOfWeek: SUN, windows: [] },
     ...openWeek.map((dayOfWeek) => ({
       dayOfWeek,
-      open: '09:00' as TimeOfDay,
-      close: '18:00' as TimeOfDay,
+      windows: [{ open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay }],
     })),
   ];
   return week.map((day) => over[day.dayOfWeek] ?? day);
@@ -108,7 +107,9 @@ describe('SessionGenerator — auto mode', () => {
 
   it('places each block at that weekday’s own opening time', () => {
     const generator = new SessionGenerator(fakeRandom());
-    const hours = centerHours({ [WED]: { dayOfWeek: WED, open: '14:00' as TimeOfDay, close: '20:00' as TimeOfDay } });
+    const hours = centerHours({
+      [WED]: { dayOfWeek: WED, windows: [{ open: '14:00' as TimeOfDay, close: '20:00' as TimeOfDay }] },
+    });
 
     const { proposals } = generator.generate(input(autoConfig(), [G1], { hours }));
 

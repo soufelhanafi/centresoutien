@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
 import { weeklyHoursSchema, type WeekdayHoursInput } from '@centresoutien/domain';
@@ -10,7 +10,8 @@ import { WeekdayHoursRow } from './weekday-hours-row';
 import type { CenterHoursFormValues } from './types';
 
 // Wrap the domain's own week schema so RHF has an object root — validation stays
-// the shared domain rule (never forked): closed = both null, close > open.
+// the shared domain rule (never forked): a weekday is closed when its window list
+// is empty; windows must be well-formed, ordered, and non-overlapping.
 const formSchema = z.object({ week: weeklyHoursSchema });
 
 /**
@@ -35,7 +36,6 @@ export function CenterHoursForm({
     resolver: zodResolver(formSchema),
     defaultValues: { week: initialWeek },
   });
-  const { fields } = useFieldArray({ control: form.control, name: 'week' });
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
@@ -71,8 +71,8 @@ export function CenterHoursForm({
               </div>
             ) : null}
             <div className="flex flex-col gap-4">
-              {fields.map((field, index) => (
-                <WeekdayHoursRow key={field.id} index={index} />
+              {form.getValues('week').map((row, index) => (
+                <WeekdayHoursRow key={row.dayOfWeek} index={index} />
               ))}
             </div>
 
