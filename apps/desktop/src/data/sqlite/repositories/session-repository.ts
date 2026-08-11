@@ -3,6 +3,10 @@ import type {
   Session,
   SessionId,
   SessionRepository,
+  SessionOccurrenceViewReadPort,
+  SessionOccurrenceView,
+  GroupKind,
+  SubjectId,
   WeeklyRecurringSessionId,
   CenterCode,
   DeviceId,
@@ -120,14 +124,110 @@ const UPSERT_MANY_SQL = `
   ON CONFLICT(recurring_session_id, date) DO NOTHING
 `;
 
+/** One enriched dated-occurrence row: a session left-joined onto its room,
+ *  teacher, group, and the group's subject. Join columns are NULL when the
+ *  related row is missing or archived (`deleted_at IS NULL` is part of each
+ *  join), so the mapper degrades them to the {@link SessionOccurrenceView}
+ *  neutral fallback. */
+type OccurrenceViewRow = {
+  id: string;
+  recurring_session_id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  room_id: string;
+  room_name: string | null;
+  teacher_id: string | null;
+  teacher_name_fr: string | null;
+  teacher_name_ar: string | null;
+  group_id: string | null;
+  subject_id: string | null;
+  subject_name_fr: string | null;
+  subject_name_ar: string | null;
+  level: string | null;
+  kind: string | null;
+};
+
+/** Enriched-occurrence row → audit read model. Degrades missing/archived
+ *  relations to the neutral fallback: NULL names/subject/level pass through as
+ *  `null`, and an absent group `kind` falls back to `'regular'`. Mirrors the
+ *  planner grid's `WeeklySessionView` mapper. */
+function fromOccurrenceViewRow(row: OccurrenceViewRow): SessionOccurrenceView {
+  return {
+    id: row.id as SessionId,
+    recurringSessionId: row.recurring_session_id as WeeklyRecurringSessionId,
+    date: row.date,
+    start: row.start_time as TimeOfDay,
+    end: row.end_time as TimeOfDay,
+    roomId: row.room_id as RoomId,
+    roomName: row.room_name,
+    teacherId: row.teacher_id === null ? null : (row.teacher_id as EntityId),
+    teacherName:
+      row.teacher_name_fr === null || row.teacher_name_ar === null
+        ? null
+        : { fr: row.teacher_name_fr, ar: row.teacher_name_ar },
+    groupId: row.group_id === null ? null : (row.group_id as GroupId),
+    subjectId: row.subject_id === null ? null : (row.subject_id as SubjectId),
+    subjectName:
+      row.subject_name_fr === null || row.subject_name_ar === null
+        ? null
+        : { fr: row.subject_name_fr, ar: row.subject_name_ar },
+    level: row.level,
+    kind: (row.kind ?? 'regular') as GroupKind,
+  };
+}
+
+/**
+ * Enriched active-occurrence read (SOU-201): every live dated session of the
+ * center joined onto its room, teacher, group, and the group's subject. LEFT
+ * JOINs so an occurrence with no live group/room/teacher is kept (degraded),
+ * never dropped; each join filters `deleted_at IS NULL` so an archived relation
+ * reads as absent. The session itself must be live (`ses.deleted_at IS NULL`) so
+ * a cancelled occurrence never surfaces in the audit. Ordered by date then start
+ * time — the port's contract, served here without a re-sort.
+ */
+const LIST_ACTIVE_OCCURRENCE_VIEW_SQL = `
+  SELECT
+    ses.id                   AS id,
+    ses.recurring_session_id AS recurring_session_id,
+    ses.date                 AS date,
+    ses.start_time           AS start_time,
+    ses.end_time             AS end_time,
+    ses.room_id              AS room_id,
+    r.name                   AS room_name,
+    ses.teacher_id           AS teacher_id,
+    t.name_fr                AS teacher_name_fr,
+    t.name_ar                AS teacher_name_ar,
+    ses.group_id             AS group_id,
+    g.subject_id             AS subject_id,
+    s.name_fr                AS subject_name_fr,
+    s.name_ar                AS subject_name_ar,
+    g.level                  AS level,
+    g.kind                   AS kind
+  FROM sessions ses
+  LEFT JOIN rooms    r ON r.id = ses.room_id    AND r.deleted_at IS NULL
+  LEFT JOIN teachers t ON t.id = ses.teacher_id AND t.deleted_at IS NULL
+  LEFT JOIN groups   g ON g.id = ses.group_id   AND g.deleted_at IS NULL
+  LEFT JOIN subjects s ON s.id = g.subject_id   AND s.deleted_at IS NULL
+  WHERE ses.center_code = ? AND ses.deleted_at IS NULL
+  ORDER BY ses.date, ses.start_time
+`;
+
 /**
  * SQLite adapter for {@link SessionRepository}. Pure translation between the port
  * and SQL — no business decisions. Reads hide tombstones; `listChangedSince` (the
  * sync feed) deliberately sees them. Identity columns are never rewritten on
  * upsert. `centerCode` is injected by the caller (main); this adapter never
  * crosses a tenant boundary.
+ *
+ * Implements {@link SessionOccurrenceViewReadPort} on the same instance (the join
+ * anchors on the `sessions` table) — the enriched read the SOU-201 audit sweeps,
+ * mirroring how its recurring-template sibling also serves
+ * `WeeklySessionViewReadPort`.
  */
-export class SqliteSessionRepository implements SessionRepository {
+export class SqliteSessionRepository
+  implements SessionRepository, SessionOccurrenceViewReadPort
+{
   constructor(
     private readonly db: DB,
     private readonly changeLog: ChangeLogWriter,
@@ -243,5 +343,14 @@ export class SqliteSessionRepository implements SessionRepository {
       )
       .all(centerCode, batchId) as SessionRow[];
     return rows.map(fromRow);
+  }
+
+  async listActiveOccurrenceViews(
+    centerCode: CenterCode,
+  ): Promise<readonly SessionOccurrenceView[]> {
+    const rows = this.db
+      .prepare(LIST_ACTIVE_OCCURRENCE_VIEW_SQL)
+      .all(centerCode) as OccurrenceViewRow[];
+    return rows.map(fromOccurrenceViewRow);
   }
 }

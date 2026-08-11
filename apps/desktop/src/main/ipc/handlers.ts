@@ -100,6 +100,10 @@ import type {
   WeeklySessionView,
   GenerateAndPersistSessions,
   UndoGenerationBatch,
+  AuditSessionsOutsideEffectiveHours,
+  SessionOccurrenceView,
+  SessionId,
+  CancelSession,
   CreateWeeklyRecurringSession,
   UpdateWeeklyRecurringSession,
   CancelWeeklyRecurringSession,
@@ -254,6 +258,8 @@ export type RestoreHolidayUseCase = Pick<RestoreHoliday, 'execute'>;
 export type ListWeekSessionsUseCase = Pick<ListWeekSessions, 'execute'>;
 export type GenerateAndPersistSessionsUseCase = Pick<GenerateAndPersistSessions, 'execute'>;
 export type UndoGenerationBatchUseCase = Pick<UndoGenerationBatch, 'execute'>;
+export type AuditSessionsOutsideHoursUseCase = Pick<AuditSessionsOutsideEffectiveHours, 'execute'>;
+export type CancelSessionUseCase = Pick<CancelSession, 'execute'>;
 export type CreateWeeklyRecurringSessionUseCase = Pick<CreateWeeklyRecurringSession, 'execute'>;
 export type UpdateWeeklyRecurringSessionUseCase = Pick<UpdateWeeklyRecurringSession, 'execute'>;
 export type CancelWeeklyRecurringSessionUseCase = Pick<CancelWeeklyRecurringSession, 'execute'>;
@@ -596,6 +602,28 @@ function toSessionView(session: Session) {
   };
 }
 
+/** Project an enriched dated occurrence to its boundary DTO (SOU-201): envelope
+ *  already absent (read model), branded ids / times widened, bilingual names
+ *  cloned so no domain object leaks by reference. */
+function toSessionOccurrenceView(view: SessionOccurrenceView) {
+  return {
+    id: view.id,
+    recurringSessionId: view.recurringSessionId,
+    date: view.date,
+    start: view.start,
+    end: view.end,
+    roomId: view.roomId,
+    roomName: view.roomName,
+    teacherId: view.teacherId,
+    teacherName: view.teacherName === null ? null : { ...view.teacherName },
+    groupId: view.groupId,
+    subjectId: view.subjectId,
+    subjectName: view.subjectName === null ? null : { ...view.subjectName },
+    level: view.level,
+    kind: view.kind,
+  };
+}
+
 /**
  * Widens the IPC boundary's `session.generator.preview` request (plain strings/
  * numbers, already Zod-validated) to the domain's own branded
@@ -821,6 +849,8 @@ export type HandlerDeps = BackupHandlerDeps &
   listWeekSessions: ListWeekSessionsUseCase;
   generateSessions: GenerateAndPersistSessionsUseCase;
   undoGenerationBatch: UndoGenerationBatchUseCase;
+  auditSessionsOutsideHours: AuditSessionsOutsideHoursUseCase;
+  cancelSession: CancelSessionUseCase;
   recordSessionAttendance: RecordSessionAttendanceUseCase;
   getStudentAttendanceReport: GetStudentAttendanceReportUseCase;
   getGroupAttendanceSheet: GetGroupAttendanceSheetUseCase;
@@ -1511,6 +1541,29 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
         generationBatchId: request.generationBatchId as GenerationBatchId,
         updatedBy,
       });
+    },
+    'session.audit.outside-hours': async () => {
+      const { sessionsOutsideEffectiveHours } = await deps.auditSessionsOutsideHours.execute({
+        centerCode: deps.envelopeContext().centerCode,
+      });
+      return {
+        sessionsOutsideEffectiveHours: sessionsOutsideEffectiveHours.map((stranded) => ({
+          session: toSessionOccurrenceView(stranded.session),
+          reason: stranded.reason,
+        })),
+      };
+    },
+    'session.cancel': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      // Not swallowed like *.archive: an unknown, foreign-center, or
+      // already-cancelled occurrence id (SessionNotFoundError) is rejected rather
+      // than silently no-op'ing, so a stale renderer id can never look like success.
+      await deps.cancelSession.execute({
+        centerCode,
+        id: request.id as SessionId,
+        updatedBy,
+      });
+      return { ok: true as const };
     },
     'attendance.record': async (request) => {
       const { centerCode, deviceOrigin, updatedBy } = deps.envelopeContext();
