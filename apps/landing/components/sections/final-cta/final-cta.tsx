@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { ArrowRight, Download } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
+import { buttonVariants } from "@/components/ui/button";
 
 export async function FinalCta() {
   const t = await getTranslations("final_cta");
@@ -24,21 +25,27 @@ export async function FinalCta() {
         </p>
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Button
-            size="lg"
-            className="bg-white text-primary hover:bg-teal-50"
+          <Link
+            href={{ pathname: "/", hash: "programme-fondateur" }}
+            className={buttonVariants({
+              size: "lg",
+              className: "bg-white text-primary hover:bg-teal-50",
+            })}
           >
             <Download aria-hidden="true" />
             {t("cta.download")}
-          </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            className="border-white/40 bg-transparent text-white hover:bg-white/10"
+          </Link>
+          <Link
+            href={{ pathname: "/", hash: "programme-fondateur" }}
+            className={buttonVariants({
+              size: "lg",
+              variant: "outline",
+              className: "border-white/40 bg-transparent text-white hover:bg-white/10",
+            })}
           >
             {t("cta.demo")}
             <ArrowRight aria-hidden="true" className="rtl:rotate-180" />
-          </Button>
+          </Link>
         </div>
       </div>
     </section>
