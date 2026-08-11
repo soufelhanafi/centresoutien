@@ -24,12 +24,6 @@ function groupByWeekday(
   })).filter((group) => group.rows.length > 0);
 }
 
-/**
- * SOU-178: lists every active weekly recurring template grouped by weekday, so
- * an admin can review and edit the whole week without hunting through the
- * calendar grid. Reuses {@link AllSessionsRow} for the inline edit flow and
- * {@link useWeekSessions} for the same enriched read model the grid consumes.
- */
 export function AllSessionsDrawer({
   open,
   onOpenChange,
