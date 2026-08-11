@@ -11,10 +11,10 @@ import { useSessionFormOptions } from '../../hooks/planning/use-session-form-opt
 import { toFormInput } from '../../lib/planning/session-view-to-form';
 import { toSessionInput, type SessionFormValues } from '../../lib/planning/session-form-schema';
 import { mapSessionWriteError, type SessionWriteErrorCode } from '../../lib/planning/session-write-error';
+import { localizedText } from '../../lib/planning/localized-text';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 
-function summaryLabel(session: PlannerSessionView, subjectFallback: string): string {
-  const subject = session.subjectName?.fr ?? subjectFallback;
+function summaryLabel(session: PlannerSessionView, subject: string): string {
   return `${session.start}–${session.end} · ${subject}`;
 }
 
@@ -26,7 +26,7 @@ function summaryLabel(session: PlannerSessionView, subjectFallback: string): str
  * points into editing a weekly template stay behaviorally identical.
  */
 export function AllSessionsRow({ session }: { session: PlannerSessionView }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const formId = useId();
   const [expanded, setExpanded] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
@@ -34,6 +34,8 @@ export function AllSessionsRow({ session }: { session: PlannerSessionView }) {
   const update = useUpdateSession(session.id);
   const cancel = useCancelSession(session.id);
   const options = useSessionFormOptions();
+  const subject =
+    session.subjectName === null ? t('planning.unknownSubject') : localizedText(session.subjectName, i18n.language);
 
   const handleSubmit = async (values: SessionFormValues) => {
     setErrorCodes([]);
@@ -67,7 +69,7 @@ export function AllSessionsRow({ session }: { session: PlannerSessionView }) {
         aria-expanded={expanded}
         onClick={() => setExpanded((open) => !open)}
       >
-        <span className="truncate">{summaryLabel(session, t('planning.allSessions.noSubject'))}</span>
+        <span className="truncate">{summaryLabel(session, subject)}</span>
         <span className="flex items-center gap-2 text-muted-foreground">
           <span className="truncate">{session.roomName ?? t('planning.allSessions.noRoom')}</span>
           <ChevronDown
