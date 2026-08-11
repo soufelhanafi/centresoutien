@@ -8,6 +8,7 @@ import {
   Boxes,
   DoorOpen,
   CalendarDays,
+  CalendarClock,
   ReceiptText,
   CircleAlert,
   Wallet,
@@ -49,6 +50,7 @@ export const formulasModule = { id: 'formulas', path: '/formulas', icon: Layers 
 export const groupsModule = { id: 'groups', path: '/groups', icon: Boxes } as const satisfies NavModule;
 export const roomsModule = { id: 'rooms', path: '/rooms', icon: DoorOpen } as const satisfies NavModule;
 export const planningModule = { id: 'planning', path: '/planning', icon: CalendarDays } as const satisfies NavModule;
+export const scheduleAuditModule = { id: 'scheduleAudit', path: '/schedule-audit', icon: CalendarClock, feature: 'settings.center-hours' } as const satisfies NavModule;
 export const invoicingModule = { id: 'invoicing', path: '/invoicing', icon: ReceiptText } as const satisfies NavModule;
 export const arrearsModule = { id: 'arrears', path: '/arrears', icon: CircleAlert } as const satisfies NavModule;
 export const paymentsModule = { id: 'payments', path: '/payments', icon: Wallet } as const satisfies NavModule;
@@ -67,6 +69,7 @@ export const NAV_MODULES: readonly NavModule[] = [
   groupsModule,
   roomsModule,
   planningModule,
+  scheduleAuditModule,
   invoicingModule,
   arrearsModule,
   paymentsModule,
