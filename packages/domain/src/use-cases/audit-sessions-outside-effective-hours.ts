@@ -14,6 +14,7 @@ import { SessionConflictPolicy } from '../policies/session-conflict-policy';
 import { resolveEffectiveWindows } from '../policies/center-hours-override-policy';
 import { holidayOn } from '../policies/holiday-policy';
 import { weekdayOf } from '../value-objects/date-range';
+import { resolveWeek } from './weekly-session-scheduling';
 
 /**
  * Why a materialized session no longer sits in any valid window. A stranded
@@ -61,9 +62,12 @@ export type AuditSessionsOutsideEffectiveHoursInput = {
  * - {@link holidayOn} decides the holiday case (fixed vs lunar recurrence math),
  * - {@link resolveEffectiveWindows} resolves the date's windows with override
  *   precedence over static hours (an override covering the date wins; otherwise
- *   the static weekday hours apply; `null` means the center configured no hours
- *   for that date and the audit imposes no hours constraint — exactly the
- *   generator's pre-SOU-165 stance), and
+ *   the static weekday hours apply; `null` means no hours constraint for that
+ *   date). The static week is first normalized through {@link resolveWeek} — the
+ *   same shared fallback the generator uses — so a fresh center with no persisted
+ *   `CenterHours` rows audits against the default 09:00–18:00 week rather than
+ *   reading as unconstrained (which would false-clean out-of-default occurrences),
+ *   and
  * - {@link SessionConflictPolicy.withinWindows} performs the pure fit test.
  *
  * Holiday takes precedence over hours so each stranded occurrence carries one
@@ -76,7 +80,8 @@ export type AuditSessionsOutsideEffectiveHoursInput = {
  * The sweep is bounded to today-and-forward (UTC civil date from the injected
  * `Clock`): the report is a call to action on sessions that will still happen,
  * so a past occurrence — which may already carry recorded attendance — is never
- * surfaced or offered for cancellation.
+ * surfaced or offered for cancellation. That floor is passed to the read port and
+ * applied in SQL, so history is never materialized just to be discarded.
  */
 export class AuditSessionsOutsideEffectiveHours {
   constructor(
@@ -93,21 +98,20 @@ export class AuditSessionsOutsideEffectiveHours {
   ): Promise<AuditSessionsOutsideEffectiveHoursResult> {
     this.plan.require('settings.center-hours');
 
+    const today = this.clock.now().toISOString().slice(0, 10);
     const [sessions, holidays, week, overrides] = await Promise.all([
-      this.occurrences.listActiveOccurrenceViews(input.centerCode),
+      this.occurrences.listActiveOccurrenceViews(input.centerCode, today),
       this.holidays.listActive(input.centerCode),
       this.centerHours.listForCenter(input.centerCode),
       this.overrides.listForCenter(input.centerCode),
     ]);
 
     const staticDayByWeekday = new Map<WeekdayIndex, DayHours>(
-      week.map((day) => [day.dayOfWeek, day]),
+      resolveWeek(week).map((day) => [day.dayOfWeek, day]),
     );
 
-    const today = this.clock.now().toISOString().slice(0, 10);
     const sessionsOutsideEffectiveHours: StrandedSession[] = [];
     for (const session of sessions) {
-      if (session.date < today) continue;
       const reason = this.reasonFor(session, holidays, overrides, staticDayByWeekday);
       if (reason !== null) sessionsOutsideEffectiveHours.push({ session, reason });
     }

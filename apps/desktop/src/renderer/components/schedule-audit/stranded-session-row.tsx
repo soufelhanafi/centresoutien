@@ -29,6 +29,10 @@ export function StrandedSessionRow({ stranded }: { stranded: StrandedSessionView
   const teacher = session.teacherName ? localizedText(session.teacherName, locale) : null;
   const confirmCancel = () =>
     cancelMutation.mutate(session.id, { onSuccess: () => setConfirmOpen(false) });
+  const handleOpenChange = (open: boolean) => {
+    if (!open) cancelMutation.reset();
+    setConfirmOpen(open);
+  };
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
@@ -78,9 +82,10 @@ export function StrandedSessionRow({ stranded }: { stranded: StrandedSessionView
 
       <CancelStrandedSessionDialog
         open={confirmOpen}
-        onOpenChange={setConfirmOpen}
+        onOpenChange={handleOpenChange}
         onConfirm={confirmCancel}
         pending={cancelMutation.isPending}
+        failed={cancelMutation.isError}
       />
     </li>
   );

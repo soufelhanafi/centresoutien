@@ -19,13 +19,18 @@ import type { CenterCode } from '../value-objects/ids';
  */
 export interface SessionOccurrenceViewReadPort {
   /**
-   * Every live (non-tombstoned) occurrence of the center as an enriched view,
-   * ordered by `date` then `start` — the full set the audit sweeps. A cancelled
+   * Live (non-tombstoned) occurrences of the center dated `fromDate` (inclusive,
+   * civil `YYYY-MM-DD`) onward, as enriched views ordered by `date` then `start`.
+   * The date floor is applied in SQL so history never materializes — the audit is
+   * today-forward, so the caller passes today's civil date. A cancelled
    * (soft-deleted) occurrence is excluded here, so the audit never reports a row
    * the operator already cancelled. Occurrences whose group/room/teacher is
    * missing or archived are still returned, with the affected fields degraded to
    * their neutral fallback (see {@link SessionOccurrenceView}). Scoped to one
    * center; never crosses a tenant boundary.
    */
-  listActiveOccurrenceViews(centerCode: CenterCode): Promise<readonly SessionOccurrenceView[]>;
+  listActiveOccurrenceViews(
+    centerCode: CenterCode,
+    fromDate: string,
+  ): Promise<readonly SessionOccurrenceView[]>;
 }

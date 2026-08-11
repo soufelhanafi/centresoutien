@@ -202,7 +202,6 @@ test('Scenario 5 — the page/nav entry is gated by settings.center-hours', asyn
   await win.evaluate(() => {
     window.location.hash = '#/schedule-audit';
   });
-  await win.waitForTimeout(700);
 
   await expect(win.getByText(L.gateTitle)).toBeVisible();
   await expect(win.getByRole('button', { name: L.gateCta })).toBeVisible();

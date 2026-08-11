@@ -14,6 +14,7 @@ type CancelStrandedSessionDialogProps = {
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   pending: boolean;
+  failed: boolean;
 };
 
 /**
@@ -28,6 +29,7 @@ export function CancelStrandedSessionDialog({
   onOpenChange,
   onConfirm,
   pending,
+  failed,
 }: CancelStrandedSessionDialogProps) {
   const { t } = useTranslation();
 
@@ -38,6 +40,11 @@ export function CancelStrandedSessionDialog({
           <DialogTitle>{t('scheduleAudit.cancel.title')}</DialogTitle>
           <DialogDescription>{t('scheduleAudit.cancel.body')}</DialogDescription>
         </DialogHeader>
+        {failed ? (
+          <p role="alert" className="text-sm text-destructive">
+            {t('scheduleAudit.cancel.error')}
+          </p>
+        ) : null}
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             {t('scheduleAudit.cancel.dismiss')}

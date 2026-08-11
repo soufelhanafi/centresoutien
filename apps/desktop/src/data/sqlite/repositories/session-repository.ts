@@ -183,8 +183,10 @@ function fromOccurrenceViewRow(row: OccurrenceViewRow): SessionOccurrenceView {
  * JOINs so an occurrence with no live group/room/teacher is kept (degraded),
  * never dropped; each join filters `deleted_at IS NULL` so an archived relation
  * reads as absent. The session itself must be live (`ses.deleted_at IS NULL`) so
- * a cancelled occurrence never surfaces in the audit. Ordered by date then start
- * time — the port's contract, served here without a re-sort.
+ * a cancelled occurrence never surfaces in the audit. Bounded to `ses.date >= ?`
+ * (the caller's today-forward floor) so SQLite skips historical rows instead of
+ * the use case discarding them after the join. Ordered by date then start time —
+ * the port's contract, served here without a re-sort.
  */
 const LIST_ACTIVE_OCCURRENCE_VIEW_SQL = `
   SELECT
@@ -209,7 +211,7 @@ const LIST_ACTIVE_OCCURRENCE_VIEW_SQL = `
   LEFT JOIN teachers t ON t.id = ses.teacher_id AND t.deleted_at IS NULL
   LEFT JOIN groups   g ON g.id = ses.group_id   AND g.deleted_at IS NULL
   LEFT JOIN subjects s ON s.id = g.subject_id   AND s.deleted_at IS NULL
-  WHERE ses.center_code = ? AND ses.deleted_at IS NULL
+  WHERE ses.center_code = ? AND ses.deleted_at IS NULL AND ses.date >= ?
   ORDER BY ses.date, ses.start_time
 `;
 
@@ -347,10 +349,11 @@ export class SqliteSessionRepository
 
   async listActiveOccurrenceViews(
     centerCode: CenterCode,
+    fromDate: string,
   ): Promise<readonly SessionOccurrenceView[]> {
     const rows = this.db
       .prepare(LIST_ACTIVE_OCCURRENCE_VIEW_SQL)
-      .all(centerCode) as OccurrenceViewRow[];
+      .all(centerCode, fromDate) as OccurrenceViewRow[];
     return rows.map(fromOccurrenceViewRow);
   }
 }

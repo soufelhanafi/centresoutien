@@ -1255,7 +1255,8 @@
       "body": "Seule cette séance sera retirée du planning. La séance hebdomadaire et les autres dates ne changent pas.",
       "confirm": "Annuler la séance",
       "pending": "Annulation…",
-      "dismiss": "Retour"
+      "dismiss": "Retour",
+      "error": "L'annulation a échoué. La séance a peut-être déjà été annulée sur un autre poste. La liste a été actualisée."
     },
     "empty": {
       "title": "Aucune séance hors horaires",

@@ -28,10 +28,11 @@ export class InMemorySessionOccurrenceViewReadPort implements SessionOccurrenceV
 
   async listActiveOccurrenceViews(
     centerCode: CenterCode,
+    fromDate: string,
   ): Promise<readonly SessionOccurrenceView[]> {
     void centerCode; // single-center fake: the view model carries no centerCode to filter on.
     return this.views
-      .filter((view) => !this.tombstoned.has(view.id))
+      .filter((view) => !this.tombstoned.has(view.id) && view.date >= fromDate)
       .sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start));
   }
 }

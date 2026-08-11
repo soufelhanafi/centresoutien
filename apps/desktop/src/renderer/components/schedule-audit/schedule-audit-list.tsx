@@ -20,7 +20,7 @@ export function ScheduleAuditList({ status, stranded, onRetry }: ScheduleAuditLi
     return (
       <div className="space-y-2" aria-busy="true">
         {[0, 1, 2].map((row) => (
-          <Skeleton key={row} className="h-[92px] w-full rounded-xl" />
+          <Skeleton key={row} className="h-24 w-full rounded-xl" />
         ))}
       </div>
     );
