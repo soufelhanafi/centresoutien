@@ -12,6 +12,8 @@ import { gapViolations, satisfiesMinGap, type WeekdayGap } from '../policies/wee
 import { endDateAfterWeekdayOccurrences, type DateRange } from '../value-objects/date-range';
 import {
   detectGeneratedScheduleConflicts,
+  generatedCandidateToScheduledRef,
+  type GeneratedBlockCandidate,
   type GeneratedScheduleConflict,
 } from '../policies/generated-schedule-conflicts';
 import { InfeasibleGeneratorConfigError, NoRoomsConfiguredError } from '../errors/session-generator-errors';
@@ -133,11 +135,18 @@ export function resolveGeneratorMaterializationRange(
   };
 }
 
-/** A block awaiting a room, still tagged with the group and teacher it belongs to. */
-type UnroomedProposal = {
-  readonly groupId: GroupId;
-  readonly blocks: readonly WeeklyBlock[];
-  readonly gapViolations: readonly WeekdayGap[];
+/**
+ * The per-run inputs every group placement reads, bundled so the placement
+ * helpers stay small. `existingSchedule` is the real, already-committed schedule
+ * (SOU-161); the mutable list of blocks committed earlier *in this same run* is
+ * threaded separately, since it grows group by group.
+ */
+type GroupPlacementContext = {
+  readonly openByWeekday: ReadonlyMap<WeekdayIndex, TimeOfDay>;
+  readonly rooms: readonly RoomId[];
+  readonly teacherByGroup: ReadonlyMap<GroupId, EntityId | null>;
+  readonly existingSchedule: readonly ScheduledSessionRef[];
+  readonly centerHours: readonly DayHours[];
 };
 
 /**
@@ -229,18 +238,25 @@ function linkBackToBackChains(entries: readonly UnroomedBlock[]): ReadonlyMap<Un
  * measured circularly around the week (see {@link circularWeekdayGaps}), so a
  * Monday session forces the next no earlier than `minGapDays` later.
  *
- * Room assignment (SOU-158, not SOU-161) picks a room at random from
- * `input.rooms` via the injected {@link RandomPort} for every generated block,
- * with one exception: when the same teacher has two blocks back-to-back on the
- * same weekday within this same run (one block's `end` equals another's
- * `start`), the later block reuses the earlier block's room instead of
- * drawing a fresh one, so the teacher never has to switch rooms between
- * consecutive classes. This reasoning is **intra-batch only** — it never reads
- * the real, already-committed schedule; a room draw here can still land on
- * one already occupied by an existing session or by another group's proposal
- * in this same run. Catching that is a separate pass, {@link
- * detectGeneratedScheduleConflicts} (SOU-161) — it never changes the picked
- * room, only reports the clash for the caller to act on.
+ * Room assignment runs in two stages. The per-group day search (SOU-182)
+ * rooms each candidate weekday combo on its own via {@link roomBlocksForGroup},
+ * so {@link isConflictFree} has a concrete room to detect a double-booking
+ * against while it hunts for a clean weekday set. Once every group has committed
+ * its combo, one **run-wide** final pass re-rooms every committed block together
+ * through a single {@link assignRoomsToBlocks} call: it draws a room at random
+ * from `input.rooms` via the injected {@link RandomPort} for each block, with
+ * one exception — when the same teacher has two blocks back-to-back on the same
+ * weekday *anywhere in the run* (one block's `end` equals another's `start`),
+ * the later block reuses the earlier block's room instead of drawing a fresh
+ * one, so the teacher never switches rooms between consecutive classes even when
+ * those classes belong to different groups. Rooming the whole run together — not
+ * group by group — is what lets that continuity chain span groups. This
+ * reasoning is **intra-batch only**: it never reads the real, already-committed
+ * schedule, so a room draw here can still land on one already occupied by an
+ * existing session or by another group's proposal in this same run. Catching
+ * that is the final pass, {@link detectGeneratedScheduleConflicts} (SOU-161),
+ * run over the re-roomed blocks — it never changes the picked room, only reports
+ * the clash for the caller to act on.
  *
  * Randomization runs through the injected {@link RandomPort}, never
  * `Math.random()`, so a seeded fake makes every test deterministic. Each
@@ -260,28 +276,37 @@ export class SessionGenerator {
   constructor(private readonly random: RandomPort) {}
 
   generate(input: SessionGenerationInput): SessionGeneratorResult {
-    const { config, groups, teacherByGroup, rooms, centerHours, existingSchedule } = input;
+    const { config, groups, centerHours, existingSchedule } = input;
     const openByWeekday = this.openTimeByWeekday(centerHours);
     const eligiblePool = [...new Set(config.weekdayPool)].filter((day) => openByWeekday.has(day));
+    const context: GroupPlacementContext = {
+      openByWeekday,
+      rooms: input.rooms,
+      teacherByGroup: input.teacherByGroup,
+      existingSchedule,
+      centerHours,
+    };
 
-    const unroomed = groups.map((groupId) =>
-      config.mode === 'auto'
-        ? this.autoProposal(groupId, config, eligiblePool, openByWeekday)
-        : this.customProposal(groupId, config, openByWeekday),
-    );
+    const committed: GeneratedBlockCandidate[] = [];
+    const searched: GroupScheduleProposal[] = [];
+    for (const groupId of groups) {
+      const proposal =
+        config.mode === 'auto'
+          ? this.placeAutoGroup(groupId, config, eligiblePool, context, committed)
+          : this.placeCustomGroup(groupId, config, context);
+      searched.push(proposal);
+      for (const scheduled of proposal.blocks) {
+        committed.push({
+          groupId,
+          block: scheduled.block,
+          roomId: scheduled.roomId,
+          teacherId: scheduled.teacherId,
+        });
+      }
+    }
 
-    const roomByBlock = this.assignRooms(unroomed, teacherByGroup, rooms);
-    const proposals = unroomed.map((proposal) => ({
-      groupId: proposal.groupId,
-      blocks: proposal.blocks.map((block) => ({
-        block,
-        roomId: roomByBlock.get(block)!,
-        teacherId: teacherByGroup.get(proposal.groupId) ?? null,
-      })),
-      gapViolations: proposal.gapViolations,
-    }));
-
-    const candidates = proposals.flatMap((proposal) =>
+    const proposals = this.assignRunWideRooms(searched, context);
+    const roomedCommitted = proposals.flatMap((proposal) =>
       proposal.blocks.map((scheduled) => ({
         groupId: proposal.groupId,
         block: scheduled.block,
@@ -289,96 +314,178 @@ export class SessionGenerator {
         teacherId: scheduled.teacherId,
       })),
     );
-    const conflicts = detectGeneratedScheduleConflicts(candidates, existingSchedule, centerHours);
-
+    const conflicts = detectGeneratedScheduleConflicts(roomedCommitted, existingSchedule, centerHours);
     return { proposals, conflicts };
   }
 
-  private autoProposal(
+  /**
+   * Re-rooms every committed block of the run in one {@link assignRoomsToBlocks}
+   * pass, replacing the provisional per-group rooms the day search drew
+   * ({@link roomBlocksForGroup}). Rooming the whole run together — rather than
+   * group by group — is what lets the same-teacher back-to-back continuity rule
+   * span groups: a teacher teaching group A then group B back-to-back on one
+   * weekday keeps a single room, which a per-group pass could never see.
+   */
+  private assignRunWideRooms(
+    proposals: readonly GroupScheduleProposal[],
+    context: GroupPlacementContext,
+  ): readonly GroupScheduleProposal[] {
+    const entries: UnroomedBlock[] = proposals.flatMap((proposal) =>
+      proposal.blocks.map((scheduled) => ({
+        groupId: proposal.groupId,
+        teacherId: context.teacherByGroup.get(proposal.groupId) ?? null,
+        block: scheduled.block,
+      })),
+    );
+    const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random);
+    return proposals.map((proposal) => ({
+      ...proposal,
+      blocks: proposal.blocks.map((scheduled) => ({
+        block: scheduled.block,
+        roomId: roomByBlock.get(scheduled.block)!,
+        teacherId: scheduled.teacherId,
+      })),
+    }));
+  }
+
+  /**
+   * Places one group by searching **every** min-gap-valid weekday combination
+   * (SOU-182), not just the first: it commits the first combo whose roomed
+   * blocks clash with nothing — neither the real committed schedule nor a group
+   * already placed earlier in this same run. Only a true dead-end, where no
+   * valid combo is conflict-free, falls back to the first valid combo and lets
+   * {@link detectGeneratedScheduleConflicts} surface the clash to the caller.
+   * The search is greedy across groups (no cross-group backtracking) and day-only
+   * — each block still anchors at its weekday's opening time.
+   */
+  private placeAutoGroup(
     groupId: GroupId,
     config: SessionGeneratorConfigBase,
     eligiblePool: readonly WeekdayIndex[],
-    openByWeekday: ReadonlyMap<WeekdayIndex, TimeOfDay>,
-  ): UnroomedProposal {
-    const weekdays = this.selectWeekdays(eligiblePool, config.sessionsPerWeek, config.minGapDays);
-    return {
-      groupId,
-      blocks: this.buildBlocks(weekdays, openByWeekday, config.sessionDurationMinutes),
-      gapViolations: [],
-    };
+    context: GroupPlacementContext,
+    committed: readonly GeneratedBlockCandidate[],
+  ): GroupScheduleProposal {
+    const combinations = this.feasibleCombinations(eligiblePool, config.sessionsPerWeek, config.minGapDays);
+    let firstCommittable: readonly ScheduledBlockProposal[] | undefined;
+    for (const weekdays of combinations) {
+      const blocks = this.roomBlocksForGroup(groupId, weekdays, config, context);
+      firstCommittable ??= blocks;
+      if (this.isConflictFree(groupId, blocks, context, committed)) {
+        return { groupId, blocks, gapViolations: [] };
+      }
+    }
+    return { groupId, blocks: firstCommittable!, gapViolations: [] };
   }
 
-  private customProposal(
+  private placeCustomGroup(
     groupId: GroupId,
     config: SessionGeneratorConfigBase & { readonly pickedWeekdays: readonly WeekdayIndex[] },
-    openByWeekday: ReadonlyMap<WeekdayIndex, TimeOfDay>,
-  ): UnroomedProposal {
+    context: GroupPlacementContext,
+  ): GroupScheduleProposal {
     return {
       groupId,
-      blocks: this.buildBlocks(config.pickedWeekdays, openByWeekday, config.sessionDurationMinutes),
+      blocks: this.roomBlocksForGroup(groupId, config.pickedWeekdays, config, context),
       gapViolations: gapViolations(config.pickedWeekdays, config.minGapDays),
     };
   }
 
   /**
-   * Flattens every proposal's blocks into {@link UnroomedBlock} entries (each
-   * tagged with its group's teacher) and hands them to
-   * {@link assignRoomsToBlocks}, keyed back by block identity (a `WeeklyBlock`
-   * object is unique per generated occurrence, so it doubles as the map key).
+   * Builds the group's weekly blocks for `weekdays` and gives each a
+   * *provisional* room via {@link assignRoomsToBlocks}, keyed back by block
+   * identity — a `WeeklyBlock` object is unique per generated occurrence, so it
+   * doubles as the map key. These rooms exist only so the per-group day search
+   * ({@link isConflictFree}) has a concrete room to detect a double-booking
+   * against; {@link generate}'s run-wide final pass ({@link assignRunWideRooms})
+   * re-rooms every committed block together, so this per-group draw never
+   * survives into the result.
    */
-  private assignRooms(
-    proposals: readonly UnroomedProposal[],
-    teacherByGroup: ReadonlyMap<GroupId, EntityId | null>,
-    rooms: readonly RoomId[],
-  ): ReadonlyMap<WeeklyBlock, RoomId> {
-    const entries: UnroomedBlock[] = [];
-    for (const proposal of proposals) {
-      for (const block of proposal.blocks) {
-        entries.push({ groupId: proposal.groupId, teacherId: teacherByGroup.get(proposal.groupId) ?? null, block });
-      }
-    }
-    return assignRoomsToBlocks(entries, rooms, this.random);
+  private roomBlocksForGroup(
+    groupId: GroupId,
+    weekdays: readonly WeekdayIndex[],
+    config: SessionGeneratorConfigBase,
+    context: GroupPlacementContext,
+  ): readonly ScheduledBlockProposal[] {
+    const blocks = this.buildBlocks(weekdays, context.openByWeekday, config.sessionDurationMinutes);
+    const teacherId = context.teacherByGroup.get(groupId) ?? null;
+    const entries: UnroomedBlock[] = blocks.map((block) => ({ groupId, teacherId, block }));
+    const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random);
+    return blocks.map((block) => ({ block, roomId: roomByBlock.get(block)!, teacherId }));
   }
 
-  private selectWeekdays(
+  /**
+   * True when this group's roomed blocks clash with nothing the caller supplied:
+   * the real committed schedule plus every group already placed in this run
+   * (widened to {@link ScheduledSessionRef} so the checks treat them like
+   * persisted sessions). Reuses {@link detectGeneratedScheduleConflicts} so the
+   * search avoids exactly the clashes the run would otherwise report.
+   */
+  private isConflictFree(
+    groupId: GroupId,
+    blocks: readonly ScheduledBlockProposal[],
+    context: GroupPlacementContext,
+    committed: readonly GeneratedBlockCandidate[],
+  ): boolean {
+    const candidates: GeneratedBlockCandidate[] = blocks.map((scheduled) => ({
+      groupId,
+      block: scheduled.block,
+      roomId: scheduled.roomId,
+      teacherId: scheduled.teacherId,
+    }));
+    const priorRuns = committed.map(generatedCandidateToScheduledRef);
+    const conflicts = detectGeneratedScheduleConflicts(
+      candidates,
+      [...context.existingSchedule, ...priorRuns],
+      context.centerHours,
+    );
+    return conflicts.length === 0;
+  }
+
+  private feasibleCombinations(
     eligiblePool: readonly WeekdayIndex[],
     sessionsPerWeek: number,
     minGapDays: number,
-  ): readonly WeekdayIndex[] {
+  ): readonly (readonly WeekdayIndex[])[] {
     if (sessionsPerWeek < 1) {
       throw new InfeasibleGeneratorConfigError('non-positive-sessions-per-week', eligiblePool, sessionsPerWeek, minGapDays);
     }
     if (sessionsPerWeek > eligiblePool.length) {
       throw new InfeasibleGeneratorConfigError('pool-smaller-than-sessions', eligiblePool, sessionsPerWeek, minGapDays);
     }
-    const found = this.firstFeasibleCombination(this.shuffle(eligiblePool), sessionsPerWeek, minGapDays);
-    if (found === null) {
+    const combinations = this.minGapCombinations(this.shuffle(eligiblePool), sessionsPerWeek, minGapDays);
+    if (combinations.length === 0) {
       throw new InfeasibleGeneratorConfigError('gap-unsatisfiable', eligiblePool, sessionsPerWeek, minGapDays);
     }
-    return [...found].sort((a, b) => a - b);
+    return combinations;
   }
 
-  private firstFeasibleCombination(
+  /**
+   * Every size-`size` subset of `pool` that honors `minGapDays`, in the pool's
+   * (already shuffled) depth-first order — so the caller's "first" is stable for
+   * a given seed. Same enumeration the old single-shot search walked; it now
+   * yields all matches instead of stopping at the first.
+   */
+  private minGapCombinations(
     pool: readonly WeekdayIndex[],
     size: number,
     minGapDays: number,
-  ): readonly WeekdayIndex[] | null {
-    const combination: WeekdayIndex[] = [];
-    const search = (start: number): readonly WeekdayIndex[] | null => {
-      if (combination.length === size) {
-        return satisfiesMinGap(combination, minGapDays) ? [...combination] : null;
+  ): readonly (readonly WeekdayIndex[])[] {
+    const combinations: (readonly WeekdayIndex[])[] = [];
+    const current: WeekdayIndex[] = [];
+    const search = (start: number): void => {
+      if (current.length === size) {
+        if (satisfiesMinGap(current, minGapDays)) combinations.push([...current]);
+        return;
       }
       for (let i = start; i < pool.length; i += 1) {
         const day = pool[i];
         if (day === undefined) continue;
-        combination.push(day);
-        const result = search(i + 1);
-        combination.pop();
-        if (result !== null) return result;
+        current.push(day);
+        search(i + 1);
+        current.pop();
       }
-      return null;
     };
-    return search(0);
+    search(0);
+    return combinations;
   }
 
   private shuffle(items: readonly WeekdayIndex[]): readonly WeekdayIndex[] {
