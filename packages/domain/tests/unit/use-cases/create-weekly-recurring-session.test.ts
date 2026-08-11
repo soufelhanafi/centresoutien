@@ -33,6 +33,7 @@ import type {
 } from '../../../src/entities/center-hours-override';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
+import type { TimeWindow } from '../../../src/value-objects/time-window';
 import type { WeekdayIndex } from '../../../src/value-objects/weekday';
 import { InMemoryWeeklyRecurringSessionRepository } from '../fakes/in-memory-weekly-recurring-session-repository';
 import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-repository';
@@ -116,14 +117,13 @@ function seededSession(over: Partial<WeeklyRecurringSession> = {}): WeeklyRecurr
   };
 }
 
-function seededHours(dayOfWeek: WeekdayIndex, open: string | null, close: string | null): CenterHours {
+function seededHours(dayOfWeek: WeekdayIndex, windows: readonly TimeWindow[]): CenterHours {
   seq += 1;
   return {
     id: `chr_${String(seq).padStart(26, '0')}` as CenterHoursId,
     ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
     dayOfWeek,
-    open: open as TimeOfDay | null,
-    close: close as TimeOfDay | null,
+    windows,
   };
 }
 
@@ -289,7 +289,7 @@ describe('CreateWeeklyRecurringSession', () => {
     it('uses the center CONFIGURED hours over the default when they are saved', async () => {
       // Monday configured 08:00–12:00: an 08:30 slot (before the 09:00 default open)
       // is now allowed, proving the configured week — not the default — is read.
-      await hours.save(seededHours(1, '08:00', '12:00'));
+      await hours.save(seededHours(1, windows(['08:00', '12:00'])));
       const session = await useCase.execute(
         validInput({ start: '08:30' as TimeOfDay, end: '09:30' as TimeOfDay }),
       );
