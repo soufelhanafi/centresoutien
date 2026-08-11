@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type { DesktopApi } from '../shared/ipc/api';
 import type { IpcChannel, IpcRequest, IpcResponse } from '../shared/ipc/contract';
 import { CENTER_CHANGED_EVENT, type CenterChangedEvent } from '../shared/ipc/center-events';
+import {
+  UPDATE_STATUS_EVENT,
+  UPDATE_RESTART_COMMAND,
+  type UpdateStatusEvent,
+} from '../shared/ipc/update-events';
 
 /**
  * The only bridge across the isolation boundary. It forwards typed invocations
@@ -27,6 +32,13 @@ const api: DesktopApi = {
     ipcRenderer.on(CENTER_CHANGED_EVENT, subscription);
     return () => ipcRenderer.removeListener(CENTER_CHANGED_EVENT, subscription);
   },
+  onUpdateStatus: (listener: (event: UpdateStatusEvent) => void): (() => void) => {
+    const subscription = (_event: IpcRendererEvent, payload: UpdateStatusEvent): void =>
+      listener(payload);
+    ipcRenderer.on(UPDATE_STATUS_EVENT, subscription);
+    return () => ipcRenderer.removeListener(UPDATE_STATUS_EVENT, subscription);
+  },
+  restartNow: (): void => ipcRenderer.send(UPDATE_RESTART_COMMAND),
 };
 
 contextBridge.exposeInMainWorld('api', api);
