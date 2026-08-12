@@ -20,9 +20,10 @@ function renderWizard(onComplete = vi.fn()) {
 
 /**
  * Stateful stub of the preload bridge for the channels the wizard touches. It
- * remembers the saved center so returning to the (now real, SOU-111) Center
- * Profile step re-hydrates its fields, mirroring the real `center.save` /
- * `center.get` round trip.
+ * remembers the saved center (so the real Center Profile step re-hydrates on
+ * Back) and answers `admin.create`. Default center hours are seeded in the
+ * domain at center creation (SOU-235), so the wizard no longer touches
+ * `centerHours.*` or `holiday.*`.
  */
 function stubApi() {
   let savedCenter: Record<string, unknown> | null = null;
@@ -41,10 +42,17 @@ function stubApi() {
   });
 }
 
-/** Fill the mandatory Center Profile fields (name + valid phone) and continue. */
+/** Fill the mandatory Center Profile fields (name + valid phone). */
 async function fillCenter(user: ReturnType<typeof userEvent.setup>) {
   await user.type(await screen.findByLabelText('Nom du centre'), 'Centre principal');
   await user.type(screen.getByLabelText('Téléphone'), '+212612345678');
+}
+
+/** Fill the mandatory Admin Account fields with valid credentials. */
+async function fillAdmin(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(await screen.findByLabelText("Nom d'utilisateur"), 'directeur');
+  await user.type(screen.getByLabelText('Mot de passe'), 'Motdepasse1');
+  await user.type(screen.getByLabelText('Confirmer le mot de passe'), 'Motdepasse1');
 }
 
 beforeEach(() => {
@@ -56,12 +64,12 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('FirstRunWizard — French walk-through (Essentiel)', () => {
+describe('FirstRunWizard — French walk-through', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('fr');
   });
 
-  it('walks every step (incl. the optional Holidays) to Done and creates the admin account once', async () => {
+  it('walks language → center-profile → admin-account → Done and creates the admin account once', async () => {
     const invoke = stubApi();
     window.api.invoke = invoke;
     const onComplete = vi.fn();
@@ -70,19 +78,17 @@ describe('FirstRunWizard — French walk-through (Essentiel)', () => {
 
     // 1. Language
     expect(screen.getByText('Choisissez la langue')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Continuer' }));
+    await user.click(screen.getByRole('button', { name: 'Continuer' })); // language -> profile
 
-    // 2. Center profile (real, mandatory — persists the center row)
+    // 2. Center Profile
     expect(await screen.findByText('Profil du centre')).toBeInTheDocument();
     await fillCenter(user);
-    await user.click(screen.getByRole('button', { name: 'Continuer' }));
+    await user.click(screen.getByRole('button', { name: 'Continuer' })); // profile -> admin
 
-    // 3. Admin account (real)
+    // 3. Admin Account
     expect(await screen.findByText('Compte administrateur')).toBeInTheDocument();
-    await user.type(screen.getByLabelText("Nom d'utilisateur"), 'directeur');
-    await user.type(screen.getByLabelText('Mot de passe'), 'Motdepasse1');
-    await user.type(screen.getByLabelText('Confirmer le mot de passe'), 'Motdepasse1');
-    await user.click(screen.getByRole('button', { name: 'Continuer' }));
+    await fillAdmin(user);
+    await user.click(screen.getByRole('button', { name: 'Continuer' })); // admin -> done
 
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith('admin.create', {
@@ -94,27 +100,27 @@ describe('FirstRunWizard — French walk-through (Essentiel)', () => {
     expect(invoke).toHaveBeenCalledWith('center.save', expect.objectContaining({ name: 'Centre principal' }));
     expect(invoke.mock.calls.filter((call) => call[0] === 'admin.create')).toHaveLength(1);
 
-    // 4. Hours (stub) -> Holidays (optional; present on every plan since SOU-30
-    //    moved settings.holidays to Essentiel)
-    expect(await screen.findByText("Horaires d'ouverture")).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Continuer' }));
-
-    // 5. Holidays (optional) -> Done
-    expect(await screen.findByRole('heading', { name: 'Jours fériés' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Continuer' }));
-
+    // Completing the admin step ends the run — no hours/holidays steps remain.
     expect(await screen.findByText('Configuration terminée')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Commencer' }));
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
-  it('does not offer a Skip button on any mandatory step', async () => {
-    window.api.invoke = vi.fn();
-    expect(useWizardStore.getState().state).toBeNull();
+  it('does not offer a Skip button on any step (every step is mandatory)', async () => {
+    window.api.invoke = stubApi();
+    const user = userEvent.setup();
     renderWizard();
 
-    // language, then profile, then hours are all mandatory — none may be skipped.
     expect(screen.getByText('Choisissez la langue')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Passer' })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Continuer' })); // language -> profile
+    expect(await screen.findByText('Profil du centre')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Passer' })).toBeNull();
+
+    await fillCenter(user);
+    await user.click(screen.getByRole('button', { name: 'Continuer' })); // profile -> admin
+    expect(await screen.findByText('Compte administrateur')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Passer' })).toBeNull();
   });
 
@@ -158,31 +164,6 @@ describe('FirstRunWizard — French walk-through (Essentiel)', () => {
     ).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalledWith('admin.create', expect.anything());
     expect(screen.getByText('Compte administrateur')).toBeInTheDocument();
-  });
-});
-
-describe('FirstRunWizard — Holidays gating (Pro)', () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage('fr');
-    usePlanStore.getState().setPlan('pro');
-    window.api.invoke = stubApi();
-  });
-
-  it('offers a Skip button on the optional Holidays step', async () => {
-    const user = userEvent.setup();
-    renderWizard();
-
-    await user.click(screen.getByRole('button', { name: 'Continuer' })); // language
-    await fillCenter(user);
-    await user.click(await screen.findByRole('button', { name: 'Continuer' })); // profile
-    await user.type(await screen.findByLabelText("Nom d'utilisateur"), 'directeur');
-    await user.type(screen.getByLabelText('Mot de passe'), 'Motdepasse1');
-    await user.type(screen.getByLabelText('Confirmer le mot de passe'), 'Motdepasse1');
-    await user.click(screen.getByRole('button', { name: 'Continuer' })); // admin
-    await user.click(await screen.findByRole('button', { name: 'Continuer' })); // hours -> holidays
-
-    expect(await screen.findByRole('heading', { name: 'Jours fériés' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Passer' })).toBeInTheDocument();
   });
 });
 

@@ -1,23 +1,22 @@
-import type { PlanPolicy } from '../plans/plan-policy';
 import {
   WizardAtFirstStepError,
   WizardCompletedError,
   WizardStepNotSkippableError,
 } from '../errors/wizard-errors';
-import { MANDATORY_STEP_IDS, isMandatoryStep, type WizardStepId } from './wizard-steps';
+import { MANDATORY_STEP_IDS, OPTIONAL_STEP_IDS, isMandatoryStep, type WizardStepId } from './wizard-steps';
 
 export type WizardStatus = 'in-progress' | 'completed';
 
 /**
  * Immutable first-run wizard state (SOU-25). `steps` is the active sequence for
- * this run — the mandatory steps, plus Holidays when the plan grants it. Every
+ * this run — the mandatory steps, plus any granted optional steps. Every
  * transition returns a fresh state and never mutates its input. Progress is
  * ephemeral: the caller holds it in memory for the session, so quitting before
  * `completed` restarts the wizard (only committed steps, e.g. the admin account,
  * survive across launches).
  *
  * This is a pure sequencer. It owns ordering and the non-skippable guarantee; it
- * does NOT own per-step field validation — each step's own schema (SOU-28/29/30)
+ * does NOT own per-step field validation — each step's own schema (SOU-28)
  * validates its data, then the caller reports success via {@link submitStep}.
  */
 export type WizardState = {
@@ -28,15 +27,13 @@ export type WizardState = {
 };
 
 /**
- * Build the initial wizard state. Holidays is appended only when the active plan
- * grants `settings.holidays` (every plan since SOU-30) — gating stays in the domain
- * via PlanPolicy, never a plan-name comparison in the UI.
+ * Build the initial wizard state: the mandatory steps followed by any optional
+ * steps. Since SOU-235 there are no optional steps — hours and holidays moved out
+ * of the wizard to Settings — so the sequence is Language → Center Profile →
+ * Admin Account, and the wizard completes once the admin account is submitted.
  */
-export function initWizard(plan: PlanPolicy): WizardState {
-  const steps: WizardStepId[] = [...MANDATORY_STEP_IDS];
-  if (plan.has('settings.holidays')) {
-    steps.push('holidays');
-  }
+export function initWizard(): WizardState {
+  const steps: WizardStepId[] = [...MANDATORY_STEP_IDS, ...OPTIONAL_STEP_IDS];
   return {
     steps,
     currentIndex: 0,
@@ -71,8 +68,9 @@ export function submitStep(state: WizardState): WizardState {
 
 /**
  * Advance past the current step without committing it. Legal only for optional
- * steps (Holidays) — mandatory steps reject with {@link WizardStepNotSkippableError}.
- * Finishing with zero holidays is a valid outcome.
+ * steps — mandatory steps reject with {@link WizardStepNotSkippableError}. Since
+ * SOU-235 there are no optional steps, so every current step is mandatory and
+ * this always rejects; the path is kept for any future optional step.
  */
 export function skipStep(state: WizardState): WizardState {
   const step = requireActiveStep(state);

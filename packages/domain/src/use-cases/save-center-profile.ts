@@ -7,6 +7,7 @@ import { newEnvelope } from '../entities/envelope';
 import { applyWrite } from '../entities/write';
 import { centerProfileSchema, type CenterProfileInput } from '../schemas/center';
 import { CENTER_ID_PREFIX, type Center, type CenterId } from '../entities/center';
+import type { SeedDefaultCenterHours } from './seed-default-center-hours';
 
 export type SaveCenterProfileInput = CenterProfileInput & {
   logoPath: string | null;
@@ -23,12 +24,18 @@ export type SaveCenterProfileInput = CenterProfileInput & {
  * so `updatedAt`/`updatedBy` and the per-field change log stay correct for sync.
  * The `plan` and identity fields are never touched on update. Every-plan
  * feature — no plan gate.
+ *
+ * On first creation it also seeds the center's default weekly hours (SOU-235)
+ * through {@link SeedDefaultCenterHours}, so a brand-new center can schedule
+ * sessions before the admin opens Settings. The seeder is idempotent, so an
+ * update never re-seeds.
  */
 export class SaveCenterProfile {
   constructor(
     private readonly centers: CenterRepository,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    private readonly seedDefaultCenterHours: SeedDefaultCenterHours,
   ) {}
 
   async execute(input: SaveCenterProfileInput): Promise<Center> {
@@ -57,6 +64,11 @@ export class SaveCenterProfile {
         plan: input.seedPlan,
       };
       await this.centers.save(center);
+      await this.seedDefaultCenterHours.execute({
+        centerCode: input.centerCode,
+        deviceOrigin: input.deviceOrigin,
+        updatedBy: input.updatedBy,
+      });
       return center;
     }
 

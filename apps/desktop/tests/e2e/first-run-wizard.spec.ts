@@ -17,9 +17,13 @@ import {
  * Critical-only per SOU-142: kept scenarios are the full happy path (proves
  * the admin is created exactly once and the whole step chain hands off to the
  * app) and the first-run gate surviving a relaunch — genuine cross-process
- * territory. Mandatory-data guard, Pro-plan holiday skip variant, the
- * quit-before-admin restart case, and back-navigation retention are lower
- * risk and better covered as unit tests of the wizard state machine.
+ * territory. Mandatory-data guard, the quit-before-admin restart case, and
+ * back-navigation retention are lower risk and better covered as unit tests of
+ * the wizard state machine.
+ *
+ * Since SOU-235 the run is three steps (language → center profile → admin
+ * account); default center hours are seeded at center creation, and hours /
+ * holidays are configured later in Settings.
  *
  * Each `test` launches its own packaged Electron app against a fresh userData
  * dir, so first-run state is guaranteed. Runs under both the `fr` and `ar`
@@ -38,9 +42,6 @@ test.afterEach(async () => {
 
 function next(win: Page, L: Record<string, string>) {
   return win.getByRole('button', { name: L.next });
-}
-function skip(win: Page, L: Record<string, string>) {
-  return win.getByRole('button', { name: L.skip });
 }
 function languageRadio(win: Page, L: Record<string, string>, loc: Locale) {
   return win.getByRole('radio', { name: loc === 'fr' ? L.langFr : L.langAr });
@@ -78,8 +79,6 @@ test('happy path: walks every mandatory step to Done and creates the admin exact
   // First-run gate opened the wizard; no admin persisted yet.
   await expect(win.getByText(L.wizardTitle).first()).toBeVisible();
   expect(await adminExists(win)).toBe(false);
-  // Holidays is available on every plan since SOU-30, including Essentiel.
-  await expect(win.getByText(L.stepHolidaysLabel).first()).toBeVisible();
 
   // 1. Language
   await expectStep(win, L.languageStepTitle);
@@ -91,22 +90,15 @@ test('happy path: walks every mandatory step to Done and creates the admin exact
   await fillCenter(win, L);
   await next(win, L).click();
 
-  // 3. Admin Account — persists the admin account.
+  // 3. Admin Account — persists the admin account, then the run completes
+  //    (SOU-235: default center hours are seeded at center creation).
   await expectStep(win, L.adminStepTitle);
   expect(await adminExists(win)).toBe(false);
   await fillAdmin(win, L);
   await next(win, L).click();
 
-  // 4. Hours (stub) — reaching it proves the admin was created.
-  await expectStep(win, L.hoursStepTitle);
+  // 4. Done — reaching it proves the admin was created.
   await expect.poll(() => adminExists(win)).toBe(true);
-  await next(win, L).click();
-
-  // 5. Holidays (optional, present on every plan since SOU-30) — skip it.
-  await expectStep(win, L.holidaysStepTitle);
-  await skip(win, L).click();
-
-  // 6. Done.
   await expect(win.getByText(L.doneTitle).first()).toBeVisible();
 
   // Exactly once: a second create through the bridge must be rejected.
@@ -138,11 +130,7 @@ test('first-run gate: fresh state shows the wizard; after completion a relaunch 
   await fillCenter(win, L);
   await next(win, L).click(); // center → admin
   await fillAdmin(win, L);
-  await next(win, L).click(); // creates admin
-  await expectStep(win, L.hoursStepTitle);
-  await next(win, L).click(); // hours → holidays
-  await expectStep(win, L.holidaysStepTitle);
-  await skip(win, L).click(); // holidays (optional) → done
+  await next(win, L).click(); // creates admin → done
   await expect(win.getByText(L.doneTitle).first()).toBeVisible();
   await win.getByRole('button', { name: L.doneCta }).click();
   await passAuthGate(win);

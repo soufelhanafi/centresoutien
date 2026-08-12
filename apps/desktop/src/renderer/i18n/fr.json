@@ -1831,16 +1831,6 @@
         "label": "Administrateur",
         "title": "Compte administrateur",
         "description": "Créez le compte qui gérera l'application."
-      },
-      "hours": {
-        "label": "Horaires",
-        "title": "Horaires d'ouverture",
-        "description": "Définissez les heures d'ouverture pour chaque jour."
-      },
-      "holidays": {
-        "label": "Jours fériés",
-        "title": "Jours fériés",
-        "description": "Ajoutez les jours fériés et vacances (facultatif)."
       }
     },
     "language": {
@@ -1860,9 +1850,6 @@
       "loadError": "Le chargement du profil du centre a échoué.",
       "retry": "Réessayer",
       "saveError": "L'enregistrement du profil a échoué. Réessayez."
-    },
-    "stub": {
-      "note": "Cette étape sera bientôt configurable ici. Continuez pour l'instant."
     },
     "done": {
       "title": "Configuration terminée",
