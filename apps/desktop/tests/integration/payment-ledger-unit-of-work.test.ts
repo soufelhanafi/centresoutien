@@ -31,6 +31,7 @@ import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqlitePaymentRepository } from '../../src/data/sqlite/repositories/payment-repository';
 import { SqlitePaymentLedgerUnitOfWork } from '../../src/data/sqlite/repositories/payment-ledger-unit-of-work';
 import { SqliteInvoiceRepository } from '../../src/data/sqlite/repositories/invoice-repository';
+import { todayIso } from '../../src/renderer/lib/payments/today';
 import {
   ensurePaymentReversalUniqueIndex,
   REVERSAL_ONCE_INDEX,
@@ -227,6 +228,32 @@ function indexExists(database: DB, name: string): boolean {
 }
 
 describe('SqlitePaymentLedgerUnitOfWork — atomic balance guard (SOU-233)', () => {
+  it('sums a recorded payment when paidOn uses the same local day as takings (SOU-221)', async () => {
+    class BoundaryDate extends Date {
+      override getFullYear(): number {
+        return 2026;
+      }
+
+      override getMonth(): number {
+        return 7;
+      }
+
+      override getDate(): number {
+        return 10;
+      }
+
+      override toISOString(): string {
+        return '2026-08-09T23:30:00.000Z';
+      }
+    }
+
+    const businessDay = todayIso(new BoundaryDate('2026-08-09T23:30:00.000Z'));
+
+    await recordPayment().execute({ ...baseRecordInput(), paidOn: businessDay });
+
+    expect((await payments.getDayTakings(CENTER, businessDay)).netMad).toBe(35000);
+  });
+
   it('lets exactly one of two racing full payments succeed, net never overshoots', async () => {
     const results = await Promise.allSettled([
       recordPayment(100).execute(baseRecordInput()),
