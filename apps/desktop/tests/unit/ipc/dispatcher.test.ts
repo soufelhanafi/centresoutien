@@ -209,8 +209,10 @@ const stubSaveCenterHours: SaveCenterHoursUseCase = {
       deletedAt: null,
       version: 0,
       dayOfWeek: day.dayOfWeek as WeekdayIndex,
-      open: day.open as TimeOfDay | null,
-      close: day.close as TimeOfDay | null,
+      windows: day.windows.map((window) => ({
+        open: window.open as TimeOfDay,
+        close: window.close as TimeOfDay,
+      })),
     })),
 };
 
@@ -614,15 +616,14 @@ describe('createIpcDispatcher', () => {
   it('runs centerHours.save and echoes the saved week as an envelope-stripped view', async () => {
     const week = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
       dayOfWeek,
-      open: '09:00',
-      close: '18:00',
+      windows: dayOfWeek === 0 ? [] : [{ open: '09:00', close: '18:00' }],
     }));
     await expect(dispatch('centerHours.save', week)).resolves.toEqual({ week });
   });
 
   it('rejects centerHours.save whose week fails the shared schema', async () => {
     await expect(
-      dispatch('centerHours.save', [{ dayOfWeek: 0, open: '18:00', close: '09:00' }]),
+      dispatch('centerHours.save', [{ dayOfWeek: 0, windows: [{ open: '18:00', close: '09:00' }] }]),
     ).rejects.toThrow();
   });
 

@@ -18,13 +18,13 @@ const TEACHER_A = 'tch_a' as EntityId;
 
 // Open Mon–Sat 09:00–18:00, Sunday (0) closed.
 const week: readonly DayHours[] = [
-  { dayOfWeek: 0, open: null, close: null },
-  { dayOfWeek: 1, open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay },
-  { dayOfWeek: 2, open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay },
-  { dayOfWeek: 3, open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay },
-  { dayOfWeek: 4, open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay },
-  { dayOfWeek: 5, open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay },
-  { dayOfWeek: 6, open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay },
+  { dayOfWeek: 0, windows: [] },
+  { dayOfWeek: 1, windows: [{ open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay }] },
+  { dayOfWeek: 2, windows: [{ open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay }] },
+  { dayOfWeek: 3, windows: [{ open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay }] },
+  { dayOfWeek: 4, windows: [{ open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay }] },
+  { dayOfWeek: 5, windows: [{ open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay }] },
+  { dayOfWeek: 6, windows: [{ open: '09:00' as TimeOfDay, close: '18:00' as TimeOfDay }] },
 ];
 
 function candidate(

@@ -47,3 +47,13 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: always
+
+# SOU-87: auto-update feed. Dedicated PUBLIC releases repo so the source repo
+# stays private and no token is baked into the app. electron-builder bakes
+# app-update.yml into every build from this block, and on `--publish` uploads
+# the installer + latest.yml + .blockmap to the GitHub Release.
+publish:
+  provider: github
+  owner: soufelhanafi
+  repo: centresoutien-releases
+  releaseType: release

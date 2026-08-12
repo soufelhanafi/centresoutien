@@ -136,8 +136,7 @@ export const BACKUP_SHEETS_B: readonly BackupSheetSpec[] = [
     columns: [
       ...BACKUP_ENVELOPE_COLUMNS,
       createRequiredColumn('dayOfWeek', 'number'),
-      createRequiredColumn('open', 'string-or-null'),
-      createRequiredColumn('close', 'string-or-null'),
+      createRequiredColumn('windows', 'string'),
     ],
   },
   {

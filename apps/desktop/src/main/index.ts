@@ -7,6 +7,7 @@ import { buildContainer, type Container } from './composition-root';
 import { MainRuntime } from './main-runtime';
 import { CenterHost } from './center/center-host';
 import { createMainWindow } from './window';
+import { initAutoUpdater } from './updater/auto-updater-service';
 import { DATABASE_SCHEMA_AHEAD_MESSAGE, DatabaseSchemaAheadOfAppError } from '../data/sqlite/migration-runner';
 import { centreDbFileName, DatabaseKeyMismatchError, ensureDatabaseKeyed } from '../data/sqlite/db';
 import { FsCenterDirectory, type CenterSummary } from '../data/sqlite/center-directory';
@@ -71,6 +72,7 @@ function activePlanId(): PlanId {
 let runtime: MainRuntime | null = null;
 let host: CenterHost | null = null;
 let mainWindow: BrowserWindow | null = null;
+let disposeAutoUpdater: (() => void) | null = null;
 
 /**
  * Embedded LAN hub (SOU-90): designated-laptop opt-in until the sync setup
@@ -349,6 +351,13 @@ app.whenReady().then(async () => {
     // synchronously here so it survives a restart without waiting on the renderer.
     const locale = process.env['CS_LOCALE'] ?? runtime.readLocalePreference() ?? undefined;
     openWindow(locale);
+    // SOU-87: auto-update. Self-guards via app.isPackaged (off in dev/e2e).
+    // isMacSigned is false until the macOS Developer ID signing ticket ships —
+    // macOS runs check-only and never attempts a (failing) unsigned apply.
+    disposeAutoUpdater = initAutoUpdater({
+      isMacSigned: false,
+      getWebContents: () => mainWindow?.webContents ?? null,
+    }).dispose;
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) openWindow(locale);
     });
@@ -390,6 +399,8 @@ app.on('will-quit', () => {
   runtime?.dispose();
   runtime = null;
   host = null;
+  disposeAutoUpdater?.();
+  disposeAutoUpdater = null;
 });
 
 app.on('window-all-closed', () => {

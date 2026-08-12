@@ -124,7 +124,7 @@ export const SHEET_SQL_B: Readonly<
   'center-hours': {
     table: 'center_hours',
     conflict: 'upsert',
-    columns: [...ENVELOPE_COLUMNS, ['dayOfWeek', 'day_of_week'], ['open', 'open'], ['close', 'close']],
+    columns: [...ENVELOPE_COLUMNS, ['dayOfWeek', 'day_of_week'], ['windows', 'windows']],
   },
   holidays: {
     table: 'holidays',

@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import {
   areOrderedNonOverlappingWindows,
-  DEFAULT_CLOSE,
-  DEFAULT_OPEN,
+  DEFAULT_WINDOW,
   isCalendarDate,
   isValidTimeWindow,
   TIME_OF_DAY_REGEX,
@@ -84,7 +83,7 @@ export type OverrideFormValues = z.infer<typeof overrideFormSchema>;
 
 /** A fresh window seeded from the domain defaults (09:00–18:00) when a day opens. */
 export function defaultWindow(): TimeWindow {
-  return { open: DEFAULT_OPEN, close: DEFAULT_CLOSE };
+  return { open: DEFAULT_WINDOW.open, close: DEFAULT_WINDOW.close };
 }
 
 /** Blank create-form state: an empty date range and every weekday closed. */

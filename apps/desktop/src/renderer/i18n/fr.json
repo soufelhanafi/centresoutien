@@ -198,6 +198,9 @@
     "invalid-time": "Heure invalide",
     "close-before-open": "La fermeture doit être après l'ouverture",
     "windows-overlap": "Les créneaux d'un même jour ne doivent pas se chevaucher",
+    "overlapping-windows": "Les créneaux d'un même jour ne doivent pas se chevaucher",
+    "windows-not-sorted": "Classez les créneaux du plus tôt au plus tard",
+    "invalid-window": "Fenêtre d'ouverture invalide : la fermeture doit être après l'ouverture",
     "outside-windows": "La séance tombe en dehors des horaires exceptionnels du centre (coupure de midi / iftar)",
     "closed-partial": "Indiquez l'ouverture et la fermeture, ou fermez le jour",
     "incomplete-week": "La semaine doit comporter les sept jours",
@@ -1682,6 +1685,9 @@
     "closed": "Fermé",
     "openLabel": "Ouverture",
     "closeLabel": "Fermeture",
+    "windowsLabel": "Créneaux d'ouverture",
+    "addWindow": "Ajouter un créneau",
+    "removeWindow": "Supprimer le créneau",
     "toggleLabel": "Ouvert le {{day}}",
     "save": "Enregistrer les horaires",
     "saving": "Enregistrement…",
@@ -2280,5 +2286,10 @@
     },
     "createError": "La création du centre de démonstration a échoué. Réessayez.",
     "wipeError": "La suppression du centre de démonstration a échoué. Réessayez."
+  },
+  "update": {
+    "readyTitle": "Mise à jour prête",
+    "readyDescription": "La version {{version}} sera installée au prochain démarrage.",
+    "restartNow": "Redémarrer maintenant"
   }
 }

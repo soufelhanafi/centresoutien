@@ -22,10 +22,9 @@ const w = (open: string, close: string): TimeWindow => ({
   open: open as TimeOfDay,
   close: close as TimeOfDay,
 });
-const day = (open: string | null, close: string | null): DayHours => ({
+const day = (windows: readonly TimeWindow[]): DayHours => ({
   dayOfWeek: 1 as WeekdayIndex,
-  open: open as TimeOfDay | null,
-  close: close as TimeOfDay | null,
+  windows,
 });
 
 /** A week where every weekday carries the same window list. */
@@ -96,7 +95,7 @@ describe('resolveEffectiveWindows', () => {
 
   it('returns override windows when an override covers the date (precedence over static)', () => {
     const ov = override('cho_1', '2026-02-18', '2026-03-19', uniformWeek([w('09:00', '15:00'), w('21:00', '23:00')]));
-    const windows = resolveEffectiveWindows('2026-03-01', monday, [ov], day('08:00', '20:00'));
+    const windows = resolveEffectiveWindows('2026-03-01', monday, [ov], day([w('08:00', '20:00')]));
     expect(windows).toEqual([w('09:00', '15:00'), w('21:00', '23:00')]);
   });
 
@@ -112,18 +111,18 @@ describe('resolveEffectiveWindows', () => {
       6: open,
     };
     const ov = override('cho_1', '2026-02-18', '2026-03-19', closedMonday);
-    expect(resolveEffectiveWindows('2026-03-02', monday, [ov], day('08:00', '20:00'))).toEqual([]);
+    expect(resolveEffectiveWindows('2026-03-02', monday, [ov], day([w('08:00', '20:00')]))).toEqual([]);
   });
 
   it('falls back to the static day when no override covers the date', () => {
     const ov = override('cho_1', '2026-02-18', '2026-03-19', uniformWeek([w('09:00', '15:00')]));
-    expect(resolveEffectiveWindows('2026-05-04', monday, [ov], day('08:00', '18:00'))).toEqual([
+    expect(resolveEffectiveWindows('2026-05-04', monday, [ov], day([w('08:00', '18:00')]))).toEqual([
       w('08:00', '18:00'),
     ]);
   });
 
   it('returns a closed static day as an empty list', () => {
-    expect(resolveEffectiveWindows('2026-05-04', monday, [], day(null, null))).toEqual([]);
+    expect(resolveEffectiveWindows('2026-05-04', monday, [], day([]))).toEqual([]);
   });
 
   it('returns null (no constraint) when no override covers and no static day is supplied', () => {
@@ -160,11 +159,16 @@ describe('overrideWindowsOn', () => {
 });
 
 describe('dayHoursToWindows', () => {
-  it('maps an open day to a single window', () => {
-    expect(dayHoursToWindows(day('09:00', '18:00'))).toEqual([w('09:00', '18:00')]);
+  it("passes an open day's windows through unchanged", () => {
+    expect(dayHoursToWindows(day([w('09:00', '18:00')]))).toEqual([w('09:00', '18:00')]);
   });
 
-  it('maps a closed day to an empty list', () => {
-    expect(dayHoursToWindows(day(null, null))).toEqual([]);
+  it("passes a split day's windows through unchanged", () => {
+    const split = [w('09:00', '12:00'), w('14:00', '18:00')];
+    expect(dayHoursToWindows(day(split))).toEqual(split);
+  });
+
+  it('returns an empty list for a closed day', () => {
+    expect(dayHoursToWindows(day([]))).toEqual([]);
   });
 });

@@ -17,8 +17,7 @@ const USER = 'usr_00000000000000000000000001' as UserId;
 function fullWeek(): WeeklyHoursInput {
   return [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
     dayOfWeek,
-    open: '09:00',
-    close: '18:00',
+    windows: [{ open: '09:00', close: '18:00' }],
   })) as WeeklyHoursInput;
 }
 

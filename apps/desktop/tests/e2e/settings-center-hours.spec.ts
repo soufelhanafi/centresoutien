@@ -1,11 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
 import {
   STR,
+  addWindowButton,
   closeInput,
   freshUserDataDir,
   launch,
   openInput,
   passFirstRun,
+  removeWindowButton,
+  windowCloseInput,
+  windowOpenInput,
   type Launched,
   type Locale,
 } from './center-hours.fixtures';
@@ -132,4 +136,140 @@ test('Scenario 3 — invalid hours (close before open) rejected with visible err
   await expect(win.getByText(L.saved)).toHaveCount(0);
 
   await win.screenshot({ path: `test-results/center-hours-error-${locale()}.png` });
+});
+
+// ---------------------------------------------------------------------------
+// Scenario 4 (SOU-197) — a weekday holds TWO open windows (mid-day break).
+// Add a second window to Monday (09:00–12:00 + 14:00–18:00), save, and confirm
+// both windows persist after navigating away and back.
+// ---------------------------------------------------------------------------
+test('Scenario 4 — a weekday can hold two windows and they persist', async () => {
+  const L = STR[locale()];
+  const dir = freshUserDataDir();
+
+  live = await launch(locale(), dir);
+  await passFirstRun(live.win);
+  const win = live.win;
+  await gotoHoursForm(win, L);
+
+  // RTL acceptance: in AR the whole document (and thus the editor) is `rtl`.
+  const htmlDir = await win.evaluate(() => document.documentElement.getAttribute('dir'));
+  expect(htmlDir).toBe(L.dir);
+
+  await windowOpenInput(win, 1, 0).fill('09:00');
+  await windowCloseInput(win, 1, 0).fill('12:00');
+  await addWindowButton(win, 1, L.addWindow).click();
+  await expect(windowOpenInput(win, 1, 1)).toBeVisible();
+  await windowOpenInput(win, 1, 1).fill('14:00');
+  await windowCloseInput(win, 1, 1).fill('18:00');
+  await win.getByRole('button', { name: L.save }).click();
+  await expect(win.getByText(L.saved)).toBeVisible();
+
+  await win.getByRole('link', { name: L.dashboardNav }).click();
+  await expect(win.getByRole('heading', { level: 1, name: L.dashboardNav })).toBeVisible();
+  await gotoHoursForm(win, L);
+  await expect(windowOpenInput(win, 1, 0)).toHaveValue('09:00');
+  await expect(windowCloseInput(win, 1, 0)).toHaveValue('12:00');
+  await expect(windowOpenInput(win, 1, 1)).toHaveValue('14:00');
+  await expect(windowCloseInput(win, 1, 1)).toHaveValue('18:00');
+
+  await win.screenshot({ path: `test-results/center-hours-two-windows-${locale()}.png` });
+});
+
+// ---------------------------------------------------------------------------
+// Scenario 5 (SOU-197) — remove windows. Removing every window of a weekday
+// leaves it CLOSED (toggle off, no time inputs), and that closed state persists.
+// ---------------------------------------------------------------------------
+test('Scenario 5 — removing all windows leaves the day closed', async () => {
+  const L = STR[locale()];
+  const dir = freshUserDataDir();
+
+  live = await launch(locale(), dir);
+  await passFirstRun(live.win);
+  const win = live.win;
+  await gotoHoursForm(win, L);
+
+  await windowOpenInput(win, 1, 0).fill('09:00');
+  await windowCloseInput(win, 1, 0).fill('12:00');
+  await addWindowButton(win, 1, L.addWindow).click();
+  await windowOpenInput(win, 1, 1).fill('14:00');
+  await windowCloseInput(win, 1, 1).fill('18:00');
+
+  // Remove the second window, then the first — the day must become closed.
+  await removeWindowButton(win, 1, 1, L.removeWindow).click();
+  await expect(windowOpenInput(win, 1, 1)).toHaveCount(0);
+  await removeWindowButton(win, 1, 0, L.removeWindow).click();
+  const mondaySwitch = win.getByRole('switch', { name: L.toggleAria(L.weekdays[1]!) });
+  await expect(mondaySwitch).toHaveAttribute('aria-checked', 'false');
+  await expect(windowOpenInput(win, 1, 0)).toHaveCount(0);
+
+  await win.getByRole('button', { name: L.save }).click();
+  await expect(win.getByText(L.saved)).toBeVisible();
+
+  await win.getByRole('link', { name: L.dashboardNav }).click();
+  await expect(win.getByRole('heading', { level: 1, name: L.dashboardNav })).toBeVisible();
+  await gotoHoursForm(win, L);
+  await expect(mondaySwitch).toHaveAttribute('aria-checked', 'false');
+  await expect(windowOpenInput(win, 1, 0)).toHaveCount(0);
+
+  await win.screenshot({ path: `test-results/center-hours-closed-day-${locale()}.png` });
+});
+
+// ---------------------------------------------------------------------------
+// Scenario 6 (SOU-197) — overlapping windows are rejected with a clear,
+// translated error and nothing is saved.
+// ---------------------------------------------------------------------------
+test('Scenario 6 — overlapping windows are rejected with a clear error', async () => {
+  const L = STR[locale()];
+  const dir = freshUserDataDir();
+
+  live = await launch(locale(), dir);
+  await passFirstRun(live.win);
+  const win = live.win;
+  await gotoHoursForm(win, L);
+
+  await windowOpenInput(win, 1, 0).fill('09:00');
+  await windowCloseInput(win, 1, 0).fill('12:00');
+  await addWindowButton(win, 1, L.addWindow).click();
+  await windowOpenInput(win, 1, 1).fill('11:00'); // overlaps 09:00–12:00
+  await windowCloseInput(win, 1, 1).fill('14:00');
+  await win.getByRole('button', { name: L.save }).click();
+
+  await expect(win.getByText(L.errWindowsOverlap)).toBeVisible();
+  await expect(win.getByText(L.saved)).toHaveCount(0);
+
+  // Nothing was persisted: navigating away and back shows a single window.
+  await win.getByRole('link', { name: L.dashboardNav }).click();
+  await expect(win.getByRole('heading', { level: 1, name: L.dashboardNav })).toBeVisible();
+  await gotoHoursForm(win, L);
+  await expect(windowOpenInput(win, 1, 0)).toHaveValue('09:00');
+  await expect(windowOpenInput(win, 1, 1)).toHaveCount(0);
+
+  await win.screenshot({ path: `test-results/center-hours-overlap-${locale()}.png` });
+});
+
+// ---------------------------------------------------------------------------
+// Scenario 7 (SOU-197) — an added window whose close ≤ open is rejected with a
+// clear, translated error (same guard as the base window, now on window N).
+// ---------------------------------------------------------------------------
+test('Scenario 7 — added window with close before open is rejected', async () => {
+  const L = STR[locale()];
+  const dir = freshUserDataDir();
+
+  live = await launch(locale(), dir);
+  await passFirstRun(live.win);
+  const win = live.win;
+  await gotoHoursForm(win, L);
+
+  await windowOpenInput(win, 1, 0).fill('09:00');
+  await windowCloseInput(win, 1, 0).fill('12:00');
+  await addWindowButton(win, 1, L.addWindow).click();
+  await windowOpenInput(win, 1, 1).fill('14:00');
+  await windowCloseInput(win, 1, 1).fill('12:00'); // close before open
+  await win.getByRole('button', { name: L.save }).click();
+
+  await expect(win.getByText(L.errCloseBeforeOpen)).toBeVisible();
+  await expect(win.getByText(L.saved)).toHaveCount(0);
+
+  await win.screenshot({ path: `test-results/center-hours-window-close-before-open-${locale()}.png` });
 });

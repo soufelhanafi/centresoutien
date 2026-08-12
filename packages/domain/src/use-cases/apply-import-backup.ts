@@ -3,7 +3,7 @@ import {
   type BackupRow,
   type BackupSheetSpec,
 } from '../backup/backup-workbook';
-import { classifyImportRow } from '../backup/classify-rows';
+import { classifyImportRow, normalizeBackupRow } from '../backup/classify-rows';
 import { emptyImportCounts, type BackupImportApplyResult } from '../backup/import-reports';
 import { buildExistingIndex, readBackupWorkbook } from '../backup/import-context';
 import type { BackupStore, BackupSheetWrite } from '../ports/backup-store';
@@ -65,9 +65,12 @@ export class ApplyImportBackup {
 
       for (const row of sheet.rows) {
         totalRows += 1;
+        // Legacy center-hours rows (open/close, no windows) are upcast so both
+        // the classification and the persisted row use the current shape.
+        const normalizedRow = normalizeBackupRow(spec, row);
         const classification = classifyImportRow({
           spec,
-          row,
+          row: normalizedRow,
           existingIds: knownIds,
           existingNaturalKeys: knownNaturalKeys,
           centerCode: input.centerCode,
@@ -75,10 +78,10 @@ export class ApplyImportBackup {
         counts[classification.status] += 1;
 
         if (classification.status === 'created' || classification.status === 'updated') {
-          rowsToApply.push(this.prepareRow(spec, row, input.centerCode));
-          if (typeof row['id'] === 'string') knownIds.add(row['id']);
+          rowsToApply.push(this.prepareRow(spec, normalizedRow, input.centerCode));
+          if (typeof normalizedRow['id'] === 'string') knownIds.add(normalizedRow['id']);
           const naturalKeyColumn = spec.naturalKeyColumn ?? 'naturalKey';
-          const naturalKey = row[naturalKeyColumn];
+          const naturalKey = normalizedRow[naturalKeyColumn];
           if (typeof naturalKey === 'string' && naturalKey.length > 0) knownNaturalKeys.add(naturalKey);
         }
       }

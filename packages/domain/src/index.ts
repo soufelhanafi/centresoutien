@@ -271,8 +271,7 @@ export type { AdminCredentials, ChangeAdminPasswordCredentials } from './schemas
 export {
   weekdayHoursSchema,
   weeklyHoursSchema,
-  DEFAULT_OPEN,
-  DEFAULT_CLOSE,
+  DEFAULT_WINDOW,
   DEFAULT_WEEKLY_HOURS,
 } from './schemas/center-hours';
 export type { WeekdayHoursInput, WeeklyHoursInput } from './schemas/center-hours';

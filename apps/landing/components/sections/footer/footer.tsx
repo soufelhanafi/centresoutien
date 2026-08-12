@@ -31,8 +31,9 @@ function YoutubeIcon() {
 }
 
 // Single source of link order per column. Labels resolve from next-intl by key.
-// On-page anchors point at real section ids; `#` placeholders are for pages that
-// do not exist yet (routes added in later PRs).
+// On-page anchors point at real section ids; `#` placeholders are for targets
+// that do not exist yet — download/changelog/docs/blog/about and the social
+// profiles (no real URLs to point at; inventing 404s is worse). Tracked in SOU-202.
 const LINK_COLUMNS = [
   {
     key: "product",
@@ -62,10 +63,10 @@ const LINK_COLUMNS = [
   {
     key: "legal",
     links: [
-      { key: "legal_notice", href: "#" }, // TODO: real route (SOU-202)
-      { key: "terms", href: "#" }, // TODO: real route (SOU-202)
+      { key: "legal_notice", href: "/mentions-legales" },
+      { key: "terms", href: "/cgv" },
       { key: "privacy", href: "/confidentialite" },
-      { key: "law0908", href: "#" }, // TODO: real route (SOU-202)
+      { key: "law0908", href: "/loi-09-08" },
     ],
   },
 ] as const;

@@ -753,8 +753,7 @@ function toAttendanceRecordView(record: AttendanceRecord) {
 function toWeekView(week: readonly CenterHours[]) {
   return week.map((hours) => ({
     dayOfWeek: hours.dayOfWeek,
-    open: hours.open,
-    close: hours.close,
+    windows: hours.windows.map((window) => ({ open: window.open, close: window.close })),
   }));
 }
 

@@ -146,8 +146,7 @@ describe('composition root', () => {
 
     const week = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
       dayOfWeek,
-      open: dayOfWeek === 0 ? null : '09:00',
-      close: dayOfWeek === 0 ? null : '18:00',
+      windows: dayOfWeek === 0 ? [] : [{ open: '09:00', close: '18:00' }],
     }));
     const saved = await dispatch1('centerHours.save', week);
     expect(saved.week).toEqual(week);

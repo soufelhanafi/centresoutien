@@ -8,8 +8,8 @@ import type {
   CenterHoursId,
   CenterCode,
   DeviceId,
+  TimeWindow,
   UserId,
-  TimeOfDay,
   WeekdayIndex,
 } from '@centresoutien/domain';
 import { openDatabase } from '../../src/data/sqlite/db';
@@ -36,6 +36,8 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+const win = (open: string, close: string): TimeWindow => ({ open, close } as TimeWindow);
+
 let seq = 1;
 function makeHours(over: Partial<CenterHours> = {}): CenterHours {
   return {
@@ -48,8 +50,7 @@ function makeHours(over: Partial<CenterHours> = {}): CenterHours {
     deletedAt: null,
     version: 0,
     dayOfWeek: 1 as WeekdayIndex,
-    open: '09:00' as TimeOfDay,
-    close: '18:00' as TimeOfDay,
+    windows: [win('09:00', '18:00')],
     ...over,
   };
 }
@@ -61,20 +62,27 @@ describe('SqliteCenterHoursRepository', () => {
     expect(await repo.findById(hours.id)).toEqual(hours);
   });
 
-  it('round-trips a closed day (open/close null)', async () => {
-    const hours = makeHours({ dayOfWeek: 0 as WeekdayIndex, open: null, close: null });
+  it('round-trips a closed day (empty window list)', async () => {
+    const hours = makeHours({ dayOfWeek: 0 as WeekdayIndex, windows: [] });
     await repo.save(hours);
     const found = await repo.findById(hours.id);
-    expect(found?.open).toBeNull();
-    expect(found?.close).toBeNull();
+    expect(found?.windows).toEqual([]);
   });
 
-  it('upsert updates times on a second save of the same id', async () => {
+  it('round-trips a split day (two windows) as JSON', async () => {
+    const hours = makeHours({
+      windows: [win('09:00', '12:00'), win('14:00', '18:00')],
+    });
+    await repo.save(hours);
+    expect(await repo.findById(hours.id)).toEqual(hours);
+  });
+
+  it('upsert updates windows on a second save of the same id', async () => {
     const hours = makeHours();
     await repo.save(hours);
-    await repo.save({ ...hours, open: '08:00' as TimeOfDay, version: 2 });
+    await repo.save({ ...hours, windows: [win('08:00', '12:00'), win('13:00', '19:00')], version: 2 });
     const found = await repo.findById(hours.id);
-    expect(found?.open).toBe('08:00');
+    expect(found?.windows).toEqual([win('08:00', '12:00'), win('13:00', '19:00')]);
     expect(found?.version).toBe(2);
   });
 
@@ -115,10 +123,6 @@ describe('SqliteCenterHoursRepository', () => {
       await expect(
         repo.save(makeHours({ id: 'bad_00000000000000000000000001' as CenterHoursId })),
       ).rejects.toThrow();
-    });
-
-    it('rejects a half-set day — open set, close null (CHECK)', async () => {
-      await expect(repo.save(makeHours({ open: '09:00' as TimeOfDay, close: null }))).rejects.toThrow();
     });
 
     it('rejects an out-of-range weekday (CHECK)', async () => {

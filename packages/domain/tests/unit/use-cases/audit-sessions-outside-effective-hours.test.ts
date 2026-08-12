@@ -69,8 +69,7 @@ function thursdayHours(open: string, close: string): CenterHours {
     id: 'chr_00000000000000000000000004' as CenterHoursId,
     ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
     dayOfWeek: THURSDAY,
-    open: open as TimeOfDay,
-    close: close as TimeOfDay,
+    windows: [{ open: open as TimeOfDay, close: close as TimeOfDay }],
   };
 }
 

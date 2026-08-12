@@ -1,12 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
 import {
   STR,
+  addWindowButton,
   adminExists,
   closeInput,
   freshUserDataDir,
   launch,
   openInput,
   passFirstRun,
+  windowCloseInput,
+  windowOpenInput,
   type Launched,
   type Locale,
 } from './center-hours.fixtures';
@@ -74,4 +77,38 @@ test('Scenario 2 — set open/close, save, relaunch the app → values persist',
   await waitForHoursForm(win, L);
   await expect(openInput(win, 1)).toHaveValue('08:30');
   await expect(closeInput(win, 1)).toHaveValue('17:15');
+});
+
+// ---------------------------------------------------------------------------
+// Scenario 3 (SOU-197) — a weekday holds TWO open windows (mid-day break):
+// 09:00–12:00 + 14:00–18:00. Save, relaunch the SAME userData dir, both windows
+// are still there. This is the two-window shape persisting across a real
+// process relaunch.
+// ---------------------------------------------------------------------------
+test('Scenario 3 — two windows on Monday survive an app relaunch', async () => {
+  const L = STR[locale()];
+  const dir = freshUserDataDir();
+
+  live = await launch(locale(), dir);
+  await passFirstRun(live.win);
+  let win = live.win;
+  await waitForHoursForm(win, L);
+
+  await windowOpenInput(win, 1, 0).fill('09:00');
+  await windowCloseInput(win, 1, 0).fill('12:00');
+  await addWindowButton(win, 1, L.addWindow).click();
+  await windowOpenInput(win, 1, 1).fill('14:00');
+  await windowCloseInput(win, 1, 1).fill('18:00');
+  await win.getByRole('button', { name: L.save }).click();
+  await expect(win.getByText(L.saved)).toBeVisible();
+  await live.app.close();
+
+  live = await launch(locale(), dir);
+  win = live.win;
+  await expect.poll(() => adminExists(win)).toBe(true);
+  await waitForHoursForm(win, L);
+  await expect(windowOpenInput(win, 1, 0)).toHaveValue('09:00');
+  await expect(windowCloseInput(win, 1, 0)).toHaveValue('12:00');
+  await expect(windowOpenInput(win, 1, 1)).toHaveValue('14:00');
+  await expect(windowCloseInput(win, 1, 1)).toHaveValue('18:00');
 });

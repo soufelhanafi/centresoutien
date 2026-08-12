@@ -258,6 +258,61 @@ describe('SqliteBackupStore + ExcelBackupAdapter round-trip', () => {
     }
   });
 
+  it('round-trips center-hours split-day windows through Excel export + import (SOU-197)', async () => {
+    db.prepare(
+      `INSERT INTO center_hours
+         (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, day_of_week, windows)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', NULL, 0, 1, ?)`,
+    ).run(
+      'chr_00000000000000000000000001',
+      CENTER,
+      JSON.stringify([
+        { open: '09:00', close: '12:00' },
+        { open: '14:00', close: '18:00' },
+      ]),
+    );
+    const store = makeStore(db, CENTER);
+    const excel = new ExcelBackupAdapter();
+
+    const exported = await store.readAllRows('center-hours');
+    expect(exported).toHaveLength(1);
+    expect(exported[0]!['dayOfWeek']).toBe(1);
+    expect(exported[0]!['windows']).toBe(
+      JSON.stringify([
+        { open: '09:00', close: '12:00' },
+        { open: '14:00', close: '18:00' },
+      ]),
+    );
+
+    const workbookPath = join(dir, 'hours.xlsx');
+    await excel.writeWorkbook(workbookPath, {
+      sheets: [
+        { name: 'center-hours', columns: sheetColumnNames(findBackupSheet('center-hours')!), rows: exported },
+      ],
+    });
+    const read = await excel.readWorkbook(workbookPath);
+
+    const dir2 = mkdtempSync(join(tmpdir(), 'cs-backup-excel-'));
+    const db2 = openDatabase({ centreId: 'C2', key: KEY, dir: dir2 });
+    runMigrations(db2, REAL_MIGRATIONS);
+    try {
+      await makeStore(db2, CENTER).applyRows([
+        { sheetName: 'center-hours', rows: [...read.sheets[0]!.rows] },
+      ]);
+      const restored = await makeStore(db2, CENTER).readAllRows('center-hours');
+      expect(restored).toHaveLength(1);
+      expect(restored[0]!['windows']).toBe(
+        JSON.stringify([
+          { open: '09:00', close: '12:00' },
+          { open: '14:00', close: '18:00' },
+        ]),
+      );
+    } finally {
+      db2.close();
+      rmSync(dir2, { recursive: true, force: true });
+    }
+  });
+
   it('rolls the whole import back when one row violates a constraint', async () => {
     const store = makeStore(db, CENTER);
     const goodRoom: BackupRow = {
