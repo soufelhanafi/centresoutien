@@ -16,15 +16,16 @@ export function timeToMinutes(time: string): number {
 const timeFormatters = new Map<string, Intl.DateTimeFormat>();
 
 function getTimeFormatter(locale: string): Intl.DateTimeFormat {
-  const cached = timeFormatters.get(locale);
+  const resolvedLocale = bcp47(locale);
+  const cached = timeFormatters.get(resolvedLocale);
   if (cached) return cached;
-  const formatter = new Intl.DateTimeFormat(bcp47(locale), {
+  const formatter = new Intl.DateTimeFormat(resolvedLocale, {
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
     timeZone: 'UTC',
   });
-  timeFormatters.set(locale, formatter);
+  timeFormatters.set(resolvedLocale, formatter);
   return formatter;
 }
 
