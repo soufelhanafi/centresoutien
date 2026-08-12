@@ -1,4 +1,5 @@
 import { type WeekdayHoursInput } from '@centresoutien/domain';
+import { bcp47 } from '../format';
 import type { PlannerSessionView } from './planner-view';
 
 /** Default visible window when no day of the week is open: 08:00 → 20:00. */
@@ -17,7 +18,7 @@ const timeFormatters = new Map<string, Intl.DateTimeFormat>();
 function getTimeFormatter(locale: string): Intl.DateTimeFormat {
   const cached = timeFormatters.get(locale);
   if (cached) return cached;
-  const formatter = new Intl.DateTimeFormat(locale, {
+  const formatter = new Intl.DateTimeFormat(bcp47(locale), {
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',

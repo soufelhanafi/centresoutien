@@ -11,6 +11,7 @@ import {
   type TimeRange,
 } from '../../../src/renderer/lib/planning/time-range';
 import type { CenterHoursWeek } from '../../../src/renderer/lib/center-hours';
+import { bcp47 } from '../../../src/renderer/lib/format';
 import { hoursRow, session, windowsRow } from './_fixtures';
 
 /** The hour labels `deriveCenterHoursRange` fills between two whole hours. */
@@ -27,7 +28,7 @@ const OPEN_WEEK: CenterHoursWeek = [
 ];
 
 function expectedIntlTime(minutes: number, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(bcp47(locale), {
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
