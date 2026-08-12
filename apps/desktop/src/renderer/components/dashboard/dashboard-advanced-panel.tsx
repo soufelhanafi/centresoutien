@@ -1,35 +1,51 @@
 import { useTranslation } from 'react-i18next';
 import { TrendingUp } from 'lucide-react';
-import { Button, ErrorState, Skeleton } from '@centresoutien/ui';
+import { Button, ErrorState, LockOverlay, Skeleton, cn } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
+import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
 import { useDashboardAdvancedSummary } from '../../hooks/dashboard/use-dashboard-advanced-summary';
-import { RevenueTrendChart } from './revenue-trend-chart';
-import { EnrollmentEvolutionChart } from './enrollment-evolution-chart';
-import { EnrollmentActivityChart } from './enrollment-activity-chart';
-import { AttendanceRateCard } from './attendance-rate-card';
-import { AttendanceHeatmap } from './attendance-heatmap';
-import { SubjectRevenueBreakdown } from './subject-revenue-breakdown';
+import { DASHBOARD_WIDGETS_BY_ID } from '../../lib/dashboard/widgets/registry';
+import { resolvePanelWidgets } from '../../lib/dashboard/widgets/preferences';
+import { useDashboardWidgetsStore } from '../../stores/dashboard-widgets-store';
+import { ADVANCED_WIDGET_CONTENT } from './dashboard-widget-content';
+import { WIDGET_SPAN_CLASS } from './dashboard-widget-span';
+import { DashboardWidgetsHidden } from './dashboard-widgets-hidden';
 
 const SECTION_LABEL = 'text-xs font-bold uppercase tracking-wider text-muted-foreground';
 const WIDGET_CARD = 'flex flex-col gap-3 rounded-xl border border-border bg-card p-4';
 
-/** The Avancé dashboard pane (SOU-100), rendered only when `dashboard.advanced` (Premium) is unlocked. */
+/**
+ * The Avancé dashboard pane (SOU-100/231). Gating is now per widget, not per
+ * pane: when `dashboard.advanced` is unavailable each configured widget renders
+ * its LockOverlay + upgrade CTA in place (SOU-231 KICKOFF §3) — the config can
+ * show/hide any widget, it can never unlock one.
+ */
 export function DashboardAdvancedPanel() {
   const { t } = useTranslation();
   const canViewAdvanced = useFeature('dashboard.advanced');
-  const query = useDashboardAdvancedSummary(canViewAdvanced);
+  const upgradeCta = useUpgradeCta('dashboard.advanced');
+  const stored = useDashboardWidgetsStore((state) => state.prefs);
+  const widgets = resolvePanelWidgets('advanced', stored).filter((widget) => widget.visible);
+  const query = useDashboardAdvancedSummary(canViewAdvanced && widgets.length > 0);
 
-  if (query.isPending) {
+  if (widgets.length === 0) {
+    return <DashboardWidgetsHidden />;
+  }
+
+  if (canViewAdvanced && query.isPending) {
     return (
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2" aria-busy="true">
-        {[0, 1, 2, 3, 4, 5].map((widget) => (
-          <Skeleton key={widget} className="h-52 w-full rounded-xl" />
+        {widgets.map((widget) => (
+          <Skeleton
+            key={widget.widgetId}
+            className={`h-52 w-full rounded-xl ${WIDGET_SPAN_CLASS.advanced[DASHBOARD_WIDGETS_BY_ID.get(widget.widgetId)!.span]}`}
+          />
         ))}
       </div>
     );
   }
 
-  if (query.isError) {
+  if (canViewAdvanced && query.isError) {
     return (
       <ErrorState
         icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />}
@@ -44,34 +60,36 @@ export function DashboardAdvancedPanel() {
     );
   }
 
-  const summary = query.data;
-
   return (
     <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-      <div className={WIDGET_CARD}>
-        <p className={SECTION_LABEL}>{t('dashboard.advanced.widgets.revenueTrend')}</p>
-        <RevenueTrendChart points={summary.revenueTrend} />
-      </div>
-      <div className={WIDGET_CARD}>
-        <p className={SECTION_LABEL}>{t('dashboard.advanced.widgets.enrollmentEvolution')}</p>
-        <EnrollmentEvolutionChart points={summary.enrollmentEvolution} />
-      </div>
-      <div className={WIDGET_CARD}>
-        <p className={SECTION_LABEL}>{t('dashboard.advanced.widgets.attendanceRate')}</p>
-        <AttendanceRateCard percent={summary.attendanceRatePercent} />
-      </div>
-      <div className={WIDGET_CARD}>
-        <p className={SECTION_LABEL}>{t('dashboard.advanced.widgets.subjectBreakdown')}</p>
-        <SubjectRevenueBreakdown shares={summary.subjectRevenueBreakdown} />
-      </div>
-      <div className={WIDGET_CARD}>
-        <p className={SECTION_LABEL}>{t('dashboard.advanced.widgets.enrollmentActivity.title')}</p>
-        <EnrollmentActivityChart points={summary.enrollmentActivity} />
-      </div>
-      <div className={`${WIDGET_CARD} sm:col-span-2`}>
-        <p className={SECTION_LABEL}>{t('dashboard.advanced.widgets.attendanceHeatmap.title')}</p>
-        <AttendanceHeatmap cells={summary.attendanceHeatmap} />
-      </div>
+      {widgets.map((widget) => {
+        const definition = DASHBOARD_WIDGETS_BY_ID.get(widget.widgetId)!;
+        const spanClass = WIDGET_SPAN_CLASS.advanced[definition.span];
+        if (canViewAdvanced && query.data) {
+          return (
+            <div key={widget.widgetId} className={cn(WIDGET_CARD, spanClass)}>
+              <p className={SECTION_LABEL}>{t(definition.labelKey)}</p>
+              {ADVANCED_WIDGET_CONTENT[widget.widgetId](query.data)}
+            </div>
+          );
+        }
+        return (
+          <LockOverlay
+            key={widget.widgetId}
+            title={t(definition.labelKey)}
+            description={t('plan.locked')}
+            ctaLabel={upgradeCta.ctaLabel}
+            onCta={upgradeCta.onCta}
+            className={spanClass}
+          >
+            <div className="flex h-52 flex-col gap-3 p-4">
+              <p className={SECTION_LABEL}>{t(definition.labelKey)}</p>
+              <Skeleton className="h-24 w-full rounded" />
+              <Skeleton className="h-10 w-3/4 rounded" />
+            </div>
+          </LockOverlay>
+        );
+      })}
     </div>
   );
 }

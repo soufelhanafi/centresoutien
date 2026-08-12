@@ -183,7 +183,6 @@ for (const plan of ['essentiel', 'pro'] as const) {
     await expect(win.getByText(L.widgets.revenueTrend, { exact: true })).toBeVisible();
     await expect(win.getByText(L.widgets.subjectBreakdown, { exact: true })).toBeVisible();
     await expect(win.getByText(L.lockedShort)).toHaveCount(0);
-    await expect(win.getByText(L.lockedTeaser, { exact: true })).toHaveCount(0);
   });
 }
 

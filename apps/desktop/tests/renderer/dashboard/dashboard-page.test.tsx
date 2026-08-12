@@ -64,7 +64,7 @@ describe('DashboardPage — Basique / Avancé toggle', () => {
     expect(JSON.parse(stored ?? '{}').state.view).toBe('advanced');
   });
 
-  it('locks the Avancé pane on a plan without dashboard.advanced', async () => {
+  it('locks every Avancé widget on a plan without dashboard.advanced', async () => {
     act(() => {
       usePlanStore.setState({ planId: 'essentiel', plan: planWithout('dashboard.advanced') });
     });
@@ -73,7 +73,10 @@ describe('DashboardPage — Basique / Avancé toggle', () => {
 
     await user.click(await screen.findByRole('tab', { name: 'Avancé' }));
 
-    expect(screen.getByText('Réservé à un plan supérieur')).toBeInTheDocument();
+    // SOU-231: gating is per widget — the six Avancé widgets each render their
+    // own LockOverlay + upgrade CTA instead of a single whole-pane lock.
+    expect(await screen.findAllByText('Réservé à un plan supérieur')).toHaveLength(6);
+    expect(screen.getAllByText('Débloquer avec Premium')).toHaveLength(6);
   });
 
   it('unlocks the Avancé pane on a plan with dashboard.advanced', async () => {
