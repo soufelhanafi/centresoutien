@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import { syncGateway } from '../../lib/sync/sync-gateway';
 import type { ConflictResolutionView } from '../../lib/sync/sync-view';
 import { syncKeys } from './keys';
@@ -23,7 +24,9 @@ export function useRunSync() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => syncGateway.run(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: syncKeys.conflicts }),
+    onSuccess: (result) => {
+      if (result) invalidateAllDomainQueries(queryClient);
+    },
   });
 }
 
@@ -36,6 +39,19 @@ export function useResolveConflict() {
       entityId: string;
       resolution: ConflictResolutionView;
     }) => syncGateway.resolveConflict(input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: syncKeys.conflicts }),
+    onSuccess: () => invalidateAllDomainQueries(queryClient),
   });
+}
+
+/**
+ * A completed sync (or a resolved conflict) can project any entity type —
+ * students, invoices, payments, planner, dashboard metrics — into the local DB,
+ * and the run result does not enumerate which. Invalidating every query rather
+ * than a hand-maintained subset guarantees no mounted screen keeps stale
+ * post-sync data, and stays correct as new query families are added (SOU-234).
+ * React Query only refetches the queries that are currently mounted, so the
+ * cost is bounded by what the user is actually looking at.
+ */
+function invalidateAllDomainQueries(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries();
 }
