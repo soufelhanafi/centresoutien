@@ -2259,7 +2259,7 @@
       "loser": "Annulation ignorée :",
       "winner": "Annulation conservée :",
       "reversesPayment": "Paiement annulé :",
-      "hint": "Le registre reste append-only. Cette annulation ne compte pas une deuxième fois."
+      "hint": "L'historique garde les deux saisies pour vérification. Cette annulation ne compte pas une deuxième fois."
     }
   },
   "demo": {
