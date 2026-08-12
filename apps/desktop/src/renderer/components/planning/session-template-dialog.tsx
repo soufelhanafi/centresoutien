@@ -7,9 +7,9 @@ import { useSessionFormOptions } from '../../hooks/planning/use-session-form-opt
 import { SessionFormDialog } from './session-form-dialog';
 import { CancelSessionDialog } from './cancel-session-dialog';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
+import { toFormInput } from '../../lib/planning/session-view-to-form';
 import {
   toSessionInput,
-  type SessionFormInput,
   type SessionFormValues,
 } from '../../lib/planning/session-form-schema';
 import {
@@ -22,21 +22,6 @@ type SessionTemplateDialogProps = {
   session: PlannerSessionView | null;
   onOpenChange: (open: boolean) => void;
 };
-
-/** Weekday index → the select's string value, keyed by the DTO's numeric day (no cast). */
-const DAY_FIELD_VALUES = ['0', '1', '2', '3', '4', '5', '6'] as const;
-
-/** Maps the enriched planner read row back to the editable form shape. */
-function toFormInput(session: PlannerSessionView): SessionFormInput {
-  return {
-    dayOfWeek: DAY_FIELD_VALUES[session.dayOfWeek] ?? '0',
-    start: session.start,
-    end: session.end,
-    roomId: session.roomId,
-    teacherId: session.teacherId,
-    groupId: session.groupId,
-  };
-}
 
 /**
  * Edit-session flow opened from a grid block (SOU-131): edits the weekly slot,

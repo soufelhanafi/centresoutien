@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RotateCcw } from 'lucide-react';
+import { CalendarRange, RotateCcw } from 'lucide-react';
 import {
   Button,
   Select,
@@ -16,6 +17,7 @@ import {
   type KindFilter,
   type PlannerFilters,
 } from '../../lib/planning/filters';
+import { AllSessionsDrawer } from './all-sessions-drawer';
 
 type PlannerToolbarProps = {
   filters: PlannerFilters;
@@ -33,6 +35,7 @@ function pick(value: string): string {
 export function PlannerToolbar({ filters, options, onChange, onReset }: PlannerToolbarProps) {
   const { t } = useTranslation();
   const examPrepEnabled = useFeature('core.exam-prep');
+  const [allSessionsOpen, setAllSessionsOpen] = useState(false);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -106,6 +109,12 @@ export function PlannerToolbar({ filters, options, onChange, onReset }: PlannerT
           {t('planning.filters.reset')}
         </Button>
       ) : null}
+
+      <Button type="button" variant="outline" size="sm" onClick={() => setAllSessionsOpen(true)}>
+        <CalendarRange className="me-2 h-4 w-4" aria-hidden="true" />
+        {t('planning.allSessions.open')}
+      </Button>
+      <AllSessionsDrawer open={allSessionsOpen} onOpenChange={setAllSessionsOpen} />
     </div>
   );
 }
