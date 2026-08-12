@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { todayIso } from '../../../src/renderer/lib/payments/today';
+import { todayIso } from '../../../../src/renderer/lib/payments/today';
 
 describe('todayIso', () => {
   it('formats the local calendar day instead of slicing the UTC ISO timestamp', () => {

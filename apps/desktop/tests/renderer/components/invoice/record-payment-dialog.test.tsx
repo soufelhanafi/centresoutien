@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { RecordPaymentDialog } from '../../../src/renderer/components/invoice/record-payment-dialog';
-import i18n from '../../../src/renderer/i18n/config';
-import * as paymentDay from '../../../src/renderer/lib/payments/today';
+import { RecordPaymentDialog } from '../../../../src/renderer/components/invoice/record-payment-dialog';
+import i18n from '../../../../src/renderer/i18n/config';
+import * as paymentDay from '../../../../src/renderer/lib/payments/today';
 
 function newClient(): QueryClient {
   return new QueryClient({

@@ -1,3 +1,4 @@
+/** Renderer-local business date for payment screens. This is not a sync timestamp. */
 export function todayIso(now = new Date()): string {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
