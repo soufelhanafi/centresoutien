@@ -499,6 +499,8 @@ export type {
   MonthlyRevenuePoint,
   MonthlyEnrollmentPoint,
   SubjectRevenueShare,
+  MonthlyEnrollmentActivityPoint,
+  AttendanceHeatmapCell,
 } from './read-models/dashboard-advanced-summary';
 export { DASHBOARD_TREND_WINDOW_MONTHS } from './read-models/dashboard-advanced-summary';
 export type {
@@ -641,6 +643,7 @@ export type { SessionOccurrenceView } from './read-models/session-occurrence-vie
 export type {
   AttendanceRepository,
   AttendanceSummary,
+  DailyAttendanceCounts,
   StudentAttendanceReading,
   GroupAttendanceCellReading,
   GroupSheetData,

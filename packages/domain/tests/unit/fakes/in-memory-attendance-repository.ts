@@ -5,7 +5,7 @@ import type {
   AttendanceRecordId,
   AttendanceStatus,
 } from '../../../src/entities/attendance-record';
-import type { AttendanceRepository, AttendanceSummary, StudentAttendanceReading, GroupSheetData } from '../../../src/ports/attendance-repository';
+import type { AttendanceRepository, AttendanceSummary, DailyAttendanceCounts, StudentAttendanceReading, GroupSheetData } from '../../../src/ports/attendance-repository';
 import type { SessionId } from '../../../src/entities/session';
 import type { StudentId } from '../../../src/entities/student';
 import type { GroupId } from '../../../src/entities/group';
@@ -62,6 +62,29 @@ export class InMemoryAttendanceRepository
     void centerCode;
     void range;
     return this.centerSummary ?? emptySummary();
+  }
+
+  private dailyCounts: readonly DailyAttendanceCounts[] = [];
+
+  /**
+   * test-only seeding for `summarizeByDayForCenter` — the GROUP BY over
+   * `sessions.date` is the SQLite adapter's concern (proven in its integration
+   * test), so the fake just replays whatever days the test declares. Only days
+   * with records are emitted, mirroring the adapter's contract.
+   */
+  setDailyCounts(days: readonly { date: string; counts: Partial<AttendanceSummary> }[]): void {
+    this.dailyCounts = days.map((day) => ({
+      date: day.date,
+      counts: { ...emptySummary(), ...day.counts },
+    }));
+  }
+
+  async summarizeByDayForCenter(
+    centerCode: CenterCode,
+    range: DateRange,
+  ): Promise<readonly DailyAttendanceCounts[]> {
+    void centerCode;
+    return this.dailyCounts.filter((day) => day.date >= range.start && day.date <= range.end);
   }
 
   private studentReadings = new Map<StudentId, readonly StudentAttendanceReading[]>();

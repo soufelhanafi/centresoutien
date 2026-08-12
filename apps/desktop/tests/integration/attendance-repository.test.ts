@@ -29,7 +29,6 @@ const CENTER = 'CS-CASA-001' as CenterCode;
 const USER = 'usr_00000000000000000000000001' as UserId;
 const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
 const ROOM = 'rom_00000000000000000000000001' as RoomId;
-const WRS = 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId;
 const STUDENT_A = 'stu_00000000000000000000000001' as StudentId;
 const STUDENT_B = 'stu_00000000000000000000000002' as StudentId;
 
@@ -67,7 +66,7 @@ async function makeSession(date: string, groupId: GroupId | null = null): Promis
     updatedBy: USER,
     deletedAt: null,
     version: 0,
-    recurringSessionId: WRS,
+    recurringSessionId: `wrs_${String(sessionSeq).padStart(26, '0')}` as WeeklyRecurringSessionId,
     roomId: ROOM,
     teacherId: null,
     groupId,
@@ -299,6 +298,58 @@ describe('SqliteAttendanceRepository', () => {
 
       const summary = await repo.summarizeForCenter(CENTER, { start: '2026-01-01', end: '2026-01-31' });
       expect(summary).toEqual({ present: 0, absent: 0, excused: 0, late: 0 });
+    });
+  });
+
+  describe('summarizeByDayForCenter', () => {
+    it('groups counts by session date, emitting only days with records, ascending', async () => {
+      const d5a = await makeSession('2026-01-05');
+      const d5b = await makeSession('2026-01-05');
+      const d12 = await makeSession('2026-01-12');
+      await repo.save(makeAttendance({ sessionId: d5a, studentId: STUDENT_A, status: 'present' }));
+      await repo.save(makeAttendance({ sessionId: d5b, studentId: STUDENT_B, status: 'absent' }));
+      await repo.save(makeAttendance({ sessionId: d5a, studentId: STUDENT_B, status: 'late' }));
+      await repo.save(makeAttendance({ sessionId: d12, studentId: STUDENT_A, status: 'present' }));
+
+      const days = await repo.summarizeByDayForCenter(CENTER, { start: '2026-01-01', end: '2026-01-31' });
+
+      expect(days).toEqual([
+        { date: '2026-01-05', counts: { present: 1, absent: 1, excused: 0, late: 1 } },
+        { date: '2026-01-12', counts: { present: 1, absent: 0, excused: 0, late: 0 } },
+      ]);
+    });
+
+    it('excludes tombstoned records, out-of-range sessions, and other centers', async () => {
+      const inRange = await makeSession('2026-01-15');
+      const outOfRange = await makeSession('2026-02-01');
+      const gone = makeAttendance({ sessionId: inRange, studentId: STUDENT_A, status: 'absent' });
+      await repo.save(gone);
+      await repo.softDelete(gone.id, AT, USER);
+      await repo.save(makeAttendance({ sessionId: inRange, studentId: STUDENT_B, status: 'present' }));
+      await repo.save(makeAttendance({ sessionId: outOfRange, studentId: STUDENT_A, status: 'present' }));
+      await repo.save(
+        makeAttendance({
+          sessionId: inRange,
+          studentId: STUDENT_A,
+          status: 'excused',
+          centerCode: 'CS-RABAT-002' as CenterCode,
+        }),
+      );
+
+      const days = await repo.summarizeByDayForCenter(CENTER, { start: '2026-01-01', end: '2026-01-31' });
+
+      expect(days).toEqual([
+        { date: '2026-01-15', counts: { present: 1, absent: 0, excused: 0, late: 0 } },
+      ]);
+    });
+
+    it('excludes records whose session is soft-deleted', async () => {
+      const session = await makeSession('2026-01-20');
+      await repo.save(makeAttendance({ sessionId: session, studentId: STUDENT_A, status: 'present' }));
+      db.prepare('UPDATE sessions SET deleted_at = ? WHERE id = ?').run(AT.toISOString(), session);
+
+      const days = await repo.summarizeByDayForCenter(CENTER, { start: '2026-01-01', end: '2026-01-31' });
+      expect(days).toEqual([]);
     });
   });
 
