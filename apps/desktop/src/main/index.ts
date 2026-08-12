@@ -7,6 +7,8 @@ import { buildContainer, type Container } from './composition-root';
 import { MainRuntime } from './main-runtime';
 import { CenterHost } from './center/center-host';
 import { createMainWindow } from './window';
+import { createIpcSenderGuard } from './security/ipc-sender-guard';
+import { resolveTrustedRendererOrigin } from './security/renderer-origin';
 import { initAutoUpdater } from './updater/auto-updater-service';
 import { DATABASE_SCHEMA_AHEAD_MESSAGE, DatabaseSchemaAheadOfAppError } from '../data/sqlite/migration-runner';
 import { centreDbFileName, DatabaseKeyMismatchError, ensureDatabaseKeyed } from '../data/sqlite/db';
@@ -328,7 +330,13 @@ app.whenReady().then(async () => {
     }
 
     const initial = openCenter(bootIntoDemo ? DEMO_CENTRE_ID : realCentreId);
-    runtime = new MainRuntime(ipcMain, initial);
+    // Reject any IPC invocation that is not the top frame of this build's own
+    // renderer origin (dev server or packaged file:) — the single sender/frame
+    // choke point for the whole main process (SOU-236).
+    const senderGuard = createIpcSenderGuard(
+      resolveTrustedRendererOrigin(process.env['ELECTRON_RENDERER_URL']),
+    );
+    runtime = new MainRuntime(ipcMain, initial, senderGuard);
     // The center switcher (SOU-96) is the SECOND trigger of the one MainRuntime
     // hot-swap (the demo toggle is the first): `ipcMain` is wired once by the
     // runtime, and a `center.switch` re-points the live container through the same

@@ -1,4 +1,6 @@
 import { BrowserWindow, shell } from 'electron';
+import { isAllowedExternalUrl } from './ipc/external-allowlist';
+import { isTrustedRendererUrl, resolveTrustedRendererOrigin } from './security/renderer-origin';
 
 export type RendererEntry = {
   devUrl: string | undefined;
@@ -28,10 +30,25 @@ export function createMainWindow(preloadPath: string, renderer: RendererEntry): 
   // macOS (no Xvfb equivalent there) — Playwright drives it over CDP either
   // way, so hiding it doesn't affect what the e2e suite can assert on.
   if (process.env['CS_E2E_HIDDEN'] !== '1') window.once('ready-to-show', () => window.show());
+
+  const trustedOrigin = resolveTrustedRendererOrigin(renderer.devUrl);
+
+  // A popup never opens in-app; only an allowlisted external URL (https + a known
+  // host — see external-allowlist) is handed to the OS browser. A `file:`, custom
+  // scheme, or foreign host is denied and never reaches `shell.openExternal` (SOU-236).
   window.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    if (isAllowedExternalUrl(url)) void shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  // The main renderer is a SPA that never leaves its own origin; any renderer-
+  // initiated navigation or redirect off it is blocked so compromised content
+  // cannot pull a foreign page into the trusted window (SOU-236).
+  const blockOffOriginNavigation = (event: Electron.Event, url: string): void => {
+    if (!isTrustedRendererUrl(url, trustedOrigin)) event.preventDefault();
+  };
+  window.webContents.on('will-navigate', blockOffOriginNavigation);
+  window.webContents.on('will-redirect', blockOffOriginNavigation);
 
   if (renderer.devUrl) {
     const search = renderer.query ? `?${new URLSearchParams(renderer.query).toString()}` : '';
