@@ -32,8 +32,7 @@ import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
 import { useRecordPayment } from '../../hooks/invoice/use-record-payment';
 import { mapPaymentWriteError } from '../../lib/invoices/payment-write-error';
 import { centimesToMad, madToCentimes } from '../../lib/formulas/price-mad';
-
-const today = () => new Date().toISOString().slice(0, 10);
+import { todayIso } from '../../lib/payments/today';
 
 /** Pre-transform shape RHF holds (blank note), vs the parsed `RecordPaymentFields` output. */
 type RecordPaymentFormInput = z.input<typeof recordPaymentSchema>;
@@ -55,7 +54,7 @@ export function RecordPaymentDialog({ invoiceId, outstandingMad, open, onOpenCha
 
   const form = useForm<RecordPaymentFormInput, unknown, RecordPaymentFields>({
     resolver: zodResolver(recordPaymentSchema),
-    values: { invoiceId, amountMad: outstandingMad, method: 'cash', paidOn: today(), note: '' },
+    values: { invoiceId, amountMad: outstandingMad, method: 'cash', paidOn: todayIso(), note: '' },
   });
 
   const submit = form.handleSubmit(async (values) => {

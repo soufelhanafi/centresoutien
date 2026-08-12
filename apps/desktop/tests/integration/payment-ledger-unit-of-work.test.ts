@@ -227,6 +227,16 @@ function indexExists(database: DB, name: string): boolean {
 }
 
 describe('SqlitePaymentLedgerUnitOfWork — atomic balance guard (SOU-233)', () => {
+  it('sums a recorded payment when paidOn uses the same local day as takings (SOU-221)', async () => {
+    const localBusinessDay = '2026-08-10';
+    const utcSlicedDay = '2026-08-09';
+
+    await recordPayment().execute({ ...baseRecordInput(), paidOn: localBusinessDay });
+
+    expect((await payments.getDayTakings(CENTER, localBusinessDay)).netMad).toBe(35000);
+    expect((await payments.getDayTakings(CENTER, utcSlicedDay)).netMad).toBe(0);
+  });
+
   it('lets exactly one of two racing full payments succeed, net never overshoots', async () => {
     const results = await Promise.allSettled([
       recordPayment(100).execute(baseRecordInput()),
