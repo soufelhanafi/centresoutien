@@ -1,4 +1,5 @@
-import type { PaymentRepository } from '../ports/payment-repository';
+import type { PaymentReader } from '../ports/payment-repository';
+import type { PaymentLedgerUnitOfWork } from '../ports/payment-ledger-unit-of-work';
 import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
 import type { PlanPolicy } from '../plans/plan-policy';
@@ -30,7 +31,10 @@ export type VoidPaymentInput = {
  *  2. Resolve the target center-scoped; unknown or foreign-center → {@link PaymentNotFoundError}.
  *  3. A `reversal` cannot itself be reversed → {@link CannotReverseReversalError}.
  *  4. A payment already carrying a reversal cannot be voided twice (that would push the
- *     net negative) → {@link PaymentAlreadyReversedError}.
+ *     net negative) → {@link PaymentAlreadyReversedError}. This is a fast pre-check; the
+ *     authoritative guard is the DB partial-unique index on `reverses_payment_id`,
+ *     re-checked inside the commit so two concurrent voids of the same payment cannot
+ *     both append (SOU-233 / audit CS-AUD-002).
  *
  * The reversal's `paidOn` is *today* (the reversal date, from the injected Clock, UTC),
  * not the original's business date — it is a distinct ledger event. Append-only and
@@ -38,10 +42,11 @@ export type VoidPaymentInput = {
  */
 export class VoidPayment {
   constructor(
-    private readonly payments: PaymentRepository,
+    private readonly payments: PaymentReader,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
     private readonly plan: PlanPolicy,
+    private readonly ledger: PaymentLedgerUnitOfWork,
   ) {}
 
   async execute(input: VoidPaymentInput): Promise<Payment> {
@@ -90,7 +95,13 @@ export class VoidPayment {
       note: null, // voiding takes no note input (SOU-101 scope is RecordPayment only)
     };
 
-    await this.payments.append(reversal);
+    await this.ledger.commit({
+      candidate: reversal,
+      // A reversal never depends on the running balance — the double-entry guard is the
+      // DB partial-unique index surfaced via onDuplicateReversal, not a net threshold.
+      revalidate: () => {},
+      onDuplicateReversal: () => new PaymentAlreadyReversedError(originalId),
+    });
     return reversal;
   }
 }

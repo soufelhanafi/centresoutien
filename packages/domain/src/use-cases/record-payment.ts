@@ -1,4 +1,5 @@
-import type { PaymentRepository } from '../ports/payment-repository';
+import type { PaymentReader } from '../ports/payment-repository';
+import type { PaymentLedgerUnitOfWork } from '../ports/payment-ledger-unit-of-work';
 import type { InvoiceRepository } from '../ports/invoice-repository';
 import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
@@ -8,6 +9,7 @@ import { PAYMENT_ID_PREFIX, type Payment, type PaymentId } from '../entities/pay
 import type { InvoiceId } from '../entities/invoice';
 import { recordPaymentSchema } from '../schemas/payment';
 import { invoiceTotalMad } from '../policies/invoice-total';
+import { assertInvoicePayable } from '../policies/payable-invoice';
 import { paymentStatusOf, type PaymentStatus } from '../policies/payment-status';
 import { InvoiceNotFoundError } from '../errors/invoice-errors';
 import { PaymentExceedsBalanceError } from '../errors/payment-errors';
@@ -42,26 +44,34 @@ export type RecordPaymentResult = {
  *     method enum, real `paidOn` date, optional `note`).
  *  3. Resolve the invoice center-scoped; an unknown, discarded, or foreign-center id
  *     raises {@link InvoiceNotFoundError} before anything is written.
- *  4. Compute the outstanding balance = invoice total (sum of immutable lines) − net
+ *  4. Require the invoice to be `issued` (`assertInvoicePayable`, SOU-232) — a `draft`
+ *     or `cancelled` invoice raises {@link InvoiceNotPayableError} before any ledger
+ *     read or write.
+ *  5. Compute the outstanding balance = invoice total (sum of immutable lines) − net
  *     already paid (`sumForInvoice`). An amount **above** the outstanding balance is
  *     blocked outright with {@link PaymentExceedsBalanceError} (SOU-101 KICKOFF: no
  *     credit-note entity exists, so overpayment is never silently clamped to "paid").
  *     Below the balance, require `core.invoicing.partial-paid` (Pro+) — on Essentiel a
  *     partial payment throws `PlanFeatureUnavailableError`. Exactly the outstanding
- *     balance (a full payment) is allowed on every plan.
- *  5. Append the `payment` (fresh envelope, `kind: 'payment'`, `reversesPaymentId: null`)
- *     and return it with the freshly derived status.
+ *     balance (a full payment) is allowed on every plan. This is a fast pre-check on a
+ *     possibly-stale net; the authoritative re-check runs inside the commit.
+ *  6. Commit through the {@link PaymentLedgerUnitOfWork}: the balance invariant is
+ *     re-validated against the net re-read **inside** the transaction, then the
+ *     `payment` is appended — one indivisible unit, so two concurrent full payments
+ *     cannot both slip past the balance (SOU-233 / audit CS-AUD-002). The status is
+ *     derived from the authoritative net the commit returns.
  *
  * Nothing here can conflict at sync: the appended row has a unique ULID and is never
  * mutated, so two devices paying the same invoice converge by union.
  */
 export class RecordPayment {
   constructor(
-    private readonly payments: PaymentRepository,
+    private readonly payments: PaymentReader,
     private readonly invoices: InvoiceRepository,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
     private readonly plan: PlanPolicy,
+    private readonly ledger: PaymentLedgerUnitOfWork,
   ) {}
 
   async execute(input: RecordPaymentInput): Promise<RecordPaymentResult> {
@@ -73,6 +83,7 @@ export class RecordPayment {
     if (invoice === null || invoice.centerCode !== input.centerCode) {
       throw new InvoiceNotFoundError(invoiceId);
     }
+    assertInvoicePayable(invoice);
 
     const lines = await this.invoices.listLines(invoiceId);
     const totalMad = invoiceTotalMad(lines);
@@ -80,7 +91,8 @@ export class RecordPayment {
     const outstanding = totalMad - netBefore;
 
     // Overpayment is blocked outright (SOU-101 KICKOFF) — there is no credit-note
-    // entity to absorb the excess, so it must be caught before anything is written.
+    // entity to absorb the excess. This pre-check reads a possibly-stale net; the
+    // commit re-checks against the in-transaction net, closing the race (SOU-233).
     if (fields.amountMad > outstanding) {
       throw new PaymentExceedsBalanceError(invoiceId, outstanding, fields.amountMad);
     }
@@ -110,7 +122,16 @@ export class RecordPayment {
       note: fields.note,
     };
 
-    await this.payments.append(payment);
-    return { payment, status: paymentStatusOf(totalMad, netBefore + fields.amountMad) };
+    const { netPaidMad } = await this.ledger.commit({
+      candidate: payment,
+      revalidate: (netInTx) => {
+        const outstandingInTx = totalMad - netInTx;
+        if (payment.amountMad > outstandingInTx) {
+          throw new PaymentExceedsBalanceError(invoiceId, outstandingInTx, payment.amountMad);
+        }
+      },
+    });
+
+    return { payment, status: paymentStatusOf(totalMad, netPaidMad) };
   }
 }

@@ -13,6 +13,7 @@ import type { Payment, PaymentId, PaymentKind } from '../../../src/entities/paym
 import type { InvoiceId } from '../../../src/entities/invoice';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryPaymentRepository } from '../fakes/in-memory-payment-repository';
+import { InMemoryPaymentLedgerUnitOfWork } from '../fakes/in-memory-payment-ledger-unit-of-work';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 
@@ -47,7 +48,8 @@ describe('VoidPayment', () => {
   let ids = fakeIds(100);
 
   function build(plan: Plan): VoidPayment {
-    return new VoidPayment(payments, fakeClock(VOID_ISO), ids, new PlanPolicy(plan));
+    const ledger = new InMemoryPaymentLedgerUnitOfWork(payments);
+    return new VoidPayment(payments, fakeClock(VOID_ISO), ids, new PlanPolicy(plan), ledger);
   }
 
   beforeEach(() => {
@@ -152,6 +154,38 @@ describe('VoidPayment', () => {
         }),
       ).rejects.toBeInstanceOf(PaymentAlreadyReversedError);
       expect(payments.all()).toHaveLength(2); // original + the one reversal
+    });
+  });
+
+  describe('concurrency — atomic reversal guard (SOU-233)', () => {
+    it('lets exactly one of two racing voids of the same payment succeed', async () => {
+      await payments.append(makePayment());
+
+      const results = await Promise.allSettled([
+        build(PLANS.essentiel).execute({
+          paymentId: PAYMENT,
+          centerCode: CENTER,
+          deviceOrigin: DEVICE,
+          updatedBy: EDITOR,
+        }),
+        build(PLANS.essentiel).execute({
+          paymentId: PAYMENT,
+          centerCode: CENTER,
+          deviceOrigin: DEVICE,
+          updatedBy: EDITOR,
+        }),
+      ]);
+
+      const fulfilled = results.filter((r) => r.status === 'fulfilled');
+      const rejected = results.filter((r) => r.status === 'rejected');
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(
+        PaymentAlreadyReversedError,
+      );
+      // Exactly one reversal appended; net is 0 (original 20000 minus one reversal), never negative.
+      expect(payments.all().filter((p) => p.kind === 'reversal')).toHaveLength(1);
+      expect(await payments.sumForInvoice(INVOICE)).toBe(0);
     });
   });
 

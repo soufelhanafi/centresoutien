@@ -3,7 +3,7 @@ import { RecordPayment } from '../../../src/use-cases/record-payment';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
-import { InvoiceNotFoundError } from '../../../src/errors/invoice-errors';
+import { InvoiceNotFoundError, InvoiceNotPayableError } from '../../../src/errors/invoice-errors';
 import { PaymentExceedsBalanceError } from '../../../src/errors/payment-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Invoice, InvoiceId } from '../../../src/entities/invoice';
@@ -13,6 +13,7 @@ import type { StudentId } from '../../../src/entities/student';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryInvoiceRepository } from '../fakes/in-memory-invoice-repository';
 import { InMemoryPaymentRepository } from '../fakes/in-memory-payment-repository';
+import { InMemoryPaymentLedgerUnitOfWork } from '../fakes/in-memory-payment-ledger-unit-of-work';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 import { planWithoutFeature } from '../fakes/plans';
@@ -74,7 +75,8 @@ describe('RecordPayment', () => {
   let ids = fakeIds(100);
 
   function build(plan: Plan): RecordPayment {
-    return new RecordPayment(payments, invoices, fakeClock(RECORDED_ISO), ids, new PlanPolicy(plan));
+    const ledger = new InMemoryPaymentLedgerUnitOfWork(payments);
+    return new RecordPayment(payments, invoices, fakeClock(RECORDED_ISO), ids, new PlanPolicy(plan), ledger);
   }
 
   beforeEach(async () => {
@@ -196,6 +198,70 @@ describe('RecordPayment', () => {
       await expect(build(PLANS.essentiel).execute(baseInput())).rejects.toBeInstanceOf(
         InvoiceNotFoundError,
       );
+    });
+  });
+
+  describe('payable state (SOU-232)', () => {
+    const DRAFT = 'inv_00000000000000000000000002' as InvoiceId;
+    const CANCELLED = 'inv_00000000000000000000000003' as InvoiceId;
+
+    it('throws InvoiceNotPayableError for a draft invoice and appends nothing', async () => {
+      await invoices.createDraft(makeInvoice({ id: DRAFT, status: 'draft', issuedAt: null }), [
+        makeLine(DRAFT, 35000),
+      ]);
+      await expect(
+        build(PLANS.essentiel).execute({ ...baseInput(), invoiceId: DRAFT as string }),
+      ).rejects.toBeInstanceOf(InvoiceNotPayableError);
+      expect(payments.all()).toHaveLength(0);
+    });
+
+    it('throws InvoiceNotPayableError for a cancelled invoice', async () => {
+      await invoices.createDraft(
+        makeInvoice({ id: CANCELLED, status: 'cancelled', cancelledAt: new Date('2026-08-02T00:00:00Z') }),
+        [makeLine(CANCELLED, 35000)],
+      );
+      await expect(
+        build(PLANS.essentiel).execute({ ...baseInput(), invoiceId: CANCELLED as string }),
+      ).rejects.toBeInstanceOf(InvoiceNotPayableError);
+    });
+
+    it('carries the invoice id and offending status', async () => {
+      await invoices.createDraft(makeInvoice({ id: DRAFT, status: 'draft', issuedAt: null }), [
+        makeLine(DRAFT, 35000),
+      ]);
+      await expect(
+        build(PLANS.essentiel).execute({ ...baseInput(), invoiceId: DRAFT as string }),
+      ).rejects.toMatchObject({ invoiceId: DRAFT, status: 'draft' });
+    });
+  });
+
+  describe('zero outstanding — fully paid already', () => {
+    it('rejects any further payment on a settled invoice (outstanding 0)', async () => {
+      await build(PLANS.essentiel).execute(baseInput()); // pays the full 35000
+      await expect(
+        build(PLANS.essentiel).execute({ ...baseInput(), amountMad: 1 }),
+      ).rejects.toBeInstanceOf(PaymentExceedsBalanceError);
+      expect(await payments.sumForInvoice(INVOICE)).toBe(35000);
+    });
+  });
+
+  describe('concurrency — atomic balance guard (SOU-233)', () => {
+    it('lets exactly one of two racing full payments succeed', async () => {
+      const results = await Promise.allSettled([
+        build(PLANS.essentiel).execute(baseInput()),
+        build(PLANS.essentiel).execute(baseInput()),
+      ]);
+
+      const fulfilled = results.filter((r) => r.status === 'fulfilled');
+      const rejected = results.filter((r) => r.status === 'rejected');
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(
+        PaymentExceedsBalanceError,
+      );
+      // The ledger never overshoots the balance: one 35000 payment, net exactly 35000.
+      expect(payments.all().filter((p) => p.kind === 'payment')).toHaveLength(1);
+      expect(await payments.sumForInvoice(INVOICE)).toBe(35000);
     });
   });
 
