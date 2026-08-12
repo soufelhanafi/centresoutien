@@ -13,9 +13,13 @@ import type { AttendanceHeatmapCellView } from '../../lib/dashboard/dashboard-vi
 const LABELLED_ROWS = new Set([0, 2, 4]); // Monday / Wednesday / Friday, GitHub-style
 const LABEL_GUTTER = 'w-9 shrink-0';
 
-/** Short weekday names Monday→Sunday; only Mon/Wed/Fri are shown, the rest blank. */
+/**
+ * Narrow weekday initials Monday→Sunday; only Mon/Wed/Fri are shown, the rest
+ * blank. Narrow (single glyph) keeps the label gutter compact and, unlike the
+ * CLDR `short` form, fits in AR where abbreviated weekdays are full-length words.
+ */
 function buildWeekdayLabels(locale: string): readonly string[] {
-  const formatter = new Intl.DateTimeFormat(bcp47(locale), { weekday: 'short' });
+  const formatter = new Intl.DateTimeFormat(bcp47(locale), { weekday: 'narrow' });
   return Array.from({ length: HEATMAP_ROWS }, (_row, row) =>
     LABELLED_ROWS.has(row) ? formatter.format(new Date(2024, 0, 1 + row)) : '',
   );
@@ -76,7 +80,10 @@ export function AttendanceHeatmap({ cells }: { cells: readonly AttendanceHeatmap
           <div className="flex gap-1">
             <div className={`flex flex-col gap-[3px] ${LABEL_GUTTER}`} aria-hidden="true">
               {weekdayLabels.map((label, row) => (
-                <span key={row} className="flex h-3 items-center pe-1 text-[10px] text-muted-foreground">
+                <span
+                  key={row}
+                  className="flex h-3 items-center whitespace-nowrap pe-1 text-[10px] text-muted-foreground"
+                >
                   {label}
                 </span>
               ))}
