@@ -67,7 +67,9 @@ export function getOrganizationSchema(): OrganizationSchema {
     name: "Centre Soutien",
     url: SITE_URL,
     logo: `${SITE_URL}/logo.png`,
-    // TODO: add real social profile URLs (do not invent ones that 404) (SOU-202).
+    // SOU-212: no social profiles exist yet, so `sameAs` stays empty — filling
+    // it with invented URLs would feed 404s to search engines. Populate once
+    // LinkedIn/YouTube channels are created.
     sameAs: [],
   };
 }
