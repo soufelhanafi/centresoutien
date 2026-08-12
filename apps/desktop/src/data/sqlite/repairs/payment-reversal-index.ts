@@ -1,4 +1,5 @@
 import type { Database as DB } from 'better-sqlite3';
+import type { PaymentId } from '@centresoutien/domain';
 
 /** The partial-unique backstop index name (migration 0042 / SOU-233). */
 export const REVERSAL_ONCE_INDEX = 'ux_payments_reversal_once';
@@ -18,7 +19,7 @@ export type PaymentReversalIndexReport = {
   /** True when the unique backstop index is present after this call. */
   readonly uniqueIndexActive: boolean;
   /** Payment ids that carry more than one live reversal (pending double-voids to repair). */
-  readonly pendingDoubleVoids: readonly string[];
+  readonly pendingDoubleVoids: readonly PaymentId[];
 };
 
 const FIND_DUPLICATE_REVERSALS_SQL = `
@@ -36,8 +37,14 @@ function uniqueIndexExists(db: DB): boolean {
   return row !== undefined;
 }
 
-function pendingDoubleVoids(db: DB): string[] {
-  return (db.prepare(FIND_DUPLICATE_REVERSALS_SQL).all() as { id: string }[]).map((r) => r.id);
+function pendingDoubleVoids(db: DB): PaymentId[] {
+  return (db.prepare(FIND_DUPLICATE_REVERSALS_SQL).all() as { id: string }[]).map(
+    (r) => r.id as PaymentId,
+  );
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return error instanceof Error && (error as { code?: unknown }).code === 'SQLITE_CONSTRAINT_UNIQUE';
 }
 
 /**
@@ -50,28 +57,38 @@ function pendingDoubleVoids(db: DB): string[] {
  * - No live duplicate reversals → create the unique index (defense-in-depth). Correctness
  *   itself no longer depends on it: the in-transaction guard in
  *   {@link SqlitePaymentLedgerUnitOfWork} and the deduped net derivation
- *   (`SUM_FOR_INVOICE_SQL` / `netPaidMadDeduped`) already guarantee "reversed at most
+ *   (`SUM_FOR_INVOICE_SQL` / the pure `netPaidMad`) already guarantee "reversed at most
  *   once".
  * - Live duplicate reversals exist → SKIP the unique index (creating it would abort
  *   DB-open) and RETURN the offending payment ids so the caller can surface them through
  *   the repair/duplicates flow ({@link PAYMENT_DOUBLE_VOID_MESSAGE}), not a raw error.
  *
- * Idempotent and cheap (one metadata lookup + one grouped count), safe to run on every
- * open.
+ * The check and the create run in one transaction, and the create is additionally wrapped
+ * in a catch: if a double-void slips in between the count and the `CREATE` (so `CREATE`
+ * itself raises `SQLITE_CONSTRAINT_UNIQUE`), the duplicates are recomputed and reported
+ * rather than thrown — the "never bricks DB-open" contract holds even under a race.
+ * Idempotent and cheap, safe to run on every open.
  */
 export function ensurePaymentReversalUniqueIndex(db: DB): PaymentReversalIndexReport {
-  const duplicates = pendingDoubleVoids(db);
-
-  if (uniqueIndexExists(db)) {
-    return { uniqueIndexActive: true, pendingDoubleVoids: duplicates };
-  }
-  if (duplicates.length > 0) {
-    return { uniqueIndexActive: false, pendingDoubleVoids: duplicates };
-  }
-
-  db.exec(
-    `CREATE UNIQUE INDEX IF NOT EXISTS ${REVERSAL_ONCE_INDEX}
-       ON payments(reverses_payment_id) WHERE kind = 'reversal'`,
-  );
-  return { uniqueIndexActive: true, pendingDoubleVoids: [] };
+  return db.transaction((): PaymentReversalIndexReport => {
+    if (uniqueIndexExists(db)) {
+      return { uniqueIndexActive: true, pendingDoubleVoids: pendingDoubleVoids(db) };
+    }
+    const duplicates = pendingDoubleVoids(db);
+    if (duplicates.length > 0) {
+      return { uniqueIndexActive: false, pendingDoubleVoids: duplicates };
+    }
+    try {
+      db.exec(
+        `CREATE UNIQUE INDEX IF NOT EXISTS ${REVERSAL_ONCE_INDEX}
+           ON payments(reverses_payment_id) WHERE kind = 'reversal'`,
+      );
+      return { uniqueIndexActive: true, pendingDoubleVoids: [] };
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return { uniqueIndexActive: false, pendingDoubleVoids: pendingDoubleVoids(db) };
+      }
+      throw error;
+    }
+  })();
 }

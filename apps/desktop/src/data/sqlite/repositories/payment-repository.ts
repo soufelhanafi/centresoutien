@@ -21,6 +21,7 @@ import {
   paymentToParams,
   APPEND_PAYMENT_SQL,
   SUM_FOR_INVOICE_SQL,
+  SIGNED_LEDGER_ROWS_SQL,
 } from './payment-sql';
 
 function paymentFromRow(row: PaymentRow): Payment {
@@ -160,16 +161,17 @@ export class SqlitePaymentRepository implements PaymentRepository, RecentPayment
     return rows.map(recentPaymentFromRow);
   }
 
-  // Nets reversals in SQL (Σ payments − Σ reversals) so the day total never depends on a
-  // row cap — the reason this exists apart from the capped `payment.recent` feed.
+  // Nets in SQL through the shared deduped fragment (one reversal per reversed payment,
+  // SOU-233) so the day total never depends on a row cap AND agrees with every other
+  // net surface — the reason this exists apart from the capped `payment.recent` feed.
   async getDayTakings(centerCode: CenterCode, day: string): Promise<DayTakings> {
     const rows = this.db
       .prepare(
         `SELECT method,
-                COALESCE(SUM(CASE WHEN kind = 'reversal' THEN -amount_mad ELSE amount_mad END), 0) AS net_mad,
+                COALESCE(SUM(signed_mad), 0) AS net_mad,
                 SUM(CASE WHEN kind = 'payment' THEN 1 ELSE 0 END) AS payment_count
-         FROM payments
-         WHERE center_code = @center_code AND deleted_at IS NULL AND paid_on = @day
+         FROM (${SIGNED_LEDGER_ROWS_SQL})
+         WHERE center_code = @center_code AND paid_on = @day
          GROUP BY method`,
       )
       .all({ center_code: centerCode, day }) as {

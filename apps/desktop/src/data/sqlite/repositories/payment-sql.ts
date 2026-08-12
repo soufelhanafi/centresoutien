@@ -53,27 +53,49 @@ export const APPEND_PAYMENT_SQL = `
      @version, @invoice_id, @kind, @amount_mad, @method, @paid_on, @reverses_payment_id, @note)
 `;
 
-// Net paid on an invoice, in centimes: Σ payments − ONE reversal per reversed payment.
-// Reversals are collapsed by `reverses_payment_id` (a payment is voided at most once,
-// SOU-233) so a legacy double-void — two reversals of one payment from an offline
-// collision before the guard existed — cannot double-subtract and drive the net
-// negative. Computed in SQL so a balance check is one row, not a full ledger fetch; must
-// agree with the pure `netPaidMadDeduped` over the same rows (an integration test pins
-// this). COALESCE makes an invoice with no payments read 0 rather than NULL. Named
-// `@invoice_id` (used twice) so both sub-selects bind the one value.
-export const SUM_FOR_INVOICE_SQL = `
+// A ledger row's signed contribution to net paid, deduping reversals to ONE per reversed
+// payment (SOU-233). A payment is voided at most once, so of the (possibly several,
+// after a legacy offline double-void) reversals of one payment, only the LOWEST-id one
+// counts — the same lowest-ULID winner the pure `netPaidMad` picks, and using THAT row's
+// amount so SQL and domain provably agree even if two reversals of one payment ever
+// carried different amounts. Payments contribute +amount; the winning reversal −amount;
+// any losing duplicate reversal 0. Tombstones excluded (payments are never tombstoned;
+// the filter keeps the sum honest). The single netting fragment every read path shares
+// (invoice balance, invoice/overdue lists, day-takings) so no two screens can disagree.
+export const SIGNED_LEDGER_ROWS_SQL = `
   SELECT
-    COALESCE((
-      SELECT SUM(amount_mad) FROM payments
-       WHERE invoice_id = @invoice_id AND deleted_at IS NULL AND kind = 'payment'
-    ), 0)
-    -
-    COALESCE((
-      SELECT SUM(rev_amount) FROM (
-        SELECT MIN(amount_mad) AS rev_amount
-          FROM payments
-         WHERE invoice_id = @invoice_id AND deleted_at IS NULL AND kind = 'reversal'
-         GROUP BY reverses_payment_id
-      )
-    ), 0) AS net
+    p.invoice_id  AS invoice_id,
+    p.center_code AS center_code,
+    p.paid_on     AS paid_on,
+    p.method      AS method,
+    p.kind        AS kind,
+    CASE
+      WHEN p.kind = 'payment' THEN p.amount_mad
+      WHEN p.id = (
+        SELECT MIN(r.id) FROM payments r
+         WHERE r.reverses_payment_id = p.reverses_payment_id
+           AND r.kind = 'reversal' AND r.deleted_at IS NULL
+      ) THEN -p.amount_mad
+      ELSE 0
+    END AS signed_mad
+  FROM payments p
+  WHERE p.deleted_at IS NULL
+`;
+
+// Net paid on an invoice, in centimes — one row. Must agree with the pure `netPaidMad`
+// over the same rows (an integration test pins this, including unequal-amount duplicate
+// reversals). COALESCE makes an invoice with no payments read 0 rather than NULL.
+export const SUM_FOR_INVOICE_SQL = `
+  SELECT COALESCE(SUM(signed_mad), 0) AS net
+    FROM (${SIGNED_LEDGER_ROWS_SQL})
+   WHERE invoice_id = @invoice_id
+`;
+
+// (invoice_id, net_paid_mad) deduped — the grouped netting the invoice-list and overdue
+// read models LEFT JOIN, so every invoice surface reports the same net as the balance
+// check and the domain summary.
+export const NET_PAID_BY_INVOICE_SQL = `
+  SELECT invoice_id, SUM(signed_mad) AS net_paid_mad
+    FROM (${SIGNED_LEDGER_ROWS_SQL})
+   GROUP BY invoice_id
 `;

@@ -3,6 +3,7 @@ import type {
   PaymentLedgerUnitOfWork,
   PaymentLedgerCommit,
   PaymentLedgerCommitResult,
+  InvoiceStatus,
 } from '@centresoutien/domain';
 import { paymentToParams, APPEND_PAYMENT_SQL, SUM_FOR_INVOICE_SQL } from './payment-sql';
 import { REVERSAL_ONCE_INDEX } from '../repairs/payment-reversal-index';
@@ -14,6 +15,13 @@ const LIVE_REVERSAL_EXISTS_SQL = `
   SELECT 1 FROM payments
    WHERE reverses_payment_id = ? AND kind = 'reversal' AND deleted_at IS NULL
    LIMIT 1
+`;
+
+// The invoice's live lifecycle status, read in-transaction so a CancelInvoice racing the
+// payment pre-check is visible before the append (audit CS-AUD-001 #8). NULL row → the
+// invoice is gone/tombstoned; the domain guard decides what that means.
+const INVOICE_STATUS_SQL = `
+  SELECT status FROM invoices WHERE id = ? AND deleted_at IS NULL
 `;
 
 /**
@@ -40,11 +48,13 @@ export class SqlitePaymentLedgerUnitOfWork implements PaymentLedgerUnitOfWork {
   private readonly sumStatement;
   private readonly appendStatement;
   private readonly liveReversalStatement;
+  private readonly invoiceStatusStatement;
 
   constructor(private readonly db: DB) {
     this.sumStatement = db.prepare(SUM_FOR_INVOICE_SQL);
     this.appendStatement = db.prepare(APPEND_PAYMENT_SQL);
     this.liveReversalStatement = db.prepare(LIVE_REVERSAL_EXISTS_SQL);
+    this.invoiceStatusStatement = db.prepare(INVOICE_STATUS_SQL);
   }
 
   async commit(unit: PaymentLedgerCommit): Promise<PaymentLedgerCommitResult> {
@@ -52,6 +62,12 @@ export class SqlitePaymentLedgerUnitOfWork implements PaymentLedgerUnitOfWork {
     const delta = candidate.kind === 'reversal' ? -candidate.amountMad : candidate.amountMad;
 
     const runInTransaction = this.db.transaction((): PaymentLedgerCommitResult => {
+      if (unit.payableInvoice) {
+        const row = this.invoiceStatusStatement.get(unit.payableInvoice.invoiceId) as
+          | { status: string }
+          | undefined;
+        unit.payableInvoice.revalidate((row?.status as InvoiceStatus | undefined) ?? null);
+      }
       if (unit.reversalOf) {
         const existing = this.liveReversalStatement.get(unit.reversalOf.paymentId);
         if (existing !== undefined) throw unit.reversalOf.onAlreadyReversed();

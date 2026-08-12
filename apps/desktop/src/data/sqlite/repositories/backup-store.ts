@@ -11,6 +11,7 @@ import { toEntityId } from '@centresoutien/domain';
 import { fromSqlValue, IDENTITY_COLUMNS, toSqlValue, type SheetSqlConfig } from './backup-store-config';
 import { SHEET_SQL } from './backup-store-sheets';
 import { subjectBackupRowToEntity } from '../change-log/change-log-entity-mappers';
+import { ensurePaymentReversalUniqueIndex, REVERSAL_ONCE_INDEX } from '../repairs/payment-reversal-index';
 
 /**
  * SQLite adapter for {@link BackupStore} (SOU-44): pure translation between the
@@ -53,6 +54,13 @@ export class SqliteBackupStore implements BackupStore {
 
   async applyRows(sheets: readonly BackupSheetWrite[]): Promise<void> {
     const run = this.db.transaction((writes: readonly BackupSheetWrite[]) => {
+      // A legacy/offline workbook can carry two reversals of one payment; the unique
+      // reversal backstop would abort the whole restore (payments is a `skip` sheet whose
+      // ON CONFLICT(id) can't absorb a DIFFERENT-id duplicate reversal, SOU-233). Drop it
+      // inside the tx so both append-only rows are retained; a rollback restores it, and
+      // ensurePaymentReversalUniqueIndex() below re-adds it (clean) or reports the pending
+      // double-void (dirty) after the commit — never bricking the import.
+      this.db.exec(`DROP INDEX IF EXISTS ${REVERSAL_ONCE_INDEX}`);
       for (const sheet of writes) {
         const config = SHEET_SQL[sheet.sheetName];
         for (const row of sheet.rows) {
@@ -75,6 +83,10 @@ export class SqliteBackupStore implements BackupStore {
       }
     });
     run(sheets);
+    // Recreate the backstop after the commit: created when the ledger is clean, skipped
+    // (with the pending double-void reported) when the import introduced one. Runs outside
+    // the restore tx because a dirty import must NOT roll the whole restore back.
+    ensurePaymentReversalUniqueIndex(this.db);
   }
 
   /**
