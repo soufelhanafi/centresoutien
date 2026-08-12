@@ -62,6 +62,9 @@ describe('isTrustedRendererUrl', () => {
     // Windows-style pinned entry: exact path passes, any other local path fails.
     [WIN_FILE, WIN_INDEX_URL, true],
     [WIN_FILE, `${WIN_INDEX_URL}?locale=fr`, true],
+    // Drive-letter casing folded: a lower-case `c:` frame URL (Chromium) still
+    // matches the upper-case `C:` pin (Node's pathToFileURL) — not an x===x check.
+    [WIN_FILE, WIN_INDEX_URL.replace('/C:/', '/c:/'), true],
     [WIN_FILE, 'file:///C:/Windows/System32/calc.html', false],
     [DEV, 'http://localhost:5173/', true],
     [DEV, 'http://localhost:5173/students?q=1', true],

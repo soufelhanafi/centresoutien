@@ -44,13 +44,25 @@ export function resolveTrustedRendererOrigin(
 }
 
 /**
+ * Fold a Windows drive letter to upper case so `file:///c:/…` and `file:///C:/…`
+ * compare equal. On case-insensitive volumes the same file can surface under
+ * either casing depending on the producer — Node's `pathToFileURL` (the expected
+ * side) vs Chromium's file-URL canonicalizer (the live frame URL) do not
+ * case-fold the pathname — so an unfolded compare risks a false negative that
+ * would break every IPC channel on Windows (SOU-242). No-op on POSIX paths.
+ */
+function normalizeFileDriveLetter(pathname: string): string {
+  return pathname.replace(/^\/([a-zA-Z]):\//, (_match, drive: string) => `/${drive.toUpperCase()}:/`);
+}
+
+/**
  * True when `rawUrl` belongs to the renderer's own trusted origin. For a
  * packaged build that means the same `file:` entry path as the loaded index
  * (search and hash ignored — `loadFile` appends `?locale=…` and the SPA routes
  * on the hash); in dev it means an exact origin match, so a different port or
- * host is refused. Both paths are normalized through `URL`, so percent-encoding
- * and separators compare identically across platforms; a foreign `file:` path
- * (or any non-`file:` scheme) is refused.
+ * host is refused. Both paths are normalized through `URL` and a drive-letter
+ * fold, so percent-encoding, separators, and Windows casing compare identically
+ * across platforms; a foreign `file:` path (or any non-`file:` scheme) is refused.
  */
 export function isTrustedRendererUrl(rawUrl: string, trusted: TrustedRendererOrigin): boolean {
   let url: URL;
@@ -67,7 +79,8 @@ export function isTrustedRendererUrl(rawUrl: string, trusted: TrustedRendererOri
   } catch {
     return false;
   }
-  return url.pathname === expected.pathname;
+  if (expected.protocol !== 'file:') return false;
+  return normalizeFileDriveLetter(url.pathname) === normalizeFileDriveLetter(expected.pathname);
 }
 
 /** The sender fields the IPC guard inspects — the subset extracted from a `WebFrameMain`. */
