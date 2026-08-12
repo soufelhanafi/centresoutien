@@ -52,14 +52,27 @@ export const APPEND_PAYMENT_SQL = `
      @version, @invoice_id, @kind, @amount_mad, @method, @paid_on, @reverses_payment_id, @note)
 `;
 
-// Net paid on an invoice, in centimes: Σ payments − Σ reversals. Computed in SQL so a
-// balance check is one row, not a full ledger fetch. Must agree with the pure
-// `netPaidMad` over the same rows (an integration test pins this). COALESCE makes an
-// invoice with no payments read 0 rather than NULL.
+// Net paid on an invoice, in centimes: Σ payments − ONE reversal per reversed payment.
+// Reversals are collapsed by `reverses_payment_id` (a payment is voided at most once,
+// SOU-233) so a legacy double-void — two reversals of one payment from an offline
+// collision before the guard existed — cannot double-subtract and drive the net
+// negative. Computed in SQL so a balance check is one row, not a full ledger fetch; must
+// agree with the pure `netPaidMadDeduped` over the same rows (an integration test pins
+// this). COALESCE makes an invoice with no payments read 0 rather than NULL. Named
+// `@invoice_id` (used twice) so both sub-selects bind the one value.
 export const SUM_FOR_INVOICE_SQL = `
-  SELECT COALESCE(
-    SUM(CASE WHEN kind = 'reversal' THEN -amount_mad ELSE amount_mad END), 0
-  ) AS net
-  FROM payments
-  WHERE invoice_id = ? AND deleted_at IS NULL
+  SELECT
+    COALESCE((
+      SELECT SUM(amount_mad) FROM payments
+       WHERE invoice_id = @invoice_id AND deleted_at IS NULL AND kind = 'payment'
+    ), 0)
+    -
+    COALESCE((
+      SELECT SUM(rev_amount) FROM (
+        SELECT MIN(amount_mad) AS rev_amount
+          FROM payments
+         WHERE invoice_id = @invoice_id AND deleted_at IS NULL AND kind = 'reversal'
+         GROUP BY reverses_payment_id
+      )
+    ), 0) AS net
 `;

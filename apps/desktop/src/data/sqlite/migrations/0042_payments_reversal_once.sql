@@ -1,34 +1,35 @@
 -- 0042_payments_reversal_once.sql
--- What: a PARTIAL UNIQUE index on payments(reverses_payment_id) WHERE kind = 'reversal'
---       — at most one live reversal may exist per reversed payment.
+-- What: a NON-UNIQUE partial index on payments(reverses_payment_id) WHERE kind = 'reversal'
+--       — the lookup index behind the "reversed at most once" guard.
 -- Why:  SOU-233 / audit CS-AUD-002. VoidPayment's "already reversed?" check and its
 --       append were separate steps, so two concurrent voids of the same payment could
 --       both pass the check and both insert, double-counting the correction and pushing
---       the derived net negative. This index makes "reversed at most once" a structural
---       DB invariant: the second insert aborts loudly (SQLITE_CONSTRAINT_UNIQUE), which
---       SqlitePaymentLedgerUnitOfWork maps to PaymentAlreadyReversedError. The domain
---       pre-check stays as a fast, friendly path; this is the authoritative guard.
+--       the derived net negative. Correctness is now enforced in two ways that do NOT
+--       require a unique constraint: (1) SqlitePaymentLedgerUnitOfWork re-checks
+--       in-transaction that no live reversal of the payment exists before appending, and
+--       (2) the net derivation (SUM_FOR_INVOICE_SQL / netPaidMadDeduped) collapses
+--       reversals to one per reversed payment. This index just makes that in-tx lookup a
+--       single indexed probe.
+--
+--       The UNIQUE defense-in-depth backstop `ux_payments_reversal_once` is created
+--       SEPARATELY and DATA-CONDITIONALLY at open by ensurePaymentReversalUniqueIndex()
+--       (repairs/payment-reversal-index.ts), NOT here: a legacy double-void (from an
+--       offline collision before this guard existed) would make `CREATE UNIQUE INDEX`
+--       abort, and pure `.sql` cannot branch on data, so creating the unique index in
+--       this migration would brick DB-open. The guard creates it only when the ledger is
+--       already clean, skips it and reports the pending double-void bilingually otherwise.
 -- First ships in: v2.3.0.
 --
 -- PARTIAL (WHERE kind = 'reversal') on purpose: `payment` rows carry
--- reverses_payment_id = NULL and must never be constrained — only reversals point at a
--- payment, and each payment may be pointed at once. A plain unique index would also
--- (harmlessly) allow many NULLs, but the partial form states the intent exactly and
--- keeps the index small (one entry per reversal, none per payment).
+-- reverses_payment_id = NULL and are irrelevant to this lookup — only reversals point at
+-- a payment. Additive-only: creates one index, no table/column/data change and no
+-- backfill; always succeeds regardless of existing data. Sync-neutral: an index touches
+-- no row's envelope (created_at/updated_at/version), so it changes nothing that
+-- replicates.
 --
--- Additive-only: creates an index, no table/column/data change and no backfill. It can
--- only be created cleanly if the existing ledger already holds at most one reversal per
--- payment — which the append-only VoidPayment guard has enforced since 0019, so no live
--- DB should carry a pre-existing double-void. (A center that somehow did would surface
--- it here as a create-time failure, the correct loud signal, not silent data loss.)
--- Sync-neutral: an index touches no row's envelope (created_at/updated_at/version), so
--- it changes nothing that replicates. The partial index is per-database, so two devices
--- can still each reverse the same payment offline; that cross-DB collision is settled at
--- merge by the domain's reversal-dedup resolver (packages/domain/src/sync), not here.
---
--- Logical undo: DROP INDEX ux_payments_reversal_once; (per migration-authoring we never
+-- Logical undo: DROP INDEX ix_payments_reversal_target; (per migration-authoring we never
 -- ship a drop on a live index — this line documents intent only).
 
-CREATE UNIQUE INDEX ux_payments_reversal_once
+CREATE INDEX ix_payments_reversal_target
   ON payments(reverses_payment_id)
   WHERE kind = 'reversal';

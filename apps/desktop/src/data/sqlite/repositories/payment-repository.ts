@@ -108,7 +108,9 @@ export class SqlitePaymentRepository implements PaymentRepository, RecentPayment
   }
 
   async sumForInvoice(invoiceId: InvoiceId): Promise<number> {
-    const row = this.db.prepare(SUM_FOR_INVOICE_SQL).get(invoiceId) as { net: number };
+    const row = this.db.prepare(SUM_FOR_INVOICE_SQL).get({ invoice_id: invoiceId }) as {
+      net: number;
+    };
     return row.net;
   }
 

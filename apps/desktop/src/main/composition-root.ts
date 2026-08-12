@@ -191,6 +191,10 @@ import { SqliteEnrollmentRepository } from '../data/sqlite/repositories/enrollme
 import { SqliteInvoiceRepository } from '../data/sqlite/repositories/invoice-repository';
 import { SqlitePaymentRepository } from '../data/sqlite/repositories/payment-repository';
 import { SqlitePaymentLedgerUnitOfWork } from '../data/sqlite/repositories/payment-ledger-unit-of-work';
+import {
+  ensurePaymentReversalUniqueIndex,
+  PAYMENT_DOUBLE_VOID_MESSAGE,
+} from '../data/sqlite/repairs/payment-reversal-index';
 import { SqliteTeacherRepository } from '../data/sqlite/repositories/teacher-repository';
 import { SqliteTeacherPayrollRuleRepository } from '../data/sqlite/repositories/teacher-payroll-rule-repository';
 import { SqliteTeacherPayoutRepository } from '../data/sqlite/repositories/teacher-payout-repository';
@@ -491,6 +495,14 @@ function resolvePlanForPolicy(planId: PlanId): Plan {
 export function buildContainer(options: ContainerOptions): Container {
   const db = openDatabase({ centreId: options.centreId, key: options.key, dir: options.dir });
   applyMigrations(db, toMigrations(migrationFiles));
+  // Data-conditional backstop the pure-.sql migration can't express (SOU-233): add the
+  // unique reversal index only when the ledger is clean, never bricking DB-open on a
+  // legacy double-void. A pending double-void is surfaced bilingually, never as a raw
+  // SqliteError — correctness holds regardless via the in-tx guard + deduped net.
+  const reversalIndex = ensurePaymentReversalUniqueIndex(db);
+  if (!reversalIndex.uniqueIndexActive && reversalIndex.pendingDoubleVoids.length > 0) {
+    console.warn(PAYMENT_DOUBLE_VOID_MESSAGE.fr, { pendingDoubleVoids: reversalIndex.pendingDoubleVoids });
+  }
 
   const clock = options.clock ?? new SystemClock();
   const ids = options.ids ?? new UlidIdGenerator();
