@@ -83,9 +83,10 @@ test('Scenario 1 — Basique empty state shows the four sections at zero', async
 
 // ---------------------------------------------------------------------------
 // Scenario 2 — Basique happy path: seeded activity (1 active student, 1 group,
-// 1 session this week) is reflected in the Effectifs + Séances sections.
-// Argent stays at zero: the seeded invoice can never leave `draft` (SOU-143),
-// and the new read model counts issued invoices only (SOU-177 shape).
+// 1 session this week) is reflected in the Effectifs + Séances sections, and
+// Argent reports the collected revenue. `seedFullMonth` issues the invoice
+// before paying it (SOU-232 requires a payable invoice), so the read model —
+// which counts `issued` invoices only (SOU-177 shape) — now bills and collects it.
 // ---------------------------------------------------------------------------
 test('Scenario 2 — Basique Effectifs and Séances reflect seeded activity exactly', async () => {
   const L = STR[locale()];
@@ -97,7 +98,33 @@ test('Scenario 2 — Basique Effectifs and Séances reflect seeded activity exac
   await assertMounted(win, L);
   await win.screenshot({ path: `test-results/dashboard-basic-seeded-${locale()}.png` });
 
-  expect(await argentValue(win, L.argent.billed), 'the seeded invoice stays draft, so billed = 0').toBe(zeroFigure(locale()));
+  // Ground truth via the public bridge: the seeded invoice is now issued and
+  // fully paid, so it is billed AND collected, with nothing outstanding.
+  const { basic } = await readDashboardApi(win);
+  const argent = (
+    basic as {
+      summary: {
+        argent: {
+          billedMad: number;
+          collectedMad: number;
+          unpaidMad: number;
+          paidInvoices: { paidCount: number; totalCount: number };
+        };
+      };
+    }
+  ).summary.argent;
+  expect(argent.billedMad, 'the issued invoice is billed').toBeGreaterThan(0);
+  expect(argent.collectedMad, 'the full payment is collected').toBe(argent.billedMad);
+  expect(argent.unpaidMad, 'nothing outstanding after a full payment').toBe(0);
+  expect(argent.paidInvoices, 'the single issued invoice is fully paid').toEqual({ paidCount: 1, totalCount: 1 });
+
+  // The UI mirrors the read model: billed is no longer the zero figure, equals
+  // collected (fully paid), unpaid stays zero, and shows the read-model MAD amount.
+  const billedFigure = await argentValue(win, L.argent.billed);
+  expect(billedFigure, 'billed card is no longer zero now the invoice is issued').not.toBe(zeroFigure(locale()));
+  expect(await argentValue(win, L.argent.collected), 'collected equals billed for a fully-paid invoice').toBe(billedFigure);
+  expect(await argentValue(win, L.argent.unpaid), 'nothing outstanding').toBe(zeroFigure(locale()));
+  expect(billedFigure, 'billed card shows the read-model integer MAD amount').toContain(String(Math.round(argent.billedMad / 100)));
 
   const effectifsCard = sectionHeading(win, L.sections.effectifs).locator('xpath=..');
   await expect(effectifsCard).toContainText('1');
@@ -186,10 +213,10 @@ test('Scenario 5 — Avancé empty state on a fresh Premium center', async () =>
 
 // ---------------------------------------------------------------------------
 // Scenario 6 — Avancé happy path (Premium, read-model only): after seeding one
-// fully-paid invoice + one present attendance record this month, the widgets
-// must reflect that collected revenue and attendance — enrollment evolution and
-// attendance rate do; revenue trend and the per-subject breakdown don't yet,
-// because the seeded invoice can never leave `draft` (SOU-143, not SOU-100).
+// issued, fully-paid invoice + one present attendance record this month, every
+// widget reflects that collected revenue and attendance — attendance rate,
+// enrollment evolution, the revenue trend's current month, and the per-subject
+// breakdown (no longer empty, now that `seedFullMonth` issues the invoice per SOU-232).
 // ---------------------------------------------------------------------------
 test('Scenario 6 — Avancé widgets reflect seeded paid revenue and attendance', async () => {
   const L = STR[locale()];
@@ -221,10 +248,27 @@ test('Scenario 6 — Avancé widgets reflect seeded paid revenue and attendance'
   expect(currentMonthEnrollment?.activeStudentCount).toBe(1);
 
   // Revenue trend and the per-subject breakdown both read only `issued`
-  // invoices (CLAUDE.md §6/§7), and `seedFullMonth`'s invoice never leaves
-  // `draft` because no IPC channel issues an invoice yet — tracked as SOU-143,
-  // not a SOU-100 bug. Once SOU-143 ships, this assertion flips to `toHaveCount(0)`.
-  await expect(win.getByText(L.subjectBreakdownEmpty)).toHaveCount(1);
+  // invoices (CLAUDE.md §6/§7). `seedFullMonth` now issues its invoice before
+  // paying it (SOU-232), so the collected revenue reaches both widgets: the
+  // current month of the trend carries it, and the breakdown names the subject.
+  const collectedMad = (basic as { summary: { argent: { collectedMad: number } } }).summary.argent.collectedMad;
+  expect(collectedMad, 'the fully-paid invoice is collected revenue').toBeGreaterThan(0);
+
+  const breakdown = (
+    advanced as { summary: { subjectRevenueBreakdown: { subjectName: { fr: string; ar: string }; amountMad: number }[] } }
+  ).summary.subjectRevenueBreakdown;
+  expect(breakdown, 'the single seeded subject shows up in the per-subject breakdown').toHaveLength(1);
+  const [subjectBar] = breakdown;
+  expect(subjectBar?.amountMad, 'its share equals the full collected amount').toBe(collectedMad);
+
+  const revenueTrend = (advanced as { summary: { revenueTrend: { collectedMad: number }[] } }).summary.revenueTrend;
+  expect(revenueTrend.at(-1)?.collectedMad, 'the current month carries the collected revenue').toBe(collectedMad);
+
+  // UI: the empty-state copy is gone and the breakdown names the seeded subject.
+  await expect(win.getByText(L.subjectBreakdownEmpty)).toHaveCount(0);
+  const subjectName = locale() === 'ar' ? subjectBar?.subjectName.ar : subjectBar?.subjectName.fr;
+  expect(subjectName, 'the read model exposes the subject name').toBeTruthy();
+  await expect(win.getByText(subjectName as string, { exact: false }).first()).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------
