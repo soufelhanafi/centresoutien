@@ -1,30 +1,34 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LockOverlay, Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
-import { useFeature } from '../../hooks/use-feature';
-import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import { useDashboardViewStore, type DashboardView } from '../../stores/dashboard-view-store';
 import { DashboardBasicPanel } from '../../components/dashboard/dashboard-basic-panel';
 import { DashboardAdvancedPanel } from '../../components/dashboard/dashboard-advanced-panel';
+import { DashboardCustomizeSheet } from '../../components/dashboard/dashboard-widget-config/dashboard-customize-sheet';
+import { DashboardCustomizeTrigger } from '../../components/dashboard/dashboard-widget-config/dashboard-customize-trigger';
 
 /**
- * Dashboard shell (SOU-59) + KPI widgets (SOU-100): Basique / Avancé toggle,
- * preference persisted per device. The toggle itself is never plan-gated;
- * only the Advanced pane's content is, via `useFeature('dashboard.advanced')`.
+ * Dashboard shell (SOU-59) + KPI widgets (SOU-100) + per-widget show/hide +
+ * reorder config (SOU-231). The Basique / Avancé toggle persists per device;
+ * the widget config lives per device too and is plan-aware — gating is enforced
+ * per widget inside the panels (via `useFeature`), never here.
  */
 export function DashboardPage() {
   const { t } = useTranslation();
+  const [customizeOpen, setCustomizeOpen] = useState(false);
   const view = useDashboardViewStore((state) => state.view);
   const setView = useDashboardViewStore((state) => state.setView);
-  const canViewAdvanced = useFeature('dashboard.advanced');
-  const upgradeCta = useUpgradeCta('dashboard.advanced');
 
   return (
     <section aria-labelledby="dashboard-title" className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-      <header className="space-y-1">
-        <h1 id="dashboard-title" className="text-xl font-semibold text-foreground">
-          {t('dashboard.title')}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t('dashboard.subtitle')}</p>
+      <header className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 id="dashboard-title" className="text-xl font-semibold text-foreground">
+            {t('dashboard.title')}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t('dashboard.subtitle')}</p>
+        </div>
+        <DashboardCustomizeTrigger onClick={() => setCustomizeOpen(true)} />
       </header>
 
       <Tabs value={view} onValueChange={(value) => setView(value as DashboardView)}>
@@ -36,20 +40,11 @@ export function DashboardPage() {
           <DashboardBasicPanel />
         </TabsContent>
         <TabsContent value="advanced" className="mt-4">
-          {canViewAdvanced ? (
-            <DashboardAdvancedPanel />
-          ) : (
-            <LockOverlay
-              title={t('dashboard.tabs.advanced')}
-              description={t('plan.locked')}
-              ctaLabel={upgradeCta.ctaLabel}
-              onCta={upgradeCta.onCta}
-            >
-              <div className="p-8 text-sm text-muted-foreground">{t('dashboard.advanced.lockedBody')}</div>
-            </LockOverlay>
-          )}
+          <DashboardAdvancedPanel />
         </TabsContent>
       </Tabs>
+
+      <DashboardCustomizeSheet open={customizeOpen} onOpenChange={setCustomizeOpen} />
     </section>
   );
 }
