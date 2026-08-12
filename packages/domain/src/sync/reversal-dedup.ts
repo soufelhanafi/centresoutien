@@ -1,4 +1,5 @@
 import type { Payment, PaymentId } from '../entities/payment';
+import type { EntityId } from '../value-objects/ids';
 
 /**
  * The entityType string payments are logged, synced, and projected under — the same
@@ -21,9 +22,8 @@ export const PAYMENT_ENTITY_TYPE = 'payments';
  * Two consumers exist today: {@link detectReversalDedups} reports the pair, and
  * {@link netPaidMadDeduped} keeps the derived net correct (each payment reversed once)
  * regardless of how many reversal rows a merge produced. Wiring this into the live
- * sync-apply loop (so the loser surfaces at pull time) waits on append-only entities
- * being projectable through sync — the generic projection currently UPSERTs with
- * `DO UPDATE`, which the append-only `payments` triggers forbid.
+ * sync-apply loop surfaces the loser at pull time while append-only projection keeps
+ * hub versions in the shadow sync store, not by updating the payment row.
  */
 export type ReversalDedup = {
   readonly entityType: typeof PAYMENT_ENTITY_TYPE;
@@ -38,6 +38,10 @@ export type ReversalDedup = {
 /** Stable identity for de-duplicating repeated reversal-dedup detections across retries. */
 export function reversalDedupKey(dedup: ReversalDedup): string {
   return `reversal-dedup:${dedup.reversesPaymentId}:${dedup.winnerId}:${dedup.loserId}`;
+}
+
+export interface PaymentReversalDedupStore {
+  findPaymentReversalByTarget(reversesPaymentId: PaymentId, excludeId: EntityId): Payment | null;
 }
 
 /**

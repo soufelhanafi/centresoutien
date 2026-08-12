@@ -103,6 +103,7 @@ export {
   netPaidMadDeduped,
 } from './sync/reversal-dedup';
 export type { ReversalDedup } from './sync/reversal-dedup';
+export type { PaymentReversalDedupStore } from './sync/reversal-dedup';
 export { resolveSessionCollision } from './policies/session-collision-policy';
 export type { SessionCollisionResolution } from './policies/session-collision-policy';
 

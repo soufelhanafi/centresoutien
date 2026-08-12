@@ -4,7 +4,9 @@ import type {
   PaymentLedgerCommit,
   PaymentLedgerCommitResult,
   InvoiceStatus,
+  ChangeLogWriter,
 } from '@centresoutien/domain';
+import { toEntityId } from '@centresoutien/domain';
 import { paymentToParams, APPEND_PAYMENT_SQL, SUM_FOR_INVOICE_SQL } from './payment-sql';
 import { REVERSAL_ONCE_INDEX } from '../repairs/payment-reversal-index';
 
@@ -50,7 +52,10 @@ export class SqlitePaymentLedgerUnitOfWork implements PaymentLedgerUnitOfWork {
   private readonly liveReversalStatement;
   private readonly invoiceStatusStatement;
 
-  constructor(private readonly db: DB) {
+  constructor(
+    private readonly db: DB,
+    private readonly changeLog?: ChangeLogWriter,
+  ) {
     this.sumStatement = db.prepare(SUM_FOR_INVOICE_SQL);
     this.appendStatement = db.prepare(APPEND_PAYMENT_SQL);
     this.liveReversalStatement = db.prepare(LIVE_REVERSAL_EXISTS_SQL);
@@ -77,6 +82,13 @@ export class SqlitePaymentLedgerUnitOfWork implements PaymentLedgerUnitOfWork {
       ).net;
       unit.revalidate(netBefore);
       this.appendStatement.run(paymentToParams(candidate));
+      this.changeLog?.record({
+        entityType: 'payments',
+        entityId: toEntityId(candidate.id),
+        centerCode: candidate.centerCode,
+        intent: 'upsert',
+        entity: candidate,
+      });
       return { netPaidMad: netBefore + delta };
     });
 

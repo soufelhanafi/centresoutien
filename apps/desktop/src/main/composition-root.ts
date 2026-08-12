@@ -160,6 +160,7 @@ import type {
   LocalSyncRepository,
   SubjectCodeCollisionStore,
   SessionDedupStore,
+  PaymentReversalDedupStore,
   CenterSwitchPort,
 } from '@centresoutien/domain';
 import { Ed25519LicenseAdapter } from '../data/license/ed25519-license-adapter';
@@ -768,8 +769,8 @@ export function buildContainer(options: ContainerOptions): Container {
   // which re-checks the balance/reversal invariant inside the same transaction as the
   // append so a check-then-insert race cannot overshoot the balance or double-reverse.
   const invoiceRepo = new SqliteInvoiceRepository(db);
-  const paymentRepo = new SqlitePaymentRepository(db);
-  const paymentLedgerUnitOfWork = new SqlitePaymentLedgerUnitOfWork(db);
+  const paymentRepo = new SqlitePaymentRepository(db, changeLog);
+  const paymentLedgerUnitOfWork = new SqlitePaymentLedgerUnitOfWork(db, changeLog);
   const recordPayment = new RecordPayment(paymentRepo, invoiceRepo, clock, ids, plan, paymentLedgerUnitOfWork);
   const voidPayment = new VoidPayment(paymentRepo, clock, ids, plan, paymentLedgerUnitOfWork);
   const getInvoicePaymentSummary = new GetInvoicePaymentSummary(paymentRepo, invoiceRepo, plan);
@@ -1239,7 +1240,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // attente" inbox even before a hub exists); the engine itself only runs when
   // a hub is configured, mirroring `syncHub` — `sync.run` then reports a null
   // result ("not paired") to the renderer instead of failing.
-  const localSyncRepository: LocalSyncRepository & SubjectCodeCollisionStore & SessionDedupStore = new SqliteLocalSyncRepository(
+  const localSyncRepository: LocalSyncRepository & SubjectCodeCollisionStore & SessionDedupStore & PaymentReversalDedupStore = new SqliteLocalSyncRepository(
     db,
     clock,
     deviceOrigin,
@@ -1269,6 +1270,7 @@ export function buildContainer(options: ContainerOptions): Container {
         userCanResolve: true,
         subjectCollisionStore: localSyncRepository,
         sessionDedupStore: localSyncRepository,
+        paymentReversalDedupStore: localSyncRepository,
       })
     : null;
   const resolveConflict = new ResolveConflict(localSyncRepository, clock, plan, localSyncRepository);

@@ -8,11 +8,16 @@ import type {
   LocalSyncRepository,
   SubjectCodeCollisionStore,
   SessionDedupStore,
+  PaymentReversalDedupStore,
 } from '@centresoutien/domain';
 import { SESSION_ENTITY_TYPE } from '@centresoutien/domain';
+import type { Payment, PaymentId } from '@centresoutien/domain';
 import type { SyncCursor } from '@centresoutien/domain';
 import type { ConflictSide } from '@centresoutien/domain';
-import { getRegisteredChangeLogEntityToRowMapper } from './change-log-entity-mappers';
+import {
+  getRegisteredChangeLogEntityProjection,
+  getRegisteredChangeLogEntityToRowMapper,
+} from './change-log-entity-mappers';
 import { assertSqlIdentifier } from './table-identifier';
 
 /**
@@ -143,7 +148,7 @@ const NEUTRALIZE_SESSION_SHADOW_SQL = `
  * strings) that the inbox re-surfaces.
  */
 export class SqliteLocalSyncRepository
-  implements LocalSyncRepository, SubjectCodeCollisionStore, SessionDedupStore
+  implements LocalSyncRepository, SubjectCodeCollisionStore, SessionDedupStore, PaymentReversalDedupStore
 {
   private readonly centerCode: CenterCode;
   private seqCounter: number;
@@ -363,6 +368,18 @@ export class SqliteLocalSyncRepository
     };
   }
 
+  findPaymentReversalByTarget(reversesPaymentId: PaymentId, excludeId: EntityId): Payment | null {
+    const row = this.db
+      .prepare(
+        `SELECT * FROM payments
+          WHERE center_code = ? AND kind = 'reversal' AND reverses_payment_id = ?
+            AND id != ? AND deleted_at IS NULL
+          ORDER BY id LIMIT 1`,
+      )
+      .get(this.centerCode, reversesPaymentId, excludeId) as PaymentRow | undefined;
+    return row ? paymentFromRow(row) : null;
+  }
+
   /**
    * Inbound wins (lower ULID): rewrite the local loser row in place to become
    * the winner — the natural-key slot is occupied and stays occupied (the unique
@@ -523,11 +540,19 @@ export class SqliteLocalSyncRepository
    * `version` advances, `deleted_at` carries tombstones through.
    */
   private projectToEntityTable(entityType: string, entity: Record<string, unknown>): void {
-    const mapper = getRegisteredChangeLogEntityToRowMapper(entityType);
-    if (!mapper) return;
+    const projection = getRegisteredChangeLogEntityProjection(entityType);
+    if (!projection) return;
     const table = assertSqlIdentifier(entityType);
-    const row = mapper(entity);
+    const row = projection.mapper(entity);
     const columns = Object.keys(row).map(assertSqlIdentifier);
+    if (projection.mode === 'append-only') {
+      const sql = `
+        INSERT OR IGNORE INTO ${table} (${columns.join(', ')})
+        VALUES (${columns.map((column) => `@${column}`).join(', ')})
+      `;
+      this.db.prepare(sql).run(row);
+      return;
+    }
     const updatable = columns.filter((column) => !APPLY_IMMUTABLE_COLUMNS.has(column));
     const sql = `
       INSERT INTO ${table} (${columns.join(', ')})
@@ -584,6 +609,44 @@ type PendingEnvelope = {
   at: string;
   updatedBy: string;
 };
+
+type PaymentRow = {
+  id: string;
+  center_code: string;
+  device_origin: string;
+  created_at: string;
+  updated_at: string;
+  updated_by: string;
+  deleted_at: string | null;
+  version: number;
+  invoice_id: string;
+  kind: string;
+  amount_mad: number;
+  method: string;
+  paid_on: string;
+  reverses_payment_id: string | null;
+  note: string | null;
+};
+
+function paymentFromRow(row: PaymentRow): Payment {
+  return {
+    id: row.id as PaymentId,
+    centerCode: row.center_code as CenterCode,
+    deviceOrigin: row.device_origin as DeviceId,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+    updatedBy: row.updated_by as UserId,
+    deletedAt: row.deleted_at === null ? null : new Date(row.deleted_at),
+    version: row.version,
+    invoiceId: row.invoice_id as Payment['invoiceId'],
+    kind: row.kind as Payment['kind'],
+    amountMad: row.amount_mad,
+    method: row.method as Payment['method'],
+    paidOn: row.paid_on,
+    reversesPaymentId: row.reverses_payment_id === null ? null : (row.reverses_payment_id as PaymentId),
+    note: row.note,
+  };
+}
 
 /** Serialize a SyncConflict for storage — Dates become ISO strings. */
 function serializeConflict(conflict: SyncConflict): unknown {

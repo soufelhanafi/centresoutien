@@ -15,6 +15,8 @@ const CENTER = 'CS-CASA-001' as CenterCode;
 const DEV = 'dev_0000000000000000000000000A' as DeviceId;
 const USER = 'usr_0000000000000000000000000A' as UserId;
 const S1 = 'stu_00000000000000000000000001' as EntityId;
+const PAY1 = 'pay_00000000000000000000000001' as EntityId;
+const SUB1 = 'sub_00000000000000000000000001' as EntityId;
 const AT = new Date('2026-08-01T10:00:00Z');
 
 let dir: string;
@@ -123,6 +125,40 @@ describe('SqliteLocalSyncRepository', () => {
 
     expect(repo.listPending()).toHaveLength(0);
     expect(repo.getLocalState('students', S1)?.version).toBe(4);
+  });
+
+  it('markSynced keeps append-only payment rows immutable and advances shadow version', () => {
+    const payment = paymentEntity(PAY1, { version: 0 });
+    insertPayment(payment);
+    repo.upsertPending({
+      entityType: 'payments',
+      entityId: PAY1,
+      deviceId: DEV,
+      entity: payment,
+      changedFields: [],
+      baseVersion: 0,
+      op: 'create',
+      updatedBy: USER,
+      at: AT,
+    });
+
+    repo.markSynced('payments', PAY1, 7);
+
+    const row = db.prepare('SELECT version FROM payments WHERE id = ?').get(PAY1) as { version: number };
+    expect(row.version).toBe(0);
+    expect(repo.getLocalState('payments', PAY1)?.version).toBe(7);
+    expect(repo.listPending()).toHaveLength(0);
+  });
+
+  it('mutable subject projections still update existing real rows', () => {
+    repo.applyInbound('subjects', SUB1, subjectEntity({ name: { fr: 'Math', ar: 'رياضيات' }, version: 1 }), 1);
+    repo.applyInbound('subjects', SUB1, subjectEntity({ name: { fr: 'Physique', ar: 'فيزياء' }, version: 2 }), 2);
+
+    const row = db.prepare('SELECT name_fr, version FROM subjects WHERE id = ?').get(SUB1) as {
+      name_fr: string;
+      version: number;
+    };
+    expect(row).toEqual({ name_fr: 'Physique', version: 2 });
   });
 
   it('blockPending persists the conflict so listBlocked re-surfaces it after restart', () => {
@@ -253,3 +289,68 @@ describe('SqliteLocalSyncRepository', () => {
     expect(revived[0].mine.at).toBeInstanceOf(Date);
   });
 });
+
+function paymentEntity(id: EntityId, over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id,
+    centerCode: CENTER,
+    deviceOrigin: DEV,
+    createdAt: AT,
+    updatedAt: AT,
+    updatedBy: USER,
+    deletedAt: null,
+    version: 0,
+    invoiceId: 'inv_00000000000000000000000001',
+    kind: 'payment',
+    amountMad: 10000,
+    method: 'cash',
+    paidOn: '2026-08-01',
+    reversesPaymentId: null,
+    note: null,
+    ...over,
+  };
+}
+
+function subjectEntity(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: SUB1,
+    centerCode: CENTER,
+    deviceOrigin: DEV,
+    createdAt: AT,
+    updatedAt: AT,
+    updatedBy: USER,
+    deletedAt: null,
+    version: 1,
+    name: { fr: 'Math', ar: 'رياضيات' },
+    code: 'MATH',
+    active: true,
+    ...over,
+  };
+}
+
+function insertPayment(payment: Record<string, unknown>): void {
+  db.prepare(
+    `INSERT INTO payments
+      (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at,
+       version, invoice_id, kind, amount_mad, method, paid_on, reverses_payment_id, note)
+     VALUES
+      (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by, @deleted_at,
+       @version, @invoice_id, @kind, @amount_mad, @method, @paid_on, @reverses_payment_id, @note)`,
+  ).run({
+    id: payment['id'],
+    center_code: payment['centerCode'],
+    device_origin: payment['deviceOrigin'],
+    created_at: (payment['createdAt'] as Date).toISOString(),
+    updated_at: (payment['updatedAt'] as Date).toISOString(),
+    updated_by: payment['updatedBy'],
+    deleted_at: null,
+    version: payment['version'],
+    invoice_id: payment['invoiceId'],
+    kind: payment['kind'],
+    amount_mad: payment['amountMad'],
+    method: payment['method'],
+    paid_on: payment['paidOn'],
+    reverses_payment_id: payment['reversesPaymentId'],
+    note: payment['note'],
+  });
+}

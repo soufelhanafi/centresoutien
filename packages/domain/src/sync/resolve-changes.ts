@@ -24,6 +24,16 @@ import {
   type SessionDedupStore,
 } from './session-dedup';
 import { resolveSessionCollision } from '../policies/session-collision-policy';
+import {
+  PAYMENT_ENTITY_TYPE,
+  detectReversalDedups,
+  reversalDedupKey,
+  type PaymentReversalDedupStore,
+  type ReversalDedup,
+} from './reversal-dedup';
+import type { Payment, PaymentId } from '../entities/payment';
+
+type ReversalPayment = Payment & { readonly kind: 'reversal'; readonly reversesPaymentId: PaymentId };
 
 /**
  * The resolve step of pull → resolve → push (SOU-80 §3), kept out of the engine
@@ -45,6 +55,7 @@ export class ChangeResolver {
     private readonly centreId: CenterCode,
     private readonly subjectCollisions: SubjectCodeCollisionStore | null = null,
     private readonly sessionDedups: SessionDedupStore | null = null,
+    private readonly reversalDedups: PaymentReversalDedupStore | null = null,
   ) {}
 
   /** Apply or merge each inbound change; queue conflicts; never auto-resolve them. */
@@ -54,10 +65,11 @@ export class ChangeResolver {
     matcher: DuplicateMatcher,
     collisions: SubjectCodeCollision[] = [],
     dedups: SessionDedup[] = [],
+    reversalDedups: ReversalDedup[] = [],
   ): number {
     let applied = 0;
     for (const change of changes) {
-      applied += this.resolveOne(change, conflicts, matcher, collisions, dedups);
+      applied += this.resolveOne(change, conflicts, matcher, collisions, dedups, reversalDedups);
     }
     return applied;
   }
@@ -68,6 +80,7 @@ export class ChangeResolver {
     matcher: DuplicateMatcher,
     collisions: SubjectCodeCollision[],
     dedups: SessionDedup[],
+    reversalDedups: ReversalDedup[],
   ): number {
     const state = this.local.getLocalState(change.entityType, change.entityId);
     if (state && change.version <= state.version) return 0; // already applied (retry re-delivery)
@@ -83,7 +96,7 @@ export class ChangeResolver {
     let applied = false;
     switch (outcome.kind) {
       case 'apply':
-        applied = this.applyInbound(change, outcome, conflicts, collisions, dedups);
+        applied = this.applyInbound(change, outcome, conflicts, collisions, dedups, reversalDedups);
         break;
       case 'merged':
         this.local.upsertPending(this.buildMergedPending(change, local, outcome));
@@ -120,7 +133,10 @@ export class ChangeResolver {
     conflicts: SyncConflict[],
     collisions: SubjectCodeCollision[],
     dedups: SessionDedup[],
+    reversalDedups: ReversalDedup[],
   ): boolean {
+    this.detectReversalDedups(change, outcome, reversalDedups);
+
     // Sessions first: a natural-key collision with a DIFFERENT local row settles
     // deterministically when both sides agree (lower ULID wins, in-place rewrite)
     // so the projected `ux_sessions_recurrence_date` index never throws. But a
@@ -326,6 +342,27 @@ export class ChangeResolver {
     dedups.push(dedup);
   }
 
+  private pushUniqueReversalDedup(dedups: ReversalDedup[], dedup: ReversalDedup): void {
+    const key = reversalDedupKey(dedup);
+    if (dedups.some((existing) => reversalDedupKey(existing) === key)) return;
+    dedups.push(dedup);
+  }
+
+  private detectReversalDedups(
+    change: HubChange,
+    outcome: Extract<ResolveOutcome, { kind: 'apply' }>,
+    dedups: ReversalDedup[],
+  ): void {
+    const store = this.reversalDedups;
+    const inbound = paymentFromEntity(change.entityId, outcome.entity);
+    if (store === null || change.entityType !== PAYMENT_ENTITY_TYPE || inbound === null) return;
+    const local = store.findPaymentReversalByTarget(inbound.reversesPaymentId, change.entityId);
+    if (local === null) return;
+    for (const dedup of detectReversalDedups([local, inbound])) {
+      this.pushUniqueReversalDedup(dedups, dedup);
+    }
+  }
+
   /**
    * The conflict a natural-key collision becomes when it cannot settle
    * automatically (SOU-188): a deleted-state disagreement is a delete-vs-edit —
@@ -376,6 +413,31 @@ export class ChangeResolver {
       theirs,
     };
   }
+}
+
+function paymentFromEntity(entityId: EntityId, entity: Record<string, unknown>): ReversalPayment | null {
+  if (entity['kind'] !== 'reversal' || typeof entity['reversesPaymentId'] !== 'string') return null;
+  if (typeof entity['invoiceId'] !== 'string') return null;
+  if (typeof entity['amountMad'] !== 'number') return null;
+  if (typeof entity['method'] !== 'string') return null;
+  if (typeof entity['paidOn'] !== 'string') return null;
+  return {
+    id: String(entityId) as PaymentId,
+    centerCode: entity['centerCode'] as CenterCode,
+    deviceOrigin: entity['deviceOrigin'] as DeviceId,
+    createdAt: entity['createdAt'] instanceof Date ? entity['createdAt'] : new Date(entity['createdAt'] as string),
+    updatedAt: entity['updatedAt'] instanceof Date ? entity['updatedAt'] : new Date(entity['updatedAt'] as string),
+    updatedBy: entity['updatedBy'] as UserId,
+    deletedAt: entity['deletedAt'] == null ? null : new Date(entity['deletedAt'] as string),
+    version: typeof entity['version'] === 'number' ? entity['version'] : 0,
+    invoiceId: entity['invoiceId'] as Payment['invoiceId'],
+    kind: 'reversal',
+    amountMad: entity['amountMad'],
+    method: entity['method'] as Payment['method'],
+    paidOn: entity['paidOn'],
+    reversesPaymentId: entity['reversesPaymentId'] as PaymentId,
+    note: typeof entity['note'] === 'string' ? entity['note'] : null,
+  };
 }
 
 /** Mirrors merge.ts `side(…, 'theirs')` so the two stay in sync. */
