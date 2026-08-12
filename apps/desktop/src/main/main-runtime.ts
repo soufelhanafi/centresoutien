@@ -57,18 +57,19 @@ export class MainRuntime {
 
   /**
    * `senderGuard` validates the invoking frame before every dispatch — the
-   * single choke point for sender/frame validation (SOU-236). It is optional so
-   * the pure hot-swap and concurrency tests can drive `route` without an Electron
-   * event; production always injects it from the resolved renderer origin.
+   * single choke point for sender/frame validation (SOU-236). Required, not
+   * optional: making it mandatory means no caller can silently register the IPC
+   * channels without sender validation. Tests that only exercise routing pass an
+   * allow-all guard explicitly.
    */
-  constructor(ipcMain: IpcRegistrar, initial: Container, senderGuard?: IpcSenderGuard) {
+  constructor(ipcMain: IpcRegistrar, initial: Container, senderGuard: IpcSenderGuard) {
     this.current = initial;
     const handlers = createHandlers(initial.handlerDeps);
     this.dispatch = createIpcDispatcher(handlers, gatesFor(initial));
     for (const channel of Object.keys(ipcContract) as IpcChannel[]) {
       if (!(channel in handlers)) continue;
       ipcMain.handle(channel, async (event: IpcMainInvokeEvent, rawRequest: unknown) => {
-        senderGuard?.(event);
+        senderGuard(event);
         return this.route(channel, rawRequest);
       });
     }

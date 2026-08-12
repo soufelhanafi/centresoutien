@@ -53,4 +53,19 @@ describe('isTrustedIpcEvent', () => {
     expect(isTrustedIpcEvent({ senderFrame: untrusted } as unknown as IpcMainEvent, DEV)).toBe(false);
     expect(isTrustedIpcEvent({ senderFrame: null } as unknown as IpcMainEvent, DEV)).toBe(false);
   });
+
+  it('treats a frame that throws on property access as untrusted (destroyed frame)', () => {
+    // A WebFrameMain whose render frame was destroyed throws on .url / .parent.
+    const destroyed = {
+      get url(): string {
+        throw new Error('render frame was disposed');
+      },
+      get parent(): unknown {
+        throw new Error('render frame was disposed');
+      },
+    };
+    const event = { senderFrame: destroyed } as unknown as IpcMainInvokeEvent;
+    expect(isTrustedIpcEvent(event, DEV)).toBe(false);
+    expect(() => createIpcSenderGuard(DEV)(event)).toThrow(UntrustedIpcSenderError);
+  });
 });

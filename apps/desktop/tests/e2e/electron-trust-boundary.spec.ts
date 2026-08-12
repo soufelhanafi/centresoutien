@@ -18,24 +18,26 @@ test.afterEach(async () => {
   live = null;
 });
 
-async function attemptNavigation(win: Page, url: string): Promise<void> {
-  await win.evaluate((target) => {
-    window.location.href = target;
-  }, url);
-  await win.waitForTimeout(300);
-}
+const aliveSentinel = (win: Page) =>
+  win.evaluate(() => (window as unknown as { __alive?: string }).__alive ?? 'gone');
 
 test('blocks the main window navigating off its own origin', async () => {
   live = await boot(locale(), 'essentiel');
   const win = live.win;
-  const originBefore = await win.evaluate(() => window.location.href);
 
-  await attemptNavigation(win, 'https://example.com/');
+  // A successful navigation replaces the document (wiping `__alive` and the
+  // preload bridge); a blocked one leaves both intact. Polling the sentinel is
+  // deterministic — no fixed sleep — and fails if the navigation ever commits.
+  await win.evaluate(() => {
+    (window as unknown as { __alive?: string }).__alive = 'yes';
+    window.location.href = 'https://example.com/';
+  });
 
-  // will-navigate was vetoed: the renderer context survived and still sits on
-  // the app's own file: origin — a foreign https page never loaded.
+  await expect.poll(() => aliveSentinel(win)).toBe('yes');
   expect(await win.evaluate(() => window.location.protocol)).toBe('file:');
-  expect(await win.evaluate(() => window.location.href)).toBe(originBefore);
+  expect(await win.evaluate(() => typeof (window as unknown as { api?: unknown }).api)).toBe(
+    'object',
+  );
 });
 
 test('denies a popup to a foreign host without opening an in-app window', async () => {
@@ -43,12 +45,11 @@ test('denies a popup to a foreign host without opening an in-app window', async 
   const win = live.win;
   const windowsBefore = live.app.windows().length;
 
-  const handle = await win.evaluate(() => Boolean(window.open('https://example.com/', '_blank')));
-  await win.waitForTimeout(300);
+  // setWindowOpenHandler denies synchronously, so window.open returns null and no
+  // second BrowserWindow is created. A non-allowlisted host never reaches shell.openExternal.
+  const opened = await win.evaluate(() => Boolean(window.open('https://example.com/', '_blank')));
 
-  // setWindowOpenHandler denied it: window.open returns null and no second
-  // BrowserWindow was created. A non-allowlisted host also never reaches shell.openExternal.
-  expect(handle).toBe(false);
+  expect(opened).toBe(false);
   expect(live.app.windows().length).toBe(windowsBefore);
 });
 
@@ -57,9 +58,8 @@ test('denies a popup to a dangerous scheme', async () => {
   const win = live.win;
   const windowsBefore = live.app.windows().length;
 
-  const handle = await win.evaluate(() => Boolean(window.open('file:///etc/passwd', '_blank')));
-  await win.waitForTimeout(300);
+  const opened = await win.evaluate(() => Boolean(window.open('file:///etc/passwd', '_blank')));
 
-  expect(handle).toBe(false);
+  expect(opened).toBe(false);
   expect(live.app.windows().length).toBe(windowsBefore);
 });

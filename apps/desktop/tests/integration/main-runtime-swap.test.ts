@@ -9,6 +9,9 @@ import { MainRuntime } from '../../src/main/main-runtime';
 import type { IpcSenderGuard } from '../../src/main/security/ipc-sender-guard';
 import type { IpcChannel, IpcRequest, IpcResponse } from '../../src/shared/ipc/contract';
 
+/** These tests exercise routing/hot-swap, not sender validation, so the guard is a no-op. */
+const ALLOW_ALL_SENDER: IpcSenderGuard = () => {};
+
 /**
  * SOU-186 — the demo/center hot-swap seam. `MainRuntime` registers every IPC
  * channel once and reroutes them to whichever container is open, so a demo
@@ -65,7 +68,7 @@ describe('MainRuntime demo/center hot-swap', () => {
   it('reroutes IPC to the swapped center and closes the previous DB handle without a restart', async () => {
     const real = openCenter('C1', 'CS-CASA-001', 'essentiel');
     const { ipcMain, invoke } = recordingIpcMain();
-    const runtime = new MainRuntime(ipcMain, real);
+    const runtime = new MainRuntime(ipcMain, real, ALLOW_ALL_SENDER);
 
     // A subject created in the real center is scoped to its DB + centerCode.
     await invoke('subject.create', { name: { fr: 'Maths', ar: 'الرياضيات' } });
@@ -92,7 +95,7 @@ describe('MainRuntime demo/center hot-swap', () => {
   it('routes a write to the swapped center, isolated from the previous one', async () => {
     const real = openCenter('C1', 'CS-CASA-001', 'premium');
     const { ipcMain, invoke } = recordingIpcMain();
-    const runtime = new MainRuntime(ipcMain, real);
+    const runtime = new MainRuntime(ipcMain, real, ALLOW_ALL_SENDER);
 
     const demo = openCenter('C2', 'CS-DEMO-001', 'premium');
     await runtime.swapTo(() => demo); // disposes the real container
@@ -106,7 +109,7 @@ describe('MainRuntime demo/center hot-swap', () => {
 
     // The real center never received it — reopen its DB fresh and confirm empty.
     const reopened = recordingIpcMain();
-    const runtime2 = new MainRuntime(reopened.ipcMain, openCenter('C1', 'CS-CASA-001', 'premium'));
+    const runtime2 = new MainRuntime(reopened.ipcMain, openCenter("C1", "CS-CASA-001", "premium"), ALLOW_ALL_SENDER);
     expect((await reopened.invoke('subject.list', { scope: 'all' })).subjects).toHaveLength(0);
     runtime2.dispose();
   });
@@ -114,7 +117,7 @@ describe('MainRuntime demo/center hot-swap', () => {
   it('keeps the current center live when the swap fails — no crash', async () => {
     const real = openCenter('C1', 'CS-CASA-001', 'essentiel');
     const { ipcMain, invoke } = recordingIpcMain();
-    const runtime = new MainRuntime(ipcMain, real);
+    const runtime = new MainRuntime(ipcMain, real, ALLOW_ALL_SENDER);
 
     await expect(
       runtime.swapTo(() => {
@@ -189,7 +192,7 @@ function recordingRuntime(initial: Container): {
       registry.set(channel, listener);
     },
   } as Pick<IpcMain, 'handle'>;
-  const runtime = new MainRuntime(ipcMain, initial);
+  const runtime = new MainRuntime(ipcMain, initial, ALLOW_ALL_SENDER);
   return {
     runtime,
     invoke: (channel, request) => {

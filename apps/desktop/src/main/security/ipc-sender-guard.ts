@@ -19,9 +19,17 @@ export function isTrustedIpcEvent(
   event: IpcMainInvokeEvent | IpcMainEvent,
   trusted: TrustedRendererOrigin,
 ): boolean {
-  const frame = event.senderFrame;
-  const context = frame ? { url: frame.url, hasParent: frame.parent !== null } : null;
-  return isTrustedIpcSender(context, trusted);
+  // A WebFrameMain can be non-null yet throw on property access once its render
+  // frame has navigated away or been destroyed (e.g. a slow invoke resolving
+  // after the sender unloaded). Treat any such access failure as untrusted —
+  // fail closed rather than leak an unexpected error type past the guard.
+  try {
+    const frame = event.senderFrame;
+    const context = frame ? { url: frame.url, hasParent: frame.parent !== null } : null;
+    return isTrustedIpcSender(context, trusted);
+  } catch {
+    return false;
+  }
 }
 
 /** Asserts the invoking frame is trusted, throwing {@link UntrustedIpcSenderError} otherwise. */
