@@ -57,3 +57,37 @@ export function buildHeatmapColumns(cells: readonly AttendanceHeatmapCellView[])
 
   return columns.map((column) => column ?? { weekStart: gridStart, cells: Array(HEATMAP_ROWS).fill(null) });
 }
+
+/** The `YYYY-MM` month of a cell's `YYYY-MM-DD` date. */
+function cellMonthKey(cell: AttendanceHeatmapCellView): string {
+  return cell.date.slice(0, 7);
+}
+
+/**
+ * One month key (`YYYY-MM`) per column, or `null` where no header should show —
+ * derived from the columns' **real cells**, never the padded `weekStart`, so a
+ * month that starts midweek is labelled on the column that actually contains its
+ * first day rather than a week late. The first column is labelled from its first
+ * real cell; a later column is labelled only when it carries a month's first-of
+ * day (`-01`) and that month differs from the last labelled one. Padding-only
+ * columns yield `null`. Pure and locale-free — the component formats the keys.
+ */
+export function buildMonthLabelKeys(columns: readonly HeatmapColumn[]): readonly (string | null)[] {
+  let lastLabelled = '';
+  return columns.map((column, columnIndex) => {
+    const realCells = column.cells.filter((cell): cell is AttendanceHeatmapCellView => cell !== null);
+    if (realCells.length === 0) return null;
+
+    const firstOfMonthCell = realCells.find((cell) => cell.date.slice(8, 10) === '01');
+    const monthKey =
+      columnIndex === 0
+        ? cellMonthKey(realCells[0]!)
+        : firstOfMonthCell
+          ? cellMonthKey(firstOfMonthCell)
+          : null;
+
+    if (monthKey === null || monthKey === lastLabelled) return null;
+    lastLabelled = monthKey;
+    return monthKey;
+  });
+}

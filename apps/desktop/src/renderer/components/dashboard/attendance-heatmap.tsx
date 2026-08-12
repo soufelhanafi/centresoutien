@@ -3,8 +3,8 @@ import { TooltipProvider } from '@centresoutien/ui';
 import { bcp47, formatMonthShort } from '../../lib/format';
 import {
   buildHeatmapColumns,
+  buildMonthLabelKeys,
   HEATMAP_ROWS,
-  type HeatmapColumn,
 } from '../../lib/dashboard/attendance-heatmap-layout';
 import { AttendanceHeatmapCell } from './attendance-heatmap-cell';
 import { AttendanceHeatmapLegend } from './attendance-heatmap-legend';
@@ -23,19 +23,6 @@ function buildWeekdayLabels(locale: string): readonly string[] {
   return Array.from({ length: HEATMAP_ROWS }, (_row, row) =>
     LABELLED_ROWS.has(row) ? formatter.format(new Date(2024, 0, 1 + row)) : '',
   );
-}
-
-/** One short month label per column, only where the month changes (or the first column). */
-function buildMonthLabels(columns: readonly HeatmapColumn[], locale: string): readonly (string | null)[] {
-  let previousKey = '';
-  return columns.map((column) => {
-    const year = column.weekStart.getFullYear();
-    const month = column.weekStart.getMonth();
-    const key = `${year}-${month}`;
-    if (key === previousKey) return null;
-    previousKey = key;
-    return formatMonthShort(`${year}-${String(month + 1).padStart(2, '0')}`, locale);
-  });
 }
 
 /**
@@ -58,7 +45,9 @@ export function AttendanceHeatmap({ cells }: { cells: readonly AttendanceHeatmap
   }
 
   const weekdayLabels = buildWeekdayLabels(i18n.language);
-  const monthLabels = buildMonthLabels(columns, i18n.language);
+  const monthLabels = buildMonthLabelKeys(columns).map((key) =>
+    key === null ? null : formatMonthShort(key, i18n.language),
+  );
 
   return (
     <div className="flex flex-col gap-2.5">
