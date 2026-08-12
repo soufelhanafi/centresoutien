@@ -10,6 +10,7 @@ import type { Teacher } from '../../../src/entities/teacher';
 import type { Student } from '../../../src/entities/student';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
 import type { SessionDedupStore } from '../../../src/sync/session-dedup';
+import type { PaymentReversalDedupStore } from '../../../src/sync/reversal-dedup';
 import type { SubjectCodeCollisionStore } from '../../../src/sync/subject-code-collision';
 import type { InMemorySyncLocalRepository } from '../fakes/in-memory-sync-local-repository';
 
@@ -49,6 +50,7 @@ export function makeEngine(input: {
   plan?: PlanPolicy;
   sessionDedupStore?: SessionDedupStore;
   subjectCollisionStore?: SubjectCodeCollisionStore;
+  paymentReversalDedupStore?: PaymentReversalDedupStore;
 }): SyncEngine {
   return new SyncEngine({
     hub: input.hub,
@@ -62,6 +64,9 @@ export function makeEngine(input: {
     ...(input.maxAttempts !== undefined ? { maxAttempts: input.maxAttempts } : {}),
     ...(input.sessionDedupStore !== undefined ? { sessionDedupStore: input.sessionDedupStore } : {}),
     ...(input.subjectCollisionStore !== undefined ? { subjectCollisionStore: input.subjectCollisionStore } : {}),
+    ...(input.paymentReversalDedupStore !== undefined
+      ? { paymentReversalDedupStore: input.paymentReversalDedupStore }
+      : {}),
   });
 }
 

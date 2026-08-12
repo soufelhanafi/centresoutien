@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DialogContent, DialogHeader, DialogTitle, Tabs, TabsList, TabsTrigger, TabsContent } from '@centresoutien/ui';
-import type { SyncConflictView } from '../../lib/sync/sync-view';
-import { groupConflicts } from '../../lib/sync/sync-view';
+import type { DuplicateView, ReversalDedupView, SyncConflictView } from '../../lib/sync/sync-view';
+import { groupSyncConflicts } from '../../lib/sync/sync-view';
 import { ConflictCard } from './conflict-card';
 import { DeleteVsEditCard } from './delete-vs-edit-card';
 
@@ -13,10 +13,16 @@ import { DeleteVsEditCard } from './delete-vs-edit-card';
  * not resolved field-by-field). Each card shows who / when / what for both
  * sides and offers whole-entity + per-field resolution.
  */
-export function ConflictPopup({ conflicts }: { conflicts: readonly SyncConflictView[] }) {
+export function ConflictPopup({
+  conflicts,
+  reversalDedups = [],
+}: {
+  conflicts: readonly SyncConflictView[];
+  reversalDedups?: readonly ReversalDedupView[];
+}) {
   const { t } = useTranslation();
-  const grouped = useMemo(() => groupConflicts(conflicts), [conflicts]);
-  const total = conflicts.length;
+  const grouped = useMemo(() => groupSyncConflicts({ conflicts, reversalDedups }), [conflicts, reversalDedups]);
+  const total = conflicts.length + reversalDedups.length;
 
   const hasAny = total > 0;
   const counts = {
@@ -68,8 +74,8 @@ export function ConflictPopup({ conflicts }: { conflicts: readonly SyncConflictV
             {grouped.duplicates.length === 0 && (
               <p className="text-sm text-muted-foreground">{t('sync.popup.empty')}</p>
             )}
-            {grouped.duplicates.map((conflict) => (
-              <DuplicateCard key={conflictKey(conflict)} conflict={conflict} />
+            {grouped.duplicates.map((duplicate) => (
+              <DuplicateCard key={duplicateKey(duplicate)} duplicate={duplicate} />
             ))}
           </TabsContent>
         </Tabs>
@@ -78,9 +84,12 @@ export function ConflictPopup({ conflicts }: { conflicts: readonly SyncConflictV
   );
 }
 
-function DuplicateCard({ conflict }: { conflict: SyncConflictView }) {
+function DuplicateCard({ duplicate }: { duplicate: DuplicateView }) {
   const { t } = useTranslation();
-  if (conflict.kind !== 'probable-duplicate') return null;
+  if (duplicate.kind === 'payment-reversal-dedup') {
+    return <PaymentReversalDedupCard dedup={duplicate.dedup} />;
+  }
+  const { conflict } = duplicate;
   const reasonLabel = t(`sync.reasons.${conflict.reason}`) as string;
   const tierLabel = conflict.tier === 'exact' ? t('sync.tier.exact') : t('sync.tier.fuzzy');
   return (
@@ -98,6 +107,25 @@ function DuplicateCard({ conflict }: { conflict: SyncConflictView }) {
       <p className="mt-2 text-xs text-muted-foreground">{t('sync.duplicate.mergeHint')}</p>
     </div>
   );
+}
+
+function PaymentReversalDedupCard({ dedup }: { dedup: ReversalDedupView }) {
+  const { t } = useTranslation();
+  void dedup;
+  return (
+    <div className="rounded-lg border p-4">
+      <p className="text-sm font-medium">{t('sync.paymentReversalDedup.title')}</p>
+      <p className="mt-1 text-sm">{t('sync.paymentReversalDedup.action')}</p>
+      <p className="mt-2 text-xs text-muted-foreground">{t('sync.paymentReversalDedup.hint')}</p>
+    </div>
+  );
+}
+
+function duplicateKey(duplicate: DuplicateView): string {
+  if (duplicate.kind === 'payment-reversal-dedup') {
+    return `payment-reversal-dedup:${duplicate.dedup.reversesPaymentId}:${duplicate.dedup.loserId}`;
+  }
+  return conflictKey(duplicate.conflict);
 }
 
 export function conflictKey(conflict: SyncConflictView): string {

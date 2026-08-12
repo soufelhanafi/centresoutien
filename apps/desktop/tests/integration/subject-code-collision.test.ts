@@ -94,7 +94,10 @@ describe('subject code collision on sync-apply (SOU-122)', () => {
     repo.applyInbound('subjects', SUB_HI, subject(SUB_HI, 'MATH'), 1); // pre-existing local live MATH
 
     const collisions: SubjectCodeCollision[] = [];
-    const applied = resolver().resolveBatch([inbound(SUB_LO)], [], NOOP_MATCHER, collisions);
+    const applied = resolver().resolveBatch([inbound(SUB_LO)], NOOP_MATCHER, {
+      conflicts: [],
+      subjectCodeCollisions: collisions,
+    });
 
     expect(applied).toBe(1);
     expect(projectedCode(SUB_LO)).toEqual({ code: 'MATH', deleted_at: null }); // winner
@@ -108,7 +111,10 @@ describe('subject code collision on sync-apply (SOU-122)', () => {
     repo.applyInbound('subjects', SUB_LO, subject(SUB_LO, 'MATH'), 1);
 
     const collisions: SubjectCodeCollision[] = [];
-    const applied = resolver().resolveBatch([inbound(SUB_HI)], [], NOOP_MATCHER, collisions);
+    const applied = resolver().resolveBatch([inbound(SUB_HI)], NOOP_MATCHER, {
+      conflicts: [],
+      subjectCodeCollisions: collisions,
+    });
 
     expect(applied).toBe(1);
     expect(projectedCode(SUB_LO)).toEqual({ code: 'MATH', deleted_at: null }); // winner
@@ -120,7 +126,7 @@ describe('subject code collision on sync-apply (SOU-122)', () => {
 
   it('clearing the loser nulls the shadow snapshot too, so a push cannot re-introduce the code', () => {
     repo.applyInbound('subjects', SUB_HI, subject(SUB_HI, 'MATH'), 1);
-    resolver().resolveBatch([inbound(SUB_LO)], [], NOOP_MATCHER, []);
+    resolver().resolveBatch([inbound(SUB_LO)], NOOP_MATCHER, { conflicts: [], subjectCodeCollisions: [] });
 
     expect(repo.getLocalState('subjects', SUB_HI)?.entity['code']).toBeNull();
   });

@@ -8,12 +8,19 @@ import type {
   LocalSyncRepository,
   SubjectCodeCollisionStore,
   SessionDedupStore,
+  PaymentReversalDedupStore,
+  ReversalDedupCandidate,
 } from '@centresoutien/domain';
-import { SESSION_ENTITY_TYPE } from '@centresoutien/domain';
+import { PAYMENT_ENTITY_TYPE, SESSION_ENTITY_TYPE } from '@centresoutien/domain';
+import type { PaymentId } from '@centresoutien/domain';
 import type { SyncCursor } from '@centresoutien/domain';
 import type { ConflictSide } from '@centresoutien/domain';
-import { getRegisteredChangeLogEntityToRowMapper } from './change-log-entity-mappers';
+import {
+  getRegisteredChangeLogEntityProjection,
+  getRegisteredChangeLogEntityToRowMapper,
+} from './change-log-entity-mappers';
 import { assertSqlIdentifier } from './table-identifier';
+import { REVERSAL_ONCE_INDEX } from '../repairs/payment-reversal-index';
 
 /**
  * Identity columns kept unchanged when an inbound payload is projected onto its
@@ -143,7 +150,7 @@ const NEUTRALIZE_SESSION_SHADOW_SQL = `
  * strings) that the inbox re-surfaces.
  */
 export class SqliteLocalSyncRepository
-  implements LocalSyncRepository, SubjectCodeCollisionStore, SessionDedupStore
+  implements LocalSyncRepository, SubjectCodeCollisionStore, SessionDedupStore, PaymentReversalDedupStore
 {
   private readonly centerCode: CenterCode;
   private seqCounter: number;
@@ -363,6 +370,23 @@ export class SqliteLocalSyncRepository
     };
   }
 
+  findPaymentReversalsByTarget(reversesPaymentId: PaymentId, excludeId: EntityId): readonly ReversalDedupCandidate[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM payments
+          WHERE center_code = ? AND kind = 'reversal' AND reverses_payment_id = ?
+            AND id != ? AND deleted_at IS NULL
+          ORDER BY id`,
+      )
+      .all(this.centerCode, reversesPaymentId, excludeId) as PaymentRow[];
+    return rows.map((row) => ({
+      id: row.id as PaymentId,
+      kind: 'reversal' as const,
+      reversesPaymentId: row.reverses_payment_id as PaymentId,
+      deletedAt: row.deleted_at,
+    }));
+  }
+
   /**
    * Inbound wins (lower ULID): rewrite the local loser row in place to become
    * the winner — the natural-key slot is occupied and stays occupied (the unique
@@ -523,11 +547,25 @@ export class SqliteLocalSyncRepository
    * `version` advances, `deleted_at` carries tombstones through.
    */
   private projectToEntityTable(entityType: string, entity: Record<string, unknown>): void {
-    const mapper = getRegisteredChangeLogEntityToRowMapper(entityType);
-    if (!mapper) return;
+    const projection = getRegisteredChangeLogEntityProjection(entityType);
+    if (!projection) return;
     const table = assertSqlIdentifier(entityType);
-    const row = mapper(entity);
+    const row = projection.mapper(entity);
     const columns = Object.keys(row).map(assertSqlIdentifier);
+    if (projection.mode === 'append-only') {
+      // Duplicate offline reversals are legitimate append-only audit rows. The
+      // optional unique backstop cannot coexist with that dirty-but-supported
+      // ledger state, while correctness still holds through the transactional
+      // void guard and deduped net derivation.
+      this.prepareAppendOnlyProjection(entityType, row);
+      const sql = `
+        INSERT INTO ${table} (${columns.join(', ')})
+        VALUES (${columns.map((column) => `@${column}`).join(', ')})
+        ON CONFLICT(id) DO NOTHING
+      `;
+      this.db.prepare(sql).run(row);
+      return;
+    }
     const updatable = columns.filter((column) => !APPLY_IMMUTABLE_COLUMNS.has(column));
     const sql = `
       INSERT INTO ${table} (${columns.join(', ')})
@@ -535,6 +573,28 @@ export class SqliteLocalSyncRepository
       ON CONFLICT(id) DO UPDATE SET ${updatable.map((column) => `${column} = excluded.${column}`).join(', ')}
     `;
     this.db.prepare(sql).run(row);
+  }
+
+  private prepareAppendOnlyProjection(entityType: string, row: Record<string, unknown>): void {
+    if (
+      entityType !== PAYMENT_ENTITY_TYPE ||
+      row['kind'] !== 'reversal' ||
+      typeof row['reverses_payment_id'] !== 'string' ||
+      typeof row['id'] !== 'string'
+    ) {
+      return;
+    }
+    const existing = this.db
+      .prepare(
+        `SELECT id FROM payments
+          WHERE center_code = ? AND kind = 'reversal' AND reverses_payment_id = ?
+            AND id != ? AND deleted_at IS NULL
+          LIMIT 1`,
+      )
+      .get(this.centerCode, row['reverses_payment_id'], row['id']) as { id: string } | undefined;
+    if (existing) {
+      this.db.prepare(`DROP INDEX IF EXISTS ${REVERSAL_ONCE_INDEX}`).run();
+    }
   }
 
   private pendingFromRow(row: PendingRow): LocalPendingChange {
@@ -583,6 +643,24 @@ type PendingEnvelope = {
   seq: number;
   at: string;
   updatedBy: string;
+};
+
+type PaymentRow = {
+  id: string;
+  center_code: string;
+  device_origin: string;
+  created_at: string;
+  updated_at: string;
+  updated_by: string;
+  deleted_at: string | null;
+  version: number;
+  invoice_id: string;
+  kind: string;
+  amount_mad: number;
+  method: string;
+  paid_on: string;
+  reverses_payment_id: string | null;
+  note: string | null;
 };
 
 /** Serialize a SyncConflict for storage — Dates become ISO strings. */

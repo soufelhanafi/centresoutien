@@ -14,8 +14,9 @@ import type {
   CenterCode,
   DeviceId,
   UserId,
+  ChangeLogWriter,
 } from '@centresoutien/domain';
-import { PAYMENT_METHODS } from '@centresoutien/domain';
+import { PAYMENT_METHODS, toEntityId } from '@centresoutien/domain';
 import {
   type PaymentRow,
   paymentToParams,
@@ -88,10 +89,22 @@ function recentPaymentFromRow(row: RecentPaymentQueryRow): RecentPaymentView {
  * mirroring how `SqliteInvoiceRepository` carries `OverdueInvoiceViewReadPort`.
  */
 export class SqlitePaymentRepository implements PaymentRepository, RecentPaymentsReadPort {
-  constructor(private readonly db: DB) {}
+  constructor(
+    private readonly db: DB,
+    private readonly changeLog?: ChangeLogWriter,
+  ) {}
 
   async append(payment: Payment): Promise<void> {
-    this.db.prepare(APPEND_PAYMENT_SQL).run(paymentToParams(payment));
+    this.db.transaction(() => {
+      this.db.prepare(APPEND_PAYMENT_SQL).run(paymentToParams(payment));
+      this.changeLog?.record({
+        entityType: 'payments',
+        entityId: toEntityId(payment.id),
+        centerCode: payment.centerCode,
+        intent: 'upsert',
+        entity: payment,
+      });
+    })();
   }
 
   async findById(id: PaymentId): Promise<Payment | null> {

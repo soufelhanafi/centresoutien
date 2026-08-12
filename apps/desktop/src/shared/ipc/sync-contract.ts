@@ -57,11 +57,19 @@ export const syncConflictViewSchema = z.discriminatedUnion('kind', [
 
 export const syncRunRequestSchema = z.object({});
 
+export const reversalDedupViewSchema = z.object({
+  entityType: z.literal('payments'),
+  reversesPaymentId: z.string(),
+  winnerId: z.string(),
+  loserId: z.string(),
+});
+
 export const syncResultViewSchema = z.object({
   status: z.enum(['synced', 'retries-exhausted']),
   applied: z.number().int().nonnegative(),
   pushed: z.number().int().nonnegative(),
   conflicts: z.array(syncConflictViewSchema),
+  reversalDedups: z.array(reversalDedupViewSchema),
   deviceClockSkew: z.boolean(),
   resolutionPermission: z.enum(['granted', 'queued']),
 });

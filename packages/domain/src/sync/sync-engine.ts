@@ -10,6 +10,7 @@ import { ChangeResolver } from './resolve-changes';
 import type { LocalSyncRepository } from './sync-local-repository';
 import type { SubjectCodeCollision, SubjectCodeCollisionStore } from './subject-code-collision';
 import type { SessionDedup, SessionDedupStore } from './session-dedup';
+import type { PaymentReversalDedupStore, ReversalDedup } from './reversal-dedup';
 
 /**
  * The sync cycle: **pull → resolve → push** (SOU-80 §3). Every sync, in that
@@ -69,6 +70,7 @@ export type SyncEngineInput = {
    * throwing `ux_sessions_recurrence_date`. Omit to fall back to plain applies.
    */
   sessionDedupStore?: SessionDedupStore;
+  paymentReversalDedupStore?: PaymentReversalDedupStore;
   /** Total pull→resolve→push attempts before giving up (default `MAX_SYNC_ATTEMPTS`). */
   maxAttempts?: number;
 };
@@ -90,6 +92,7 @@ export type SyncResult = {
    * no human needed. Surfaced so a future admin nudge / log can report them.
    */
   readonly sessionDedups: readonly SessionDedup[];
+  readonly reversalDedups: readonly ReversalDedup[];
   readonly cursor: SyncCursor | null;
   /** True when the device clock diverged absurdly from the hub's — flagged, not trusted. */
   readonly deviceClockSkew: boolean;
@@ -126,6 +129,7 @@ export class SyncEngine {
       input.centreId,
       input.subjectCollisionStore ?? null,
       input.sessionDedupStore ?? null,
+      input.paymentReversalDedupStore ?? null,
     );
   }
 
@@ -135,6 +139,7 @@ export class SyncEngine {
     const conflicts: SyncConflict[] = [];
     const collisions: SubjectCodeCollision[] = [];
     const dedups: SessionDedup[] = [];
+    const reversalDedups: ReversalDedup[] = [];
     let applied = 0;
     let pushed = 0;
     let deviceClockSkew = false;
@@ -154,13 +159,18 @@ export class SyncEngine {
       }
       deviceClockSkew = deviceClockSkew || this.isClockSkewed(batch.hubTime);
 
-      applied += this.resolver.resolveBatch(batch.changes, conflicts, matcher, collisions, dedups);
+      applied += this.resolver.resolveBatch(batch.changes, matcher, {
+        conflicts,
+        subjectCodeCollisions: collisions,
+        sessionDedups: dedups,
+        reversalDedups,
+      });
 
       const push = await this.pushPending(batch.cursor);
       pushed += push.pushed;
       if (push.status === 'accepted') {
         this.local.setCursor(push.cursor);
-        return this.result('synced', applied, pushed, conflicts, collisions, dedups, push.cursor, deviceClockSkew);
+        return this.result('synced', applied, pushed, conflicts, collisions, dedups, reversalDedups, push.cursor, deviceClockSkew);
       }
       // Rejected-stale: a concurrent sync won the version race for some entity.
       // Cursor is unchanged, so the next pull re-delivers the winning change and
@@ -169,7 +179,7 @@ export class SyncEngine {
     }
 
     this.local.setCursor(cursor ?? { seq: 0 });
-    return this.result('retries-exhausted', applied, pushed, conflicts, collisions, dedups, cursor, deviceClockSkew);
+    return this.result('retries-exhausted', applied, pushed, conflicts, collisions, dedups, reversalDedups, cursor, deviceClockSkew);
   }
 
   private result(
@@ -179,6 +189,7 @@ export class SyncEngine {
     conflicts: readonly SyncConflict[],
     subjectCodeCollisions: readonly SubjectCodeCollision[],
     sessionDedups: readonly SessionDedup[],
+    reversalDedups: readonly ReversalDedup[],
     cursor: SyncCursor | null,
     deviceClockSkew: boolean,
   ): SyncResult {
@@ -189,6 +200,7 @@ export class SyncEngine {
       conflicts,
       subjectCodeCollisions,
       sessionDedups,
+      reversalDedups,
       cursor,
       deviceClockSkew,
       resolutionPermission: this.userCanResolve ? 'granted' : 'queued',

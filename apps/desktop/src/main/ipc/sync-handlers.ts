@@ -5,6 +5,7 @@ import type {
   SyncResult,
   SyncConflict,
   ConflictSide,
+  ReversalDedup,
   DeviceId,
   UserId,
   EntityId,
@@ -72,6 +73,7 @@ export function createSyncHandlers(deps: SyncHandlerDeps): Pick<
           applied: result.applied,
           pushed: result.pushed,
           conflicts: result.conflicts.map(toConflictView),
+          reversalDedups: result.reversalDedups.map(toReversalDedupView),
           deviceClockSkew: result.deviceClockSkew,
           resolutionPermission: result.resolutionPermission,
         },
@@ -137,6 +139,15 @@ export function createSyncHandlers(deps: SyncHandlerDeps): Pick<
       deps.localSyncRepository.blockPending(request.entityType, request.entityId as EntityId, conflict);
       return { ok: true };
     },
+  };
+}
+
+function toReversalDedupView(dedup: ReversalDedup) {
+  return {
+    entityType: dedup.entityType,
+    reversesPaymentId: dedup.reversesPaymentId,
+    winnerId: dedup.winnerId,
+    loserId: dedup.loserId,
   };
 }
 

@@ -3,6 +3,7 @@ import type {
   CenterCode,
   CenterHoursOverride,
   DeviceId,
+  Payment,
   Session,
   Subject,
   SubjectId,
@@ -18,7 +19,14 @@ import { toSqlValue, type SheetSqlConfig } from '../repositories/backup-store-co
  *  columns, no matter which migration renamed/dropped/re-typed them. */
 export type ChangeLogEntityToRowMapper = (entity: unknown) => Record<string, unknown>;
 
-const registered = new Map<string, ChangeLogEntityToRowMapper>();
+export type ProjectionMode = 'mutable' | 'append-only';
+
+export type ChangeLogEntityProjection = {
+  readonly mapper: ChangeLogEntityToRowMapper;
+  readonly mode: ProjectionMode;
+};
+
+const registered = new Map<string, ChangeLogEntityProjection>();
 
 /** Registers an explicit domain-shape → physical-row mapper for an entityType.
  *  Any repository that logs its writes registers here so its versioned domain
@@ -28,8 +36,9 @@ const registered = new Map<string, ChangeLogEntityToRowMapper>();
 export function registerChangeLogEntityToRowMapper(
   entityType: string,
   mapper: ChangeLogEntityToRowMapper,
+  mode: ProjectionMode = 'mutable',
 ): void {
-  registered.set(entityType, mapper);
+  registered.set(entityType, { mapper, mode });
 }
 
 /**
@@ -45,7 +54,7 @@ export function getChangeLogEntityToRowMapper(
   entityType: string,
 ): ChangeLogEntityToRowMapper | undefined {
   const explicit = registered.get(entityType);
-  if (explicit) return explicit;
+  if (explicit) return explicit.mapper;
   const config = SHEET_BY_TABLE.get(entityType);
   if (config) return (entity: unknown) => sheetLogicalRowToRow(config, entity);
   return undefined;
@@ -62,6 +71,12 @@ export function getChangeLogEntityToRowMapper(
 export function getRegisteredChangeLogEntityToRowMapper(
   entityType: string,
 ): ChangeLogEntityToRowMapper | undefined {
+  return registered.get(entityType)?.mapper;
+}
+
+export function getRegisteredChangeLogEntityProjection(
+  entityType: string,
+): ChangeLogEntityProjection | undefined {
   return registered.get(entityType);
 }
 
@@ -194,6 +209,27 @@ function centerHoursOverrideEntityToRow(entity: unknown): Record<string, unknown
   };
 }
 
+function paymentEntityToRow(entity: unknown): Record<string, unknown> {
+  const payment = entity as Payment;
+  return {
+    id: payment.id,
+    center_code: payment.centerCode,
+    device_origin: payment.deviceOrigin,
+    created_at: toIsoString(payment.createdAt),
+    updated_at: toIsoString(payment.updatedAt),
+    updated_by: payment.updatedBy,
+    deleted_at: payment.deletedAt === null ? null : toIsoString(payment.deletedAt),
+    version: payment.version,
+    invoice_id: payment.invoiceId,
+    kind: payment.kind,
+    amount_mad: payment.amountMad,
+    method: payment.method,
+    paid_on: payment.paidOn,
+    reverses_payment_id: payment.reversesPaymentId,
+    note: payment.note,
+  };
+}
+
 // Default registration: `subjects` is the first repo-written entityType in the
 // log (SOU-79 representative slice); its payload is the nested domain Subject.
 registerChangeLogEntityToRowMapper('subjects', subjectEntityToRow);
@@ -208,3 +244,4 @@ registerChangeLogEntityToRowMapper('sessions', sessionEntityToRow);
 // as the repository's own SAVE_SQL does — so a pulled override lands on laptop B's
 // real table instead of the neutral fallback.
 registerChangeLogEntityToRowMapper('center_hours_overrides', centerHoursOverrideEntityToRow);
+registerChangeLogEntityToRowMapper('payments', paymentEntityToRow, 'append-only');

@@ -24,6 +24,22 @@ import {
   type SessionDedupStore,
 } from './session-dedup';
 import { resolveSessionCollision } from '../policies/session-collision-policy';
+import {
+  PAYMENT_ENTITY_TYPE,
+  detectReversalDedups,
+  reversalDedupKey,
+  type PaymentReversalDedupStore,
+  type ReversalDedupCandidate,
+  type ReversalDedup,
+} from './reversal-dedup';
+import type { PaymentId } from '../entities/payment';
+
+type ResolveBatchOutput = {
+  readonly conflicts: SyncConflict[];
+  readonly subjectCodeCollisions?: SubjectCodeCollision[];
+  readonly sessionDedups?: SessionDedup[];
+  readonly reversalDedups?: ReversalDedup[];
+};
 
 /**
  * The resolve step of pull → resolve → push (SOU-80 §3), kept out of the engine
@@ -45,29 +61,26 @@ export class ChangeResolver {
     private readonly centreId: CenterCode,
     private readonly subjectCollisions: SubjectCodeCollisionStore | null = null,
     private readonly sessionDedups: SessionDedupStore | null = null,
+    private readonly reversalDedups: PaymentReversalDedupStore | null = null,
   ) {}
 
   /** Apply or merge each inbound change; queue conflicts; never auto-resolve them. */
   resolveBatch(
     changes: readonly HubChange[],
-    conflicts: SyncConflict[],
     matcher: DuplicateMatcher,
-    collisions: SubjectCodeCollision[] = [],
-    dedups: SessionDedup[] = [],
+    output: ResolveBatchOutput,
   ): number {
     let applied = 0;
     for (const change of changes) {
-      applied += this.resolveOne(change, conflicts, matcher, collisions, dedups);
+      applied += this.resolveOne(change, matcher, output);
     }
     return applied;
   }
 
   private resolveOne(
     change: HubChange,
-    conflicts: SyncConflict[],
     matcher: DuplicateMatcher,
-    collisions: SubjectCodeCollision[],
-    dedups: SessionDedup[],
+    output: ResolveBatchOutput,
   ): number {
     const state = this.local.getLocalState(change.entityType, change.entityId);
     if (state && change.version <= state.version) return 0; // already applied (retry re-delivery)
@@ -83,7 +96,7 @@ export class ChangeResolver {
     let applied = false;
     switch (outcome.kind) {
       case 'apply':
-        applied = this.applyInbound(change, outcome, conflicts, collisions, dedups);
+        applied = this.applyInbound(change, outcome, output);
         break;
       case 'merged':
         this.local.upsertPending(this.buildMergedPending(change, local, outcome));
@@ -91,7 +104,7 @@ export class ChangeResolver {
         break;
       case 'conflict':
         this.local.blockPending(change.entityType, change.entityId, outcome.conflict);
-        this.pushUniqueConflict(conflicts, outcome.conflict);
+        this.pushUniqueConflict(output.conflicts, outcome.conflict);
         break;
       case 'immutable-divergence':
         // Locked decisions never fork and never get a popup: block the pending
@@ -100,7 +113,7 @@ export class ChangeResolver {
         throw new ImmutableDivergenceError(change.entityType, change.entityId);
     }
 
-    this.detectDuplicates(change, conflicts, matcher);
+    this.detectDuplicates(change, output.conflicts, matcher);
     return applied ? 1 : 0;
   }
 
@@ -117,10 +130,10 @@ export class ChangeResolver {
   private applyInbound(
     change: HubChange,
     outcome: Extract<ResolveOutcome, { kind: 'apply' }>,
-    conflicts: SyncConflict[],
-    collisions: SubjectCodeCollision[],
-    dedups: SessionDedup[],
+    output: ResolveBatchOutput,
   ): boolean {
+    this.detectReversalDedups(change, outcome, output.reversalDedups ?? []);
+
     // Sessions first: a natural-key collision with a DIFFERENT local row settles
     // deterministically when both sides agree (lower ULID wins, in-place rewrite)
     // so the projected `ux_sessions_recurrence_date` index never throws. But a
@@ -169,7 +182,7 @@ export class ChangeResolver {
             divergingFields,
           );
           this.local.blockPending(SESSION_ENTITY_TYPE, occupied.id, conflict);
-          this.pushUniqueConflict(conflicts, conflict);
+          this.pushUniqueConflict(output.conflicts, conflict);
           return false;
         }
 
@@ -189,7 +202,7 @@ export class ChangeResolver {
             version: outcome.version,
           });
         }
-        this.pushUniqueDedup(dedups, {
+        this.pushUniqueDedup(output.sessionDedups ?? [], {
           entityType: SESSION_ENTITY_TYPE,
           recurringSessionId,
           date,
@@ -237,7 +250,7 @@ export class ChangeResolver {
       store.clearSubjectCode(existingId);
       this.local.applyInbound(change.entityType, change.entityId, outcome.entity, outcome.version);
     }
-    this.pushUniqueCollision(collisions, {
+    this.pushUniqueCollision(output.subjectCodeCollisions ?? [], {
       entityType: SUBJECT_ENTITY_TYPE,
       code,
       winnerId,
@@ -326,6 +339,35 @@ export class ChangeResolver {
     dedups.push(dedup);
   }
 
+  private pushUniqueReversalDedup(dedups: ReversalDedup[], dedup: ReversalDedup): void {
+    const key = reversalDedupKey(dedup);
+    if (dedups.some((existing) => reversalDedupKey(existing) === key)) return;
+    dedups.push(dedup);
+  }
+
+  private detectReversalDedups(
+    change: HubChange,
+    outcome: Extract<ResolveOutcome, { kind: 'apply' }>,
+    dedups: ReversalDedup[],
+  ): void {
+    const store = this.reversalDedups;
+    const inbound = paymentFromEntity(change.entityId, outcome.entity);
+    if (
+      store === null ||
+      change.entityType !== PAYMENT_ENTITY_TYPE ||
+      inbound === null ||
+      inbound.reversesPaymentId === null
+    ) {
+      return;
+    }
+    const local = store.findPaymentReversalsByTarget(inbound.reversesPaymentId, change.entityId);
+    if (local.length === 0) return;
+    removeReversalDedupsForTarget(dedups, inbound.reversesPaymentId);
+    for (const dedup of detectReversalDedups([...local, inbound])) {
+      this.pushUniqueReversalDedup(dedups, dedup);
+    }
+  }
+
   /**
    * The conflict a natural-key collision becomes when it cannot settle
    * automatically (SOU-188): a deleted-state disagreement is a delete-vs-edit —
@@ -375,6 +417,23 @@ export class ChangeResolver {
       mine,
       theirs,
     };
+  }
+}
+
+function paymentFromEntity(entityId: EntityId, entity: Record<string, unknown>): ReversalDedupCandidate | null {
+  if (entity['kind'] !== 'reversal' || typeof entity['reversesPaymentId'] !== 'string') return null;
+  const deletedAt = entity['deletedAt'];
+  return {
+    id: String(entityId) as PaymentId,
+    kind: 'reversal',
+    reversesPaymentId: entity['reversesPaymentId'] as PaymentId,
+    deletedAt: deletedAt instanceof Date || typeof deletedAt === 'string' ? deletedAt : null,
+  };
+}
+
+function removeReversalDedupsForTarget(dedups: ReversalDedup[], reversesPaymentId: PaymentId): void {
+  for (let index = dedups.length - 1; index >= 0; index--) {
+    if (dedups[index]?.reversesPaymentId === reversesPaymentId) dedups.splice(index, 1);
   }
 }
 

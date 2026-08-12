@@ -6,6 +6,7 @@ import type {
   SyncResult,
   Plan,
   FeatureFlag,
+  PaymentId,
 } from '@centresoutien/domain';
 import { PlanPolicy, PLANS, PlanFeatureUnavailableError } from '@centresoutien/domain';
 import { createSyncHandlers, type SyncHandlerDeps } from '../../../src/main/ipc/sync-handlers';
@@ -27,6 +28,9 @@ function syncedResult(): SyncResult {
     applied: 0,
     pushed: 0,
     conflicts: [],
+    subjectCodeCollisions: [],
+    sessionDedups: [],
+    reversalDedups: [],
     cursor: null,
     deviceClockSkew: false,
     resolutionPermission: 'granted',
@@ -64,6 +68,23 @@ describe('sync handlers — sync.multi-device plan gate', () => {
       expect(drain).toHaveBeenCalledOnce();
       expect(run).toHaveBeenCalledOnce();
       expect(response.result?.status).toBe('synced');
+    });
+
+    it('maps payment reversal dedups into the renderer DTO', async () => {
+      const reversesPaymentId = 'pay_00000000000000000000000001' as PaymentId;
+      const winnerId = 'pay_00000000000000000000000002' as PaymentId;
+      const loserId = 'pay_00000000000000000000000003' as PaymentId;
+      const run = vi.fn(async (): Promise<SyncResult> => ({
+        ...syncedResult(),
+        reversalDedups: [{ entityType: 'payments', reversesPaymentId, winnerId, loserId }],
+      }));
+      const handlers = createSyncHandlers(makeDeps({ syncEngine: { run } }));
+
+      const response = await handlers['sync.run']();
+
+      expect(response.result?.reversalDedups).toEqual([
+        { entityType: 'payments', reversesPaymentId, winnerId, loserId },
+      ]);
     });
 
     it('throws PlanFeatureUnavailableError before draining or running the engine when the flag is dropped', async () => {

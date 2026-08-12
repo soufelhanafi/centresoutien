@@ -74,10 +74,8 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
     const dedups: SessionDedup[] = [];
     const applied = resolverFor(local, dedupStore(local)).resolveBatch(
       [inboundSession(SES_LO)],
-      conflicts,
       matcherFor(local),
-      [],
-      dedups,
+      { conflicts, sessionDedups: dedups },
     );
 
     expect(applied).toBe(1);
@@ -96,10 +94,8 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
     const dedups: SessionDedup[] = [];
     const applied = resolverFor(local, dedupStore(local)).resolveBatch(
       [inboundSession(SES_HI)],
-      [],
       matcherFor(local),
-      [],
-      dedups,
+      { conflicts: [], sessionDedups: dedups },
     );
 
     expect(applied).toBe(1);
@@ -118,10 +114,8 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
     const dedups: SessionDedup[] = [];
     resolverFor(local, dedupStore(local)).resolveBatch(
       [inboundSession(SES_HI)],
-      [],
       matcherFor(local),
-      [],
-      dedups,
+      { conflicts: [], sessionDedups: dedups },
     );
 
     expect(local.entity('sessions', SES_HI)).toEqual(sessionEntity(SES_HI));
@@ -141,10 +135,8 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
           entity: sessionEntity(SES_HI, { deletedAt: new Date('2026-08-02T00:00:00Z') }),
         }),
       ],
-      conflicts,
       matcherFor(local),
-      [],
-      dedups,
+      { conflicts, sessionDedups: dedups },
     );
 
     expect(conflicts).toHaveLength(1);
@@ -167,10 +159,8 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
     const conflicts: SyncConflict[] = [];
     resolverFor(local, dedupStore(local)).resolveBatch(
       [inboundSession(SES_HI)],
-      conflicts,
       matcherFor(local),
-      [],
-      [],
+      { conflicts, sessionDedups: [] },
     );
 
     expect(conflicts).toHaveLength(1);
@@ -186,10 +176,8 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
     const dedups: SessionDedup[] = [];
     resolverFor(local, dedupStore(local)).resolveBatch(
       [inboundSession(SES_LO)],
-      conflicts,
       matcherFor(local),
-      [],
-      dedups,
+      { conflicts, sessionDedups: dedups },
     );
 
     expect(conflicts).toHaveLength(1);
@@ -212,10 +200,8 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
           entity: sessionEntity(SES_LO, { deletedAt: new Date('2026-08-02T00:00:00Z') }),
         }),
       ],
-      [],
       matcherFor(local),
-      [],
-      dedups,
+      { conflicts: [], sessionDedups: dedups },
     );
 
     expect(applied).toBe(1);
@@ -227,7 +213,10 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
     local.applyInbound('sessions', SES_LO, sessionEntity(SES_LO), 1);
 
     const dedups: SessionDedup[] = [];
-    resolverFor(local, null).resolveBatch([inboundSession(SES_HI)], [], matcherFor(local), [], dedups);
+    resolverFor(local, null).resolveBatch([inboundSession(SES_HI)], matcherFor(local), {
+      conflicts: [],
+      sessionDedups: dedups,
+    });
 
     expect(local.entity('sessions', SES_HI)).toEqual(sessionEntity(SES_HI));
     expect(dedups).toHaveLength(0);
@@ -239,8 +228,11 @@ describe('ChangeResolver — session natural-key collision (SOU-188)', () => {
 
     const dedups: SessionDedup[] = [];
     const resolver = resolverFor(local, dedupStore(local));
-    resolver.resolveBatch([inboundSession(SES_LO)], [], matcherFor(local), [], dedups);
-    const appliedAgain = resolver.resolveBatch([inboundSession(SES_LO)], [], matcherFor(local), [], dedups);
+    resolver.resolveBatch([inboundSession(SES_LO)], matcherFor(local), { conflicts: [], sessionDedups: dedups });
+    const appliedAgain = resolver.resolveBatch([inboundSession(SES_LO)], matcherFor(local), {
+      conflicts: [],
+      sessionDedups: dedups,
+    });
 
     expect(appliedAgain).toBe(0); // version skip
     expect(dedups).toHaveLength(1);

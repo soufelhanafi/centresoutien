@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getChangeLogEntityToRowMapper,
+  getRegisteredChangeLogEntityProjection,
   getRegisteredChangeLogEntityToRowMapper,
   subjectBackupRowToEntity,
 } from '../../../src/data/sqlite/change-log/change-log-entity-mappers';
@@ -314,6 +315,36 @@ describe('getRegisteredChangeLogEntityToRowMapper (sync-apply projection, SOU-13
       end: '10:30',
     });
     expect(row['deleted_at']).toBe(ISO);
+  });
+
+  it('registers payments as append-only projection rows', () => {
+    const projection = getRegisteredChangeLogEntityProjection('payments');
+    expect(projection?.mode).toBe('append-only');
+
+    const row = projection?.mapper({
+      id: 'pay_00000000000000000000000001',
+      centerCode: 'CS-CASA-001',
+      deviceOrigin: 'dev_1',
+      createdAt: ISO,
+      updatedAt: ISO,
+      updatedBy: 'usr_1',
+      deletedAt: null,
+      version: 0,
+      invoiceId: 'inv_00000000000000000000000001',
+      kind: 'reversal',
+      amountMad: 10000,
+      method: 'cash',
+      paidOn: '2026-08-01',
+      reversesPaymentId: 'pay_00000000000000000000000000',
+      note: null,
+    });
+
+    expect(row).toMatchObject({
+      id: 'pay_00000000000000000000000001',
+      invoice_id: 'inv_00000000000000000000000001',
+      kind: 'reversal',
+      reverses_payment_id: 'pay_00000000000000000000000000',
+    });
   });
 
   it('explicit mappers stay in sync with the backup-sheet column registry', () => {
