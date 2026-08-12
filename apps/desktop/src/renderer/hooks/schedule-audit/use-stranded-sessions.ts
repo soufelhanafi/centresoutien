@@ -12,6 +12,7 @@ export function useStrandedSessions() {
   return useQuery({
     queryKey: scheduleAuditKeys.outsideHours(),
     queryFn: () => scheduleAuditGateway.listOutsideHours(),
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
 }
