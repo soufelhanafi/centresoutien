@@ -16,7 +16,6 @@
     "groups": "Groupes",
     "rooms": "Salles",
     "planning": "Planning",
-    "scheduleAudit": "Audit du planning",
     "invoicing": "Facturation",
     "arrears": "Impayés",
     "payments": "Paiements",
@@ -1406,6 +1405,11 @@
       "exportSuccess": "Planning exporté",
       "exportError": "L'export du planning a échoué.",
       "cancel": "Annuler"
+    },
+    "audit": {
+      "trigger": "Audit du planning",
+      "badgeAria_one": "{{count}} séance à vérifier",
+      "badgeAria_other": "{{count}} séances à vérifier"
     },
     "generator": {
       "trigger": "Générer",
