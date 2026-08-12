@@ -16,7 +16,6 @@
     "groups": "المجموعات",
     "rooms": "القاعات",
     "planning": "الجدولة",
-    "scheduleAudit": "تدقيق الجدولة",
     "invoicing": "الفوترة",
     "arrears": "المتأخرات",
     "payments": "المدفوعات",
@@ -1430,6 +1429,13 @@
       "exportSuccess": "تم تصدير الجدول",
       "exportError": "فشل تصدير الجدول.",
       "cancel": "إلغاء"
+    },
+    "audit": {
+      "trigger": "تدقيق الجدولة",
+      "badgeAria_one": "{{count}} حصة للمراجعة",
+      "badgeAria_two": "{{count}} حصتان للمراجعة",
+      "badgeAria_few": "{{count}} حصص للمراجعة",
+      "badgeAria_other": "{{count}} حصص للمراجعة"
     },
     "generator": {
       "trigger": "توليد",
