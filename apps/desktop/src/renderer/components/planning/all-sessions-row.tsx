@@ -85,33 +85,35 @@ export function AllSessionsRow({ session }: { session: PlannerSessionView }) {
         </span>
       </Button>
 
-      {expanded ? (
-        <div id={panelId} className="space-y-4 border-t border-border p-3">
-          <SessionConflictAlert codes={errorCodes} />
-          {options.data ? (
-            <SessionForm
-              formId={formId}
-              defaultValues={toFormInput(session)}
-              options={options.data}
-              onSubmit={handleSubmit}
-            />
-          ) : (
-            <div className="space-y-4" aria-busy="true">
-              {[0, 1, 2, 3, 4].map((row) => (
-                <Skeleton key={row} className="h-10 w-full" />
-              ))}
+      <div id={panelId} hidden={!expanded} className="space-y-4 border-t border-border p-3">
+        {expanded ? (
+          <>
+            <SessionConflictAlert codes={errorCodes} />
+            {options.data ? (
+              <SessionForm
+                formId={formId}
+                defaultValues={toFormInput(session)}
+                options={options.data}
+                onSubmit={handleSubmit}
+              />
+            ) : (
+              <div className="space-y-4" aria-busy="true">
+                {[0, 1, 2, 3, 4].map((row) => (
+                  <Skeleton key={row} className="h-10 w-full" />
+                ))}
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <Button type="button" variant="destructive" onClick={() => setConfirmingCancel(true)}>
+                {t('planning.cancelSession.trigger')}
+              </Button>
+              <Button type="submit" form={formId} disabled={update.isPending || !options.data}>
+                {update.isPending ? t('planning.form.saving') : t('planning.form.save')}
+              </Button>
             </div>
-          )}
-          <div className="flex items-center justify-between">
-            <Button type="button" variant="destructive" onClick={() => setConfirmingCancel(true)}>
-              {t('planning.cancelSession.trigger')}
-            </Button>
-            <Button type="submit" form={formId} disabled={update.isPending || !options.data}>
-              {update.isPending ? t('planning.form.saving') : t('planning.form.save')}
-            </Button>
-          </div>
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </div>
 
       <CancelSessionDialog
         open={confirmingCancel}
