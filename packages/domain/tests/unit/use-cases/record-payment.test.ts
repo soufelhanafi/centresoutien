@@ -75,7 +75,7 @@ describe('RecordPayment', () => {
   let ids = fakeIds(100);
 
   function build(plan: Plan): RecordPayment {
-    const ledger = new InMemoryPaymentLedgerUnitOfWork(payments);
+    const ledger = new InMemoryPaymentLedgerUnitOfWork(payments, invoices);
     return new RecordPayment(payments, invoices, fakeClock(RECORDED_ISO), ids, new PlanPolicy(plan), ledger);
   }
 
@@ -232,6 +232,41 @@ describe('RecordPayment', () => {
       await expect(
         build(PLANS.essentiel).execute({ ...baseInput(), invoiceId: DRAFT as string }),
       ).rejects.toMatchObject({ invoiceId: DRAFT, status: 'draft' });
+    });
+  });
+
+  describe('payable state re-checked in-transaction (SOU-233 #8)', () => {
+    it('rejects a payment when the invoice is cancelled between the pre-check and the commit', async () => {
+      // The use case's own invoices repo still reads `issued` (the fast pre-check passes);
+      // the ledger's in-tx status source reads `cancelled` — a CancelInvoice that landed
+      // between the two reads. The commit must reject it and append nothing.
+      const cancelledInTx = { findById: async () => ({ status: 'cancelled' as const }) };
+      const ledger = new InMemoryPaymentLedgerUnitOfWork(payments, cancelledInTx);
+      const recordPayment = new RecordPayment(
+        payments,
+        invoices,
+        fakeClock(RECORDED_ISO),
+        fakeIds(200),
+        new PlanPolicy(PLANS.essentiel),
+        ledger,
+      );
+      await expect(recordPayment.execute(baseInput())).rejects.toBeInstanceOf(InvoiceNotPayableError);
+      expect(payments.all()).toHaveLength(0);
+    });
+
+    it('rejects with InvoiceNotFoundError when the invoice is discarded between check and commit', async () => {
+      const goneInTx = { findById: async () => null };
+      const ledger = new InMemoryPaymentLedgerUnitOfWork(payments, goneInTx);
+      const recordPayment = new RecordPayment(
+        payments,
+        invoices,
+        fakeClock(RECORDED_ISO),
+        fakeIds(200),
+        new PlanPolicy(PLANS.essentiel),
+        ledger,
+      );
+      await expect(recordPayment.execute(baseInput())).rejects.toBeInstanceOf(InvoiceNotFoundError);
+      expect(payments.all()).toHaveLength(0);
     });
   });
 

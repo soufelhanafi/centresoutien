@@ -1,4 +1,4 @@
-import type { Invoice } from '../entities/invoice';
+import type { Invoice, InvoiceId, InvoiceStatus } from '../entities/invoice';
 import { InvoiceNotPayableError } from '../errors/invoice-errors';
 
 /**
@@ -15,8 +15,19 @@ import { InvoiceNotPayableError } from '../errors/invoice-errors';
  * a future payable state (e.g. a re-issued credit note) is a one-line change here.
  */
 export function assertInvoicePayable(invoice: Invoice): void {
-  if (invoice.status !== 'issued') {
-    throw new InvoiceNotPayableError(invoice.id, invoice.status);
+  assertStatusPayable(invoice.id, invoice.status);
+}
+
+/**
+ * The status-only form of {@link assertInvoicePayable} (SOU-233 / audit CS-AUD-002 #8).
+ * The payment unit-of-work re-reads the invoice's live `status` INSIDE the transaction —
+ * so a `CancelInvoice` committed between the fast pre-check and the append cannot let a
+ * payment land on a `cancelled` invoice — and hands it here to decide. Only `issued` is
+ * payable; anything else raises {@link InvoiceNotPayableError}.
+ */
+export function assertStatusPayable(invoiceId: InvoiceId, status: InvoiceStatus): void {
+  if (status !== 'issued') {
+    throw new InvoiceNotPayableError(invoiceId, status);
   }
 }
 

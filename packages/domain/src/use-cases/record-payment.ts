@@ -9,7 +9,7 @@ import { PAYMENT_ID_PREFIX, type Payment, type PaymentId } from '../entities/pay
 import type { InvoiceId } from '../entities/invoice';
 import { recordPaymentSchema } from '../schemas/payment';
 import { invoiceTotalMad } from '../policies/invoice-total';
-import { assertInvoicePayable } from '../policies/payable-invoice';
+import { assertInvoicePayable, assertStatusPayable } from '../policies/payable-invoice';
 import { paymentStatusOf, type PaymentStatus } from '../policies/payment-status';
 import { InvoiceNotFoundError } from '../errors/invoice-errors';
 import { PaymentExceedsBalanceError } from '../errors/payment-errors';
@@ -55,11 +55,13 @@ export type RecordPaymentResult = {
  *     partial payment throws `PlanFeatureUnavailableError`. Exactly the outstanding
  *     balance (a full payment) is allowed on every plan. This is a fast pre-check on a
  *     possibly-stale net; the authoritative re-check runs inside the commit.
- *  6. Commit through the {@link PaymentLedgerUnitOfWork}: the balance invariant is
- *     re-validated against the net re-read **inside** the transaction, then the
- *     `payment` is appended — one indivisible unit, so two concurrent full payments
- *     cannot both slip past the balance (SOU-233 / audit CS-AUD-002). The status is
- *     derived from the authoritative net the commit returns.
+ *  6. Commit through the {@link PaymentLedgerUnitOfWork}: **inside** the transaction the
+ *     invoice's live `status` is re-checked (a `CancelInvoice` that raced the pre-check
+ *     is caught → {@link InvoiceNotPayableError}, audit #8) and the balance invariant is
+ *     re-validated against the net re-read there, then the `payment` is appended — one
+ *     indivisible unit, so two concurrent full payments cannot both slip past the balance
+ *     and a payment cannot land on a just-cancelled invoice (SOU-233 / audit CS-AUD-002).
+ *     The status is derived from the authoritative net the commit returns.
  *
  * Nothing here can conflict at sync: the appended row has a unique ULID and is never
  * mutated, so two devices paying the same invoice converge by union.
@@ -124,6 +126,14 @@ export class RecordPayment {
 
     const { netPaidMad } = await this.ledger.commit({
       candidate: payment,
+      payableInvoice: {
+        invoiceId,
+        revalidate: (status) => {
+          // A CancelInvoice that committed since the pre-check is visible here (same tx).
+          if (status === null) throw new InvoiceNotFoundError(invoiceId);
+          assertStatusPayable(invoiceId, status);
+        },
+      },
       revalidate: (netInTx) => {
         const outstandingInTx = totalMad - netInTx;
         if (payment.amountMad > outstandingInTx) {

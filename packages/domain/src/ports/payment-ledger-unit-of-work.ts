@@ -1,4 +1,22 @@
 import type { Payment, PaymentId } from '../entities/payment';
+import type { InvoiceId, InvoiceStatus } from '../entities/invoice';
+
+/**
+ * The payability half of a {@link PaymentLedgerCommit}. The invoice's lifecycle status
+ * lives on a DIFFERENT row from the ledger, so a concurrent `CancelInvoice` can persist
+ * `cancelled` between `RecordPayment`'s fast pre-check and the append. The adapter
+ * therefore re-reads the invoice's live `status` INSIDE the payment transaction and hands
+ * it to `revalidate`, symmetric with `revalidate(netPaidMad)` for the balance — a throw
+ * rolls the whole commit back so no payment lands on a cancelled invoice. `status` is
+ * `null` when the invoice row is gone/tombstoned mid-transaction. The domain decides the
+ * error (`InvoiceNotPayableError` / `InvoiceNotFoundError`); the adapter only reads.
+ */
+export type PayableInvoiceGuard = {
+  /** The invoice the payment targets. */
+  readonly invoiceId: InvoiceId;
+  /** Re-check the live status read in-transaction; throw a domain error to abort. */
+  readonly revalidate: (status: InvoiceStatus | null) => void;
+};
 
 /**
  * The reversal-specific half of a {@link PaymentLedgerCommit}. When the candidate is a
@@ -42,6 +60,13 @@ export type PaymentLedgerCommit = {
    */
   readonly revalidate: (netPaidMad: number) => void;
   /**
+   * Present for a `payment` against an invoice. Makes the transaction the authoritative
+   * payability guard: the adapter re-reads the invoice's live `status` in-transaction and
+   * calls `revalidate`, so a `CancelInvoice` racing between the pre-check and the append
+   * cannot let money land on a cancelled invoice (audit CS-AUD-001 #8).
+   */
+  readonly payableInvoice?: PayableInvoiceGuard;
+  /**
    * Present iff the candidate is a `reversal`. Makes the transaction the authoritative
    * "reversed at most once" guard (symmetric with `revalidate` for payments): the
    * adapter checks in-transaction whether a live reversal for `reversalOf.paymentId`
@@ -65,12 +90,14 @@ export type PaymentLedgerCommitResult = {
  * past the invoice balance or double-reversing a payment.
  *
  * `commit` therefore performs, atomically inside **one** SQLite transaction:
- *   1. for a reversal, re-check that no live reversal of `reversalOf.paymentId` exists
+ *   1. for a payment, re-read the invoice's live `status` and re-check payability via
+ *      `payableInvoice.revalidate` (closes the cancel race, audit #8),
+ *   2. for a reversal, re-check that no live reversal of `reversalOf.paymentId` exists
  *      (raise `onAlreadyReversed()` if one does),
- *   2. re-read the invoice's current net paid,
- *   3. re-validate the balance invariant via `revalidate` (a throw aborts and rolls the
+ *   3. re-read the invoice's current net paid,
+ *   4. re-validate the balance invariant via `revalidate` (a throw aborts and rolls the
  *      whole unit back — nothing is written),
- *   4. append the candidate row.
+ *   5. append the candidate row.
  *
  * A throw at any step rolls the whole transaction back. The steps are indivisible: no
  * observer ever sees a read without the matching write, so a concurrent commit cannot

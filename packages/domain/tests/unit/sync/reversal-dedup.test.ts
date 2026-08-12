@@ -136,8 +136,19 @@ describe('netPaidMadDeduped', () => {
       reversal('pay_00000000000000000000000010', ORIGINAL), // -20000 (winner)
       reversal('pay_00000000000000000000000011', ORIGINAL), // duplicate, ignored
     ];
-    // Raw sum would be 20000 - 20000 - 20000 = -20000; deduped collapses to 0.
-    expect(netPaidMad(ledger)).toBe(-20000);
+    // netPaidMad itself now dedups (SOU-233): a naive sum would be -20000; the winning
+    // (lowest-id) reversal is counted once, so the net collapses to 0, never negative.
+    expect(netPaidMad(ledger)).toBe(0);
     expect(netPaidMadDeduped(ledger)).toBe(0);
+  });
+
+  it('keeps the lowest-id reversal amount when duplicate reversals differ (tie-break)', () => {
+    const ledger = [
+      payment(ORIGINAL, { amountMad: 20000 }), // +20000
+      reversal('pay_00000000000000000000000010', ORIGINAL, { amountMad: 12000 }), // winner (lowest id)
+      reversal('pay_00000000000000000000000011', ORIGINAL, { amountMad: 20000 }), // loser, ignored
+    ];
+    // The winner is chosen by id, and its amount (12000) is the one subtracted.
+    expect(netPaidMad(ledger)).toBe(8000);
   });
 });

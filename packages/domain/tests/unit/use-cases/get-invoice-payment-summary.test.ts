@@ -65,7 +65,7 @@ describe('GetInvoicePaymentSummary', () => {
 
   // Record via the real use case so the summary reads whatever the ledger holds.
   function recorder(plan: Plan = PLANS.pro): RecordPayment {
-    const ledger = new InMemoryPaymentLedgerUnitOfWork(payments);
+    const ledger = new InMemoryPaymentLedgerUnitOfWork(payments, invoices);
     return new RecordPayment(payments, invoices, fakeClock('2026-08-05T09:00:00Z'), fakeIds(), new PlanPolicy(plan), ledger);
   }
 

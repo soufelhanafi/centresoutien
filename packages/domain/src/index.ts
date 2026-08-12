@@ -612,6 +612,7 @@ export type {
   PaymentLedgerCommit,
   PaymentLedgerCommitResult,
   PaymentReversalGuard,
+  PayableInvoiceGuard,
 } from './ports/payment-ledger-unit-of-work';
 // Recent-payments cash-desk feed (SOU-198) — cross-invoice read model served by the
 // same SQLite adapter that owns `payments`, mirroring OverdueInvoiceViewReadPort.
@@ -717,7 +718,7 @@ export type {
 export { buildStudentNaturalKey, buildTeacherNaturalKey } from './policies/natural-key';
 export { INVOICE_STATUS_TRANSITIONS, canTransitionInvoice } from './policies/invoice-status';
 export { invoiceTotalMad } from './policies/invoice-total';
-export { assertInvoicePayable, isInvoicePayable } from './policies/payable-invoice';
+export { assertInvoicePayable, assertStatusPayable, isInvoicePayable } from './policies/payable-invoice';
 export {
   PAYMENT_STATUSES,
   netPaidMad,

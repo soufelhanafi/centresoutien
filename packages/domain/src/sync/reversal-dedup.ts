@@ -79,19 +79,10 @@ export function detectReversalDedups(payments: readonly Payment[]): ReversalDedu
 }
 
 /**
- * The net paid on an invoice **after** collapsing reversal double-voids: each payment
- * is reversed at most once no matter how many reversal rows a merge produced. Mirrors
- * `netPaidMad` but counts only the winning reversal per `reversesPaymentId`, so a
- * post-merge ledger with a duplicate void never drives the net below the single-void
- * result. The winning reversal is the lower ULID — the same survivor
- * {@link detectReversalDedups} reports.
+ * The net paid on an invoice after collapsing reversal double-voids — each payment is
+ * reversed at most once no matter how many reversal rows a merge produced. Now an alias
+ * of {@link netPaidMad}, which dedups reversals itself (SOU-233), so every derived-net
+ * consumer shares one source of truth; the name is kept where the dedup intent reads
+ * clearer at the call site (e.g. sync/merge sites reasoning about double-voids).
  */
-export function netPaidMadDeduped(payments: readonly Payment[]): number {
-  const dedups = detectReversalDedups(payments);
-  const losers = new Set<PaymentId>(dedups.map((d) => d.loserId));
-  return payments.reduce((sum, payment) => {
-    if (payment.deletedAt !== null) return sum;
-    if (losers.has(payment.id)) return sum;
-    return sum + (payment.kind === 'reversal' ? -payment.amountMad : payment.amountMad);
-  }, 0);
-}
+export { netPaidMad as netPaidMadDeduped } from '../policies/payment-status';
