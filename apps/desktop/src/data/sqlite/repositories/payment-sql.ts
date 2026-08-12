@@ -42,7 +42,8 @@ export function paymentToParams(payment: Payment) {
 // Append-only: a plain INSERT with no ON CONFLICT clause. Re-appending a payment id
 // fails loudly — the structural half of "payments are never rewritten". There is no
 // UPDATE path here at all; the DB trigger (0019) rejects any UPDATE/DELETE as a net,
-// and the partial-unique index (0042) rejects a second reversal of the same payment.
+// and the in-tx guard in SqlitePaymentLedgerUnitOfWork (plus the data-conditional
+// ux_payments_reversal_once backstop) rejects a second reversal of the same payment.
 export const APPEND_PAYMENT_SQL = `
   INSERT INTO payments
     (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at,
