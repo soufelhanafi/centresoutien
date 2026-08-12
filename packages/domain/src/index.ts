@@ -611,6 +611,7 @@ export type {
   PaymentLedgerUnitOfWork,
   PaymentLedgerCommit,
   PaymentLedgerCommitResult,
+  PaymentReversalGuard,
 } from './ports/payment-ledger-unit-of-work';
 // Recent-payments cash-desk feed (SOU-198) — cross-invoice read model served by the
 // same SQLite adapter that owns `payments`, mirroring OverdueInvoiceViewReadPort.

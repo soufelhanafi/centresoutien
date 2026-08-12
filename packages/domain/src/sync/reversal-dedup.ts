@@ -8,16 +8,22 @@ import type { Payment, PaymentId } from '../entities/payment';
 export const PAYMENT_ENTITY_TYPE = 'payments';
 
 /**
- * Two `reversal` rows that void the SAME payment, surfaced by the resolve step
- * (SOU-233 / audit CS-AUD-002). The partial-unique index on `reverses_payment_id` is
- * per-database, so it stops a second reversal on ONE laptop but not two laptops that
- * each void the same payment offline — those collide only when their ledgers merge.
+ * Two `reversal` rows that void the SAME payment (SOU-233 / audit CS-AUD-002). The
+ * in-transaction guard + the per-database partial-unique index stop a second reversal on
+ * ONE laptop, but two laptops that each void the same payment offline collide only when
+ * their ledgers merge.
  *
- * Deliberately NOT auto-arbitrated away: payments are append-only, so neither reversal
- * is ever hard-deleted. Instead a deterministic winner (the lower ULID, the one every
- * replica converges on) is chosen for the net derivation, and the pair is surfaced to
- * the **duplicates tab** so a human sees the double-void — like a probable double-entry
- * (SOU-91), never a silent hub decision.
+ * Deliberately NOT auto-arbitrated away: payments are append-only, so neither reversal is
+ * ever hard-deleted. A deterministic winner (the lower ULID, the one every replica
+ * converges on) is chosen, and the loser is meant to reach the **duplicates tab** — like
+ * a probable double-entry (SOU-91), never a silent hub decision.
+ *
+ * Two consumers exist today: {@link detectReversalDedups} reports the pair, and
+ * {@link netPaidMadDeduped} keeps the derived net correct (each payment reversed once)
+ * regardless of how many reversal rows a merge produced. Wiring this into the live
+ * sync-apply loop (so the loser surfaces at pull time) waits on append-only entities
+ * being projectable through sync — the generic projection currently UPSERTs with
+ * `DO UPDATE`, which the append-only `payments` triggers forbid.
  */
 export type ReversalDedup = {
   readonly entityType: typeof PAYMENT_ENTITY_TYPE;

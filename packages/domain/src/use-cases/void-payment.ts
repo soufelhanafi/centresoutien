@@ -32,9 +32,10 @@ export type VoidPaymentInput = {
  *  3. A `reversal` cannot itself be reversed → {@link CannotReverseReversalError}.
  *  4. A payment already carrying a reversal cannot be voided twice (that would push the
  *     net negative) → {@link PaymentAlreadyReversedError}. This is a fast pre-check; the
- *     authoritative guard is the DB partial-unique index on `reverses_payment_id`,
- *     re-checked inside the commit so two concurrent voids of the same payment cannot
- *     both append (SOU-233 / audit CS-AUD-002).
+ *     authoritative guard runs INSIDE the commit transaction (`reversalOf`), which
+ *     re-checks that no live reversal of this payment exists before appending, so two
+ *     concurrent voids of the same payment cannot both append (SOU-233 / audit
+ *     CS-AUD-002). The DB partial-unique index is a defense-in-depth backstop.
  *
  * The reversal's `paidOn` is *today* (the reversal date, from the injected Clock, UTC),
  * not the original's business date — it is a distinct ledger event. Append-only and
@@ -97,10 +98,14 @@ export class VoidPayment {
 
     await this.ledger.commit({
       candidate: reversal,
-      // A reversal never depends on the running balance — the double-entry guard is the
-      // DB partial-unique index surfaced via onDuplicateReversal, not a net threshold.
+      // A reversal never depends on the running balance — its guard is "voided at most
+      // once", enforced in-transaction via reversalOf (the DB partial-unique index is a
+      // defense-in-depth backstop mapped to the same error), not a net threshold.
       revalidate: () => {},
-      onDuplicateReversal: () => new PaymentAlreadyReversedError(originalId),
+      reversalOf: {
+        paymentId: originalId,
+        onAlreadyReversed: () => new PaymentAlreadyReversedError(originalId),
+      },
     });
     return reversal;
   }
