@@ -1,13 +1,14 @@
 import type { RandomPort } from '../ports/random-port';
 import type { WeekdayIndex } from '../value-objects/weekday';
-import { toMinutes, type TimeOfDay } from '../value-objects/time-of-day';
+import { toMinutes } from '../value-objects/time-of-day';
+import type { TimeWindow } from '../value-objects/time-window';
 import type { EntityId } from '../value-objects/ids';
 import type { GroupId, GroupKind } from '../entities/group';
 import type { TeacherId } from '../entities/teacher';
 import type { RoomId } from '../entities/room';
 import type { ScheduledSessionRef } from '../errors/scheduling-errors';
 import type { DayHours } from '../policies/session-conflict-policy';
-import { weeklyBlockFromOpen, type WeeklyBlock } from '../value-objects/weekly-block';
+import { weeklyBlockInFittingWindow, type WeeklyBlock } from '../value-objects/weekly-block';
 import { gapViolations, satisfiesMinGap, type WeekdayGap } from '../policies/weekday-gap';
 import { endDateAfterWeekdayOccurrences, type DateRange } from '../value-objects/date-range';
 import {
@@ -142,7 +143,7 @@ export function resolveGeneratorMaterializationRange(
  * threaded separately, since it grows group by group.
  */
 type GroupPlacementContext = {
-  readonly openByWeekday: ReadonlyMap<WeekdayIndex, TimeOfDay>;
+  readonly windowsByWeekday: ReadonlyMap<WeekdayIndex, readonly TimeWindow[]>;
   readonly rooms: readonly RoomId[];
   readonly teacherByGroup: ReadonlyMap<GroupId, EntityId | null>;
   readonly existingSchedule: readonly ScheduledSessionRef[];
@@ -277,10 +278,10 @@ export class SessionGenerator {
 
   generate(input: SessionGenerationInput): SessionGeneratorResult {
     const { config, groups, centerHours, existingSchedule } = input;
-    const openByWeekday = this.openTimeByWeekday(centerHours);
-    const eligiblePool = [...new Set(config.weekdayPool)].filter((day) => openByWeekday.has(day));
+    const windowsByWeekday = this.windowsByWeekday(centerHours);
+    const eligiblePool = [...new Set(config.weekdayPool)].filter((day) => windowsByWeekday.has(day));
     const context: GroupPlacementContext = {
-      openByWeekday,
+      windowsByWeekday,
       rooms: input.rooms,
       teacherByGroup: input.teacherByGroup,
       existingSchedule,
@@ -356,7 +357,8 @@ export class SessionGenerator {
    * valid combo is conflict-free, falls back to the first valid combo and lets
    * {@link detectGeneratedScheduleConflicts} surface the clash to the caller.
    * The search is greedy across groups (no cross-group backtracking) and day-only
-   * — each block still anchors at its weekday's opening time.
+   * — each block still anchors at the earliest window of its weekday that fits the
+   * session duration (SOU-218), never varying the time within a chosen day.
    */
   private placeAutoGroup(
     groupId: GroupId,
@@ -405,7 +407,7 @@ export class SessionGenerator {
     config: SessionGeneratorConfigBase,
     context: GroupPlacementContext,
   ): readonly ScheduledBlockProposal[] {
-    const blocks = this.buildBlocks(weekdays, context.openByWeekday, config.sessionDurationMinutes);
+    const blocks = this.buildBlocks(weekdays, context.windowsByWeekday, config.sessionDurationMinutes);
     const teacherId = context.teacherByGroup.get(groupId) ?? null;
     const entries: UnroomedBlock[] = blocks.map((block) => ({ groupId, teacherId, block }));
     const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random);
@@ -503,24 +505,23 @@ export class SessionGenerator {
 
   private buildBlocks(
     weekdays: readonly WeekdayIndex[],
-    openByWeekday: ReadonlyMap<WeekdayIndex, TimeOfDay>,
+    windowsByWeekday: ReadonlyMap<WeekdayIndex, readonly TimeWindow[]>,
     durationMinutes: number,
   ): readonly WeeklyBlock[] {
     const blocks: WeeklyBlock[] = [];
     for (const day of [...new Set(weekdays)].sort((a, b) => a - b)) {
-      const open = openByWeekday.get(day);
-      if (open === undefined) continue; // a closed weekday carries no session
-      blocks.push(weeklyBlockFromOpen(day, open, durationMinutes));
+      const windows = windowsByWeekday.get(day) ?? [];
+      const block = weeklyBlockInFittingWindow(day, windows, durationMinutes);
+      if (block !== null) blocks.push(block); // a closed weekday carries no session
     }
     return blocks;
   }
 
-  private openTimeByWeekday(centerHours: readonly DayHours[]): ReadonlyMap<WeekdayIndex, TimeOfDay> {
-    const openByWeekday = new Map<WeekdayIndex, TimeOfDay>();
+  private windowsByWeekday(centerHours: readonly DayHours[]): ReadonlyMap<WeekdayIndex, readonly TimeWindow[]> {
+    const windowsByWeekday = new Map<WeekdayIndex, readonly TimeWindow[]>();
     for (const day of centerHours) {
-      const first = day.windows[0];
-      if (first !== undefined) openByWeekday.set(day.dayOfWeek, first.open);
+      if (day.windows.length > 0) windowsByWeekday.set(day.dayOfWeek, day.windows);
     }
-    return openByWeekday;
+    return windowsByWeekday;
   }
 }

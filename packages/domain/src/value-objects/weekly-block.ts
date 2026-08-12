@@ -1,4 +1,5 @@
 import { fromMinutes, toMinutes, type TimeOfDay } from './time-of-day';
+import type { TimeWindow } from './time-window';
 import type { WeekdayIndex } from './weekday';
 
 /**
@@ -41,4 +42,30 @@ export function weeklyBlockFromOpen(
     start: open,
     end: fromMinutes(toMinutes(open) + durationMinutes),
   };
+}
+
+/**
+ * Build the group's weekly block on `dayOfWeek`, anchored at the **earliest of
+ * `windows` whose span is long enough to hold `durationMinutes`** (SOU-218). On
+ * a split day — a mid-day/iftar break splits opening hours into two windows —
+ * this lets the generator place a session in the afternoon window when the
+ * morning one is too short, instead of always anchoring at the first window and
+ * overrunning its close.
+ *
+ * When no single window is long enough it falls back to the first window's
+ * `open`: the resulting overrun is left for {@link detectGeneratedScheduleConflicts}
+ * (SOU-161) to surface as a non-blocking hours conflict, rather than silently
+ * dropping the session. Returns `null` for a closed day (empty `windows`), which
+ * the caller skips — no block on a day the center never opens.
+ */
+export function weeklyBlockInFittingWindow(
+  dayOfWeek: WeekdayIndex,
+  windows: readonly TimeWindow[],
+  durationMinutes: number,
+): WeeklyBlock | null {
+  const fitsDuration = (window: TimeWindow): boolean =>
+    toMinutes(window.close) - toMinutes(window.open) >= durationMinutes;
+  const anchor = windows.find(fitsDuration) ?? windows[0];
+  if (anchor === undefined) return null;
+  return weeklyBlockFromOpen(dayOfWeek, anchor.open, durationMinutes);
 }
