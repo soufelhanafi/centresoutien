@@ -11,30 +11,46 @@
  * report a `file:` URL; in dev electron-vite serves it over http(s). Anything
  * outside that origin — a subframe navigated elsewhere, a popup to a foreign
  * host, a compromised renderer trying to reach an OS scheme — is hostile.
+ *
+ * The packaged `file:` variant pins the trust to the exact index entry's path,
+ * not the `file:` scheme alone (SOU-242): a `file:` URL has no comparable
+ * `origin`, so without the path pin the navigation guard would let a compromised
+ * renderer redirect to any other local file. `indexUrl` is the pre-computed
+ * `file:` href of the renderer entry (`pathToFileURL(indexHtml).href`), passed in
+ * from the composition root so this module stays free of `node:*` and unit-testable.
  */
 export type TrustedRendererOrigin =
-  | { readonly kind: 'file' }
+  | { readonly kind: 'file'; readonly indexUrl: string }
   | { readonly kind: 'dev'; readonly origin: string };
 
 /**
  * The trusted origin for this build: the dev server's origin when a renderer
- * dev URL is present, otherwise the packaged `file:` origin. A dev URL that
- * fails to parse falls back to `file:` rather than trusting a malformed value.
+ * dev URL is present, otherwise the packaged renderer entry pinned by path. A
+ * dev URL that fails to parse falls back to the packaged entry rather than
+ * trusting a malformed value.
  */
-export function resolveTrustedRendererOrigin(devUrl: string | undefined): TrustedRendererOrigin {
-  if (!devUrl) return { kind: 'file' };
-  try {
-    return { kind: 'dev', origin: new URL(devUrl).origin };
-  } catch {
-    return { kind: 'file' };
+export function resolveTrustedRendererOrigin(
+  devUrl: string | undefined,
+  indexFileUrl: string,
+): TrustedRendererOrigin {
+  if (devUrl) {
+    try {
+      return { kind: 'dev', origin: new URL(devUrl).origin };
+    } catch {
+      // Malformed dev URL: fall through to the packaged entry rather than trust it.
+    }
   }
+  return { kind: 'file', indexUrl: indexFileUrl };
 }
 
 /**
  * True when `rawUrl` belongs to the renderer's own trusted origin. For a
- * packaged build that means the `file:` scheme (a `file:` URL has no
- * meaningful `origin` to compare); in dev it means an exact origin match, so a
- * different port or host is refused.
+ * packaged build that means the same `file:` entry path as the loaded index
+ * (search and hash ignored — `loadFile` appends `?locale=…` and the SPA routes
+ * on the hash); in dev it means an exact origin match, so a different port or
+ * host is refused. Both paths are normalized through `URL`, so percent-encoding
+ * and separators compare identically across platforms; a foreign `file:` path
+ * (or any non-`file:` scheme) is refused.
  */
 export function isTrustedRendererUrl(rawUrl: string, trusted: TrustedRendererOrigin): boolean {
   let url: URL;
@@ -43,8 +59,15 @@ export function isTrustedRendererUrl(rawUrl: string, trusted: TrustedRendererOri
   } catch {
     return false;
   }
-  if (trusted.kind === 'file') return url.protocol === 'file:';
-  return url.origin === trusted.origin;
+  if (trusted.kind === 'dev') return url.origin === trusted.origin;
+  if (url.protocol !== 'file:') return false;
+  let expected: URL;
+  try {
+    expected = new URL(trusted.indexUrl);
+  } catch {
+    return false;
+  }
+  return url.pathname === expected.pathname;
 }
 
 /** The sender fields the IPC guard inspects — the subset extracted from a `WebFrameMain`. */

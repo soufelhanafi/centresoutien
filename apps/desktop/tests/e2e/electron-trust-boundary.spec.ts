@@ -40,6 +40,25 @@ test('blocks the main window navigating off its own origin', async () => {
   );
 });
 
+test('blocks the main window navigating to a foreign file: path (SOU-242 pin)', async () => {
+  live = await boot(locale(), 'essentiel');
+  const win = live.win;
+
+  // The packaged renderer's own origin is `file:`, so a scheme-only trust check
+  // would wave through any other local file. The path pin must block a redirect
+  // to a foreign `file:` path just as it blocks an off-origin http(s) navigation.
+  await win.evaluate(() => {
+    (window as unknown as { __alive?: string }).__alive = 'yes';
+    window.location.href = 'file:///etc/passwd';
+  });
+
+  await expect.poll(() => aliveSentinel(win)).toBe('yes');
+  expect(await win.evaluate(() => window.location.pathname.endsWith('/index.html'))).toBe(true);
+  expect(await win.evaluate(() => typeof (window as unknown as { api?: unknown }).api)).toBe(
+    'object',
+  );
+});
+
 test('denies a popup to a foreign host without opening an in-app window', async () => {
   live = await boot(locale(), 'essentiel');
   const win = live.win;
