@@ -5,7 +5,7 @@
  * render Western (Latin) digits, matching Moroccan usage across the app.
  */
 export function bcp47(locale: string): string {
-  return locale === 'ar' ? 'ar-MA' : 'fr-MA';
+  return locale.startsWith('ar') ? 'ar-MA' : 'fr-MA';
 }
 
 /**

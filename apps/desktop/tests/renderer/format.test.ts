@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bcp47,
   formatHoursMinutes,
   formatMadParts,
   formatMonthName,
   formatSignedMad,
   formatSignedPercent,
 } from '../../src/renderer/lib/format';
+
+describe('bcp47', () => {
+  it('normalizes Arabic locale variants to Moroccan Arabic', () => {
+    expect(bcp47('ar')).toBe('ar-MA');
+    expect(bcp47('ar-MA')).toBe('ar-MA');
+  });
+
+  it('normalizes non-Arabic locale variants to Moroccan French', () => {
+    expect(bcp47('fr-MA')).toBe('fr-MA');
+    expect(bcp47('en')).toBe('fr-MA');
+  });
+});
 
 describe('formatMonthName', () => {
   it('formats a YYYY-MM month as its long name only', () => {
