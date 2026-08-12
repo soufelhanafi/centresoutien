@@ -47,7 +47,7 @@ test('Scenario 1 — full payment on an unpaid invoice (Essentiel) marks it paid
   live = await boot(locale(), 'essentiel');
   const win = live.win;
 
-  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200 });
+  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200, issue: true });
   await openInvoiceDetail(win, seeded, locale());
   expect(await pageCrashed(win)).toBe(false);
   await expect(win.getByText(L.status.unpaid).first()).toBeVisible();
@@ -72,7 +72,7 @@ test('Scenario 2 — partial payment on Pro sets status to partial with the corr
   live = await boot(locale(), 'pro');
   const win = live.win;
 
-  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200 });
+  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200, issue: true });
   await openInvoiceDetail(win, seeded, locale());
 
   const dialog = await openRecordPaymentDialog(win, L);
@@ -96,7 +96,7 @@ test('Scenario 3 — Essentiel accepts a partial payment with an editable amount
   live = await boot(locale(), 'essentiel');
   const win = live.win;
 
-  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200 });
+  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200, issue: true });
   await openInvoiceDetail(win, seeded, locale());
 
   const dialog = await openRecordPaymentDialog(win, L);
@@ -124,7 +124,7 @@ test('Scenario 4 — overpayment is rejected with a clear, translated error', as
   live = await boot(locale(), 'pro');
   const win = live.win;
 
-  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200 });
+  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200, issue: true });
   await openInvoiceDetail(win, seeded, locale());
 
   const dialog = await openRecordPaymentDialog(win, L);
@@ -168,7 +168,7 @@ test('Scenario 5 — a payment note is saved and visible in the payment history'
   live = await boot(locale(), 'pro');
   const win = live.win;
 
-  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200 });
+  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200, issue: true });
   await openInvoiceDetail(win, seeded, locale());
 
   const dialog = await openRecordPaymentDialog(win, L);
@@ -191,7 +191,7 @@ test('Scenario 6 — payment history lists 2+ payments correctly with no edit/de
   live = await boot(locale(), 'pro');
   const win = live.win;
 
-  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200 });
+  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200, issue: true });
   await openInvoiceDetail(win, seeded, locale());
 
   let dialog = await openRecordPaymentDialog(win, L);
@@ -231,7 +231,7 @@ test('Scenario 7 — receipt print/export produces a real PDF', async () => {
   const app = live.app;
   await stubOpenPath(app);
 
-  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200 });
+  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200, issue: true });
   await openInvoiceDetail(win, seeded, locale());
 
   const dialog = await openRecordPaymentDialog(win, L);
@@ -266,7 +266,7 @@ test('Scenario 8 — AR-RTL renders mirrored layout and locale-correct MAD forma
   live = await boot(locale(), 'pro');
   const win = live.win;
 
-  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200 });
+  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200, issue: true });
   await openInvoiceDetail(win, seeded, locale());
 
   expect(await win.evaluate(() => document.documentElement.dir)).toBe(locale() === 'ar' ? 'rtl' : 'ltr');

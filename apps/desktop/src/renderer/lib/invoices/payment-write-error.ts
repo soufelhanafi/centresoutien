@@ -7,9 +7,12 @@ import { resolveDomainErrorCode } from '../ipc/resolve-domain-error-code';
  * `resolveDomainErrorCode`) and surfaces it inline on the amount field via
  * `t(\`errors.${code}\`)`. Mirrors `mapFormulaWriteError`.
  */
-export type PaymentWriteErrorCode = 'payment-exceeds-balance';
+export type PaymentWriteErrorCode = 'payment-exceeds-balance' | 'invoice-not-payable';
 
-const CODES = new Set<string>(['payment-exceeds-balance'] satisfies PaymentWriteErrorCode[]);
+const CODES = new Set<string>([
+  'payment-exceeds-balance',
+  'invoice-not-payable',
+] satisfies PaymentWriteErrorCode[]);
 
 /**
  * Narrows a caught payment write rejection to a {@link PaymentWriteErrorCode},

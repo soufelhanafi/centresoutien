@@ -92,7 +92,7 @@ test('Scenario 3 — record from picker refreshes takings + feed live (no reload
   const win = live.win;
   const L = strings();
 
-  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: currentMonth(), priceMad: 200 });
+  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: currentMonth(), priceMad: 200, issue: true });
   await gotoPayments(win, L);
 
   // Before: the feed is empty and the invoice is offered in the picker.
@@ -122,7 +122,7 @@ test('Scenario 4 — fully-paid invoice excluded from picker, still in the feed'
   const win = live.win;
   const L = strings();
 
-  const seeded = await seedInvoice(win, { nameFr: 'Salma Bennani', nameAr: 'سلمى بناني', month: currentMonth(), priceMad: 200 });
+  const seeded = await seedInvoice(win, { nameFr: 'Salma Bennani', nameAr: 'سلمى بناني', month: currentMonth(), priceMad: 200, issue: true });
   await recordFullPayment(win, seeded.invoiceId, 200);
   await gotoPayments(win, L);
 
@@ -147,7 +147,7 @@ test('Scenario 5 — reversal nets takings down and is marked in the feed', asyn
   const win = live.win;
   const L = strings();
 
-  const seeded = await seedInvoice(win, { nameFr: 'Omar Idrissi', nameAr: 'عمر الإدريسي', month: currentMonth(), priceMad: 200 });
+  const seeded = await seedInvoice(win, { nameFr: 'Omar Idrissi', nameAr: 'عمر الإدريسي', month: currentMonth(), priceMad: 200, issue: true });
   await gotoPayments(win, L);
   await recordViaPicker(win, L, { studentName: nameFor(locale(), seeded), amountMad: '200' });
   await expect(win.getByText(L.dialog.success)).toBeVisible();
@@ -183,7 +183,7 @@ test('Scenario 6 — recent feed rows have no edit/delete affordance', async () 
   const win = live.win;
   const L = strings();
 
-  const seeded = await seedInvoice(win, { nameFr: 'Nadia Chraibi', nameAr: 'نادية الشرايبي', month: currentMonth(), priceMad: 200 });
+  const seeded = await seedInvoice(win, { nameFr: 'Nadia Chraibi', nameAr: 'نادية الشرايبي', month: currentMonth(), priceMad: 200, issue: true });
   await seedPayment(win, { invoiceId: seeded.invoiceId, amountMad: 120, method: 'transfer', paidOn: todayIso() });
   await gotoPayments(win, L);
 
@@ -202,8 +202,8 @@ test('Scenario 7 — takings counts only today; past-dated payment shows in feed
   const win = live.win;
   const L = strings();
 
-  const todayInv = await seedInvoice(win, { nameFr: 'Hicham Alami', nameAr: 'هشام العلمي', month: currentMonth(), priceMad: 200 });
-  const oldInv = await seedInvoice(win, { nameFr: 'Fatima Zahra', nameAr: 'فاطمة الزهراء', month: '2020-01', priceMad: 500 });
+  const todayInv = await seedInvoice(win, { nameFr: 'Hicham Alami', nameAr: 'هشام العلمي', month: currentMonth(), priceMad: 200, issue: true });
+  const oldInv = await seedInvoice(win, { nameFr: 'Fatima Zahra', nameAr: 'فاطمة الزهراء', month: '2020-01', priceMad: 500, issue: true });
   await gotoPayments(win, L);
 
   // Today's payment via the picker (paidOn defaults to the app's today).

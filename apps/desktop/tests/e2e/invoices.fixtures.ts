@@ -201,10 +201,16 @@ export type SeededInvoiceSetup = {
  * Returns the single drafted invoice's id, resolved via `invoice.list`
  * filtered by `studentId` (the only way to learn a fresh invoice's id
  * through the public bridge — there is no direct `invoice.create` channel).
+ *
+ * `invoice.generateMonthly` produces a `draft` invoice, and since SOU-232 a
+ * payment cannot be recorded against a draft (`invoice-not-payable`). Pass
+ * `issue: true` to move the seeded invoice to `issued` right away — required
+ * for any test that then records a payment. It stays `draft` by default so
+ * the issue/cancel and draft-state suites keep exercising a real draft.
  */
 export async function seedInvoice(
   win: Page,
-  opts: { nameFr: string; nameAr: string; month: string; priceMad: number },
+  opts: { nameFr: string; nameAr: string; month: string; priceMad: number; issue?: boolean },
 ): Promise<SeededInvoiceSetup> {
   return win.evaluate(async (o) => {
     const api = (window as unknown as { api: Bridge }).api;
@@ -233,6 +239,7 @@ export async function seedInvoice(
     };
     const invoice = list.invoices[0];
     if (!invoice) throw new Error('seedInvoice: no invoice was drafted by invoice.generateMonthly');
+    if (o.issue) await api.invoke('invoice.issue', { invoiceId: invoice.id });
     return {
       studentId: student.id,
       studentNameFr: o.nameFr,

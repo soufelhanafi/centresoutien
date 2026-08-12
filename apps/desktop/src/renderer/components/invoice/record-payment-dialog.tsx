@@ -65,7 +65,7 @@ export function RecordPaymentDialog({ invoiceId, outstandingMad, open, onOpenCha
       onOpenChange(false);
     } catch (error) {
       const code = mapPaymentWriteError(error);
-      if (code === 'payment-exceeds-balance') {
+      if (code !== null) {
         form.setError('amountMad', { message: code });
         return;
       }

@@ -14,6 +14,7 @@ import type { StudentId } from '../../../src/entities/student';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryInvoiceRepository } from '../fakes/in-memory-invoice-repository';
 import { InMemoryPaymentRepository } from '../fakes/in-memory-payment-repository';
+import { InMemoryPaymentLedgerUnitOfWork } from '../fakes/in-memory-payment-ledger-unit-of-work';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 import type { Payment, PaymentId } from '../../../src/entities/payment';
@@ -64,7 +65,8 @@ describe('GetInvoicePaymentSummary', () => {
 
   // Record via the real use case so the summary reads whatever the ledger holds.
   function recorder(plan: Plan = PLANS.pro): RecordPayment {
-    return new RecordPayment(payments, invoices, fakeClock('2026-08-05T09:00:00Z'), fakeIds(), new PlanPolicy(plan));
+    const ledger = new InMemoryPaymentLedgerUnitOfWork(payments, invoices);
+    return new RecordPayment(payments, invoices, fakeClock('2026-08-05T09:00:00Z'), fakeIds(), new PlanPolicy(plan), ledger);
   }
 
   beforeEach(async () => {
@@ -125,7 +127,13 @@ describe('GetInvoicePaymentSummary', () => {
 
   it('shows a reversal in the ledger and re-opens the balance', async () => {
     const { payment } = await recorder().execute(paymentInput(35000));
-    const voider = new VoidPayment(payments, fakeClock('2026-08-10T00:00:00Z'), fakeIds(7), new PlanPolicy(PLANS.pro));
+    const voider = new VoidPayment(
+      payments,
+      fakeClock('2026-08-10T00:00:00Z'),
+      fakeIds(7),
+      new PlanPolicy(PLANS.pro),
+      new InMemoryPaymentLedgerUnitOfWork(payments),
+    );
     await voider.execute({ paymentId: payment.id, centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER });
 
     const summary = await build().execute({ centerCode: CENTER, invoiceId: INVOICE });

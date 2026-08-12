@@ -35,6 +35,26 @@ export class InvoiceNotFoundError extends DomainError {
 }
 
 /**
+ * Thrown when a payment is recorded against an invoice that is not in the `issued`
+ * lifecycle state (SOU-232 / audit CS-AUD-001). A `draft` has not yet been billed to
+ * the family and a `cancelled` invoice no longer owes anything — taking money against
+ * either is a real-world error, not a partial payment. Distinct from
+ * {@link InvoiceNotFoundError} (a live, resolvable invoice exists; it is just not in a
+ * payable state), so the cash desk sees *why* the entry was refused. The renderer
+ * resolves the stable `invoice-not-payable` code; the domain stays i18n-agnostic.
+ */
+export class InvoiceNotPayableError extends DomainError {
+  readonly code = 'invoice-not-payable';
+
+  constructor(
+    readonly invoiceId: InvoiceId,
+    readonly status: InvoiceStatus,
+  ) {
+    super(`Invoice "${invoiceId}" is "${status}", not "issued": it cannot take a payment.`);
+  }
+}
+
+/**
  * Thrown when a draft is created for a `(studentId, month)` that already has a live
  * invoice — exactly one invoice exists per student per month (CLAUDE.md §7).
  * Idempotency lives in the domain, not a `UNIQUE(student_id, month)` DB index: two

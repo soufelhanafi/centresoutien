@@ -1,4 +1,5 @@
-import type { PaymentRepository } from '../ports/payment-repository';
+import type { PaymentReader } from '../ports/payment-repository';
+import type { PaymentLedgerUnitOfWork } from '../ports/payment-ledger-unit-of-work';
 import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
 import type { PlanPolicy } from '../plans/plan-policy';
@@ -30,7 +31,11 @@ export type VoidPaymentInput = {
  *  2. Resolve the target center-scoped; unknown or foreign-center → {@link PaymentNotFoundError}.
  *  3. A `reversal` cannot itself be reversed → {@link CannotReverseReversalError}.
  *  4. A payment already carrying a reversal cannot be voided twice (that would push the
- *     net negative) → {@link PaymentAlreadyReversedError}.
+ *     net negative) → {@link PaymentAlreadyReversedError}. This is a fast pre-check; the
+ *     authoritative guard runs INSIDE the commit transaction (`reversalOf`), which
+ *     re-checks that no live reversal of this payment exists before appending, so two
+ *     concurrent voids of the same payment cannot both append (SOU-233 / audit
+ *     CS-AUD-002). The DB partial-unique index is a defense-in-depth backstop.
  *
  * The reversal's `paidOn` is *today* (the reversal date, from the injected Clock, UTC),
  * not the original's business date — it is a distinct ledger event. Append-only and
@@ -38,10 +43,11 @@ export type VoidPaymentInput = {
  */
 export class VoidPayment {
   constructor(
-    private readonly payments: PaymentRepository,
+    private readonly payments: PaymentReader,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
     private readonly plan: PlanPolicy,
+    private readonly ledger: PaymentLedgerUnitOfWork,
   ) {}
 
   async execute(input: VoidPaymentInput): Promise<Payment> {
@@ -90,7 +96,17 @@ export class VoidPayment {
       note: null, // voiding takes no note input (SOU-101 scope is RecordPayment only)
     };
 
-    await this.payments.append(reversal);
+    await this.ledger.commit({
+      candidate: reversal,
+      // A reversal never depends on the running balance — its guard is "voided at most
+      // once", enforced in-transaction via reversalOf (the DB partial-unique index is a
+      // defense-in-depth backstop mapped to the same error), not a net threshold.
+      revalidate: () => {},
+      reversalOf: {
+        paymentId: originalId,
+        onAlreadyReversed: () => new PaymentAlreadyReversedError(originalId),
+      },
+    });
     return reversal;
   }
 }

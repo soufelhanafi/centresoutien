@@ -151,7 +151,7 @@ test('Scenario 4 — recording a full payment updates the detail and the list li
   live = await boot(locale());
   const win = live.win;
 
-  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200 });
+  const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: '2026-08', priceMad: 200, issue: true });
   await gotoInvoices(win, L);
   const studentName = locale() === 'ar' ? seeded.studentNameAr : seeded.studentNameFr;
   await openDetail(win, studentName, seeded.studentNameFr);

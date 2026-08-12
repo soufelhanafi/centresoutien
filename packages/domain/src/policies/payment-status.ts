@@ -1,4 +1,4 @@
-import type { Payment } from '../entities/payment';
+import type { Payment, PaymentId } from '../entities/payment';
 
 /**
  * The **derived** payment status of an invoice (SOU-93). This is the payment dimension
@@ -11,16 +11,36 @@ export const PAYMENT_STATUSES = ['unpaid', 'partially-paid', 'paid'] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 /**
- * Net amount paid on an invoice, in integer MAD centimes: `Σ payments − Σ reversals`.
- * Reversals subtract because a void is a `reversal` entry, never a deleted row. Can go
- * to 0 (fully reversed) but the derivation clamps a negative net (over-reversal) to
- * `unpaid`. Pure and portable — the reader adapter computes the same sum in SQL.
+ * Net amount paid on an invoice, in integer MAD centimes: `Σ payments − one reversal per
+ * reversed payment`. A payment is voided **at most once** (SOU-233), so reversals are
+ * collapsed by `reversesPaymentId` — the lowest-ULID reversal wins (ULIDs sort by
+ * creation time, so every replica converges on the same survivor) and any duplicate
+ * reversal of the same payment (a legacy offline double-void) contributes nothing. This
+ * makes the net identical on a clean ledger (≤1 reversal per payment) and correct on a
+ * dirty one — it can never be double-subtracted below the single-void result. The single
+ * source of truth every derived-net consumer shares (`derivePaymentStatus`,
+ * `GetInvoicePaymentSummary`); the reader adapter computes the same sum in SQL
+ * (`SUM_FOR_INVOICE_SQL`), tie-breaking on the same lowest id. Tombstoned rows are
+ * ignored (payments are never tombstoned, but the filter keeps the sum honest).
  */
 export function netPaidMad(payments: readonly Payment[]): number {
-  return payments.reduce(
-    (sum, payment) => sum + (payment.kind === 'reversal' ? -payment.amountMad : payment.amountMad),
-    0,
-  );
+  let grossPaid = 0;
+  const winningReversal = new Map<PaymentId, { id: PaymentId; amountMad: number }>();
+  for (const payment of payments) {
+    if (payment.deletedAt !== null) continue;
+    if (payment.kind === 'reversal') {
+      if (payment.reversesPaymentId === null) continue;
+      const current = winningReversal.get(payment.reversesPaymentId);
+      if (current === undefined || payment.id < current.id) {
+        winningReversal.set(payment.reversesPaymentId, { id: payment.id, amountMad: payment.amountMad });
+      }
+    } else {
+      grossPaid += payment.amountMad;
+    }
+  }
+  let reversed = 0;
+  for (const winner of winningReversal.values()) reversed += winner.amountMad;
+  return grossPaid - reversed;
 }
 
 /**

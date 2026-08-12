@@ -16,6 +16,14 @@ export interface PaymentReader {
    * agree with the pure `netPaidMad` over the same rows.
    */
   sumForInvoice(invoiceId: InvoiceId): Promise<number>;
+  /**
+   * The live payment for `id`, or `null` for an unknown id. A read — it backs the
+   * void guards (resolve the target center-scoped, reject a reversal) without needing
+   * the write side. Lives on the reader so a use case that only reads + commits through
+   * the {@link import('./payment-ledger-unit-of-work').PaymentLedgerUnitOfWork} never
+   * touches `append` directly (SOU-233).
+   */
+  findById(id: PaymentId): Promise<Payment | null>;
 }
 
 /**
@@ -33,8 +41,6 @@ export interface PaymentReader {
 export interface PaymentRepository extends PaymentReader {
   /** Insert a new payment or reversal. Re-appending an existing id must fail loudly. */
   append(payment: Payment): Promise<void>;
-  /** The live payment for `id`, or `null` for an unknown id. Backs void guards. */
-  findById(id: PaymentId): Promise<Payment | null>;
   /** Sync cursor query: rows written strictly after `cursor` (append-only, so no tombstones). */
   listChangedSince(cursor: Date): Promise<readonly Payment[]>;
 }

@@ -21,6 +21,7 @@ import type {
   OverdueInvoiceViewReadPort,
   OverdueInvoiceLineView,
 } from '@centresoutien/domain';
+import { NET_PAID_BY_INVOICE_SQL } from './payment-sql';
 
 /** The `invoices` table row shape as SQLite returns it. */
 type InvoiceRow = {
@@ -357,11 +358,7 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
            GROUP BY invoice_id
          ) lt ON lt.invoice_id = i.id
          LEFT JOIN (
-           SELECT invoice_id,
-                  SUM(CASE WHEN kind = 'reversal' THEN -amount_mad ELSE amount_mad END) AS net_paid_mad
-           FROM payments
-           WHERE deleted_at IS NULL
-           GROUP BY invoice_id
+           ${NET_PAID_BY_INVOICE_SQL}
          ) pt ON pt.invoice_id = i.id
          WHERE ${conditions.join(' AND ')}
          ${orderAndLimit}`,
@@ -432,11 +429,7 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
            GROUP BY invoice_id
          ) lt ON lt.invoice_id = i.id
          LEFT JOIN (
-           SELECT invoice_id,
-                  SUM(CASE WHEN kind = 'reversal' THEN -amount_mad ELSE amount_mad END) AS net_paid_mad
-           FROM payments
-           WHERE deleted_at IS NULL
-           GROUP BY invoice_id
+           ${NET_PAID_BY_INVOICE_SQL}
          ) pt ON pt.invoice_id = i.id
          WHERE i.center_code = ? AND i.deleted_at IS NULL AND i.status = 'issued'
          ORDER BY i.month ASC`,

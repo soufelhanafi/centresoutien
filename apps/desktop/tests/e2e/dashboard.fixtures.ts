@@ -256,6 +256,7 @@ export async function seedFullMonth(win: Page): Promise<SeededDashboardData> {
       const list = (await api.invoke('invoice.list', { studentId: student.id })) as { invoices: { id: string }[] };
       const invoice = list.invoices[0];
       if (!invoice) throw new Error('seedFullMonth: no invoice was drafted by invoice.generateMonthly');
+      await api.invoke('invoice.issue', { invoiceId: invoice.id });
       await api.invoke('payment.record', { invoiceId: invoice.id, amountMad: 30000, method: 'cash', paidOn: date });
 
       const room = (await api.invoke('room.create', { name: 'Salle QA', capacity: 20 })) as { id: string };

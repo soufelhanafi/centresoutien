@@ -96,6 +96,13 @@ export { resolveSubjectCodeCollision } from './policies/subject-code-collision-p
 export type { SubjectCodeCollisionResolution } from './policies/subject-code-collision-policy';
 export { SESSION_ENTITY_TYPE, sessionDedupKey } from './sync/session-dedup';
 export type { SessionDedup, SessionDedupStore } from './sync/session-dedup';
+export {
+  PAYMENT_ENTITY_TYPE,
+  reversalDedupKey,
+  detectReversalDedups,
+  netPaidMadDeduped,
+} from './sync/reversal-dedup';
+export type { ReversalDedup } from './sync/reversal-dedup';
 export { resolveSessionCollision } from './policies/session-collision-policy';
 export type { SessionCollisionResolution } from './policies/session-collision-policy';
 
@@ -201,6 +208,7 @@ export {
 export {
   InvalidInvoiceTransitionError,
   InvoiceNotFoundError,
+  InvoiceNotPayableError,
   DuplicateInvoiceError,
   InvalidInvoiceListQueryError,
 } from './errors/invoice-errors';
@@ -597,6 +605,15 @@ export type {
 export type { FormulaRepository } from './ports/formula-repository';
 // Payment ledger (SOU-93) — append-only; the SQLite adapter adds a trigger safety net.
 export type { PaymentReader, PaymentRepository } from './ports/payment-repository';
+// Payment ledger atomic commit seam (SOU-233 / audit CS-AUD-002) — the guard runs
+// inside the transaction so check-then-insert on the ledger is one indivisible unit.
+export type {
+  PaymentLedgerUnitOfWork,
+  PaymentLedgerCommit,
+  PaymentLedgerCommitResult,
+  PaymentReversalGuard,
+  PayableInvoiceGuard,
+} from './ports/payment-ledger-unit-of-work';
 // Recent-payments cash-desk feed (SOU-198) — cross-invoice read model served by the
 // same SQLite adapter that owns `payments`, mirroring OverdueInvoiceViewReadPort.
 export type { RecentPaymentsReadPort } from './ports/recent-payments-read-port';
@@ -701,6 +718,7 @@ export type {
 export { buildStudentNaturalKey, buildTeacherNaturalKey } from './policies/natural-key';
 export { INVOICE_STATUS_TRANSITIONS, canTransitionInvoice } from './policies/invoice-status';
 export { invoiceTotalMad } from './policies/invoice-total';
+export { assertInvoicePayable, assertStatusPayable, isInvoicePayable } from './policies/payable-invoice';
 export {
   PAYMENT_STATUSES,
   netPaidMad,

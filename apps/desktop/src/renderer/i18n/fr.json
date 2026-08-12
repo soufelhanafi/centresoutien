@@ -216,6 +216,7 @@
     "invalid-amount": "Montant invalide.",
     "invalid-method": "Moyen de paiement invalide",
     "payment-exceeds-balance": "Ce montant dépasse le solde restant de la facture.",
+    "invoice-not-payable": "Cette facture n'est pas encore émise (brouillon) ou a été annulée : elle ne peut pas recevoir de paiement.",
     "group-full": "Ce groupe est complet : toutes les places sont occupées.",
     "duplicate-enrollment": "Cet élève est déjà inscrit dans ce groupe.",
     "cross-kind-enrollment": "L'abonnement de l'élève ne correspond pas au type du groupe (régulier / prépa examen).",
