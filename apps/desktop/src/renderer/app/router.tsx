@@ -22,6 +22,7 @@ import { GroupsPage } from '../pages/groups/groups-page';
 import { GroupDetailPage } from '../pages/groups/group-detail-page';
 import { RoomsPage } from '../pages/rooms/rooms-page';
 import { PlannerPage } from '../pages/planning/planner-page';
+import { ScheduleAuditPage } from '../pages/schedule-audit/schedule-audit-page';
 import { InvoicesPage } from '../pages/invoices/invoices-page';
 import { InvoiceDetailPage } from '../pages/invoices/invoice-detail-page';
 import { ArrearsPage } from '../pages/arrears/arrears-page';
@@ -39,6 +40,7 @@ import {
   groupsModule,
   roomsModule,
   planningModule,
+  scheduleAuditModule,
   invoicingModule,
   arrearsModule,
   paymentsModule,
@@ -118,6 +120,11 @@ const planningRoute = createRoute({
   path: planningModule.path,
   component: PlannerPage,
 });
+const scheduleAuditRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: scheduleAuditModule.path,
+  component: ScheduleAuditPage,
+});
 const invoicingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: invoicingModule.path,
@@ -177,6 +184,7 @@ const routeTree = rootRoute.addChildren([
   groupDetailRoute,
   roomsRoute,
   planningRoute,
+  scheduleAuditRoute,
   invoicingRoute,
   invoiceDetailRoute,
   arrearsRoute,

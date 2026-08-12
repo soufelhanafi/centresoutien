@@ -18,15 +18,14 @@ import {
 } from './schedule-audit.fixtures';
 
 /**
- * SOU-201 — "Audit du planning", opened from the planner header modal (SOU-240).
- * Black-box, driven only through the running packaged app + the public preload
- * bridge. Runs under both the `fr` (LTR) and `ar` (RTL) Playwright projects.
+ * SOU-201 — "Audit du planning" report page. Black-box, driven only through the
+ * running packaged app + the public preload bridge. Runs under both the `fr`
+ * (LTR) and `ar` (RTL) Playwright projects.
  *
  * The materialized window is Mon 2026-08-17 + Mon 2026-08-24 (both future vs the
  * mid-August system clock). Occurrences are generated FIRST, then stranded by an
  * override and/or a holiday — matching the "added after a session was generated"
- * acceptance wording. Navigation is always: sidebar → Planning → header "Audit
- * du planning" trigger → review modal.
+ * acceptance wording.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -41,7 +40,7 @@ const RAW_ID = /rom_|tch_|sub_|grp_|ses_|wrs_/;
 
 // ---------------------------------------------------------------------------
 // Scenario 1 — a center-hours override strands a materialized occurrence; it
-// appears in the audit modal with an "outside hours" badge and shows subject /
+// appears in the audit list with an "outside hours" badge and shows subject /
 // room / teacher NAMES + date + time (never raw ids).
 // ---------------------------------------------------------------------------
 test('Scenario 1 — override strands an occurrence: "outside hours" row shows names, date, time (not ids)', async () => {
@@ -52,10 +51,10 @@ test('Scenario 1 — override strands an occurrence: "outside hours" row shows n
 
   await seedGeneratedSessions(win, '2026-08-16', '2026-08-18'); // materializes only Mon 08-17
   await narrowMondayOverride(win, '2026-08-16', '2026-08-18'); // Monday 09:00–14:00 → 15:00–17:00 stranded
-  await gotoAudit(win, L);
+  await gotoAudit(win);
 
   await expect(win.locator('html')).toHaveAttribute('dir', L.dir);
-  await expect(win.getByRole('heading', { name: L.pageTitle })).toBeVisible();
+  await expect(win.getByRole('heading', { name: L.pageTitle }).first()).toBeVisible();
   await expect(win.getByText(L.subtitle)).toBeVisible();
 
   await expect(auditRows(win)).toHaveCount(1);
@@ -97,7 +96,7 @@ test('Scenario 2 — holiday badge appears, and a both-affected occurrence shows
   await seedGeneratedSessions(win, '2026-08-16', '2026-08-25'); // Mon 08-17 + Mon 08-24
   await narrowMondayOverride(win, '2026-08-16', '2026-08-25'); // both Mondays now outside hours
   await addHoliday(win, '2026-08-24'); // 08-24 is now ALSO a holiday
-  await gotoAudit(win, L);
+  await gotoAudit(win);
 
   await expect(auditRows(win)).toHaveCount(2);
 
@@ -132,13 +131,13 @@ test('Scenario 3 — cancelling one stranded occurrence keeps the weekly templat
   const templateBefore = weekBefore.find((s) => s.id === seeded.recurringSessionId);
   expect(templateBefore, 'the weekly recurring template exists before cancel').toBeTruthy();
 
-  await gotoAudit(win, L);
+  await gotoAudit(win);
   await expect(auditRows(win)).toHaveCount(2);
 
   // Cancel the 08-17 occurrence.
   await rowForDate(win, D.d17).getByRole('button', { name: L.cancelRowBtn }).click();
 
-  const dialog = confirmDialog(win, L.dialogTitle);
+  const dialog = confirmDialog(win);
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(L.dialogTitle);
   // The dialog must promise ONLY this date is removed (weekly + other dates unchanged).
@@ -162,7 +161,7 @@ test('Scenario 3 — cancelling one stranded occurrence keeps the weekly templat
 
 // ---------------------------------------------------------------------------
 // Scenario 4 — empty state. No occurrence is stranded → the reassuring "all
-// good" message inside the modal, not an error.
+// good" message, not an error.
 // ---------------------------------------------------------------------------
 test('Scenario 4 — no stranded sessions shows the good empty state, not an error', async () => {
   const L = STR[locale()];
@@ -171,9 +170,9 @@ test('Scenario 4 — no stranded sessions shows the good empty state, not an err
 
   // Materialize occurrences but strand nothing (no override, no holiday).
   await seedGeneratedSessions(win, '2026-08-16', '2026-08-25');
-  await gotoAudit(win, L);
+  await gotoAudit(win);
 
-  await expect(win.getByRole('heading', { name: L.pageTitle })).toBeVisible();
+  await expect(win.getByRole('heading', { name: L.pageTitle }).first()).toBeVisible();
   await expect(win.getByText(L.emptyTitle)).toBeVisible();
   await expect(win.getByText(L.emptySubtitle)).toBeVisible();
   await expect(auditRows(win)).toHaveCount(0);
@@ -185,37 +184,27 @@ test('Scenario 4 — no stranded sessions shows the good empty state, not an err
 
 // ---------------------------------------------------------------------------
 // Scenario 5 — feature gating. With `settings.center-hours` dropped from the
-// plan, the audit trigger does not exist on the planner (no lock screen to
-// reach), the sidebar has no audit entry, and the removed `#/schedule-audit`
-// route redirects home instead of rendering a report.
+// plan, the nav entry is locked (no longer a navigable link) and the route
+// renders the plan gate instead of the report.
 // ---------------------------------------------------------------------------
-test('Scenario 5 — the audit is gated by settings.center-hours (no trigger, no nav entry, no route)', async () => {
+test('Scenario 5 — the page/nav entry is gated by settings.center-hours', async () => {
   const L = STR[locale()];
   live = await launch(locale(), { omitFeatures: ['settings.center-hours'] });
   const win = live.win;
-
   await win.reload();
   await win.waitForLoadState('domcontentloaded');
 
-  await win.getByRole('link', { name: L.navPlanning, exact: true }).click();
-  await win.getByRole('heading', { name: L.planningTitle }).waitFor();
-
-  // No trigger button anywhere on the planner header.
-  await expect(win.getByRole('button', { name: L.auditTrigger })).toHaveCount(0);
-
-  // The sidebar no longer lists the audit at all — neither as a link nor as a
-  // locked control.
   const nav = win.getByRole('navigation').first();
-  await expect(nav.getByRole('link', { name: L.pageTitle, exact: true })).toHaveCount(0);
-  await expect(nav.getByRole('button', { name: L.pageTitle, exact: true })).toHaveCount(0);
+  // The audit entry is no longer a live link — it is a locked control.
+  await expect(nav.getByRole('link', { name: L.navAudit, exact: true })).toHaveCount(0);
+  await expect(nav.getByRole('button', { name: L.navAudit, exact: true })).toBeVisible();
 
-  // The removed deep-link route no longer renders a report — the not-found
-  // boundary sends the user home (dashboard).
   await win.evaluate(() => {
     window.location.hash = '#/schedule-audit';
   });
-  await expect.poll(() => win.evaluate(() => window.location.hash)).toContain('#/dashboard');
-  await expect(win.getByRole('heading', { name: L.pageTitle })).toHaveCount(0);
+
+  await expect(win.getByText(L.gateTitle)).toBeVisible();
+  await expect(win.getByRole('button', { name: L.gateCta })).toBeVisible();
   await expect(win.locator('html')).toHaveAttribute('dir', L.dir);
 
   expect(await pageCrashed(win)).toBe(false);

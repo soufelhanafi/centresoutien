@@ -5,8 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 
 /**
- * Black-box fixtures for SOU-201 — "Audit du planning", driven through the
- * planner modal (SOU-240).
+ * Black-box fixtures for SOU-201 — "Audit du planning" report page.
  *
  * Driven exclusively through the running packaged app and the public preload
  * bridge (`window.api.invoke`). No renderer / domain / data implementation is
@@ -14,7 +13,7 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
  * locales (never from source), exactly as the SOU-165 override and SOU-30
  * holiday suites mirror their user-facing contract.
  *
- * The audit modal lists persisted, dated `Session` occurrences that the center's
+ * The audit page lists persisted, dated `Session` occurrences that the center's
  * effective (override-aware) hours or a holiday now place outside a valid
  * window. Seeding recipe (all via the SAME public channels the app itself uses):
  *   1. reference data (room / teacher / subject / group),
@@ -60,9 +59,7 @@ export const DATE: Record<Locale, { d17: string; d24: string }> = {
 export const STR: Record<
   Locale,
   {
-    navPlanning: string;
-    planningTitle: string;
-    auditTrigger: string;
+    navAudit: string;
     pageTitle: string;
     subtitle: string;
     reasonOutsideHours: string;
@@ -74,13 +71,13 @@ export const STR: Record<
     dialogBack: string;
     emptyTitle: string;
     emptySubtitle: string;
+    gateTitle: string;
+    gateCta: string;
     dir: 'ltr' | 'rtl';
   }
 > = {
   fr: {
-    navPlanning: 'Planning',
-    planningTitle: 'Planning hebdomadaire',
-    auditTrigger: 'Audit du planning',
+    navAudit: 'Audit du planning',
     pageTitle: 'Audit du planning',
     subtitle:
       'Séances déjà planifiées qui tombent désormais hors des horaires ou un jour férié. Vérifiez puis annulez au cas par cas.',
@@ -94,12 +91,12 @@ export const STR: Record<
     dialogBack: 'Retour',
     emptyTitle: 'Aucune séance hors horaires',
     emptySubtitle: 'Toutes les séances planifiées tiennent dans les horaires du centre et évitent les jours fériés.',
+    gateTitle: 'Réservé à un plan supérieur',
+    gateCta: 'Débloquer avec Essentiel',
     dir: 'ltr',
   },
   ar: {
-    navPlanning: 'الجدولة',
-    planningTitle: 'الجدول الأسبوعي',
-    auditTrigger: 'تدقيق الجدولة',
+    navAudit: 'تدقيق الجدولة',
     pageTitle: 'تدقيق الجدولة',
     subtitle: 'حصص مجدولة سابقًا صارت خارج ساعات العمل أو في يوم عطلة. راجعها ثم ألغِها واحدة تلو الأخرى.',
     reasonOutsideHours: 'خارج ساعات العمل',
@@ -111,6 +108,8 @@ export const STR: Record<
     dialogBack: 'رجوع',
     emptyTitle: 'لا توجد حصص خارج ساعات العمل',
     emptySubtitle: 'كل الحصص المجدولة تقع ضمن ساعات عمل المركز وتتجنّب أيام العطل.',
+    gateTitle: 'غير متاح في خطتك',
+    gateCta: 'افتح مع الأساسية',
     dir: 'rtl',
   },
 };
@@ -232,35 +231,28 @@ export async function readWeek(
   return res.sessions;
 }
 
-/**
- * Drive the audit through the planner (SOU-240): reload past the boot wizard /
- * auth gate into the shell, open the weekly planner via the sidebar, then click
- * the "Audit du planning" trigger in the header and wait for the review modal.
- * The button label may be suffixed by the count badge's number, so the role
- * match is a substring match (default), never exact.
- */
-export async function gotoAudit(win: Page, L: (typeof STR)[Locale]): Promise<void> {
+/** Reload past the auth gate and open the audit report via its client route. */
+export async function gotoAudit(win: Page): Promise<void> {
   await win.reload();
   await win.waitForLoadState('domcontentloaded');
-  await win.getByRole('link', { name: L.navPlanning, exact: true }).click();
-  await win.getByRole('heading', { name: L.planningTitle }).waitFor();
-  await win.getByRole('button', { name: L.auditTrigger }).click();
-  await win.getByRole('dialog').waitFor();
+  await win.evaluate(() => {
+    window.location.hash = '#/schedule-audit';
+  });
 }
 
-/** The audit modal's list rows (each stranded occurrence is one `<li>`). */
+/** The audit list rows (each stranded occurrence is one `<li>` in the report's list). */
 export function auditRows(win: Page) {
-  return win.getByRole('dialog').locator('ul > li');
+  return win.locator('main ul > li');
 }
 
 /** The row whose visible text contains a given localized date label. */
 export function rowForDate(win: Page, dateLabel: string) {
-  return win.getByRole('dialog').locator('ul > li', { hasText: dateLabel });
+  return win.locator('main ul > li', { hasText: dateLabel });
 }
 
-/** The cancel-occurrence confirm dialog — scoped by its title, since it stacks over the audit modal. */
-export function confirmDialog(win: Page, title: string) {
-  return win.locator('[role="dialog"]', { hasText: title });
+/** The confirm dialog opened by a row's "cancel this occurrence" button. */
+export function confirmDialog(win: Page) {
+  return win.locator('[role="alertdialog"], [role="dialog"]');
 }
 
 /** True when the renderer error boundary is showing (page crashed on render). */
