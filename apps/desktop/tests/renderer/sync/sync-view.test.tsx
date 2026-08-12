@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { groupConflicts } from './../../../src/renderer/lib/sync/sync-view';
-import type { SyncConflictView } from '../../../src/renderer/lib/sync/sync-view';
+import { groupConflicts, groupSyncConflicts } from './../../../src/renderer/lib/sync/sync-view';
+import type { ReversalDedupView, SyncConflictView } from '../../../src/renderer/lib/sync/sync-view';
 
 const side = {
   updatedBy: 'usr_0000000000000000000000000A',
@@ -39,12 +39,19 @@ const duplicate: SyncConflictView = {
   reason: 'same-name-phone',
 };
 
+const reversalDedup: ReversalDedupView = {
+  entityType: 'payments',
+  reversesPaymentId: 'pay_00000000000000000000000001',
+  winnerId: 'pay_00000000000000000000000010',
+  loserId: 'pay_00000000000000000000000011',
+};
+
 describe('groupConflicts', () => {
   it('splits conflicts into the three popup tabs', () => {
     const grouped = groupConflicts([fieldClash, deleteVsEdit, duplicate]);
     expect(grouped.fieldClashes).toEqual([fieldClash]);
     expect(grouped.deleteVsEdits).toEqual([deleteVsEdit]);
-    expect(grouped.duplicates).toEqual([duplicate]);
+    expect(grouped.duplicates).toEqual([{ kind: 'probable-duplicate', conflict: duplicate }]);
   });
 
   it('handles an empty list', () => {
@@ -55,5 +62,13 @@ describe('groupConflicts', () => {
     const other: SyncConflictView = { ...fieldClash, entityId: 'stu_00000000000000000000000002' };
     const grouped = groupConflicts([fieldClash, other]);
     expect(grouped.fieldClashes).toHaveLength(2);
+  });
+
+  it('shows reversal dedup losers in the duplicates tab', () => {
+    const grouped = groupSyncConflicts({ conflicts: [duplicate], reversalDedups: [reversalDedup] });
+    expect(grouped.duplicates).toEqual([
+      { kind: 'probable-duplicate', conflict: duplicate },
+      { kind: 'payment-reversal-dedup', dedup: reversalDedup },
+    ]);
   });
 });

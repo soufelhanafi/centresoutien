@@ -2254,6 +2254,12 @@
       "kept": "Conservé :",
       "candidate": "Doublon :",
       "mergeHint": "Fusionnez ces enregistrements via les doublons (parents d'abord, puis élèves)."
+    },
+    "paymentReversalDedup": {
+      "loser": "Annulation ignorée :",
+      "winner": "Annulation conservée :",
+      "reversesPayment": "Paiement annulé :",
+      "hint": "Le registre reste append-only. Cette annulation ne compte pas une deuxième fois."
     }
   },
   "demo": {

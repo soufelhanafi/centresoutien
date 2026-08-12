@@ -5,7 +5,7 @@ import { Dialog, DialogTrigger, Button, Card, CardContent, CardDescription, Card
 import { useFeature } from '../../hooks/use-feature';
 import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
 import { useRunSync, useBlockedConflicts } from '../../hooks/sync/use-sync';
-import { ConflictPopup } from '../../components/sync/conflict-popup';
+import { ConflictPopup, conflictKey } from '../../components/sync/conflict-popup';
 
 /**
  * Synchronisation module (SOU-91): runs one pull → resolve → push cycle against
@@ -23,6 +23,9 @@ export function SyncPage() {
 
   const blocked = conflicts.data ?? [];
   const lastResult = run.data;
+  const popupConflicts = uniqueConflicts([...blocked, ...(lastResult?.conflicts ?? [])]);
+  const popupReversalDedups = lastResult?.reversalDedups ?? [];
+  const popupCount = popupConflicts.length + popupReversalDedups.length;
 
   const onRun = () => {
     void run.mutateAsync().then(() => setPopupOpen(true));
@@ -53,7 +56,7 @@ export function SyncPage() {
                 {t('sync.lastResult', {
                   applied: lastResult.applied,
                   pushed: lastResult.pushed,
-                  conflicts: lastResult.conflicts.length,
+                  conflicts: lastResult.conflicts.length + lastResult.reversalDedups.length,
                 })}
               </span>
             )}
@@ -68,14 +71,14 @@ export function SyncPage() {
             <CardTitle>{t('sync.inboxTitle')}</CardTitle>
             <CardDescription>{t('sync.inboxHint')}</CardDescription>
           </div>
-          {blocked.length > 0 && (
+          {popupCount > 0 && (
             <Dialog open={popupOpen} onOpenChange={setPopupOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
-                  {t('sync.openPopup')} ({blocked.length})
+                  {t('sync.openPopup')} ({popupCount})
                 </Button>
               </DialogTrigger>
-              <ConflictPopup conflicts={blocked} />
+              <ConflictPopup conflicts={popupConflicts} reversalDedups={popupReversalDedups} />
             </Dialog>
           )}
         </CardHeader>
@@ -124,19 +127,12 @@ export function SyncPage() {
   return content;
 }
 
-function conflictKey(conflict: {
-  kind: string;
-  entityType: string;
-  entityId?: string;
-  keptId?: string;
-  candidateId?: string;
-}): string {
-  switch (conflict.kind) {
-    case 'field-clash':
-      return `field-clash:${conflict.entityType}:${conflict.entityId}`;
-    case 'delete-vs-edit':
-      return `delete-vs-edit:${conflict.entityType}:${conflict.entityId}`;
-    default:
-      return `probable-duplicate:${conflict.entityType}:${conflict.keptId}:${conflict.candidateId}`;
-  }
+function uniqueConflicts<T extends Parameters<typeof conflictKey>[0]>(conflicts: readonly T[]): T[] {
+  const seen = new Set<string>();
+  return conflicts.filter((conflict) => {
+    const key = conflictKey(conflict);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
