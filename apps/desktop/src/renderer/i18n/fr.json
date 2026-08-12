@@ -186,6 +186,24 @@
         "body": "Une erreur est survenue lors du chargement des indicateurs.",
         "retry": "Réessayer"
       }
+    },
+    "widgets": {
+      "customize": "Personnaliser le tableau de bord",
+      "title": "Widgets du tableau de bord",
+      "description": "Choisissez les widgets à afficher et leur ordre.",
+      "show": "Afficher {{widget}}",
+      "hide": "Masquer {{widget}}",
+      "moveUp": "Monter {{widget}}",
+      "moveDown": "Descendre {{widget}}",
+      "close": "Fermer",
+      "reset": "Réinitialiser",
+      "panelBasic": "Vue Basique",
+      "panelAdvanced": "Vue Avancée",
+      "names": {
+        "argent": "Argent"
+      },
+      "allHidden": "Tous les widgets sont masqués.",
+      "allHiddenHint": "Ouvrez « Personnaliser le tableau de bord » pour les réafficher."
     }
   },
   "errors": {
