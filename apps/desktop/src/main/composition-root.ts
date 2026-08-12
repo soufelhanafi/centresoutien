@@ -190,6 +190,7 @@ import { SqliteStudentSubscriptionReference } from '../data/sqlite/repositories/
 import { SqliteEnrollmentRepository } from '../data/sqlite/repositories/enrollment-repository';
 import { SqliteInvoiceRepository } from '../data/sqlite/repositories/invoice-repository';
 import { SqlitePaymentRepository } from '../data/sqlite/repositories/payment-repository';
+import { SqlitePaymentLedgerUnitOfWork } from '../data/sqlite/repositories/payment-ledger-unit-of-work';
 import { SqliteTeacherRepository } from '../data/sqlite/repositories/teacher-repository';
 import { SqliteTeacherPayrollRuleRepository } from '../data/sqlite/repositories/teacher-payroll-rule-repository';
 import { SqliteTeacherPayoutRepository } from '../data/sqlite/repositories/teacher-payout-repository';
@@ -750,10 +751,14 @@ export function buildContainer(options: ContainerOptions): Container {
   // its immutable lines to size the balance. RecordPayment appends a `payment` (gating a
   // partial amount on `core.invoicing.partial-paid`); VoidPayment appends a `reversal`
   // (never a delete); GetInvoicePaymentSummary derives the status from the ledger.
+  // Both writes go through the transactional ledger unit-of-work (SOU-233 / CS-AUD-002),
+  // which re-checks the balance/reversal invariant inside the same transaction as the
+  // append so a check-then-insert race cannot overshoot the balance or double-reverse.
   const invoiceRepo = new SqliteInvoiceRepository(db);
   const paymentRepo = new SqlitePaymentRepository(db);
-  const recordPayment = new RecordPayment(paymentRepo, invoiceRepo, clock, ids, plan);
-  const voidPayment = new VoidPayment(paymentRepo, clock, ids, plan);
+  const paymentLedgerUnitOfWork = new SqlitePaymentLedgerUnitOfWork(db);
+  const recordPayment = new RecordPayment(paymentRepo, invoiceRepo, clock, ids, plan, paymentLedgerUnitOfWork);
+  const voidPayment = new VoidPayment(paymentRepo, clock, ids, plan, paymentLedgerUnitOfWork);
   const getInvoicePaymentSummary = new GetInvoicePaymentSummary(paymentRepo, invoiceRepo, plan);
   // The cash-desk feed (SOU-198): the one cross-invoice payment read. Reuses the same
   // SqlitePaymentRepository, which also implements RecentPaymentsReadPort — one adapter,
