@@ -14,7 +14,7 @@ import { SessionConflictPolicy } from '../policies/session-conflict-policy';
 import { resolveEffectiveWindows } from '../policies/center-hours-override-policy';
 import { holidayOn } from '../policies/holiday-policy';
 import { weekdayOf } from '../value-objects/date-range';
-import { resolveWeek } from './weekly-session-scheduling';
+import { resolveWeek } from '../schemas/center-hours';
 
 /**
  * Why a materialized session no longer sits in any valid window. A stranded

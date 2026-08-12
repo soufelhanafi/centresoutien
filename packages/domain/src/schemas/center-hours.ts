@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { TIME_OF_DAY_REGEX, toMinutes, type TimeOfDay } from '../value-objects/time-of-day';
 import { WEEKDAYS, type WeekdayIndex } from '../value-objects/weekday';
+import type { DayHours } from '../policies/session-conflict-policy';
+import type { CenterHours } from '../entities/center-hours';
 
 /**
  * Center-hours input schemas — the user-editable shape of the weekly grid. The
@@ -71,3 +73,22 @@ export const DEFAULT_CLOSE = '18:00';
 export const DEFAULT_WEEKLY_HOURS: readonly WeekdayHoursInput[] = WEEKDAYS.map(
   (dayOfWeek: WeekdayIndex) => ({ dayOfWeek, open: DEFAULT_OPEN, close: DEFAULT_CLOSE }),
 );
+
+/**
+ * The week the scheduling and audit hours-checks read. When a center has saved
+ * its hours those rows are used directly ({@link CenterHours} satisfies
+ * {@link DayHours}); before the first save the repository is empty and the domain
+ * falls back to the same {@link DEFAULT_WEEKLY_HOURS} the Settings form seeds — so
+ * a fresh center reads within the shared default week (09:00–18:00) instead of
+ * every day reading as closed. Lives on this leaf module (no use-case imports) so
+ * both `weekly-session-scheduling` and `audit-sessions-outside-effective-hours`
+ * depend on it without forming an initialization cycle.
+ */
+export function resolveWeek(rows: readonly CenterHours[]): readonly DayHours[] {
+  if (rows.length > 0) return rows;
+  return DEFAULT_WEEKLY_HOURS.map((day) => ({
+    dayOfWeek: day.dayOfWeek as WeekdayIndex,
+    open: day.open as TimeOfDay | null,
+    close: day.close as TimeOfDay | null,
+  }));
+}
