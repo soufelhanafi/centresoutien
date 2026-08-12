@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { app, dialog, BrowserWindow, ipcMain } from 'electron';
 import { PLANS, CenterSwitchError } from '@centresoutien/domain';
 import type { PlanId, CenterCode } from '@centresoutien/domain';
@@ -38,6 +39,11 @@ import { sweepStaleTempPdfs } from '../data/fs/temp-pdf';
 
 /** argv flag that puts the app into demo mode on relaunch (SOU-110). */
 const DEMO_ARG = '--demo';
+
+// The packaged renderer entry loaded from disk. Shared by the window's
+// `loadFile` and the trusted-origin resolution so the `file:` trust is pinned to
+// this exact entry (host + path), not the `file:` scheme (SOU-242).
+const RENDERER_INDEX_HTML = join(import.meta.dirname, '../renderer/index.html');
 
 /**
  * SOU-179: the DB key for `centreId` under the current build — the dev/e2e
@@ -167,7 +173,7 @@ function openWindow(locale: string | undefined, trustedOrigin: TrustedRendererOr
     preload,
     {
       devUrl: process.env['ELECTRON_RENDERER_URL'],
-      indexHtml: join(import.meta.dirname, '../renderer/index.html'),
+      indexHtml: RENDERER_INDEX_HTML,
       ...(locale ? { query: { locale } } : {}),
     },
     trustedOrigin,
@@ -337,8 +343,12 @@ app.whenReady().then(async () => {
     // One trusted origin, resolved once and shared by the IPC sender guard, the
     // window navigation guard, and the updater restart channel, so a single fact
     // decides "our own renderer" everywhere and the guards can never drift apart
-    // (SOU-236). It is the dev-server origin in dev, the packaged file: origin otherwise.
-    const trustedOrigin = resolveTrustedRendererOrigin(process.env['ELECTRON_RENDERER_URL']);
+    // (SOU-236). It is the dev-server origin in dev, otherwise the packaged
+    // renderer entry pinned to its exact `file:` path, not the scheme (SOU-242).
+    const trustedOrigin = resolveTrustedRendererOrigin(
+      process.env['ELECTRON_RENDERER_URL'],
+      pathToFileURL(RENDERER_INDEX_HTML).href,
+    );
     // Reject any invoke/handle call that is not the top frame of that origin — the
     // single sender/frame choke point for every IPC channel.
     runtime = new MainRuntime(ipcMain, initial, createIpcSenderGuard(trustedOrigin));
