@@ -26,6 +26,12 @@ export interface InvoicesGateway {
   listOpen(query: OpenInvoicesQuery): Promise<OpenInvoicesPage>;
   get(id: string): Promise<InvoiceListItemView | null>;
   recordPayment(input: RecordPaymentInput): Promise<InvoiceListItemView>;
+  /**
+   * Appends a reversal (counter-entry) for a recorded payment via `payment.void`
+   * — the append-only correction for a mistaken entry (SOU-237). The reversal's
+   * fields are derived by the domain; callers pass only the target payment id.
+   */
+  reversePayment(paymentId: string): Promise<void>;
   /** Moves a draft invoice to `issued`. Returns the updated invoice (write-then-read-back). */
   issue(invoiceId: string): Promise<InvoiceListItemView>;
   /** Moves a draft or issued invoice to `cancelled`. Returns the updated invoice. */

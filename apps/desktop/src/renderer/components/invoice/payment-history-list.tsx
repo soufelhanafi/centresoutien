@@ -1,8 +1,19 @@
 import { useTranslation } from 'react-i18next';
 import { History } from 'lucide-react';
 import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
+import type { PaymentView } from '../../lib/invoices/payment-view';
 import { usePaymentSummary } from '../../hooks/invoice/use-payment-summary';
 import { PaymentHistoryRow } from './payment-history-row';
+
+/**
+ * A payment can be reversed only if it is a real payment (not itself a reversal)
+ * and no counter-entry already reverses it — a payment is reversed at most once
+ * (SOU-233/SOU-237).
+ */
+function isReversible(payment: PaymentView, ledger: readonly PaymentView[]): boolean {
+  if (payment.kind !== 'payment') return false;
+  return !ledger.some((row) => row.kind === 'reversal' && row.reversesPaymentId === payment.id);
+}
 
 /** Per-invoice payment history: the append-only ledger, oldest first (SOU-101). */
 export function PaymentHistoryList({ invoiceId }: { invoiceId: string }) {
@@ -43,7 +54,11 @@ export function PaymentHistoryList({ invoiceId }: { invoiceId: string }) {
       {query.data && query.data.payments.length > 0 && (
         <ul className="divide-y divide-border rounded-lg border border-border">
           {query.data.payments.map((payment) => (
-            <PaymentHistoryRow key={payment.id} payment={payment} />
+            <PaymentHistoryRow
+              key={payment.id}
+              payment={payment}
+              reversible={isReversible(payment, query.data.payments)}
+            />
           ))}
         </ul>
       )}

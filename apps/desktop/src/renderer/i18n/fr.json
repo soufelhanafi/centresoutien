@@ -217,6 +217,9 @@
     "invalid-method": "Moyen de paiement invalide",
     "payment-exceeds-balance": "Ce montant dépasse le solde restant de la facture.",
     "invoice-not-payable": "Cette facture n'est pas encore émise (brouillon) ou a été annulée : elle ne peut pas recevoir de paiement.",
+    "payment-already-reversed": "Ce paiement a déjà été annulé.",
+    "cannot-reverse-reversal": "Une annulation ne peut pas être annulée.",
+    "payment-not-found": "Ce paiement est introuvable.",
     "group-full": "Ce groupe est complet : toutes les places sont occupées.",
     "duplicate-enrollment": "Cet élève est déjà inscrit dans ce groupe.",
     "cross-kind-enrollment": "L'abonnement de l'élève ne correspond pas au type du groupe (régulier / prépa examen).",
@@ -1975,7 +1978,16 @@
           "export": "Exporter le reçu en PDF",
           "printError": "L'impression du reçu a échoué. Réessayez.",
           "exportSuccess": "Reçu exporté avec succès.",
-          "exportError": "L'export du reçu a échoué. Réessayez."
+          "exportError": "L'export du reçu a échoué. Réessayez.",
+          "reverse": "Annuler ce paiement",
+          "reverseDialog": {
+            "title": "Annuler ce paiement ?",
+            "body": "Le paiement de {{amount}} ({{method}}) du {{date}} sera contre-passé par une écriture d'annulation. Cette opération est définitive et reste tracée dans l'historique.",
+            "dismiss": "Retour",
+            "confirm": "Annuler le paiement",
+            "success": "Paiement annulé.",
+            "error": "L'annulation du paiement a échoué. Réessayez."
+          }
         }
       }
     }

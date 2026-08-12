@@ -7,7 +7,17 @@ import type {
 } from './invoice-view';
 import type { InvoicePaymentSummaryView, PaymentView } from './payment-view';
 import type { InvoicesGateway, RecordPaymentInput } from './invoices-gateway';
+import type { PaymentReversalErrorCode } from './payment-reversal-error';
 import { INVOICE_SEED } from './mock-invoices-seed';
+
+/**
+ * A rejection carrying the same stable `code` the real `payment.void` raises, so
+ * the mock exercises the renderer's `resolveDomainErrorCode` → `errors.${code}`
+ * mapping exactly like production (it reads `error.code` on in-process paths).
+ */
+function mockDomainError(code: PaymentReversalErrorCode): Error {
+  return Object.assign(new Error(code), { code });
+}
 
 function matches(invoice: InvoiceListItemView, filters: InvoiceListFilters): boolean {
   if (filters.month !== undefined && invoice.month !== filters.month) return false;
@@ -89,6 +99,43 @@ export class MockInvoicesGateway implements InvoicesGateway {
     this.ledger.set(input.invoiceId, rows);
 
     return updated;
+  }
+
+  async reversePayment(paymentId: string): Promise<void> {
+    for (const [invoiceId, rows] of this.ledger) {
+      const target = rows.find((row) => row.id === paymentId);
+      if (!target) continue;
+      if (target.kind === 'reversal') throw mockDomainError('cannot-reverse-reversal');
+      if (rows.some((row) => row.kind === 'reversal' && row.reversesPaymentId === paymentId)) {
+        throw mockDomainError('payment-already-reversed');
+      }
+
+      this.paymentSeq += 1;
+      rows.push({
+        id: `mock-pay-${this.paymentSeq}`,
+        invoiceId,
+        kind: 'reversal',
+        amountMad: target.amountMad,
+        method: target.method,
+        paidOn: target.paidOn,
+        reversesPaymentId: target.id,
+        note: null,
+        createdAt: target.createdAt,
+      });
+
+      const invoice = this.invoices.get(invoiceId);
+      if (invoice) {
+        const netPaidMad = invoice.netPaidMad - target.amountMad;
+        this.invoices.set(invoiceId, {
+          ...invoice,
+          netPaidMad,
+          outstandingMad: Math.max(0, invoice.totalMad - netPaidMad),
+          paymentStatus: paymentStatusOf(invoice.totalMad, netPaidMad),
+        });
+      }
+      return;
+    }
+    throw mockDomainError('payment-not-found');
   }
 
   async issue(invoiceId: string): Promise<InvoiceListItemView> {
