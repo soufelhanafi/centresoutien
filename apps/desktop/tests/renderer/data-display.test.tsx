@@ -1,18 +1,27 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { BilingualText, DataTable, DataTableCell, DataTableRow, Numeric } from '@centresoutien/ui';
+import { BilingualText, DataTable, DataTableCell, DataTableHead, DataTableRow, Numeric } from '@centresoutien/ui';
 
 describe('DataTable', () => {
   it('renders semantic table markup so rows and columns stay associated', () => {
     render(
       <DataTable columns={['1.3fr', '120px']}>
         <DataTableRow>
+          <DataTableHead>Matière</DataTableHead>
+          <DataTableHead>État</DataTableHead>
+        </DataTableRow>
+        <DataTableRow>
           <DataTableCell>Mathématiques</DataTableCell>
           <DataTableCell>Active</DataTableCell>
         </DataTableRow>
       </DataTable>,
     );
-    expect(screen.getByRole('table')).toBeInTheDocument();
+    const table = screen.getByRole('table');
+    expect(table.querySelector('thead')).not.toBeNull();
+    expect(table.querySelector('tbody')).not.toBeNull();
+    expect(table.querySelectorAll('thead tr')).toHaveLength(1);
+    expect(table.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(screen.getAllByRole('columnheader')).toHaveLength(2);
     expect(screen.getAllByRole('cell')).toHaveLength(2);
   });
 });
