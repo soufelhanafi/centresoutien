@@ -30,13 +30,13 @@ export function DashboardCustomizeSheet({ open, onOpenChange }: DashboardCustomi
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="end" className="w-full sm:max-w-md" closeLabel={t('dashboard.widgets.close')}>
+      <SheetContent side="end" closeLabel={t('dashboard.widgets.close')} className="flex w-full flex-col sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{t('dashboard.widgets.title')}</SheetTitle>
           <SheetDescription>{t('dashboard.widgets.description')}</SheetDescription>
         </SheetHeader>
 
-        <div className="flex flex-col gap-5 overflow-y-auto">
+        <div className="-mx-1 flex-1 space-y-5 overflow-y-auto px-1 py-4">
           {PANEL_SECTIONS.map(({ panel, headingKey }) => {
             const widgets =
               panel === 'basic'

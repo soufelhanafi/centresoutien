@@ -24,9 +24,9 @@ export function DashboardAdvancedPanel() {
   const { t } = useTranslation();
   const canViewAdvanced = useFeature('dashboard.advanced');
   const upgradeCta = useUpgradeCta('dashboard.advanced');
-  const query = useDashboardAdvancedSummary(canViewAdvanced);
   const stored = useDashboardWidgetsStore((state) => state.prefs);
   const widgets = resolvePanelWidgets('advanced', stored).filter((widget) => widget.visible);
+  const query = useDashboardAdvancedSummary(canViewAdvanced && widgets.length > 0);
 
   if (widgets.length === 0) {
     return <DashboardWidgetsHidden />;
@@ -43,10 +43,6 @@ export function DashboardAdvancedPanel() {
         ))}
       </div>
     );
-  }
-
-  if (widgets.length === 0) {
-    return <DashboardWidgetsHidden />;
   }
 
   if (canViewAdvanced && query.isError) {

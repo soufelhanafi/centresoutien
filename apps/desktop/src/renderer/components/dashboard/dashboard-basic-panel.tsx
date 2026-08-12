@@ -12,9 +12,9 @@ import { DashboardWidgetsHidden } from './dashboard-widgets-hidden';
 /** The Basique dashboard pane (SOU-177/231): widgets render in the per-device order. */
 export function DashboardBasicPanel() {
   const { t } = useTranslation();
-  const query = useDashboardBasicSummary();
   const stored = useDashboardWidgetsStore((state) => state.prefs);
   const widgets = resolvePanelWidgets('basic', stored).filter((widget) => widget.visible);
+  const query = useDashboardBasicSummary(widgets.length > 0);
 
   if (widgets.length === 0) {
     return <DashboardWidgetsHidden />;
