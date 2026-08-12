@@ -160,7 +160,31 @@
         "revenueTrend": "تطور رقم المعاملات",
         "enrollmentEvolution": "تطور التسجيلات",
         "attendanceRate": "نسبة الحضور — هذا الشهر",
-        "subjectBreakdown": "التوزيع حسب المادة"
+        "subjectBreakdown": "التوزيع حسب المادة",
+        "enrollmentActivity": {
+          "title": "التسجيلات والمغادرات",
+          "opened": "تسجيلات جديدة",
+          "closed": "مغادرات",
+          "empty": "لا توجد تسجيلات أو مغادرات خلال الفترة."
+        },
+        "attendanceHeatmap": {
+          "title": "المواظبة اليومية",
+          "gridLabel": "تقويم نسبة الحضور اليومية",
+          "empty": "لم يُسجَّل أي حضور خلال الفترة.",
+          "rate": "{{percent}} % حضور",
+          "holiday": "يوم عطلة",
+          "noData": "لم يُسجَّل أي حضور",
+          "status": {
+            "present": "حاضرون",
+            "absent": "غائبون",
+            "late": "متأخرون",
+            "excused": "معذورون"
+          },
+          "legend": {
+            "less": "أقل",
+            "more": "أكثر"
+          }
+        }
       },
       "subjectBreakdown": {
         "empty": "لا توجد مداخيل محصلة هذا الشهر."

@@ -10,6 +10,16 @@ import type { DateRange } from '../value-objects/date-range';
 export type AttendanceSummary = Readonly<Record<AttendanceStatus, number>>;
 
 /**
+ * One calendar day's status counts — a row of the center-wide per-day heatmap
+ * read (SOU-230). `date` is the concrete session's `YYYY-MM-DD`; `counts` carries
+ * every {@link AttendanceStatus}, defaulting to 0, like {@link AttendanceSummary}.
+ */
+export type DailyAttendanceCounts = {
+  readonly date: string;
+  readonly counts: AttendanceSummary;
+};
+
+/**
  * One attendance record joined to its concrete dated session, as consumed by the
  * per-student history read (SOU-108). `date`/`groupId` come from `sessions`;
  * `status`/`note` from `attendance_records`. Chronological ordering (`date`
@@ -95,6 +105,21 @@ export interface AttendanceRepository
    * student — the <500ms/500-student acceptance target).
    */
   summarizeForCenter(centerCode: CenterCode, range: DateRange): Promise<AttendanceSummary>;
+
+  /**
+   * SOU-230: per-**day** status counts across the whole center's live records
+   * whose live session's `date` falls in `range` — the dashboard attendance
+   * heatmap. GROUP BY session date in **one** aggregate query, live sessions and
+   * records only, scoped by center; never a per-student or per-day loop (the
+   * <500ms/500-student target). Only days with **at least one** record are
+   * emitted, in `date` ascending order — the use case fills the empty days, so
+   * the adapter stays a thin aggregate. Every {@link AttendanceStatus} is present
+   * in each row's `counts`, defaulting to 0.
+   */
+  summarizeByDayForCenter(
+    centerCode: CenterCode,
+    range: DateRange,
+  ): Promise<readonly DailyAttendanceCounts[]>;
 
   /**
    * SOU-108: a student's live attendance rows joined to their concrete session

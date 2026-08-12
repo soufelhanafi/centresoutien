@@ -1021,6 +1021,7 @@ export function buildContainer(options: ContainerOptions): Container {
     subscriptionRepo,
     attendanceRepo,
     subjectRepo,
+    holidayRepo,
     monthlyFeeAttribution,
     clock,
     plan,

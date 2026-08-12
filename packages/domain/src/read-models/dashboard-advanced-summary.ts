@@ -1,4 +1,5 @@
 import type { SubjectId } from '../entities/subject';
+import type { AttendanceStatus } from '../entities/attendance-record';
 
 /** How many trailing months (inclusive of the current one) the trend widgets cover — SOU-100 KICKOFF. */
 export const DASHBOARD_TREND_WINDOW_MONTHS = 6;
@@ -23,6 +24,40 @@ export type SubjectRevenueShare = {
 };
 
 /**
+ * One trend month's subscription open/close counts — a grouped bar (new vs
+ * closed) on the enrollment-activity chart (SOU-230). `closed` is **net churn**:
+ * a close that is really a formula swap (SOU-141 close-then-reopen — the same
+ * student reopening the same track the very next month) is excluded, so only
+ * genuine departures count. Both are counts of subscription *events*, not
+ * distinct students.
+ */
+export type MonthlyEnrollmentActivityPoint = {
+  readonly month: string; // 'YYYY-MM'
+  readonly opened: number;
+  readonly closed: number;
+};
+
+/**
+ * One calendar day's center-wide attendance rate — a cell on the attendance
+ * heatmap (SOU-230).
+ *
+ * - `ratePercent` is `round(present / (present + absent + excused + late) * 100)`
+ *   — `late` is **not** counted as present, matching {@link attendanceRatePercent}.
+ * - A **holiday** is `ratePercent: null, isHoliday: true` (greyed out) — no rate
+ *   is computed even if stray records exist.
+ * - A non-holiday day with **zero** roll-call records is `ratePercent: null,
+ *   isHoliday: false` (empty, not 0%).
+ * - `breakdown` carries the per-status counts for the hover tooltip; it is all
+ *   zeros on a holiday or a record-less day.
+ */
+export type AttendanceHeatmapCell = {
+  readonly date: string; // 'YYYY-MM-DD'
+  readonly ratePercent: number | null;
+  readonly isHoliday: boolean;
+  readonly breakdown: Readonly<Record<AttendanceStatus, number>>;
+};
+
+/**
  * The Avancé dashboard's four widgets (SOU-100, `dashboard.advanced` —
  * Premium): a {@link DASHBOARD_TREND_WINDOW_MONTHS}-month revenue trend and
  * enrollment evolution, the current month's attendance rate, and the current
@@ -44,4 +79,17 @@ export type DashboardAdvancedSummary = {
   readonly attendanceRatePercent: number;
   /** Current calendar month, highest revenue first. A subject with zero collected fees is omitted. */
   readonly subjectRevenueBreakdown: readonly SubjectRevenueShare[];
+  /**
+   * Per trend month, subscriptions opened vs (net) closed — same
+   * {@link DASHBOARD_TREND_WINDOW_MONTHS} window and oldest-first ordering as
+   * {@link revenueTrend}. A formula-swap close is excluded from `closed`.
+   */
+  readonly enrollmentActivity: readonly MonthlyEnrollmentActivityPoint[];
+  /**
+   * One cell per calendar day across the same {@link DASHBOARD_TREND_WINDOW_MONTHS}
+   * window as the trends — from the first day of the oldest month through today
+   * (never a future day), chronological. Holidays and record-less days carry a
+   * `null` rate.
+   */
+  readonly attendanceHeatmap: readonly AttendanceHeatmapCell[];
 };

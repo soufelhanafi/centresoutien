@@ -58,6 +58,13 @@ function toDashboardAdvancedSummaryView(summary: DashboardAdvancedSummary) {
       subjectName: { fr: share.subjectName.fr, ar: share.subjectName.ar },
       amountMad: share.amountMad,
     })),
+    enrollmentActivity: summary.enrollmentActivity.map((point) => ({ ...point })),
+    attendanceHeatmap: summary.attendanceHeatmap.map((cell) => ({
+      date: cell.date,
+      ratePercent: cell.ratePercent,
+      isHoliday: cell.isHoliday,
+      breakdown: { ...cell.breakdown },
+    })),
   };
 }
 

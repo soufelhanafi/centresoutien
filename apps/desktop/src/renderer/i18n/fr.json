@@ -152,7 +152,31 @@
         "revenueTrend": "Évolution du chiffre d'affaires",
         "enrollmentEvolution": "Évolution des inscriptions",
         "attendanceRate": "Taux de présence — ce mois-ci",
-        "subjectBreakdown": "Répartition par matière"
+        "subjectBreakdown": "Répartition par matière",
+        "enrollmentActivity": {
+          "title": "Inscriptions & départs",
+          "opened": "Nouvelles inscriptions",
+          "closed": "Départs",
+          "empty": "Aucune inscription ni départ sur la période."
+        },
+        "attendanceHeatmap": {
+          "title": "Assiduité au quotidien",
+          "gridLabel": "Calendrier du taux de présence quotidien",
+          "empty": "Aucune présence enregistrée sur la période.",
+          "rate": "{{percent}} % de présence",
+          "holiday": "Jour férié",
+          "noData": "Aucune présence enregistrée",
+          "status": {
+            "present": "Présents",
+            "absent": "Absents",
+            "late": "Retards",
+            "excused": "Excusés"
+          },
+          "legend": {
+            "less": "Moins",
+            "more": "Plus"
+          }
+        }
       },
       "subjectBreakdown": {
         "empty": "Aucun encaissement ce mois-ci."

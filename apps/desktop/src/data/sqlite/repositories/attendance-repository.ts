@@ -5,6 +5,7 @@ import type {
   AttendanceRepository,
   AttendanceStatus,
   AttendanceSummary,
+  DailyAttendanceCounts,
   CenterCode,
   DeviceId,
   GroupId,
@@ -190,6 +191,36 @@ export class SqliteAttendanceRepository implements AttendanceRepository {
     const summary = emptySummary();
     for (const row of rows) summary[row.status as AttendanceStatus] = row.count;
     return summary;
+  }
+
+  async summarizeByDayForCenter(
+    centerCode: CenterCode,
+    range: DateRange,
+  ): Promise<readonly DailyAttendanceCounts[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT s.date AS date, ar.status AS status, COUNT(*) AS count
+           FROM attendance_records ar
+           JOIN sessions s ON s.id = ar.session_id
+          WHERE ar.center_code = ?
+            AND ar.deleted_at IS NULL
+            AND s.deleted_at IS NULL
+            AND s.date BETWEEN ? AND ?
+          GROUP BY s.date, ar.status
+          ORDER BY s.date`,
+      )
+      .all(centerCode, range.start, range.end) as { date: string; status: string; count: number }[];
+
+    const countsByDate = new Map<string, Record<AttendanceStatus, number>>();
+    for (const row of rows) {
+      let counts = countsByDate.get(row.date);
+      if (!counts) {
+        counts = emptySummary();
+        countsByDate.set(row.date, counts);
+      }
+      counts[row.status as AttendanceStatus] = row.count;
+    }
+    return [...countsByDate.entries()].map(([date, counts]) => ({ date, counts }));
   }
 
   async listForStudent(studentId: StudentId, range: DateRange): Promise<readonly StudentAttendanceReading[]> {

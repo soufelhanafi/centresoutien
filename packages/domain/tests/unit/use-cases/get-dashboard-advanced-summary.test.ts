@@ -11,10 +11,13 @@ import type { StudentSubscription, StudentSubscriptionId } from '../../../src/en
 import type { StudentId } from '../../../src/entities/student';
 import type { Subject, SubjectId } from '../../../src/entities/subject';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
+import type { GroupKind } from '../../../src/entities/group';
+import type { Holiday, HolidayId } from '../../../src/entities/holiday';
 import { InMemoryInvoiceRepository } from '../fakes/in-memory-invoice-repository';
 import { InMemoryStudentSubscriptionRepository } from '../fakes/in-memory-student-subscription-repository';
 import { InMemoryAttendanceRepository } from '../fakes/in-memory-attendance-repository';
 import { InMemorySubjectRepository } from '../fakes/in-memory-subject-repository';
+import { InMemoryHolidayRepository } from '../fakes/in-memory-holiday-repository';
 import { fakeClock } from '../fakes/clock';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
@@ -65,6 +68,7 @@ async function seedSubscription(
   studentId: StudentId,
   startMonth: string,
   endMonth: string | null,
+  kind: GroupKind = 'regular',
 ): Promise<void> {
   subscriptionSeq += 1;
   const subscription: StudentSubscription = {
@@ -72,12 +76,31 @@ async function seedSubscription(
     ...envelope(),
     studentId,
     formulaId: 'fml_00000000000000000000000009' as FormulaId,
-    kind: 'regular',
+    kind,
     subjectIds: [MATH],
     startMonth,
     endMonth,
   };
   await subscriptions.save(subscription);
+}
+
+let holidaySeq = 0;
+async function seedHoliday(
+  holidays: InMemoryHolidayRepository,
+  startDate: string,
+  endDate: string,
+): Promise<void> {
+  holidaySeq += 1;
+  const holiday: Holiday = {
+    id: `hol_${String(holidaySeq).padStart(26, '0')}` as HolidayId,
+    ...envelope(),
+    name: { fr: 'Congé', ar: 'عطلة' },
+    kind: 'lunar',
+    startDate,
+    endDate,
+    affectsInvoicing: false,
+  };
+  await holidays.save(holiday);
 }
 
 function makeSubject(id: SubjectId, name: { fr: string; ar: string }): Subject {
@@ -89,6 +112,7 @@ describe('GetDashboardAdvancedSummary', () => {
   let subscriptions: InMemoryStudentSubscriptionRepository;
   let attendance: InMemoryAttendanceRepository;
   let subjects: InMemorySubjectRepository;
+  let holidays: InMemoryHolidayRepository;
   let attributedBySubject: ReadonlyMap<SubjectId, number>;
 
   function build(plan: Plan = PLANS.premium): GetDashboardAdvancedSummary {
@@ -97,6 +121,7 @@ describe('GetDashboardAdvancedSummary', () => {
       subscriptions,
       attendance,
       subjects,
+      holidays,
       { attributedAmountsBySubject: async () => attributedBySubject },
       clock(),
       new PlanPolicy(plan),
@@ -108,9 +133,11 @@ describe('GetDashboardAdvancedSummary', () => {
     subscriptions = new InMemoryStudentSubscriptionRepository();
     attendance = new InMemoryAttendanceRepository();
     subjects = new InMemorySubjectRepository();
+    holidays = new InMemoryHolidayRepository();
     attributedBySubject = new Map();
     invoiceSeq = 0;
     subscriptionSeq = 0;
+    holidaySeq = 0;
   });
 
   describe('revenueTrend', () => {
@@ -214,6 +241,140 @@ describe('GetDashboardAdvancedSummary', () => {
       const result = await build().execute({ centerCode: CENTER });
 
       expect(result.subjectRevenueBreakdown).toEqual([]);
+    });
+  });
+
+  describe('enrollmentActivity (net churn)', () => {
+    const STUDENT = 'stu_00000000000000000000000001' as StudentId;
+    const OTHER = 'stu_00000000000000000000000002' as StudentId;
+
+    it('covers the same 6-month window as the trends, oldest first', async () => {
+      const result = await build().execute({ centerCode: CENTER });
+
+      expect(result.enrollmentActivity.map((p) => p.month)).toEqual([
+        '2026-03',
+        '2026-04',
+        '2026-05',
+        '2026-06',
+        '2026-07',
+        '2026-08',
+      ]);
+    });
+
+    it('counts opens by startMonth and closes by endMonth per month', async () => {
+      await seedSubscription(subscriptions, STUDENT, '2026-04', '2026-06');
+      await seedSubscription(subscriptions, OTHER, '2026-04', null);
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      const april = result.enrollmentActivity.find((p) => p.month === '2026-04');
+      const june = result.enrollmentActivity.find((p) => p.month === '2026-06');
+      expect(april).toEqual({ month: '2026-04', opened: 2, closed: 0 });
+      expect(june).toEqual({ month: '2026-06', opened: 0, closed: 1 });
+    });
+
+    it('excludes a formula-swap close (same student, same kind, reopened the next month)', async () => {
+      await seedSubscription(subscriptions, STUDENT, '2026-01', '2026-05');
+      await seedSubscription(subscriptions, STUDENT, '2026-06', null);
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      const may = result.enrollmentActivity.find((p) => p.month === '2026-05');
+      expect(may).toEqual({ month: '2026-05', opened: 0, closed: 0 });
+    });
+
+    it('counts a real cancellation (no same-kind reopen the next month) as a close', async () => {
+      await seedSubscription(subscriptions, STUDENT, '2026-01', '2026-05');
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      const may = result.enrollmentActivity.find((p) => p.month === '2026-05');
+      expect(may?.closed).toBe(1);
+    });
+
+    it('does not treat a reopen two months later as a swap — that close is real churn', async () => {
+      await seedSubscription(subscriptions, STUDENT, '2026-01', '2026-05');
+      await seedSubscription(subscriptions, STUDENT, '2026-07', null);
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      const may = result.enrollmentActivity.find((p) => p.month === '2026-05');
+      expect(may?.closed).toBe(1);
+    });
+
+    it('does not treat a next-month reopen of a different kind as a swap', async () => {
+      await seedSubscription(subscriptions, STUDENT, '2026-01', '2026-05', 'regular');
+      await seedSubscription(subscriptions, STUDENT, '2026-06', null, 'exam-prep' as GroupKind);
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      const may = result.enrollmentActivity.find((p) => p.month === '2026-05');
+      expect(may?.closed).toBe(1);
+    });
+  });
+
+  describe('attendanceHeatmap', () => {
+    it('spans the first day of the oldest trend month through today (no future days)', async () => {
+      const result = await build().execute({ centerCode: CENTER });
+
+      expect(result.attendanceHeatmap[0]?.date).toBe('2026-03-01');
+      expect(result.attendanceHeatmap.at(-1)?.date).toBe('2026-08-15');
+    });
+
+    it('computes present / total rounded, with the per-status breakdown for the tooltip', async () => {
+      attendance.setDailyCounts([
+        { date: '2026-08-10', counts: { present: 3, absent: 1 } },
+      ]);
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      const day = result.attendanceHeatmap.find((c) => c.date === '2026-08-10');
+      expect(day).toEqual({
+        date: '2026-08-10',
+        ratePercent: 75,
+        isHoliday: false,
+        breakdown: { present: 3, absent: 1, excused: 0, late: 0 },
+      });
+    });
+
+    it('does not count late as present', async () => {
+      attendance.setDailyCounts([
+        { date: '2026-08-10', counts: { present: 1, late: 3 } },
+      ]);
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      const day = result.attendanceHeatmap.find((c) => c.date === '2026-08-10');
+      expect(day?.ratePercent).toBe(25); // 1 present / 4 total, late excluded from numerator
+    });
+
+    it('greys out a holiday as null + isHoliday even when records exist', async () => {
+      await seedHoliday(holidays, '2026-08-10', '2026-08-10');
+      attendance.setDailyCounts([
+        { date: '2026-08-10', counts: { present: 5 } },
+      ]);
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      const day = result.attendanceHeatmap.find((c) => c.date === '2026-08-10');
+      expect(day).toEqual({
+        date: '2026-08-10',
+        ratePercent: null,
+        isHoliday: true,
+        breakdown: { present: 0, absent: 0, excused: 0, late: 0 },
+      });
+    });
+
+    it('leaves a non-holiday day with zero records as null (not 0%)', async () => {
+      const result = await build().execute({ centerCode: CENTER });
+
+      const day = result.attendanceHeatmap.find((c) => c.date === '2026-08-10');
+      expect(day).toEqual({
+        date: '2026-08-10',
+        ratePercent: null,
+        isHoliday: false,
+        breakdown: { present: 0, absent: 0, excused: 0, late: 0 },
+      });
     });
   });
 

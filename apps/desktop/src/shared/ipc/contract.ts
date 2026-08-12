@@ -820,6 +820,29 @@ const dashboardAdvancedSummarySchema = z.object({
       amountMad: z.number().int().nonnegative(),
     }),
   ),
+  // SOU-230 — per trend-month subscription opens vs net closes (grouped bars).
+  enrollmentActivity: z.array(
+    z.object({
+      month: z.string(),
+      opened: z.number().int().nonnegative(),
+      closed: z.number().int().nonnegative(),
+    }),
+  ),
+  // SOU-230 — one attendance cell per calendar day of the trend window. A `null`
+  // rate is a holiday (`isHoliday: true`) or a record-less day, never a 0% day.
+  attendanceHeatmap: z.array(
+    z.object({
+      date: z.string(),
+      ratePercent: z.number().int().min(0).max(100).nullable(),
+      isHoliday: z.boolean(),
+      breakdown: z.object({
+        present: z.number().int().nonnegative(),
+        absent: z.number().int().nonnegative(),
+        excused: z.number().int().nonnegative(),
+        late: z.number().int().nonnegative(),
+      }),
+    }),
+  ),
 });
 
 // The presentation projection of a Subject across the IPC boundary (SOU-124) — the
