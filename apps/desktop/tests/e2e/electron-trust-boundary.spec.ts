@@ -18,6 +18,10 @@ test.afterEach(async () => {
   live = null;
 });
 
+// `window as unknown as {...}` is the Playwright in-page injection seam: the
+// evaluate callback runs in the renderer, where an ad-hoc `__alive` sentinel and
+// the preload-injected `api` bridge are untyped globals TS cannot see — the cast
+// is narrowly scoped to those two properties and never leaves the page context.
 const aliveSentinel = (win: Page) =>
   win.evaluate(() => (window as unknown as { __alive?: string }).__alive ?? 'gone');
 
@@ -47,6 +51,7 @@ test('blocks the main window navigating to a foreign file: path (SOU-242 pin)', 
   // The packaged renderer's own origin is `file:`, so a scheme-only trust check
   // would wave through any other local file. The path pin must block a redirect
   // to a foreign `file:` path just as it blocks an off-origin http(s) navigation.
+  // Cast: injecting the untyped `__alive` sentinel into the page's window (see aliveSentinel).
   await win.evaluate(() => {
     (window as unknown as { __alive?: string }).__alive = 'yes';
     window.location.href = 'file:///etc/passwd';
@@ -54,9 +59,29 @@ test('blocks the main window navigating to a foreign file: path (SOU-242 pin)', 
 
   await expect.poll(() => aliveSentinel(win)).toBe('yes');
   expect(await win.evaluate(() => window.location.pathname.endsWith('/index.html'))).toBe(true);
+  // Cast: reading the preload-injected, untyped `api` bridge off the page window.
   expect(await win.evaluate(() => typeof (window as unknown as { api?: unknown }).api)).toBe(
     'object',
   );
+});
+
+test('blocks the main window navigating to the index path on a foreign file: host (SOU-242 UNC pin)', async () => {
+  live = await boot(locale(), 'essentiel');
+  const win = live.win;
+
+  // A `file:` URL can carry an authority (Windows UNC `file://server/share/…`),
+  // so pinning the path alone would still trust the same index path served from
+  // an attacker host over SMB. Redirect to the real index path under a foreign
+  // host and prove the window stays put on its own hostless `file:///` entry.
+  // Cast: injecting the untyped `__alive` sentinel into the page's window (see aliveSentinel).
+  await win.evaluate(() => {
+    (window as unknown as { __alive?: string }).__alive = 'yes';
+    window.location.href = `file://evil${window.location.pathname}`;
+  });
+
+  await expect.poll(() => aliveSentinel(win)).toBe('yes');
+  expect(await win.evaluate(() => window.location.host)).toBe('');
+  expect(await win.evaluate(() => window.location.pathname.endsWith('/index.html'))).toBe(true);
 });
 
 test('denies a popup to a foreign host without opening an in-app window', async () => {

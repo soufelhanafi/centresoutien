@@ -6,12 +6,10 @@ import {
   type TrustedRendererOrigin,
 } from '../../../src/main/security/renderer-origin';
 
-/**
- * SOU-236 / SOU-242 — the pure trust policy behind the IPC sender guard and the
- * will-navigate guard. Electron-free: exercises the exact decisions (dev vs
- * packaged origin, subframe rejection, scheme rejection, and the packaged
- * file:-path pin) without a shell.
- */
+// SOU-236 / SOU-242 — the pure trust policy behind the IPC sender guard and the
+// will-navigate guard. Electron-free: exercises the exact decisions (dev vs
+// packaged origin, subframe rejection, scheme rejection, and the packaged
+// file: host+path pin) without a shell.
 
 const DEV: TrustedRendererOrigin = { kind: 'dev', origin: 'http://localhost:5173' };
 
@@ -57,6 +55,10 @@ describe('isTrustedRendererUrl', () => {
     // The SOU-242 pin: a different local file is refused, not trusted by scheme.
     [FILE, 'file:///Users/x/app/out/renderer/other.html', false],
     [FILE, 'file:///etc/passwd', false],
+    // A `file:` authority (Windows UNC / remote share) with the exact index path
+    // but a foreign host must be refused — the pin is host + path, not path alone.
+    [FILE, 'file://evil/Users/x/app/out/renderer/index.html', false],
+    [FILE, 'file://attacker.example.com/Users/x/app/out/renderer/index.html', false],
     [FILE, 'https://centresoutien.com', false],
     [FILE, 'http://localhost:5173', false],
     // Windows-style pinned entry: exact path passes, any other local path fails.
@@ -90,6 +92,12 @@ describe('isTrustedIpcSender', () => {
   it('rejects a top frame on a foreign file path even under the packaged pin', () => {
     expect(
       isTrustedIpcSender({ url: 'file:///Users/x/app/out/renderer/other.html', hasParent: false }, FILE),
+    ).toBe(false);
+  });
+
+  it('rejects a top frame whose file: host differs from the pinned entry (UNC share)', () => {
+    expect(
+      isTrustedIpcSender({ url: 'file://evil/Users/x/app/out/renderer/index.html', hasParent: false }, FILE),
     ).toBe(false);
   });
 

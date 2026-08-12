@@ -40,11 +40,9 @@ import { sweepStaleTempPdfs } from '../data/fs/temp-pdf';
 /** argv flag that puts the app into demo mode on relaunch (SOU-110). */
 const DEMO_ARG = '--demo';
 
-/**
- * The packaged renderer entry loaded from disk. Shared by the window's
- * `loadFile` and the trusted-origin resolution so the `file:` trust is pinned to
- * this exact path, not the `file:` scheme (SOU-242).
- */
+// The packaged renderer entry loaded from disk. Shared by the window's
+// `loadFile` and the trusted-origin resolution so the `file:` trust is pinned to
+// this exact entry (host + path), not the `file:` scheme (SOU-242).
 const RENDERER_INDEX_HTML = join(import.meta.dirname, '../renderer/index.html');
 
 /**
