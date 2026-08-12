@@ -15,13 +15,10 @@ import { useStrandedSessions } from '../../hooks/schedule-audit/use-stranded-ses
 import { ScheduleAuditList, type ScheduleAuditStatus } from './schedule-audit-list';
 
 /**
- * "Audit du planning" (SOU-240): the planner-header trigger plus the review
- * modal, replacing the standalone page. The button carries a count badge of
- * stranded sessions; the modal reuses `ScheduleAuditList` unchanged. The caller
- * gates the whole component on `settings.center-hours` — no LockOverlay here,
- * the button simply doesn't exist when the feature is off. Cancelling a row
- * invalidates `scheduleAuditKeys.all`, and this modal refreshes in place through
- * the same query cache the page used.
+ * Audit du planning (SOU-240): planner-header trigger plus the review modal,
+ * replacing the standalone page. Caller gates the whole component on
+ * `settings.center-hours` — when off, the trigger is not rendered at all, so
+ * no LockOverlay inside.
  */
 export function ScheduleAuditDialog() {
   const { t } = useTranslation();
