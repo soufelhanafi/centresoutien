@@ -1,12 +1,17 @@
 import { useTranslation } from 'react-i18next';
-import { TakingsSummary } from '../../components/payments/takings-summary';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import { OpenInvoicePicker } from '../../components/payments/open-invoice-picker';
 import { RecentPaymentsFeed } from '../../components/payments/recent-payments-feed';
 
+const RECORD_TAB = 'record';
+const FEED_TAB = 'feed';
+
 /**
- * Cash-desk module (SOU-198): today's takings, fast record-payment entry against
- * an open invoice, and the cross-invoice recent-payments feed. Distinct from the
- * Invoices list (billing) and the Impayés follow-up (arrears).
+ * Cash-desk module (SOU-198, SOU-222): a tabbed workspace for recording a payment
+ * against an open invoice and reviewing the cross-invoice recent-payments feed.
+ * Radix `TabsContent` unmounts the inactive panel, so each tab's underlying query
+ * only fires once its tab is selected. A future Impayés tab (SOU-224) slots in as
+ * an additional trigger + content pair. Distinct from the Invoices list (billing).
  */
 export function PaymentsPage() {
   const { t } = useTranslation();
@@ -20,12 +25,20 @@ export function PaymentsPage() {
         <p className="text-sm text-muted-foreground">{t('payments.subtitle')}</p>
       </header>
 
-      <TakingsSummary />
+      <Tabs defaultValue={RECORD_TAB} className="flex flex-col gap-4">
+        <TabsList aria-label={t('payments.tabsLabel')} className="w-full max-w-md">
+          <TabsTrigger value={RECORD_TAB}>{t('payments.record.title')}</TabsTrigger>
+          <TabsTrigger value={FEED_TAB}>{t('payments.feed.title')}</TabsTrigger>
+        </TabsList>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <OpenInvoicePicker />
-        <RecentPaymentsFeed />
-      </div>
+        <TabsContent value={RECORD_TAB}>
+          <OpenInvoicePicker />
+        </TabsContent>
+
+        <TabsContent value={FEED_TAB}>
+          <RecentPaymentsFeed />
+        </TabsContent>
+      </Tabs>
     </section>
   );
 }
