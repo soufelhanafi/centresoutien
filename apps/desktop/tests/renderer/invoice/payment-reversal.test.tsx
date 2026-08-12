@@ -100,6 +100,25 @@ describe('payment reversal — cache invalidation (SOU-237)', () => {
       for (const key of families) expect(screen.getByLabelText(labelOf(key))).toHaveTextContent('2');
     });
   });
+
+  it('still refetches when the reversal is rejected as a lost race (stale UI must reconverge)', async () => {
+    window.api.invoke = vi.fn(async () => {
+      throw Object.assign(new Error('payment-already-reversed'), { code: 'payment-already-reversed' });
+    });
+
+    render(
+      <QueryClientProvider client={newClient()}>
+        <Consumer queryKey={['invoices', 'list', {}]} fetchCount={counter()} />
+        <ReverseTrigger />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByLabelText('invoices:list:filters')).toHaveTextContent('1'));
+
+    screen.getByRole('button', { name: 'reverse' }).click();
+
+    await waitFor(() => expect(screen.getByLabelText('invoices:list:filters')).toHaveTextContent('2'));
+  });
 });
 
 describe('payment reversal — history action (SOU-237)', () => {

@@ -11,12 +11,17 @@ import { invoiceKeys } from './keys';
  * cross-invoice cash-desk feed, the arrears list, and dashboard money KPIs — so
  * it invalidates all four families. Invalidating `invoiceKeys.all` (`['invoices']`)
  * prefix-covers the list, detail, open, and this invoice's payment-summary query.
+ *
+ * Invalidation runs `onSettled`, not just on success: a `payment-already-reversed`
+ * rejection means the concurrency guard (SOU-233) lost the race because the ledger
+ * already changed on another device — the local views are stale and must refetch
+ * so the now-void reverse action disappears rather than repeatedly failing.
  */
 export function useReversePayment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (paymentId: string) => invoicesGateway.reversePayment(paymentId),
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
       queryClient.invalidateQueries({ queryKey: paymentKeys.all });
       queryClient.invalidateQueries({ queryKey: arrearsKeys.all });
