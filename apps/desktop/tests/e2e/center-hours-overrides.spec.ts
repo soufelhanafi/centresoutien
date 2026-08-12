@@ -154,7 +154,7 @@ test('Scenario 3a — planner grays out closed time and the iftar gap inside the
   await expect(win.getByText('23:00', { exact: true })).toBeVisible();
   await expect(win.getByText('09:00', { exact: true })).toHaveCount(0);
   // Closed days (Sunday + Tue..Sat) are grayed, and the Monday iftar gap is grayed.
-  expect(await closedOverlays(win).count()).toBeGreaterThanOrEqual(6);
+  await expect.poll(() => closedOverlays(win).count()).toBeGreaterThanOrEqual(6);
   await expect(iftarGapOverlay(win)).toHaveCount(1);
 
   await win.screenshot({ path: `test-results/sou165-s3a-planner-grayed-${locale()}.png` });
@@ -239,7 +239,7 @@ test('Scenario 5 — archiving an override clears the list and the planner gray-
 
   // Gray-out is in effect first.
   await gotoPlanner(win, L);
-  expect(await closedOverlays(win).count()).toBeGreaterThan(0);
+  await expect.poll(() => closedOverlays(win).count()).toBeGreaterThan(0);
 
   // Archive from Settings → Hours.
   await gotoHoursTab(win, L);
