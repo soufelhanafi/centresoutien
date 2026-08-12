@@ -617,6 +617,10 @@ export type { WeeklyRecurringSessionRepository } from './ports/weekly-recurring-
 // the same SQLite adapter that owns weekly_recurring_sessions.
 export type { WeeklySessionViewReadPort } from './ports/weekly-session-view-read-port';
 export type { SessionRepository } from './ports/session-repository';
+// Concrete dated-occurrence enriched read (SOU-201) — cross-aggregate read model,
+// served by the same SQLite adapter that owns the `sessions` table.
+export type { SessionOccurrenceViewReadPort } from './ports/session-occurrence-view-read-port';
+export type { SessionOccurrenceView } from './read-models/session-occurrence-view';
 export type {
   AttendanceRepository,
   AttendanceSummary,
@@ -947,6 +951,15 @@ export type {
   UndoGenerationBatchInput,
   UndoGenerationBatchResult,
 } from './use-cases/undo-generation-batch';
+export { AuditSessionsOutsideEffectiveHours } from './use-cases/audit-sessions-outside-effective-hours';
+export type {
+  AuditSessionsOutsideEffectiveHoursInput,
+  AuditSessionsOutsideEffectiveHoursResult,
+  SessionAuditReason,
+  StrandedSession,
+} from './use-cases/audit-sessions-outside-effective-hours';
+export { CancelSession } from './use-cases/cancel-session';
+export type { CancelSessionInput } from './use-cases/cancel-session';
 export { CreateWeeklyRecurringSession } from './use-cases/create-weekly-recurring-session';
 export type { CreateWeeklyRecurringSessionInput } from './use-cases/create-weekly-recurring-session';
 export { UpdateWeeklyRecurringSession } from './use-cases/update-weekly-recurring-session';

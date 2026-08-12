@@ -4,13 +4,13 @@ import {
 } from '../policies/composite-session-conflicts';
 import type { DayHours } from '../policies/session-conflict-policy';
 import type { ScheduledSessionRef } from '../errors/scheduling-errors';
-import type { CenterHours } from '../entities/center-hours';
 import type { RoomId } from '../entities/room';
 import type { EntityId } from '../value-objects/ids';
 import type { TimeOfDay } from '../value-objects/time-of-day';
 import type { TimeWindow } from '../value-objects/time-window';
 import type { WeekdayIndex } from '../value-objects/weekday';
-import { DEFAULT_WEEKLY_HOURS } from '../schemas/center-hours';
+
+export { resolveWeek } from '../schemas/center-hours';
 
 /**
  * The domain fields a candidate slot commits (SOU-131). `teacherId` is nullable —
@@ -23,25 +23,6 @@ export type ScheduleCandidateFields = {
   start: TimeOfDay;
   end: TimeOfDay;
 };
-
-/**
- * The week the composite conflict check reads. When a center has configured its
- * hours, those rows are used directly ({@link CenterHours} satisfies
- * {@link DayHours}); before the first save the repository is empty, and the domain
- * falls back to the same {@link DEFAULT_WEEKLY_HOURS} the Settings form seeds — so
- * a fresh center schedules within the shared default week (09:00–18:00) instead of
- * every day reading as closed. The user narrows it later on the hours screen.
- */
-export function resolveWeek(rows: readonly CenterHours[]): readonly DayHours[] {
-  if (rows.length > 0) return rows;
-  return DEFAULT_WEEKLY_HOURS.map((day) => ({
-    dayOfWeek: day.dayOfWeek as WeekdayIndex,
-    windows: day.windows.map((window) => ({
-      open: window.open as TimeOfDay,
-      close: window.close as TimeOfDay,
-    })),
-  }));
-}
 
 /**
  * Project the candidate to the composite policy shape, omitting `teacherId`

@@ -51,6 +51,7 @@ import {
   GROUP_ID_PREFIX,
   ROOM_ID_PREFIX,
   TEACHER_ID_PREFIX,
+  SESSION_ID_PREFIX,
   TIME_OF_DAY_REGEX,
   INVOICE_LIST_MAX_PAGE_SIZE,
   FEATURE_FLAGS,
@@ -540,6 +541,30 @@ const sessionViewSchema = z.object({
   date: z.string(),
   start: z.string(),
   end: z.string(),
+});
+
+// The enriched projection of a concrete dated occurrence (SOU-201) — the dated
+// sibling of `weeklySessionViewSchema`, mirroring the domain `SessionOccurrenceView`.
+// The audit report renders names, not raw ids, so this carries the room/teacher/
+// subject/group joins alongside the raw `date`/`start`/`end`. Join-derived fields
+// degrade to their neutral fallback (null names/subject/level; `kind` = 'regular'
+// with no live group) rather than dropping the occurrence. Envelope stripped;
+// times are wall-clock `'HH:mm'` strings, `date` a `YYYY-MM-DD` civil date.
+const sessionOccurrenceViewSchema = z.object({
+  id: z.string(),
+  recurringSessionId: z.string(),
+  date: z.string(),
+  start: z.string(),
+  end: z.string(),
+  roomId: z.string(),
+  roomName: z.string().nullable(),
+  teacherId: z.string().nullable(),
+  teacherName: bilingualTextSchema.nullable(),
+  groupId: z.string().nullable(),
+  subjectId: z.string().nullable(),
+  subjectName: bilingualTextSchema.nullable(),
+  level: z.string().nullable(),
+  kind: z.enum(['regular', 'exam-prep']),
 });
 
 // The auto-session-generator's request-side building blocks (SOU-161): the
@@ -1700,6 +1725,46 @@ export const ipcContract = {
     request: undoGenerationBatchSchema,
     response: z.object({ cancelledCount: z.number().int(), skippedOccurredCount: z.number().int() }),
   },
+  // Read-only audit (SOU-201): every live materialized session the CURRENT
+  // effective center hours (override-aware, SOU-165) or holidays (SOU-161) now
+  // place outside any valid window — the drift a center-hours override or a new
+  // holiday introduces after generation. Pure read, never mutates; cancelling a
+  // stranded occurrence is the separate `session.cancel` per-occurrence
+  // soft-delete below. Each row carries one `reason`: `on-holiday` wins over
+  // `outside-center-hours`. `session` is the ENRICHED `sessionOccurrenceViewSchema`
+  // (room/teacher/subject/group names, level, kind + raw date/time) so the report
+  // shows names, not ids — the renderer never re-joins. centerCode is injected in
+  // main, never sent from the renderer. Gated by `settings.center-hours` (every
+  // plan) in the use case.
+  'session.audit.outside-hours': {
+    request: z.object({}),
+    response: z.object({
+      sessionsOutsideEffectiveHours: z.array(
+        z.object({
+          session: sessionOccurrenceViewSchema,
+          reason: z.enum(['outside-center-hours', 'on-holiday']),
+        }),
+      ),
+    }),
+  },
+  // Per-occurrence cancel (SOU-201): soft-deletes ONE concrete dated session by
+  // its occurrence `Session.id` (prefixed `ses_`), leaving the recurring template
+  // and every other occurrence intact — unlike `weeklySession.delete`, which
+  // cancels the whole series. This is the audit report's "Cancel" action for a
+  // single stranded row. Soft-delete only (deletedAt set, full sync envelope, no
+  // hard delete); the tombstoned row still syncs and the generator never
+  // resurrects it. centerCode/updatedBy are injected in main, never sent from the
+  // renderer. An unknown, foreign-center, or already-cancelled id rejects with the
+  // stable `session-not-found` code rather than silently no-op'ing. Gated by
+  // `core.calendar.week` (every plan), the same flag other calendar mutations use.
+  'session.cancel': {
+    request: z.object({
+      id: z.string().refine((value) => hasIdPrefix(value, SESSION_ID_PREFIX), {
+        message: 'invalid-id',
+      }),
+    }),
+    response: z.object({ ok: z.literal(true) }),
+  },
   // Per-session roll-call (SOU-58). One batched write for the whole roster — one
   // transaction, one round trip, never one call per student — so marking a
   // 20-student session takes seconds, not minutes. The request is the domain's
@@ -2177,6 +2242,16 @@ export type ScheduleExportViewFilterDto = z.infer<typeof scheduleExportViewFilte
 
 /** The concrete dated-session boundary DTO — the renderer's `SessionView` aliases this. */
 export type SessionDto = z.infer<typeof sessionViewSchema>;
+
+/** The enriched dated-occurrence boundary DTO — the renderer's
+ *  `SessionOccurrenceView` aliases this (room/teacher/subject/group names, level,
+ *  kind + raw date/time). */
+export type SessionOccurrenceDto = z.infer<typeof sessionOccurrenceViewSchema>;
+
+/** One stranded-session row from the out-of-effective-hours audit (SOU-201): the
+ *  enriched, display-ready occurrence plus the reason it is now outside any valid
+ *  window. */
+export type StrandedSessionDto = IpcResponse<'session.audit.outside-hours'>['sessionsOutsideEffectiveHours'][number];
 
 /** The AttendanceRecord boundary DTO — the renderer's `AttendanceRecordView` aliases this. */
 export type AttendanceRecordDto = z.infer<typeof attendanceRecordViewSchema>;

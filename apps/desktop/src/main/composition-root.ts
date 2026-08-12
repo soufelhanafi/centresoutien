@@ -73,6 +73,8 @@ import {
   GenerateSessions,
   GenerateAndPersistSessions,
   UndoGenerationBatch,
+  AuditSessionsOutsideEffectiveHours,
+  CancelSession,
   CreateWeeklyRecurringSession,
   UpdateWeeklyRecurringSession,
   CancelWeeklyRecurringSession,
@@ -1038,6 +1040,26 @@ export function buildContainer(options: ContainerOptions): Container {
   const getActiveCenterHoursOverride = new GetActiveCenterHoursOverride(centerHoursOverrideRepo, plan);
   const archiveCenterHoursOverride = new ArchiveCenterHoursOverride(centerHoursOverrideRepo, clock, plan);
 
+  // Read-only out-of-effective-hours audit (SOU-201): sweeps every live
+  // materialized session against the CURRENT override-aware hours + holidays,
+  // reusing the same repos the generator and hours screens already own. It reads
+  // enriched occurrences off the same concreteSessionRepo, which also serves the
+  // SessionOccurrenceViewReadPort (one class, several ports). Never mutates.
+  const auditSessionsOutsideHours = new AuditSessionsOutsideEffectiveHours(
+    concreteSessionRepo,
+    holidayRepo,
+    centerHoursRepo,
+    centerHoursOverrideRepo,
+    plan,
+    clock,
+  );
+
+  // Per-occurrence cancel (SOU-201): soft-deletes a single stranded dated session
+  // by its own Session.id, leaving the recurring template and its other
+  // occurrences intact — distinct from cancelWeeklySession, which cancels the
+  // whole series. Same core.calendar.week gate as the other calendar mutations.
+  const cancelSession = new CancelSession(concreteSessionRepo, clock, plan);
+
   // Weekly recurring session write path (SOU-131): create/update run the SOU-55
   // composite conflict check (room + teacher + hours) against the same
   // `sessionRepo` that backs the planner read + the ArchiveRoom guard, reading the
@@ -1362,6 +1384,8 @@ export function buildContainer(options: ContainerOptions): Container {
     tempDir: options.tempDir,
     generateSessions,
     undoGenerationBatch,
+    auditSessionsOutsideHours,
+    cancelSession,
     recordSessionAttendance,
     createWeeklySession,
     updateWeeklySession,

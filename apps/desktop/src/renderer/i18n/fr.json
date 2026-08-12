@@ -16,6 +16,7 @@
     "groups": "Groupes",
     "rooms": "Salles",
     "planning": "Planning",
+    "scheduleAudit": "Audit du planning",
     "invoicing": "Facturation",
     "arrears": "Impayés",
     "payments": "Paiements",
@@ -1241,6 +1242,33 @@
     "restore": {
       "success": "Jour férié restauré",
       "error": "La restauration a échoué. Réessayez."
+    }
+  },
+  "scheduleAudit": {
+    "title": "Audit du planning",
+    "subtitle": "Séances déjà planifiées qui tombent désormais hors des horaires ou un jour férié. Vérifiez puis annulez au cas par cas.",
+    "unknownSubject": "Matière inconnue",
+    "reason": {
+      "outsideHours": "Hors horaires",
+      "holiday": "Jour férié"
+    },
+    "cancel": {
+      "trigger": "Annuler la séance",
+      "title": "Annuler cette séance ?",
+      "body": "Seule cette séance sera retirée du planning. La séance hebdomadaire et les autres dates ne changent pas.",
+      "confirm": "Annuler la séance",
+      "pending": "Annulation…",
+      "dismiss": "Retour",
+      "error": "L'annulation a échoué. La séance a peut-être déjà été annulée sur un autre poste. La liste a été actualisée."
+    },
+    "empty": {
+      "title": "Aucune séance hors horaires",
+      "body": "Toutes les séances planifiées tiennent dans les horaires du centre et évitent les jours fériés."
+    },
+    "loadError": {
+      "title": "Impossible de charger l'audit",
+      "body": "Le chargement des séances à vérifier a échoué.",
+      "retry": "Réessayer"
     }
   },
   "planning": {
