@@ -5,7 +5,9 @@ import { useFeature } from '../../hooks/use-feature';
 import { useDashboardAdvancedSummary } from '../../hooks/dashboard/use-dashboard-advanced-summary';
 import { RevenueTrendChart } from './revenue-trend-chart';
 import { EnrollmentEvolutionChart } from './enrollment-evolution-chart';
+import { EnrollmentActivityChart } from './enrollment-activity-chart';
 import { AttendanceRateCard } from './attendance-rate-card';
+import { AttendanceHeatmap } from './attendance-heatmap';
 import { SubjectRevenueBreakdown } from './subject-revenue-breakdown';
 
 const SECTION_LABEL = 'text-xs font-bold uppercase tracking-wider text-muted-foreground';
@@ -20,7 +22,7 @@ export function DashboardAdvancedPanel() {
   if (query.isPending) {
     return (
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2" aria-busy="true">
-        {[0, 1, 2, 3].map((widget) => (
+        {[0, 1, 2, 3, 4, 5].map((widget) => (
           <Skeleton key={widget} className="h-52 w-full rounded-xl" />
         ))}
       </div>
@@ -61,6 +63,14 @@ export function DashboardAdvancedPanel() {
       <div className={WIDGET_CARD}>
         <p className={SECTION_LABEL}>{t('dashboard.advanced.widgets.subjectBreakdown')}</p>
         <SubjectRevenueBreakdown shares={summary.subjectRevenueBreakdown} />
+      </div>
+      <div className={WIDGET_CARD}>
+        <p className={SECTION_LABEL}>{t('dashboard.advanced.widgets.enrollmentActivity.title')}</p>
+        <EnrollmentActivityChart points={summary.enrollmentActivity} />
+      </div>
+      <div className={`${WIDGET_CARD} sm:col-span-2`}>
+        <p className={SECTION_LABEL}>{t('dashboard.advanced.widgets.attendanceHeatmap.title')}</p>
+        <AttendanceHeatmap cells={summary.attendanceHeatmap} />
       </div>
     </div>
   );

@@ -92,6 +92,8 @@ Object.defineProperty(window, 'api', {
               enrollmentEvolution: [],
               attendanceRatePercent: 0,
               subjectRevenueBreakdown: [],
+              enrollmentActivity: [],
+              attendanceHeatmap: [],
             },
           };
         default:
