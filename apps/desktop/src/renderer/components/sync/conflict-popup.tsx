@@ -111,19 +111,11 @@ function DuplicateCard({ duplicate }: { duplicate: DuplicateView }) {
 
 function PaymentReversalDedupCard({ dedup }: { dedup: ReversalDedupView }) {
   const { t } = useTranslation();
+  void dedup;
   return (
     <div className="rounded-lg border p-4">
-      <p className="text-sm font-medium">
-        {t('sync.paymentReversalDedup.loser')} <span className="font-mono text-xs">{dedup.loserId}</span>
-      </p>
-      <p className="mt-1 text-sm">
-        {t('sync.paymentReversalDedup.winner')}{' '}
-        <span className="font-mono text-xs">{dedup.winnerId}</span>
-      </p>
-      <p className="mt-1 text-sm">
-        {t('sync.paymentReversalDedup.reversesPayment')}{' '}
-        <span className="font-mono text-xs">{dedup.reversesPaymentId}</span>
-      </p>
+      <p className="text-sm font-medium">{t('sync.paymentReversalDedup.title')}</p>
+      <p className="mt-1 text-sm">{t('sync.paymentReversalDedup.action')}</p>
       <p className="mt-2 text-xs text-muted-foreground">{t('sync.paymentReversalDedup.hint')}</p>
     </div>
   );

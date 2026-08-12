@@ -12,6 +12,7 @@ import { CENTER, DEV_A, DEV_B, USER_A, USER_B, matcherFor } from './sync-engine-
 const clock = fakeClock('2026-08-01T10:00:00Z');
 const ORIGINAL = 'pay_00000000000000000000000001' as PaymentId;
 const REV_LO = 'pay_00000000000000000000000002' as PaymentId;
+const REV_MID = 'pay_00000000000000000000000004' as PaymentId;
 const REV_HI = 'pay_00000000000000000000000003' as PaymentId;
 
 function payment(id: PaymentId, kind: Payment['kind'], reversesPaymentId: PaymentId | null): Payment {
@@ -51,11 +52,12 @@ function inboundReversal(id: PaymentId): HubChange {
 }
 
 class PaymentDedupStore implements PaymentReversalDedupStore {
-  constructor(private readonly existing: Payment) {}
+  constructor(private readonly existing: readonly Payment[]) {}
 
-  findPaymentReversalByTarget(reversesPaymentId: PaymentId, excludeId: EntityId): Payment | null {
-    if (this.existing.reversesPaymentId !== reversesPaymentId || this.existing.id === excludeId) return null;
-    return this.existing;
+  findPaymentReversalsByTarget(reversesPaymentId: PaymentId, excludeId: EntityId): readonly Payment[] {
+    return this.existing.filter(
+      (payment) => payment.reversesPaymentId === reversesPaymentId && payment.id !== excludeId,
+    );
   }
 }
 
@@ -64,14 +66,41 @@ describe('ChangeResolver — payment reversal dedup (SOU-239)', () => {
     const local = new InMemorySyncLocalRepository(clock, DEV_A);
     local.applyInbound('payments', REV_HI as EntityId, payment(REV_HI, 'reversal', ORIGINAL) as unknown as Record<string, unknown>, 1);
     const dedups: ReversalDedup[] = [];
-    const resolver = new ChangeResolver(local, clock, DEV_A, USER_A, CENTER, null, null, new PaymentDedupStore(payment(REV_HI, 'reversal', ORIGINAL)));
+    const resolver = new ChangeResolver(local, clock, DEV_A, USER_A, CENTER, null, null, new PaymentDedupStore([payment(REV_HI, 'reversal', ORIGINAL)]));
 
-    const applied = resolver.resolveBatch([inboundReversal(REV_LO)], [], matcherFor(local), [], [], dedups);
+    const applied = resolver.resolveBatch([inboundReversal(REV_LO)], matcherFor(local), {
+      conflicts: [],
+      reversalDedups: dedups,
+    });
 
     expect(applied).toBe(1);
     expect(dedups).toEqual([
       { entityType: 'payments', reversesPaymentId: ORIGINAL, winnerId: REV_LO, loserId: REV_HI },
     ]);
     expect(netPaidMadDeduped([payment(ORIGINAL, 'payment', null), payment(REV_LO, 'reversal', ORIGINAL), payment(REV_HI, 'reversal', ORIGINAL)])).toBe(0);
+  });
+
+  it('rewrites stale pairwise winners to the global lower-ULID reversal', () => {
+    const local = new InMemorySyncLocalRepository(clock, DEV_A);
+    const dedups: ReversalDedup[] = [
+      { entityType: 'payments', reversesPaymentId: ORIGINAL, winnerId: REV_HI, loserId: REV_MID },
+    ];
+    const resolver = new ChangeResolver(
+      local,
+      clock,
+      DEV_A,
+      USER_A,
+      CENTER,
+      null,
+      null,
+      new PaymentDedupStore([payment(REV_MID, 'reversal', ORIGINAL), payment(REV_HI, 'reversal', ORIGINAL)]),
+    );
+
+    resolver.resolveBatch([inboundReversal(REV_LO)], matcherFor(local), { conflicts: [], reversalDedups: dedups });
+
+    expect(dedups).toEqual([
+      { entityType: 'payments', reversesPaymentId: ORIGINAL, winnerId: REV_LO, loserId: REV_HI },
+      { entityType: 'payments', reversesPaymentId: ORIGINAL, winnerId: REV_LO, loserId: REV_MID },
+    ]);
   });
 });

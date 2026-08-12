@@ -29,11 +29,17 @@ import {
   detectReversalDedups,
   reversalDedupKey,
   type PaymentReversalDedupStore,
+  type ReversalDedupCandidate,
   type ReversalDedup,
 } from './reversal-dedup';
-import type { Payment, PaymentId } from '../entities/payment';
+import type { PaymentId } from '../entities/payment';
 
-type ReversalPayment = Payment & { readonly kind: 'reversal'; readonly reversesPaymentId: PaymentId };
+type ResolveBatchOutput = {
+  readonly conflicts: SyncConflict[];
+  readonly subjectCodeCollisions?: SubjectCodeCollision[];
+  readonly sessionDedups?: SessionDedup[];
+  readonly reversalDedups?: ReversalDedup[];
+};
 
 /**
  * The resolve step of pull → resolve → push (SOU-80 §3), kept out of the engine
@@ -61,26 +67,20 @@ export class ChangeResolver {
   /** Apply or merge each inbound change; queue conflicts; never auto-resolve them. */
   resolveBatch(
     changes: readonly HubChange[],
-    conflicts: SyncConflict[],
     matcher: DuplicateMatcher,
-    collisions: SubjectCodeCollision[] = [],
-    dedups: SessionDedup[] = [],
-    reversalDedups: ReversalDedup[] = [],
+    output: ResolveBatchOutput,
   ): number {
     let applied = 0;
     for (const change of changes) {
-      applied += this.resolveOne(change, conflicts, matcher, collisions, dedups, reversalDedups);
+      applied += this.resolveOne(change, matcher, output);
     }
     return applied;
   }
 
   private resolveOne(
     change: HubChange,
-    conflicts: SyncConflict[],
     matcher: DuplicateMatcher,
-    collisions: SubjectCodeCollision[],
-    dedups: SessionDedup[],
-    reversalDedups: ReversalDedup[],
+    output: ResolveBatchOutput,
   ): number {
     const state = this.local.getLocalState(change.entityType, change.entityId);
     if (state && change.version <= state.version) return 0; // already applied (retry re-delivery)
@@ -96,7 +96,7 @@ export class ChangeResolver {
     let applied = false;
     switch (outcome.kind) {
       case 'apply':
-        applied = this.applyInbound(change, outcome, conflicts, collisions, dedups, reversalDedups);
+        applied = this.applyInbound(change, outcome, output);
         break;
       case 'merged':
         this.local.upsertPending(this.buildMergedPending(change, local, outcome));
@@ -104,7 +104,7 @@ export class ChangeResolver {
         break;
       case 'conflict':
         this.local.blockPending(change.entityType, change.entityId, outcome.conflict);
-        this.pushUniqueConflict(conflicts, outcome.conflict);
+        this.pushUniqueConflict(output.conflicts, outcome.conflict);
         break;
       case 'immutable-divergence':
         // Locked decisions never fork and never get a popup: block the pending
@@ -113,7 +113,7 @@ export class ChangeResolver {
         throw new ImmutableDivergenceError(change.entityType, change.entityId);
     }
 
-    this.detectDuplicates(change, conflicts, matcher);
+    this.detectDuplicates(change, output.conflicts, matcher);
     return applied ? 1 : 0;
   }
 
@@ -130,12 +130,9 @@ export class ChangeResolver {
   private applyInbound(
     change: HubChange,
     outcome: Extract<ResolveOutcome, { kind: 'apply' }>,
-    conflicts: SyncConflict[],
-    collisions: SubjectCodeCollision[],
-    dedups: SessionDedup[],
-    reversalDedups: ReversalDedup[],
+    output: ResolveBatchOutput,
   ): boolean {
-    this.detectReversalDedups(change, outcome, reversalDedups);
+    this.detectReversalDedups(change, outcome, output.reversalDedups ?? []);
 
     // Sessions first: a natural-key collision with a DIFFERENT local row settles
     // deterministically when both sides agree (lower ULID wins, in-place rewrite)
@@ -185,7 +182,7 @@ export class ChangeResolver {
             divergingFields,
           );
           this.local.blockPending(SESSION_ENTITY_TYPE, occupied.id, conflict);
-          this.pushUniqueConflict(conflicts, conflict);
+          this.pushUniqueConflict(output.conflicts, conflict);
           return false;
         }
 
@@ -205,7 +202,7 @@ export class ChangeResolver {
             version: outcome.version,
           });
         }
-        this.pushUniqueDedup(dedups, {
+        this.pushUniqueDedup(output.sessionDedups ?? [], {
           entityType: SESSION_ENTITY_TYPE,
           recurringSessionId,
           date,
@@ -253,7 +250,7 @@ export class ChangeResolver {
       store.clearSubjectCode(existingId);
       this.local.applyInbound(change.entityType, change.entityId, outcome.entity, outcome.version);
     }
-    this.pushUniqueCollision(collisions, {
+    this.pushUniqueCollision(output.subjectCodeCollisions ?? [], {
       entityType: SUBJECT_ENTITY_TYPE,
       code,
       winnerId,
@@ -355,10 +352,18 @@ export class ChangeResolver {
   ): void {
     const store = this.reversalDedups;
     const inbound = paymentFromEntity(change.entityId, outcome.entity);
-    if (store === null || change.entityType !== PAYMENT_ENTITY_TYPE || inbound === null) return;
-    const local = store.findPaymentReversalByTarget(inbound.reversesPaymentId, change.entityId);
-    if (local === null) return;
-    for (const dedup of detectReversalDedups([local, inbound])) {
+    if (
+      store === null ||
+      change.entityType !== PAYMENT_ENTITY_TYPE ||
+      inbound === null ||
+      inbound.reversesPaymentId === null
+    ) {
+      return;
+    }
+    const local = store.findPaymentReversalsByTarget(inbound.reversesPaymentId, change.entityId);
+    if (local.length === 0) return;
+    removeReversalDedupsForTarget(dedups, inbound.reversesPaymentId);
+    for (const dedup of detectReversalDedups([...local, inbound])) {
       this.pushUniqueReversalDedup(dedups, dedup);
     }
   }
@@ -415,29 +420,21 @@ export class ChangeResolver {
   }
 }
 
-function paymentFromEntity(entityId: EntityId, entity: Record<string, unknown>): ReversalPayment | null {
+function paymentFromEntity(entityId: EntityId, entity: Record<string, unknown>): ReversalDedupCandidate | null {
   if (entity['kind'] !== 'reversal' || typeof entity['reversesPaymentId'] !== 'string') return null;
-  if (typeof entity['invoiceId'] !== 'string') return null;
-  if (typeof entity['amountMad'] !== 'number') return null;
-  if (typeof entity['method'] !== 'string') return null;
-  if (typeof entity['paidOn'] !== 'string') return null;
+  const deletedAt = entity['deletedAt'];
   return {
     id: String(entityId) as PaymentId,
-    centerCode: entity['centerCode'] as CenterCode,
-    deviceOrigin: entity['deviceOrigin'] as DeviceId,
-    createdAt: entity['createdAt'] instanceof Date ? entity['createdAt'] : new Date(entity['createdAt'] as string),
-    updatedAt: entity['updatedAt'] instanceof Date ? entity['updatedAt'] : new Date(entity['updatedAt'] as string),
-    updatedBy: entity['updatedBy'] as UserId,
-    deletedAt: entity['deletedAt'] == null ? null : new Date(entity['deletedAt'] as string),
-    version: typeof entity['version'] === 'number' ? entity['version'] : 0,
-    invoiceId: entity['invoiceId'] as Payment['invoiceId'],
     kind: 'reversal',
-    amountMad: entity['amountMad'],
-    method: entity['method'] as Payment['method'],
-    paidOn: entity['paidOn'],
     reversesPaymentId: entity['reversesPaymentId'] as PaymentId,
-    note: typeof entity['note'] === 'string' ? entity['note'] : null,
+    deletedAt: deletedAt instanceof Date || typeof deletedAt === 'string' ? deletedAt : null,
   };
+}
+
+function removeReversalDedupsForTarget(dedups: ReversalDedup[], reversesPaymentId: PaymentId): void {
+  for (let index = dedups.length - 1; index >= 0; index--) {
+    if (dedups[index]?.reversesPaymentId === reversesPaymentId) dedups.splice(index, 1);
+  }
 }
 
 /** Mirrors merge.ts `side(…, 'theirs')` so the two stay in sync. */

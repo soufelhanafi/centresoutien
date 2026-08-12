@@ -159,7 +159,12 @@ export class SyncEngine {
       }
       deviceClockSkew = deviceClockSkew || this.isClockSkewed(batch.hubTime);
 
-      applied += this.resolver.resolveBatch(batch.changes, conflicts, matcher, collisions, dedups, reversalDedups);
+      applied += this.resolver.resolveBatch(batch.changes, matcher, {
+        conflicts,
+        subjectCodeCollisions: collisions,
+        sessionDedups: dedups,
+        reversalDedups,
+      });
 
       const push = await this.pushPending(batch.cursor);
       pushed += push.pushed;

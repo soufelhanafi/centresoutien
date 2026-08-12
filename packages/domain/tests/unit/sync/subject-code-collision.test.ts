@@ -76,9 +76,8 @@ describe('ChangeResolver — subject code collision (SOU-122)', () => {
     const collisions: SubjectCodeCollision[] = [];
     const applied = resolverFor(local, new FakeSubjectCodeStore(local)).resolveBatch(
       [inboundSubject(SUB_LO)],
-      conflicts,
       matcherFor(local),
-      collisions,
+      { conflicts, subjectCodeCollisions: collisions },
     );
 
     expect(applied).toBe(1);
@@ -97,9 +96,8 @@ describe('ChangeResolver — subject code collision (SOU-122)', () => {
     const collisions: SubjectCodeCollision[] = [];
     const applied = resolverFor(local, new FakeSubjectCodeStore(local)).resolveBatch(
       [inboundSubject(SUB_HI)],
-      [],
       matcherFor(local),
-      collisions,
+      { conflicts: [], subjectCodeCollisions: collisions },
     );
 
     expect(applied).toBe(1);
@@ -117,9 +115,8 @@ describe('ChangeResolver — subject code collision (SOU-122)', () => {
     const collisions: SubjectCodeCollision[] = [];
     resolverFor(local, new FakeSubjectCodeStore(local)).resolveBatch(
       [inboundSubject(SUB_HI)],
-      [],
       matcherFor(local),
-      collisions,
+      { conflicts: [], subjectCodeCollisions: collisions },
     );
 
     expect(local.entity('subjects', SUB_HI)?.code).toBe('MATH');
@@ -133,9 +130,8 @@ describe('ChangeResolver — subject code collision (SOU-122)', () => {
     const collisions: SubjectCodeCollision[] = [];
     resolverFor(local, new FakeSubjectCodeStore(local)).resolveBatch(
       [inboundSubject(SUB_HI, { op: 'delete', entity: subjectEntity(SUB_HI, { deletedAt: new Date() }) })],
-      [],
       matcherFor(local),
-      collisions,
+      { conflicts: [], subjectCodeCollisions: collisions },
     );
 
     expect(local.entity('subjects', SUB_LO)?.code).toBe('MATH'); // winner untouched, no null
@@ -149,9 +145,8 @@ describe('ChangeResolver — subject code collision (SOU-122)', () => {
     const collisions: SubjectCodeCollision[] = [];
     const applied = resolverFor(local, new FakeSubjectCodeStore(local)).resolveBatch(
       [inboundSubject(SUB_HI, { op: 'update', changedFields: ['code'] })],
-      [],
       matcherFor(local),
-      collisions,
+      { conflicts: [], subjectCodeCollisions: collisions },
     );
 
     expect(applied).toBe(1);
@@ -167,7 +162,10 @@ describe('ChangeResolver — subject code collision (SOU-122)', () => {
     local.applyInbound('subjects', SUB_LO, subjectEntity(SUB_LO), 1);
 
     const collisions: SubjectCodeCollision[] = [];
-    resolverFor(local, null).resolveBatch([inboundSubject(SUB_HI)], [], matcherFor(local), collisions);
+    resolverFor(local, null).resolveBatch([inboundSubject(SUB_HI)], matcherFor(local), {
+      conflicts: [],
+      subjectCodeCollisions: collisions,
+    });
 
     expect(local.entity('subjects', SUB_HI)?.code).toBe('MATH');
     expect(collisions).toHaveLength(0);
@@ -179,8 +177,14 @@ describe('ChangeResolver — subject code collision (SOU-122)', () => {
 
     const collisions: SubjectCodeCollision[] = [];
     const resolver = resolverFor(local, new FakeSubjectCodeStore(local));
-    resolver.resolveBatch([inboundSubject(SUB_LO)], [], matcherFor(local), collisions);
-    const appliedAgain = resolver.resolveBatch([inboundSubject(SUB_LO)], [], matcherFor(local), collisions);
+    resolver.resolveBatch([inboundSubject(SUB_LO)], matcherFor(local), {
+      conflicts: [],
+      subjectCodeCollisions: collisions,
+    });
+    const appliedAgain = resolver.resolveBatch([inboundSubject(SUB_LO)], matcherFor(local), {
+      conflicts: [],
+      subjectCodeCollisions: collisions,
+    });
 
     expect(appliedAgain).toBe(0); // version skip
     expect(collisions).toHaveLength(1);

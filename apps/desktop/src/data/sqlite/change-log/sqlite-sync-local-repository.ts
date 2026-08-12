@@ -9,9 +9,10 @@ import type {
   SubjectCodeCollisionStore,
   SessionDedupStore,
   PaymentReversalDedupStore,
+  ReversalDedupCandidate,
 } from '@centresoutien/domain';
 import { PAYMENT_ENTITY_TYPE, SESSION_ENTITY_TYPE } from '@centresoutien/domain';
-import type { Payment, PaymentId } from '@centresoutien/domain';
+import type { PaymentId } from '@centresoutien/domain';
 import type { SyncCursor } from '@centresoutien/domain';
 import type { ConflictSide } from '@centresoutien/domain';
 import {
@@ -19,6 +20,7 @@ import {
   getRegisteredChangeLogEntityToRowMapper,
 } from './change-log-entity-mappers';
 import { assertSqlIdentifier } from './table-identifier';
+import { REVERSAL_ONCE_INDEX } from '../repairs/payment-reversal-index';
 
 /**
  * Identity columns kept unchanged when an inbound payload is projected onto its
@@ -368,16 +370,21 @@ export class SqliteLocalSyncRepository
     };
   }
 
-  findPaymentReversalByTarget(reversesPaymentId: PaymentId, excludeId: EntityId): Payment | null {
-    const row = this.db
+  findPaymentReversalsByTarget(reversesPaymentId: PaymentId, excludeId: EntityId): readonly ReversalDedupCandidate[] {
+    const rows = this.db
       .prepare(
         `SELECT * FROM payments
           WHERE center_code = ? AND kind = 'reversal' AND reverses_payment_id = ?
             AND id != ? AND deleted_at IS NULL
-          ORDER BY id LIMIT 1`,
+          ORDER BY id`,
       )
-      .get(this.centerCode, reversesPaymentId, excludeId) as PaymentRow | undefined;
-    return row ? paymentFromRow(row) : null;
+      .all(this.centerCode, reversesPaymentId, excludeId) as PaymentRow[];
+    return rows.map((row) => ({
+      id: row.id as PaymentId,
+      kind: 'reversal' as const,
+      reversesPaymentId: row.reverses_payment_id as PaymentId,
+      deletedAt: row.deleted_at,
+    }));
   }
 
   /**
@@ -546,6 +553,10 @@ export class SqliteLocalSyncRepository
     const row = projection.mapper(entity);
     const columns = Object.keys(row).map(assertSqlIdentifier);
     if (projection.mode === 'append-only') {
+      // Duplicate offline reversals are legitimate append-only audit rows. The
+      // optional unique backstop cannot coexist with that dirty-but-supported
+      // ledger state, while correctness still holds through the transactional
+      // void guard and deduped net derivation.
       this.prepareAppendOnlyProjection(entityType, row);
       const sql = `
         INSERT INTO ${table} (${columns.join(', ')})
@@ -582,7 +593,7 @@ export class SqliteLocalSyncRepository
       )
       .get(this.centerCode, row['reverses_payment_id'], row['id']) as { id: string } | undefined;
     if (existing) {
-      this.db.prepare('DROP INDEX IF EXISTS ux_payments_reversal_once').run();
+      this.db.prepare(`DROP INDEX IF EXISTS ${REVERSAL_ONCE_INDEX}`).run();
     }
   }
 
@@ -651,26 +662,6 @@ type PaymentRow = {
   reverses_payment_id: string | null;
   note: string | null;
 };
-
-function paymentFromRow(row: PaymentRow): Payment {
-  return {
-    id: row.id as PaymentId,
-    centerCode: row.center_code as CenterCode,
-    deviceOrigin: row.device_origin as DeviceId,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
-    updatedBy: row.updated_by as UserId,
-    deletedAt: row.deleted_at === null ? null : new Date(row.deleted_at),
-    version: row.version,
-    invoiceId: row.invoice_id as Payment['invoiceId'],
-    kind: row.kind as Payment['kind'],
-    amountMad: row.amount_mad,
-    method: row.method as Payment['method'],
-    paidOn: row.paid_on,
-    reversesPaymentId: row.reverses_payment_id === null ? null : (row.reverses_payment_id as PaymentId),
-    note: row.note,
-  };
-}
 
 /** Serialize a SyncConflict for storage — Dates become ISO strings. */
 function serializeConflict(conflict: SyncConflict): unknown {

@@ -2256,6 +2256,8 @@
       "mergeHint": "Fusionnez ces enregistrements via les doublons (parents d'abord, puis élèves)."
     },
     "paymentReversalDedup": {
+      "title": "Annulation déjà enregistrée",
+      "action": "Le paiement reste annulé une seule fois.",
       "loser": "Annulation ignorée :",
       "winner": "Annulation conservée :",
       "reversesPayment": "Paiement annulé :",

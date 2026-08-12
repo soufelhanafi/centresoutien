@@ -1,4 +1,4 @@
-import type { Payment, PaymentId } from '../entities/payment';
+import type { PaymentId } from '../entities/payment';
 import type { EntityId } from '../value-objects/ids';
 
 /**
@@ -35,13 +35,20 @@ export type ReversalDedup = {
   readonly loserId: PaymentId;
 };
 
+export type ReversalDedupCandidate = {
+  readonly id: PaymentId;
+  readonly kind: 'reversal';
+  readonly reversesPaymentId: PaymentId | null;
+  readonly deletedAt: Date | string | null;
+};
+
 /** Stable identity for de-duplicating repeated reversal-dedup detections across retries. */
 export function reversalDedupKey(dedup: ReversalDedup): string {
   return `reversal-dedup:${dedup.reversesPaymentId}:${dedup.winnerId}:${dedup.loserId}`;
 }
 
 export interface PaymentReversalDedupStore {
-  findPaymentReversalByTarget(reversesPaymentId: PaymentId, excludeId: EntityId): Payment | null;
+  findPaymentReversalsByTarget(reversesPaymentId: PaymentId, excludeId: EntityId): readonly ReversalDedupCandidate[];
 }
 
 /**
@@ -56,7 +63,7 @@ export interface PaymentReversalDedupStore {
  * filter keeps the helper honest if one ever is). Results are sorted by
  * `reversesPaymentId` then `loserId` for stable, testable output.
  */
-export function detectReversalDedups(payments: readonly Payment[]): ReversalDedup[] {
+export function detectReversalDedups(payments: readonly ReversalDedupCandidate[]): ReversalDedup[] {
   const byTarget = new Map<PaymentId, PaymentId[]>();
   for (const payment of payments) {
     if (payment.deletedAt !== null) continue;

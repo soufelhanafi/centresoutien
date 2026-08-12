@@ -54,8 +54,8 @@ describe('ChangeResolver — version dominates the wall clock', () => {
           entity: studentEntity(S1, { level: '3AC' }),
         }),
       ],
-      conflicts,
       matcherFor(local),
+      { conflicts },
     );
 
     expect(applied).toBe(0);
@@ -79,8 +79,8 @@ describe('ChangeResolver — version dominates the wall clock', () => {
           entity: studentEntity(S1, { level: '3AC' }),
         }),
       ],
-      conflicts,
       matcherFor(local),
+      { conflicts },
     );
 
     expect(applied).toBe(1);
@@ -114,8 +114,8 @@ describe('ChangeResolver — immutable-entity divergence aborts the sync', () =>
             receivedAt: new Date('2026-08-01T10:00:00Z'),
           },
         ],
-        conflicts,
         matcherFor(local),
+        { conflicts },
       );
 
     expect(resolve).toThrow(ImmutableDivergenceError);
