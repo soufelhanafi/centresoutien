@@ -5,9 +5,9 @@ import type { WizardState } from '@centresoutien/domain';
 import { STEP_META } from './step-meta';
 
 /**
- * Horizontal stepper reflecting the domain sequence for this run (4 steps on
- * Essentiel, 5 with Holidays on Pro+). Completed steps show a check, the current
- * step is highlighted, upcoming steps are muted.
+ * Horizontal stepper reflecting the domain sequence for this run (three steps:
+ * language, center profile, admin account). Completed steps show a check, the
+ * current step is highlighted, upcoming steps are muted.
  */
 export function WizardProgress({ state }: { state: WizardState }) {
   const { t } = useTranslation();

@@ -81,7 +81,10 @@ export const XLS: Record<Locale, BackupSettingsStrings> = {
     colRow: 'سطر Excel',
     colStatus: 'الحالة',
     colReason: 'السبب',
-    applyButton: /استيراد \d+ سطر/,
+    // Match on the count only: Arabic pluralizes the noun across categories
+    // (سطر / سطرين / أسطر / سطرًا), so anchoring on a single form misses the
+    // "few" bucket (counts 3–10, "أسطر") the import row count can land in.
+    applyButton: /استيراد \d+/,
     applySuccessPrefix: 'اكتمل الاستيراد',
     confirmTitle: 'تأكيد الاستيراد',
     confirmApply: 'استيراد',

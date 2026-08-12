@@ -1,11 +1,9 @@
 import { create } from 'zustand';
 import {
-  PlanPolicy,
   initWizard,
   submitStep,
   skipStep,
   goToPreviousStep,
-  type Plan,
   type WizardState,
 } from '@centresoutien/domain';
 
@@ -26,11 +24,10 @@ type WizardStore = {
    */
   adminUsername: string;
   /**
-   * Build the initial state for the active plan. Idempotent once the user has
-   * begun — so a late plan hydration (`plan.get`) can still correct the Holidays
-   * step before step one, but never resets real progress.
+   * Build the initial state. Idempotent once the user has begun, so a re-render
+   * never resets real progress.
    */
-  init: (plan: Plan) => void;
+  init: () => void;
   submit: () => void;
   skip: () => void;
   back: () => void;
@@ -44,10 +41,10 @@ function hasStarted(state: WizardState | null): boolean {
 export const useWizardStore = create<WizardStore>((set) => ({
   state: null,
   adminUsername: '',
-  init: (plan) =>
+  init: () =>
     set((store) => {
       if (hasStarted(store.state)) return store;
-      return { state: initWizard(new PlanPolicy(plan)) };
+      return { state: initWizard() };
     }),
   submit: () => set((store) => (store.state ? { state: submitStep(store.state) } : store)),
   skip: () => set((store) => (store.state ? { state: skipStep(store.state) } : store)),

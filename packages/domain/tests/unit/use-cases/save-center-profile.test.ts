@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SaveCenterProfile, type SaveCenterProfileInput } from '../../../src/use-cases/save-center-profile';
+import { SeedDefaultCenterHours } from '../../../src/use-cases/seed-default-center-hours';
+import { DEFAULT_WEEKLY_HOURS } from '../../../src/schemas/center-hours';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryCenterRepository } from '../fakes/in-memory-center-repository';
+import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 
@@ -26,13 +29,17 @@ function validInput(overrides: Partial<SaveCenterProfileInput> = {}): SaveCenter
 
 describe('SaveCenterProfile', () => {
   let centers: InMemoryCenterRepository;
+  let hours: InMemoryCenterHoursRepository;
   let clock: ReturnType<typeof fakeClock>;
   let useCase: SaveCenterProfile;
 
   beforeEach(() => {
     centers = new InMemoryCenterRepository();
+    hours = new InMemoryCenterHoursRepository();
     clock = fakeClock('2026-07-29T10:00:00Z');
-    useCase = new SaveCenterProfile(centers, clock, fakeIds());
+    const ids = fakeIds();
+    const seedDefaultCenterHours = new SeedDefaultCenterHours(hours, clock, ids);
+    useCase = new SaveCenterProfile(centers, clock, ids, seedDefaultCenterHours);
   });
 
   describe('first save (create)', () => {
@@ -64,9 +71,38 @@ describe('SaveCenterProfile', () => {
       const center = await useCase.execute(validInput({ seedPlan: 'pro' }));
       expect(center.plan).toBe('pro');
     });
+
+    it('seeds the default weekly hours with the same envelope context (SOU-235)', async () => {
+      const center = await useCase.execute(validInput());
+
+      const week = await hours.listForCenter(CENTER);
+      expect(week).toHaveLength(7);
+      expect(week.map((day) => day.dayOfWeek)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+      for (const day of week) {
+        expect(day.windows).toEqual([{ open: '09:00', close: '18:00' }]);
+        expect(day.centerCode).toBe(center.centerCode);
+        expect(day.deviceOrigin).toBe(center.deviceOrigin);
+        expect(day.updatedBy).toBe(center.updatedBy);
+        expect(day.createdAt).toEqual(center.createdAt);
+        expect(day.deletedAt).toBeNull();
+        expect(day.version).toBe(0);
+      }
+      expect(DEFAULT_WEEKLY_HOURS).toHaveLength(7);
+    });
   });
 
   describe('later save (update)', () => {
+    it('does not re-seed or duplicate hours when the center already has them', async () => {
+      await useCase.execute(validInput());
+      const before = await hours.listForCenter(CENTER);
+
+      await useCase.execute(validInput({ name: 'Renamed' }));
+      const after = await hours.listForCenter(CENTER);
+
+      expect(after).toHaveLength(7);
+      expect(after.map((day) => day.id)).toEqual(before.map((day) => day.id));
+    });
+
     it('patches profile fields, bumps updatedAt/updatedBy, keeps id/createdAt/plan', async () => {
       const first = await useCase.execute(validInput({ seedPlan: 'premium' }));
       clock.advance(60_000);

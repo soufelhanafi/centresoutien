@@ -1025,6 +1025,8 @@ export type { RestoreHolidayInput } from './use-cases/restore-holiday';
 export { GetCenterProfile } from './use-cases/get-center-profile';
 export { SaveCenterProfile } from './use-cases/save-center-profile';
 export type { SaveCenterProfileInput } from './use-cases/save-center-profile';
+export { SeedDefaultCenterHours } from './use-cases/seed-default-center-hours';
+export type { SeedDefaultCenterHoursInput } from './use-cases/seed-default-center-hours';
 export { StoreCenterLogo } from './use-cases/store-center-logo';
 export type { StoreCenterLogoInput } from './use-cases/store-center-logo';
 export { ReadCenterLogo } from './use-cases/read-center-logo';

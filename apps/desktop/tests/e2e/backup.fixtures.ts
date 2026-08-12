@@ -112,12 +112,8 @@ export async function setupCenter(win: Page, loc: Locale, centerName: string): P
   await win.getByLabel(t.username, { exact: true }).fill(VALID_ADMIN.username);
   await win.getByLabel(t.password, { exact: true }).fill(VALID_ADMIN.password);
   await win.getByLabel(t.confirmPassword, { exact: true }).fill(VALID_ADMIN.password);
-  await win.getByRole('button', { name: t.next }).click(); // admin -> hours
-  await win.getByRole('button', { name: t.next }).click(); // hours -> holidays (pro)
-  const skip = win.getByRole('button', { name: t.skip });
-  if (await skip.count()) await skip.click();
-  const done = win.getByRole('button', { name: t.doneCta });
-  if (await done.count()) await done.click();
+  await win.getByRole('button', { name: t.next }).click(); // create admin -> done
+  await win.getByRole('button', { name: t.doneCta }).click(); // done -> app shell
   await win.evaluate(async (admin) => {
     const api = (window as unknown as { api: { invoke: (c: string, r: unknown) => Promise<unknown> } }).api;
     await api.invoke('auth.login', { ...admin, rememberDevice: true });

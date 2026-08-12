@@ -22,7 +22,6 @@ export const CP: Record<
   {
     langRadio: string;
     next: string;
-    skip: string;
     doneCta: string;
     settingsNav: string;
     username: string;
@@ -47,7 +46,6 @@ export const CP: Record<
   fr: {
     langRadio: 'Français',
     next: 'Continuer',
-    skip: 'Passer',
     doneCta: 'Commencer',
     settingsNav: 'Paramètres',
     username: "Nom d'utilisateur",
@@ -71,7 +69,6 @@ export const CP: Record<
   ar: {
     langRadio: 'العربية',
     next: 'متابعة',
-    skip: 'تخطٍّ',
     doneCta: 'ابدأ',
     settingsNav: 'الإعدادات',
     username: 'اسم المستخدم',
@@ -127,10 +124,11 @@ export async function getCenter(win: Page): Promise<null | {
  * Walks the SOU-25 first-run wizard to the logged-in app shell.
  *
  * The Center Profile step is now real and blocking (SOU-111): it requires a name
- * and a valid phone before Continue advances. The dedicated wizard spec asserts
- * that behaviour; this helper only fills the minimum required to land specs on
- * the Settings surface deterministically. Runs the app on `pro` so the plan
- * mirror shows a real tier and the Holidays step exists.
+ * and a valid phone before Continue advances. Since SOU-235 the run is three
+ * steps (language → center profile → admin account); default center hours are
+ * seeded at center creation, so there are no hours/holidays steps to walk. The
+ * dedicated wizard spec asserts that behaviour; this helper only fills the
+ * minimum required to land specs on the Settings surface deterministically.
  */
 export async function completeSetupAndLogin(win: Page, loc: Locale): Promise<void> {
   const t = CP[loc];
@@ -142,12 +140,8 @@ export async function completeSetupAndLogin(win: Page, loc: Locale): Promise<voi
   await win.getByLabel(t.username, { exact: true }).fill(VALID_ADMIN.username);
   await win.getByLabel(t.password, { exact: true }).fill(VALID_ADMIN.password);
   await win.getByLabel(t.confirmPassword, { exact: true }).fill(VALID_ADMIN.password);
-  await win.getByRole('button', { name: t.next }).click(); // create admin -> hours
-  await win.getByRole('button', { name: t.next }).click(); // hours -> holidays (pro)
-  const skip = win.getByRole('button', { name: t.skip });
-  if (await skip.count()) await skip.click();
-  const done = win.getByRole('button', { name: t.doneCta });
-  if (await done.count()) await done.click();
+  await win.getByRole('button', { name: t.next }).click(); // create admin -> done
+  await win.getByRole('button', { name: t.doneCta }).click(); // done -> app shell
   await win.evaluate(async (admin) => {
     const api = (window as unknown as {
       api: { invoke: (c: string, r: unknown) => Promise<unknown> };

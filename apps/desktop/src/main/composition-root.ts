@@ -102,6 +102,7 @@ import {
   DeviceSessionService,
   GetCenterProfile,
   SaveCenterProfile,
+  SeedDefaultCenterHours,
   StoreCenterLogo,
   ReadCenterLogo,
   CreateBackup,
@@ -934,7 +935,13 @@ export function buildContainer(options: ContainerOptions): Container {
   // (SOU-98). No-op until the profile exists; the gate never reads this column.
   centerRepo.writePlanMirror(activePlanId);
   const getCenterProfile = new GetCenterProfile(centerRepo);
-  const saveCenterProfile = new SaveCenterProfile(centerRepo, clock, ids);
+  // Persisting default hours at center creation (SOU-235) lets a fresh center
+  // schedule sessions before the admin opens Settings. Seeding runs domain-side
+  // here — never via a renderer IPC round-trip, which restricted mode blocks on
+  // an unlicensed first run.
+  const centerHoursRepo = new SqliteCenterHoursRepository(db);
+  const seedDefaultCenterHours = new SeedDefaultCenterHours(centerHoursRepo, clock, ids);
+  const saveCenterProfile = new SaveCenterProfile(centerRepo, clock, ids, seedDefaultCenterHours);
   const logoStore = new FsLogoStore(options.dir, ids);
   const storeCenterLogo = new StoreCenterLogo(logoStore);
   const readCenterLogo = new ReadCenterLogo(logoStore);
@@ -1046,7 +1053,6 @@ export function buildContainer(options: ContainerOptions): Container {
     .execute({ centerCode: options.centerCode })
     .catch((error: unknown) => console.error('[backup] scheduled run failed', error));
 
-  const centerHoursRepo = new SqliteCenterHoursRepository(db);
   const saveCenterHours = new SaveCenterHours(centerHoursRepo, clock, ids, plan);
   const getCenterHours = new GetCenterHours(centerHoursRepo, plan);
   // Ramadan schedule overrides (SOU-165): CRUD on the time-boxed weekly-hours

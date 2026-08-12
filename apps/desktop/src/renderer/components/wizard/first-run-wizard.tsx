@@ -2,7 +2,6 @@ import { useEffect, type ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@centresoutien/ui';
 import { currentStep, type WizardStepId } from '@centresoutien/domain';
-import { usePlanStore } from '../../stores/plan-store';
 import { useWizardStore } from '../../stores/wizard-store';
 import { WizardProgress } from './wizard-progress';
 import { WizardShell } from './wizard-shell';
@@ -10,31 +9,27 @@ import { WizardDone } from './wizard-done';
 import { LanguageStep } from './steps/language-step';
 import { AdminAccountStep } from './steps/admin-account-step';
 import { CenterProfileStep } from './steps/center-profile-step';
-import { HoursStep, HolidaysStep } from './steps/stub-steps';
 
 /** One component per step. Adding a step is a domain change plus one entry here. */
 const STEP_COMPONENTS: Record<WizardStepId, ComponentType> = {
   language: LanguageStep,
   'center-profile': CenterProfileStep,
   'admin-account': AdminAccountStep,
-  hours: HoursStep,
-  holidays: HolidaysStep,
 };
 
 /**
- * Walks the first-run steps sequenced by the domain machine. The plan drives
- * whether Holidays is part of the run; re-initialising on plan changes only
- * matters before step one, so a late `plan.get` still lands the right steps.
+ * Walks the first-run steps sequenced by the domain machine. Default center
+ * hours are seeded at center creation, so the run ends right after the admin
+ * account — hours and holidays are configured later in Settings.
  */
 export function FirstRunWizard({ onComplete }: { onComplete: () => void }) {
   const { t } = useTranslation();
-  const plan = usePlanStore((store) => store.plan);
   const init = useWizardStore((store) => store.init);
   const state = useWizardStore((store) => store.state);
 
   useEffect(() => {
-    init(plan);
-  }, [plan, init]);
+    init();
+  }, [init]);
 
   if (!state) return null;
 
