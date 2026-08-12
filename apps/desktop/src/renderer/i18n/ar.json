@@ -1435,7 +1435,8 @@
       "badgeAria_one": "{{count}} حصة للمراجعة",
       "badgeAria_two": "{{count}} حصتان للمراجعة",
       "badgeAria_few": "{{count}} حصص للمراجعة",
-      "badgeAria_other": "{{count}} حصص للمراجعة"
+      "badgeAria_many": "{{count}} حصة للمراجعة",
+      "badgeAria_other": "{{count}} حصة للمراجعة"
     },
     "generator": {
       "trigger": "توليد",

@@ -35,8 +35,13 @@ export function ScheduleAuditDialog() {
         : 'empty';
   const count = stranded.length;
 
+  const handleOpenChange = (next: boolean) => {
+    if (next && query.isStale) void query.refetch();
+    setOpen(next);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline">
           <CalendarClock className="h-4 w-4" aria-hidden="true" />
