@@ -59,7 +59,7 @@ test('AC1 — takings count renders correct plural forms for 0/1/2/few/many', as
 
   // One high-balance open invoice absorbs many small same-day payments so the
   // takings COUNT climbs 0 → 1 → 2 → 3 (few) → 11 (many).
-  const inv = await seedInvoice(win, { nameFr: 'Compteur', nameAr: 'عدّاد', month: currentMonth(), priceMad: 100000 });
+  const inv = await seedInvoice(win, { nameFr: 'Compteur', nameAr: 'عدّاد', month: currentMonth(), priceMad: 100000, issue: true });
 
   const readAtCount = async (expected: number): Promise<string> => {
     await win.reload();
@@ -96,7 +96,7 @@ test('AC2 — reversal row shows a locale-correct Intl-negative amount', async (
   const L = strings();
   const X = extra();
 
-  const inv = await seedInvoice(win, { nameFr: 'Reversal Rita', nameAr: 'ريتا', month: currentMonth(), priceMad: 200 });
+  const inv = await seedInvoice(win, { nameFr: 'Reversal Rita', nameAr: 'ريتا', month: currentMonth(), priceMad: 200, issue: true });
   await seedPayment(win, { invoiceId: inv.invoiceId, amountMad: 200, method: 'cash', paidOn: todayIso() });
   const paymentId = await latestPaymentId(win, inv.invoiceId);
   await voidPayment(win, paymentId);
