@@ -1,7 +1,7 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
-import { Button, toast } from '@centresoutien/ui';
+import { Button, Skeleton, toast } from '@centresoutien/ui';
 import { SessionForm } from './session-form';
 import { SessionConflictAlert } from './session-conflict-alert';
 import { CancelSessionDialog } from './cancel-session-dialog';
@@ -18,13 +18,11 @@ function summaryLabel(session: PlannerSessionView, subject: string): string {
   return `${session.start}–${session.end} · ${subject}`;
 }
 
-/**
- * One row of the all-sessions drawer (SOU-178): collapsed shows the template's
- * time/subject and room; expanded renders the same {@link SessionForm} edit flow
- * as the grid's {@link SessionTemplateDialog}, inline instead of in a dialog.
- * Owns the same update/cancel mutations and conflict handling so both entry
- * points into editing a weekly template stay behaviorally identical.
- */
+// One row of the all-sessions drawer (SOU-178): collapsed shows the template's
+// time/subject and room; expanded renders the same SessionForm edit flow
+// as the grid's SessionTemplateDialog, inline instead of in a dialog.
+// Owns the same update/cancel mutations and conflict handling so both entry
+// points into editing a weekly template stay behaviorally identical.
 export function AllSessionsRow({ session }: { session: PlannerSessionView }) {
   const { t, i18n } = useTranslation();
   const formId = useId();
@@ -37,6 +35,12 @@ export function AllSessionsRow({ session }: { session: PlannerSessionView }) {
   const options = useSessionFormOptions();
   const subject =
     session.subjectName === null ? t('planning.unknownSubject') : localizedText(session.subjectName, i18n.language);
+
+  useEffect(() => {
+    if (!expanded) {
+      setErrorCodes([]);
+    }
+  }, [expanded]);
 
   const handleSubmit = async (values: SessionFormValues) => {
     setErrorCodes([]);
@@ -91,7 +95,13 @@ export function AllSessionsRow({ session }: { session: PlannerSessionView }) {
               options={options.data}
               onSubmit={handleSubmit}
             />
-          ) : null}
+          ) : (
+            <div className="space-y-4" aria-busy="true">
+              {[0, 1, 2, 3, 4].map((row) => (
+                <Skeleton key={row} className="h-10 w-full" />
+              ))}
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <Button type="button" variant="destructive" onClick={() => setConfirmingCancel(true)}>
               {t('planning.cancelSession.trigger')}

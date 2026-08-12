@@ -35,6 +35,46 @@ export function AllSessionsDrawer({
   const { data, isLoading, isError } = useWeekSessions();
   const groups = groupByWeekday(data ?? []);
 
+  function renderContent() {
+    if (isLoading) {
+      return (
+        <div className="space-y-2" aria-busy="true">
+          {[0, 1, 2, 3].map((row) => (
+            <Skeleton key={row} className="h-12 w-full" />
+          ))}
+        </div>
+      );
+    }
+    if (isError) {
+      return (
+        <p role="alert" className="py-8 text-center text-sm text-destructive">
+          {t('planning.allSessions.loadError')}
+        </p>
+      );
+    }
+    if (groups.length === 0) {
+      return (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          {t('planning.allSessions.empty')}
+        </p>
+      );
+    }
+    return (
+      <div className="space-y-6">
+        {groups.map((group) => (
+          <section key={group.day} className="space-y-2">
+            <h3 className="text-sm font-semibold">{t(`planning.weekdays.${group.day}`)}</h3>
+            <ul className="space-y-2">
+              {group.rows.map((session) => (
+                <AllSessionsRow key={session.id} session={session} />
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex w-full flex-col gap-4 overflow-y-auto sm:max-w-md">
@@ -43,34 +83,7 @@ export function AllSessionsDrawer({
           <SheetDescription>{t('planning.allSessions.regenNote')}</SheetDescription>
         </SheetHeader>
 
-        {isLoading ? (
-          <div className="space-y-2" aria-busy="true">
-            {[0, 1, 2, 3].map((row) => (
-              <Skeleton key={row} className="h-12 w-full" />
-            ))}
-          </div>
-        ) : isError ? (
-          <p role="alert" className="py-8 text-center text-sm text-destructive">
-            {t('planning.allSessions.loadError')}
-          </p>
-        ) : groups.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            {t('planning.allSessions.empty')}
-          </p>
-        ) : (
-          <div className="space-y-6">
-            {groups.map((group) => (
-              <section key={group.day} className="space-y-2">
-                <h3 className="text-sm font-semibold">{t(`planning.weekdays.${group.day}`)}</h3>
-                <ul className="space-y-2">
-                  {group.rows.map((session) => (
-                    <AllSessionsRow key={session.id} session={session} />
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-        )}
+        {renderContent()}
       </SheetContent>
     </Sheet>
   );

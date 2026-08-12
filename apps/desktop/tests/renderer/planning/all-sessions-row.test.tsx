@@ -64,4 +64,20 @@ describe('AllSessionsRow', () => {
     fireEvent.click(screen.getByRole('button', { name: /enregistrer|save/i }));
     await waitFor(() => expect(updateMock).toHaveBeenCalledWith('wrs_1', expect.objectContaining({ start: '09:00' })));
   });
+
+  it('clears a stale conflict alert after the row is collapsed and reopened', async () => {
+    updateMock.mockRejectedValue({ code: 'RoomConflictError' });
+    renderRow();
+    const toggle = screen.getByRole('button', { name: /modifier|edit|09:00/i });
+
+    fireEvent.click(toggle);
+    await waitFor(() => screen.getByLabelText(/début|start/i));
+    fireEvent.click(screen.getByRole('button', { name: /enregistrer|save/i }));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+
+    fireEvent.click(toggle);
+    fireEvent.click(toggle);
+    await waitFor(() => screen.getByLabelText(/début|start/i));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
 });
