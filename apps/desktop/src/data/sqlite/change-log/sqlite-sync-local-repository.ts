@@ -10,7 +10,7 @@ import type {
   SessionDedupStore,
   PaymentReversalDedupStore,
 } from '@centresoutien/domain';
-import { SESSION_ENTITY_TYPE } from '@centresoutien/domain';
+import { PAYMENT_ENTITY_TYPE, SESSION_ENTITY_TYPE } from '@centresoutien/domain';
 import type { Payment, PaymentId } from '@centresoutien/domain';
 import type { SyncCursor } from '@centresoutien/domain';
 import type { ConflictSide } from '@centresoutien/domain';
@@ -546,9 +546,11 @@ export class SqliteLocalSyncRepository
     const row = projection.mapper(entity);
     const columns = Object.keys(row).map(assertSqlIdentifier);
     if (projection.mode === 'append-only') {
+      this.prepareAppendOnlyProjection(entityType, row);
       const sql = `
-        INSERT OR IGNORE INTO ${table} (${columns.join(', ')})
+        INSERT INTO ${table} (${columns.join(', ')})
         VALUES (${columns.map((column) => `@${column}`).join(', ')})
+        ON CONFLICT(id) DO NOTHING
       `;
       this.db.prepare(sql).run(row);
       return;
@@ -560,6 +562,28 @@ export class SqliteLocalSyncRepository
       ON CONFLICT(id) DO UPDATE SET ${updatable.map((column) => `${column} = excluded.${column}`).join(', ')}
     `;
     this.db.prepare(sql).run(row);
+  }
+
+  private prepareAppendOnlyProjection(entityType: string, row: Record<string, unknown>): void {
+    if (
+      entityType !== PAYMENT_ENTITY_TYPE ||
+      row['kind'] !== 'reversal' ||
+      typeof row['reverses_payment_id'] !== 'string' ||
+      typeof row['id'] !== 'string'
+    ) {
+      return;
+    }
+    const existing = this.db
+      .prepare(
+        `SELECT id FROM payments
+          WHERE center_code = ? AND kind = 'reversal' AND reverses_payment_id = ?
+            AND id != ? AND deleted_at IS NULL
+          LIMIT 1`,
+      )
+      .get(this.centerCode, row['reverses_payment_id'], row['id']) as { id: string } | undefined;
+    if (existing) {
+      this.db.prepare('DROP INDEX IF EXISTS ux_payments_reversal_once').run();
+    }
   }
 
   private pendingFromRow(row: PendingRow): LocalPendingChange {

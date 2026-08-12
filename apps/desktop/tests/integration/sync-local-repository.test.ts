@@ -16,6 +16,8 @@ const DEV = 'dev_0000000000000000000000000A' as DeviceId;
 const USER = 'usr_0000000000000000000000000A' as UserId;
 const S1 = 'stu_00000000000000000000000001' as EntityId;
 const PAY1 = 'pay_00000000000000000000000001' as EntityId;
+const PAY2 = 'pay_00000000000000000000000002' as EntityId;
+const PAY3 = 'pay_00000000000000000000000003' as EntityId;
 const SUB1 = 'sub_00000000000000000000000001' as EntityId;
 const AT = new Date('2026-08-01T10:00:00Z');
 
@@ -148,6 +150,39 @@ describe('SqliteLocalSyncRepository', () => {
     expect(row.version).toBe(0);
     expect(repo.getLocalState('payments', PAY1)?.version).toBe(7);
     expect(repo.listPending()).toHaveLength(0);
+  });
+
+  it('append-only projection keeps inbound duplicate reversals when the unique backstop exists', () => {
+    insertPayment(paymentEntity(PAY1));
+    insertPayment(
+      paymentEntity(PAY3, {
+        kind: 'reversal',
+        amountMad: 10000,
+        reversesPaymentId: PAY1,
+      }),
+    );
+    db.prepare(
+      `CREATE UNIQUE INDEX ux_payments_reversal_once
+        ON payments(reverses_payment_id)
+        WHERE kind = 'reversal' AND deleted_at IS NULL`,
+    ).run();
+
+    repo.applyInbound(
+      'payments',
+      PAY2,
+      paymentEntity(PAY2, { kind: 'reversal', amountMad: 10000, reversesPaymentId: PAY1 }),
+      9,
+    );
+
+    const rows = db
+      .prepare(
+        `SELECT id FROM payments
+          WHERE kind = 'reversal' AND reverses_payment_id = ?
+          ORDER BY id`,
+      )
+      .all(PAY1) as { id: string }[];
+    expect(rows.map((row) => row.id)).toEqual([PAY2, PAY3]);
+    expect(repo.getLocalState('payments', PAY2)?.version).toBe(9);
   });
 
   it('mutable subject projections still update existing real rows', () => {
