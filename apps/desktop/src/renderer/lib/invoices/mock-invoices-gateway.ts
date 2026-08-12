@@ -91,6 +91,39 @@ export class MockInvoicesGateway implements InvoicesGateway {
     return updated;
   }
 
+  async reversePayment(paymentId: string): Promise<void> {
+    for (const [invoiceId, rows] of this.ledger) {
+      const original = rows.find((row) => row.id === paymentId && row.kind === 'payment');
+      if (!original) continue;
+
+      this.paymentSeq += 1;
+      rows.push({
+        id: `mock-pay-${this.paymentSeq}`,
+        invoiceId,
+        kind: 'reversal',
+        amountMad: original.amountMad,
+        method: original.method,
+        paidOn: original.paidOn,
+        reversesPaymentId: original.id,
+        note: null,
+        createdAt: new Date().toISOString(),
+      });
+
+      const invoice = this.invoices.get(invoiceId);
+      if (invoice) {
+        const netPaidMad = invoice.netPaidMad - original.amountMad;
+        this.invoices.set(invoiceId, {
+          ...invoice,
+          netPaidMad,
+          outstandingMad: Math.max(0, invoice.totalMad - netPaidMad),
+          paymentStatus: paymentStatusOf(invoice.totalMad, netPaidMad),
+        });
+      }
+      return;
+    }
+    throw new Error(`unknown payment ${paymentId}`);
+  }
+
   async issue(invoiceId: string): Promise<InvoiceListItemView> {
     const current = this.invoices.get(invoiceId);
     if (!current) throw new Error(`unknown invoice ${invoiceId}`);

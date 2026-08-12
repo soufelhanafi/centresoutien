@@ -1,17 +1,30 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Printer, Download } from 'lucide-react';
+import { Printer, Download, Undo2 } from 'lucide-react';
 import { Badge, Button, Numeric, toast } from '@centresoutien/ui';
 import type { PaymentView } from '../../lib/invoices/payment-view';
 import { formatDate, formatMoneyMad } from '../../lib/format';
 import { usePrintReceipt } from '../../hooks/invoice/use-print-receipt';
 import { useExportReceipt } from '../../hooks/invoice/use-export-receipt';
+import { ReversePaymentDialog } from './reverse-payment-dialog';
 
-/** One ledger row (payment or reversal) with its own print/export receipt actions (SOU-101). */
-export function PaymentHistoryRow({ payment }: { payment: PaymentView }) {
+/**
+ * One ledger row (payment or reversal) with its own print/export receipt actions
+ * (SOU-101). A reversible payment also exposes a reversal action (SOU-237);
+ * `reversible` is decided by the list from the whole ledger.
+ */
+export function PaymentHistoryRow({
+  payment,
+  reversible,
+}: {
+  payment: PaymentView;
+  reversible: boolean;
+}) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'ar' ? 'ar' : 'fr';
   const print = usePrintReceipt();
   const exportPdf = useExportReceipt();
+  const [reverseOpen, setReverseOpen] = useState(false);
 
   const onPrint = async () => {
     try {
@@ -66,7 +79,20 @@ export function PaymentHistoryRow({ payment }: { payment: PaymentView }) {
         >
           <Download className="h-4 w-4" aria-hidden="true" />
         </Button>
+        {reversible && (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t('invoices.detail.payment.history.reverse')}
+            onClick={() => setReverseOpen(true)}
+          >
+            <Undo2 className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        )}
       </div>
+      {reversible && (
+        <ReversePaymentDialog payment={payment} open={reverseOpen} onOpenChange={setReverseOpen} />
+      )}
     </li>
   );
 }
