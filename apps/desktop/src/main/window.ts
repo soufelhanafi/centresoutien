@@ -1,6 +1,6 @@
 import { BrowserWindow, shell } from 'electron';
 import { isAllowedExternalUrl } from './ipc/external-allowlist';
-import { isTrustedRendererUrl, resolveTrustedRendererOrigin } from './security/renderer-origin';
+import { isTrustedRendererUrl, type TrustedRendererOrigin } from './security/renderer-origin';
 
 export type RendererEntry = {
   devUrl: string | undefined;
@@ -13,7 +13,11 @@ export type RendererEntry = {
  * node integration off, sandboxed renderer, external links open in the OS
  * browser rather than in-app.
  */
-export function createMainWindow(preloadPath: string, renderer: RendererEntry): BrowserWindow {
+export function createMainWindow(
+  preloadPath: string,
+  renderer: RendererEntry,
+  trustedOrigin: TrustedRendererOrigin,
+): BrowserWindow {
   const window = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -30,8 +34,6 @@ export function createMainWindow(preloadPath: string, renderer: RendererEntry): 
   // macOS (no Xvfb equivalent there) — Playwright drives it over CDP either
   // way, so hiding it doesn't affect what the e2e suite can assert on.
   if (process.env['CS_E2E_HIDDEN'] !== '1') window.once('ready-to-show', () => window.show());
-
-  const trustedOrigin = resolveTrustedRendererOrigin(renderer.devUrl);
 
   // A popup never opens in-app; only an allowlisted external URL (https + a known
   // host — see external-allowlist) is handed to the OS browser. A `file:`, custom

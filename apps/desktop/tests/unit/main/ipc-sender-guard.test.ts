@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { IpcMainInvokeEvent } from 'electron';
+import type { IpcMainEvent, IpcMainInvokeEvent } from 'electron';
 import {
   createIpcSenderGuard,
+  isTrustedIpcEvent,
   UntrustedIpcSenderError,
 } from '../../../src/main/security/ipc-sender-guard';
 import type { TrustedRendererOrigin } from '../../../src/main/security/renderer-origin';
@@ -41,5 +42,15 @@ describe('createIpcSenderGuard', () => {
 
   it('rejects an event with no sender frame', () => {
     expect(() => guard(eventWithFrame(null))).toThrow(UntrustedIpcSenderError);
+  });
+});
+
+describe('isTrustedIpcEvent', () => {
+  it('screens a send/on event (IpcMainEvent) the same way, without throwing', () => {
+    const trusted = { url: 'http://localhost:5173/', parent: null };
+    const untrusted = { url: 'http://localhost:5173/', parent: {} };
+    expect(isTrustedIpcEvent({ senderFrame: trusted } as unknown as IpcMainEvent, DEV)).toBe(true);
+    expect(isTrustedIpcEvent({ senderFrame: untrusted } as unknown as IpcMainEvent, DEV)).toBe(false);
+    expect(isTrustedIpcEvent({ senderFrame: null } as unknown as IpcMainEvent, DEV)).toBe(false);
   });
 });

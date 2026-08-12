@@ -1,4 +1,4 @@
-import type { IpcMainInvokeEvent } from 'electron';
+import type { IpcMainEvent, IpcMainInvokeEvent } from 'electron';
 import { isTrustedIpcSender, type TrustedRendererOrigin } from './renderer-origin';
 
 /** Thrown when an IPC invocation arrives from a subframe or an unexpected origin. */
@@ -9,20 +9,31 @@ export class UntrustedIpcSenderError extends Error {
   }
 }
 
+/**
+ * True when the invoking frame is the top frame of the renderer's own origin.
+ * Works for both `invoke`/`handle` and `send`/`on` events — both expose
+ * `senderFrame`. Returns a boolean (no throw), so `.on` listeners that must not
+ * crash the main process can screen their sender before acting (SOU-236).
+ */
+export function isTrustedIpcEvent(
+  event: IpcMainInvokeEvent | IpcMainEvent,
+  trusted: TrustedRendererOrigin,
+): boolean {
+  const frame = event.senderFrame;
+  const context = frame ? { url: frame.url, hasParent: frame.parent !== null } : null;
+  return isTrustedIpcSender(context, trusted);
+}
+
 /** Asserts the invoking frame is trusted, throwing {@link UntrustedIpcSenderError} otherwise. */
 export type IpcSenderGuard = (event: IpcMainInvokeEvent) => void;
 
 /**
- * Builds the guard the single IPC registration path (`MainRuntime`) runs before
- * every channel dispatch. It reads the live `senderFrame` — its URL and whether
- * it has a parent — and defers the trust decision to the pure
- * {@link isTrustedIpcSender} predicate, so only the top frame of the renderer's
+ * Builds the guard the single `invoke`/`handle` registration path (`MainRuntime`)
+ * runs before every channel dispatch, so only the top frame of the renderer's
  * own origin may invoke any channel (SOU-236).
  */
 export function createIpcSenderGuard(trusted: TrustedRendererOrigin): IpcSenderGuard {
   return (event) => {
-    const frame = event.senderFrame;
-    const context = frame ? { url: frame.url, hasParent: frame.parent !== null } : null;
-    if (!isTrustedIpcSender(context, trusted)) throw new UntrustedIpcSenderError();
+    if (!isTrustedIpcEvent(event, trusted)) throw new UntrustedIpcSenderError();
   };
 }

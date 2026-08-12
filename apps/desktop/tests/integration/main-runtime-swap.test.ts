@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CenterSwitchError, type CenterCode, type PlanId, type SubjectId } from '@centresoutien/domain';
 import { buildContainer, type Container } from '../../src/main/composition-root';
 import { MainRuntime } from '../../src/main/main-runtime';
+import type { IpcSenderGuard } from '../../src/main/security/ipc-sender-guard';
 import type { IpcChannel, IpcRequest, IpcResponse } from '../../src/shared/ipc/contract';
 
 /**
@@ -269,6 +270,34 @@ describe('MainRuntime swap concurrency (SOU-193)', () => {
     await outstanding;
     await first;
     expect(runtime.currentCentreId).toBe('B');
+  });
+
+  it('runs the sender guard before dispatch and blocks the handler when it rejects (SOU-236)', async () => {
+    const listStudents = vi.fn(() => Promise.resolve([]));
+    const trustedEvent = { tag: 'trusted' };
+    const guard: IpcSenderGuard = vi.fn((event) => {
+      if (event !== trustedEvent) throw new Error('untrusted sender');
+    }) as unknown as IpcSenderGuard;
+
+    const registry = new Map<string, (event: unknown, request: unknown) => unknown>();
+    const ipcMain = {
+      handle(channel: string, listener: (event: unknown, request: unknown) => unknown) {
+        registry.set(channel, listener);
+      },
+    } as Pick<IpcMain, 'handle'>;
+    new MainRuntime(ipcMain, fakeContainer('A', { listStudents }), guard);
+    const listener = registry.get('student.list')!;
+
+    // An untrusted event is rejected by the guard before the handler runs.
+    await expect(Promise.resolve(listener({ tag: 'evil' }, { search: '' }))).rejects.toThrow(
+      'untrusted sender',
+    );
+    expect(guard).toHaveBeenCalledWith({ tag: 'evil' });
+    expect(listStudents).not.toHaveBeenCalled();
+
+    // A trusted event passes the guard and reaches the dispatcher.
+    await expect(Promise.resolve(listener(trustedEvent, { search: '' }))).resolves.toBeDefined();
+    expect(listStudents).toHaveBeenCalledTimes(1);
   });
 
   it('(d) refuses the swap when an in-flight call does not settle within the drain window', async () => {

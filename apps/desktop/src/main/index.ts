@@ -7,8 +7,8 @@ import { buildContainer, type Container } from './composition-root';
 import { MainRuntime } from './main-runtime';
 import { CenterHost } from './center/center-host';
 import { createMainWindow } from './window';
-import { createIpcSenderGuard } from './security/ipc-sender-guard';
-import { resolveTrustedRendererOrigin } from './security/renderer-origin';
+import { createIpcSenderGuard, isTrustedIpcEvent } from './security/ipc-sender-guard';
+import { resolveTrustedRendererOrigin, type TrustedRendererOrigin } from './security/renderer-origin';
 import { initAutoUpdater } from './updater/auto-updater-service';
 import { DATABASE_SCHEMA_AHEAD_MESSAGE, DatabaseSchemaAheadOfAppError } from '../data/sqlite/migration-runner';
 import { centreDbFileName, DatabaseKeyMismatchError, ensureDatabaseKeyed } from '../data/sqlite/db';
@@ -161,13 +161,17 @@ function scheduleRestart(): void {
  * hardened window. The composition root — wiring domain use cases to the SQLite
  * adapters and exposing them as IPC handlers — grows from here.
  */
-function openWindow(locale: string | undefined): void {
+function openWindow(locale: string | undefined, trustedOrigin: TrustedRendererOrigin): void {
   const preload = join(import.meta.dirname, '../preload/index.js');
-  mainWindow = createMainWindow(preload, {
-    devUrl: process.env['ELECTRON_RENDERER_URL'],
-    indexHtml: join(import.meta.dirname, '../renderer/index.html'),
-    ...(locale ? { query: { locale } } : {}),
-  });
+  mainWindow = createMainWindow(
+    preload,
+    {
+      devUrl: process.env['ELECTRON_RENDERER_URL'],
+      indexHtml: join(import.meta.dirname, '../renderer/index.html'),
+      ...(locale ? { query: { locale } } : {}),
+    },
+    trustedOrigin,
+  );
 }
 
 app.whenReady().then(async () => {
@@ -330,13 +334,14 @@ app.whenReady().then(async () => {
     }
 
     const initial = openCenter(bootIntoDemo ? DEMO_CENTRE_ID : realCentreId);
-    // Reject any IPC invocation that is not the top frame of this build's own
-    // renderer origin (dev server or packaged file:) — the single sender/frame
-    // choke point for the whole main process (SOU-236).
-    const senderGuard = createIpcSenderGuard(
-      resolveTrustedRendererOrigin(process.env['ELECTRON_RENDERER_URL']),
-    );
-    runtime = new MainRuntime(ipcMain, initial, senderGuard);
+    // One trusted origin, resolved once and shared by the IPC sender guard, the
+    // window navigation guard, and the updater restart channel, so a single fact
+    // decides "our own renderer" everywhere and the guards can never drift apart
+    // (SOU-236). It is the dev-server origin in dev, the packaged file: origin otherwise.
+    const trustedOrigin = resolveTrustedRendererOrigin(process.env['ELECTRON_RENDERER_URL']);
+    // Reject any invoke/handle call that is not the top frame of that origin — the
+    // single sender/frame choke point for every IPC channel.
+    runtime = new MainRuntime(ipcMain, initial, createIpcSenderGuard(trustedOrigin));
     // The center switcher (SOU-96) is the SECOND trigger of the one MainRuntime
     // hot-swap (the demo toggle is the first): `ipcMain` is wired once by the
     // runtime, and a `center.switch` re-points the live container through the same
@@ -358,16 +363,17 @@ app.whenReady().then(async () => {
     // language tab writes that preference via `preferences.locale.set`, read
     // synchronously here so it survives a restart without waiting on the renderer.
     const locale = process.env['CS_LOCALE'] ?? runtime.readLocalePreference() ?? undefined;
-    openWindow(locale);
+    openWindow(locale, trustedOrigin);
     // SOU-87: auto-update. Self-guards via app.isPackaged (off in dev/e2e).
     // isMacSigned is false until the macOS Developer ID signing ticket ships —
     // macOS runs check-only and never attempts a (failing) unsigned apply.
     disposeAutoUpdater = initAutoUpdater({
       isMacSigned: false,
       getWebContents: () => mainWindow?.webContents ?? null,
+      isTrustedSender: (event) => isTrustedIpcEvent(event, trustedOrigin),
     }).dispose;
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) openWindow(locale);
+      if (BrowserWindow.getAllWindows().length === 0) openWindow(locale, trustedOrigin);
     });
   } catch (error) {
     // A center DB migrated by a newer app build, then reopened after a rollback

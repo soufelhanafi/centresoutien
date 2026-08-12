@@ -1,4 +1,4 @@
-import { app, ipcMain, type WebContents } from 'electron';
+import { app, ipcMain, type IpcMainEvent, type WebContents } from 'electron';
 import electronUpdater from 'electron-updater';
 import {
   resolveUpdaterCapability,
@@ -21,6 +21,8 @@ let initialized = false;
 export type AutoUpdaterDeps = {
   isMacSigned: boolean;
   getWebContents: () => WebContents | null;
+  /** Screens the restart-command sender — only the trusted top frame may trigger a quit/install. */
+  isTrustedSender: (event: IpcMainEvent) => boolean;
 };
 
 // Teardown hook wired into the app `will-quit` handler so the periodic timers
@@ -120,11 +122,12 @@ export function initAutoUpdater(deps: AutoUpdaterDeps): AutoUpdaterHandle {
     updateReady = true;
   });
 
-  // Restart only when an update actually downloaded — an untrusted renderer must
-  // not be able to force a quit/install. Silent install + relaunch so the
-  // assisted (oneClick:false) NSIS installer applies seamlessly, not as a wizard.
-  const restart = (): void => {
-    if (updateReady) {
+  // Restart only when an update actually downloaded AND the command came from the
+  // trusted top frame — a subframe or off-origin sender must not be able to force
+  // a quit/install (SOU-236). Silent install + relaunch so the assisted
+  // (oneClick:false) NSIS installer applies seamlessly, not as a wizard.
+  const restart = (event: IpcMainEvent): void => {
+    if (updateReady && deps.isTrustedSender(event)) {
       autoUpdater.quitAndInstall(true, true);
     }
   };
