@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CenterSwitchError, type CenterCode } from '@centresoutien/domain';
 import { buildContainer, type Container } from '../../src/main/composition-root';
 import { MainRuntime } from '../../src/main/main-runtime';
+import type { IpcSenderGuard } from '../../src/main/security/ipc-sender-guard';
 import { CenterHost } from '../../src/main/center/center-host';
 import { FsCenterDirectory } from '../../src/data/sqlite/center-directory';
 import { createIpcDispatcher } from '../../src/main/ipc/dispatcher';
@@ -104,7 +105,8 @@ function wireSwitcher(emitted: CenterChangedEvent[]): {
   buildFor('B').dispose();
 
   const recorded = recordingIpcMain();
-  const runtime = new MainRuntime(recorded.ipcMain, buildFor('A'));
+  const allowAllSender: IpcSenderGuard = () => {};
+  const runtime = new MainRuntime(recorded.ipcMain, buildFor('A'), allowAllSender);
   holder.runtime = runtime;
   const host = new CenterHost({
     runtime,

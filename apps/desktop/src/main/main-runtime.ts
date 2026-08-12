@@ -1,10 +1,11 @@
-import type { IpcMain } from 'electron';
+import type { IpcMain, IpcMainInvokeEvent } from 'electron';
 import type { Database as DB } from 'better-sqlite3';
 import { CenterSwitchError } from '@centresoutien/domain';
 import { ipcContract } from '../shared/ipc/contract';
 import type { IpcChannel } from '../shared/ipc/contract';
 import { createIpcDispatcher, type IpcDispatcherOptions } from './ipc/dispatcher';
 import { createHandlers } from './ipc/handlers';
+import type { IpcSenderGuard } from './security/ipc-sender-guard';
 import type { Container } from './composition-root';
 
 /** The slice of {@link IpcMain} this runtime uses — only channel registration. */
@@ -54,13 +55,23 @@ export class MainRuntime {
   private inFlight = 0;
   private swapping = false;
 
-  constructor(ipcMain: IpcRegistrar, initial: Container) {
+  /**
+   * `senderGuard` validates the invoking frame before every dispatch — the
+   * single choke point for sender/frame validation (SOU-236). Required, not
+   * optional: making it mandatory means no caller can silently register the IPC
+   * channels without sender validation. Tests that only exercise routing pass an
+   * allow-all guard explicitly.
+   */
+  constructor(ipcMain: IpcRegistrar, initial: Container, senderGuard: IpcSenderGuard) {
     this.current = initial;
     const handlers = createHandlers(initial.handlerDeps);
     this.dispatch = createIpcDispatcher(handlers, gatesFor(initial));
     for (const channel of Object.keys(ipcContract) as IpcChannel[]) {
       if (!(channel in handlers)) continue;
-      ipcMain.handle(channel, (_event, rawRequest: unknown) => this.route(channel, rawRequest));
+      ipcMain.handle(channel, async (event: IpcMainInvokeEvent, rawRequest: unknown) => {
+        senderGuard(event);
+        return this.route(channel, rawRequest);
+      });
     }
   }
 

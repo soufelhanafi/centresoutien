@@ -6,7 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CenterSwitchError, type CenterCode, type PlanId, type SubjectId } from '@centresoutien/domain';
 import { buildContainer, type Container } from '../../src/main/composition-root';
 import { MainRuntime } from '../../src/main/main-runtime';
+import type { IpcSenderGuard } from '../../src/main/security/ipc-sender-guard';
 import type { IpcChannel, IpcRequest, IpcResponse } from '../../src/shared/ipc/contract';
+
+/** These tests exercise routing/hot-swap, not sender validation, so the guard is a no-op. */
+const ALLOW_ALL_SENDER: IpcSenderGuard = () => {};
 
 /**
  * SOU-186 — the demo/center hot-swap seam. `MainRuntime` registers every IPC
@@ -64,7 +68,7 @@ describe('MainRuntime demo/center hot-swap', () => {
   it('reroutes IPC to the swapped center and closes the previous DB handle without a restart', async () => {
     const real = openCenter('C1', 'CS-CASA-001', 'essentiel');
     const { ipcMain, invoke } = recordingIpcMain();
-    const runtime = new MainRuntime(ipcMain, real);
+    const runtime = new MainRuntime(ipcMain, real, ALLOW_ALL_SENDER);
 
     // A subject created in the real center is scoped to its DB + centerCode.
     await invoke('subject.create', { name: { fr: 'Maths', ar: 'الرياضيات' } });
@@ -91,7 +95,7 @@ describe('MainRuntime demo/center hot-swap', () => {
   it('routes a write to the swapped center, isolated from the previous one', async () => {
     const real = openCenter('C1', 'CS-CASA-001', 'premium');
     const { ipcMain, invoke } = recordingIpcMain();
-    const runtime = new MainRuntime(ipcMain, real);
+    const runtime = new MainRuntime(ipcMain, real, ALLOW_ALL_SENDER);
 
     const demo = openCenter('C2', 'CS-DEMO-001', 'premium');
     await runtime.swapTo(() => demo); // disposes the real container
@@ -105,7 +109,7 @@ describe('MainRuntime demo/center hot-swap', () => {
 
     // The real center never received it — reopen its DB fresh and confirm empty.
     const reopened = recordingIpcMain();
-    const runtime2 = new MainRuntime(reopened.ipcMain, openCenter('C1', 'CS-CASA-001', 'premium'));
+    const runtime2 = new MainRuntime(reopened.ipcMain, openCenter("C1", "CS-CASA-001", "premium"), ALLOW_ALL_SENDER);
     expect((await reopened.invoke('subject.list', { scope: 'all' })).subjects).toHaveLength(0);
     runtime2.dispose();
   });
@@ -113,7 +117,7 @@ describe('MainRuntime demo/center hot-swap', () => {
   it('keeps the current center live when the swap fails — no crash', async () => {
     const real = openCenter('C1', 'CS-CASA-001', 'essentiel');
     const { ipcMain, invoke } = recordingIpcMain();
-    const runtime = new MainRuntime(ipcMain, real);
+    const runtime = new MainRuntime(ipcMain, real, ALLOW_ALL_SENDER);
 
     await expect(
       runtime.swapTo(() => {
@@ -188,7 +192,7 @@ function recordingRuntime(initial: Container): {
       registry.set(channel, listener);
     },
   } as Pick<IpcMain, 'handle'>;
-  const runtime = new MainRuntime(ipcMain, initial);
+  const runtime = new MainRuntime(ipcMain, initial, ALLOW_ALL_SENDER);
   return {
     runtime,
     invoke: (channel, request) => {
@@ -269,6 +273,34 @@ describe('MainRuntime swap concurrency (SOU-193)', () => {
     await outstanding;
     await first;
     expect(runtime.currentCentreId).toBe('B');
+  });
+
+  it('runs the sender guard before dispatch and blocks the handler when it rejects (SOU-236)', async () => {
+    const listStudents = vi.fn(() => Promise.resolve([]));
+    const trustedEvent = { tag: 'trusted' };
+    const guard: IpcSenderGuard = vi.fn((event) => {
+      if (event !== trustedEvent) throw new Error('untrusted sender');
+    }) as unknown as IpcSenderGuard;
+
+    const registry = new Map<string, (event: unknown, request: unknown) => unknown>();
+    const ipcMain = {
+      handle(channel: string, listener: (event: unknown, request: unknown) => unknown) {
+        registry.set(channel, listener);
+      },
+    } as Pick<IpcMain, 'handle'>;
+    new MainRuntime(ipcMain, fakeContainer('A', { listStudents }), guard);
+    const listener = registry.get('student.list')!;
+
+    // An untrusted event is rejected by the guard before the handler runs.
+    await expect(Promise.resolve(listener({ tag: 'evil' }, { search: '' }))).rejects.toThrow(
+      'untrusted sender',
+    );
+    expect(guard).toHaveBeenCalledWith({ tag: 'evil' });
+    expect(listStudents).not.toHaveBeenCalled();
+
+    // A trusted event passes the guard and reaches the dispatcher.
+    await expect(Promise.resolve(listener(trustedEvent, { search: '' }))).resolves.toBeDefined();
+    expect(listStudents).toHaveBeenCalledTimes(1);
   });
 
   it('(d) refuses the swap when an in-flight call does not settle within the drain window', async () => {
