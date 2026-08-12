@@ -58,8 +58,9 @@ export type GeneratedScheduleConflict =
 /**
  * Checks every generated block for conflicts a generation run can silently
  * get wrong: a block that overruns the center's closing time on its weekday
- * (the engine only ever anchors a block's `start` at `open`, never validates
- * `end` against `close`), plus a room or teacher double-booked at an overlapping
+ * (the engine anchors a block's `start` at a fitting window's `open` but, when no
+ * single window is long enough, falls back to the first window and never revalidates
+ * `end` against `close` — SOU-218), plus a room or teacher double-booked at an overlapping
  * weekday+time — either against the real, already-committed schedule
  * (`existingSchedule`) or against another group's proposal generated in this
  * same run (random room assignment has no way to know about a sibling

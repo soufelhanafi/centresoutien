@@ -233,6 +233,54 @@ describe('SessionGenerator — custom mode', () => {
   });
 });
 
+describe('SessionGenerator — split-day window placement (SOU-218)', () => {
+  function w(open: string, close: string) {
+    return { open: open as TimeOfDay, close: close as TimeOfDay };
+  }
+
+  function customConfig(pickedWeekdays: readonly WeekdayIndex[], over: Partial<SessionGeneratorConfig> = {}): SessionGeneratorConfig {
+    return { ...autoConfig({ ...over }), mode: 'custom', pickedWeekdays } as SessionGeneratorConfig;
+  }
+
+  it('auto-plans a session in the afternoon window when the morning window is too short', () => {
+    const generator = new SessionGenerator(fakeRandom());
+    const hours = centerHours({
+      [WED]: { dayOfWeek: WED, windows: [w('09:00', '10:00'), w('14:00', '18:00')] },
+    });
+    const config = autoConfig({ weekdayPool: [WED], sessionsPerWeek: 1, minGapDays: 1, sessionDurationMinutes: 90 });
+
+    const { proposals, conflicts } = generator.generate(input(config, [G1], { hours }));
+
+    expect(proposals[0]!.blocks.map((b) => b.block)).toEqual([{ dayOfWeek: WED, start: '14:00', end: '15:30' }]);
+    expect(conflicts).toEqual([]);
+  });
+
+  it('prefers the earliest window that fits on a split day', () => {
+    const generator = new SessionGenerator(fakeRandom());
+    const hours = centerHours({
+      [WED]: { dayOfWeek: WED, windows: [w('09:00', '12:00'), w('14:00', '18:00')] },
+    });
+
+    const { proposals } = generator.generate(input(customConfig([WED], { sessionDurationMinutes: 90 }), [G1], { hours }));
+
+    expect(proposals[0]!.blocks.map((b) => b.block)).toEqual([{ dayOfWeek: WED, start: '09:00', end: '10:30' }]);
+  });
+
+  it('falls back to the first window and reports an hours conflict when no window fits the duration', () => {
+    const generator = new SessionGenerator(fakeRandom());
+    const hours = centerHours({
+      [WED]: { dayOfWeek: WED, windows: [w('09:00', '10:00'), w('14:00', '15:00')] },
+    });
+
+    const { proposals, conflicts } = generator.generate(input(customConfig([WED], { sessionDurationMinutes: 90 }), [G1], { hours }));
+
+    expect(proposals[0]!.blocks.map((b) => b.block)).toEqual([{ dayOfWeek: WED, start: '09:00', end: '10:30' }]);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]!.kind).toBe('hours');
+    expect(conflicts[0]!.groupId).toBe(G1);
+  });
+});
+
 describe('SessionGenerator — room assignment (SOU-158)', () => {
   it('assigns a room from the pool to every generated block', () => {
     const generator = new SessionGenerator(fakeRandom());

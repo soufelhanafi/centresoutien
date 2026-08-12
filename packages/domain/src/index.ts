@@ -24,7 +24,7 @@ export {
 export type { WeekdayIndex } from './value-objects/weekday';
 export { WEEKDAYS, isWeekdayIndex } from './value-objects/weekday';
 export type { WeeklyBlock } from './value-objects/weekly-block';
-export { weeklyBlockFromOpen } from './value-objects/weekly-block';
+export { weeklyBlockFromOpen, weeklyBlockInFittingWindow } from './value-objects/weekly-block';
 export type { DateRange } from './value-objects/date-range';
 export {
   weekdayOf,
