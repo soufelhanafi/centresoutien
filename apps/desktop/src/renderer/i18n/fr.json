@@ -147,7 +147,6 @@
       }
     },
     "advanced": {
-      "lockedBody": "Évolution du chiffre d'affaires, des inscriptions, taux de présence et répartition par matière.",
       "widgets": {
         "revenueTrend": "Évolution du chiffre d'affaires",
         "enrollmentEvolution": "Évolution des inscriptions",

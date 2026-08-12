@@ -28,6 +28,10 @@ export function DashboardAdvancedPanel() {
   const stored = useDashboardWidgetsStore((state) => state.prefs);
   const widgets = resolvePanelWidgets('advanced', stored).filter((widget) => widget.visible);
 
+  if (widgets.length === 0) {
+    return <DashboardWidgetsHidden />;
+  }
+
   if (canViewAdvanced && query.isPending) {
     return (
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2" aria-busy="true">
@@ -39,6 +43,10 @@ export function DashboardAdvancedPanel() {
         ))}
       </div>
     );
+  }
+
+  if (widgets.length === 0) {
+    return <DashboardWidgetsHidden />;
   }
 
   if (canViewAdvanced && query.isError) {
@@ -54,10 +62,6 @@ export function DashboardAdvancedPanel() {
         }
       />
     );
-  }
-
-  if (widgets.length === 0) {
-    return <DashboardWidgetsHidden />;
   }
 
   return (
@@ -82,7 +86,11 @@ export function DashboardAdvancedPanel() {
             onCta={upgradeCta.onCta}
             className={spanClass}
           >
-            <div className="h-52" />
+            <div className="flex h-52 flex-col gap-3 p-4">
+              <p className={SECTION_LABEL}>{t(definition.labelKey)}</p>
+              <Skeleton className="h-24 w-full rounded" />
+              <Skeleton className="h-10 w-3/4 rounded" />
+            </div>
           </LockOverlay>
         );
       })}

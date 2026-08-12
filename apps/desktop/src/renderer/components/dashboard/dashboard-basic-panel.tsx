@@ -16,9 +16,13 @@ export function DashboardBasicPanel() {
   const stored = useDashboardWidgetsStore((state) => state.prefs);
   const widgets = resolvePanelWidgets('basic', stored).filter((widget) => widget.visible);
 
+  if (widgets.length === 0) {
+    return <DashboardWidgetsHidden />;
+  }
+
   if (query.isPending) {
     return (
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3" aria-busy="true">
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-3" aria-busy="true">
         {widgets.map((widget) => (
           <Skeleton
             key={widget.widgetId}
@@ -44,14 +48,10 @@ export function DashboardBasicPanel() {
     );
   }
 
-  if (widgets.length === 0) {
-    return <DashboardWidgetsHidden />;
-  }
-
   const summary = query.data;
 
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-3">
       {widgets.map((widget) => {
         const definition = DASHBOARD_WIDGETS_BY_ID.get(widget.widgetId)!;
         return (

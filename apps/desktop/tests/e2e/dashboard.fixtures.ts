@@ -54,8 +54,6 @@ export const STR: Record<
     subjectBreakdownEmpty: string;
     /** The short "reserved for a higher plan" copy shown on every lock affordance app-wide (`plan.locked`). */
     lockedShort: string;
-    /** The dashboard-specific teaser sentence behind the blur (`dashboard.advanced.lockedBody`). */
-    lockedTeaser: string;
     viewPlans: string;
   }
 > = {
@@ -97,7 +95,6 @@ export const STR: Record<
     },
     subjectBreakdownEmpty: 'Aucun encaissement ce mois-ci.',
     lockedShort: 'Réservé à un plan supérieur',
-    lockedTeaser: "Évolution du chiffre d'affaires, des inscriptions, taux de présence et répartition par matière.",
     viewPlans: 'Voir les plans',
   },
   ar: {
@@ -138,7 +135,6 @@ export const STR: Record<
     },
     subjectBreakdownEmpty: 'لا توجد مداخيل محصلة هذا الشهر.',
     lockedShort: 'غير متاح في خطتك',
-    lockedTeaser: 'تطور رقم المعاملات والتسجيلات، نسبة الحضور والتوزيع حسب المادة.',
     viewPlans: 'عرض الخطط',
   },
 };
