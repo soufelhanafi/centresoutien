@@ -16,23 +16,23 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "mentions_legales" });
+  const t = await getTranslations({ locale, namespace: "a_propos" });
   return {
     metadataBase: new URL(SITE_URL),
     title: t("meta_title"),
     description: t("meta_description"),
     alternates: {
-      canonical: `${SITE_URL}/${locale}/mentions-legales`,
+      canonical: `${SITE_URL}/${locale}/a-propos`,
       languages: {
-        "fr-MA": `${SITE_URL}/fr/mentions-legales`,
-        "ar-MA": `${SITE_URL}/ar/mentions-legales`,
-        "x-default": `${SITE_URL}/fr/mentions-legales`,
+        "fr-MA": `${SITE_URL}/fr/a-propos`,
+        "ar-MA": `${SITE_URL}/ar/a-propos`,
+        "x-default": `${SITE_URL}/fr/a-propos`,
       },
     },
     openGraph: {
       type: "website",
       locale: locale === "ar" ? "ar_MA" : "fr_MA",
-      url: `${SITE_URL}/${locale}/mentions-legales`,
+      url: `${SITE_URL}/${locale}/a-propos`,
       siteName: "Centre Soutien",
       title: t("meta_title"),
       description: t("meta_description"),
@@ -49,9 +49,9 @@ export async function generateMetadata({
   };
 }
 
-const SECTIONS = ["editor", "host", "ip", "contact"] as const;
+const SECTIONS = ["mission", "product", "values", "contact"] as const;
 
-export default async function MentionsLegalesPage({
+export default async function AProposPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
@@ -63,8 +63,8 @@ export default async function MentionsLegalesPage({
   return (
     <StaticArticle
       locale={locale}
-      namespace="mentions_legales"
-      path="/mentions-legales"
+      namespace="a_propos"
+      path="/a-propos"
       sections={SECTIONS}
     />
   );

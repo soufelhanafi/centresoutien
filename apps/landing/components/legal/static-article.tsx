@@ -3,22 +3,22 @@ import type { Locale } from "@/i18n/routing";
 import { JsonLd } from "@/components/seo/json-ld";
 import { getBreadcrumbSchema } from "@/lib/structured-data";
 
-type LegalArticleProps = {
+type StaticArticleProps = {
   locale: Locale;
   namespace: string;
   path: string;
   sections: ReadonlyArray<string>;
 };
 
-// Shared shell for the static legal pages (mentions légales, CGV, loi 09-08).
-// The locale-aware breadcrumb mirrors /confidentialite; each page only supplies
+// Shared shell for the static interior pages (legal pages + about). The
+// locale-aware breadcrumb mirrors /confidentialite; each page only supplies
 // its message namespace, route path, and section keys.
-export async function LegalArticle({
+export async function StaticArticle({
   locale,
   namespace,
   path,
   sections,
-}: LegalArticleProps) {
+}: StaticArticleProps) {
   const t = await getTranslations({ locale, namespace });
 
   return (
@@ -33,7 +33,9 @@ export async function LegalArticle({
       <h1 className="text-4xl font-extrabold tracking-tight text-foreground">
         {t("heading")}
       </h1>
-      <p className="mt-2 text-sm text-muted-foreground">{t("updated")}</p>
+      {t.has("updated") && (
+        <p className="mt-2 text-sm text-muted-foreground">{t("updated")}</p>
+      )}
       <p className="mt-6 text-lg leading-relaxed text-slate-600">{t("intro")}</p>
       <div className="mt-10 flex flex-col gap-8">
         {sections.map((key) => (

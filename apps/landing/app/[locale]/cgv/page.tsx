@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { routing } from "@/i18n/routing";
-import { LegalArticle } from "@/components/legal/legal-article";
+import { StaticArticle } from "@/components/legal/static-article";
 import { SITE_URL } from "@/lib/structured-data";
 
 export function generateStaticParams() {
@@ -61,7 +61,7 @@ export default async function CgvPage({
     notFound();
   }
   return (
-    <LegalArticle
+    <StaticArticle
       locale={locale}
       namespace="cgv"
       path="/cgv"

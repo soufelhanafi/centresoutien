@@ -6,6 +6,7 @@ import { SITE_URL } from "@/lib/structured-data";
 const ROUTES = [
   { path: "", changeFrequency: "weekly" as const, priority: 1 },
   { path: "/confidentialite", changeFrequency: "yearly" as const, priority: 0.3 },
+  { path: "/a-propos", changeFrequency: "yearly" as const, priority: 0.3 },
   { path: "/mentions-legales", changeFrequency: "yearly" as const, priority: 0.3 },
   { path: "/cgv", changeFrequency: "yearly" as const, priority: 0.3 },
   { path: "/loi-09-08", changeFrequency: "yearly" as const, priority: 0.3 },

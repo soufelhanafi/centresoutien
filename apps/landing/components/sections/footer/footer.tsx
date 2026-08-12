@@ -55,7 +55,7 @@ const LINK_COLUMNS = [
   {
     key: "company",
     links: [
-      { key: "about", href: "#" }, // TODO: real route (SOU-202)
+      { key: "about", href: "/a-propos" },
       { key: "contact", href: "#contact" },
       { key: "founder", href: "#programme-fondateur" },
     ],
