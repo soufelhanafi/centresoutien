@@ -133,7 +133,7 @@ test('S5 — new center setup starts a trial and opens the app without a license
   await expect(win.getByText(L.wizardTitle, { exact: true })).toBeVisible();
   await expect(gateTitle(win, L)).toHaveCount(0);
 
-  await win.getByRole('radio').first().check();
+  await win.getByRole('radio').nth(locale() === 'ar' ? 1 : 0).check();
   await win.getByRole('button', { name: L.wizardNext }).click();
   await expect(win.getByText(L.wizardCenterTitle, { exact: true })).toBeVisible();
   await win.getByLabel(L.wizardCenterName, { exact: true }).fill(L.appMarker);
