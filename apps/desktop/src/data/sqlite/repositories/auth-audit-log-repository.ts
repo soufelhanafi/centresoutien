@@ -1,16 +1,14 @@
 import type { Database as DB } from 'better-sqlite3';
 import type { AuthAuditEvent, AuthAuditLogRepository } from '@centresoutien/domain';
 
-/**
- * Append an audit row. Exported so the atomic reset unit-of-work (SOU-169)
- * records its events through the same statement — one source of truth.
- */
+// Append an audit row. Exported so the atomic reset unit-of-work (SOU-169)
+// records its events through the same statement — one source of truth.
 export const AUTH_AUDIT_LOG_INSERT_SQL = `
   INSERT INTO auth_audit_log (id, event_type, username, created_at, metadata)
   VALUES (@id, @event_type, @username, @created_at, @metadata)
 `;
 
-/** Bind params for {@link AUTH_AUDIT_LOG_INSERT_SQL}. */
+// Bind params for AUTH_AUDIT_LOG_INSERT_SQL.
 export function authAuditEventToParams(event: AuthAuditEvent) {
   return {
     id: event.id as string,

@@ -22,11 +22,9 @@ function fromRow(row: AdminAccountRow): AdminAccount {
   };
 }
 
-/**
- * Upsert for the admin account. Exported so the atomic reset unit-of-work
- * (SOU-169) writes the password change through the same statement — one source
- * of truth for the `admin_accounts` write. `created_at` is never rewritten.
- */
+// Upsert for the admin account. Exported so the atomic reset unit-of-work
+// (SOU-169) writes the password change through the same statement — one source
+// of truth for the `admin_accounts` write. `created_at` is never rewritten.
 export const ADMIN_ACCOUNT_SAVE_SQL = `
   INSERT INTO admin_accounts
     (id, username, username_normalized, password_hash, created_at, updated_at)
@@ -39,7 +37,7 @@ export const ADMIN_ACCOUNT_SAVE_SQL = `
     updated_at          = excluded.updated_at
 `;
 
-/** Bind params for {@link ADMIN_ACCOUNT_SAVE_SQL}. Recomputes `username_normalized`. */
+// Bind params for ADMIN_ACCOUNT_SAVE_SQL. Recomputes `username_normalized`.
 export function adminAccountToSaveParams(account: AdminAccount) {
   return {
     id: account.id,

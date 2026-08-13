@@ -7,7 +7,6 @@ import { InMemoryAdminAccountRepository } from '../fakes/in-memory-admin-account
 import { InMemoryLoginThrottleStore } from '../fakes/in-memory-login-throttle-store';
 import { InMemoryDeviceSessionStore } from '../fakes/in-memory-device-session-store';
 import { InMemoryRecoveryCodeResetUnitOfWork } from '../fakes/in-memory-recovery-code-reset-unit-of-work';
-import { DeviceSessionService } from '../../../src/services/device-session-service';
 import type { DeviceSessionId } from '../../../src/entities/device-session';
 import { LoginThrottlePolicy } from '../../../src/policies/login-throttle-policy';
 import { fakeHasher } from '../fakes/hasher';
@@ -64,7 +63,6 @@ describe('ResetPasswordWithRecoveryCode', () => {
       accounts,
       resetUnitOfWork,
       hasher,
-      new DeviceSessionService(deviceSessionStore, clock, fakeIds()),
       clock,
       fakeIds(),
     );
@@ -201,7 +199,6 @@ describe('ResetPasswordWithRecoveryCode', () => {
       accounts,
       new InMemoryRecoveryCodeResetUnitOfWork(accounts, codes, auditLog, deviceSessionStore),
       hasher,
-      new DeviceSessionService(deviceSessionStore, clock, fakeIds()),
       clock,
       fakeIds(),
     );
@@ -258,7 +255,6 @@ describe('ResetPasswordWithRecoveryCode', () => {
       accounts,
       failingUnitOfWork,
       hasher,
-      new DeviceSessionService(deviceSessionStore, clock, fakeIds()),
       clock,
       fakeIds(),
     );
@@ -304,7 +300,6 @@ describe('ResetPasswordWithRecoveryCode', () => {
       accounts,
       new InMemoryRecoveryCodeResetUnitOfWork(accounts, codes, auditLog, deviceSessionStore),
       hasher,
-      new DeviceSessionService(deviceSessionStore, clock, fakeIds()),
       clock,
       fakeIds(),
     );

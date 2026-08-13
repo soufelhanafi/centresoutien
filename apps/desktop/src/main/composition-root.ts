@@ -1169,7 +1169,6 @@ export function buildContainer(options: ContainerOptions): Container {
     adminRepo,
     recoveryCodeResetUnitOfWork,
     hasher,
-    deviceSessions,
     clock,
     ids,
   );

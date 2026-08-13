@@ -3,9 +3,8 @@ import type { RecoveryCodeResetUnitOfWork } from '../ports/recovery-code-reset-u
 import type { PasswordHasher } from '../ports/password-hasher';
 import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
-import type { DeviceSessionService } from '../services/device-session-service';
 import { resetPasswordWithRecoveryCodeSchema } from '../schemas/recovery-code';
-import { AdminAccountNotFoundError } from '../errors/auth-errors';
+import { AdminAccountNotFoundError, InvalidRecoveryCodeError } from '../errors/auth-errors';
 import {
   AUTH_AUDIT_EVENT_ID_PREFIX,
   type AuthAuditEvent,
@@ -30,7 +29,6 @@ export class ResetPasswordWithRecoveryCode {
     private readonly accounts: AdminAccountRepository,
     private readonly resetUnitOfWork: RecoveryCodeResetUnitOfWork,
     private readonly hasher: PasswordHasher,
-    private readonly deviceSessions: DeviceSessionService,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
   ) {}
@@ -53,22 +51,20 @@ export class ResetPasswordWithRecoveryCode {
     account.passwordHash = await this.hasher.hash(newPassword);
     account.updatedAt = now;
 
-    const clearDeviceSession = await this.deviceSessions.isRemembered();
-
-    const auditEvents: AuthAuditEvent[] = [
-      this.auditEvent('recovery-code-consumed', username, now),
-      this.auditEvent('password-reset-via-recovery-code', username, now),
-    ];
-    if (clearDeviceSession) {
-      auditEvents.push(this.auditEvent('device-session-invalidated-after-reset', username, now));
-    }
-
     await this.resetUnitOfWork.commit({
       account,
       consumedCodeId: result.codeId,
       consumedAt: now,
-      auditEvents,
-      clearDeviceSession,
+      auditEvents: [
+        this.auditEvent('recovery-code-consumed', username, now),
+        this.auditEvent('password-reset-via-recovery-code', username, now),
+      ],
+      deviceSessionInvalidatedEvent: this.auditEvent(
+        'device-session-invalidated-after-reset',
+        username,
+        now,
+      ),
+      onCodeAlreadyConsumed: () => new InvalidRecoveryCodeError(),
     });
 
     return { outcome: 'success' };

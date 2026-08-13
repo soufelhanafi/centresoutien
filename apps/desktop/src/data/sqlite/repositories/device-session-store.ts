@@ -1,13 +1,18 @@
 import type { Database as DB } from 'better-sqlite3';
 import type { DeviceSession, DeviceSessionId, DeviceSessionStore } from '@centresoutien/domain';
 
-/**
- * Null the singleton session row (no hard delete). Exported so the atomic reset
- * unit-of-work (SOU-169) clears the session through the same statement — one
- * source of truth.
- */
+// Null the singleton session row (no hard delete). Exported so the atomic reset
+// unit-of-work (SOU-169) clears the session through the same statement — one
+// source of truth.
 export const DEVICE_SESSION_CLEAR_SQL = `
   UPDATE device_sessions SET session_id = NULL, created_at = NULL, expires_at = NULL WHERE id = 1
+`;
+
+// Whether a live remembered session exists. Exported so the atomic reset
+// unit-of-work (SOU-169) decides the clear + its invalidation audit event from
+// the live row INSIDE the transaction, never from a stale pre-read.
+export const DEVICE_SESSION_EXISTS_SQL = `
+  SELECT 1 FROM device_sessions WHERE id = 1 AND session_id IS NOT NULL
 `;
 
 /** The singleton `device_sessions` row shape as SQLite returns it. */

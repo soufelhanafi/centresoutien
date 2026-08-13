@@ -48,17 +48,6 @@ export class DeviceSessionService {
   }
 
   /**
-   * Whether a remembered session currently exists, WITHOUT clearing it — unlike
-   * {@link forget}. Lets a caller decide, before an atomic reset commits, whether
-   * to record a session-invalidation audit event while the clear itself runs
-   * inside that transaction (SOU-169). Ignores expiry: an expired-but-present
-   * session is still cleared by the reset.
-   */
-  async isRemembered(): Promise<boolean> {
-    return (await this.sessions.getCurrent()) !== null;
-  }
-
-  /**
    * Whether the device is still authenticated on reopen. An expired session is
    * cleared as a side effect so stale rows never accumulate.
    */
