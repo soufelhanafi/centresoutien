@@ -6,7 +6,7 @@ import { InMemoryAuthAuditLogRepository } from '../fakes/in-memory-auth-audit-lo
 import { InMemoryAdminAccountRepository } from '../fakes/in-memory-admin-account-repository';
 import { InMemoryLoginThrottleStore } from '../fakes/in-memory-login-throttle-store';
 import { InMemoryDeviceSessionStore } from '../fakes/in-memory-device-session-store';
-import { DeviceSessionService } from '../../../src/services/device-session-service';
+import { InMemoryRecoveryCodeResetUnitOfWork } from '../fakes/in-memory-recovery-code-reset-unit-of-work';
 import type { DeviceSessionId } from '../../../src/entities/device-session';
 import { LoginThrottlePolicy } from '../../../src/policies/login-throttle-policy';
 import { fakeHasher } from '../fakes/hasher';
@@ -52,13 +52,17 @@ describe('ResetPasswordWithRecoveryCode', () => {
       clock,
       fakeIds(),
     );
-    useCase = new ResetPasswordWithRecoveryCode(
-      verify,
+    const resetUnitOfWork = new InMemoryRecoveryCodeResetUnitOfWork(
       accounts,
       codes,
       auditLog,
+      deviceSessionStore,
+    );
+    useCase = new ResetPasswordWithRecoveryCode(
+      verify,
+      accounts,
+      resetUnitOfWork,
       hasher,
-      new DeviceSessionService(deviceSessionStore, clock, fakeIds()),
       clock,
       fakeIds(),
     );
@@ -193,10 +197,8 @@ describe('ResetPasswordWithRecoveryCode', () => {
     useCase = new ResetPasswordWithRecoveryCode(
       verify,
       accounts,
-      codes,
-      auditLog,
+      new InMemoryRecoveryCodeResetUnitOfWork(accounts, codes, auditLog, deviceSessionStore),
       hasher,
-      new DeviceSessionService(deviceSessionStore, clock, fakeIds()),
       clock,
       fakeIds(),
     );
@@ -224,6 +226,94 @@ describe('ResetPasswordWithRecoveryCode', () => {
 
     const remaining = await codes.countUnconsumed();
     expect(remaining).toBe(1);
+  });
+
+  it('rolls the whole reset back when the atomic commit fails (no partial state)', async () => {
+    await deviceSessionStore.save({
+      id: 'ses_1' as DeviceSessionId,
+      createdAt: clock.now().getTime(),
+      expiresAt: clock.now().getTime() + 1_000_000,
+    });
+
+    const failingUnitOfWork = new InMemoryRecoveryCodeResetUnitOfWork(
+      accounts,
+      codes,
+      auditLog,
+      deviceSessionStore,
+      true,
+    );
+    const failingUseCase = new ResetPasswordWithRecoveryCode(
+      new VerifyRecoveryCode(
+        codes,
+        auditLog,
+        hasher,
+        new InMemoryLoginThrottleStore(),
+        new LoginThrottlePolicy(),
+        clock,
+        fakeIds(),
+      ),
+      accounts,
+      failingUnitOfWork,
+      hasher,
+      clock,
+      fakeIds(),
+    );
+
+    await expect(
+      failingUseCase.execute({
+        recoveryCode: validCode(),
+        newPassword: 'NewPass1',
+        username: 'admin',
+      }),
+    ).rejects.toThrow();
+
+    const account = await accounts.findOnly();
+    expect(await hasher.verify(account!.passwordHash, 'oldPass1')).toBe(true);
+    expect(await hasher.verify(account!.passwordHash, 'NewPass1')).toBe(false);
+    expect(await codes.countUnconsumed()).toBe(1);
+
+    const events = auditLog.list();
+    expect(events.some((e) => e.eventType === 'recovery-code-consumed')).toBe(false);
+    expect(events.some((e) => e.eventType === 'password-reset-via-recovery-code')).toBe(false);
+    expect(events.some((e) => e.eventType === 'device-session-invalidated-after-reset')).toBe(false);
+
+    expect(await deviceSessionStore.getCurrent()).not.toBeNull();
+    expect(deviceSessionStore.clearCount).toBe(0);
+  });
+
+  it('returns locked-out without consuming the code or committing when the console is locked', async () => {
+    const lockedThrottle = new InMemoryLoginThrottleStore();
+    await lockedThrottle.save({
+      failedAttempts: 6,
+      lockedUntil: clock.now().getTime() + 1_000_000,
+    });
+    const lockedUseCase = new ResetPasswordWithRecoveryCode(
+      new VerifyRecoveryCode(
+        codes,
+        auditLog,
+        hasher,
+        lockedThrottle,
+        new LoginThrottlePolicy(),
+        clock,
+        fakeIds(),
+      ),
+      accounts,
+      new InMemoryRecoveryCodeResetUnitOfWork(accounts, codes, auditLog, deviceSessionStore),
+      hasher,
+      clock,
+      fakeIds(),
+    );
+
+    const result = await lockedUseCase.execute({
+      recoveryCode: validCode(),
+      newPassword: 'NewPass1',
+      username: 'admin',
+    });
+
+    expect(result.outcome).toBe('locked-out');
+    expect(await codes.countUnconsumed()).toBe(1);
+    const account = await accounts.findOnly();
+    expect(await hasher.verify(account!.passwordHash, 'oldPass1')).toBe(true);
   });
 
   it('throws on weak password', async () => {

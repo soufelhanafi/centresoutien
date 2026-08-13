@@ -24,10 +24,20 @@ const SAVE_MANY_SQL = `
   VALUES (@id, @code_hash, @consumed, @created_at)
 `;
 
+// Mark a code spent by id.
 const CONSUME_SQL = `
   UPDATE recovery_codes
   SET consumed = 1, consumed_at = @consumed_at
   WHERE id = @id
+`;
+
+// Mark a code spent only while it is still unconsumed. Exported so the atomic
+// reset unit-of-work (SOU-169) consumes the code guarded against a racing reset:
+// `changes === 0` means another reset spent it between verification and commit.
+export const RECOVERY_CODE_CONSUME_IF_UNCONSUMED_SQL = `
+  UPDATE recovery_codes
+  SET consumed = 1, consumed_at = @consumed_at
+  WHERE id = @id AND consumed = 0
 `;
 
 export class SqliteRecoveryCodeRepository implements RecoveryCodeRepository {

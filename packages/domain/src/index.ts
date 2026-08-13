@@ -617,6 +617,12 @@ export type {
   PaymentReversalGuard,
   PayableInvoiceGuard,
 } from './ports/payment-ledger-unit-of-work';
+// Recovery-code reset atomic commit seam (SOU-169) — password write, code
+// consume, audit rows, and device-session clear commit as one all-or-nothing unit.
+export type {
+  RecoveryCodeResetUnitOfWork,
+  RecoveryCodeResetUnit,
+} from './ports/recovery-code-reset-unit-of-work';
 // Recent-payments cash-desk feed (SOU-198) — cross-invoice read model served by the
 // same SQLite adapter that owns `payments`, mirroring OverdueInvoiceViewReadPort.
 export type { RecentPaymentsReadPort } from './ports/recent-payments-read-port';
