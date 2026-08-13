@@ -63,13 +63,20 @@ jobs:
         run: |
           VERSION=$(node -p "require('./apps/desktop/package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-      - name: Create draft release (publish only)
+      - name: Create or re-draft release (publish only)
         if: inputs.publish
         env:
           GH_TOKEN: ${{ secrets.CS_RELEASES_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          if ! gh release view "v$VERSION" --repo soufelhanafi/centresoutien-releases >/dev/null 2>&1; then
+          if gh release view "v$VERSION" --repo soufelhanafi/centresoutien-releases >/dev/null 2>&1; then
+            # Re-publishing the same version (e.g. a `gh run rerun` after finalize):
+            # electron-builder configured for draft skips uploads against a published
+            # release, so flip it back to draft first — finalize-release re-publishes.
+            if [ "$(gh release view "v$VERSION" --repo soufelhanafi/centresoutien-releases --json isDraft --jq .isDraft)" = "false" ]; then
+              gh release edit "v$VERSION" --draft=true --repo soufelhanafi/centresoutien-releases
+            fi
+          else
             gh release create "v$VERSION" --draft --repo soufelhanafi/centresoutien-releases
           fi
 
