@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import { _electron as electron, expect, type ElectronApplication, type Page } from '@playwright/test';
 
 /**
  * Black-box fixtures for SOU-105 — "Consolidated multi-center dashboard"
@@ -121,7 +121,7 @@ export function activePlan(win: Page): Promise<string> {
 /** Navigate to the dashboard through the sidebar and select the Consolidé tab. */
 export async function gotoConsolidatedTab(win: Page, L: (typeof STR)[Locale]): Promise<void> {
   await win.getByRole('link', { name: L.navDashboard, exact: true }).click();
-  await win.waitForTimeout(300);
-  await win.getByRole('tab', { name: L.tabConsolidated }).click();
-  await win.waitForTimeout(300);
+  const tab = win.getByRole('tab', { name: L.tabConsolidated });
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
 }
