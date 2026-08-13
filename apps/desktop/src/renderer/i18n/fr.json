@@ -2148,7 +2148,8 @@
   },
   "payments": {
     "title": "Caisse",
-    "subtitle": "Encaissez les paiements du jour, enregistrez un règlement et suivez les derniers encaissements.",
+    "subtitle": "Enregistrez un règlement et suivez les derniers encaissements.",
+    "tabsLabel": "Sections de la caisse",
     "retry": "Réessayer",
     "unknownStudent": "Élève inconnu",
     "takings": {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, ReceiptText } from 'lucide-react';
 import { Button, EmptyState, ErrorState, Input, Skeleton } from '@centresoutien/ui';
@@ -8,16 +8,23 @@ import { OpenInvoiceRow } from './open-invoice-row';
 
 const SEARCH_DEBOUNCE_MS = 200;
 
+type OpenInvoicePickerProps = {
+  search: string;
+  onSearchChange: (search: string) => void;
+};
+
 /**
  * Picks an open invoice (outstanding balance, not cancelled) to record a payment
  * against. Sources its rows from the bounded server-side `openOnly` read —
  * name-searched and keyset-paginated (SOU-200) — so the renderer never loads or
  * filters the whole invoice list. Each row's student name is resolved server-side
  * on the read row, so no full-student-list fetch is needed.
+ *
+ * `search` is owned by the parent page, not this component, so the term survives
+ * the tab remount when the user switches to the feed and back (SOU-222).
  */
-export function OpenInvoicePicker() {
+export function OpenInvoicePicker({ search, onSearchChange }: OpenInvoicePickerProps) {
   const { t } = useTranslation();
-  const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search.trim(), SEARCH_DEBOUNCE_MS);
 
   const invoicesQuery = useOpenInvoices(debouncedSearch);
@@ -46,7 +53,7 @@ export function OpenInvoicePicker() {
         <Input
           type="search"
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => onSearchChange(event.target.value)}
           placeholder={t('payments.record.search')}
           aria-label={t('payments.record.searchLabel')}
           className="ps-9"
