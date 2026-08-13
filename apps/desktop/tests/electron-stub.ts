@@ -62,6 +62,9 @@ export const BrowserWindow = class {
   static getAllWindows(): unknown[] {
     return [];
   }
+  static getFocusedWindow(): unknown {
+    return null;
+  }
   static fromWebContents(): unknown {
     return null;
   }
