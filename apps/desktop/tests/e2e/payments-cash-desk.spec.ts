@@ -5,8 +5,10 @@ import {
   seedInvoice,
   recordFullPayment,
   gotoPayments,
+  gotoFeedTab,
+  recordTab,
+  feedTab,
   recordViaPicker,
-  takingsBlockText,
   seedPayment,
   latestPaymentId,
   voidPayment,
@@ -20,13 +22,20 @@ import {
 } from './payments-cash-desk.fixtures';
 
 /**
- * SOU-198 — /payments cash-desk page. Black-box, through the running packaged
- * app only. Every spec runs under both the `fr` (LTR) and `ar` (RTL) projects.
+ * SOU-198 / SOU-222 — /payments cash-desk page. Black-box, through the running
+ * packaged app only. Every spec runs under both the `fr` (LTR) and `ar` (RTL)
+ * projects.
+ *
+ * The page is a tabbed workspace (SOU-222): a record-payment tab (default) with
+ * the open-invoice picker, and a recent-payments feed tab. Radix `TabsContent`
+ * unmounts the inactive panel, so feed content is asserted only after switching
+ * to the feed tab. The "Recette du jour" day-takings summary moved off this page
+ * to the Dashboard (SOU-223); its coverage lives with the dashboard, not here.
  *
  * Critical scenarios only (money + data-loss + hard invariants): real page
- * render, empty states, record-from-picker + live refresh, fully-paid excluded
- * from the picker, reversal nets down + is marked, append-only feed, and
- * today-only takings with per-locale MAD formatting.
+ * render, empty states, record-from-picker + live feed refresh, fully-paid
+ * excluded from the picker, reversal appended + marked, append-only feed, and a
+ * cross-invoice feed spanning dates.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -46,17 +55,18 @@ async function bootAtPayments(): Promise<{ win: Launched['win']; L: CashStrings 
 }
 
 // ---------------------------------------------------------------------------
-// Scenario 1 — /payments renders a real cash-desk page (three sections), never
-// a generic "coming soon" module placeholder, and never crashes.
+// Scenario 1 — /payments renders a real tabbed cash-desk page (record + feed
+// tabs), never a generic "coming soon" module placeholder, and never crashes.
 // ---------------------------------------------------------------------------
-test('Scenario 1 — /payments renders the real three-section cash-desk page', async () => {
+test('Scenario 1 — /payments renders the real tabbed cash-desk page', async () => {
   const { win, L } = await bootAtPayments();
 
   expect(await pageCrashed(win)).toBe(false);
   await expect(win.getByRole('heading', { name: L.title, exact: true })).toBeVisible();
-  await expect(win.getByText(L.takings.title).first()).toBeVisible();
-  await expect(win.getByText(L.record.title).first()).toBeVisible();
-  await expect(win.getByText(L.feed.title).first()).toBeVisible();
+
+  await expect(recordTab(win, L)).toBeVisible();
+  await expect(feedTab(win, L)).toBeVisible();
+  await expect(recordTab(win, L)).toHaveAttribute('aria-selected', 'true');
 
   const body = await win.evaluate(() => document.body.innerText);
   expect(body, 'no generic module placeholder copy').not.toMatch(/coming soon|bientôt disponible|قريبًا/i);
@@ -67,27 +77,29 @@ test('Scenario 1 — /payments renders the real three-section cash-desk page', a
 
 // ---------------------------------------------------------------------------
 // Scenario 2 — Empty states: a fresh center with no payments and no invoices
-// shows a proper empty state for the feed and an empty picker state — not a
-// crash, not a spinner-forever.
+// shows a proper empty state for the picker (record tab) and for the feed (feed
+// tab) — not a crash, not a spinner-forever.
 // ---------------------------------------------------------------------------
 test('Scenario 2 — empty states for feed and open-invoice picker', async () => {
   const { win, L } = await bootAtPayments();
 
   expect(await pageCrashed(win)).toBe(false);
-  await expect(win.getByText(L.feed.emptyTitle)).toBeVisible();
-  await expect(win.getByText(L.record.emptyTitle)).toBeVisible();
 
-  // No perpetual spinner: the takings section is present and settled.
-  await expect(win.getByText(L.takings.title).first()).toBeVisible();
+  // Record tab (default): empty open-invoice picker, nothing to collect.
+  await expect(win.getByText(L.record.emptyTitle)).toBeVisible();
   await expect(win.getByRole('button', { name: L.record.action, exact: true })).toHaveCount(0);
+
+  // Feed tab: a settled empty state, not a perpetual spinner.
+  await gotoFeedTab(win, L);
+  await expect(win.getByText(L.feed.emptyTitle)).toBeVisible();
   await win.screenshot({ path: `test-results/payments-empty-${locale()}.png`, fullPage: true });
 });
 
 // ---------------------------------------------------------------------------
 // Scenario 3 — Record a payment from the picker against an open invoice. The
-// feed and today's takings must refresh WITHOUT a manual reload.
+// feed must reflect it WITHOUT a manual window reload.
 // ---------------------------------------------------------------------------
-test('Scenario 3 — record from picker refreshes takings + feed live (no reload)', async () => {
+test('Scenario 3 — record from picker refreshes the feed live (no reload)', async () => {
   live = await boot(locale(), 'premium');
   const win = live.win;
   const L = strings();
@@ -95,21 +107,17 @@ test('Scenario 3 — record from picker refreshes takings + feed live (no reload
   const seeded = await seedInvoice(win, { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', month: currentMonth(), priceMad: 200, issue: true });
   await gotoPayments(win, L);
 
-  // Before: the feed is empty and the invoice is offered in the picker.
-  await expect(win.getByText(L.feed.emptyTitle)).toBeVisible();
+  // Record tab (default): the open invoice is offered in the picker.
   await expect(win.getByRole('button', { name: L.record.action, exact: true })).toHaveCount(1);
 
   await recordViaPicker(win, L, { studentName: nameFor(locale(), seeded), amountMad: '200' });
   await expect(win.getByText(L.dialog.success)).toBeVisible();
 
-  // After: no reload — the feed shows the payment and the empty state is gone.
+  // Feed tab now lists the payment — no window reload, the feed query refetched.
+  await gotoFeedTab(win, L);
   await expect(win.getByText(L.feed.emptyTitle)).toHaveCount(0);
   await expect(win.getByText(nameFor(locale(), seeded)).first()).toBeVisible();
   await expect(win.getByText(L.methods.cash).first()).toBeVisible();
-
-  const takingsText = await takingsBlockText(win, L);
-  expect(takingsText, 'takings block shows MAD after recording').toContain(L.currency);
-  if (locale() === 'fr') expect(takingsText).toMatch(/200/);
   await win.screenshot({ path: `test-results/payments-record-refresh-${locale()}.png`, fullPage: true });
 });
 
@@ -126,11 +134,12 @@ test('Scenario 4 — fully-paid invoice excluded from picker, still in the feed'
   await recordFullPayment(win, seeded.invoiceId, 200);
   await gotoPayments(win, L);
 
-  // Picker has nothing to collect — the only invoice is fully paid.
+  // Record tab: nothing to collect — the only invoice is fully paid.
   await expect(win.getByText(L.record.emptyTitle)).toBeVisible();
   await expect(win.getByRole('button', { name: L.record.action, exact: true })).toHaveCount(0);
 
-  // The feed still lists that invoice's payment (feed spans ALL invoices).
+  // Feed tab still lists that invoice's payment (feed spans ALL invoices).
+  await gotoFeedTab(win, L);
   await expect(win.getByText(nameFor(locale(), seeded)).first()).toBeVisible();
   await expect(win.getByText(L.methods.cash).first()).toBeVisible();
   await expect(win.getByText(L.feed.reversal)).toHaveCount(0);
@@ -138,11 +147,11 @@ test('Scenario 4 — fully-paid invoice excluded from picker, still in the feed'
 });
 
 // ---------------------------------------------------------------------------
-// Scenario 5 — A reversal reduces the netted takings total and is visually
-// marked "Annulation" in the feed. Append-only: the void appends a reversal,
-// it never mutates the original payment.
+// Scenario 5 — A reversal is appended and visually marked "Annulation" in the
+// feed. Append-only: the void appends a reversal row, it never mutates the
+// original payment (which remains listed).
 // ---------------------------------------------------------------------------
-test('Scenario 5 — reversal nets takings down and is marked in the feed', async () => {
+test('Scenario 5 — reversal is appended and marked in the feed', async () => {
   live = await boot(locale(), 'premium');
   const win = live.win;
   const L = strings();
@@ -152,26 +161,17 @@ test('Scenario 5 — reversal nets takings down and is marked in the feed', asyn
   await recordViaPicker(win, L, { studentName: nameFor(locale(), seeded), amountMad: '200' });
   await expect(win.getByText(L.dialog.success)).toBeVisible();
 
-  const beforeTakings = await takingsBlockText(win, L);
-  if (locale() === 'fr') expect(beforeTakings, 'takings shows the gross before void').toMatch(/200/);
-
   const paymentId = await latestPaymentId(win, seeded.invoiceId);
   await voidPayment(win, paymentId);
-  await gotoPayments(win, L); // re-enter the page to re-read (void was not driven from this page)
   await win.reload();
   await win.waitForLoadState('domcontentloaded');
   await gotoPayments(win, L);
+  await gotoFeedTab(win, L);
 
-  // Feed marks the reversal row.
+  // Feed marks the reversal row…
   await expect(win.getByText(L.feed.reversal).first()).toBeVisible();
-
-  // Netted takings dropped: payment(+200) + reversal(-200) = 0.
-  const afterTakings = await takingsBlockText(win, L);
-  expect(afterTakings, 'takings must change after the reversal nets it down').not.toBe(beforeTakings);
-  if (locale() === 'fr') {
-    expect(afterTakings, 'gross 200 is no longer the net taking').not.toMatch(/200[.,]00/);
-    expect(afterTakings, 'net takings is zero').toMatch(/0[.,]00/);
-  }
+  // …and the original payment row remains (append-only — the student is still listed).
+  await expect(win.getByText(nameFor(locale(), seeded)).first()).toBeVisible();
   await win.screenshot({ path: `test-results/payments-reversal-net-${locale()}.png`, fullPage: true });
 });
 
@@ -186,6 +186,7 @@ test('Scenario 6 — recent feed rows have no edit/delete affordance', async () 
   const seeded = await seedInvoice(win, { nameFr: 'Nadia Chraibi', nameAr: 'نادية الشرايبي', month: currentMonth(), priceMad: 200, issue: true });
   await seedPayment(win, { invoiceId: seeded.invoiceId, amountMad: 120, method: 'transfer', paidOn: todayIso() });
   await gotoPayments(win, L);
+  await gotoFeedTab(win, L);
 
   await expect(win.getByText(nameFor(locale(), seeded)).first()).toBeVisible();
   await expect(win.getByRole('button', { name: L.editRe })).toHaveCount(0);
@@ -194,10 +195,10 @@ test('Scenario 6 — recent feed rows have no edit/delete affordance', async () 
 });
 
 // ---------------------------------------------------------------------------
-// Scenario 7 — Today's takings counts only payments dated today; a past-dated
-// payment shows in the feed but not in the takings total. MAD per locale.
+// Scenario 7 — The recent feed spans all invoices and all dates: a today
+// payment and a long-past payment both appear in the cross-invoice feed.
 // ---------------------------------------------------------------------------
-test('Scenario 7 — takings counts only today; past-dated payment shows in feed only', async () => {
+test('Scenario 7 — feed spans all dates; a past-dated payment shows in the feed', async () => {
   live = await boot(locale(), 'premium');
   const win = live.win;
   const L = strings();
@@ -210,22 +211,15 @@ test('Scenario 7 — takings counts only today; past-dated payment shows in feed
   await recordViaPicker(win, L, { studentName: nameFor(locale(), todayInv), amountMad: '200' });
   await expect(win.getByText(L.dialog.success)).toBeVisible();
 
-  // A long-past payment on the other invoice — feed yes, today's takings no.
+  // A long-past payment on the other invoice.
   await seedPayment(win, { invoiceId: oldInv.invoiceId, amountMad: 50, method: 'cash', paidOn: '2020-01-15' });
   await win.reload();
   await win.waitForLoadState('domcontentloaded');
   await gotoPayments(win, L);
+  await gotoFeedTab(win, L);
 
-  // Both appear in the cross-invoice feed.
+  // Both appear in the cross-invoice feed regardless of their dates.
   await expect(win.getByText(nameFor(locale(), todayInv)).first()).toBeVisible();
   await expect(win.getByText(nameFor(locale(), oldInv)).first()).toBeVisible();
-
-  // Takings is MAD-formatted and reflects only today's 200 — never 250/700.
-  const takingsText = await takingsBlockText(win, L);
-  expect(takingsText).toContain(L.currency);
-  if (locale() === 'fr') {
-    expect(takingsText, 'today total counts the 200 recorded today').toMatch(/200/);
-    expect(takingsText, 'the 2020 payment must not be added into today').not.toMatch(/250|700|550/);
-  }
   await win.screenshot({ path: `test-results/payments-today-only-${locale()}.png`, fullPage: true });
 });

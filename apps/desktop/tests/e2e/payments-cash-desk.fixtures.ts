@@ -73,23 +73,30 @@ export async function gotoPayments(win: Page, L: CashStrings): Promise<void> {
   await win.waitForTimeout(500);
 }
 
+/** The "Enregistrer un paiement" tab trigger of the tabbed cash-desk page (SOU-222). */
+export function recordTab(win: Page, L: CashStrings): Locator {
+  return win.getByRole('tab', { name: L.record.title });
+}
+
+/** The "Derniers encaissements" tab trigger of the tabbed cash-desk page (SOU-222). */
+export function feedTab(win: Page, L: CashStrings): Locator {
+  return win.getByRole('tab', { name: L.feed.title });
+}
+
+/** Switch to the record-payment tab (the default) and let its panel settle. */
+export async function gotoRecordTab(win: Page, L: CashStrings): Promise<void> {
+  await recordTab(win, L).click();
+  await win.waitForTimeout(300);
+}
+
 /**
- * The visible text of ONLY the "today's takings" block — sliced out of the page
- * text between the takings heading and the next section (the record picker), so
- * the feed's own MAD figures never leak into a takings assertion.
+ * Switch to the recent-payments feed tab and let its panel settle. Radix
+ * `TabsContent` only mounts the panel once its tab is selected, so feed content
+ * must be asserted after this — never on the default record tab.
  */
-export async function takingsBlockText(win: Page, L: CashStrings): Promise<string> {
-  return win.evaluate(
-    ({ takingsTitle, recordTitle }) => {
-      const text = document.body.innerText;
-      const start = text.indexOf(takingsTitle);
-      if (start === -1) return '';
-      const rest = text.slice(start + takingsTitle.length);
-      const end = rest.indexOf(recordTitle);
-      return end === -1 ? rest : rest.slice(0, end);
-    },
-    { takingsTitle: L.takings.title, recordTitle: L.record.title },
-  );
+export async function gotoFeedTab(win: Page, L: CashStrings): Promise<void> {
+  await feedTab(win, L).click();
+  await win.waitForTimeout(300);
 }
 
 /**

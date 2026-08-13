@@ -4,7 +4,9 @@ import {
   boot,
   seedInvoice,
   gotoPayments,
-  takingsBlockText,
+  gotoFeedTab,
+  recordTab,
+  feedTab,
   seedPayment,
   latestPaymentId,
   voidPayment,
@@ -24,17 +26,20 @@ import {
 } from './payments-sou200.fixtures';
 
 /**
- * SOU-200 — cash-desk `/payments` follow-ups. Black-box, through the running
- * packaged app only; both `fr` (LTR) and `ar` (RTL) projects.
+ * SOU-200 — cash-desk `/payments` follow-ups, on the tabbed page (SOU-222).
+ * Black-box, through the running packaged app only; both `fr` (LTR) and `ar`
+ * (RTL) projects.
  *
- *   1. Takings payment-count plural forms in FR + AR (AR: zero/one/two/few/many;
- *      FR: one/other with 0 treated as singular). No `paiement(s)` fallback.
- *   2. Reversal rows show a locale-correct negative whose minus is placed by the
- *      `Intl` formatter (fr-MA / ar-MA), not a hand-built `- ` prefix.
- *   3. The open-invoice picker is a bounded server-side read: open invoices only
+ *   1. Reversal rows show a locale-correct negative whose minus is placed by the
+ *      `Intl` formatter (fr-MA / ar-MA), not a hand-built "- " prefix.
+ *   2. The open-invoice picker is a bounded server-side read: open invoices only
  *      (cancelled excluded), name search, "load more" cursor pagination, page
  *      size 20, rows labelled by student name.
- *   4. No regression to the cash-desk flow; FR/AR + RTL parity holds.
+ *   3. No regression to the cash-desk flow; FR/AR + RTL parity holds.
+ *
+ * The day-takings payment-count plural coverage moved off this page with the
+ * "Recette du jour" summary (SOU-222 → Dashboard SOU-223) and lives with the
+ * dashboard now.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -48,48 +53,9 @@ test.afterEach(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC1 — Takings payment-count plural forms (FR one/other, AR zero/one/two/few/many).
+// AC1 — Reversal row shows an Intl-placed locale-correct negative amount.
 // ---------------------------------------------------------------------------
-test('AC1 — takings count renders correct plural forms for 0/1/2/few/many', async () => {
-  test.setTimeout(120_000);
-  live = await boot(locale(), 'premium');
-  const win = live.win;
-  const L = strings();
-  const X = extra();
-
-  // One high-balance open invoice absorbs many small same-day payments so the
-  // takings COUNT climbs 0 → 1 → 2 → 3 (few) → 11 (many).
-  const inv = await seedInvoice(win, { nameFr: 'Compteur', nameAr: 'عدّاد', month: currentMonth(), priceMad: 100000, issue: true });
-
-  const readAtCount = async (expected: number): Promise<string> => {
-    await win.reload();
-    await win.waitForLoadState('domcontentloaded');
-    await gotoPayments(win, L);
-    const block = await takingsBlockText(win, L);
-    expect(block, `count=${expected} renders "${X.count[expected]}"`).toContain(X.count[expected]);
-    // Never the untranslated ICU template or raw key.
-    expect(block).not.toContain('{{count}}');
-    expect(block).not.toContain('takings.count');
-    if (locale() === 'fr') expect(block, 'no lazy paiement(s) fallback').not.toContain(X.fallbackLiteral);
-    return block;
-  };
-
-  await readAtCount(0);
-  for (let i = 1; i <= 11; i++) {
-    await seedPayment(win, { invoiceId: inv.invoiceId, amountMad: 1, method: 'cash', paidOn: todayIso() });
-    if ([1, 2, 3, 11].includes(i)) await readAtCount(i);
-  }
-
-  // Distinct forms actually differ (guards a "one form everywhere" regression).
-  expect(new Set([X.count[0], X.count[1], X.count[2], X.count[3], X.count[11]]).size, 'plural forms are distinct').toBe(5);
-
-  await win.screenshot({ path: `test-results/sou200-count-plurals-${locale()}.png`, fullPage: true });
-});
-
-// ---------------------------------------------------------------------------
-// AC2 — Reversal row shows an Intl-placed locale-correct negative amount.
-// ---------------------------------------------------------------------------
-test('AC2 — reversal row shows a locale-correct Intl-negative amount', async () => {
+test('AC1 — reversal row shows a locale-correct Intl-negative amount', async () => {
   test.setTimeout(90_000);
   live = await boot(locale(), 'premium');
   const win = live.win;
@@ -102,6 +68,7 @@ test('AC2 — reversal row shows a locale-correct Intl-negative amount', async (
   await voidPayment(win, paymentId);
 
   await gotoPayments(win, L);
+  await gotoFeedTab(win, L);
 
   // The reversal is marked in the feed…
   await expect(win.getByText(X.reversal).first()).toBeVisible();
@@ -120,10 +87,10 @@ test('AC2 — reversal row shows a locale-correct Intl-negative amount', async (
 });
 
 // ---------------------------------------------------------------------------
-// AC3 — Open-invoice picker: bounded server-side read (open only, name search,
+// AC2 — Open-invoice picker: bounded server-side read (open only, name search,
 // "load more" cursor pagination, page size 20, rows labelled by student name).
 // ---------------------------------------------------------------------------
-test('AC3 — open-invoice picker pages at 20, searches by name, excludes cancelled', async () => {
+test('AC2 — open-invoice picker pages at 20, searches by name, excludes cancelled', async () => {
   test.setTimeout(120_000);
   live = await boot(locale(), 'premium');
   const win = live.win;
@@ -187,10 +154,10 @@ test('AC3 — open-invoice picker pages at 20, searches by name, excludes cancel
 });
 
 // ---------------------------------------------------------------------------
-// AC4 — No regression: the cash-desk page still renders its three sections and
+// AC3 — No regression: the cash-desk page still renders its two tabs and
 // respects the active direction (RTL in AR).
 // ---------------------------------------------------------------------------
-test('AC4 — cash-desk flow + FR/AR RTL parity intact', async () => {
+test('AC3 — cash-desk tabs + FR/AR RTL parity intact', async () => {
   live = await boot(locale(), 'premium');
   const win = live.win;
   const L = strings();
@@ -198,9 +165,8 @@ test('AC4 — cash-desk flow + FR/AR RTL parity intact', async () => {
   await gotoPayments(win, L);
 
   await expect(win.getByRole('heading', { name: L.title, exact: true })).toBeVisible();
-  await expect(win.getByText(L.takings.title).first()).toBeVisible();
-  await expect(win.getByText(L.record.title).first()).toBeVisible();
-  await expect(win.getByText(L.feed.title).first()).toBeVisible();
+  await expect(recordTab(win, L)).toBeVisible();
+  await expect(feedTab(win, L)).toBeVisible();
 
   const dir = await win.evaluate(() => document.documentElement.dir);
   expect(dir).toBe(locale() === 'ar' ? 'rtl' : 'ltr');
