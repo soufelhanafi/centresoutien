@@ -1,5 +1,10 @@
-import type { Database as DB } from 'better-sqlite3';
-import type { CenterSetupUnit, CenterSetupUnitOfWork } from '@centresoutien/domain';
+import type { Database as DB } from "better-sqlite3";
+import type {
+  Center,
+  CenterHours,
+  CenterSetupUnit,
+  CenterSetupUnitOfWork,
+} from "@centresoutien/domain";
 
 const SAVE_CENTER_SQL = `
   INSERT INTO center
@@ -43,46 +48,63 @@ export class SqliteCenterSetupUnitOfWork implements CenterSetupUnitOfWork {
 
   async commit(unit: CenterSetupUnit): Promise<void> {
     this.db.transaction(() => {
-      const center = unit.center;
-      this.db.prepare(SAVE_CENTER_SQL).run({
-        id: center.id,
-        center_code: center.centerCode,
-        device_origin: center.deviceOrigin,
-        created_at: center.createdAt.toISOString(),
-        updated_at: center.updatedAt.toISOString(),
-        updated_by: center.updatedBy,
-        deleted_at: center.deletedAt ? center.deletedAt.toISOString() : null,
-        version: center.version,
-        name: center.name,
-        address: center.address,
-        phone: center.phone,
-        email: center.email,
-        logo_path: center.logoPath,
-        plan: center.plan,
-      });
+      this.insertCenter(unit.center);
       this.options.afterCenterInsert?.();
-
-      const saveHours = this.db.prepare(SAVE_HOURS_SQL);
-      for (const hours of unit.defaultHours) {
-        saveHours.run({
-          id: hours.id,
-          center_code: hours.centerCode,
-          device_origin: hours.deviceOrigin,
-          created_at: hours.createdAt.toISOString(),
-          updated_at: hours.updatedAt.toISOString(),
-          updated_by: hours.updatedBy,
-          deleted_at: hours.deletedAt ? hours.deletedAt.toISOString() : null,
-          version: hours.version,
-          day_of_week: hours.dayOfWeek,
-          windows: JSON.stringify(hours.windows),
-        });
-      }
-
-      if (unit.trial !== null) {
-        this.db
-          .prepare(SAVE_TRIAL_SQL)
-          .run(unit.trial.startedAt.toISOString(), unit.trial.lastSeenAt.toISOString());
-      }
+      this.insertHours(unit.defaultHours);
+      this.insertTrial(unit);
     })();
   }
+
+  private insertCenter(center: Center): void {
+    this.db.prepare(SAVE_CENTER_SQL).run(centerRow(center));
+  }
+
+  private insertHours(hours: readonly CenterHours[]): void {
+    const saveHours = this.db.prepare(SAVE_HOURS_SQL);
+    for (const day of hours) saveHours.run(centerHoursRow(day));
+  }
+
+  private insertTrial(unit: CenterSetupUnit): void {
+    if (unit.trial === null) return;
+    this.db
+      .prepare(SAVE_TRIAL_SQL)
+      .run(
+        unit.trial.startedAt.toISOString(),
+        unit.trial.lastSeenAt.toISOString(),
+      );
+  }
+}
+
+function centerRow(center: Center) {
+  return {
+    id: center.id,
+    center_code: center.centerCode,
+    device_origin: center.deviceOrigin,
+    created_at: center.createdAt.toISOString(),
+    updated_at: center.updatedAt.toISOString(),
+    updated_by: center.updatedBy,
+    deleted_at: center.deletedAt ? center.deletedAt.toISOString() : null,
+    version: center.version,
+    name: center.name,
+    address: center.address,
+    phone: center.phone,
+    email: center.email,
+    logo_path: center.logoPath,
+    plan: center.plan,
+  };
+}
+
+function centerHoursRow(hours: CenterHours) {
+  return {
+    id: hours.id,
+    center_code: hours.centerCode,
+    device_origin: hours.deviceOrigin,
+    created_at: hours.createdAt.toISOString(),
+    updated_at: hours.updatedAt.toISOString(),
+    updated_by: hours.updatedBy,
+    deleted_at: hours.deletedAt ? hours.deletedAt.toISOString() : null,
+    version: hours.version,
+    day_of_week: hours.dayOfWeek,
+    windows: JSON.stringify(hours.windows),
+  };
 }
