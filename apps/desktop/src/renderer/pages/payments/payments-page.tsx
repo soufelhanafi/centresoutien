@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import { OpenInvoicePicker } from '../../components/payments/open-invoice-picker';
@@ -10,11 +11,15 @@ const FEED_TAB = 'feed';
  * Cash-desk module (SOU-198, SOU-222): a tabbed workspace for recording a payment
  * against an open invoice and reviewing the cross-invoice recent-payments feed.
  * Radix `TabsContent` unmounts the inactive panel, so each tab's underlying query
- * only fires once its tab is selected. A future Impayés tab (SOU-224) slots in as
- * an additional trigger + content pair. Distinct from the Invoices list (billing).
+ * only fires once its tab is selected; the picker's search term is held here so it
+ * survives that remount, and the cash-desk queries carry a short `staleTime` so
+ * re-entering a tab reuses the cache instead of refetching. A future Impayés tab
+ * (SOU-224) slots in as an additional trigger + content pair. Distinct from the
+ * Invoices list (billing).
  */
 export function PaymentsPage() {
   const { t } = useTranslation();
+  const [invoiceSearch, setInvoiceSearch] = useState('');
 
   return (
     <section aria-labelledby="payments-title" className="mx-auto flex w-full max-w-5xl flex-col gap-5">
@@ -32,7 +37,7 @@ export function PaymentsPage() {
         </TabsList>
 
         <TabsContent value={RECORD_TAB}>
-          <OpenInvoicePicker />
+          <OpenInvoicePicker search={invoiceSearch} onSearchChange={setInvoiceSearch} />
         </TabsContent>
 
         <TabsContent value={FEED_TAB}>

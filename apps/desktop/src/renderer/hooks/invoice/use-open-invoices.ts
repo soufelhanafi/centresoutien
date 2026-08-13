@@ -5,6 +5,11 @@ import { invoiceKeys } from './keys';
 /** One bounded page of the cash-desk open-invoice picker (SOU-200). */
 const OPEN_INVOICES_PAGE_SIZE = 20;
 
+/** The picker's rows stay fresh for this long, so leaving and re-entering the record
+ *  tab reuses the cache instead of refetching. Recording a payment invalidates the
+ *  key explicitly, so a settled invoice still drops off on the next read. */
+const OPEN_INVOICES_STALE_MS = 30_000;
+
 /**
  * Loads the center's still-open invoices for the cash-desk picker, keyset-paginated
  * server-side (`openOnly` + name `search`, SOU-200) instead of fetching the whole
@@ -23,5 +28,6 @@ export function useOpenInvoices(search: string) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     refetchOnWindowFocus: false,
+    staleTime: OPEN_INVOICES_STALE_MS,
   });
 }
