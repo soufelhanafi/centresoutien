@@ -36,7 +36,7 @@ export function Sidebar() {
         </span>
       </div>
 
-      <ul className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
+      <ul className="nav-scroll flex flex-1 flex-col gap-1 overflow-y-auto p-2">
         {NAV_MODULES.map((module) => (
           <li key={module.id}>
             <NavItem module={module} collapsed={collapsed} />
