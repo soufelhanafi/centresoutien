@@ -51,17 +51,18 @@ type ScrollMetrics = {
   gridOverflow: number;
 };
 
-/** Read the vertical scroll state of the shell `<main>` and the planner grid. */
+/** Read the vertical scroll state of the shell and the planner grid. */
 async function scrollMetrics(win: Page): Promise<ScrollMetrics> {
   return win.evaluate(() => {
-    const shell = document.querySelector<HTMLElement>('#main-content');
-    if (!shell) throw new Error('missing #main-content shell');
+    const target = document.querySelector<HTMLElement>('#main-content');
+    if (!target) throw new Error('missing #main-content shell');
     // OverlayScrollbars (SOU-216) wraps the real scrollable in a viewport
-    // element; the host itself never scrolls. Measure the viewport inside the
-    // grid's host, and confirm the shell's own overlay viewport has no overflow.
-    const shellViewport = shell.querySelector<HTMLElement>('[data-overlayscrollbars-viewport]');
-    const gridHost = shell.querySelector<HTMLElement>('.planner-grid-scroll');
-    if (!gridHost) throw new Error('missing planner grid (#main-content .planner-grid-scroll)');
+    // element; the host itself never scrolls. The skip-link target lives inside
+    // that viewport, so the shell viewport is its nearest scrollable ancestor.
+    // Measure the grid's viewport, and confirm the shell's viewport has none.
+    const shellViewport = target.closest<HTMLElement>('[data-overlayscrollbars-viewport]');
+    const gridHost = document.querySelector<HTMLElement>('.planner-grid-scroll');
+    if (!gridHost) throw new Error('missing planner grid (.planner-grid-scroll)');
     const gridViewport = gridHost.querySelector<HTMLElement>('[data-overlayscrollbars-viewport]');
     if (!gridViewport) throw new Error('missing planner grid viewport');
     const overflow = (el: HTMLElement) => el.scrollHeight - el.clientHeight;
@@ -115,8 +116,8 @@ test('header and toolbar stay pinned while the grid scrolls', async () => {
   const before = await heading.boundingBox();
 
   const scrolledTo = await win.evaluate(() => {
-    const gridHost = document.querySelector<HTMLElement>('#main-content .planner-grid-scroll');
-    if (!gridHost) throw new Error('missing planner grid (#main-content .planner-grid-scroll)');
+    const gridHost = document.querySelector<HTMLElement>('.planner-grid-scroll');
+    if (!gridHost) throw new Error('missing planner grid (.planner-grid-scroll)');
     const grid = gridHost.querySelector<HTMLElement>('[data-overlayscrollbars-viewport]');
     if (!grid) throw new Error('missing planner grid viewport');
     grid.scrollTop = 160;

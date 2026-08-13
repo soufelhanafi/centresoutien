@@ -25,9 +25,14 @@ test.afterEach(async () => {
 
 async function shellScrollbar(win: Page) {
   return win.evaluate(() => {
-    const host = document.querySelector<HTMLElement>('#main-content [data-overlayscrollbars]');
+    // The skip-link target (#main-content) lives inside the overlay viewport, so
+    // the shell's viewport is its nearest scrollable ancestor — use closest(),
+    // not a descendant query.
+    const target = document.querySelector<HTMLElement>('#main-content');
+    if (!target) return null;
+    const host = target.closest<HTMLElement>('[data-overlayscrollbars]');
     if (!host) return null;
-    const viewport = host.querySelector<HTMLElement>('[data-overlayscrollbars-viewport]');
+    const viewport = target.closest<HTMLElement>('[data-overlayscrollbars-viewport]');
     if (!viewport) return null;
     const scrollbar = host.querySelector<HTMLElement>('.os-scrollbar-vertical');
     if (!scrollbar) return null;
@@ -93,9 +98,9 @@ test('keyboard scroll still works after skip-link focus', async () => {
   await win.keyboard.press('PageDown');
 
   const scrolled = await win.evaluate(() => {
-    const viewport = document.querySelector<HTMLElement>(
-      '#main-content [data-overlayscrollbars-viewport]',
-    );
+    const viewport = document
+      .querySelector<HTMLElement>('#main-content')
+      ?.closest<HTMLElement>('[data-overlayscrollbars-viewport]');
     return viewport ? viewport.scrollTop > 0 : false;
   });
   expect(scrolled, 'PageDown after skip-link focus must scroll the shell content').toBe(true);
