@@ -5,15 +5,15 @@ import { useFeature } from '../../hooks/use-feature';
 import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
 import { DashboardConsolidatedPreview } from './dashboard-consolidated-preview';
 
-/**
+/*
  * The Consolidé (multi-centres) dashboard pane (SOU-105).
  *
  * Cross-center consolidation is a cloud-only feature (CLAUDE.md §5ter, SOU-96):
  * the desktop never merges data across per-center DBs, so this tab is an upsell /
  * link-out surface, never a live aggregation.
- * - Without `org.multi-center`: the Premium upsell lock over a blurred preview.
- * - With `org.multi-center` (Premium): the flag is granted, but the aggregation
- *   still lives in the web app, so we point users there instead of faking data.
+ * - Without `org.multi-center`: the upgrade lock over a blurred preview.
+ * - With `org.multi-center`: the flag is granted, but the aggregation still lives
+ *   in the web app, so we point users there instead of faking data.
  */
 export function DashboardConsolidatedPanel() {
   const { t } = useTranslation();

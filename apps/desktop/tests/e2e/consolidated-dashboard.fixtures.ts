@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron, expect, type ElectronApplication, type Page } from '@playwright/test';
 
-/**
+/*
  * Black-box fixtures for SOU-105 — "Consolidated multi-center dashboard"
  * (the dashboard "Consolidé" tab).
  *
@@ -47,15 +47,15 @@ export const STR: Record<
     navDashboard: string;
     tabBasic: string;
     tabConsolidated: string;
-    /** Non-Premium upsell lock title (`dashboard.consolidated.lock.title`). */
+    /* Non-Premium upsell lock title (`dashboard.consolidated.lock.title`). */
     lockTitle: RegExp;
-    /** Premium link-out card title (`dashboard.consolidated.cloud.title`). */
+    /* Premium link-out card title (`dashboard.consolidated.cloud.title`). */
     cloudTitle: RegExp;
-    /** Premium link-out card body (`dashboard.consolidated.cloud.body`). */
+    /* Premium link-out card body (`dashboard.consolidated.cloud.body`). */
     cloudBody: RegExp;
-    /** Upgrade CTA button (`upgrade.unlockWith` filled with `plan.names.premium`). */
+    /* Upgrade CTA button (`upgrade.unlockWith` filled with `plan.names.premium`). */
     unlockCta: RegExp;
-    /** KPI labels that MUST NOT appear as real data in the Premium branch. */
+    /* KPI labels that MUST NOT appear as real data in the Premium branch. */
     kpiRevenue: string;
   }
 > = {
@@ -88,16 +88,20 @@ export function freshUserDataDir(): string {
 export type Launched = { app: ElectronApplication; win: Page };
 
 export async function launch(locale: Locale, plan: PlanId, userDataDir: string): Promise<Launched> {
+  const env: Record<string, string> = { ...process.env, CS_LOCALE: locale, CS_PLAN: plan };
+  // Never inherit a feature-omit override from the parent shell — it would flip
+  // gating and fail this suite for non-product reasons (matches sync-conflicts).
+  delete env['CS_E2E_OMIT_FEATURES'];
   const app = await electron.launch({
     args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
-    env: { ...process.env, CS_LOCALE: locale, CS_PLAN: plan },
+    env,
   });
   const win = await app.firstWindow();
   await win.waitForLoadState('domcontentloaded');
   return { app, win };
 }
 
-/** Launch, clear the first-run + auth gates through the public bridge (same recipe every other suite uses). */
+/* Launch, clear the first-run + auth gates through the public bridge (same recipe every other suite uses). */
 export async function boot(locale: Locale, plan: PlanId): Promise<Launched> {
   const live = await launch(locale, plan, freshUserDataDir());
   await live.win.evaluate(async (admin) => {
@@ -110,7 +114,7 @@ export async function boot(locale: Locale, plan: PlanId): Promise<Launched> {
   return live;
 }
 
-/** The active plan straight from the domain — proves CS_PLAN took effect before we assert on the gated branch. */
+/* The active plan straight from the domain — proves CS_PLAN took effect before we assert on the gated branch. */
 export function activePlan(win: Page): Promise<string> {
   return win.evaluate(async () => {
     const api = (window as unknown as { api: { invoke: (c: string, r: unknown) => Promise<{ planId: string }> } }).api;
@@ -118,10 +122,10 @@ export function activePlan(win: Page): Promise<string> {
   });
 }
 
-/** Navigate to the dashboard through the sidebar and select the Consolidé tab. */
-export async function gotoConsolidatedTab(win: Page, L: (typeof STR)[Locale]): Promise<void> {
-  await win.getByRole('link', { name: L.navDashboard, exact: true }).click();
-  const tab = win.getByRole('tab', { name: L.tabConsolidated });
+/* Navigate to the dashboard through the sidebar and select the Consolidé tab. */
+export async function gotoConsolidatedTab(win: Page, strings: (typeof STR)[Locale]): Promise<void> {
+  await win.getByRole('link', { name: strings.navDashboard, exact: true }).click();
+  const tab = win.getByRole('tab', { name: strings.tabConsolidated });
   await tab.click();
   await expect(tab).toHaveAttribute('aria-selected', 'true');
 }

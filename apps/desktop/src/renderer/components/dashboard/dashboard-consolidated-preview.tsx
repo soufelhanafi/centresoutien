@@ -8,7 +8,7 @@ const SECTION_LABEL = 'text-xs font-bold uppercase tracking-wider text-muted-for
 const KPI_KEYS = ['revenue', 'students', 'unpaid', 'sessions'] as const;
 const PREVIEW_ROWS = [0, 1, 2] as const;
 
-/**
+/*
  * Decorative preview of the consolidated multi-center dashboard, shown blurred
  * behind the upsell lock. No real data: the desktop keeps each center's DB
  * isolated (CLAUDE.md §5ter) — cross-center aggregation is a cloud-only feature,
