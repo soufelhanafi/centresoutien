@@ -41,6 +41,15 @@ export class GetLicenseStatus {
   ) {}
 
   execute(): LicenseStatusView {
+    return this.status(true);
+  }
+
+  /** Read-only status evaluation for the IPC hot path. */
+  isRestricted(): boolean {
+    return this.status(false).restricted;
+  }
+
+  private status(checkpointTrial: boolean): LicenseStatusView {
     const now = this.clock.now();
     const resolution = resolveActivePlan(this.license.verify(), now, {
       machineId: this.machine.machineId(),
@@ -48,7 +57,7 @@ export class GetLicenseStatus {
     });
     // A valid license is perpetual access and always wins. Every other license
     // state remains restricted only after the center's own trial has elapsed.
-    const trial = resolution.status === 'active' ? null : this.resolveTrial(now);
+    const trial = resolution.status === 'active' ? null : this.resolveTrial(now, checkpointTrial);
     if (trial !== null) return trial;
     const { claims } = resolution;
 
@@ -64,12 +73,12 @@ export class GetLicenseStatus {
     };
   }
 
-  private resolveTrial(now: Date): LicenseStatusView | null {
+  private resolveTrial(now: Date, checkpoint: boolean): LicenseStatusView | null {
     const stored = this.trials.get();
     if (stored === null) return null;
 
     const resolution = resolveCenterTrial(stored, now);
-    if (resolution.effectiveNow.getTime() > stored.lastSeenAt.getTime()) {
+    if (checkpoint && resolution.effectiveNow.getTime() > stored.lastSeenAt.getTime()) {
       this.trials.save({ ...stored, lastSeenAt: resolution.effectiveNow });
     }
 
@@ -83,7 +92,7 @@ export class GetLicenseStatus {
       founderDiscountExpired: false,
       trial: {
         startedAt: stored.startedAt.toISOString(),
-        expiresAt: resolution.expiresAt.toISOString(),
+        expiresAt: resolution.expiresAt,
       },
     };
   }

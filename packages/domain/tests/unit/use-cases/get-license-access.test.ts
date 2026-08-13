@@ -69,6 +69,13 @@ describe('GetLicenseStatus -- center trials', () => {
     expect(trials.get()?.lastSeenAt).toEqual(new Date(NOW));
   });
 
+  it('does not write a trial checkpoint while evaluating restricted mode', () => {
+    trials.start(new Date('2026-08-01T00:00:00.000Z'));
+
+    expect(useCase.isRestricted()).toBe(false);
+    expect(trials.get()?.lastSeenAt).toEqual(new Date('2026-08-01T00:00:00.000Z'));
+  });
+
   it('lets a valid perpetual license convert an expired trial into licensed access', () => {
     trials.start(new Date('2026-07-01T00:00:00.000Z'));
     license.setInstalled({ status: 'valid', claims: claims({ plan: 'premium' }) });

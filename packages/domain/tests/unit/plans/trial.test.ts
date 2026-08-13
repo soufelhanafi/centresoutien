@@ -17,6 +17,7 @@ describe('resolveCenterTrial', () => {
     expect(resolveCenterTrial(trial(), new Date('2026-08-15T09:59:59.999Z'))).toMatchObject({
       status: 'active',
       restricted: false,
+      expiresAt: '2026-08-15T10:00:00.000Z',
     });
     expect(resolveCenterTrial(trial(), new Date('2026-08-15T10:00:00.000Z'))).toMatchObject({
       status: 'expired',

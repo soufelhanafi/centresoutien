@@ -1,3 +1,5 @@
+import { addDays } from '../value-objects/date-range';
+
 /** A center gets one personal-sale trial, lasting exactly fourteen UTC days. */
 export const TRIAL_DURATION_DAYS = 14;
 
@@ -15,14 +17,13 @@ export function newCenterTrial(now: Date): CenterTrial {
 export type CenterTrialResolution = {
   readonly status: 'active' | 'expired';
   readonly restricted: boolean;
-  readonly expiresAt: Date;
+  readonly expiresAt: string;
   readonly effectiveNow: Date;
 };
 
-function addUtcDays(date: Date, days: number): Date {
-  const result = new Date(date.getTime());
-  result.setUTCDate(result.getUTCDate() + days);
-  return result;
+function expiresAt(startedAt: Date): string {
+  const iso = startedAt.toISOString();
+  return `${addDays(iso.slice(0, 10), TRIAL_DURATION_DAYS)}${iso.slice(10)}`;
 }
 
 /**
@@ -32,7 +33,7 @@ function addUtcDays(date: Date, days: number): Date {
  */
 export function resolveCenterTrial(trial: CenterTrial, now: Date): CenterTrialResolution {
   const effectiveNow = now.getTime() > trial.lastSeenAt.getTime() ? now : trial.lastSeenAt;
-  const expiresAt = addUtcDays(trial.startedAt, TRIAL_DURATION_DAYS);
-  const active = effectiveNow.getTime() < expiresAt.getTime();
-  return { status: active ? 'active' : 'expired', restricted: !active, expiresAt, effectiveNow };
+  const expiry = expiresAt(trial.startedAt);
+  const active = effectiveNow.toISOString() < expiry;
+  return { status: active ? 'active' : 'expired', restricted: !active, expiresAt: expiry, effectiveNow };
 }

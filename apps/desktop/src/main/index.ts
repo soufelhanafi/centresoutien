@@ -27,6 +27,7 @@ import {
   SafeStorageSecretVault,
 } from './key-store';
 import { sweepStaleTempPdfs } from '../data/fs/temp-pdf';
+import { LEGACY_DEMO_CENTRE_ID, resolveInitialCentreId } from './initial-centre-id';
 
 // The packaged renderer entry loaded from disk. Shared by the window's
 // `loadFile` and the trusted-origin resolution so the `file:` trust is pinned to
@@ -66,10 +67,6 @@ let runtime: MainRuntime | null = null;
 let host: CenterHost | null = null;
 let mainWindow: BrowserWindow | null = null;
 let disposeAutoUpdater: (() => void) | null = null;
-
-// SOU-246 retires demo mode. Keep a pre-existing demo database out of discovery
-// so it cannot be opened as a normal switchable center after an upgrade.
-const LEGACY_DEMO_CENTRE_ID = 'demo';
 
 /**
  * Embedded LAN hub (SOU-90): designated-laptop opt-in until the sync setup
@@ -183,7 +180,7 @@ app.whenReady().then(async () => {
     // that serves no hub can point at an external one (SOU-82).
     const hubClient = hubServer ? null : resolveHubClientConfig();
     const dir = app.getPath('userData');
-    const realCentreId = process.env['CS_CENTRE'] ?? 'local';
+    const realCentreId = resolveInitialCentreId(process.env['CS_CENTRE']);
     const realCenterCode = (process.env['CS_CENTER_CODE'] ?? 'CS-DEV-001') as CenterCode;
 
     // Center switcher (SOU-96). The directory scans the userData dir for

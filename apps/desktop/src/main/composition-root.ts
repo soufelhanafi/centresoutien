@@ -588,7 +588,7 @@ export function buildContainer(options: ContainerOptions): Container {
     trialStore,
   );
   const isRestricted = (): boolean =>
-    devOverrideActive ? false : getLicenseStatus.execute().restricted;
+    devOverrideActive ? false : getLicenseStatus.isRestricted();
 
   // The acting laptop, resolved once — stamped on every change_log row (SOU-79)
   // and carried in the envelope context below.
