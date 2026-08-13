@@ -1,12 +1,17 @@
 import { useTranslation } from 'react-i18next';
 import type { DashboardBasicSummaryView } from '../../lib/dashboard/dashboard-view';
 import { formatMonth } from '../../lib/format';
+import { TakingsSummary } from '../payments/takings-summary';
 import { ArgentCard } from './argent-card';
 import { PaidInvoicesCard } from './paid-invoices-card';
 
 const SECTION_LABEL = 'text-xs font-bold uppercase tracking-wider text-muted-foreground';
 
-/** The Argent block (design 1b): 4 cards — Facturé / Encaissé / Impayé / Factures payées. */
+/**
+ * The Argent block (design 1b): 4 monthly cards — Facturé / Encaissé / Impayé /
+ * Factures payées — plus today's takings (SOU-223), which reuses the cap-free
+ * `payment.takings` read path and its own loading/error states.
+ */
 export function ArgentSection({ argent }: { argent: DashboardBasicSummaryView['argent'] }) {
   const { t, i18n } = useTranslation();
 
@@ -46,6 +51,9 @@ export function ArgentSection({ argent }: { argent: DashboardBasicSummaryView['a
           paidCount={argent.paidInvoices.paidCount}
           totalCount={argent.paidInvoices.totalCount}
         />
+      </div>
+      <div className="mt-3.5">
+        <TakingsSummary />
       </div>
     </section>
   );
