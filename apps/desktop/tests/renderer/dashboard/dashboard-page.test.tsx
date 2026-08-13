@@ -105,3 +105,34 @@ describe('DashboardPage — Basique / Avancé toggle', () => {
     await waitFor(() => expect(screen.getAllByText('0')).not.toHaveLength(0));
   });
 });
+
+describe('DashboardPage — Consolidé (multi-centres) tab', () => {
+  it('exposes the Consolidé tab to a single-center plan as an upsell', async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+
+    await user.click(await screen.findByRole('tab', { name: 'Consolidé' }));
+
+    // org.multi-center is Premium-only: Essentiel sees the Premium upsell lock,
+    // never a live cross-center aggregation (CLAUDE.md §5ter, SOU-96).
+    expect(await screen.findByText('Tableau de bord multi-centres')).toBeInTheDocument();
+    expect(screen.getByText('Réservé à un plan supérieur')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Débloquer avec Premium' })).toBeInTheDocument();
+  });
+
+  it('points Premium users to the web app instead of aggregating on desktop', async () => {
+    act(() => {
+      usePlanStore.setState({ planId: 'premium', plan: PLANS.premium });
+    });
+    const user = userEvent.setup();
+    renderDashboard();
+
+    await user.click(await screen.findByRole('tab', { name: 'Consolidé' }));
+
+    // The flag is granted, but consolidation stays cloud-only — no upsell lock,
+    // no faked data: a link-out to the web app.
+    expect(await screen.findByText(/Disponible dans/)).toBeInTheDocument();
+    expect(screen.queryByText('Tableau de bord multi-centres')).not.toBeInTheDocument();
+    expect(screen.queryByText('Réservé à un plan supérieur')).not.toBeInTheDocument();
+  });
+});

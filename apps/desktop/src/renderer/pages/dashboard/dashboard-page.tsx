@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import { useDashboardViewStore, type DashboardView } from '../../stores/dashboard-view-store';
 import { DashboardBasicPanel } from '../../components/dashboard/dashboard-basic-panel';
 import { DashboardAdvancedPanel } from '../../components/dashboard/dashboard-advanced-panel';
+import { DashboardConsolidatedPanel } from '../../components/dashboard/dashboard-consolidated-panel';
 import { DashboardCustomizeSheet } from '../../components/dashboard/dashboard-widget-config/dashboard-customize-sheet';
 import { DashboardCustomizeTrigger } from '../../components/dashboard/dashboard-widget-config/dashboard-customize-trigger';
 
@@ -28,19 +29,25 @@ export function DashboardPage() {
           </h1>
           <p className="text-sm text-muted-foreground">{t('dashboard.subtitle')}</p>
         </div>
-        <DashboardCustomizeTrigger onClick={() => setCustomizeOpen(true)} />
+        {view !== 'consolidated' ? (
+          <DashboardCustomizeTrigger onClick={() => setCustomizeOpen(true)} />
+        ) : null}
       </header>
 
       <Tabs value={view} onValueChange={(value) => setView(value as DashboardView)}>
         <TabsList>
           <TabsTrigger value="basic">{t('dashboard.tabs.basic')}</TabsTrigger>
           <TabsTrigger value="advanced">{t('dashboard.tabs.advanced')}</TabsTrigger>
+          <TabsTrigger value="consolidated">{t('dashboard.tabs.consolidated')}</TabsTrigger>
         </TabsList>
         <TabsContent value="basic" className="mt-4">
           <DashboardBasicPanel />
         </TabsContent>
         <TabsContent value="advanced" className="mt-4">
           <DashboardAdvancedPanel />
+        </TabsContent>
+        <TabsContent value="consolidated" className="mt-4">
+          <DashboardConsolidatedPanel />
         </TabsContent>
       </Tabs>
 

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type DashboardView = 'basic' | 'advanced';
+export type DashboardView = 'basic' | 'advanced' | 'consolidated';
 
 type DashboardViewState = {
   view: DashboardView;

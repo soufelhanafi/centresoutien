@@ -100,7 +100,26 @@
     "subtitle": "Vue d'ensemble de l'activité de votre centre.",
     "tabs": {
       "basic": "Basique",
-      "advanced": "Avancé"
+      "advanced": "Avancé",
+      "consolidated": "Consolidé"
+    },
+    "consolidated": {
+      "lock": {
+        "title": "Tableau de bord multi-centres"
+      },
+      "cloud": {
+        "title": "Disponible dans l’application web",
+        "body": "La vue consolidée de tous vos centres est disponible dans l’application web Centre Soutien. Sur cet ordinateur, chaque centre s’ouvre séparément."
+      },
+      "kpi": {
+        "revenue": "Revenu total",
+        "students": "Élèves",
+        "unpaid": "Impayés",
+        "sessions": "Séances cette semaine"
+      },
+      "breakdown": {
+        "title": "Détail par centre"
+      }
     },
     "basic": {
       "sections": {
