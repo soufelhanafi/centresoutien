@@ -85,6 +85,11 @@ Object.defineProperty(window, 'api', {
               },
             },
           };
+        // Zeroed day takings so the dashboard Argent block (SOU-223) mounts its
+        // `useTodayTakings` reader without a real backend. Takings-specific tests
+        // override `window.api.invoke`.
+        case 'payment.takings':
+          return { netMad: 0, paymentCount: 0, byMethod: { cash: 0, cheque: 0, transfer: 0, other: 0 } };
         case 'dashboard.advanced':
           return {
             summary: {
