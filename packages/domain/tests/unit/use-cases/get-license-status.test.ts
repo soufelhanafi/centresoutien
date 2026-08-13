@@ -3,6 +3,7 @@ import { GetLicenseStatus } from '../../../src/use-cases/get-license-status';
 import type { CenterCode } from '../../../src/value-objects/ids';
 import type { LicenseClaims } from '../../../src/plans/license';
 import { InMemoryLicensePort } from '../fakes/in-memory-license-port';
+import { InMemoryCenterTrialStore } from '../fakes/in-memory-center-trial-store';
 import { fakeMachineIdentity } from '../fakes/fake-machine-identity';
 import { fakeClock } from '../fakes/clock';
 
@@ -19,7 +20,6 @@ function claims(overrides: Partial<LicenseClaims> = {}): LicenseClaims {
     centerCode: null,
     centersAllowed: null,
     founderDiscountExpiresAt: null,
-    demo: false,
     ...overrides,
   };
 }
@@ -30,7 +30,13 @@ describe('GetLicenseStatus', () => {
 
   beforeEach(() => {
     license = new InMemoryLicensePort();
-    useCase = new GetLicenseStatus(license, fakeMachineIdentity(MACHINE), fakeClock(NOW), CENTER, false);
+    useCase = new GetLicenseStatus(
+      license,
+      fakeMachineIdentity(MACHINE),
+      fakeClock(NOW),
+      CENTER,
+      new InMemoryCenterTrialStore(),
+    );
   });
 
   it('reports the active tier and its metadata for a valid bound license', () => {
@@ -52,6 +58,7 @@ describe('GetLicenseStatus', () => {
       centersAllowed: 5,
       founderDiscountExpiresAt: '2099-01-01T00:00:00.000Z',
       founderDiscountExpired: false,
+      trial: null,
     });
   });
 

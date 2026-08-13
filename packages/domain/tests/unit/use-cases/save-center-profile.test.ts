@@ -5,8 +5,10 @@ import { DEFAULT_WEEKLY_HOURS } from '../../../src/schemas/center-hours';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryCenterRepository } from '../fakes/in-memory-center-repository';
 import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-repository';
+import { InMemoryCenterTrialStore } from '../fakes/in-memory-center-trial-store';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import { StartCenterTrial } from '../../../src/use-cases/start-center-trial';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
@@ -31,15 +33,23 @@ describe('SaveCenterProfile', () => {
   let centers: InMemoryCenterRepository;
   let hours: InMemoryCenterHoursRepository;
   let clock: ReturnType<typeof fakeClock>;
+  let trials: InMemoryCenterTrialStore;
   let useCase: SaveCenterProfile;
 
   beforeEach(() => {
     centers = new InMemoryCenterRepository();
     hours = new InMemoryCenterHoursRepository();
     clock = fakeClock('2026-07-29T10:00:00Z');
+    trials = new InMemoryCenterTrialStore();
     const ids = fakeIds();
     const seedDefaultCenterHours = new SeedDefaultCenterHours(hours, clock, ids);
-    useCase = new SaveCenterProfile(centers, clock, ids, seedDefaultCenterHours);
+    useCase = new SaveCenterProfile(
+      centers,
+      clock,
+      ids,
+      seedDefaultCenterHours,
+      new StartCenterTrial(trials, clock),
+    );
   });
 
   describe('first save (create)', () => {
@@ -88,6 +98,36 @@ describe('SaveCenterProfile', () => {
         expect(day.version).toBe(0);
       }
       expect(DEFAULT_WEEKLY_HOURS).toHaveLength(7);
+    });
+
+    it('starts one local trial only when it creates the center', async () => {
+      await useCase.execute(validInput());
+
+      expect(trials.get()).toEqual({
+        startedAt: new Date('2026-07-29T10:00:00Z'),
+        lastSeenAt: new Date('2026-07-29T10:00:00Z'),
+      });
+      clock.advance(60_000);
+      await useCase.execute(validInput({ name: 'Renamed' }));
+      expect(trials.get()?.startedAt).toEqual(new Date('2026-07-29T10:00:00Z'));
+    });
+
+    it('does not backfill a trial when an existing center is saved', async () => {
+      await useCase.execute(validInput());
+      const legacyTrials = new InMemoryCenterTrialStore();
+      const ids = fakeIds();
+      const seedDefaultCenterHours = new SeedDefaultCenterHours(hours, clock, ids);
+      useCase = new SaveCenterProfile(
+        centers,
+        clock,
+        ids,
+        seedDefaultCenterHours,
+        new StartCenterTrial(legacyTrials, clock),
+      );
+
+      await useCase.execute(validInput({ name: 'Existing Centre' }));
+
+      expect(legacyTrials.get()).toBeNull();
     });
   });
 

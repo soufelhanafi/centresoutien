@@ -8,6 +8,7 @@ import { applyWrite } from '../entities/write';
 import { centerProfileSchema, type CenterProfileInput } from '../schemas/center';
 import { CENTER_ID_PREFIX, type Center, type CenterId } from '../entities/center';
 import type { SeedDefaultCenterHours } from './seed-default-center-hours';
+import type { StartCenterTrial } from './start-center-trial';
 
 export type SaveCenterProfileInput = CenterProfileInput & {
   logoPath: string | null;
@@ -36,6 +37,7 @@ export class SaveCenterProfile {
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
     private readonly seedDefaultCenterHours: SeedDefaultCenterHours,
+    private readonly startCenterTrial: StartCenterTrial,
   ) {}
 
   async execute(input: SaveCenterProfileInput): Promise<Center> {
@@ -69,6 +71,7 @@ export class SaveCenterProfile {
         deviceOrigin: input.deviceOrigin,
         updatedBy: input.updatedBy,
       });
+      this.startCenterTrial.execute();
       return center;
     }
 

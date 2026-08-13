@@ -5,8 +5,10 @@ import { SeedDefaultCenterHours } from '../../../src/use-cases/seed-default-cent
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryCenterRepository } from '../fakes/in-memory-center-repository';
 import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-repository';
+import { InMemoryCenterTrialStore } from '../fakes/in-memory-center-trial-store';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import { StartCenterTrial } from '../../../src/use-cases/start-center-trial';
 
 describe('GetCenterProfile', () => {
   let centers: InMemoryCenterRepository;
@@ -29,7 +31,13 @@ describe('GetCenterProfile', () => {
       clock,
       ids,
     );
-    const save = new SaveCenterProfile(centers, clock, ids, seedDefaultCenterHours);
+    const save = new SaveCenterProfile(
+      centers,
+      clock,
+      ids,
+      seedDefaultCenterHours,
+      new StartCenterTrial(new InMemoryCenterTrialStore(), clock),
+    );
     const saved = await save.execute({
       name: 'Centre Al Ilm',
       address: '',

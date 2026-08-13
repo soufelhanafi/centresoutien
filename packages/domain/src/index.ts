@@ -139,6 +139,9 @@ export type { LicenseClaims, LicenseVerification } from './plans/license';
 export type { LicenseStatus, LicenseResolution } from './plans/resolve-active-plan';
 export { resolveActivePlan, isLicenseExpired, isRestrictedMode } from './plans/resolve-active-plan';
 export type { LicensePort, LicenseStorePort, MachineIdentity } from './ports/license-port';
+export type { CenterTrialStore } from './ports/center-trial-store';
+export type { CenterTrial, CenterTrialResolution } from './plans/trial';
+export { TRIAL_DURATION_DAYS, resolveCenterTrial } from './plans/trial';
 export { licenseFileSchema, licenseClaimsSchema } from './schemas/license';
 export type { LicenseFileInput } from './schemas/license';
 // License activation (SOU-104): the binding + founder-discount rules layered on
@@ -158,6 +161,7 @@ export { ActivateLicense } from './use-cases/activate-license';
 export type { ActivateLicenseInput } from './use-cases/activate-license';
 export { GetLicenseStatus } from './use-cases/get-license-status';
 export type { LicenseStatusView } from './use-cases/get-license-status';
+export { StartCenterTrial } from './use-cases/start-center-trial';
 export {
   LicenseError,
   LicenseMissingError,

@@ -39,11 +39,4 @@ export const licenseClaimsSchema = z.object({
     .datetime()
     .nullish()
     .transform((value) => value ?? null),
-  // Demo-issued licenses (SOU-110) carry `demo: true`, signed by the demo-only
-  // keypair. `.nullish().transform` keeps backward compat with licenses signed
-  // before the field existed — an absent key parses as `false` (not a demo).
-  demo: z
-    .boolean()
-    .nullish()
-    .transform((value) => value ?? false),
 });
