@@ -24,7 +24,6 @@ import { RoomsPage } from '../pages/rooms/rooms-page';
 import { PlannerPage } from '../pages/planning/planner-page';
 import { InvoicesPage } from '../pages/invoices/invoices-page';
 import { InvoiceDetailPage } from '../pages/invoices/invoice-detail-page';
-import { ArrearsPage } from '../pages/arrears/arrears-page';
 import { PaymentsPage } from '../pages/payments/payments-page';
 import { PayrollPage } from '../pages/payroll/payroll-page';
 import { SyncPage } from '../pages/sync/sync-page';
@@ -40,7 +39,6 @@ import {
   roomsModule,
   planningModule,
   invoicingModule,
-  arrearsModule,
   paymentsModule,
   payrollModule,
   syncModule,
@@ -128,11 +126,6 @@ const invoiceDetailRoute = createRoute({
   path: '/invoicing/$invoiceId',
   component: InvoiceDetailPage,
 });
-const arrearsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: arrearsModule.path,
-  component: ArrearsPage,
-});
 const paymentsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: paymentsModule.path,
@@ -179,7 +172,6 @@ const routeTree = rootRoute.addChildren([
   planningRoute,
   invoicingRoute,
   invoiceDetailRoute,
-  arrearsRoute,
   paymentsRoute,
   payrollRoute,
   syncRoute,
