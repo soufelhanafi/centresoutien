@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { boot, DIRECTION, type Locale } from './app-shell.fixtures';
 
-/**
+/*
  * SOU-216 — branded overlay scrollbars (OverlayScrollbars).
  *
  * The shell scroll regions must render an overlay scrollbar whose thumb is
@@ -11,9 +11,8 @@ import { boot, DIRECTION, type Locale } from './app-shell.fixtures';
  * overlay lib must do the same. Runs under both `fr` (LTR) and `ar` (RTL)
  * projects.
  *
- * Black-box: only the DOM the lib itself exposes is asserted — the
- * `os-scrollbar` structure and its CSS custom properties, never the lib
- * internals.
+ * Black-box: asserts observable behavior (computed thumb colour, scrollbar
+ * geometry, keyboard scroll) — never lib class names.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -28,18 +27,21 @@ async function shellScrollbar(win: Page) {
   return win.evaluate(() => {
     const host = document.querySelector<HTMLElement>('#main-content [data-overlayscrollbars]');
     if (!host) return null;
+    const viewport = host.querySelector<HTMLElement>('[data-overlayscrollbars-viewport]');
+    if (!viewport) return null;
     const scrollbar = host.querySelector<HTMLElement>('.os-scrollbar-vertical');
     if (!scrollbar) return null;
     const style = getComputedStyle(scrollbar);
     return {
-      theme: scrollbar.getAttribute('class') ?? '',
       handleBg: style.getPropertyValue('--os-handle-bg').trim(),
-      rect: scrollbar.getBoundingClientRect().toJSON(),
+      scrollbarRect: scrollbar.getBoundingClientRect().toJSON(),
+      hostRect: host.getBoundingClientRect().toJSON(),
+      viewport: viewport,
     };
   });
 }
 
-test('shell shows a branded overlay scrollbar on the trailing edge in LTR', async () => {
+test('shell shows a branded overlay scrollbar on the trailing edge', async () => {
   const loc = locale();
   live = await boot(loc, 'pro');
   const win = live.win;
@@ -51,20 +53,52 @@ test('shell shows a branded overlay scrollbar on the trailing edge in LTR', asyn
   await expect.poll(async () => shellScrollbar(win)).not.toBeNull();
 
   const sb = await shellScrollbar(win);
-  expect(sb?.theme, 'thumb must use the custom brand theme').toContain('os-theme-centre-soutien');
   // The --scrollbar-thumb token is rgba(15, 118, 110, 0.35) → serialized as
   // the teal #0f766e at ~56% alpha. Assert the brand hue, not the exact string.
-  expect(sb?.handleBg ?? '', 'thumb colour must come from the --scrollbar-* tokens').toMatch(
-    /0f766e/,
-  );
+  expect(sb?.handleBg ?? '', 'thumb colour must come from the --scrollbar-* tokens').toMatch(/0f766e/);
 
-  // OverlayScrollbars flips the vertical scrollbar to the leading edge under
-  // RTL via the `os-scrollbar-rtl` class — assert the flip marker, not geometry.
-  if (DIRECTION[loc] === 'rtl') {
-    expect(sb?.theme, 'vertical scrollbar must carry the RTL flip class').toContain('os-scrollbar-rtl');
+  // Trailing edge: right edge of the host in LTR, left edge in RTL.
+  const hostRect = sb?.hostRect as { left: number; right: number } | undefined;
+  const sbRect = sb?.scrollbarRect as { left: number; right: number } | undefined;
+  expect(hostRect).toBeDefined();
+  expect(sbRect).toBeDefined();
+  if (DIRECTION[loc] === 'ltr') {
+    expect(sbRect?.right ?? 0).toBeCloseTo(hostRect?.right ?? 0, 0);
   } else {
-    expect(sb?.theme ?? '', 'LTR scrollbar must NOT carry the RTL flip class').not.toContain('os-scrollbar-rtl');
+    expect(sbRect?.left ?? 0).toBeCloseTo(hostRect?.left ?? 0, 0);
   }
 
   await win.screenshot({ path: `test-results/scrollbar-overlay-${loc}.png` });
+});
+
+// SOU-216 keyboard regression guard: the shell <main> is overflow-locked and the
+// routed page scrolls inside the OverlayScrollbars viewport. Keyboard scrolling
+// must still reach that viewport — otherwise PageDown/arrows die on a dead
+// <main>. The lib mirrors the host's tabindex onto its viewport and redirects
+// focus there, so focusing #main-content and pressing PageDown must scroll.
+test('keyboard scroll still works after skip-link focus', async () => {
+  const loc = locale();
+  live = await boot(loc, 'pro');
+  const win = live.win;
+  const bw = await live.app.browserWindow(win);
+  await bw.evaluate((w: { setContentSize: (x: number, y: number) => void }) => w.setContentSize(1000, 400));
+
+  await expect.poll(async () => shellScrollbar(win)).not.toBeNull();
+
+  // Focus the shell's scroll region (what the skip link targets) and scroll it
+  // with the keyboard exactly as a keyboard-only user would after "skip to
+  // content".
+  await win.evaluate(() => {
+    document.querySelector<HTMLElement>('#main-content')?.focus();
+  });
+  await win.keyboard.press('PageDown');
+  await win.keyboard.press('PageDown');
+
+  const scrolled = await win.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>(
+      '#main-content [data-overlayscrollbars-viewport]',
+    );
+    return viewport ? viewport.scrollTop > 0 : false;
+  });
+  expect(scrolled, 'PageDown after skip-link focus must scroll the shell content').toBe(true);
 });

@@ -124,7 +124,7 @@ export function ExcelBackupPreview({ preview, pathToken, onRepick }: ExcelBackup
         </div>
       )}
 
-      <ScrollArea className="max-h-80 overflow-x-auto rounded-xl border border-border bg-card" options={{ overflow: { x: 'scroll', y: 'scroll' } }}>
+      <ScrollArea className="max-h-80 rounded-xl border border-border bg-card" options={{ overflow: { x: 'scroll', y: 'scroll' } }}>
         <DataTable columns={ROW_COLUMNS}>
           <thead>
             <DataTableRow>

@@ -20,16 +20,16 @@ const DEFAULT_OPTIONS = {
   overflow: { x: 'hidden', y: 'scroll' },
 } as const;
 
-/**
+/*
  * Slack-style overlay scrollbars (SOU-216): the thumb floats over the content,
  * so content width never jumps when it appears, and it auto-hides until the
  * pointer moves or the user scrolls. Wraps OverlayScrollbars once in a shared
- * primitive — never per-page. RTL is handled by the lib: under `dir="rtl"` the
+ * primitive — never per-page. RTL is handled by the lib: under dir="rtl" the
  * vertical scrollbar flips to the leading edge automatically.
  *
- * OverlayScrollbars needs an explicit size on the host; pass `className` for
- * sizing (`h-64`, `flex-1 min-h-0`, ...) and `contentClassName` for the
- * padding that should scroll with the content.
+ * OverlayScrollbars needs an explicit size on the host; pass className for
+ * sizing (h-64, flex-1 min-h-0, ...) and contentClassName for the padding that
+ * should scroll with the content.
  */
 export function ScrollArea({ className, contentClassName, children, options, ...rest }: ScrollAreaProps) {
   const mergedOptions = options
