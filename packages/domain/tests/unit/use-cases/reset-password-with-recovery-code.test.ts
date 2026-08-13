@@ -285,6 +285,42 @@ describe('ResetPasswordWithRecoveryCode', () => {
     expect(deviceSessionStore.clearCount).toBe(0);
   });
 
+  it('returns locked-out without consuming the code or committing when the console is locked', async () => {
+    const lockedThrottle = new InMemoryLoginThrottleStore();
+    await lockedThrottle.save({
+      failedAttempts: 6,
+      lockedUntil: clock.now().getTime() + 1_000_000,
+    });
+    const lockedUseCase = new ResetPasswordWithRecoveryCode(
+      new VerifyRecoveryCode(
+        codes,
+        auditLog,
+        hasher,
+        lockedThrottle,
+        new LoginThrottlePolicy(),
+        clock,
+        fakeIds(),
+      ),
+      accounts,
+      new InMemoryRecoveryCodeResetUnitOfWork(accounts, codes, auditLog, deviceSessionStore),
+      hasher,
+      new DeviceSessionService(deviceSessionStore, clock, fakeIds()),
+      clock,
+      fakeIds(),
+    );
+
+    const result = await lockedUseCase.execute({
+      recoveryCode: validCode(),
+      newPassword: 'NewPass1',
+      username: 'admin',
+    });
+
+    expect(result.outcome).toBe('locked-out');
+    expect(await codes.countUnconsumed()).toBe(1);
+    const account = await accounts.findOnly();
+    expect(await hasher.verify(account!.passwordHash, 'oldPass1')).toBe(true);
+  });
+
   it('throws on weak password', async () => {
     await expect(
       useCase.execute({
