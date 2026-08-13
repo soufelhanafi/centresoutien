@@ -13,6 +13,7 @@ class IpcPaymentsGateway implements PaymentsGateway {
     const { payments } = await window.api.invoke('payment.recent', {
       ...(query.from !== undefined && { from: query.from }),
       ...(query.to !== undefined && { to: query.to }),
+      ...(query.method !== undefined && { method: query.method }),
       ...(query.limit !== undefined && { limit: query.limit }),
     });
     return payments;

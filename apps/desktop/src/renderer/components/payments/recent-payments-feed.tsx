@@ -1,21 +1,51 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { History } from 'lucide-react';
 import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import { useRecentPayments } from '../../hooks/payments/use-recent-payments';
+import type { RecentPaymentsQuery } from '../../lib/payments/recent-payment-view';
 import { RecentPaymentRow } from './recent-payment-row';
+import {
+  ALL_METHODS,
+  RecentPaymentsFilters,
+  hasActiveRecentPaymentsFilters,
+  type RecentPaymentsFilterState,
+} from './recent-payments-filters';
 
 const RECENT_FEED_LIMIT = 50;
 
-/** Append-only cross-invoice payment feed, most recent first (SOU-198). */
-export function RecentPaymentsFeed() {
+function toRecentPaymentsQuery(filters: RecentPaymentsFilterState): RecentPaymentsQuery {
+  return {
+    limit: RECENT_FEED_LIMIT,
+    ...(filters.from !== '' && { from: filters.from }),
+    ...(filters.to !== '' && { to: filters.to }),
+    ...(filters.method !== ALL_METHODS && { method: filters.method }),
+  };
+}
+
+/** Append-only cross-invoice payment feed, most recent first (SOU-198), with a
+ *  `paidOn` day-window + method filter bar (SOU-225). Filter state is owned by the
+ *  parent `PaymentsPage` so it survives the Radix tab remount (leaving and
+ *  re-entering the tab keeps the applied window/method instead of resetting). */
+export function RecentPaymentsFeed({
+  filters,
+  onFiltersChange,
+}: {
+  filters: RecentPaymentsFilterState;
+  onFiltersChange: (next: RecentPaymentsFilterState) => void;
+}) {
   const { t } = useTranslation();
-  const query = useRecentPayments({ limit: RECENT_FEED_LIMIT });
+  const feedQuery = useMemo(() => toRecentPaymentsQuery(filters), [filters]);
+  const query = useRecentPayments(feedQuery);
+  const filtersActive = hasActiveRecentPaymentsFilters(filters);
 
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-4" aria-labelledby="recent-payments-title">
       <h2 id="recent-payments-title" className="text-sm font-semibold text-foreground">
         {t('payments.feed.title')}
       </h2>
+
+      <RecentPaymentsFilters value={filters} onChange={onFiltersChange} />
 
       {query.isPending && (
         <div className="space-y-2" aria-busy="true">
@@ -40,8 +70,8 @@ export function RecentPaymentsFeed() {
       {query.data && query.data.length === 0 && (
         <EmptyState
           icon={<History className="h-5 w-5" aria-hidden="true" />}
-          title={t('payments.feed.emptyTitle')}
-          description={t('payments.feed.emptyBody')}
+          title={t(filtersActive ? 'payments.feed.noResultsTitle' : 'payments.feed.emptyTitle')}
+          description={t(filtersActive ? 'payments.feed.noResultsBody' : 'payments.feed.emptyBody')}
         />
       )}
 

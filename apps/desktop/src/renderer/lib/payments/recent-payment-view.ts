@@ -1,3 +1,4 @@
+import type { PaymentMethod } from '@centresoutien/domain';
 import type { RecentPaymentDto } from '../../../shared/ipc/contract';
 
 /**
@@ -9,12 +10,14 @@ import type { RecentPaymentDto } from '../../../shared/ipc/contract';
 export type RecentPaymentView = RecentPaymentDto;
 
 /**
- * Optional inclusive `'YYYY-MM-DD'` day window + row cap for the recent-payments
- * read. A single day = `from === to` (today's takings); an omitted bound is
- * open-ended. `limit` is clamped again in the domain use case.
+ * Optional inclusive `'YYYY-MM-DD'` day window + `method` filter + row cap for the
+ * recent-payments read. A single day = `from === to` (today's takings); an omitted
+ * bound is open-ended; an omitted `method` returns every method. `limit` is clamped
+ * again in the domain use case.
  */
 export type RecentPaymentsQuery = {
   readonly from?: string;
   readonly to?: string;
+  readonly method?: PaymentMethod;
   readonly limit?: number;
 };

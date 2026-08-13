@@ -55,8 +55,9 @@ test('AC1 — Caisse page shows the two tabs (record + recent feed)', async () =
 
   await expect(recordTab(win, L)).toBeVisible();
   await expect(feedTab(win, L)).toBeVisible();
-  // Exactly the two tabs described by the criteria — no stray third tab.
-  await expect(win.getByRole('tab')).toHaveCount(2);
+  // Record + recent feed, plus the Impayés tab folded in by SOU-224. The Impayés
+  // tab's own content is covered by sou224-impayes-tab.spec.ts.
+  await expect(win.getByRole('tab')).toHaveCount(3);
 
   await win.screenshot({ path: `test-results/sou222-tabs-${locale()}.png`, fullPage: true });
 });

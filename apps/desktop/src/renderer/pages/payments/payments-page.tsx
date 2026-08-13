@@ -3,27 +3,36 @@ import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import { OpenInvoicePicker } from '../../components/payments/open-invoice-picker';
 import { RecentPaymentsFeed } from '../../components/payments/recent-payments-feed';
+import {
+  EMPTY_RECENT_PAYMENTS_FILTERS,
+  type RecentPaymentsFilterState,
+} from '../../components/payments/recent-payments-filters';
+import { ArrearsPanel } from '../../components/arrears/arrears-panel';
 
 const RECORD_TAB = 'record';
 const FEED_TAB = 'feed';
+const ARREARS_TAB = 'arrears';
 
 /**
- * Cash-desk module (SOU-198, SOU-222): a tabbed workspace for recording a payment
- * against an open invoice and reviewing the cross-invoice recent-payments feed.
- * Radix `TabsContent` unmounts the inactive panel, so each tab's underlying query
- * only fires once its tab is selected; the picker's search term is held here so it
- * survives that remount, and the cash-desk queries carry a short `staleTime` so
- * re-entering a tab reuses the cache instead of refetching. A future Impayés tab
- * (SOU-224) slots in as an additional trigger + content pair. Distinct from the
- * Invoices list (billing).
+ * Cash-desk module (SOU-198, SOU-222, SOU-224): a tabbed workspace for recording a
+ * payment against an open invoice, reviewing the cross-invoice recent-payments feed,
+ * and chasing overdue invoices (Impayés). Radix `TabsContent` unmounts the inactive
+ * panel, so each tab's underlying query only fires once its tab is selected; the
+ * picker's search term and the feed's day-window/method filters are held here so they
+ * survive that remount, and the cash-desk queries carry a short `staleTime` so
+ * re-entering a tab reuses the cache instead of refetching. Distinct from the Invoices
+ * list (billing).
  */
 export function PaymentsPage() {
   const { t } = useTranslation();
   const [invoiceSearch, setInvoiceSearch] = useState('');
+  const [feedFilters, setFeedFilters] = useState<RecentPaymentsFilterState>(
+    EMPTY_RECENT_PAYMENTS_FILTERS,
+  );
 
   return (
     <section aria-labelledby="payments-title" className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-      <header className="space-y-1">
+      <header className="space-y-1 print:hidden">
         <h1 id="payments-title" className="text-xl font-semibold text-foreground">
           {t('payments.title')}
         </h1>
@@ -31,9 +40,10 @@ export function PaymentsPage() {
       </header>
 
       <Tabs defaultValue={RECORD_TAB} className="flex flex-col gap-4">
-        <TabsList aria-label={t('payments.tabsLabel')} className="w-full max-w-md">
+        <TabsList aria-label={t('payments.tabsLabel')} className="w-full max-w-xl print:hidden">
           <TabsTrigger value={RECORD_TAB}>{t('payments.record.title')}</TabsTrigger>
           <TabsTrigger value={FEED_TAB}>{t('payments.feed.title')}</TabsTrigger>
+          <TabsTrigger value={ARREARS_TAB}>{t('arrears.title')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value={RECORD_TAB}>
@@ -41,7 +51,11 @@ export function PaymentsPage() {
         </TabsContent>
 
         <TabsContent value={FEED_TAB}>
-          <RecentPaymentsFeed />
+          <RecentPaymentsFeed filters={feedFilters} onFiltersChange={setFeedFilters} />
+        </TabsContent>
+
+        <TabsContent value={ARREARS_TAB}>
+          <ArrearsPanel />
         </TabsContent>
       </Tabs>
     </section>

@@ -155,6 +155,10 @@ export class SqlitePaymentRepository implements PaymentRepository, RecentPayment
       conditions.push('p.paid_on <= @to');
       params['to'] = filters.to;
     }
+    if (filters.method !== undefined) {
+      conditions.push('p.method = @method');
+      params['method'] = filters.method;
+    }
 
     const rows = this.db
       .prepare(

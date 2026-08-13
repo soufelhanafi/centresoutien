@@ -17,7 +17,6 @@
     "rooms": "Salles",
     "planning": "Planning",
     "invoicing": "Facturation",
-    "arrears": "Impayés",
     "payments": "Paiements",
     "payroll": "Paie",
     "sync": "Synchronisation",
@@ -2197,7 +2196,16 @@
       "unknownStudent": "Élève inconnu",
       "loadError": "Le chargement des encaissements a échoué.",
       "emptyTitle": "Aucun encaissement",
-      "emptyBody": "Les paiements enregistrés apparaîtront ici."
+      "emptyBody": "Les paiements enregistrés apparaîtront ici.",
+      "noResultsTitle": "Aucun encaissement trouvé",
+      "noResultsBody": "Aucun encaissement ne correspond à ces filtres.",
+      "filters": {
+        "from": "Du",
+        "to": "Au",
+        "method": "Moyen de paiement",
+        "allMethods": "Tous les moyens",
+        "reset": "Réinitialiser"
+      }
     }
   },
   "license": {
