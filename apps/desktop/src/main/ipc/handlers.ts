@@ -1304,6 +1304,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
         centerCode: deps.envelopeContext().centerCode,
         ...(request.from !== undefined && { from: request.from }),
         ...(request.to !== undefined && { to: request.to }),
+        ...(request.method !== undefined && { method: request.method }),
         ...(request.limit !== undefined && { limit: request.limit }),
       });
       return { payments: rows.map(toRecentPaymentView) };

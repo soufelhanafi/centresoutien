@@ -1343,15 +1343,17 @@ export const ipcContract = {
   // Recent-payments cash-desk feed (SOU-198) — the ONE cross-invoice payment read.
   // Returns the center's append-only payment/reversal rows across ALL invoices, most
   // recent `paidOn` first, for the `/payments` page (today's takings + recent feed).
-  // Optional inclusive `from`/`to` day window (a single "today" = `from === to`) and a
-  // `limit` bounded at `RECENT_PAYMENTS_MAX_LIMIT` (200), clamped again in the use case
-  // so the feed can never return unbounded rows. Pure read over existing Payment rows —
-  // no write path, no new entity. centerCode is injected in main, never sent from the
-  // renderer. Gated by `core.invoicing` (every plan), same as `payment.summary`.
+  // Optional inclusive `from`/`to` day window (a single "today" = `from === to`), an
+  // optional `method` filter (cash/cheque/transfer/other — omitted means all methods),
+  // and a `limit` bounded at `RECENT_PAYMENTS_MAX_LIMIT` (200), clamped again in the use
+  // case so the feed can never return unbounded rows. Pure read over existing Payment
+  // rows — no write path, no new entity. centerCode is injected in main, never sent from
+  // the renderer. Gated by `core.invoicing` (every plan), same as `payment.summary`.
   'payment.recent': {
     request: z.object({
       from: dayString.optional(),
       to: dayString.optional(),
+      method: z.enum(['cash', 'cheque', 'transfer', 'other']).optional(),
       limit: z.number().int().positive().max(200).optional(),
     }),
     response: z.object({ payments: z.array(recentPaymentViewSchema) }),

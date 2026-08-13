@@ -37,14 +37,17 @@ export type RecentPaymentView = {
 };
 
 /**
- * The optional day/date-range window + hard row cap for the recent-payments feed.
- * `from`/`to` are inclusive `'YYYY-MM-DD'` bounds on `paidOn` (a single day =
- * `from === to`); either may be omitted for an open-ended bound. `limit` is
- * already clamped to a sane maximum by {@link ListRecentPayments} before it
- * reaches the port, so the adapter can trust it as a bounded `LIMIT`.
+ * The optional day/date-range window + payment-method filter + hard row cap for the
+ * recent-payments feed. `from`/`to` are inclusive `'YYYY-MM-DD'` bounds on `paidOn`
+ * (a single day = `from === to`); either may be omitted for an open-ended bound.
+ * `method` narrows the feed to a single {@link PaymentMethod} (cash/cheque/transfer/
+ * other) when set, and is omitted for the unfiltered "all methods" feed. `limit` is
+ * already clamped to a sane maximum by {@link ListRecentPayments} before it reaches
+ * the port, so the adapter can trust it as a bounded `LIMIT`.
  */
 export type RecentPaymentsFilters = {
   readonly from?: string; // inclusive 'YYYY-MM-DD' lower bound on paidOn
   readonly to?: string; // inclusive 'YYYY-MM-DD' upper bound on paidOn
+  readonly method?: PaymentMethod; // single-method filter; omit for all methods
   readonly limit: number; // hard cap, already clamped by the use case
 };

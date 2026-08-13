@@ -1,5 +1,6 @@
 import type { RecentPaymentsReadPort } from '../ports/recent-payments-read-port';
 import type { RecentPaymentView, RecentPaymentsFilters } from '../read-models/recent-payment-view';
+import type { PaymentMethod } from '../entities/payment';
 import type { PlanPolicy } from '../plans/plan-policy';
 import type { CenterCode } from '../value-objects/ids';
 import { InvalidPaymentDateRangeError } from '../errors/payment-errors';
@@ -16,6 +17,8 @@ export type ListRecentPaymentsInput = {
   from?: string;
   /** Inclusive `'YYYY-MM-DD'` upper bound on `paidOn`; a single "today" = `from === to`. */
   to?: string;
+  /** Narrows the feed to a single payment method; omit for all methods. */
+  method?: PaymentMethod;
   /** Requested page size; clamped to `[1, RECENT_PAYMENTS_MAX_LIMIT]`, defaults to
    *  `RECENT_PAYMENTS_DEFAULT_LIMIT` when omitted. */
   limit?: number;
@@ -50,6 +53,7 @@ export class ListRecentPayments {
       limit: this.clampLimit(input.limit),
       ...(input.from !== undefined && { from: input.from }),
       ...(input.to !== undefined && { to: input.to }),
+      ...(input.method !== undefined && { method: input.method }),
     };
     return this.recentPayments.listRecentPayments(input.centerCode, filters);
   }
