@@ -26,16 +26,18 @@ function claims(overrides: Partial<LicenseClaims> = {}): LicenseClaims {
 
 describe('GetLicenseStatus', () => {
   let license: InMemoryLicensePort;
+  let trials: InMemoryCenterTrialStore;
   let useCase: GetLicenseStatus;
 
   beforeEach(() => {
     license = new InMemoryLicensePort();
+    trials = new InMemoryCenterTrialStore();
     useCase = new GetLicenseStatus(
       license,
       fakeMachineIdentity(MACHINE),
       fakeClock(NOW),
       CENTER,
-      new InMemoryCenterTrialStore(),
+      trials,
     );
   });
 
@@ -115,6 +117,43 @@ describe('GetLicenseStatus', () => {
       plan: 'essentiel',
       restricted: true,
     });
+  });
+
+  it.each([
+    { label: 'missing', verification: { status: 'missing' } as const },
+    { label: 'invalid signature', verification: { status: 'invalid-signature' } as const },
+    {
+      label: 'expired',
+      verification: {
+        status: 'valid' as const,
+        claims: claims({ expiresAt: '2026-08-05T00:00:00.000Z' }),
+      },
+    },
+    {
+      label: 'wrong machine',
+      verification: { status: 'valid' as const, claims: claims({ machineId: 'machine-B' }) },
+    },
+    {
+      label: 'wrong center',
+      verification: { status: 'valid' as const, claims: claims({ centerCode: 'CS-RABAT-999' }) },
+    },
+  ])('uses an active trial for a $label license resolution', ({ verification }) => {
+    trials.start(new Date('2026-08-01T00:00:00.000Z'));
+    license.setInstalled(verification);
+
+    expect(useCase.execute()).toMatchObject({
+      status: 'trial-active',
+      plan: 'essentiel',
+      restricted: false,
+      trial: { startedAt: '2026-08-01T00:00:00.000Z', expiresAt: '2026-08-15T00:00:00.000Z' },
+    });
+  });
+
+  it('keeps an active valid license ahead of a stored trial', () => {
+    trials.start(new Date('2026-08-01T00:00:00.000Z'));
+    license.setInstalled({ status: 'valid', claims: claims() });
+
+    expect(useCase.execute()).toMatchObject({ status: 'active', plan: 'premium', restricted: false, trial: null });
   });
 
   it('flags a lapsed founder discount on an otherwise active license', () => {

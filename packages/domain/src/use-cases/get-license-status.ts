@@ -46,7 +46,9 @@ export class GetLicenseStatus {
       machineId: this.machine.machineId(),
       centerCode: this.centerCode,
     });
-    const trial = resolution.status === 'missing' ? this.resolveTrial(now) : null;
+    // A valid license is perpetual access and always wins. Every other license
+    // state remains restricted only after the center's own trial has elapsed.
+    const trial = resolution.status === 'active' ? null : this.resolveTrial(now);
     if (trial !== null) return trial;
     const { claims } = resolution;
 
