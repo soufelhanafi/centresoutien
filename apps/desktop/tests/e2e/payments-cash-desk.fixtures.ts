@@ -165,9 +165,19 @@ export async function voidPayment(win: Page, paymentId: string): Promise<void> {
   );
 }
 
-/** Today's date as the app's Clock would format it (YYYY-MM-DD), best-effort real clock. */
+/**
+ * Today's LOCAL business day as 'YYYY-MM-DD', mirroring the renderer's `today.ts`
+ * (getFullYear/getMonth/getDate) — the day `getDayTakings` nets by. Every seeded and
+ * voided `paidOn` uses this so fixtures model the same business day the cash-desk UI
+ * shows, with no UTC/local drift near midnight (SOU-244). This is the business date,
+ * not the UTC envelope clock.
+ */
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /** The billing month (YYYY-MM) of today — keeps the seeded invoice coherent with "today". */
