@@ -5,6 +5,7 @@ import { Archive, SquarePen } from 'lucide-react';
 import {
   Badge,
   Button,
+  ScrollArea,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -84,14 +85,14 @@ export function ParentDetailSheet({
           </Button>
         </div>
 
-        <div className="-mx-1 flex-1 space-y-6 overflow-y-auto px-1 py-2">
+        <ScrollArea className="min-h-0 flex-1" contentClassName="-mx-1 space-y-6 px-1 py-2">
           <ParentContactInfo parent={current} />
           <ParentChildrenList
             parentId={current.id}
             enabled={open}
             onAddChild={() => setAddChildOpen(true)}
           />
-        </div>
+        </ScrollArea>
       </SheetContent>
 
       <EditParentSheet parent={current} open={editOpen} onOpenChange={setEditOpen} />

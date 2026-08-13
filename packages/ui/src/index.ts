@@ -137,3 +137,5 @@ export { Numeric } from '@ui/components/data/numeric';
 export type { NumericProps } from '@ui/components/data/numeric';
 export { BilingualText } from '@ui/components/data/bilingual-text';
 export type { BilingualTextProps } from '@ui/components/data/bilingual-text';
+export { ScrollArea } from '@ui/components/ui/scroll-area';
+export type { ScrollAreaProps } from '@ui/components/ui/scroll-area';

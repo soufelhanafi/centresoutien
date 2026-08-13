@@ -12,31 +12,36 @@ body {
 }
 
 /*
- * Nav sidebar scroll area: invisible thumb at rest, revealed on hover of the
- * scroll area and darkened when the thumb itself is hovered (SOU-245). The track
- * width is always reserved so the thumb fading in never shifts layout, and the
- * `--border` / `--muted-foreground` / `--radius-full` tokens are referenced (no
- * hard-coded literals, no hsl() — this repo's tokens are raw values). The track
- * width is a desktop-shell dimension, so it lives here rather than in the shared
- * UI token file. Chromium-only, so -webkit-scrollbar suffices; under dir="rtl"
- * Chromium flips the scrollbar to the leading (left) edge.
+ * Print: neutralize OverlayScrollbars so the full content prints instead of
+ * being clipped to the scroll viewport (SOU-216). The host, viewport and
+ * scrollbar elements are all forced to a single visible stream.
  */
-:root {
-  --nav-scrollbar-width: 8px;
+@media print {
+  [data-overlayscrollbars],
+  [data-overlayscrollbars-padding],
+  [data-overlayscrollbars-viewport] {
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+  }
+  .os-scrollbar {
+    display: none !important;
+  }
 }
-.nav-scroll::-webkit-scrollbar {
-  width: var(--nav-scrollbar-width);
+
+/*
+ * OverlayScrollbars (SOU-216): give the scroll viewport a column flex layout so
+ * `.os-content` fills short content and still grows (scrolls) when it's taller.
+ * The lib sizes `.os-content` to auto by default, which collapses the `h-full`
+ * height chain used by fill-height pages (e.g. the planner grid). `flex: 1`
+ * with the default auto min-height: fills the viewport, never clips content.
+ */
+[data-overlayscrollbars-viewport] {
+  display: flex;
+  flex-direction: column;
 }
-.nav-scroll::-webkit-scrollbar-track {
-  background: transparent;
+[data-overlayscrollbars-content] {
+  flex: 1 1 0%;
 }
-.nav-scroll::-webkit-scrollbar-thumb {
-  background-color: transparent;
-  border-radius: var(--radius-full);
-}
-.nav-scroll:hover::-webkit-scrollbar-thumb {
-  background-color: var(--border);
-}
-.nav-scroll:hover::-webkit-scrollbar-thumb:hover {
-  background-color: var(--muted-foreground);
-}
+
+

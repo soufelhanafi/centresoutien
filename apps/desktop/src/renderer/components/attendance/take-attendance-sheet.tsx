@@ -4,6 +4,7 @@ import { Users } from 'lucide-react';
 import {
   Button,
   EmptyState,
+  ScrollArea,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -89,7 +90,7 @@ export function TakeAttendanceSheet({ group, open, onOpenChange }: TakeAttendanc
           <SheetDescription>{t('groups.attendance.description')}</SheetDescription>
         </SheetHeader>
 
-        <div className="-mx-1 flex-1 space-y-4 overflow-y-auto px-1 py-4">
+        <ScrollArea className="min-h-0 flex-1" contentClassName="-mx-1 space-y-4 px-1 py-4">
           <RollCallSessionPicker
             date={date}
             onDateChange={setDate}
@@ -130,7 +131,7 @@ export function TakeAttendanceSheet({ group, open, onOpenChange }: TakeAttendanc
               presentCount={rollCall.presentCount}
             />
           )}
-        </div>
+        </ScrollArea>
 
         <SheetFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

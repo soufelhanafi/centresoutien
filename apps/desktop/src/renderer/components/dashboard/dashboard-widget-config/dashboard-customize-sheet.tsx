@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Button, Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@centresoutien/ui';
+import { Button, ScrollArea, Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@centresoutien/ui';
 import { resolvePanelWidgets } from '../../../lib/dashboard/widgets/preferences';
 import type { DashboardWidgetPanel } from '../../../lib/dashboard/widgets/registry';
 import { useDashboardWidgetsStore } from '../../../stores/dashboard-widgets-store';
@@ -36,7 +36,7 @@ export function DashboardCustomizeSheet({ open, onOpenChange }: DashboardCustomi
           <SheetDescription>{t('dashboard.widgets.description')}</SheetDescription>
         </SheetHeader>
 
-        <div className="-mx-1 flex-1 space-y-5 overflow-y-auto px-1 py-4">
+        <ScrollArea className="min-h-0 flex-1" contentClassName="-mx-1 space-y-5 px-1 py-4">
           {PANEL_SECTIONS.map(({ panel, headingKey }) => {
             const widgets =
               panel === 'basic'
@@ -61,7 +61,7 @@ export function DashboardCustomizeSheet({ open, onOpenChange }: DashboardCustomi
               </section>
             );
           })}
-        </div>
+        </ScrollArea>
 
         <SheetFooter>
           <Button type="button" variant="outline" onClick={reset}>

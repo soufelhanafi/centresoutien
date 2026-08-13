@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { WEEKDAYS, type WeekdayIndex } from '@centresoutien/domain';
 import {
+  ScrollArea,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -77,13 +78,15 @@ export function AllSessionsDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col gap-4 overflow-y-auto sm:max-w-md">
+      <SheetContent className="flex w-full flex-col gap-4 sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{t('planning.allSessions.title')}</SheetTitle>
           <SheetDescription>{t('planning.allSessions.regenNote')}</SheetDescription>
         </SheetHeader>
 
-        {renderContent()}
+        <ScrollArea className="min-h-0 flex-1" contentClassName="pe-1">
+          {renderContent()}
+        </ScrollArea>
       </SheetContent>
     </Sheet>
   );

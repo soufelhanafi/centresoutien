@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  ScrollArea,
 } from '@centresoutien/ui';
 import { useStrandedSessions } from '../../hooks/schedule-audit/use-stranded-sessions';
 import { ScheduleAuditList, type ScheduleAuditStatus } from './schedule-audit-list';
@@ -58,9 +59,9 @@ export function ScheduleAuditDialog() {
           <DialogTitle>{t('scheduleAudit.title')}</DialogTitle>
           <DialogDescription>{t('scheduleAudit.subtitle')}</DialogDescription>
         </DialogHeader>
-        <div className="max-h-[65vh] overflow-y-auto pe-1">
+        <ScrollArea className="max-h-[65vh]" contentClassName="pe-1">
           <ScheduleAuditList status={status} stranded={stranded} onRetry={() => void query.refetch()} />
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Outlet } from '@tanstack/react-router';
+import { ScrollArea } from '@centresoutien/ui';
 import { Sidebar } from './sidebar';
 import { AppHeader } from './app-header';
 import { DemoBanner } from './demo-banner';
@@ -29,11 +30,18 @@ export function AppShell() {
         <DemoBanner />
         <AppHeader />
         <main
-          id="main-content"
           tabIndex={-1}
-          className="flex-1 overflow-y-auto p-6 focus:outline-none print:overflow-visible print:p-0"
+          className="flex min-h-0 flex-1 focus:outline-none print:block"
         >
-          <Outlet />
+          <ScrollArea className="h-full w-full" contentClassName="p-6 print:p-0">
+            {/* The skip-link target must sit INSIDE the scroll viewport so the
+                browser's keyboard scrolling (nearest scrollable ancestor) lands
+                on the overlay viewport, not the overflow-locked <main> (SOU-216
+                regression guard). */}
+            <div id="main-content" tabIndex={-1} className="h-full focus:outline-none">
+              <Outlet />
+            </div>
+          </ScrollArea>
         </main>
       </div>
       <CommandPalette />

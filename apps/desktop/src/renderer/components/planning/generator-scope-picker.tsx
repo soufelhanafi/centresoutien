@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { Checkbox, Label, Switch } from '@centresoutien/ui';
+import { Checkbox, Label, ScrollArea, Switch } from '@centresoutien/ui';
 
 export type ScopeOption = { readonly id: string; readonly label: string };
 
@@ -50,23 +50,25 @@ export function GeneratorScopePicker({
         (options.length === 0 ? (
           <p className="text-sm text-muted-foreground">{emptyLabel}</p>
         ) : (
-          <ul className="max-h-40 space-y-2 overflow-y-auto rounded-md border border-input p-3">
-            {options.map((option) => {
-              const checkboxId = `${switchId}-${option.id}`;
-              return (
-                <li key={option.id} className="flex items-center gap-2">
-                  <Checkbox
-                    id={checkboxId}
-                    checked={selected.has(option.id)}
-                    onCheckedChange={() => toggle(option.id)}
-                  />
-                  <Label htmlFor={checkboxId} className="cursor-pointer font-normal">
-                    {option.label}
-                  </Label>
-                </li>
-              );
-            })}
-          </ul>
+          <ScrollArea className="max-h-40 rounded-md border border-input" contentClassName="p-3">
+            <ul className="space-y-2">
+              {options.map((option) => {
+                const checkboxId = `${switchId}-${option.id}`;
+                return (
+                  <li key={option.id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={checkboxId}
+                      checked={selected.has(option.id)}
+                      onCheckedChange={() => toggle(option.id)}
+                    />
+                    <Label htmlFor={checkboxId} className="cursor-pointer font-normal">
+                      {option.label}
+                    </Label>
+                  </li>
+                );
+              })}
+            </ul>
+          </ScrollArea>
         ))}
     </div>
   );

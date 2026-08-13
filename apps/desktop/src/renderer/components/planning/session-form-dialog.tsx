@@ -8,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  ScrollArea,
   Skeleton,
 } from '@centresoutien/ui';
 import { SessionForm } from './session-form';
@@ -56,13 +57,13 @@ export function SessionFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent closeLabel={t('planning.form.cancel')} className="max-h-[85vh] overflow-y-auto">
+      <DialogContent closeLabel={t('planning.form.cancel')} className="flex max-h-[85vh] flex-col">
         <DialogHeader>
           <DialogTitle>{t(`planning.form.${mode}Title`)}</DialogTitle>
           <DialogDescription>{t(`planning.form.${mode}Description`)}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <ScrollArea className="min-h-0 flex-1" contentClassName="space-y-4 py-2">
           <SessionConflictAlert codes={submission.errorCodes} />
           {options ? (
             <SessionForm
@@ -78,7 +79,7 @@ export function SessionFormDialog({
               ))}
             </div>
           )}
-        </div>
+        </ScrollArea>
 
         <DialogFooter className="sm:justify-between">
           {onCancelSession ? (

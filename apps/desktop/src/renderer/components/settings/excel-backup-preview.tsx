@@ -7,6 +7,7 @@ import {
   DataTableHead,
   DataTableRow,
   Numeric,
+  ScrollArea,
   cn,
   toast,
 } from '@centresoutien/ui';
@@ -123,25 +124,23 @@ export function ExcelBackupPreview({ preview, pathToken, onRepick }: ExcelBackup
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-border bg-card">
-        <div className="max-h-80 overflow-y-auto">
-          <DataTable columns={ROW_COLUMNS}>
-            <thead>
-              <DataTableRow>
-                <DataTableHead>{t('settings.backup.excel.colSheet')}</DataTableHead>
-                <DataTableHead>{t('settings.backup.excel.colRow')}</DataTableHead>
-                <DataTableHead>{t('settings.backup.excel.colStatus')}</DataTableHead>
-                <DataTableHead>{t('settings.backup.excel.colReason')}</DataTableHead>
-              </DataTableRow>
-            </thead>
-            <tbody>
-              {preview.rows.map((row) => (
-                <ExcelBackupPreviewRow key={`${row.sheetName}-${row.rowNumber}`} row={row} />
-              ))}
-            </tbody>
-          </DataTable>
-        </div>
-      </div>
+      <ScrollArea className="max-h-80 rounded-xl border border-border bg-card" options={{ overflow: { x: 'scroll', y: 'scroll' } }}>
+        <DataTable columns={ROW_COLUMNS}>
+          <thead>
+            <DataTableRow>
+              <DataTableHead>{t('settings.backup.excel.colSheet')}</DataTableHead>
+              <DataTableHead>{t('settings.backup.excel.colRow')}</DataTableHead>
+              <DataTableHead>{t('settings.backup.excel.colStatus')}</DataTableHead>
+              <DataTableHead>{t('settings.backup.excel.colReason')}</DataTableHead>
+            </DataTableRow>
+          </thead>
+          <tbody>
+            {preview.rows.map((row) => (
+              <ExcelBackupPreviewRow key={`${row.sheetName}-${row.rowNumber}`} row={row} />
+            ))}
+          </tbody>
+        </DataTable>
+      </ScrollArea>
 
       {applicable === 0 ? (
         <p className="text-sm text-muted-foreground">{t('settings.backup.excel.noApplicable')}</p>

@@ -44,7 +44,16 @@ export default defineWorkspace([
   {
     esbuild: { jsx: 'automatic' },
     resolve: {
-      alias: { '@ui': new URL('./packages/ui/src', import.meta.url).pathname },
+      alias: {
+        '@ui': new URL('./packages/ui/src', import.meta.url).pathname,
+        // OverlayScrollbars (SOU-216) measures layout via getComputedStyle,
+        // which jsdom cannot resolve — swap in a children-preserving stub for
+        // renderer unit tests. E2E runs the real lib under Chromium.
+        'overlayscrollbars-react': new URL(
+          './apps/desktop/tests/renderer/overlayscrollbars-stub.tsx',
+          import.meta.url,
+        ).pathname,
+      },
     },
     test: {
       name: 'renderer',
