@@ -55,6 +55,7 @@ import {
   TIME_OF_DAY_REGEX,
   INVOICE_LIST_MAX_PAGE_SIZE,
   FEATURE_FLAGS,
+  PAYMENT_METHODS,
 } from '@centresoutien/domain';
 
 const featureFlagSchema = z.enum(FEATURE_FLAGS);
@@ -1353,7 +1354,7 @@ export const ipcContract = {
     request: z.object({
       from: dayString.optional(),
       to: dayString.optional(),
-      method: z.enum(['cash', 'cheque', 'transfer', 'other']).optional(),
+      method: z.enum(PAYMENT_METHODS).optional(),
       limit: z.number().int().positive().max(200).optional(),
     }),
     response: z.object({ payments: z.array(recentPaymentViewSchema) }),
