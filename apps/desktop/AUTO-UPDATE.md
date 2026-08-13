@@ -27,8 +27,11 @@ Cadence: first check 10s after launch, then every 6h.
 ## Publishing a release
 
 1. Bump `version` in `apps/desktop/package.json` (must exceed installed builds).
-2. Run the **Package** workflow (`workflow_dispatch`). Each runner builds its
-   installer and publishes to a GitHub Release tagged `v<version>`.
+2. Run the **Package** workflow (`workflow_dispatch`, `publish: true`). The
+   `init-release` job creates a draft GitHub Release tagged `v<version>`; each
+   runner uploads its installer + `latest.yml`/`latest-mac.yml` to it; the
+   `finalize-release` job publishes it. Release creation is single-writer
+   (SOU-248) — runners never race a concurrent create.
 3. Existing installs pick it up on next launch.
 
 > **macOS publish caveat:** the arm64 and x64 runners each upload a

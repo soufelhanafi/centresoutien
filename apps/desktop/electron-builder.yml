@@ -52,8 +52,13 @@ nsis:
 # stays private and no token is baked into the app. electron-builder bakes
 # app-update.yml into every build from this block, and on `--publish` uploads
 # the installer + latest.yml + .blockmap to the GitHub Release.
+#
+# SOU-248: draft keeps electron-builder from creating the release itself — the
+# Package workflow's init-release job owns creation (single writer, no race);
+# electron-builder uploads assets to the existing draft, finalize-release flips
+# it to public.
 publish:
   provider: github
   owner: soufelhanafi
   repo: centresoutien-releases
-  releaseType: release
+  releaseType: draft

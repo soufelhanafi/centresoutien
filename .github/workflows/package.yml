@@ -15,7 +15,31 @@ on:
         default: false
 
 jobs:
+  # SOU-248: serialize release creation. One job creates the tag + draft
+  # release so the three matrix runners never race a concurrent POST /releases
+  # (loser gets 422 "Published releases must have a valid tag"). electron-builder
+  # uploads assets to the existing draft; finalize-release publishes it.
+  init-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve app version
+        id: version
+        run: echo "version=$(node -p \"require('./apps/desktop/package.json').version\")" >> "$GITHUB_OUTPUT"
+      - name: Create draft release (publish only)
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ secrets.CS_RELEASES_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if ! gh release view "v$VERSION" --repo soufelhanafi/centresoutien-releases >/dev/null 2>&1; then
+            gh release create "v$VERSION" --draft --repo soufelhanafi/centresoutien-releases
+          fi
+
   package:
+    needs: init-release
     strategy:
       # Each OS artifact is independent — a Windows-only native-module flake
       # must never cancel the already-succeeding macOS build mid-run.
@@ -111,3 +135,19 @@ jobs:
             apps/desktop/dist/*.exe
           retention-days: 14
           if-no-files-found: error
+
+  # SOU-248: flip the draft release created by init-release to published once
+  # every matrix runner has uploaded its assets.
+  finalize-release:
+    if: inputs.publish
+    needs: [init-release, package]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.CS_RELEASES_TOKEN }}
+    steps:
+      - name: Publish draft release
+        run: |
+          VERSION="${{ needs.init-release.outputs.version }}"
+          if gh release view "v$VERSION" --repo soufelhanafi/centresoutien-releases >/dev/null 2>&1; then
+            gh release edit "v$VERSION" --draft=false --repo soufelhanafi/centresoutien-releases
+          fi
