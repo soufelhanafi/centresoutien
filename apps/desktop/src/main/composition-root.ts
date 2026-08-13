@@ -9,7 +9,6 @@ import {
   resolveActivePlan,
   ActivateLicense,
   GetLicenseStatus,
-  StartCenterTrial,
   CreateSubject,
   ArchiveSubject,
   ListSubjects,
@@ -102,7 +101,6 @@ import {
   DeviceSessionService,
   GetCenterProfile,
   SaveCenterProfile,
-  SeedDefaultCenterHours,
   StoreCenterLogo,
   ReadCenterLogo,
   CreateBackup,
@@ -214,6 +212,7 @@ import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-thro
 import { SqliteSecurityQuestionThrottleStore } from '../data/sqlite/repositories/security-question-throttle-store';
 import { SqliteDeviceSessionStore } from '../data/sqlite/repositories/device-session-store';
 import { SqliteCenterRepository } from '../data/sqlite/repositories/center-repository';
+import { SqliteCenterSetupUnitOfWork } from '../data/sqlite/repositories/center-setup-unit-of-work';
 import { FsLogoStore } from '../data/fs/logo-store';
 import { SqliteBackupAdapter } from '../data/sqlite/repositories/backup-adapter';
 import { SqliteBackupConfigStore } from '../data/sqlite/repositories/backup-config-store';
@@ -877,7 +876,6 @@ export function buildContainer(options: ContainerOptions): Container {
   );
 
   const centerRepo = new SqliteCenterRepository(db);
-  const startCenterTrial = new StartCenterTrial(trialStore, clock);
   // Refresh the display-only `center.plan` mirror from the license-resolved plan
   // (SOU-98). No-op until the profile exists; the gate never reads this column.
   centerRepo.writePlanMirror(activePlanId);
@@ -887,13 +885,16 @@ export function buildContainer(options: ContainerOptions): Container {
   // here — never via a renderer IPC round-trip, which restricted mode blocks on
   // an unlicensed first run.
   const centerHoursRepo = new SqliteCenterHoursRepository(db);
-  const seedDefaultCenterHours = new SeedDefaultCenterHours(centerHoursRepo, clock, ids);
+  const centerSetup = new SqliteCenterSetupUnitOfWork(db);
   const saveCenterProfile = new SaveCenterProfile(
     centerRepo,
     clock,
     ids,
-    seedDefaultCenterHours,
-    startCenterTrial,
+    centerSetup,
+    {
+      hasActiveLicense: () =>
+        resolveActivePlan(verifyLicenseCached(), clock.now(), licenseBinding).status === 'active',
+    },
   );
   const logoStore = new FsLogoStore(options.dir, ids);
   const storeCenterLogo = new StoreCenterLogo(logoStore);

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { CenterCode, LicensePort } from '@centresoutien/domain';
+import type { CenterCode, LicenseClaims, LicensePort } from '@centresoutien/domain';
 import { buildContainer } from '../../src/main/composition-root';
 import { createIpcDispatcher } from '../../src/main/ipc/dispatcher';
 import { createHandlers } from '../../src/main/ipc/handlers';
@@ -10,6 +10,21 @@ import { createHandlers } from '../../src/main/ipc/handlers';
 const KEY = 'passphrase-under-test';
 const MISSING_LICENSE: LicensePort = {
   verify: () => ({ status: 'missing' }),
+  verifyContent: () => ({ status: 'invalid-signature' }),
+};
+const ACTIVE_LICENSE: LicensePort = {
+  verify: () => ({
+    status: 'valid',
+    claims: {
+      plan: 'premium',
+      issuedAt: '2026-01-01T00:00:00.000Z',
+      expiresAt: null,
+      machineId: null,
+      centerCode: null,
+      centersAllowed: null,
+      founderDiscountExpiresAt: null,
+    } satisfies LicenseClaims,
+  }),
   verifyContent: () => ({ status: 'invalid-signature' }),
 };
 let dir: string;
@@ -51,6 +66,29 @@ describe('center trial access (SOU-246)', () => {
     expect(await dispatch('license.status', {})).toMatchObject({ status: 'trial-expired', restricted: true });
     await expect(dispatch('student.list', { search: '' })).rejects.toThrow(/license-restricted/);
 
+    container.dispose();
+  });
+
+  it('does not create a trial for first setup with an active license', async () => {
+    const container = buildContainer({
+      centreId: 'casa',
+      centerCode: 'CS-CASA-001' as CenterCode,
+      key: KEY,
+      dir,
+      tempDir: dir,
+      appVersion: () => '2.0.0',
+      scheduleRestart: () => {},
+      license: ACTIVE_LICENSE,
+    });
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps), {
+      isRestricted: container.isRestricted,
+      isSetupComplete: container.isSetupComplete,
+    });
+
+    await dispatch('center.save', { name: 'Centre Al Ilm', address: '', phone: '', email: '', logoPath: null });
+
+    expect(await dispatch('license.status', {})).toMatchObject({ status: 'active', trial: null });
+    expect(container.db.prepare('SELECT COUNT(*) AS count FROM center_trial').get()).toEqual({ count: 0 });
     container.dispose();
   });
 });
