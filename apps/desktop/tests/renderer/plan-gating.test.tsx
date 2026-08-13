@@ -8,7 +8,7 @@ beforeEach(() => {
   usePlanStore.setState({ planId: 'essentiel', plan: PLANS.essentiel });
 });
 
-function GatedDemo() {
+function GatedContent() {
   return (
     <FeatureGate feature="org.multi-center" fallback={<span>locked</span>}>
       <span>unlocked</span>
@@ -18,13 +18,13 @@ function GatedDemo() {
 
 describe('FeatureGate + plan store', () => {
   it('hides gated content on a plan without the feature', () => {
-    render(<GatedDemo />);
+    render(<GatedContent />);
     expect(screen.getByText('locked')).toBeInTheDocument();
     expect(screen.queryByText('unlocked')).not.toBeInTheDocument();
   });
 
   it('toggles gated UI live when the plan switches (dev tools)', async () => {
-    render(<GatedDemo />);
+    render(<GatedContent />);
     expect(screen.getByText('locked')).toBeInTheDocument();
 
     act(() => {

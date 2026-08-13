@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@centresoutien/ui';
 import { useAdminExists, adminExistsQueryKey } from '../../hooks/wizard/use-admin-exists';
+import { licenseStatusQueryKey } from '../../hooks/license/use-license-status';
 import { FirstRunWizard } from './first-run-wizard';
 
 /**
@@ -45,7 +46,10 @@ export function FirstRunGate({ children }: { children: ReactNode }) {
 
   return (
     <FirstRunWizard
-      onComplete={() => queryClient.setQueryData(adminExistsQueryKey, { exists: true })}
+      onComplete={() => {
+        queryClient.setQueryData(adminExistsQueryKey, { exists: true });
+        void queryClient.invalidateQueries({ queryKey: licenseStatusQueryKey });
+      }}
     />
   );
 }

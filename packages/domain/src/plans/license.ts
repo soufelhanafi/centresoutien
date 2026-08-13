@@ -33,16 +33,6 @@ export type LicenseClaims = {
    * "discount expired" banner in the activation screen.
    */
   readonly founderDiscountExpiresAt: string | null;
-  /**
-   * Demo-issued license (SOU-110): signed by a DEMO-ONLY vendor keypair with a
-   * throwaway premium plan for the `CS-DEMO-001` center. The `demo: true` claim
-   * makes the machine-binding check a no-op — a demo license is deliberately
-   * machine-unbound so the same signed file activates on any sales laptop. Signature
-   * and expiry are STILL enforced (a forged or lapsed demo license never grants a
-   * tier), and the center binding still applies (`CS-DEMO-001` only), so a demo
-   * license can never leak onto a real center.
-   */
-  readonly demo: boolean;
 };
 
 /**

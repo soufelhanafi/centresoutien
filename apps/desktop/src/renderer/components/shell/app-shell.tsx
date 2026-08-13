@@ -3,16 +3,13 @@ import { Outlet } from '@tanstack/react-router';
 import { ScrollArea } from '@centresoutien/ui';
 import { Sidebar } from './sidebar';
 import { AppHeader } from './app-header';
-import { DemoBanner } from './demo-banner';
 import { CommandPalette } from '../search/command-palette';
 import { UpgradeDialog } from '../upgrade/upgrade-dialog';
 
 /**
  * The application chrome every feature screen mounts into: a navigation rail,
  * a header, and the routed content outlet. A plain flex row — under `dir="rtl"`
- * the rail moves to the trailing side with no directional overrides. The demo
- * banner (SOU-110) sits at the top of the content column and renders only in
- * the demo center.
+ * the rail moves to the trailing side with no directional overrides.
  */
 export function AppShell() {
   const { t } = useTranslation();
@@ -27,7 +24,6 @@ export function AppShell() {
       </a>
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col print:block">
-        <DemoBanner />
         <AppHeader />
         <main
           tabIndex={-1}

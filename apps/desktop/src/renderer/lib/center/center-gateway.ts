@@ -27,8 +27,8 @@ export type CurrentCenterView = {
 /**
  * The seam the center switcher talks to (SOU-96). Two implementations satisfy it:
  * the real bridge over `window.api` (wired at integration, below) and an
- * in-memory mock (`center-gateway.mock`) that lets the switcher be built and
- * demoed before the backend's `center.*` handlers land. Which one the app uses is
+ * in-memory mock (`center-gateway.mock`) that lets the switcher be built before
+ * the backend's `center.*` handlers land. Which one the app uses is
  * a one-line change in `center-gateway-instance`.
  */
 export interface CenterGateway {

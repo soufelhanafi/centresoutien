@@ -51,7 +51,6 @@ const claims = (overrides: Partial<LicenseClaims> = {}): LicenseClaims => ({
   centerCode: null,
   centersAllowed: 3,
   founderDiscountExpiresAt: null,
-  demo: false,
   ...overrides,
 });
 

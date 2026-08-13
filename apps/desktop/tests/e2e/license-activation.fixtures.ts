@@ -110,6 +110,7 @@ export const LIC: Record<Locale, Record<string, string>> = {
     activate: 'Activer',
     skip: 'Continuer en mode restreint',
     statusActive: 'Licence active',
+    statusTrialActive: 'Période d’essai active',
     statusInvalid: 'Signature invalide',
     statusMissing: 'Aucune licence',
     statusExpired: 'Licence expirée',
@@ -127,6 +128,14 @@ export const LIC: Record<Locale, Record<string, string>> = {
     dashboard: 'Tableau de bord',
     appMarker: 'Centre principal',
     wizardTitle: 'Configuration initiale',
+    wizardNext: 'Continuer',
+    wizardCenterTitle: 'Profil du centre',
+    wizardAdminTitle: 'Compte administrateur',
+    wizardCenterName: 'Nom du centre',
+    wizardCenterPhone: 'Téléphone',
+    wizardUsername: "Nom d'utilisateur",
+    wizardPassword: 'Mot de passe',
+    wizardConfirmPassword: 'Confirmer le mot de passe',
   },
   ar: {
     title: 'تفعيل الترخيص',
@@ -135,6 +144,7 @@ export const LIC: Record<Locale, Record<string, string>> = {
     activate: 'تفعيل',
     skip: 'المتابعة في الوضع المقيّد',
     statusActive: 'ترخيص مُفعّل',
+    statusTrialActive: 'الفترة التجريبية مفعّلة',
     statusInvalid: 'توقيع غير صالح',
     statusMissing: 'لا يوجد ترخيص',
     statusExpired: 'ترخيص منتهي الصلاحية',
@@ -152,6 +162,14 @@ export const LIC: Record<Locale, Record<string, string>> = {
     dashboard: 'لوحة التحكم',
     appMarker: 'المركز الرئيسي',
     wizardTitle: 'الإعداد الأولي',
+    wizardNext: 'متابعة',
+    wizardCenterTitle: 'ملف المركز',
+    wizardAdminTitle: 'حساب المدير',
+    wizardCenterName: 'اسم المركز',
+    wizardCenterPhone: 'الهاتف',
+    wizardUsername: 'اسم المستخدم',
+    wizardPassword: 'كلمة المرور',
+    wizardConfirmPassword: 'تأكيد كلمة المرور',
   },
 };
 
@@ -233,13 +251,22 @@ export async function activateViaForm(win: Page, locale: Locale, rawLicense: str
 }
 
 export type LicenseStatus = {
-  status: 'active' | 'missing' | 'invalid-signature' | 'expired' | 'wrong-machine' | 'wrong-center';
+  status:
+    | 'active'
+    | 'trial-active'
+    | 'trial-expired'
+    | 'missing'
+    | 'invalid-signature'
+    | 'expired'
+    | 'wrong-machine'
+    | 'wrong-center';
   plan: 'essentiel' | 'pro' | 'premium';
   restricted: boolean;
   expiresAt: string | null;
   centersAllowed: number | null;
   founderDiscountExpiresAt: string | null;
   founderDiscountExpired: boolean;
+  trial: { startedAt: string; expiresAt: string } | null;
 };
 
 export const licenseStatus = (win: Page) => invoke<LicenseStatus>(win, 'license.status', {});

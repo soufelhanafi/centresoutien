@@ -5,6 +5,7 @@ import {
   ENVELOPES,
   SIGNED,
   GARBAGE_KEY,
+  ADMIN,
   freshUserDataDir,
   launch,
   seedConfiguredCenter,
@@ -123,14 +124,41 @@ test('S4 — no navigation / feature UI is reachable while restricted', async ()
   expect(featureButtons).toHaveLength(0);
 });
 
-// ── S5 · First-run wizard is reachable (activation comes AFTER the wizard) ─────
-test('S5 — fresh install shows the first-run wizard, not the gate (activation is post-wizard)', async () => {
+// ── S5 · New center setup starts a usable trial ───────────────────────────────
+test('S5 — new center setup starts a trial and opens the app without a license', async () => {
   const L = LIC[locale()];
   live = await launch(freshUserDataDir(), locale()); // truly fresh: no admin, no license
   const win = live.win;
   expect((await licenseStatus(win)).restricted).toBe(true);
   await expect(win.getByText(L.wizardTitle, { exact: true })).toBeVisible();
   await expect(gateTitle(win, L)).toHaveCount(0);
+
+  await win.getByRole('radio').nth(locale() === 'ar' ? 1 : 0).check();
+  await win.getByRole('button', { name: L.wizardNext }).click();
+  await expect(win.getByText(L.wizardCenterTitle, { exact: true })).toBeVisible();
+  await win.getByLabel(L.wizardCenterName, { exact: true }).fill(L.appMarker);
+  await win.getByLabel(L.wizardCenterPhone, { exact: true }).fill('+212612345678');
+  await win.getByRole('button', { name: L.wizardNext }).click();
+
+  const trial = await licenseStatus(win);
+  expect(trial.status).toBe('trial-active');
+  expect(trial.restricted).toBe(false);
+  expect(trial.trial).not.toBeNull();
+
+  await expect(win.getByText(L.wizardAdminTitle, { exact: true })).toBeVisible();
+  await win.getByLabel(L.wizardUsername, { exact: true }).fill(ADMIN.username);
+  await win.getByLabel(L.wizardPassword, { exact: true }).fill(ADMIN.password);
+  await win.getByLabel(L.wizardConfirmPassword, { exact: true }).fill(ADMIN.password);
+  await win.getByRole('button', { name: L.wizardNext }).click();
+  await win.getByRole('button', { name: /Commencer|ابدأ/ }).click();
+  await win.evaluate(async (admin) => {
+    const api = (window as unknown as { api: { invoke: (c: string, r: unknown) => Promise<unknown> } }).api;
+    await api.invoke('auth.login', { ...admin, rememberDevice: true });
+  }, ADMIN);
+  await win.reload();
+  await expect(win.getByText(L.appMarker).first()).toBeVisible();
+  await gotoLicenseSettings(win, locale());
+  await expect(win.getByText(L.statusTrialActive, { exact: true })).toBeVisible();
 });
 
 // ── S6 · Per-center license file isolation (M2) ───────────────────────────────

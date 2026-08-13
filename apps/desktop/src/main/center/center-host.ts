@@ -16,8 +16,7 @@ const SAFE_CENTRE_ID = /^[A-Za-z0-9_-]+$/;
 /**
  * The mechanical hot-swap primitive {@link CenterHost} drives. Implemented by
  * `MainRuntime`, which owns the live container + `ipcMain` delegation for the
- * whole process; the center switcher is one of its two triggers (the demo toggle
- * is the other). Kept as a narrow structural seam so the host unit-tests without
+ * whole process. Kept as a narrow structural seam so the host unit-tests without
  * a real `MainRuntime` or an Electron `ipcMain`.
  */
 export type CenterSwapRuntime = {
@@ -33,7 +32,7 @@ export type CenterHostOptions = {
    *  `CenterSwitchError` and (via the runtime) leaves the current center untouched. */
   buildForCenter: (centreId: string) => Container;
   /** The `centreId`s of the centers actually installed on this machine (the
-   *  userData `centre-*.db` scan, demo excluded). The switch target MUST be one of
+   *  userData `centre-*.db` scan). The switch target MUST be one of
    *  these — the Greptile P1 path-traversal whitelist. */
   listInstalledCentreIds: () => readonly string[];
   emitCenterChanged: (event: CenterChangedEvent) => void;
@@ -46,8 +45,7 @@ export type CenterHostOptions = {
  * close-one / open-another swap (drain in-flight work, build the target, dispose
  * the previous DB handle) to the injected {@link CenterSwapRuntime}. That runtime
  * is the single owner of the live container and the `ipcMain` delegation, so a
- * switch never has to unwire/rewire `ipcMain`, and the demo toggle and the center
- * switch share one hot-swap mechanism instead of two.
+ * switch never has to unwire/rewire `ipcMain`.
  *
  * A switch = close-one / open-another (CLAUDE.md §5ter — the center is the tenant,
  * one DB file each). The runtime disposes the previous container only AFTER the

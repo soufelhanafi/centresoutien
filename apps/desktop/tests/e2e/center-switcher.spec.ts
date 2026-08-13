@@ -1,4 +1,3 @@
-import { readdirSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
 import {
   CENTER_A,
@@ -10,7 +9,6 @@ import {
   freshUserDataDir,
   launch,
   provisionCenter,
-  provisionDemoCenter,
   studentTags,
   type Locale,
 } from './center-switcher.fixtures';
@@ -22,11 +20,11 @@ import {
  * hot-swap, no relaunch) with the two tenants FULLY isolated — no row from one
  * center may ever leak into the other's lists after a switch. The switcher is
  * Premium-gated (`org.multi-center`) and hidden for single-center / non-Premium
- * installs; the demo center is never offered as a switch target.
+ * installs.
  *
- * Runs under both the `fr` and `ar` Playwright projects (RTL coverage). Two real
- * centers + a demo center are provisioned into one userData dir through the app's
- * own boot path; everything else is asserted through the running UI, with the
+ * Runs under both the `fr` and `ar` Playwright projects (RTL coverage). Two
+ * centers are provisioned into one userData dir through the app's own boot path;
+ * everything else is asserted through the running UI, with the
  * public bridge used only to read the same values the user also sees.
  */
 
@@ -70,24 +68,17 @@ async function expectStudentList(
 
 test.describe('SOU-96 center switcher', () => {
   test.beforeEach(() => {
-    // Provisioning launches the app 3× then the test window — well past the default.
+    // Provisioning launches the app twice then the test window — well past the default.
     test.setTimeout(180_000);
   });
 
-  test('switches between two centers live with full data isolation; demo excluded', async () => {
+  test('switches between two centers live with full data isolation', async () => {
     const loc = locale();
     const L = SW[loc];
     const dir = freshUserDataDir();
 
     await provisionCenter(loc, 'premium', dir, CENTER_A);
     await provisionCenter(loc, 'premium', dir, CENTER_B);
-    await provisionDemoCenter(loc, dir);
-
-    // The demo DB really exists on disk — so its exclusion below is meaningful.
-    const dbFiles = readdirSync(dir).filter((f) => f.endsWith('.db'));
-    expect(dbFiles).toContain('centre-demo.db');
-    expect(dbFiles).toContain('centre-casa.db');
-    expect(dbFiles).toContain('centre-rabat.db');
 
     const { app, win } = await launch({
       locale: loc,
@@ -104,18 +95,16 @@ test.describe('SOU-96 center switcher', () => {
     await expect(trigger).toBeVisible();
     await expect(trigger).toHaveAttribute('aria-label', new RegExp(CENTER_A.displayName));
 
-    // Scenario 4 — demo center is not a switch target (list has only the two real ones).
+    // The list contains both provisioned centers.
     const list = await centerList(win);
     expect(list.map((c) => c.centreId).sort()).toEqual([CENTER_A.centreId, CENTER_B.centreId].sort());
-    expect(list.map((c) => c.centreId)).not.toContain('demo');
 
-    // The dropdown offers both real centers and no demo entry.
+    // The dropdown offers both centers.
     await trigger.click();
     const menu = win.getByRole('menu');
     await expect(menu.getByText(L.label, { exact: true })).toBeVisible();
     await expect(win.getByRole('menuitem', { name: new RegExp(CENTER_A.displayName) })).toBeVisible();
     await expect(win.getByRole('menuitem', { name: new RegExp(CENTER_B.displayName) })).toBeVisible();
-    await expect(win.getByRole('menuitem', { name: /Démo|تجريبي|demo/i })).toHaveCount(0);
     await win.keyboard.press('Escape');
 
     // Dashboard-count isolation baseline: center A has TWO active students.

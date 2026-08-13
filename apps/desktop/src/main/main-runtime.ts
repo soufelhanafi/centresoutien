@@ -15,8 +15,8 @@ const DRAIN_POLL_MS = 5;
 const DRAIN_TIMEOUT_MS = 5000;
 
 /**
- * The channels that DRIVE a container hot-swap — the demo toggle (SOU-186) and
- * the center switcher (SOU-96). They are exempt from in-flight counting AND the
+ * The channel that DRIVES a container hot-swap — the center switcher (SOU-96).
+ * It is exempt from in-flight counting AND the
  * "swap in progress" guard: each is the very call that performs the swap, so
  * counting it would deadlock its own drain (the drain would wait for the call
  * that is waiting for the drain) and the guard would reject the call performing
@@ -24,22 +24,19 @@ const DRAIN_TIMEOUT_MS = 5000;
  * live query can never hit a half-closed SQLite handle.
  */
 const SWAP_DRIVING_CHANNELS: ReadonlySet<string> = new Set<IpcChannel>([
-  'demo.create',
-  'demo.wipe',
   'center.switch',
 ]);
 
 /**
  * Holds the open center's {@link Container} and routes every IPC channel to it
  * through one validated dispatcher. The channels are registered on `ipcMain`
- * exactly once, at construction; a hot-swap (demo toggle SOU-186, center switch
- * SOU-96) rebuilds the dispatcher against the next container and reassigns the
+ * exactly once, at construction; a center switch rebuilds the dispatcher against
+ * the next container and reassigns the
  * field the registered handlers close over, so the OS process never restarts and
  * the `ipcMain.handle` bindings are never re-registered.
  *
  * This is the single owner of "the live container" and of the `ipcMain`
- * delegation for the whole main process — both the demo toggle and the center
- * switcher route their swap through {@link swapTo}. The center-specific concerns
+ * delegation for the whole main process. The center-specific concerns
  * (directory whitelist, `center.changed` emit) live in `CenterHost`, which
  * delegates the mechanical swap here.
  *

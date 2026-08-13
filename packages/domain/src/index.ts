@@ -42,6 +42,8 @@ export { GUARDIAN_RELATIONS, isGuardianRelation } from './value-objects/guardian
 export type { Clock } from './ports/clock';
 export type { IdGenerator } from './ports/id-generator';
 export type { RandomPort } from './ports/random-port';
+export type { LicenseAccess } from './ports/license-access';
+export type { CenterSetupUnit, CenterSetupUnitOfWork } from './ports/center-setup-unit-of-work';
 
 // Entity base + envelope
 export type { EntityEnvelope, NewEnvelopeInput } from './entities/envelope';
@@ -139,6 +141,9 @@ export type { LicenseClaims, LicenseVerification } from './plans/license';
 export type { LicenseStatus, LicenseResolution } from './plans/resolve-active-plan';
 export { resolveActivePlan, isLicenseExpired, isRestrictedMode } from './plans/resolve-active-plan';
 export type { LicensePort, LicenseStorePort, MachineIdentity } from './ports/license-port';
+export type { CenterTrialStore } from './ports/center-trial-store';
+export type { CenterTrial, CenterTrialResolution } from './plans/trial';
+export { TRIAL_DURATION_DAYS, newCenterTrial, resolveCenterTrial } from './plans/trial';
 export { licenseFileSchema, licenseClaimsSchema } from './schemas/license';
 export type { LicenseFileInput } from './schemas/license';
 // License activation (SOU-104): the binding + founder-discount rules layered on
@@ -1035,7 +1040,7 @@ export type { RestoreHolidayInput } from './use-cases/restore-holiday';
 export { GetCenterProfile } from './use-cases/get-center-profile';
 export { SaveCenterProfile } from './use-cases/save-center-profile';
 export type { SaveCenterProfileInput } from './use-cases/save-center-profile';
-export { SeedDefaultCenterHours } from './use-cases/seed-default-center-hours';
+export { SeedDefaultCenterHours, newDefaultCenterHours } from './use-cases/seed-default-center-hours';
 export type { SeedDefaultCenterHoursInput } from './use-cases/seed-default-center-hours';
 export { StoreCenterLogo } from './use-cases/store-center-logo';
 export type { StoreCenterLogoInput } from './use-cases/store-center-logo';

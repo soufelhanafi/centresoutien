@@ -2,8 +2,10 @@ import type { PlanId } from '../plans/plans';
 import type { CenterCode } from '../value-objects/ids';
 import type { Clock } from '../ports/clock';
 import type { LicensePort, MachineIdentity } from '../ports/license-port';
+import type { CenterTrialStore } from '../ports/center-trial-store';
 import { resolveActivePlan, type LicenseStatus } from '../plans/resolve-active-plan';
 import { isFounderDiscountExpired } from '../plans/license-activation';
+import { resolveCenterTrial } from '../plans/trial';
 
 /**
  * The current license state for the activation screen and the Settings panel
@@ -19,6 +21,7 @@ export type LicenseStatusView = {
   readonly centersAllowed: number | null;
   readonly founderDiscountExpiresAt: string | null;
   readonly founderDiscountExpired: boolean;
+  readonly trial: { readonly startedAt: string; readonly expiresAt: string } | null;
 };
 
 /**
@@ -34,16 +37,28 @@ export class GetLicenseStatus {
     private readonly machine: MachineIdentity,
     private readonly clock: Clock,
     private readonly centerCode: CenterCode,
-    private readonly demoAnchorTrusted: boolean,
+    private readonly trials: CenterTrialStore,
   ) {}
 
   execute(): LicenseStatusView {
+    return this.status(true);
+  }
+
+  /** Read-only status evaluation for the IPC hot path. */
+  isRestricted(): boolean {
+    return this.status(false).restricted;
+  }
+
+  private status(checkpointTrial: boolean): LicenseStatusView {
     const now = this.clock.now();
     const resolution = resolveActivePlan(this.license.verify(), now, {
       machineId: this.machine.machineId(),
       centerCode: this.centerCode,
-      demoAnchorTrusted: this.demoAnchorTrusted,
     });
+    // A valid license is perpetual access and always wins. Every other license
+    // state remains restricted only after the center's own trial has elapsed.
+    const trial = resolution.status === 'active' ? null : this.resolveTrial(now, checkpointTrial);
+    if (trial !== null) return trial;
     const { claims } = resolution;
 
     return {
@@ -54,6 +69,31 @@ export class GetLicenseStatus {
       centersAllowed: claims?.centersAllowed ?? null,
       founderDiscountExpiresAt: claims?.founderDiscountExpiresAt ?? null,
       founderDiscountExpired: claims !== null && isFounderDiscountExpired(claims, now),
+      trial: null,
+    };
+  }
+
+  private resolveTrial(now: Date, checkpoint: boolean): LicenseStatusView | null {
+    const stored = this.trials.get();
+    if (stored === null) return null;
+
+    const resolution = resolveCenterTrial(stored, now);
+    if (checkpoint && resolution.effectiveNow.getTime() > stored.lastSeenAt.getTime()) {
+      this.trials.save({ ...stored, lastSeenAt: resolution.effectiveNow });
+    }
+
+    return {
+      status: resolution.status === 'active' ? 'trial-active' : 'trial-expired',
+      plan: 'essentiel',
+      restricted: resolution.restricted,
+      expiresAt: null,
+      centersAllowed: null,
+      founderDiscountExpiresAt: null,
+      founderDiscountExpired: false,
+      trial: {
+        startedAt: stored.startedAt.toISOString(),
+        expiresAt: resolution.expiresAt,
+      },
     };
   }
 }

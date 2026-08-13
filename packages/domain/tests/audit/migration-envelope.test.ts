@@ -28,6 +28,7 @@ const LOCAL_TABLES = [
   'auth_audit_log',
   'security_questions',
   'security_question_lockout',
+  'center_trial',
   // Device-local sync bookkeeping (SOU-91): the durable "conflits en attente"
   // store + the local replica's cursor/entity view. These are NOT synced
   // entities — they carry no entity envelope (no ULID id, no soft delete, no

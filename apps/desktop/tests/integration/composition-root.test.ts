@@ -372,7 +372,6 @@ describe('composition root', () => {
         centerCode: 'CS-CASA-001',
         centersAllowed: 3,
         founderDiscountExpiresAt: null,
-        demo: false,
       },
       privateKey,
     );
@@ -414,7 +413,6 @@ describe('composition root', () => {
         centerCode: 'CS-RABAT-999',
         centersAllowed: null,
         founderDiscountExpiresAt: null,
-        demo: false,
       },
       privateKey,
     );
@@ -459,7 +457,6 @@ describe('composition root', () => {
           centerCode,
           centersAllowed: null,
           founderDiscountExpiresAt: null,
-          demo: false,
         },
         privateKey,
       );
@@ -966,7 +963,6 @@ describe('composition root', () => {
       centerCode: 'CS-CASA-001',
       centersAllowed: null,
       founderDiscountExpiresAt: null,
-      demo: false,
       ...overrides,
     });
 
@@ -1041,10 +1037,9 @@ describe('composition root', () => {
 
     // Fresh install: no license (it cannot exist before the center does) and no
     // center yet. The first-run wizard's bootstrap channels must succeed so the
-    // user can create the center + admin and reach activation, while every
-    // business channel stays locked. Regression guard for the deadlock the guard's
-    // first cut caused (license.status/activate-only bricked setup).
-    it('permits the first-run bootstrap (admin + center), blocks business, then unblocks after activate', async () => {
+    // user can create the center + admin. Saving the new center also starts its
+    // 14-day trial, which opens business channels before license activation.
+    it('permits the first-run bootstrap and opens business during the new-center trial', async () => {
       const { publicKey, privateKey } = generateKeyPairSync('ed25519');
       const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
       const container = build(
@@ -1072,11 +1067,11 @@ describe('composition root', () => {
       const admin = await dispatch('admin.create', { username: 'directrice', password: PASS });
       expect(admin.id).toMatch(/^adm_/);
 
-      // …but a business channel is still hard-locked while unlicensed.
-      await expect(dispatch('student.list', { search: '' })).rejects.toThrow(/license-restricted/);
+      expect((await dispatch('license.status', {})).status).toBe('trial-active');
+      expect((await dispatch('student.list', { search: '' })).students).toEqual([]);
 
-      // Now that the center exists, its license can be activated — and the business
-      // channel unblocks live in the same process.
+      // A paid license can still be activated during the trial, replacing the
+      // trial access with the licensed entitlement in the same process.
       const raw = signedLicenseFile(nonActiveClaims({}), privateKey);
       expect((await dispatch('license.activate', { license: raw })).status).toBe('activated');
       expect((await dispatch('student.list', { search: '' })).students).toEqual([]);
@@ -1147,6 +1142,12 @@ describe('composition root', () => {
         email: 'contact@alilm.ma',
         logoPath: null,
       });
+      // The new-center save starts a trial. Expire it explicitly so this test
+      // continues to exercise the completed-setup restricted boundary.
+      container.db
+        .prepare("UPDATE center_trial SET started_at = '2026-01-01T00:00:00.000Z', last_seen_at = '2026-01-15T00:00:00.000Z'")
+        .run();
+      expect((await dispatch('license.status', {})).status).toBe('trial-expired');
       await dispatch('admin.create', { username: 'directrice', password: PASS });
 
       // Setup is now complete (an admin exists). The gate re-reads that state and the

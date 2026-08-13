@@ -13,6 +13,8 @@ import {
 /** The effective license state once signature, binding, *and* expiry are considered. */
 export type LicenseStatus =
   | 'active'
+  | 'trial-active'
+  | 'trial-expired'
   | 'missing'
   | 'invalid-signature'
   | 'expired'
@@ -33,13 +35,13 @@ export type LicenseResolution = {
 };
 
 /**
- * The hard-lock decision (SOU-104): any license status other than `active` puts
- * the app in restricted mode, where the IPC boundary answers only the license
+ * The hard-lock decision (SOU-104): only an active license or active trial keeps
+ * the app out of restricted mode, where the IPC boundary otherwise answers only the license
  * status/activation channels. This is the single authority the main-process guard
  * consults; the renderer's `LicenseGate` is cosmetic on top of the same rule.
  */
 export function isRestrictedMode(status: LicenseStatus): boolean {
-  return status !== 'active';
+  return status !== 'active' && status !== 'trial-active';
 }
 
 /**
@@ -86,17 +88,7 @@ export function resolveActivePlan(
 
   const { claims } = verification;
 
-  // Demo licenses (SOU-110) are deliberately machine-unbound: a pre-signed demo
-  // file must activate on any sales laptop, so the `demo: true` claim skips the
-  // machine-binding check. Signature (already proven by the adapter) and expiry
-  // (checked below) are still enforced, and the center binding still applies —
-  // a demo license bound to `CS-DEMO-001` can never grant a tier to another
-  // center. The skip also requires the DEMO-ONLY trust anchor (`demoAnchorTrusted`,
-  // set only for the demo container), so a `demo: true` claim signed by the
-  // production key on a real center stays fully machine-bound. A non-demo license
-  // keeps the full machine check.
-  const machineUnbound = binding !== undefined && claims.demo && binding.demoAnchorTrusted;
-  if (binding && !machineUnbound && claims.machineId !== null && claims.machineId !== binding.machineId) {
+  if (binding && claims.machineId !== null && claims.machineId !== binding.machineId) {
     return {
       status: 'wrong-machine',
       plan: PLANS.essentiel,

@@ -22,7 +22,6 @@ const CLAIMS: LicenseClaims = {
   centerCode: 'CS-CASA-001',
   centersAllowed: null,
   founderDiscountExpiresAt: null,
-  demo: false,
 };
 
 let dir: string;
@@ -126,7 +125,7 @@ describe('Ed25519LicenseAdapter.verify', () => {
     const result = adapter().verify();
     expect(result).toEqual({
       status: 'valid',
-      claims: { ...legacy, centersAllowed: null, founderDiscountExpiresAt: null, demo: false },
+      claims: { ...legacy, centersAllowed: null, founderDiscountExpiresAt: null },
     });
   });
 });

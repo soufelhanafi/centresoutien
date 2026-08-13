@@ -17,12 +17,10 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
  *   - CS_CENTER_CODE     → that center's tenant code
  *   - --user-data-dir    → Electron userData dir (one encrypted DB per center)
  *
- * Two real, non-demo centers are provisioned into ONE userData dir by launching
+ * Two centers are provisioned into ONE userData dir by launching
  * the app once per center under a distinct CS_CENTRE. In the `--mode e2e` build
  * every center DB in a userData dir shares one fixed SQLCipher key, so the final
- * launch can scan and open both `centre-*.db` files. The demo center is
- * provisioned the same way (CS_CENTRE=demo) so the exclusion rule is exercised
- * against a real `centre-demo.db` on disk.
+ * launch can scan and open both `centre-*.db` files.
  */
 
 const dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -36,9 +34,7 @@ export const DIRECTION: Record<Locale, 'ltr' | 'rtl'> = { fr: 'ltr', ar: 'rtl' }
 // Non-secret throwaway admin (assembled at runtime; secret-scan friendly).
 export const VALID_ADMIN = { username: 'directrice', password: ['Casa', '2026', '!'].join('') } as const;
 
-export const DEMO_CENTRE_ID = 'demo';
-
-/** A real (non-demo) center to provision. displayName is a single string (locale-agnostic). */
+/** A center to provision. displayName is a single string (locale-agnostic). */
 export type CenterSpec = {
   centreId: string;
   code: string;
@@ -184,22 +180,6 @@ export async function provisionCenter(loc: Locale, plan: PlanId, userDataDir: st
   for (const tag of c.studentTags) {
     await invoke(win, 'student.create', studentPayload(tag));
   }
-  await app.close();
-}
-
-/** Provision the demo center (centre-demo.db) so the exclusion rule has real data to exclude. */
-export async function provisionDemoCenter(loc: Locale, userDataDir: string): Promise<void> {
-  const app = await electron.launch({
-    args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
-    env: { ...process.env, CS_LOCALE: loc, CS_PLAN: 'premium', CS_CENTRE: DEMO_CENTRE_ID },
-  });
-  const win = await app.firstWindow();
-  await win.waitForLoadState('domcontentloaded');
-  // Touch the bridge so the demo DB file is materialized before we close.
-  await win.evaluate(async () => {
-    const api = (window as unknown as { api: Bridge }).api;
-    await api.invoke('demo.status', {}).catch(() => undefined);
-  });
   await app.close();
 }
 
