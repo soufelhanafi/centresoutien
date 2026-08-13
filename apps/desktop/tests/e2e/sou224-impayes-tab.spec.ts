@@ -30,7 +30,7 @@ test.afterEach(async () => {
 
 async function gotoPaymentsPage(win: Launched['win'], nav: string): Promise<void> {
   await win.getByRole('link', { name: nav, exact: true }).click();
-  await win.waitForTimeout(400);
+  await expect(win.getByRole('tab').first()).toBeVisible();
 }
 
 // ---------------------------------------------------------------------------
@@ -71,7 +71,7 @@ test('AC2 — /arrears route and its nav link are gone (no dead link)', async ()
   await win.evaluate(() => {
     window.location.hash = '#/arrears';
   });
-  await win.waitForTimeout(500);
+  await win.waitForFunction(() => window.location.hash === '#/dashboard');
   expect(await pageCrashed(win), 'no crash on retired route').toBe(false);
   const hash = await win.evaluate(() => location.hash);
   expect(hash, 'retired /arrears redirects to the default route').toBe('#/dashboard');
