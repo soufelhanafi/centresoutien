@@ -67,6 +67,10 @@ let host: CenterHost | null = null;
 let mainWindow: BrowserWindow | null = null;
 let disposeAutoUpdater: (() => void) | null = null;
 
+// SOU-246 retires demo mode. Keep a pre-existing demo database out of discovery
+// so it cannot be opened as a normal switchable center after an upgrade.
+const LEGACY_DEMO_CENTRE_ID = 'demo';
+
 /**
  * Embedded LAN hub (SOU-90): designated-laptop opt-in until the sync setup
  * ticket lands real configuration. Fail-closed — an invalid token, port, or
@@ -186,7 +190,7 @@ app.whenReady().then(async () => {
     // `centre-*.db`, deriving each center's own key to read its profile in
     // isolation. The `centerSwitch` closures are threaded into every container so
     // `SwitchCenter`/`center.list` resolve against the live host.
-    const directory = new FsCenterDirectory(dir, (id) => centerDbKey(dir, id).key);
+    const directory = new FsCenterDirectory(dir, (id) => centerDbKey(dir, id).key, [LEGACY_DEMO_CENTRE_ID]);
     const centerSwitch = {
       switchTo: (targetCentreId: string): Promise<void> =>
         host

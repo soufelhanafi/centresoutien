@@ -58,15 +58,15 @@ describe('FsCenterDirectory (SOU-96)', () => {
     expect(directory.peek('ghost')).toBeNull();
   });
 
-  it('excludes configured centres and ignores non-centre files', async () => {
+  it('excludes the legacy demo database and ignores non-centre files', async () => {
     await seedCenter('casa', 'CS-CASA-001' as CenterCode, 'Centre Al Ilm');
-    await seedCenter('archive', 'CS-ARCHIVE-000' as CenterCode, 'Archive');
+    await seedCenter('demo', 'CS-DEMO-000' as CenterCode, 'Legacy Demo');
     // Sidecars + unrelated files must never be mistaken for a center DB.
     writeFileSync(join(dir, 'centre-casa.db-wal'), 'x');
     writeFileSync(join(dir, 'hub-casa.db'), 'x');
     writeFileSync(join(dir, 'license-CS-CASA-001.json'), 'x');
 
-    const directory = new FsCenterDirectory(dir, () => KEY, ['archive']);
+    const directory = new FsCenterDirectory(dir, () => KEY, ['demo']);
     const centers = directory.list('casa');
 
     expect(centers.map((c) => c.centreId)).toEqual(['casa']);
