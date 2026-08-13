@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Inter, Noto_Sans_Arabic } from "next/font/google";
+import localFont from "next/font/local";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
@@ -14,12 +14,19 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
 };
 
+// Fonts are self-hosted (SOU-229) rather than pulled from `next/font/google`:
+// the Google fetch runs at build time, so a CI runner network hiccup failed the
+// landing build. The variable woff2 files live in `app/fonts/` (latin-subset
+// Inter, arabic-subset Noto Sans Arabic), vendored from `@fontsource-variable/*`.
+// A single weight-axis face per family covers the 400–800 range used across the
+// site.
+
 // Latin UI font, loaded on every route.
-const inter = Inter({
-  subsets: ["latin"],
+const inter = localFont({
+  src: "../fonts/inter-latin-wght-normal.woff2",
   variable: "--font-inter",
   display: "swap",
-  weight: ["400", "500", "600", "700", "800"],
+  weight: "400 800",
 });
 
 // Arabic font. Its CSS variable is only attached to <html> on /ar routes, but
@@ -29,11 +36,11 @@ const inter = Inter({
 // the forced preload; since /fr never applies the family, the browser no longer
 // fetches it there. On /ar the family is applied via <html>, so it still loads,
 // covered by `display: swap`.
-const notoArabic = Noto_Sans_Arabic({
-  subsets: ["arabic"],
+const notoArabic = localFont({
+  src: "../fonts/noto-sans-arabic-arabic-wght-normal.woff2",
   variable: "--font-noto-arabic",
   display: "swap",
-  weight: ["400", "500", "600", "700", "800"],
+  weight: "400 800",
   preload: false,
 });
 

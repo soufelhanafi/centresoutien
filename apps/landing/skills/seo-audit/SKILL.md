@@ -172,7 +172,7 @@ If any metric fails, do not merge. Diagnose with:
 - [ ] Every image has explicit `width` and `height`.
 - [ ] The hero image has `priority` and `fetchPriority="high"`.
 - [ ] All other images are lazy by default (Next default).
-- [ ] Fonts loaded via `next/font/google` with `display: "swap"` and subsetting.
+- [ ] Fonts self-hosted via `next/font/local` (vendored woff2 in `app/fonts/`) with `display: "swap"`.
 - [ ] Only above-the-fold fonts (Inter regular + semibold) are preloaded.
 - [ ] Arabic font (Noto Sans Arabic) loads only on `/ar/*` routes.
 
