@@ -24,7 +24,11 @@ const SAVE_MANY_SQL = `
   VALUES (@id, @code_hash, @consumed, @created_at)
 `;
 
-const CONSUME_SQL = `
+/**
+ * Mark a code spent. Exported so the atomic reset unit-of-work (SOU-169)
+ * consumes the code through the same statement — one source of truth.
+ */
+export const RECOVERY_CODE_CONSUME_SQL = `
   UPDATE recovery_codes
   SET consumed = 1, consumed_at = @consumed_at
   WHERE id = @id
@@ -56,7 +60,7 @@ export class SqliteRecoveryCodeRepository implements RecoveryCodeRepository {
   }
 
   async consumeById(id: RecoveryCode['id'], consumedAt: Date): Promise<void> {
-    this.db.prepare(CONSUME_SQL).run({
+    this.db.prepare(RECOVERY_CODE_CONSUME_SQL).run({
       id,
       consumed_at: consumedAt.toISOString(),
     });

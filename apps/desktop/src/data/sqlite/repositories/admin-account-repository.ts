@@ -22,7 +22,12 @@ function fromRow(row: AdminAccountRow): AdminAccount {
   };
 }
 
-const SAVE_SQL = `
+/**
+ * Upsert for the admin account. Exported so the atomic reset unit-of-work
+ * (SOU-169) writes the password change through the same statement — one source
+ * of truth for the `admin_accounts` write. `created_at` is never rewritten.
+ */
+export const ADMIN_ACCOUNT_SAVE_SQL = `
   INSERT INTO admin_accounts
     (id, username, username_normalized, password_hash, created_at, updated_at)
   VALUES
@@ -33,6 +38,18 @@ const SAVE_SQL = `
     password_hash       = excluded.password_hash,
     updated_at          = excluded.updated_at
 `;
+
+/** Bind params for {@link ADMIN_ACCOUNT_SAVE_SQL}. Recomputes `username_normalized`. */
+export function adminAccountToSaveParams(account: AdminAccount) {
+  return {
+    id: account.id,
+    username: account.username,
+    username_normalized: normalizeUsername(account.username),
+    password_hash: account.passwordHash,
+    created_at: account.createdAt.toISOString(),
+    updated_at: account.updatedAt.toISOString(),
+  };
+}
 
 /**
  * SQLite adapter for {@link AdminAccountRepository}. Pure translation between the
@@ -68,13 +85,6 @@ export class SqliteAdminAccountRepository implements AdminAccountRepository {
   }
 
   async save(account: AdminAccount): Promise<void> {
-    this.db.prepare(SAVE_SQL).run({
-      id: account.id,
-      username: account.username,
-      username_normalized: normalizeUsername(account.username),
-      password_hash: account.passwordHash,
-      created_at: account.createdAt.toISOString(),
-      updated_at: account.updatedAt.toISOString(),
-    });
+    this.db.prepare(ADMIN_ACCOUNT_SAVE_SQL).run(adminAccountToSaveParams(account));
   }
 }

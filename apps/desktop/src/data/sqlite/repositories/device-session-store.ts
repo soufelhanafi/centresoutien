@@ -1,6 +1,15 @@
 import type { Database as DB } from 'better-sqlite3';
 import type { DeviceSession, DeviceSessionId, DeviceSessionStore } from '@centresoutien/domain';
 
+/**
+ * Null the singleton session row (no hard delete). Exported so the atomic reset
+ * unit-of-work (SOU-169) clears the session through the same statement — one
+ * source of truth.
+ */
+export const DEVICE_SESSION_CLEAR_SQL = `
+  UPDATE device_sessions SET session_id = NULL, created_at = NULL, expires_at = NULL WHERE id = 1
+`;
+
 /** The singleton `device_sessions` row shape as SQLite returns it. */
 type DeviceSessionRow = {
   session_id: string | null;
@@ -48,10 +57,6 @@ export class SqliteDeviceSessionStore implements DeviceSessionStore {
   }
 
   async clear(): Promise<void> {
-    this.db
-      .prepare(
-        'UPDATE device_sessions SET session_id = NULL, created_at = NULL, expires_at = NULL WHERE id = 1',
-      )
-      .run();
+    this.db.prepare(DEVICE_SESSION_CLEAR_SQL).run();
   }
 }

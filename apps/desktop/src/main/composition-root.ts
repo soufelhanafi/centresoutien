@@ -208,6 +208,7 @@ import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-
 import { SqliteCenterHoursOverrideRepository } from '../data/sqlite/repositories/center-hours-override-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SqliteRecoveryCodeRepository } from '../data/sqlite/repositories/recovery-code-repository';
+import { SqliteRecoveryCodeResetUnitOfWork } from '../data/sqlite/repositories/recovery-code-reset-unit-of-work';
 import { SqliteSecurityQuestionRepository } from '../data/sqlite/repositories/security-question-repository';
 import { SqliteAuthAuditLogRepository } from '../data/sqlite/repositories/auth-audit-log-repository';
 import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-throttle-store';
@@ -1162,11 +1163,11 @@ export function buildContainer(options: ContainerOptions): Container {
     ids,
   );
   const deviceSessions = new DeviceSessionService(new SqliteDeviceSessionStore(db), clock, ids);
+  const recoveryCodeResetUnitOfWork = new SqliteRecoveryCodeResetUnitOfWork(db);
   const resetPasswordWithRecoveryCode = new ResetPasswordWithRecoveryCode(
     verifyRecoveryCode,
     adminRepo,
-    recoveryCodeRepo,
-    auditLogRepo,
+    recoveryCodeResetUnitOfWork,
     hasher,
     deviceSessions,
     clock,
