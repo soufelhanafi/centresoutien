@@ -54,8 +54,10 @@ type ScrollMetrics = {
 /** Read the vertical scroll state of the shell `<main>` and the planner grid. */
 async function scrollMetrics(win: Page): Promise<ScrollMetrics> {
   return win.evaluate(() => {
-    const shell = document.querySelector('#main-content') as HTMLElement;
-    const grid = shell.querySelector('.overflow-auto') as HTMLElement;
+    const shell = document.querySelector<HTMLElement>('#main-content');
+    if (!shell) throw new Error('missing #main-content shell');
+    const grid = shell.querySelector<HTMLElement>('.overflow-auto');
+    if (!grid) throw new Error('missing planner grid (#main-content .overflow-auto)');
     const overflow = (el: HTMLElement) => el.scrollHeight - el.clientHeight;
     return {
       mainScrolls: overflow(shell) > 1,
@@ -106,7 +108,8 @@ test('header and toolbar stay pinned while the grid scrolls', async () => {
   const before = await heading.boundingBox();
 
   const scrolledTo = await win.evaluate(() => {
-    const grid = document.querySelector('#main-content .overflow-auto') as HTMLElement;
+    const grid = document.querySelector<HTMLElement>('#main-content .overflow-auto');
+    if (!grid) throw new Error('missing planner grid (#main-content .overflow-auto)');
     grid.scrollTop = 160;
     return grid.scrollTop;
   });

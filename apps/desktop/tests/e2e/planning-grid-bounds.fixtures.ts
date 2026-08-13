@@ -93,9 +93,13 @@ export type Launched = { app: ElectronApplication; win: Page };
  * reload so the shell renders and the planner reads the saved hours.
  */
 export async function bootWithHours(locale: Locale, week: DayHours[]): Promise<Launched> {
+  const env: Record<string, string> = { ...process.env, CS_LOCALE: locale, CS_PLAN: 'essentiel' };
+  // A parent CS_E2E_OMIT_FEATURES would drop feature flags and fail these
+  // assertions for non-product reasons; clear it (matches the other E2E suites).
+  delete env['CS_E2E_OMIT_FEATURES'];
   const app = await electron.launch({
     args: [MAIN_ENTRY, `--user-data-dir=${freshUserDataDir()}`],
-    env: { ...process.env, CS_LOCALE: locale, CS_PLAN: 'essentiel' },
+    env,
   });
   const win = await app.firstWindow();
   await win.waitForLoadState('domcontentloaded');
@@ -121,9 +125,13 @@ export async function bootWithHours(locale: Locale, week: DayHours[]): Promise<L
  * must seed from the domain's default week (09:00–18:00).
  */
 export async function bootFresh(locale: Locale): Promise<Launched> {
+  const env: Record<string, string> = { ...process.env, CS_LOCALE: locale, CS_PLAN: 'essentiel' };
+  // A parent CS_E2E_OMIT_FEATURES would drop feature flags and fail these
+  // assertions for non-product reasons; clear it (matches the other E2E suites).
+  delete env['CS_E2E_OMIT_FEATURES'];
   const app = await electron.launch({
     args: [MAIN_ENTRY, `--user-data-dir=${freshUserDataDir()}`],
-    env: { ...process.env, CS_LOCALE: locale, CS_PLAN: 'essentiel' },
+    env,
   });
   const win = await app.firstWindow();
   await win.waitForLoadState('domcontentloaded');
