@@ -14,6 +14,19 @@ on:
         type: boolean
         default: false
 
+# The bump step commits the incremented version back to the dispatched branch,
+# so GITHUB_TOKEN needs contents: write on the source repo (CS_RELEASES_TOKEN
+# stays scoped to the public releases repo only).
+permissions:
+  contents: write
+
+# Serialize runs: a concurrent Package run would both bump from the same base
+# version and race the push. Queue instead of cancel — two publishes must not
+# silently drop a version.
+concurrency:
+  group: package-workflow
+  cancel-in-progress: false
+
 jobs:
   # SOU-248: serialize release creation. One job creates the tag + draft
   # release so the three matrix runners never race a concurrent POST /releases
@@ -25,6 +38,26 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+      # Every publish consumes the next patch version: bump apps/desktop/
+      # package.json and commit it back so the repo stays the source of truth
+      # and the next run increments from the bumped value. Dry runs
+      # (publish=false) never consume a version.
+      - name: Bump patch version (publish only)
+        if: inputs.publish
+        run: |
+          node -e "
+            const fs = require('fs');
+            const p = 'apps/desktop/package.json';
+            const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+            const [a, b, c] = j.version.split('.').map(Number);
+            j.version = a + '.' + b + '.' + (c + 1);
+            fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+          "
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/desktop/package.json
+          git commit -m "chore(release): bump desktop version (package workflow publish)"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
       - name: Resolve app version
         id: version
         run: |
@@ -61,7 +94,11 @@ jobs:
             artifact: windows-x64-nsis
     runs-on: ${{ matrix.os }}
     steps:
+      # Ref (not the dispatch SHA): init-release pushed the bumped version to
+      # the branch, and the matrix build must package that version.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
 
       - uses: pnpm/action-setup@v4
         with:
