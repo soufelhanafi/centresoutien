@@ -205,21 +205,19 @@ test('Scenario 7 — feed spans all dates; a past-dated payment shows in the fee
 
   const todayInv = await seedInvoice(win, { nameFr: 'Hicham Alami', nameAr: 'هشام العلمي', month: currentMonth(), priceMad: 200, issue: true });
   const oldInv = await seedInvoice(win, { nameFr: 'Fatima Zahra', nameAr: 'فاطمة الزهراء', month: '2020-01', priceMad: 500, issue: true });
-  await gotoPayments(win, L);
 
-  // Today's payment via the picker (paidOn defaults to the app's today).
-  await recordViaPicker(win, L, { studentName: nameFor(locale(), todayInv), amountMad: '200' });
-  await expect(win.getByText(L.dialog.success)).toBeVisible();
-
-  // A long-past payment on the other invoice.
+  // A today payment and a long-past payment, each on its own invoice — recorded
+  // straight through the bridge with explicit dates so the feed's DATE SPAN is
+  // what's under test here, not the picker (picker→feed is Scenario 3). Seeding
+  // by invoiceId also keeps the two payments unambiguously on their own invoices.
+  await seedPayment(win, { invoiceId: todayInv.invoiceId, amountMad: 200, method: 'cash', paidOn: todayIso() });
   await seedPayment(win, { invoiceId: oldInv.invoiceId, amountMad: 50, method: 'cash', paidOn: '2020-01-15' });
-  await win.reload();
-  await win.waitForLoadState('domcontentloaded');
+
   await gotoPayments(win, L);
   await gotoFeedTab(win, L);
 
   // Both appear in the cross-invoice feed regardless of their dates.
   await expect(win.getByText(nameFor(locale(), todayInv)).first()).toBeVisible();
   await expect(win.getByText(nameFor(locale(), oldInv)).first()).toBeVisible();
-  await win.screenshot({ path: `test-results/payments-today-only-${locale()}.png`, fullPage: true });
+  await win.screenshot({ path: `test-results/payments-feed-spans-dates-${locale()}.png`, fullPage: true });
 });
