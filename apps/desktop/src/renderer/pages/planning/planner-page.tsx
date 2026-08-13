@@ -119,7 +119,7 @@ export function PlannerPage() {
   return (
     <section
       aria-labelledby="planning-title"
-      className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-5"
+      className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-5 overflow-hidden"
     >
       <header className="flex shrink-0 flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">

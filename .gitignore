@@ -9,6 +9,7 @@ out/
 
 # test / coverage
 coverage/
+test-results/
 
 # env / secrets
 .env
