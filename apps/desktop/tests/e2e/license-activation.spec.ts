@@ -5,6 +5,7 @@ import {
   ENVELOPES,
   SIGNED,
   GARBAGE_KEY,
+  ADMIN,
   freshUserDataDir,
   launch,
   seedConfiguredCenter,

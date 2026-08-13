@@ -29,22 +29,24 @@ export function LicenseStatusSummary({ status }: { status: LicenseStatusView }) 
         <PlanBadge tier={status.plan} />
       </div>
 
-      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1 rounded-lg border border-border p-3">
-          <dt className="text-xs text-muted-foreground">{t('license.status.expiresAtLabel')}</dt>
-          <dd className="text-sm font-semibold text-foreground">
-            {status.expiresAt ? formatDate(status.expiresAt, i18n.language) : t('license.status.noExpiry')}
-          </dd>
-        </div>
-        <div className="flex flex-col gap-1 rounded-lg border border-border p-3">
-          <dt className="text-xs text-muted-foreground">{t('license.status.centersAllowedLabel')}</dt>
-          <dd className="text-sm font-semibold text-foreground">
-            {status.centersAllowed === null
-              ? t('license.status.centersUnlimited')
-              : new Intl.NumberFormat(bcp47(i18n.language)).format(status.centersAllowed)}
-          </dd>
-        </div>
-      </dl>
+      {!trial && (
+        <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1 rounded-lg border border-border p-3">
+            <dt className="text-xs text-muted-foreground">{t('license.status.expiresAtLabel')}</dt>
+            <dd className="text-sm font-semibold text-foreground">
+              {status.expiresAt ? formatDate(status.expiresAt, i18n.language) : t('license.status.noExpiry')}
+            </dd>
+          </div>
+          <div className="flex flex-col gap-1 rounded-lg border border-border p-3">
+            <dt className="text-xs text-muted-foreground">{t('license.status.centersAllowedLabel')}</dt>
+            <dd className="text-sm font-semibold text-foreground">
+              {status.centersAllowed === null
+                ? t('license.status.centersUnlimited')
+                : new Intl.NumberFormat(bcp47(i18n.language)).format(status.centersAllowed)}
+            </dd>
+          </div>
+        </dl>
+      )}
 
       {trial && (
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
