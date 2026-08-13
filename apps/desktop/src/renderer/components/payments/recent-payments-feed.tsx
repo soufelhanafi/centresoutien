@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { History } from 'lucide-react';
 import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
@@ -7,7 +7,6 @@ import type { RecentPaymentsQuery } from '../../lib/payments/recent-payment-view
 import { RecentPaymentRow } from './recent-payment-row';
 import {
   ALL_METHODS,
-  EMPTY_RECENT_PAYMENTS_FILTERS,
   RecentPaymentsFilters,
   hasActiveRecentPaymentsFilters,
   type RecentPaymentsFilterState,
@@ -25,10 +24,17 @@ function toRecentPaymentsQuery(filters: RecentPaymentsFilterState): RecentPaymen
 }
 
 /** Append-only cross-invoice payment feed, most recent first (SOU-198), with a
- *  `paidOn` day-window + method filter bar (SOU-225). */
-export function RecentPaymentsFeed() {
+ *  `paidOn` day-window + method filter bar (SOU-225). Filter state is owned by the
+ *  parent `PaymentsPage` so it survives the Radix tab remount (leaving and
+ *  re-entering the tab keeps the applied window/method instead of resetting). */
+export function RecentPaymentsFeed({
+  filters,
+  onFiltersChange,
+}: {
+  filters: RecentPaymentsFilterState;
+  onFiltersChange: (next: RecentPaymentsFilterState) => void;
+}) {
   const { t } = useTranslation();
-  const [filters, setFilters] = useState<RecentPaymentsFilterState>(EMPTY_RECENT_PAYMENTS_FILTERS);
   const feedQuery = useMemo(() => toRecentPaymentsQuery(filters), [filters]);
   const query = useRecentPayments(feedQuery);
   const filtersActive = hasActiveRecentPaymentsFilters(filters);
@@ -39,7 +45,7 @@ export function RecentPaymentsFeed() {
         {t('payments.feed.title')}
       </h2>
 
-      <RecentPaymentsFilters value={filters} onChange={setFilters} />
+      <RecentPaymentsFilters value={filters} onChange={onFiltersChange} />
 
       {query.isPending && (
         <div className="space-y-2" aria-busy="true">

@@ -3,6 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import { OpenInvoicePicker } from '../../components/payments/open-invoice-picker';
 import { RecentPaymentsFeed } from '../../components/payments/recent-payments-feed';
+import {
+  EMPTY_RECENT_PAYMENTS_FILTERS,
+  type RecentPaymentsFilterState,
+} from '../../components/payments/recent-payments-filters';
 import { ArrearsPanel } from '../../components/arrears/arrears-panel';
 
 const RECORD_TAB = 'record';
@@ -14,13 +18,17 @@ const ARREARS_TAB = 'arrears';
  * payment against an open invoice, reviewing the cross-invoice recent-payments feed,
  * and chasing overdue invoices (Impayés). Radix `TabsContent` unmounts the inactive
  * panel, so each tab's underlying query only fires once its tab is selected; the
- * picker's search term is held here so it survives that remount, and the cash-desk
- * queries carry a short `staleTime` so re-entering a tab reuses the cache instead of
- * refetching. Distinct from the Invoices list (billing).
+ * picker's search term and the feed's day-window/method filters are held here so they
+ * survive that remount, and the cash-desk queries carry a short `staleTime` so
+ * re-entering a tab reuses the cache instead of refetching. Distinct from the Invoices
+ * list (billing).
  */
 export function PaymentsPage() {
   const { t } = useTranslation();
   const [invoiceSearch, setInvoiceSearch] = useState('');
+  const [feedFilters, setFeedFilters] = useState<RecentPaymentsFilterState>(
+    EMPTY_RECENT_PAYMENTS_FILTERS,
+  );
 
   return (
     <section aria-labelledby="payments-title" className="mx-auto flex w-full max-w-5xl flex-col gap-5">
@@ -43,7 +51,7 @@ export function PaymentsPage() {
         </TabsContent>
 
         <TabsContent value={FEED_TAB}>
-          <RecentPaymentsFeed />
+          <RecentPaymentsFeed filters={feedFilters} onFiltersChange={setFeedFilters} />
         </TabsContent>
 
         <TabsContent value={ARREARS_TAB}>

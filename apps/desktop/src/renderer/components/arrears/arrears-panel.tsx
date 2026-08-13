@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Printer } from 'lucide-react';
 import { Button } from '@centresoutien/ui';
@@ -23,6 +23,7 @@ const EMPTY_AGING = { bucket30Mad: 0, bucket60Mad: 0, bucket90PlusMad: 0, totalO
  */
 export function ArrearsPanel() {
   const { t } = useTranslation();
+  const titleId = useId();
   const [month, setMonth] = useState('');
   const [minOutstandingMad, setMinOutstandingMad] = useState<number | null>(null);
   const [maxOutstandingMad, setMaxOutstandingMad] = useState<number | null>(null);
@@ -53,10 +54,10 @@ export function ArrearsPanel() {
           : 'empty';
 
   return (
-    <section aria-labelledby="arrears-title" className="flex w-full flex-col gap-5">
+    <section aria-labelledby={titleId} className="flex w-full flex-col gap-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between print:hidden">
         <div className="space-y-1">
-          <h2 id="arrears-title" className="text-base font-semibold text-foreground">
+          <h2 id={titleId} className="text-base font-semibold text-foreground">
             {t('arrears.title')}
           </h2>
           <p className="text-sm text-muted-foreground">{t('arrears.subtitle')}</p>
