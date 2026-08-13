@@ -134,7 +134,13 @@ describe('GetInvoicePaymentSummary', () => {
       new PlanPolicy(PLANS.pro),
       new InMemoryPaymentLedgerUnitOfWork(payments),
     );
-    await voider.execute({ paymentId: payment.id, centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER });
+    await voider.execute({
+      paymentId: payment.id,
+      paidOn: '2026-08-10',
+      centerCode: CENTER,
+      deviceOrigin: DEVICE,
+      updatedBy: USER,
+    });
 
     const summary = await build().execute({ centerCode: CENTER, invoiceId: INVOICE });
     expect(summary.netPaidMad).toBe(0);

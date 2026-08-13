@@ -15,6 +15,7 @@ import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 
 export type VoidPaymentInput = {
   paymentId: string;
+  paidOn: string;
   centerCode: CenterCode;
   deviceOrigin: DeviceId;
   updatedBy: UserId;
@@ -37,8 +38,11 @@ export type VoidPaymentInput = {
  *     concurrent voids of the same payment cannot both append (SOU-233 / audit
  *     CS-AUD-002). The DB partial-unique index is a defense-in-depth backstop.
  *
- * The reversal's `paidOn` is *today* (the reversal date, from the injected Clock, UTC),
- * not the original's business date — it is a distinct ledger event. Append-only and
+ * The reversal's `paidOn` is the **local business day** the void happens on, threaded
+ * from the renderer (SOU-244) — the same day `getDayTakings` nets by — not the original's
+ * business date and not a UTC clock slice. A void near local midnight subtracts from the
+ * day the cash-desk header is showing, never the neighbouring UTC day. The injected Clock
+ * stays UTC envelope time only; the domain never infers a user timezone. Append-only and
  * ULID-keyed, so it unions cleanly at sync like any other payment.
  */
 export class VoidPayment {
@@ -76,7 +80,6 @@ export class VoidPayment {
       throw new PaymentAlreadyReversedError(originalId);
     }
 
-    const now = this.clock.now();
     const reversal: Payment = {
       id: this.ids.next(PAYMENT_ID_PREFIX) as PaymentId,
       ...newEnvelope(
@@ -91,7 +94,7 @@ export class VoidPayment {
       kind: 'reversal',
       amountMad: original.amountMad,
       method: original.method,
-      paidOn: now.toISOString().slice(0, 10), // reversal date, UTC 'YYYY-MM-DD'
+      paidOn: fields.paidOn, // local business day of the void, from the renderer (SOU-244)
       reversesPaymentId: originalId,
       note: null, // voiding takes no note input (SOU-101 scope is RecordPayment only)
     };

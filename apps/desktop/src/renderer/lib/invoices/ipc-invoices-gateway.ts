@@ -47,8 +47,8 @@ class IpcInvoicesGateway implements InvoicesGateway {
     return updated;
   }
 
-  async reversePayment(paymentId: string): Promise<void> {
-    await window.api.invoke('payment.void', { paymentId });
+  async reversePayment(paymentId: string, paidOn: string): Promise<void> {
+    await window.api.invoke('payment.void', { paymentId, paidOn });
   }
 
   async issue(invoiceId: string): Promise<InvoiceListItemView> {

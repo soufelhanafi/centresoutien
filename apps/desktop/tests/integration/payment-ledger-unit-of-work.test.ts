@@ -265,7 +265,13 @@ describe('SqlitePaymentLedgerUnitOfWork — atomic reversal guard (SOU-233)', ()
   it('lets exactly one of two racing voids succeed, mapping the collision to PaymentAlreadyReversedError', async () => {
     await payments.append(makePayment(PAYMENT, { amountMad: 35000 }));
 
-    const voidInput = { paymentId: PAYMENT as string, centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER };
+    const voidInput = {
+      paymentId: PAYMENT as string,
+      paidOn: '2026-08-10',
+      centerCode: CENTER,
+      deviceOrigin: DEVICE,
+      updatedBy: USER,
+    };
     const results = await Promise.allSettled([
       voidPayment(300).execute(voidInput),
       voidPayment(400).execute(voidInput),

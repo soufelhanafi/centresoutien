@@ -101,7 +101,7 @@ export class MockInvoicesGateway implements InvoicesGateway {
     return updated;
   }
 
-  async reversePayment(paymentId: string): Promise<void> {
+  async reversePayment(paymentId: string, paidOn: string): Promise<void> {
     for (const [invoiceId, rows] of this.ledger) {
       const target = rows.find((row) => row.id === paymentId);
       if (!target) continue;
@@ -117,7 +117,7 @@ export class MockInvoicesGateway implements InvoicesGateway {
         kind: 'reversal',
         amountMad: target.amountMad,
         method: target.method,
-        paidOn: target.paidOn,
+        paidOn, // reversal's local business day (SOU-244), not the original's
         reversesPaymentId: target.id,
         note: null,
         createdAt: target.createdAt,
