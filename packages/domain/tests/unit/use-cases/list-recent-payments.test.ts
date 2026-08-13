@@ -46,6 +46,7 @@ class FakeRecentPaymentsReadPort implements RecentPaymentsReadPort {
       .filter((row) => row.centerCode === centerCode && row.deletedAt === null)
       .filter((row) => filters.from === undefined || row.paidOn >= filters.from)
       .filter((row) => filters.to === undefined || row.paidOn <= filters.to)
+      .filter((row) => filters.method === undefined || row.method === filters.method)
       .sort((a, b) => (a.paidOn === b.paidOn ? b.id.localeCompare(a.id) : b.paidOn.localeCompare(a.paidOn)))
       .slice(0, filters.limit)
       .map(
@@ -126,6 +127,28 @@ describe('ListRecentPayments', () => {
     expect(rows.map((r) => r.paidOn)).toEqual(['2026-08-10']);
     expect(port.lastFilters?.from).toBe('2026-08-01');
     expect(port.lastFilters?.to).toBe('2026-08-31');
+  });
+
+  it('narrows the feed to a single method and forwards it to the port', async () => {
+    const cash = seed({ method: 'cash', paidOn: '2026-08-10' });
+    const cheque = seed({ method: 'cheque', paidOn: '2026-08-11' });
+    const { useCase, port } = build([cash, cheque]);
+
+    const rows = await useCase.execute({ centerCode: CENTER, method: 'cheque' });
+
+    expect(rows.map((r) => r.method)).toEqual(['cheque']);
+    expect(port.lastFilters?.method).toBe('cheque');
+  });
+
+  it('omits the method filter when method is absent (all methods, forwards undefined)', async () => {
+    const cash = seed({ method: 'cash', paidOn: '2026-08-10' });
+    const transfer = seed({ method: 'transfer', paidOn: '2026-08-11' });
+    const { useCase, port } = build([cash, transfer]);
+
+    const rows = await useCase.execute({ centerCode: CENTER });
+
+    expect(rows.map((r) => r.method).sort()).toEqual(['cash', 'transfer']);
+    expect(port.lastFilters?.method).toBeUndefined();
   });
 
   it('supports a single "today" query (from === to)', async () => {

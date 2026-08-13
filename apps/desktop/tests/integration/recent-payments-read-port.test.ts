@@ -189,6 +189,45 @@ describe('SqlitePaymentRepository.listRecentPayments (RecentPaymentsReadPort)', 
     expect(rows.map((r) => r.paidOn)).toEqual(['2026-08-12', '2026-08-11']);
   });
 
+  it('filters to a single payment method when method is set', async () => {
+    await invoiceRepo.createDraft(makeInvoice(INVOICE_A), []);
+    await paymentRepo.append(makePayment({ method: 'cash', paidOn: '2026-08-10' }));
+    await paymentRepo.append(makePayment({ method: 'cheque', paidOn: '2026-08-11' }));
+    await paymentRepo.append(makePayment({ method: 'transfer', paidOn: '2026-08-12' }));
+
+    const rows = await paymentRepo.listRecentPayments(CENTER, { method: 'cheque', limit: 50 });
+
+    expect(rows).toHaveLength(1);
+    expect(rows.every((r) => r.method === 'cheque')).toBe(true);
+  });
+
+  it('returns every method when method is omitted (unchanged behavior)', async () => {
+    await invoiceRepo.createDraft(makeInvoice(INVOICE_A), []);
+    await paymentRepo.append(makePayment({ method: 'cash', paidOn: '2026-08-10' }));
+    await paymentRepo.append(makePayment({ method: 'cheque', paidOn: '2026-08-11' }));
+    await paymentRepo.append(makePayment({ method: 'transfer', paidOn: '2026-08-12' }));
+
+    const rows = await paymentRepo.listRecentPayments(CENTER, { limit: 50 });
+
+    expect(rows.map((r) => r.method).sort()).toEqual(['cash', 'cheque', 'transfer']);
+  });
+
+  it('combines the method filter with the from/to day window', async () => {
+    await invoiceRepo.createDraft(makeInvoice(INVOICE_A), []);
+    await paymentRepo.append(makePayment({ method: 'cash', paidOn: '2026-08-10' }));
+    await paymentRepo.append(makePayment({ method: 'cash', paidOn: '2026-09-05' }));
+    await paymentRepo.append(makePayment({ method: 'cheque', paidOn: '2026-08-11' }));
+
+    const rows = await paymentRepo.listRecentPayments(CENTER, {
+      from: '2026-08-01',
+      to: '2026-08-31',
+      method: 'cash',
+      limit: 50,
+    });
+
+    expect(rows.map((r) => r.paidOn)).toEqual(['2026-08-10']);
+  });
+
   it('degrades to a null studentId/studentName when the invoice header has not synced yet', async () => {
     await paymentRepo.append(makePayment({ invoiceId: INVOICE_A }));
 
