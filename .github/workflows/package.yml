@@ -27,7 +27,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Resolve app version
         id: version
-        run: echo "version=$(node -p \"require('./apps/desktop/package.json').version\")" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION=$(node -p "require('./apps/desktop/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Create draft release (publish only)
         if: inputs.publish
         env:
