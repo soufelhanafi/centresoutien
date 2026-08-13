@@ -1,3 +1,5 @@
+import { bcp47 } from '../format';
+
 /**
  * Local calendar date as `YYYY-MM-DD` — the reference the planner uses to ask
  * which override is in effect right now. Center opening hours are local wall-clock
@@ -17,7 +19,7 @@ const dateFormatters = new Map<string, Intl.DateTimeFormat>();
 function getDateFormatter(locale: string): Intl.DateTimeFormat {
   const cached = dateFormatters.get(locale);
   if (cached) return cached;
-  const formatter = new Intl.DateTimeFormat(locale, {
+  const formatter = new Intl.DateTimeFormat(bcp47(locale), {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

@@ -12,6 +12,7 @@ import {
 import { Button, Form, FormControl, FormField, FormItem, FormLabel, Input, toast } from '@centresoutien/ui';
 import type { BackupConfigDto } from '../../../shared/ipc/backup-contract';
 import { FieldMessage } from '../form/field-message';
+import { bcp47 } from '../../lib/format';
 import { selectFolder } from '../../lib/settings/dialog';
 import { useSaveBackupConfig } from '../../hooks/settings/use-save-backup-config';
 import { useCreateBackup } from '../../hooks/settings/use-create-backup';
@@ -52,7 +53,7 @@ export function BackupConfigForm({ config }: BackupConfigFormProps) {
     const destDir = form.getValues('destinationDir');
     try {
       const { file } = await createBackup.mutateAsync({ destDir });
-      const createdAt = new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }).format(
+      const createdAt = new Intl.DateTimeFormat(bcp47(i18n.language), { dateStyle: 'medium', timeStyle: 'short' }).format(
         new Date(file.createdAt),
       );
       toast.success(t('settings.backup.createSuccess', { date: createdAt }));
@@ -63,7 +64,7 @@ export function BackupConfigForm({ config }: BackupConfigFormProps) {
 
   const destinationDir = form.watch('destinationDir');
   const lastBackupAt = config.lastBackupAt
-    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }).format(
+    ? new Intl.DateTimeFormat(bcp47(i18n.language), { dateStyle: 'medium', timeStyle: 'short' }).format(
         new Date(config.lastBackupAt),
       )
     : t('settings.backup.never');
