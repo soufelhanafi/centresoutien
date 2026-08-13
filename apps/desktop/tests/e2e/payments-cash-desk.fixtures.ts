@@ -156,10 +156,13 @@ export async function latestPaymentId(win: Page, invoiceId: string): Promise<str
 
 /** Append a reversal for a payment through the bridge (payment.void). */
 export async function voidPayment(win: Page, paymentId: string): Promise<void> {
-  await win.evaluate(async (id) => {
-    const api = (window as unknown as { api: Bridge }).api;
-    await api.invoke('payment.void', { paymentId: id });
-  }, paymentId);
+  await win.evaluate(
+    async ({ id, paidOn }) => {
+      const api = (window as unknown as { api: Bridge }).api;
+      await api.invoke('payment.void', { paymentId: id, paidOn });
+    },
+    { id: paymentId, paidOn: todayIso() },
+  );
 }
 
 /** Today's date as the app's Clock would format it (YYYY-MM-DD), best-effort real clock. */

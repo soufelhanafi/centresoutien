@@ -29,9 +29,12 @@ export interface InvoicesGateway {
   /**
    * Appends a reversal (counter-entry) for a recorded payment via `payment.void`
    * — the append-only correction for a mistaken entry (SOU-237). The reversal's
-   * fields are derived by the domain; callers pass only the target payment id.
+   * amount/method are derived by the domain; the caller passes the target payment id
+   * and `paidOn`, the **local business day** the void happens on (SOU-244) — the same
+   * day `getDayTakings` nets by, so a void near local midnight lands on the day the
+   * cash-desk header shows rather than a UTC-sliced neighbour.
    */
-  reversePayment(paymentId: string): Promise<void>;
+  reversePayment(paymentId: string, paidOn: string): Promise<void>;
   /** Moves a draft invoice to `issued`. Returns the updated invoice (write-then-read-back). */
   issue(invoiceId: string): Promise<InvoiceListItemView>;
   /** Moves a draft or issued invoice to `cancelled`. Returns the updated invoice. */

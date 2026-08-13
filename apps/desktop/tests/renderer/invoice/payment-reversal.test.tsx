@@ -150,7 +150,11 @@ describe('payment reversal — history action (SOU-237)', () => {
     confirm.click();
 
     await waitFor(() =>
-      expect(invoke).toHaveBeenCalledWith('payment.void', { paymentId: 'pay-1' }),
+      expect(invoke).toHaveBeenCalledWith('payment.void', {
+        paymentId: 'pay-1',
+        // Threaded local business day (SOU-244) — a real 'YYYY-MM-DD' from todayIso().
+        paidOn: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) as unknown as string,
+      }),
     );
   });
 });

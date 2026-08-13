@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { invoicesGateway } from '../../lib/invoices/invoices-gateway';
+import { todayIso } from '../../lib/payments/today';
 import { arrearsKeys } from '../arrears/keys';
 import { dashboardKeys } from '../dashboard/keys';
 import { paymentKeys } from '../payments/keys';
@@ -16,11 +17,15 @@ import { invoiceKeys } from './keys';
  * rejection means the concurrency guard (SOU-233) lost the race because the ledger
  * already changed on another device — the local views are stale and must refetch
  * so the now-void reverse action disappears rather than repeatedly failing.
+ *
+ * The reversal's business date is the renderer's local `todayIso()` at click time
+ * (SOU-244), so a void near local midnight nets against the same day the cash-desk
+ * header shows — the domain Clock stays UTC and never infers this local day.
  */
 export function useReversePayment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (paymentId: string) => invoicesGateway.reversePayment(paymentId),
+    mutationFn: (paymentId: string) => invoicesGateway.reversePayment(paymentId, todayIso()),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
       queryClient.invalidateQueries({ queryKey: paymentKeys.all });

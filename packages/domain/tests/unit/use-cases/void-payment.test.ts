@@ -24,9 +24,32 @@ const USER = 'usr_00000000000000000000000001' as UserId;
 const EDITOR = 'usr_00000000000000000000000002' as UserId;
 const INVOICE = 'inv_00000000000000000000000001' as InvoiceId;
 const PAYMENT = 'pay_00000000000000000000000001' as PaymentId;
-const VOID_ISO = '2026-08-10T14:30:00Z';
+// The clock sits just past UTC midnight on the 10th; the local business day passed in
+// is still the 9th (SOU-244) — deliberately different so a reversal that read the clock
+// instead of the input would stamp the wrong day and fail the assertions below.
+const VOID_ISO = '2026-08-10T00:30:00Z';
+const LOCAL_BUSINESS_DAY = '2026-08-09';
 
 const seedClock = fakeClock('2026-08-05T09:00:00Z');
+
+function voidInput(over: Partial<VoidArgs> = {}): VoidArgs {
+  return {
+    paymentId: PAYMENT,
+    paidOn: LOCAL_BUSINESS_DAY,
+    centerCode: CENTER,
+    deviceOrigin: DEVICE,
+    updatedBy: EDITOR,
+    ...over,
+  };
+}
+
+type VoidArgs = {
+  paymentId: string;
+  paidOn: string;
+  centerCode: CenterCode;
+  deviceOrigin: DeviceId;
+  updatedBy: UserId;
+};
 
 function makePayment(over: Partial<Payment> & { kind?: PaymentKind } = {}): Payment {
   return {
@@ -63,12 +86,7 @@ describe('VoidPayment', () => {
     });
 
     it('appends a reversal that mirrors the original amount/method and points back at it', async () => {
-      const reversal = await build(PLANS.essentiel).execute({
-        paymentId: PAYMENT,
-        centerCode: CENTER,
-        deviceOrigin: DEVICE,
-        updatedBy: EDITOR,
-      });
+      const reversal = await build(PLANS.essentiel).execute(voidInput());
 
       expect(reversal.id).toMatch(/^pay_/);
       expect(reversal.id).not.toBe(PAYMENT);
@@ -77,18 +95,19 @@ describe('VoidPayment', () => {
       expect(reversal.method).toBe('cheque');
       expect(reversal.invoiceId).toBe(INVOICE);
       expect(reversal.reversesPaymentId).toBe(PAYMENT);
-      // paidOn is the reversal date (today, UTC), not the original's business date.
-      expect(reversal.paidOn).toBe('2026-08-10');
       expect(reversal.updatedBy).toBe(EDITOR);
     });
 
+    it('stamps paidOn with the local business day from the caller, not the UTC clock day (SOU-244)', async () => {
+      const reversal = await build(PLANS.essentiel).execute(voidInput());
+      // The clock is on the 10th UTC; the reversal must carry the caller's local day (9th),
+      // so it nets against the same business day the cash-desk header shows.
+      expect(reversal.paidOn).toBe(LOCAL_BUSINESS_DAY);
+      expect(reversal.paidOn).not.toBe('2026-08-10');
+    });
+
     it('drives the net to zero without deleting the original (both rows survive)', async () => {
-      await build(PLANS.essentiel).execute({
-        paymentId: PAYMENT,
-        centerCode: CENTER,
-        deviceOrigin: DEVICE,
-        updatedBy: EDITOR,
-      });
+      await build(PLANS.essentiel).execute(voidInput());
       expect(await payments.sumForInvoice(INVOICE)).toBe(0);
       expect(payments.all()).toHaveLength(2);
       // The original is untouched (append-only), still findable.
@@ -99,25 +118,15 @@ describe('VoidPayment', () => {
   describe('guards', () => {
     it('throws PaymentNotFoundError for an unknown payment', async () => {
       await expect(
-        build(PLANS.essentiel).execute({
-          paymentId: 'pay_00000000000000000000000099',
-          centerCode: CENTER,
-          deviceOrigin: DEVICE,
-          updatedBy: EDITOR,
-        }),
+        build(PLANS.essentiel).execute(voidInput({ paymentId: 'pay_00000000000000000000000099' })),
       ).rejects.toBeInstanceOf(PaymentNotFoundError);
     });
 
     it('throws PaymentNotFoundError for a payment in another center', async () => {
       await payments.append(makePayment({ centerCode: OTHER_CENTER }));
-      await expect(
-        build(PLANS.essentiel).execute({
-          paymentId: PAYMENT,
-          centerCode: CENTER,
-          deviceOrigin: DEVICE,
-          updatedBy: EDITOR,
-        }),
-      ).rejects.toBeInstanceOf(PaymentNotFoundError);
+      await expect(build(PLANS.essentiel).execute(voidInput())).rejects.toBeInstanceOf(
+        PaymentNotFoundError,
+      );
     });
 
     it('throws CannotReverseReversalError when the target is itself a reversal', async () => {
@@ -127,32 +136,17 @@ describe('VoidPayment', () => {
           reversesPaymentId: 'pay_00000000000000000000000050' as PaymentId,
         }),
       );
-      await expect(
-        build(PLANS.essentiel).execute({
-          paymentId: PAYMENT,
-          centerCode: CENTER,
-          deviceOrigin: DEVICE,
-          updatedBy: EDITOR,
-        }),
-      ).rejects.toBeInstanceOf(CannotReverseReversalError);
+      await expect(build(PLANS.essentiel).execute(voidInput())).rejects.toBeInstanceOf(
+        CannotReverseReversalError,
+      );
     });
 
     it('throws PaymentAlreadyReversedError on a double void and appends nothing new', async () => {
       await payments.append(makePayment());
-      await build(PLANS.essentiel).execute({
-        paymentId: PAYMENT,
-        centerCode: CENTER,
-        deviceOrigin: DEVICE,
-        updatedBy: EDITOR,
-      });
-      await expect(
-        build(PLANS.essentiel).execute({
-          paymentId: PAYMENT,
-          centerCode: CENTER,
-          deviceOrigin: DEVICE,
-          updatedBy: EDITOR,
-        }),
-      ).rejects.toBeInstanceOf(PaymentAlreadyReversedError);
+      await build(PLANS.essentiel).execute(voidInput());
+      await expect(build(PLANS.essentiel).execute(voidInput())).rejects.toBeInstanceOf(
+        PaymentAlreadyReversedError,
+      );
       expect(payments.all()).toHaveLength(2); // original + the one reversal
     });
   });
@@ -162,18 +156,8 @@ describe('VoidPayment', () => {
       await payments.append(makePayment());
 
       const results = await Promise.allSettled([
-        build(PLANS.essentiel).execute({
-          paymentId: PAYMENT,
-          centerCode: CENTER,
-          deviceOrigin: DEVICE,
-          updatedBy: EDITOR,
-        }),
-        build(PLANS.essentiel).execute({
-          paymentId: PAYMENT,
-          centerCode: CENTER,
-          deviceOrigin: DEVICE,
-          updatedBy: EDITOR,
-        }),
+        build(PLANS.essentiel).execute(voidInput()),
+        build(PLANS.essentiel).execute(voidInput()),
       ]);
 
       const fulfilled = results.filter((r) => r.status === 'fulfilled');
@@ -197,14 +181,9 @@ describe('VoidPayment', () => {
         features: new Set<FeatureFlag>(),
         limits: PLANS.essentiel.limits,
       };
-      await expect(
-        build(planWithout).execute({
-          paymentId: PAYMENT,
-          centerCode: CENTER,
-          deviceOrigin: DEVICE,
-          updatedBy: EDITOR,
-        }),
-      ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
+      await expect(build(planWithout).execute(voidInput())).rejects.toBeInstanceOf(
+        PlanFeatureUnavailableError,
+      );
       expect(payments.all()).toHaveLength(1); // nothing appended
     });
   });

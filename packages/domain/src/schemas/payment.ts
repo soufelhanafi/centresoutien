@@ -57,8 +57,15 @@ export const recordPaymentSchema = z.object({
 });
 export type RecordPaymentFields = z.infer<typeof recordPaymentSchema>;
 
-/** Voiding a payment: only the target payment id; the reversal's fields are derived. */
+/**
+ * Voiding a payment. `paymentId` names the target; `paidOn` is the **local business
+ * day** the void happens on, threaded from the renderer (SOU-244) exactly like
+ * `recordPaymentSchema` — the reversal must net against the same day `getDayTakings`
+ * shows, and the domain Clock is UTC envelope time only, never a source of local dates.
+ * The reversal's amount, method, and `reversesPaymentId` are still derived by the use case.
+ */
 export const voidPaymentSchema = z.object({
   paymentId: paymentRef,
+  paidOn: z.string().trim().refine(isCalendarDate, { message: 'invalid-date' }),
 });
 export type VoidPaymentFields = z.infer<typeof voidPaymentSchema>;
