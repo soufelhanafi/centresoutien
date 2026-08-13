@@ -253,7 +253,7 @@ If a change pushes any metric past its budget, either fix it or open a discussio
 
 ### 7.9 Fonts
 
-- `next/font/google` with `display: "swap"` and subsetting.
+- Self-hosted via `next/font/local` — variable woff2 files vendored in `app/fonts/` (latin-subset Inter, arabic-subset Noto Sans Arabic) — with `display: "swap"`. No build-time Google Fonts fetch (a runner network hiccup once failed the landing build; SOU-229).
 - Preload only the fonts used above the fold (Inter regular + semibold).
 - Arabic font loaded only on `/ar/*` routes.
 

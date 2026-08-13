@@ -24,6 +24,14 @@ export default defineWorkspace([
     // `process.env` (set/unset per case); the real values come from `loadEnv` in
     // electron.vite.config.ts at build time.
     define: { __CS_E2E__: 'false', __CS_DEMO_USERNAME__: '""', __CS_DEMO_PASSWORD__: '""' },
+    // Resolve `electron` to a no-op stub so a main-process module under test never
+    // loads the real package — importing it in plain Node can trigger an Electron
+    // binary download via `@electron/get`, a CDN dependency that flaked the CI
+    // unit-test job (SOU-229). A test needing bespoke behaviour still overrides this
+    // with its own `vi.mock('electron', …)`.
+    resolve: {
+      alias: { electron: new URL('./apps/desktop/tests/electron-stub.ts', import.meta.url).pathname },
+    },
     test: {
       name: 'desktop',
       root: './apps/desktop',
