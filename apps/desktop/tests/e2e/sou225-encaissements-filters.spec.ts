@@ -33,16 +33,18 @@ test.afterEach(async () => {
 
 async function openFeedTab(win: Launched['win'], L: CashStrings): Promise<void> {
   await win.getByRole('link', { name: L.nav, exact: true }).click();
-  await win.waitForTimeout(400);
-  await win.getByRole('tab', { name: L.feed.title }).click();
-  await win.waitForTimeout(600);
+  const feedTab = win.getByRole('tab', { name: L.feed.title });
+  await expect(feedTab).toBeVisible();
+  await feedTab.click();
+  await expect(feedTab).toHaveAttribute('aria-selected', 'true');
 }
 
 async function selectMethod(win: Launched['win'], F: FeedFilterStrings, optionLabel: string): Promise<void> {
   await win.getByRole('combobox', { name: F.method }).click();
-  await win.waitForTimeout(200);
-  await win.getByRole('option', { name: optionLabel, exact: true }).click();
-  await win.waitForTimeout(500);
+  const option = win.getByRole('option', { name: optionLabel, exact: true });
+  await expect(option).toBeVisible();
+  await option.click();
+  await expect(win.getByRole('combobox', { name: F.method })).toContainText(optionLabel);
 }
 
 /** Clear all feed filters — via the Réinitialiser button if it surfaced, else manually. */
@@ -55,7 +57,7 @@ async function clearFilters(win: Launched['win'], F: FeedFilterStrings): Promise
     await win.getByLabel(F.from, { exact: true }).fill('');
     await win.getByLabel(F.to, { exact: true }).fill('');
   }
-  await win.waitForTimeout(500);
+  await expect(win.getByRole('combobox', { name: F.method })).toContainText(F.allMethods);
 }
 
 // ---------------------------------------------------------------------------
@@ -135,9 +137,9 @@ test('AC3 — date-range filter narrows the feed, clearing restores it', async (
   await openFeedTab(win, L);
   await expect(win.getByText(name, { exact: false }).first()).toBeVisible();
 
-  // "to" = yesterday excludes today's payment → no results.
+  // "to" = yesterday excludes today's payment → no results. The narrowed feed is
+  // itself the deterministic wait: the row disappears and the no-results state shows.
   await win.getByLabel(F.to, { exact: true }).fill(dayOffsetIso(-1));
-  await win.waitForTimeout(600);
   await expect(win.getByText(name, { exact: false }), "today's row excluded by the date bound").toHaveCount(0);
   await expect(win.getByText(F.noResultsTitle).first()).toBeVisible();
   await win.screenshot({ path: `test-results/sou225-date-filtered-${locale()}.png`, fullPage: true });

@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import { _electron as electron, expect, type ElectronApplication, type Page } from '@playwright/test';
 
 /**
  * Black-box fixtures for SOU-103 — Impayés (arrears) view: overdue/partial
@@ -169,14 +169,15 @@ export async function pageCrashed(win: Page): Promise<boolean> {
  *  open Paiements from the sidebar, then select the Impayés tab. */
 export async function gotoArrears(win: Page, L: (typeof STR)[Locale]): Promise<void> {
   await win.getByRole('link', { name: L.navPayments, exact: true }).click();
-  await win.waitForTimeout(200);
-  await win.getByRole('tab', { name: L.navArrears, exact: true }).click();
-  await win.waitForTimeout(400);
+  const arrearsTab = win.getByRole('tab', { name: L.navArrears, exact: true });
+  await expect(arrearsTab).toBeVisible();
+  await arrearsTab.click();
+  await expect(win.getByRole('heading', { name: L.title })).toBeVisible();
 }
 
 export async function gotoInvoices(win: Page, L: (typeof STR)[Locale]): Promise<void> {
   await win.getByRole('link', { name: L.navInvoicing, exact: true }).click();
-  await win.waitForTimeout(400);
+  await win.waitForFunction(() => window.location.hash.startsWith('#/invoicing'));
 }
 
 type Bridge = { invoke: (channel: string, req: unknown) => Promise<unknown> };

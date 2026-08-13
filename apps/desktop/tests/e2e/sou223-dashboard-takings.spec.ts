@@ -37,7 +37,7 @@ test.afterEach(async () => {
 
 async function gotoDashboard(win: Launched['win'], nav: string): Promise<void> {
   await win.getByRole('link', { name: nav, exact: true }).click();
-  await win.waitForTimeout(400);
+  await win.waitForFunction(() => window.location.hash === '#/dashboard');
 }
 
 // ---------------------------------------------------------------------------
@@ -54,7 +54,19 @@ test('AC1 — day-takings figure appears in the Dashboard Argent card group (MAD
   // the same seed→reload recipe the dashboard suite uses.
   await win.reload();
   await win.waitForLoadState('domcontentloaded');
-  await win.waitForTimeout(500);
+
+  // Wait for the React Query refetch to settle: the Argent group must render the
+  // real seeded day-takings figure (not the pre-refetch zero) before any
+  // one-shot DOM read below.
+  const expectedFigure = normalizeWs(await intlMad(win, locale(), paid));
+  await win.waitForFunction((figure) => {
+    const marks = [0x200e, 0x200f, 0x061c, 0x00a0].map((code) => String.fromCharCode(code)).join('');
+    const normalized = document.body.innerText
+      .replace(new RegExp(`[${marks}]`, 'g'), ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return normalized.includes(figure);
+  }, expectedFigure);
 
   expect(await pageCrashed(win)).toBe(false);
   expect(await win.evaluate(() => document.documentElement.dir)).toBe(locale() === 'ar' ? 'rtl' : 'ltr');
@@ -67,7 +79,6 @@ test('AC1 — day-takings figure appears in the Dashboard Argent card group (MAD
   await expect(argentHeading).toBeVisible();
 
   // The day-takings figure must be MAD-formatted and equal to today's takings.
-  const expectedFigure = normalizeWs(await intlMad(win, locale(), paid));
   const body = normalizeWs(await win.evaluate(() => document.body.innerText));
   expect(body, 'dashboard shows the MAD-formatted day-takings amount').toContain(expectedFigure);
   expect(body, 'Argent group renders the locale MAD unit').toContain(D.currency);
@@ -105,7 +116,7 @@ test('AC3 — "Recette du jour" no longer appears on the Paiements page', async 
   const D = dash();
 
   await win.getByRole('link', { name: L.nav, exact: true }).click();
-  await win.waitForTimeout(400);
+  await expect(win.getByRole('tab', { name: L.record.title })).toBeVisible();
 
   const fullText = async () => normalizeWs(await win.evaluate(() => document.documentElement.textContent ?? ''));
 
