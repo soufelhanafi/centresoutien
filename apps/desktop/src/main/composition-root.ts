@@ -7,9 +7,9 @@ import {
   FEATURE_FLAGS,
   PlanPolicy,
   resolveActivePlan,
-  isRestrictedMode,
   ActivateLicense,
   GetLicenseStatus,
+  StartCenterTrial,
   CreateSubject,
   ArchiveSubject,
   ListSubjects,
@@ -170,7 +170,7 @@ import { FileMachineIdentity } from '../data/license/file-machine-identity';
 import { licenseFileNameForCenter } from '../data/license/license-file-path';
 import { VENDOR_LICENSE_PUBLIC_KEY_PEM } from '../data/license/vendor-public-key';
 import { SyncEngine, DuplicateMatcher, ResolveConflict } from '@centresoutien/domain';
-import { DEMO_LICENSE_PUBLIC_KEY_PEM } from '../data/demo/demo-license';
+import { SqliteCenterTrialStore } from '../data/license/sqlite-center-trial-store';
 import { openDatabase } from '../data/sqlite/db';
 import type { CenterSummary } from '../data/sqlite/center-directory';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
@@ -294,43 +294,9 @@ export type ContainerOptions = {
    * store and no listener are opened on this device — it is a pure replica.
    */
   hubClient?: { baseUrl: string; token: string };
-  /**
-   * Deterministic seeding (SOU-110): the demo center's container runs on a fixed
-   * `Clock` (anchored to Sept 2026) and a deterministic `IdGenerator` so a seed
-   * is byte-identical every time. Absent → the real `SystemClock` / `UlidIdGenerator`.
-   */
+  /** Test seams for deterministic domain and integration testing. */
   clock?: Clock;
   ids?: IdGenerator;
-  /**
-   * Demo mode (SOU-110). When present, the composition root exposes the demo
-   * IPC surface (`demo.status`/`demo.create`/`demo.wipe`) through
-   * `handlerDeps.demo`. The closures are built by the main entry (which owns
-   * the app-data dir, the demo key, and the relaunch machinery) and passed in —
-   * the composition root never constructs them, keeping the seeding/wipe
-   * orchestration (which needs `buildContainer` itself) out of this module and
-   * free of a circular import.
-   */
-  demo?: {
-    /** Whether the OPEN center is the demo center (`centreId === 'demo'`). */
-    isDemoCenter: boolean;
-    /**
-     * Whether THIS laptop is the active LAN hub host (SOU-190). A stable
-     * process-level fact the main entry resolves once (`hubServer !== null`),
-     * forwarded through `demo.status` so the renderer can confirm before a demo
-     * swap stops the embedded hub and cuts off teammates' sync. Never re-derived
-     * at swap time.
-     */
-    isHubHost: boolean;
-    /**
-     * The demo login prefill for `demo.status` (SOU-186): the env-provided
-     * credentials when the open center is the demo one, else `null`. Never throws.
-     */
-    login: () => { username: string; password: string } | null;
-    /** Build + seed the demo DB, write its license, then relaunch into demo mode. */
-    create: () => Promise<void>;
-    /** Dispose the open demo container, delete every demo artefact, relaunch to the real center. */
-    wipe: () => Promise<void>;
-  };
   /**
    * Center switcher (SOU-96). The app shell owns the fs directory scan and the
    * live hot-swap machinery (both need Electron + the userData dir), so it passes
@@ -348,12 +314,7 @@ export type ContainerOptions = {
 
 export type Container = {
   handlerDeps: HandlerDeps;
-  /**
-   * The open center's SQLCipher handle. Published so the demo center (SOU-110)
-   * can read the seeded marker from `app_meta` and resolve the center's logo
-   * path before wipe — the sanctioned raw-`app_meta`-only exceptions. Regular
-   * writes never go through here.
-   */
+  /** The open center's SQLCipher handle, exposed to main-owned lifecycle code. */
   db: DB;
   /**
    * The real {@link StudentSubscriptionReferencePort} adapter (SOU-63), published so
@@ -433,7 +394,7 @@ function resolveDeviceOrigin(db: DB, ids: IdGenerator): DeviceId {
  * (SOU-98/SOU-104). A verified, unexpired, correctly-bound license yields its
  * tier; every other state (missing / bad-signature / expired / wrong-machine /
  * wrong-center) is a HARD LOCK: the renderer, driven by the `license.status` IPC
- * (`restricted === status !== 'active'`), confines the whole app to the
+ * (`restricted`), confines the whole app to the
  * activation screen, so no gated use case ever runs behind this resolution.
  *
  * Because nothing runs behind the lock, a non-active license must NEVER grant a
@@ -534,18 +495,9 @@ export function buildContainer(options: ContainerOptions): Container {
   // file-based lock via the Ed25519 adapter below. Release builds set `__CS_E2E__`
   // false, dead-code-eliminating this branch and the synthetic adapter entirely.
   const e2eUnlockPlan = __CS_E2E__ ? process.env['CS_E2E_LICENSE_PLAN'] : undefined;
-  // The demo center (SOU-110) verifies its bundled, pre-signed license against
-  // the DEMO-ONLY public key — a real center always trusts the production vendor
-  // key. This centreId-scoped branch is the only place the demo key is ever
-  // trusted: `options.centreId === 'demo'` is a fixed startup fact, not renderer
-  // input, so a release build opening a real center can never be pointed at the
-  // demo key (and a forged demo license can never activate a real tenant).
-  const licensePublicKey =
-    options.centreId === 'demo'
-      ? DEMO_LICENSE_PUBLIC_KEY_PEM
-      : __CS_E2E__
-        ? (process.env['CS_LICENSE_PUBLIC_KEY'] ?? VENDOR_LICENSE_PUBLIC_KEY_PEM)
-        : VENDOR_LICENSE_PUBLIC_KEY_PEM;
+  const licensePublicKey = __CS_E2E__
+    ? (process.env['CS_LICENSE_PUBLIC_KEY'] ?? VENDOR_LICENSE_PUBLIC_KEY_PEM)
+    : VENDOR_LICENSE_PUBLIC_KEY_PEM;
   const license =
     options.license ??
     (e2eUnlockPlan !== undefined
@@ -567,11 +519,6 @@ export function buildContainer(options: ContainerOptions): Container {
   const licenseBinding: LicenseBindingContext = {
     machineId: machineIdentity.machineId(),
     centerCode: options.centerCode,
-    // The demo-only trust anchor is in effect for exactly the demo container —
-    // the same fixed startup fact that selected `DEMO_LICENSE_PUBLIC_KEY_PEM`
-    // above. Threading it here keeps the `demo: true` machine-skip reachable
-    // only under the demo key, never for a real center (SOU-110).
-    demoAnchorTrusted: options.centreId === 'demo',
   };
   const activePlanId = resolveStartupPlanId(
     license,
@@ -605,10 +552,6 @@ export function buildContainer(options: ContainerOptions): Container {
     }
     return cachedVerification;
   };
-  const isRestricted = (): boolean =>
-    devOverrideActive
-      ? false
-      : isRestrictedMode(resolveActivePlan(verifyLicenseCached(), clock.now(), licenseBinding).status);
 
   // The trusted first-run state for the restricted-mode gate: an admin account is
   // the wizard's last durable artifact (its step progress is otherwise ephemeral),
@@ -628,6 +571,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // the installed license's resolved state for the screen + Settings. The store
   // writes to the same fixed `licenseFilePath` the startup adapter reads.
   const licenseStore = new FsLicenseStore(licenseFilePath);
+  const trialStore = new SqliteCenterTrialStore(db);
   const activateLicense = new ActivateLicense(
     license,
     licenseStore,
@@ -635,16 +579,17 @@ export function buildContainer(options: ContainerOptions): Container {
     clock,
     plan,
     options.centerCode,
-    options.centreId === 'demo',
     resolvePlanForPolicy,
   );
   const getLicenseStatus = new GetLicenseStatus(
-    license,
+    { verify: verifyLicenseCached, verifyContent: (raw) => license.verifyContent(raw) },
     machineIdentity,
     clock,
     options.centerCode,
-    options.centreId === 'demo',
+    trialStore,
   );
+  const isRestricted = (): boolean =>
+    devOverrideActive ? false : getLicenseStatus.execute().restricted;
 
   // The acting laptop, resolved once — stamped on every change_log row (SOU-79)
   // and carried in the envelope context below.
@@ -932,6 +877,7 @@ export function buildContainer(options: ContainerOptions): Container {
   );
 
   const centerRepo = new SqliteCenterRepository(db);
+  const startCenterTrial = new StartCenterTrial(trialStore, clock);
   // Refresh the display-only `center.plan` mirror from the license-resolved plan
   // (SOU-98). No-op until the profile exists; the gate never reads this column.
   centerRepo.writePlanMirror(activePlanId);
@@ -942,15 +888,21 @@ export function buildContainer(options: ContainerOptions): Container {
   // an unlicensed first run.
   const centerHoursRepo = new SqliteCenterHoursRepository(db);
   const seedDefaultCenterHours = new SeedDefaultCenterHours(centerHoursRepo, clock, ids);
-  const saveCenterProfile = new SaveCenterProfile(centerRepo, clock, ids, seedDefaultCenterHours);
+  const saveCenterProfile = new SaveCenterProfile(
+    centerRepo,
+    clock,
+    ids,
+    seedDefaultCenterHours,
+    startCenterTrial,
+  );
   const logoStore = new FsLogoStore(options.dir, ids);
   const storeCenterLogo = new StoreCenterLogo(logoStore);
   const readCenterLogo = new ReadCenterLogo(logoStore);
 
   // Center switcher (SOU-96). `SwitchCenter` gates the Premium `org.multi-center`
   // feature server-side, then delegates the live hot-swap to the shell's
-  // `switchTo` adapter. Without a wired shell (integration tests, the demo
-  // container) the adapter rejects — but only ever AFTER the plan gate, and the
+  // `switchTo` adapter. Without a wired shell (integration tests) the adapter
+  // rejects — but only ever AFTER the plan gate, and the
   // single-center `center.list` still answers.
   const centerSwitchPort: CenterSwitchPort = {
     switchTo:
@@ -1473,16 +1425,6 @@ export function buildContainer(options: ContainerOptions): Container {
     listBlockedConflicts: () => localSyncRepository.listBlocked(),
     localSyncRepository,
     deviceId: () => deviceOrigin,
-    // Demo mode (SOU-110): the closures the main entry built from the app-data
-    // dir, the demo key, and the relaunch machinery. Absent → a hard-failing
-    // stub (never invoked — the demo channels require wiring to exist).
-    demo: options.demo ?? {
-      isDemoCenter: false,
-      isHubHost: false,
-      login: () => null,
-      create: () => Promise.reject(new Error('demo mode not wired')),
-      wipe: () => Promise.reject(new Error('demo mode not wired')),
-    },
   };
 
   return {

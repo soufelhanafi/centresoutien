@@ -971,44 +971,6 @@ export const ipcContract = {
     request: z.object({}),
     response: z.object({ planId: z.enum(['essentiel', 'pro', 'premium']), features: z.array(featureFlagSchema) }),
   },
-  // Demo mode (SOU-110): a sales tool that builds a SEPARATE, deterministic
-  // demo DB (`centreId: 'demo'`). `demo.status` reports whether the currently-open
-  // center IS the demo center (a cheap main-process read — the open centreId,
-  // never a DB scan). `demo.create` builds + seeds the demo DB (its own premium
-  // license, admin, ~150 students, mixed invoices, payroll history) then HOT-SWAPS
-  // the open center to it; `demo.wipe` swaps back to the real center then deletes
-  // every demo artefact (DB + WAL/SHM, hub store, logos, license).
-  //
-  // SOU-186: the swap NEVER restarts the OS process — main closes the current
-  // SQLCipher handle and opens the target through the same composition-root open
-  // path (a constrained center switch), then resolves. Both resolve with the
-  // resulting `{ isDemo }` (create → true, wipe → false) AFTER the swap completes,
-  // so the renderer invalidates its caches / resets its stores off the resolved
-  // promise without reloading the BrowserWindow.
-  // `demoLogin` carries the demo admin credentials for the login-screen prefill
-  // (SOU-186) — non-null ONLY when the open center IS the demo center AND main's
-  // `CS_DEMO_USERNAME` / `CS_DEMO_PASSWORD` are set; `null` otherwise. No
-  // credential literal lives in renderer or data-layer source; the values are
-  // read only in the main process and reach the renderer through this channel.
-  // `isHubHost` (SOU-190) reports whether THIS laptop is the LAN hub host — a
-  // stable process-level fact (hub wired at startup), so the renderer can confirm
-  // before `demo.create` stops the embedded hub and cuts off teammates' sync.
-  'demo.status': {
-    request: z.object({}),
-    response: z.object({
-      isDemo: z.boolean(),
-      demoLogin: z.object({ username: z.string(), password: z.string() }).nullable(),
-      isHubHost: z.boolean(),
-    }),
-  },
-  'demo.create': {
-    request: z.object({}),
-    response: z.object({ isDemo: z.boolean() }),
-  },
-  'demo.wipe': {
-    request: z.object({}),
-    response: z.object({ isDemo: z.boolean() }),
-  },
   // License activation (SOU-104). `license.status` reports the installed license's
   // resolved state (binding + expiry included) for the activation screen and
   // Settings — `restricted` is the flag the UI labels "mode restreint". Both are
@@ -1019,6 +981,8 @@ export const ipcContract = {
     response: z.object({
       status: z.enum([
         'active',
+        'trial-active',
+        'trial-expired',
         'missing',
         'invalid-signature',
         'expired',
@@ -1031,6 +995,12 @@ export const ipcContract = {
       centersAllowed: z.number().int().positive().nullable(),
       founderDiscountExpiresAt: z.string().nullable(),
       founderDiscountExpired: z.boolean(),
+      trial: z
+        .object({
+          startedAt: z.string(),
+          expiresAt: z.string(),
+        })
+        .nullable(),
     }),
   },
   // `license.activate` verifies a pasted key / imported file, and on success

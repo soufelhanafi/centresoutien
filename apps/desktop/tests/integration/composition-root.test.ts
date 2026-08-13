@@ -372,7 +372,6 @@ describe('composition root', () => {
         centerCode: 'CS-CASA-001',
         centersAllowed: 3,
         founderDiscountExpiresAt: null,
-        demo: false,
       },
       privateKey,
     );
@@ -414,7 +413,6 @@ describe('composition root', () => {
         centerCode: 'CS-RABAT-999',
         centersAllowed: null,
         founderDiscountExpiresAt: null,
-        demo: false,
       },
       privateKey,
     );
@@ -459,7 +457,6 @@ describe('composition root', () => {
           centerCode,
           centersAllowed: null,
           founderDiscountExpiresAt: null,
-          demo: false,
         },
         privateKey,
       );
@@ -966,7 +963,6 @@ describe('composition root', () => {
       centerCode: 'CS-CASA-001',
       centersAllowed: null,
       founderDiscountExpiresAt: null,
-      demo: false,
       ...overrides,
     });
 

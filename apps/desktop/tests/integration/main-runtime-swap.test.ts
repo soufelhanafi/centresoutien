@@ -13,9 +13,9 @@ import type { IpcChannel, IpcRequest, IpcResponse } from '../../src/shared/ipc/c
 const ALLOW_ALL_SENDER: IpcSenderGuard = () => {};
 
 /**
- * SOU-186 — the demo/center hot-swap seam. `MainRuntime` registers every IPC
- * channel once and reroutes them to whichever container is open, so a demo
- * toggle closes the current SQLCipher handle and opens the target IN-PROCESS —
+ * SOU-96 — the center hot-swap seam. `MainRuntime` registers every IPC channel
+ * once and reroutes them to whichever container is open, so a center switch
+ * closes the current SQLCipher handle and opens the target IN-PROCESS —
  * no `app.relaunch` / `app.exit`. These tests drive the seam directly with real
  * containers over temp SQLCipher files; the E2E suite exercises it through the UI.
  */
@@ -64,7 +64,7 @@ function recordingIpcMain(): {
   };
 }
 
-describe('MainRuntime demo/center hot-swap', () => {
+describe('MainRuntime center hot-swap', () => {
   it('reroutes IPC to the swapped center and closes the previous DB handle without a restart', async () => {
     const real = openCenter('C1', 'CS-CASA-001', 'essentiel');
     const { ipcMain, invoke } = recordingIpcMain();
@@ -75,21 +75,21 @@ describe('MainRuntime demo/center hot-swap', () => {
     expect((await invoke('plan.get', {})).planId).toBe('essentiel');
     expect(real.db.open).toBe(true);
 
-    const demo = openCenter('C2', 'CS-DEMO-001', 'premium');
-    await runtime.swapTo(() => demo);
+    const target = openCenter('C2', 'CS-RABAT-002', 'premium');
+    await runtime.swapTo(() => target);
 
     // The previous handle is closed cleanly — the whole point of SOU-186 is that
     // this happens WITHOUT tearing the OS process down.
     expect(real.db.open).toBe(false);
-    expect(demo.db.open).toBe(true);
-    // Routing followed the swap: the plan is now the demo center's, and the demo
-    // center is a distinct DB + centerCode, so the real center's subject is not
+    expect(target.db.open).toBe(true);
+    // Routing followed the swap: the plan is now the target center's, and the
+    // target is a distinct DB + centerCode, so the real center's subject is not
     // visible here (the bare-db-swap bug this design avoids).
     expect((await invoke('plan.get', {})).planId).toBe('premium');
     expect((await invoke('subject.list', { scope: 'all' })).subjects).toHaveLength(0);
 
     runtime.dispose();
-    expect(demo.db.open).toBe(false);
+    expect(target.db.open).toBe(false);
   });
 
   it('routes a write to the swapped center, isolated from the previous one', async () => {
@@ -97,11 +97,11 @@ describe('MainRuntime demo/center hot-swap', () => {
     const { ipcMain, invoke } = recordingIpcMain();
     const runtime = new MainRuntime(ipcMain, real, ALLOW_ALL_SENDER);
 
-    const demo = openCenter('C2', 'CS-DEMO-001', 'premium');
-    await runtime.swapTo(() => demo); // disposes the real container
+    const target = openCenter('C2', 'CS-RABAT-002', 'premium');
+    await runtime.swapTo(() => target); // disposes the real container
     const { id } = await invoke('subject.create', { name: { fr: 'Physique', ar: 'الفيزياء' } });
 
-    // The write landed in the demo center only.
+    // The write landed in the target center only.
     const listed = (await invoke('subject.list', { scope: 'all' })).subjects;
     expect(listed.map((s) => s.id)).toContain(id as SubjectId);
 

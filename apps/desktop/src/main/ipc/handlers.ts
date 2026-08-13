@@ -885,24 +885,6 @@ export type HandlerDeps = BackupHandlerDeps &
   readCenterLogo: ReadCenterLogoUseCase;
   centerContext: () => CenterContext;
   saveLocalePreference: (locale: LocalePreference) => void;
-  /** Demo mode (SOU-110) — wired only when `ContainerOptions.demo` is present. */
-  demo: {
-    isDemoCenter: boolean;
-    /**
-     * Whether THIS laptop is the LAN hub host (SOU-190) — resolved once in the
-     * main entry, never at swap time. Forwarded through `demo.status` so the
-     * renderer can warn before `demo.create` stops the embedded hub.
-     */
-    isHubHost: boolean;
-    /**
-     * The demo login prefill for `demo.status` (SOU-186) — the env-provided
-     * credentials, returned only when the open center is the demo one AND the
-     * `CS_DEMO_*` vars are set; `null` otherwise. Never throws.
-     */
-    login: () => { username: string; password: string } | null;
-    create: () => Promise<void>;
-    wipe: () => Promise<void>;
-  };
 };
 
 export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
@@ -917,26 +899,6 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     }),
     'license.status': () => deps.getLicenseStatus.execute(),
     'license.activate': (request) => deps.activateLicense.execute({ rawLicense: request.license }),
-    // Demo mode (SOU-110). `demo.status` is a cheap main-process read of the open
-    // centreId (never a DB scan). `demo.create`/`demo.wipe` drive the demo center
-    // orchestration (seeding / artefact deletion) and the SOU-186 in-place center
-    // hot-swap — no OS-process restart. Each resolves with the resulting open mode
-    // AFTER the swap completes: create → the demo center is open (`isDemo: true`),
-    // wipe → the real center is open (`isDemo: false`). A failed swap rejects and
-    // leaves the current center untouched.
-    'demo.status': () => ({
-      isDemo: deps.demo.isDemoCenter,
-      demoLogin: deps.demo.login(),
-      isHubHost: deps.demo.isHubHost,
-    }),
-    'demo.create': async () => {
-      await deps.demo.create();
-      return { isDemo: true };
-    },
-    'demo.wipe': async () => {
-      await deps.demo.wipe();
-      return { isDemo: false };
-    },
     'subject.create': async (request) => {
       const subject = await deps.createSubject.execute({ ...request, ...deps.envelopeContext() });
       return { id: subject.id };
