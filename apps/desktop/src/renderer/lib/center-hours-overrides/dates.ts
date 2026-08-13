@@ -17,15 +17,16 @@ export function todayIsoDate(): string {
 const dateFormatters = new Map<string, Intl.DateTimeFormat>();
 
 function getDateFormatter(locale: string): Intl.DateTimeFormat {
-  const cached = dateFormatters.get(locale);
+  const resolvedLocale = bcp47(locale);
+  const cached = dateFormatters.get(resolvedLocale);
   if (cached) return cached;
-  const formatter = new Intl.DateTimeFormat(bcp47(locale), {
+  const formatter = new Intl.DateTimeFormat(resolvedLocale, {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
     timeZone: 'UTC',
   });
-  dateFormatters.set(locale, formatter);
+  dateFormatters.set(resolvedLocale, formatter);
   return formatter;
 }
 
