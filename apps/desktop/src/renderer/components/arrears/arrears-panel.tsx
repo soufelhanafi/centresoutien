@@ -5,15 +5,23 @@ import { Button } from '@centresoutien/ui';
 import { useArrears } from '../../hooks/arrears/use-arrears';
 import { useGroups } from '../../hooks/group/use-groups';
 import type { ArrearsPaymentStatus } from '../../lib/arrears/arrears-view';
-import { ArrearsToolbar } from '../../components/arrears/arrears-toolbar';
-import { ArrearsAgingSummary } from '../../components/arrears/arrears-aging-summary';
-import { ArrearsListContent, type ArrearsListStatus } from '../../components/arrears/arrears-list-content';
-import { ArrearsPrintSheet } from '../../components/arrears/arrears-print-sheet';
+import { ArrearsToolbar } from './arrears-toolbar';
+import { ArrearsAgingSummary } from './arrears-aging-summary';
+import { ArrearsListContent, type ArrearsListStatus } from './arrears-list-content';
+import { ArrearsPrintSheet } from './arrears-print-sheet';
 
 const EMPTY_AGING = { bucket30Mad: 0, bucket60Mad: 0, bucket90PlusMad: 0, totalOutstandingMad: 0, parentsCount: 0 };
 
-/** Impayés module (SOU-103): overdue/partial invoices grouped by parent, aging summary, follow-up quick actions. */
-export function ArrearsPage() {
+/**
+ * Impayés module (SOU-103, relocated in SOU-224): overdue/partial invoices
+ * grouped by parent, aging summary, follow-up quick actions. Now the third tab
+ * panel of the Caisse (payments) page — `TabsContent` unmounts the inactive
+ * panel, so `useArrears` only fires once this tab is selected. The panel owns
+ * its own `<h2>` sub-header under the page `<h1>`, and every on-screen element
+ * carries `print:hidden` so the "export list to PDF" action prints only the
+ * `ArrearsPrintSheet`.
+ */
+export function ArrearsPanel() {
   const { t } = useTranslation();
   const [month, setMonth] = useState('');
   const [minOutstandingMad, setMinOutstandingMad] = useState<number | null>(null);
@@ -45,12 +53,12 @@ export function ArrearsPage() {
           : 'empty';
 
   return (
-    <section aria-labelledby="arrears-title" className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+    <section aria-labelledby="arrears-title" className="flex w-full flex-col gap-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between print:hidden">
         <div className="space-y-1">
-          <h1 id="arrears-title" className="text-xl font-semibold text-foreground">
+          <h2 id="arrears-title" className="text-base font-semibold text-foreground">
             {t('arrears.title')}
-          </h1>
+          </h2>
           <p className="text-sm text-muted-foreground">{t('arrears.subtitle')}</p>
         </div>
         <Button variant="outline" onClick={() => window.print()} disabled={parents.length === 0}>

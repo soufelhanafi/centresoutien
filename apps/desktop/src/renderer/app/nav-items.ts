@@ -9,7 +9,6 @@ import {
   DoorOpen,
   CalendarDays,
   ReceiptText,
-  CircleAlert,
   Wallet,
   HandCoins,
   RefreshCw,
@@ -50,7 +49,6 @@ export const groupsModule = { id: 'groups', path: '/groups', icon: Boxes } as co
 export const roomsModule = { id: 'rooms', path: '/rooms', icon: DoorOpen } as const satisfies NavModule;
 export const planningModule = { id: 'planning', path: '/planning', icon: CalendarDays } as const satisfies NavModule;
 export const invoicingModule = { id: 'invoicing', path: '/invoicing', icon: ReceiptText } as const satisfies NavModule;
-export const arrearsModule = { id: 'arrears', path: '/arrears', icon: CircleAlert } as const satisfies NavModule;
 export const paymentsModule = { id: 'payments', path: '/payments', icon: Wallet } as const satisfies NavModule;
 export const payrollModule = { id: 'payroll', path: '/payroll', icon: HandCoins, feature: 'payroll.teacher', requiredTier: 'pro' } as const satisfies NavModule;
 export const syncModule = { id: 'sync', path: '/sync', icon: RefreshCw, feature: 'sync.multi-device' } as const satisfies NavModule;
@@ -68,7 +66,6 @@ export const NAV_MODULES: readonly NavModule[] = [
   roomsModule,
   planningModule,
   invoicingModule,
-  arrearsModule,
   paymentsModule,
   payrollModule,
   syncModule,

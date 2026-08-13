@@ -36,6 +36,7 @@ export const STR: Record<
   Locale,
   {
     navArrears: string;
+    navPayments: string;
     navInvoicing: string;
     title: string;
     subtitle: string;
@@ -62,6 +63,7 @@ export const STR: Record<
 > = {
   fr: {
     navArrears: 'Impayés',
+    navPayments: 'Paiements',
     navInvoicing: 'Facturation',
     title: 'Impayés',
     subtitle: 'Factures en retard ou partiellement payées, regroupées par parent, pour vos relances téléphoniques.',
@@ -95,6 +97,7 @@ export const STR: Record<
   },
   ar: {
     navArrears: 'المتأخرات',
+    navPayments: 'المدفوعات',
     navInvoicing: 'الفوترة',
     title: 'المتأخرات',
     subtitle: 'الفواتير المتأخرة أو المدفوعة جزئيًا، مجمّعة حسب ولي الأمر، لمتابعاتكم الهاتفية.',
@@ -162,8 +165,12 @@ export async function pageCrashed(win: Page): Promise<boolean> {
   return win.evaluate(() => /Something went wrong|Show Error|Hide Error/i.test(document.body.innerText));
 }
 
+/** Impayés now lives as the third tab of the Caisse (payments) page (SOU-224):
+ *  open Paiements from the sidebar, then select the Impayés tab. */
 export async function gotoArrears(win: Page, L: (typeof STR)[Locale]): Promise<void> {
-  await win.getByRole('link', { name: L.navArrears, exact: true }).click();
+  await win.getByRole('link', { name: L.navPayments, exact: true }).click();
+  await win.waitForTimeout(200);
+  await win.getByRole('tab', { name: L.navArrears, exact: true }).click();
   await win.waitForTimeout(400);
 }
 
