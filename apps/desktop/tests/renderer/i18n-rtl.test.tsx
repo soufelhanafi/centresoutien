@@ -17,6 +17,7 @@ vi.mock('../../src/renderer/lib/license/license-api', () => ({
       centersAllowed: null,
       founderDiscountExpiresAt: null,
       founderDiscountExpired: false,
+      trial: null,
     }),
     activate: async () => ({ status: 'rejected' as const, reason: 'malformed' as const }),
   },

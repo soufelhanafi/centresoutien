@@ -7,10 +7,10 @@ import { LicenseActivationScreen } from './license-activation-screen';
 
 /**
  * Hard license lock (SOU-104): the app is unreachable until a valid license is
- * active. Every non-active state — missing, restricted, invalid signature,
- * expired, wrong machine, wrong center — renders ONLY the activation screen,
- * never the children and never a skip-into-app path. A successful activation
- * flips the status to `active` and the gate opens on its own.
+ * active. An active trial is also usable; every restricted state — including an
+ * expired trial — renders ONLY the activation screen, never the children and
+ * never a skip-into-app path. A successful activation flips the status to
+ * `active` and the gate opens on its own.
  */
 export function LicenseGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
@@ -38,7 +38,7 @@ export function LicenseGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (data.status !== 'active') {
+  if (data.status !== 'active' && data.status !== 'trial-active') {
     return <LicenseActivationScreen status={data} />;
   }
 

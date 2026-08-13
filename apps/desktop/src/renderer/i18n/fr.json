@@ -1866,15 +1866,6 @@
           "body": "Connectez-vous avec votre nouveau mot de passe."
         }
       }
-    },
-    "login": {
-      "exploreDemo": "Explorer la démo",
-      "exploreDemoHint": "Essayez l'application avec un centre de démonstration pré-rempli. Aucune donnée réelle ne sera modifiée.",
-      "demoPrefill": {
-        "title": "Connexion démo",
-        "hint": "Identifiants pré-remplis. Cliquez sur « Se connecter » pour entrer dans la démo.",
-        "credentials": "Utilisateur : {{username}} · Mot de passe : {{password}}"
-      }
     }
   },
   "wizard": {
@@ -2218,12 +2209,21 @@
       "restrictedBody": "L’application fonctionne avec la formule Essentiel jusqu’à l’activation d’une licence valide.",
       "values": {
         "active": "Licence active",
+        "trial-active": "Période d’essai active",
+        "trial-expired": "Période d'essai terminée",
         "missing": "Aucune licence",
         "invalid-signature": "Signature invalide",
         "expired": "Licence expirée",
         "wrong-machine": "Licence liée à un autre appareil",
         "wrong-center": "Licence liée à un autre centre"
       }
+    },
+    "trial": {
+      "startedAtLabel": "Essai commencé le",
+      "expiresAtLabel": "Essai valable jusqu'au",
+      "activeBody": "Votre période d'essai est active. Activez une licence à tout moment pour continuer sans interruption.",
+      "expiredTitle": "Période d'essai terminée",
+      "expiredBody": "Activez une licence valide pour continuer à utiliser l'application."
     },
     "founder": {
       "expiredTitle": "Réduction fondateur expirée",
@@ -2328,45 +2328,6 @@
       "reversesPayment": "Paiement annulé :",
       "hint": "L'historique garde les deux saisies pour vérification. Cette annulation ne compte pas une deuxième fois."
     }
-  },
-  "demo": {
-    "tab": "Mode démo",
-    "banner": {
-      "label": "MODE DÉMO",
-      "subtitle": "centre de démonstration",
-      "wipe": "Supprimer"
-    },
-    "intro": {
-      "subtitle": "Créez un centre avec des données réalistes pour présenter l'application lors d'une démonstration ou d'une visite de vente. Vos données réelles ne sont pas touchées.",
-      "create": "Créer le centre de démonstration",
-      "creating": "Création…"
-    },
-    "active": {
-      "title": "Vous êtes dans le centre de démonstration",
-      "subtitle": "Toutes les données affichées sont fictives. Supprimez le centre de démonstration pour revenir à votre centre.",
-      "wipe": "Supprimer la démo",
-      "wiping": "Suppression…"
-    },
-    "wipeDialog": {
-      "title": "Supprimer le centre de démonstration ?",
-      "body": "Toutes les données de démonstration seront définitivement supprimées et vous reviendrez à votre centre. Cette action est irréversible.",
-      "confirm": "Supprimer la démo",
-      "cancel": "Annuler"
-    },
-    "hubWarn": {
-      "title": "Cet ordinateur est le serveur de synchronisation",
-      "body": "Pendant la démo, la synchronisation des autres ordinateurs du centre sera en pause.",
-      "confirm": "Continuer quand même",
-      "cancel": "Annuler",
-      "close": "Fermer"
-    },
-    "error": {
-      "loading": "Vérification du mode démo…",
-      "body": "Une erreur est survenue lors de la lecture de l'état de la démo. Réessayez.",
-      "retry": "Réessayer"
-    },
-    "createError": "La création du centre de démonstration a échoué. Réessayez.",
-    "wipeError": "La suppression du centre de démonstration a échoué. Réessayez."
   },
   "update": {
     "readyTitle": "Mise à jour prête",
