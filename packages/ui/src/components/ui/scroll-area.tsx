@@ -1,5 +1,9 @@
 import * as React from 'react';
-import { OverlayScrollbarsComponent, type OverlayScrollbarsComponentProps } from 'overlayscrollbars-react';
+import {
+  OverlayScrollbarsComponent,
+  type OverlayScrollbarsComponentProps,
+  type OverlayScrollbarsComponentRef,
+} from 'overlayscrollbars-react';
 import 'overlayscrollbars/styles/overlayscrollbars.css';
 import { cn } from '@ui/lib/utils';
 
@@ -31,18 +35,21 @@ const DEFAULT_OPTIONS = {
  * sizing (h-64, flex-1 min-h-0, ...) and contentClassName for the padding that
  * should scroll with the content.
  */
-export function ScrollArea({ className, contentClassName, children, options, ...rest }: ScrollAreaProps) {
-  const mergedOptions = options
-    ? { ...DEFAULT_OPTIONS, ...options, scrollbars: { ...DEFAULT_OPTIONS.scrollbars, ...options.scrollbars }, overflow: { ...DEFAULT_OPTIONS.overflow, ...options.overflow } }
-    : DEFAULT_OPTIONS;
+export const ScrollArea = React.forwardRef<OverlayScrollbarsComponentRef<'div'>, ScrollAreaProps>(
+  function ScrollArea({ className, contentClassName, children, options, ...rest }, ref) {
+    const mergedOptions = options
+      ? { ...DEFAULT_OPTIONS, ...options, scrollbars: { ...DEFAULT_OPTIONS.scrollbars, ...options.scrollbars }, overflow: { ...DEFAULT_OPTIONS.overflow, ...options.overflow } }
+      : DEFAULT_OPTIONS;
 
-  return (
-    <OverlayScrollbarsComponent
-      className={cn('overflow-hidden', className)}
-      options={mergedOptions}
-      {...rest}
-    >
-      <div className={cn('h-full', contentClassName)}>{children}</div>
-    </OverlayScrollbarsComponent>
-  );
-}
+    return (
+      <OverlayScrollbarsComponent
+        ref={ref}
+        className={cn('overflow-hidden', className)}
+        options={mergedOptions}
+        {...rest}
+      >
+        <div className={cn('h-full', contentClassName)}>{children}</div>
+      </OverlayScrollbarsComponent>
+    );
+  },
+);

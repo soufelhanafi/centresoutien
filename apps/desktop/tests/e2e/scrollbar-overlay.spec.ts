@@ -74,8 +74,8 @@ test('shell shows a branded overlay scrollbar on the trailing edge', async () =>
 // SOU-216 keyboard regression guard: the shell <main> is overflow-locked and the
 // routed page scrolls inside the OverlayScrollbars viewport. Keyboard scrolling
 // must still reach that viewport — otherwise PageDown/arrows die on a dead
-// <main>. The lib mirrors the host's tabindex onto its viewport and redirects
-// focus there, so focusing #main-content and pressing PageDown must scroll.
+// <main>. The skip link is wired to focus the lib's viewport, so the realistic
+// keyboard flow (Tab to skip link, Enter, PageDown) must scroll.
 test('keyboard scroll still works after skip-link focus', async () => {
   const loc = locale();
   live = await boot(loc, 'pro');
@@ -85,12 +85,10 @@ test('keyboard scroll still works after skip-link focus', async () => {
 
   await expect.poll(async () => shellScrollbar(win)).not.toBeNull();
 
-  // Focus the shell's scroll region (what the skip link targets) and scroll it
-  // with the keyboard exactly as a keyboard-only user would after "skip to
-  // content".
-  await win.evaluate(() => {
-    document.querySelector<HTMLElement>('#main-content')?.focus();
-  });
+  // Tab to the skip link, activate it, then PageDown exactly as a keyboard-only
+  // user would after "skip to content".
+  await win.keyboard.press('Tab');
+  await win.keyboard.press('Enter');
   await win.keyboard.press('PageDown');
   await win.keyboard.press('PageDown');
 
