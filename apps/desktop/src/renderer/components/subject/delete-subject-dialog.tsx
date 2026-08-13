@@ -8,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  ScrollArea,
   toast,
 } from '@centresoutien/ui';
 import { useArchiveSubject } from '../../hooks/subject/use-archive-subject';
@@ -79,16 +80,18 @@ export function DeleteSubjectDialog({
                 {t('subjects.delete.blockedBody', { name, count: usage.references.length })}
               </DialogDescription>
             </DialogHeader>
-            <ul className="max-h-40 list-disc space-y-1 overflow-y-auto ps-5 text-sm text-foreground">
-              {usage.references.map((reference) => (
-                <li key={`${reference.kind}-${reference.id}`}>
-                  {t('subjects.delete.referenceItem', {
-                    kind: t(`subjects.referenceKind.${reference.kind}`),
-                    label: pickLocalized(reference.label, i18n.language),
-                  })}
-                </li>
-              ))}
-            </ul>
+            <ScrollArea className="max-h-40" contentClassName="ps-5">
+              <ul className="list-disc space-y-1 text-sm text-foreground">
+                {usage.references.map((reference) => (
+                  <li key={`${reference.kind}-${reference.id}`}>
+                    {t('subjects.delete.referenceItem', {
+                      kind: t(`subjects.referenceKind.${reference.kind}`),
+                      label: pickLocalized(reference.label, i18n.language),
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </ScrollArea>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 {t('subjects.delete.cancel')}

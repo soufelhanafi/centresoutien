@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DialogContent, DialogHeader, DialogTitle, Tabs, TabsList, TabsTrigger, TabsContent } from '@centresoutien/ui';
+import { DialogContent, DialogHeader, DialogTitle, ScrollArea, Tabs, TabsList, TabsTrigger, TabsContent } from '@centresoutien/ui';
 import type { DuplicateView, ReversalDedupView, SyncConflictView } from '../../lib/sync/sync-view';
 import { groupSyncConflicts } from '../../lib/sync/sync-view';
 import { ConflictCard } from './conflict-card';
@@ -32,54 +32,56 @@ export function ConflictPopup({
   };
 
   return (
-    <DialogContent closeLabel={t('common.close')} className="max-h-[85vh] w-full max-w-3xl overflow-y-auto">
+    <DialogContent closeLabel={t('common.close')} className="flex max-h-[85vh] w-full max-w-3xl flex-col">
       <DialogHeader>
         <DialogTitle>{t('sync.popup.title')}</DialogTitle>
       </DialogHeader>
-      {!hasAny ? (
-        <p className="text-sm text-muted-foreground">{t('sync.popup.none')}</p>
-      ) : (
-        <Tabs defaultValue="field-clash">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="field-clash">
-              {t('sync.popup.tab.fieldClash')} ({counts.fieldClashes})
-            </TabsTrigger>
-            <TabsTrigger value="delete-vs-edit">
-              {t('sync.popup.tab.deleteVsEdit')} ({counts.deleteVsEdits})
-            </TabsTrigger>
-            <TabsTrigger value="duplicates">
-              {t('sync.popup.tab.duplicates')} ({counts.duplicates})
-            </TabsTrigger>
-          </TabsList>
+      <ScrollArea className="min-h-0 flex-1" contentClassName="pe-1">
+        {!hasAny ? (
+          <p className="text-sm text-muted-foreground">{t('sync.popup.none')}</p>
+        ) : (
+          <Tabs defaultValue="field-clash">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="field-clash">
+                {t('sync.popup.tab.fieldClash')} ({counts.fieldClashes})
+              </TabsTrigger>
+              <TabsTrigger value="delete-vs-edit">
+                {t('sync.popup.tab.deleteVsEdit')} ({counts.deleteVsEdits})
+              </TabsTrigger>
+              <TabsTrigger value="duplicates">
+                {t('sync.popup.tab.duplicates')} ({counts.duplicates})
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="field-clash" className="space-y-3">
-            {grouped.fieldClashes.length === 0 && (
-              <p className="text-sm text-muted-foreground">{t('sync.popup.empty')}</p>
-            )}
-            {grouped.fieldClashes.map((conflict) => (
-              <ConflictCard key={conflictKey(conflict)} conflict={conflict} />
-            ))}
-          </TabsContent>
+            <TabsContent value="field-clash" className="space-y-3">
+              {grouped.fieldClashes.length === 0 && (
+                <p className="text-sm text-muted-foreground">{t('sync.popup.empty')}</p>
+              )}
+              {grouped.fieldClashes.map((conflict) => (
+                <ConflictCard key={conflictKey(conflict)} conflict={conflict} />
+              ))}
+            </TabsContent>
 
-          <TabsContent value="delete-vs-edit" className="space-y-3">
-            {grouped.deleteVsEdits.length === 0 && (
-              <p className="text-sm text-muted-foreground">{t('sync.popup.empty')}</p>
-            )}
-            {grouped.deleteVsEdits.map((conflict) => (
-              <DeleteVsEditCard key={conflictKey(conflict)} conflict={conflict} />
-            ))}
-          </TabsContent>
+            <TabsContent value="delete-vs-edit" className="space-y-3">
+              {grouped.deleteVsEdits.length === 0 && (
+                <p className="text-sm text-muted-foreground">{t('sync.popup.empty')}</p>
+              )}
+              {grouped.deleteVsEdits.map((conflict) => (
+                <DeleteVsEditCard key={conflictKey(conflict)} conflict={conflict} />
+              ))}
+            </TabsContent>
 
-          <TabsContent value="duplicates" className="space-y-3">
-            {grouped.duplicates.length === 0 && (
-              <p className="text-sm text-muted-foreground">{t('sync.popup.empty')}</p>
-            )}
-            {grouped.duplicates.map((duplicate) => (
-              <DuplicateCard key={duplicateKey(duplicate)} duplicate={duplicate} />
-            ))}
-          </TabsContent>
-        </Tabs>
-      )}
+            <TabsContent value="duplicates" className="space-y-3">
+              {grouped.duplicates.length === 0 && (
+                <p className="text-sm text-muted-foreground">{t('sync.popup.empty')}</p>
+              )}
+              {grouped.duplicates.map((duplicate) => (
+                <DuplicateCard key={duplicateKey(duplicate)} duplicate={duplicate} />
+              ))}
+            </TabsContent>
+          </Tabs>
+        )}
+      </ScrollArea>
     </DialogContent>
   );
 }

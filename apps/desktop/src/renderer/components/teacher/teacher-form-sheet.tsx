@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { TeacherInput } from '@centresoutien/domain';
 import {
   Button,
+  ScrollArea,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -46,9 +47,9 @@ export function TeacherFormSheet({
           <SheetTitle>{t(`teachers.form.${mode}Title`)}</SheetTitle>
           <SheetDescription>{t(`teachers.form.${mode}Description`)}</SheetDescription>
         </SheetHeader>
-        <div className="-mx-1 flex-1 overflow-y-auto px-1 py-4">
+        <ScrollArea className="min-h-0 flex-1" contentClassName="-mx-1 px-1 py-4">
           <TeacherForm formId={formId} defaultValues={defaultValues} onSubmit={onSubmit} />
-        </div>
+        </ScrollArea>
         <SheetFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             {t('teachers.form.cancel')}

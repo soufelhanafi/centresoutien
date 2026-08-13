@@ -56,14 +56,21 @@ async function scrollMetrics(win: Page): Promise<ScrollMetrics> {
   return win.evaluate(() => {
     const shell = document.querySelector<HTMLElement>('#main-content');
     if (!shell) throw new Error('missing #main-content shell');
-    const grid = shell.querySelector<HTMLElement>('.overflow-auto');
-    if (!grid) throw new Error('missing planner grid (#main-content .overflow-auto)');
+    // OverlayScrollbars (SOU-216) wraps the real scrollable in a viewport
+    // element; the host itself never scrolls. Measure the viewport inside the
+    // grid's host, and confirm the shell's own overlay viewport has no overflow.
+    const shellViewport = shell.querySelector<HTMLElement>('[data-overlayscrollbars-viewport]');
+    const gridHost = shell.querySelector<HTMLElement>('.planner-grid-scroll');
+    if (!gridHost) throw new Error('missing planner grid (#main-content .planner-grid-scroll)');
+    const gridViewport = gridHost.querySelector<HTMLElement>('[data-overlayscrollbars-viewport]');
+    if (!gridViewport) throw new Error('missing planner grid viewport');
     const overflow = (el: HTMLElement) => el.scrollHeight - el.clientHeight;
+    const mainOverflow = shellViewport ? overflow(shellViewport) : 0;
     return {
-      mainScrolls: overflow(shell) > 1,
-      gridScrolls: overflow(grid) > 1,
-      mainOverflow: overflow(shell),
-      gridOverflow: overflow(grid),
+      mainScrolls: mainOverflow > 1,
+      gridScrolls: overflow(gridViewport) > 1,
+      mainOverflow,
+      gridOverflow: overflow(gridViewport),
     };
   });
 }
@@ -108,8 +115,10 @@ test('header and toolbar stay pinned while the grid scrolls', async () => {
   const before = await heading.boundingBox();
 
   const scrolledTo = await win.evaluate(() => {
-    const grid = document.querySelector<HTMLElement>('#main-content .overflow-auto');
-    if (!grid) throw new Error('missing planner grid (#main-content .overflow-auto)');
+    const gridHost = document.querySelector<HTMLElement>('#main-content .planner-grid-scroll');
+    if (!gridHost) throw new Error('missing planner grid (#main-content .planner-grid-scroll)');
+    const grid = gridHost.querySelector<HTMLElement>('[data-overlayscrollbars-viewport]');
+    if (!grid) throw new Error('missing planner grid viewport');
     grid.scrollTop = 160;
     return grid.scrollTop;
   });

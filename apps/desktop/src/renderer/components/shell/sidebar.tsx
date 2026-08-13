@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PanelLeft } from 'lucide-react';
-import { cn } from '@centresoutien/ui';
+import { cn, ScrollArea } from '@centresoutien/ui';
 import { NAV_MODULES } from '../../app/nav-items';
 import { NavItem } from './nav-item';
 import { PlanSwitcher } from '../plan-switcher';
@@ -36,13 +36,15 @@ export function Sidebar() {
         </span>
       </div>
 
-      <ul className="nav-scroll flex flex-1 flex-col gap-1 overflow-y-auto p-2">
-        {NAV_MODULES.map((module) => (
-          <li key={module.id}>
-            <NavItem module={module} collapsed={collapsed} />
-          </li>
-        ))}
-      </ul>
+      <ScrollArea className="min-h-0 flex-1" contentClassName="p-2">
+        <ul className="flex flex-col gap-1">
+          {NAV_MODULES.map((module) => (
+            <li key={module.id}>
+              <NavItem module={module} collapsed={collapsed} />
+            </li>
+          ))}
+        </ul>
+      </ScrollArea>
 
       <div className="flex flex-col gap-2 border-t border-border p-2">
         {!collapsed && import.meta.env.DEV ? <PlanSwitcher /> : null}

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { WEEKDAYS, type WeekdayIndex } from '@centresoutien/domain';
-import { cn } from '@centresoutien/ui';
+import { cn, ScrollArea } from '@centresoutien/ui';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 import { hourLabel, type MinuteInterval, type TimeRange } from '../../lib/planning/time-range';
 import { PlannerDayColumn } from './planner-day-column';
@@ -45,7 +45,10 @@ export function PlannerGrid({ sessions, range, closedSegmentsByDay, onSelect, em
   const bodyHeight = (range.endHour - range.startHour) * HOUR_PX;
 
   return (
-    <div className={cn('relative overflow-auto rounded-xl border border-border bg-card', className)}>
+    <ScrollArea
+      options={{ overflow: { x: 'scroll', y: 'scroll' } }}
+      className={cn('planner-grid-scroll rounded-xl border border-border bg-card', className)}
+    >
       <div className="grid min-w-[720px]" style={{ gridTemplateColumns: GRID_COLUMNS }}>
         {/* Header row: corner + seven day names. */}
         <div className="sticky top-0 z-10 border-b border-border bg-card" />
@@ -89,6 +92,6 @@ export function PlannerGrid({ sessions, range, closedSegmentsByDay, onSelect, em
           </p>
         </div>
       ) : null}
-    </div>
+    </ScrollArea>
   );
 }

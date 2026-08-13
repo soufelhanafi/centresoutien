@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   ErrorState,
+  ScrollArea,
   Skeleton,
   toast,
 } from '@centresoutien/ui';
@@ -114,7 +115,7 @@ export function SessionGeneratorDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="-mx-1 flex-1 overflow-y-auto px-1 py-2">
+        <ScrollArea className="min-h-0 flex-1" contentClassName="-mx-1 px-1 py-2">
           {options.isPending ? (
             <div className="space-y-4" aria-busy="true">
               {[0, 1, 2, 3, 4].map((row) => (
@@ -147,7 +148,7 @@ export function SessionGeneratorDialog({
               ) : null}
             </>
           )}
-        </div>
+        </ScrollArea>
 
         <DialogFooter>
           {step === 'config' ? (

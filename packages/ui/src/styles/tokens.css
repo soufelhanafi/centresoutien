@@ -95,6 +95,16 @@
   --font-family-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --radius: 0.5rem;
+
+  /* Overlay scrollbars (SOU-216) — thin, teal-tinted thumb on a transparent
+     track. Consumed by the `.os-theme-centre-soutien` rules below; light and
+     dark swap only these values, the theme class stays the same. */
+  --scrollbar-size: 8px;
+  --scrollbar-thumb: rgba(15, 118, 110, 0.35);
+  --scrollbar-thumb-hover: rgba(15, 118, 110, 0.55);
+  --scrollbar-thumb-active: rgba(15, 118, 110, 0.75);
+  --scrollbar-track: transparent;
+  --scrollbar-radius: var(--radius-full);
 }
 
 .dark {
@@ -170,6 +180,10 @@
   --plan-premium-fg: #ffffff;
 
   --lock-scrim: rgba(11, 18, 32, 0.55);
+
+  --scrollbar-thumb: rgba(45, 212, 191, 0.35);
+  --scrollbar-thumb-hover: rgba(45, 212, 191, 0.55);
+  --scrollbar-thumb-active: rgba(45, 212, 191, 0.75);
 }
 
 /* Map the raw tokens onto Tailwind's scales so utilities like `bg-primary`,
@@ -220,3 +234,22 @@
   --shadow-lg: 0 20px 40px -20px rgba(15, 23, 42, 0.15);
   --shadow-overlay: 0 12px 30px -12px rgba(15, 23, 42, 0.25);
 }
+
+/*
+ * Overlay scrollbars theme (SOU-216). Maps the `--scrollbar-*` tokens onto
+ * OverlayScrollbars' own `--os-*` custom properties so the thumb is thin,
+ * rounded, and teal-tinted, with a darker fill on hover/drag. The token swap
+ * in `:root` / `.dark` is enough — the theme class never changes.
+ */
+.os-theme-centre-soutien {
+  --os-size: var(--scrollbar-size);
+  --os-padding-perpendicular: 2px;
+  --os-padding-axis: 2px;
+  --os-track-bg: var(--scrollbar-track);
+  --os-handle-bg: var(--scrollbar-thumb);
+  --os-handle-bg-hover: var(--scrollbar-thumb-hover);
+  --os-handle-bg-active: var(--scrollbar-thumb-active);
+  --os-handle-border-radius: var(--scrollbar-radius);
+  --os-track-border-radius: var(--scrollbar-radius);
+}
+
