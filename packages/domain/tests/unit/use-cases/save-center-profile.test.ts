@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SaveCenterProfile, type SaveCenterProfileInput } from '../../../src/use-cases/save-center-profile';
-import { SeedDefaultCenterHours } from '../../../src/use-cases/seed-default-center-hours';
 import { DEFAULT_WEEKLY_HOURS } from '../../../src/schemas/center-hours';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryCenterRepository } from '../fakes/in-memory-center-repository';
@@ -8,7 +7,8 @@ import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-r
 import { InMemoryCenterTrialStore } from '../fakes/in-memory-center-trial-store';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
-import { StartCenterTrial } from '../../../src/use-cases/start-center-trial';
+import { InMemoryCenterSetupUnitOfWork } from '../fakes/in-memory-center-setup-unit-of-work';
+import { fakeLicenseAccess } from '../fakes/fake-license-access';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
@@ -34,6 +34,7 @@ describe('SaveCenterProfile', () => {
   let hours: InMemoryCenterHoursRepository;
   let clock: ReturnType<typeof fakeClock>;
   let trials: InMemoryCenterTrialStore;
+  let setup: InMemoryCenterSetupUnitOfWork;
   let useCase: SaveCenterProfile;
 
   beforeEach(() => {
@@ -42,13 +43,13 @@ describe('SaveCenterProfile', () => {
     clock = fakeClock('2026-07-29T10:00:00Z');
     trials = new InMemoryCenterTrialStore();
     const ids = fakeIds();
-    const seedDefaultCenterHours = new SeedDefaultCenterHours(hours, clock, ids);
+    setup = new InMemoryCenterSetupUnitOfWork(centers, hours, trials);
     useCase = new SaveCenterProfile(
       centers,
       clock,
       ids,
-      seedDefaultCenterHours,
-      new StartCenterTrial(trials, clock),
+      setup,
+      fakeLicenseAccess(false),
     );
   });
 
@@ -116,18 +117,55 @@ describe('SaveCenterProfile', () => {
       await useCase.execute(validInput());
       const legacyTrials = new InMemoryCenterTrialStore();
       const ids = fakeIds();
-      const seedDefaultCenterHours = new SeedDefaultCenterHours(hours, clock, ids);
       useCase = new SaveCenterProfile(
         centers,
         clock,
         ids,
-        seedDefaultCenterHours,
-        new StartCenterTrial(legacyTrials, clock),
+        new InMemoryCenterSetupUnitOfWork(centers, hours, legacyTrials),
+        fakeLicenseAccess(false),
       );
 
       await useCase.execute(validInput({ name: 'Existing Centre' }));
 
       expect(legacyTrials.get()).toBeNull();
+    });
+
+    it('does not start a trial when an active license exists before first setup', async () => {
+      const ids = fakeIds();
+      useCase = new SaveCenterProfile(
+        centers,
+        clock,
+        ids,
+        new InMemoryCenterSetupUnitOfWork(centers, hours, trials),
+        fakeLicenseAccess(true),
+      );
+
+      await useCase.execute(validInput());
+
+      expect(trials.get()).toBeNull();
+    });
+
+    it('does not write outside a failed atomic commit, so retry starts one trial', async () => {
+      const ids = fakeIds();
+      let fail = true;
+      useCase = new SaveCenterProfile(
+        centers,
+        clock,
+        ids,
+        new InMemoryCenterSetupUnitOfWork(centers, hours, trials, () => {
+          if (fail) throw new Error('injected setup failure');
+        }),
+        fakeLicenseAccess(false),
+      );
+
+      await expect(useCase.execute(validInput())).rejects.toThrow('injected setup failure');
+      expect(await centers.get()).toBeNull();
+      expect(await hours.listForCenter(CENTER)).toEqual([]);
+      expect(trials.get()).toBeNull();
+
+      fail = false;
+      await useCase.execute(validInput());
+      expect(trials.get()?.startedAt).toEqual(new Date('2026-07-29T10:00:00Z'));
     });
   });
 

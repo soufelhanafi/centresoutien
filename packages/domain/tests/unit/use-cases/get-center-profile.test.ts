@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GetCenterProfile } from '../../../src/use-cases/get-center-profile';
 import { SaveCenterProfile } from '../../../src/use-cases/save-center-profile';
-import { SeedDefaultCenterHours } from '../../../src/use-cases/seed-default-center-hours';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryCenterRepository } from '../fakes/in-memory-center-repository';
 import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-repository';
 import { InMemoryCenterTrialStore } from '../fakes/in-memory-center-trial-store';
+import { InMemoryCenterSetupUnitOfWork } from '../fakes/in-memory-center-setup-unit-of-work';
+import { fakeLicenseAccess } from '../fakes/fake-license-access';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
-import { StartCenterTrial } from '../../../src/use-cases/start-center-trial';
 
 describe('GetCenterProfile', () => {
   let centers: InMemoryCenterRepository;
@@ -26,17 +26,14 @@ describe('GetCenterProfile', () => {
   it('returns the saved center', async () => {
     const clock = fakeClock();
     const ids = fakeIds();
-    const seedDefaultCenterHours = new SeedDefaultCenterHours(
-      new InMemoryCenterHoursRepository(),
-      clock,
-      ids,
-    );
+    const hours = new InMemoryCenterHoursRepository();
+    const trials = new InMemoryCenterTrialStore();
     const save = new SaveCenterProfile(
       centers,
       clock,
       ids,
-      seedDefaultCenterHours,
-      new StartCenterTrial(new InMemoryCenterTrialStore(), clock),
+      new InMemoryCenterSetupUnitOfWork(centers, hours, trials),
+      fakeLicenseAccess(false),
     );
     const saved = await save.execute({
       name: 'Centre Al Ilm',

@@ -7,6 +7,11 @@ export type CenterTrial = {
   readonly lastSeenAt: Date;
 };
 
+/** Creates the initial local trial state without persisting it. */
+export function newCenterTrial(now: Date): CenterTrial {
+  return { startedAt: now, lastSeenAt: now };
+}
+
 export type CenterTrialResolution = {
   readonly status: 'active' | 'expired';
   readonly restricted: boolean;

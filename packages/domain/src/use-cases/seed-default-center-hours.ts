@@ -19,6 +19,33 @@ export type SeedDefaultCenterHoursInput = {
   updatedBy: UserId;
 };
 
+/** Builds the initial week so it can be committed with the center atomically. */
+export function newDefaultCenterHours(
+  input: SeedDefaultCenterHoursInput,
+  clock: Clock,
+  ids: IdGenerator,
+): readonly CenterHours[] {
+  return DEFAULT_WEEKLY_HOURS.map((day) => {
+    const windows: readonly TimeWindow[] = day.windows.map((window) => ({
+      open: window.open as TimeOfDay,
+      close: window.close as TimeOfDay,
+    }));
+    return {
+      id: ids.next(CENTER_HOURS_ID_PREFIX) as CenterHoursId,
+      ...newEnvelope(
+        {
+          centerCode: input.centerCode,
+          deviceOrigin: input.deviceOrigin,
+          updatedBy: input.updatedBy,
+        },
+        clock,
+      ),
+      dayOfWeek: day.dayOfWeek as WeekdayIndex,
+      windows,
+    };
+  });
+}
+
 /**
  * Persists {@link DEFAULT_WEEKLY_HOURS} as a center's initial seven CenterHours
  * rows the first time the center exists (SOU-235). Without this a fresh center
@@ -44,28 +71,8 @@ export class SeedDefaultCenterHours {
     const existing = await this.hours.listForCenter(input.centerCode);
     if (existing.length > 0) return existing;
 
-    const seeded: CenterHours[] = [];
-    for (const day of DEFAULT_WEEKLY_HOURS) {
-      const windows: readonly TimeWindow[] = day.windows.map((window) => ({
-        open: window.open as TimeOfDay,
-        close: window.close as TimeOfDay,
-      }));
-      const row: CenterHours = {
-        id: this.ids.next(CENTER_HOURS_ID_PREFIX) as CenterHoursId,
-        ...newEnvelope(
-          {
-            centerCode: input.centerCode,
-            deviceOrigin: input.deviceOrigin,
-            updatedBy: input.updatedBy,
-          },
-          this.clock,
-        ),
-        dayOfWeek: day.dayOfWeek as WeekdayIndex,
-        windows,
-      };
-      await this.hours.save(row);
-      seeded.push(row);
-    }
+    const seeded = newDefaultCenterHours(input, this.clock, this.ids);
+    for (const row of seeded) await this.hours.save(row);
     return seeded;
   }
 }
