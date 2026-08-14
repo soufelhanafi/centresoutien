@@ -1603,6 +1603,7 @@
       "logoReplace": "تغيير الشعار",
       "logoRemove": "إزالة",
       "logoUploading": "جارٍ الرفع…",
+      "logoUploadError": "فشل رفع الشعار. حاول مرة أخرى.",
       "logoLoading": "جارٍ تحميل الشعار…",
       "submit": "حفظ",
       "saving": "جارٍ الحفظ…",

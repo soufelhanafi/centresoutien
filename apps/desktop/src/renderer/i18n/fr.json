@@ -1552,6 +1552,7 @@
       "logoReplace": "Changer le logo",
       "logoRemove": "Retirer",
       "logoUploading": "Téléversement…",
+      "logoUploadError": "L'envoi du logo a échoué. Réessayez.",
       "logoLoading": "Chargement du logo…",
       "submit": "Enregistrer",
       "saving": "Enregistrement…",
