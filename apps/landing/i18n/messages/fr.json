@@ -766,7 +766,7 @@
     "sections": {
       "editor": {
         "title": "Éditeur du site",
-        "body": "Le site est édité par Centre Soutien, société de développement de logiciels de gestion pour centres de soutien scolaire, dont le siège est situé au Maroc. Contact : contact@centresoutien.com."
+        "body": "Le site est édité par Centre Soutien, développé par Soufian Elhanafi, à titre personnel (Centre Soutien n'est pas encore immatriculé ; les identifiants légaux — forme juridique, RC, ICE, capital social — seront ajoutés dès l'incorporation de la société). Siège : Maroc. Directeur de publication : Soufian Elhanafi. Contact : soufelhanafi@gmail.com."
       },
       "host": {
         "title": "Hébergement",
@@ -924,5 +924,41 @@
     "fetch_error": "Impossible de récupérer les versions pour le moment.",
     "view_on_github": "Voir sur GitHub",
     "empty": "Aucune version publiée pour le moment."
+  },
+  "docs": {
+    "meta_title": "Documentation — Centre Soutien",
+    "meta_description": "Guide de démarrage et documentation de Centre Soutien : installation, données, facturation et support.",
+    "breadcrumb": "Documentation",
+    "heading": "Documentation",
+    "updated": "Dernière mise à jour : août 2026",
+    "intro": "Tout ce qu'il faut savoir pour installer et utiliser Centre Soutien dans votre centre de soutien scolaire.",
+    "sections": {
+      "getting_started": {
+        "title": "Premiers pas",
+        "body": "Téléchargez Centre Soutien depuis la page Téléchargement, installez-le sur l'ordinateur de votre centre, puis créez votre centre. Vous configurez ensuite vos salles, vos professeurs, vos matières et vos formules avant d'inscrire vos premiers élèves. Aucune connexion internet n'est requise : toutes vos données restent sur votre ordinateur, chiffrées."
+      },
+      "data": {
+        "title": "Vos données",
+        "body": "Centre Soutien fonctionne 100 % hors ligne. Les données de votre centre (élèves, professeurs, paiements) sont stockées localement et chiffrées au repos. Les paiements sont enregistrés de façon irréversible pour garantir l'intégrité de votre comptabilité. Pensez à sauvegarder régulièrement votre centre pour protéger vos données."
+      },
+      "billing": {
+        "title": "Facturation",
+        "body": "Les factures sont générées chaque mois à partir des formules actives de vos élèves (Math, Physique, Préparation Bac…). Les congés et jours fériés n'affectent pas le montant des factures : la facturation est mensuelle. Les paiements reçus sont suivis dans l'onglet Paiements."
+      },
+      "support": {
+        "title": "Support",
+        "body": "Une question ? Consultez la FAQ, écrivez-nous via la section Contact, ou suivez les nouveautés de chaque version dans le journal des versions."
+      }
+    }
+  },
+  "blog": {
+    "meta_title": "Blog — Centre Soutien",
+    "meta_description": "Actualités, conseils et coulisses de Centre Soutien, le logiciel de gestion pour centres de soutien scolaire.",
+    "breadcrumb": "Blog",
+    "badge": "Blog",
+    "heading": "Blog",
+    "intro": "Actualités, conseils et coulisses de Centre Soutien.",
+    "empty": "Le blog est en préparation. De premiers articles arriveront bientôt.",
+    "changelog_link": "Suivre les nouveautés en attendant →"
   }
 }
