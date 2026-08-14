@@ -172,9 +172,9 @@ test('SOU-250 invoice — logo renders in the invoice detail header', async () =
   await row.getByRole('link', { name: inv.escapeRegExp(seeded.studentNameFr) }).click();
 
   // Deterministic wait for the detail page: its header renders the invoice
-  // number. The logo <img> (decorative, so aria-hidden — a CSS locator is the
-  // only stable handle) appears once center.get + center.logoBytes resolve.
-  await expect(win.getByText(seeded.invoiceId, { exact: true }).first()).toBeVisible();
+  // number as "N° <id>". The logo <img> (decorative, so aria-hidden — a CSS
+  // locator is the only stable handle) appears once center.get + center.logoBytes resolve.
+  await expect(win.getByText(inv.escapeRegExp(seeded.invoiceId)).first()).toBeVisible();
   const logo = win.locator('img[aria-hidden="true"]').first();
   await expect(logo).toBeVisible();
   expect(await logo.getAttribute('src')).toMatch(/^blob:/);
