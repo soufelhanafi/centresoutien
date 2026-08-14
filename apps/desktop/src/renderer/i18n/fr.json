@@ -2340,6 +2340,9 @@
   "update": {
     "readyTitle": "Mise à jour prête",
     "readyDescription": "La version {{version}} sera installée au prochain démarrage.",
-    "restartNow": "Redémarrer maintenant"
+    "restartNow": "Redémarrer maintenant",
+    "installNow": "Installer maintenant",
+    "later": "Plus tard",
+    "skip": "Ignorer cette version"
   }
 }
