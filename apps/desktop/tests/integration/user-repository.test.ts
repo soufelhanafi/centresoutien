@@ -1,0 +1,186 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { Database as DB } from 'better-sqlite3';
+import type { User, UserId, CenterCode, DeviceId } from '@centresoutien/domain';
+import { openDatabase } from '../../src/data/sqlite/db';
+import { runMigrations } from '../../src/data/sqlite/migration-runner';
+import { SqliteUserRepository } from '../../src/data/sqlite/repositories/user-repository';
+import { changeLogWriterForTest } from './helpers/change-log';
+
+const KEY = 'passphrase-under-test';
+const REAL_MIGRATIONS = join(import.meta.dirname, '../../src/data/sqlite/migrations');
+
+let dir: string;
+let db: DB;
+let repo: SqliteUserRepository;
+
+beforeEach(() => {
+  dir = mkdtempSync(join(tmpdir(), 'cs-users-'));
+  db = openDatabase({ centreId: 'C1', key: KEY, dir });
+  runMigrations(db, REAL_MIGRATIONS);
+  repo = new SqliteUserRepository(db, changeLogWriterForTest(db));
+});
+afterEach(() => {
+  db.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+const AT = new Date('2026-07-29T10:00:00Z');
+
+function makeUser(over: Partial<User> = {}): User {
+  return {
+    id: 'usr_00000000000000000000000001' as UserId,
+    centerCode: 'CS-CASA-001' as CenterCode,
+    deviceOrigin: 'dev_00000000000000000000000001' as DeviceId,
+    createdAt: AT,
+    updatedAt: AT,
+    updatedBy: 'usr_00000000000000000000000001' as UserId,
+    deletedAt: null,
+    version: 0,
+    role: 'owner',
+    username: 'directrice',
+    passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$abc$def',
+    setupCodeHash: null,
+    setupCodeExpiresAt: null,
+    setupCodeRedeemedAt: null,
+    ...over,
+  };
+}
+
+describe('SqliteUserRepository', () => {
+  it('round-trips an owner through save + findById with all fields intact', async () => {
+    const user = makeUser();
+    await repo.save(user);
+    expect(await repo.findById(user.id)).toEqual(user);
+  });
+
+  it('round-trips an invited employee with a pending setup code', async () => {
+    const employee = makeUser({
+      id: 'usr_00000000000000000000000002' as UserId,
+      role: 'secretary',
+      username: 'secretaire',
+      passwordHash: null,
+      setupCodeHash: '$argon2id$v=19$m=19456,t=2,p=1$code$hash',
+      setupCodeExpiresAt: new Date('2026-08-05T10:00:00Z'),
+      setupCodeRedeemedAt: null,
+    });
+    await repo.save(employee);
+    expect(await repo.findById(employee.id)).toEqual(employee);
+  });
+
+  it('findByUsername matches regardless of casing and hides tombstones', async () => {
+    await repo.save(makeUser({ username: 'Directrice' }));
+    expect((await repo.findByUsername('DIRECTRICE'))?.username).toBe('Directrice');
+    expect(await repo.findByUsername('  directrice ')).not.toBeNull();
+  });
+
+  it('findOwner resolves the owner, ignoring employees', async () => {
+    await repo.save(makeUser());
+    await repo.save(
+      makeUser({ id: 'usr_00000000000000000000000002' as UserId, role: 'secretary', username: 'sec' }),
+    );
+    expect((await repo.findOwner())?.role).toBe('owner');
+  });
+
+  it('upsert updates mutable fields (password redeemed) but preserves created_at', async () => {
+    await repo.save(
+      makeUser({
+        role: 'secretary',
+        username: 'sec',
+        passwordHash: null,
+        setupCodeHash: 'pending',
+        setupCodeExpiresAt: new Date('2026-08-05T10:00:00Z'),
+      }),
+    );
+    await repo.save(
+      makeUser({
+        role: 'secretary',
+        username: 'sec',
+        passwordHash: 'now-set',
+        setupCodeHash: null,
+        setupCodeExpiresAt: null,
+        setupCodeRedeemedAt: new Date('2026-08-01T09:00:00Z'),
+        version: 2,
+        updatedAt: new Date('2026-08-01T09:00:00Z'),
+      }),
+    );
+    const found = await repo.findById('usr_00000000000000000000000001' as UserId);
+    expect(found?.passwordHash).toBe('now-set');
+    expect(found?.setupCodeRedeemedAt).toEqual(new Date('2026-08-01T09:00:00Z'));
+    expect(found?.createdAt).toEqual(AT);
+    expect(found?.version).toBe(2);
+  });
+
+  it('softDelete hides the row from findById but keeps it as a tombstone', async () => {
+    const user = makeUser();
+    await repo.save(user);
+    await repo.softDelete(user.id, new Date('2026-08-02T00:00:00Z'), 'usr_00000000000000000000000009' as UserId);
+    expect(await repo.findById(user.id)).toBeNull();
+    const changed = await repo.listChangedSince(AT);
+    expect(changed).toHaveLength(1);
+    expect(changed[0]?.deletedAt).toEqual(new Date('2026-08-02T00:00:00Z'));
+  });
+
+  it('listActive returns live users of the center, excluding tombstones and other centers', async () => {
+    await repo.save(makeUser({ id: 'usr_00000000000000000000000001' as UserId, username: 'directrice' }));
+    await repo.save(
+      makeUser({ id: 'usr_00000000000000000000000002' as UserId, role: 'secretary', username: 'amine' }),
+    );
+    const gone = makeUser({ id: 'usr_00000000000000000000000003' as UserId, role: 'secretary', username: 'gone' });
+    await repo.save(gone);
+    await repo.softDelete(gone.id, new Date('2026-08-02T00:00:00Z'), 'usr_00000000000000000000000001' as UserId);
+    await repo.save(
+      makeUser({
+        id: 'usr_00000000000000000000000004' as UserId,
+        centerCode: 'CS-RABAT-002' as CenterCode,
+        role: 'secretary',
+        username: 'other-center',
+      }),
+    );
+    const rows = await repo.listActive('CS-CASA-001' as CenterCode);
+    expect(rows.map((u) => u.username)).toEqual(['amine', 'directrice']);
+  });
+
+  describe('DB constraints', () => {
+    it('rejects an id without the usr_ prefix (CHECK)', async () => {
+      await expect(repo.save(makeUser({ id: 'bad_00000000000000000000000001' as UserId }))).rejects.toThrow();
+    });
+
+    it('rejects an unknown role (CHECK)', async () => {
+      await expect(
+        repo.save(makeUser({ role: 'superuser' as User['role'] })),
+      ).rejects.toThrow();
+    });
+
+    it('rejects a duplicate live username in the same center (partial unique index)', async () => {
+      await repo.save(makeUser({ id: 'usr_00000000000000000000000001' as UserId, username: 'dup' }));
+      await expect(
+        repo.save(
+          makeUser({ id: 'usr_00000000000000000000000002' as UserId, role: 'secretary', username: 'DUP' }),
+        ),
+      ).rejects.toThrow();
+    });
+
+    it('frees a username after a soft delete and allows it across centers', async () => {
+      const first = makeUser({ id: 'usr_00000000000000000000000001' as UserId, username: 'dup' });
+      await repo.save(first);
+      // Different center → allowed.
+      await repo.save(
+        makeUser({
+          id: 'usr_00000000000000000000000002' as UserId,
+          centerCode: 'CS-RABAT-002' as CenterCode,
+          role: 'secretary',
+          username: 'dup',
+        }),
+      );
+      await repo.softDelete(first.id, new Date('2026-08-02T00:00:00Z'), 'usr_00000000000000000000000001' as UserId);
+      await expect(
+        repo.save(
+          makeUser({ id: 'usr_00000000000000000000000003' as UserId, role: 'secretary', username: 'dup' }),
+        ),
+      ).resolves.toBeUndefined();
+    });
+  });
+});

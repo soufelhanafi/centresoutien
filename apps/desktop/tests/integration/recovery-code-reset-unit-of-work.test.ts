@@ -15,13 +15,19 @@ import {
   type RecoveryCode,
   type RecoveryCodeId,
   type RecoveryCodeResetUnit,
+  type User,
+  type UserId,
+  type CenterCode,
+  type DeviceId,
 } from '@centresoutien/domain';
 import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteAdminAccountRepository } from '../../src/data/sqlite/repositories/admin-account-repository';
+import { SqliteUserRepository } from '../../src/data/sqlite/repositories/user-repository';
 import { SqliteRecoveryCodeRepository } from '../../src/data/sqlite/repositories/recovery-code-repository';
 import { SqliteDeviceSessionStore } from '../../src/data/sqlite/repositories/device-session-store';
 import { SqliteRecoveryCodeResetUnitOfWork } from '../../src/data/sqlite/repositories/recovery-code-reset-unit-of-work';
+import { changeLogWriterForTest } from './helpers/change-log';
 
 const KEY = 'passphrase-under-test';
 const REAL_MIGRATIONS = join(import.meta.dirname, '../../src/data/sqlite/migrations');
@@ -31,9 +37,30 @@ const LATER = new Date('2026-08-11T09:00:00Z');
 const OLD_HASH = '$argon2id$v=19$m=19456,t=2,p=1$old$oldhash';
 const NEW_HASH = '$argon2id$v=19$m=19456,t=2,p=1$new$newhash';
 
-const ACCOUNT_ID = 'adm_00000000000000000000000001' as AdminAccountId;
+// SOU-252: the owner credential lives in `users`; the AdminAccount id is that
+// owner's usr_ id (AdminAccountRepository is now a view over it).
+const ACCOUNT_ID = 'usr_00000000000000000000000001' as AdminAccountId;
 const CODE_ID = 'rec_00000000000000000000000001' as RecoveryCodeId;
 const SESSION_ID = 'ses_00000000000000000000000001' as DeviceSessionId;
+
+function makeOwner(passwordHash: string): User {
+  return {
+    id: 'usr_00000000000000000000000001' as UserId,
+    centerCode: 'CS-CASA-001' as CenterCode,
+    deviceOrigin: 'dev_00000000000000000000000001' as DeviceId,
+    createdAt: AT,
+    updatedAt: AT,
+    updatedBy: 'usr_00000000000000000000000001' as UserId,
+    deletedAt: null,
+    version: 0,
+    role: 'owner',
+    username: 'directrice',
+    passwordHash,
+    setupCodeHash: null,
+    setupCodeExpiresAt: null,
+    setupCodeRedeemedAt: null,
+  };
+}
 
 function makeAccount(passwordHash: string, updatedAt: Date): AdminAccount {
   return {
@@ -106,7 +133,9 @@ beforeEach(async () => {
   sessions = new SqliteDeviceSessionStore(db);
   uow = new SqliteRecoveryCodeResetUnitOfWork(db);
 
-  await accounts.save(makeAccount(OLD_HASH, AT));
+  // Seed the owner in `users` (the credential store); AdminAccountRepository is a
+  // view over it, and the UoW's ADMIN_ACCOUNT_SAVE_SQL updates its password_hash.
+  await new SqliteUserRepository(db, changeLogWriterForTest(db)).save(makeOwner(OLD_HASH));
   await codes.saveMany([makeCode()]);
 });
 
