@@ -13,6 +13,12 @@ type LogoFieldProps = {
   savedPath: string | null;
   /** Called with the new relative path after upload, or null when removed. */
   onChange: (path: string | null) => void;
+  /**
+   * Reports whether an upload is in flight so the parent form can gate its
+   * submit button. Saving while the upload is pending would persist the stale
+   * `logoPath` and the freshly written file would never display (SOU-250).
+   */
+  onPendingChange?: (pending: boolean) => void;
 };
 
 /**
@@ -23,7 +29,7 @@ type LogoFieldProps = {
  * its bytes are read back over `center.logoBytes` (renderer has no filesystem
  * access) and shown too — see `useSavedLogoUrl`.
  */
-export function LogoField({ savedPath, onChange }: LogoFieldProps) {
+export function LogoField({ savedPath, onChange, onPendingChange }: LogoFieldProps) {
   const { t } = useTranslation();
   const saveLogo = useSaveLogo();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -61,12 +67,21 @@ export function LogoField({ savedPath, onChange }: LogoFieldProps) {
       return nextPreview;
     });
 
+    onPendingChange?.(true);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
       const { path } = await saveLogo.mutateAsync({ bytes, extension: parsed.data.extension });
       onChange(path);
     } catch {
-      toast.error(t('settings.center.saveError'));
+      // Nothing was persisted, so drop the live preview — leaving it would show
+      // a file that can never save and mislead the next `center.save` (SOU-250).
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      toast.error(t('settings.center.logoUploadError'));
+    } finally {
+      onPendingChange?.(false);
     }
   };
 

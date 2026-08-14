@@ -39,6 +39,7 @@ export function CenterProfileForm({ center }: CenterProfileFormProps) {
   const activePlan = usePlanStore((state) => state.planId);
   const saveProfile = useSaveCenterProfile();
   const [logoPath, setLogoPath] = useState<string | null>(center?.logoPath ?? null);
+  const [logoUploadPending, setLogoUploadPending] = useState(false);
 
   const form = useForm<CenterProfileFormValues, unknown, CenterProfileInput>({
     resolver: zodResolver(centerProfileSchema),
@@ -55,6 +56,9 @@ export function CenterProfileForm({ center }: CenterProfileFormProps) {
   const plan = center?.plan ?? activePlan;
 
   const onSubmit = form.handleSubmit(async (values) => {
+    // An implicit submission (Enter) can fire while the button is disabled; never
+    // let it flush a logoPath the upload has not lifted yet (SOU-250).
+    if (logoUploadPending) return;
     try {
       await saveProfile.mutateAsync({ ...values, logoPath });
       toast.success(t('settings.center.saveSuccess'));
@@ -82,10 +86,14 @@ export function CenterProfileForm({ center }: CenterProfileFormProps) {
         <Form {...form}>
           <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
             <CenterProfileFields control={form.control} />
-            <LogoField savedPath={logoPath} onChange={setLogoPath} />
+            <LogoField
+              savedPath={logoPath}
+              onChange={setLogoPath}
+              onPendingChange={setLogoUploadPending}
+            />
 
             <div className="flex items-center gap-3">
-              <Button type="submit" disabled={saveProfile.isPending}>
+              <Button type="submit" disabled={saveProfile.isPending || logoUploadPending}>
                 {saveProfile.isPending ? t('settings.center.saving') : t('settings.center.submit')}
               </Button>
             </div>
