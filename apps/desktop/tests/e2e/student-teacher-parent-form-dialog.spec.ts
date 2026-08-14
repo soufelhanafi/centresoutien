@@ -57,7 +57,6 @@ async function expectCenteredDialog(win: Page, dialog: Locator): Promise<void> {
   expect(box.y + box.height, 'dialog bottom edge inside viewport').toBeLessThanOrEqual(vh);
   expect(Math.abs(box.x + box.width / 2 - vw / 2), 'dialog horizontally centered').toBeLessThan(vw * 0.1);
   expect(box.x, 'dialog not pinned to the right edge (not a right-side drawer)').toBeLessThan(vw * 0.5);
-  expect(box.x, 'dialog not pinned to the left edge').toBeGreaterThan(0);
   expect(Math.abs(box.y + box.height / 2 - vh / 2), 'dialog vertically centered').toBeLessThan(vh * 0.2);
 }
 

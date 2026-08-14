@@ -144,9 +144,13 @@ export type Launched = { app: ElectronApplication; win: Page; subjects: { nameFr
 type Bridge = { invoke: (channel: string, req: unknown) => Promise<unknown> };
 
 export async function launch(locale: Locale, plan: PlanId, userDataDir: string): Promise<Launched> {
+  const env: Record<string, string> = { ...process.env, CS_LOCALE: locale, CS_PLAN: plan };
+  // Never inherit a feature-omit override from the parent shell — it would flip
+  // gating and fail this suite for non-product reasons (matches consolidated-dashboard).
+  delete env['CS_E2E_OMIT_FEATURES'];
   const app = await electron.launch({
     args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
-    env: { ...process.env, CS_LOCALE: locale, CS_PLAN: plan },
+    env,
   });
   const win = await app.firstWindow();
   await win.waitForLoadState('domcontentloaded');
@@ -192,10 +196,10 @@ export async function boot(
   return { ...live, subjects: created };
 }
 
-/** Navigate to a list page via the sidebar. */
+/** Navigate to a list page via the sidebar; wait for the page heading. */
 export async function goto(win: Page, navLabel: string): Promise<void> {
   await win.getByRole('link', { name: navLabel, exact: true }).click();
-  await win.waitForTimeout(400);
+  await win.getByRole('heading', { name: navLabel, exact: true }).waitFor();
 }
 
 /** True when the renderer error boundary is showing (page crashed on render). */
