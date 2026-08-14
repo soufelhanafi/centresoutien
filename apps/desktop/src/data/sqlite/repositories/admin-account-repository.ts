@@ -71,9 +71,13 @@ export class SqliteAdminAccountRepository implements AdminAccountRepository {
   }
 
   async findByUsername(username: string): Promise<AdminAccount | null> {
+    // Owner-scoped, like `findOnly`/`exists`: this view only ever resolves the
+    // owner. Without `role = 'owner'` an employee sharing (or colliding on) a
+    // username could resolve here, and a subsequent owner password
+    // `UPDATE … WHERE id = @id` would mutate that employee's row instead.
     const row = this.db
       .prepare(
-        'SELECT id, username, password_hash, created_at, updated_at FROM users WHERE username_normalized = ? AND deleted_at IS NULL',
+        "SELECT id, username, password_hash, created_at, updated_at FROM users WHERE username_normalized = ? AND role = 'owner' AND deleted_at IS NULL",
       )
       .get(normalizeUsername(username)) as UserOwnerRow | undefined;
     return row ? fromRow(row) : null;

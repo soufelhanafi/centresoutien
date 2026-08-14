@@ -123,6 +123,13 @@ function auditCount(eventType: AuthAuditEventType): number {
   return row.n;
 }
 
+function usersChangeLogCount(): number {
+  const row = db
+    .prepare("SELECT COUNT(*) AS n FROM change_log WHERE entity_type = 'users'")
+    .get() as { n: number };
+  return row.n;
+}
+
 beforeEach(async () => {
   seq = 1;
   dir = mkdtempSync(join(tmpdir(), 'cs-reset-uow-'));
@@ -147,6 +154,8 @@ afterEach(() => {
 describe('SqliteRecoveryCodeResetUnitOfWork', () => {
   it('commits password, consume, session clear, and all audit rows together', async () => {
     await sessions.save(makeSession());
+    // Only the initial owner save (seed) logged a users change_log row.
+    const usersLoggedBefore = usersChangeLogCount();
 
     await uow.commit(makeUnit());
 
@@ -156,6 +165,9 @@ describe('SqliteRecoveryCodeResetUnitOfWork', () => {
     expect(auditCount('recovery-code-consumed')).toBe(1);
     expect(auditCount('password-reset-via-recovery-code')).toBe(1);
     expect(auditCount('device-session-invalidated-after-reset')).toBe(1);
+    // SOU-252 deviation #3: the owner password write is NOT replicated — the
+    // reset adds no users change_log row (admin credentials never synced).
+    expect(usersChangeLogCount()).toBe(usersLoggedBefore);
   });
 
   it('skips the session clear and its audit row when no session is remembered', async () => {

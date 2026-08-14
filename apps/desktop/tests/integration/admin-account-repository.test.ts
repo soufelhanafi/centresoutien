@@ -75,6 +75,22 @@ describe('SqliteAdminAccountRepository (compat view over users owner)', () => {
     expect((await repo.findByUsername('  DIRECTRICE '))?.username).toBe('Directrice');
   });
 
+  it('findByUsername is owner-scoped: an employee username never resolves as the admin', async () => {
+    await users.save(makeOwner());
+    await users.save(
+      makeOwner({
+        id: 'usr_00000000000000000000000002' as UserId,
+        role: 'secretary',
+        username: 'amine',
+        passwordHash: 'employee-hash',
+      }),
+    );
+    // The employee exists in `users`, but this compat view must not surface it —
+    // otherwise an owner password write would mutate the employee's row.
+    expect(await repo.findByUsername('amine')).toBeNull();
+    expect((await repo.findByUsername('directrice'))?.id).toBe('usr_00000000000000000000000001');
+  });
+
   it('save updates the password hash on the owner row without touching created_at', async () => {
     await users.save(makeOwner());
     const account = await repo.findOnly();
