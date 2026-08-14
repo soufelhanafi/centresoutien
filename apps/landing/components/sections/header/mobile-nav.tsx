@@ -112,19 +112,19 @@ export function MobileNav() {
             <div className="mx-auto max-w-[1200px] px-8 py-4">
               <nav aria-label={t("nav_aria")} className="flex flex-col">
                 {NAV_LINKS.map((link) => (
-                  <a
+                  <Link
                     key={link.key}
-                    href={link.href}
+                    href={{ pathname: "/", hash: link.hash }}
                     onClick={() => setOpen(false)}
                     className="flex min-h-11 items-center text-[15px] font-medium text-slate-700 transition-colors hover:text-primary"
                   >
                     {t(`nav.${link.key}`)}
-                  </a>
+                  </Link>
                 ))}
               </nav>
               <div className="mt-3 flex flex-col gap-3 border-t border-border pt-4">
                 <Link
-                  href={{ pathname: "/", hash: "programme-fondateur" }}
+                  href="/telechargement"
                   onClick={() => setOpen(false)}
                   className={cn(
                     buttonVariants({ variant: "primary", size: "sm" }),

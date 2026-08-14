@@ -33,20 +33,20 @@ export async function Header() {
           className="mx-auto hidden items-center gap-7 text-[14.5px] font-medium text-slate-700 md:flex"
         >
           {NAV_LINKS.map((link) => (
-            <a
+            <Link
               key={link.key}
-              href={link.href}
+              href={{ pathname: "/", hash: link.hash }}
               className="transition-colors hover:text-primary"
             >
               {t(`nav.${link.key}`)}
-            </a>
+            </Link>
           ))}
         </nav>
 
         <div className="hidden items-center gap-2.5 md:flex">
           <LanguageToggle />
           <Link
-            href={{ pathname: "/", hash: "programme-fondateur" }}
+            href="/telechargement"
             className={buttonVariants({ variant: "primary", size: "sm" })}
           >
             <Download aria-hidden="true" />

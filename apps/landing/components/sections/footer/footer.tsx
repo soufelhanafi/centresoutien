@@ -2,17 +2,20 @@ import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 
 // Single source of link order per column. Labels resolve from next-intl by key.
-// On-page anchors point at real section ids. download/changelog were wired to
-// real routes in SOU-208; docs/blog were wired to real routes in SOU-209. The
-// social icons were removed in SOU-212: no LinkedIn/YouTube profiles exist, so
-// a `#`-linked icon would be a dead end — they return when real channels are
+// `href` may be a route string ("/docs"), a home-anchor `{ pathname: "/", hash }`
+// for in-page section links that must work from any subpage, or a bare `#...`
+// fragment for pure same-page anchors (kept as raw <a>). download/changelog were
+// wired to real routes in SOU-208; docs/blog were wired in SOU-209; anchors were
+// made home-resolving so they work from subpages (not just home). The social
+// icons were removed in SOU-212: no LinkedIn/YouTube profiles exist, so a
+// `#`-linked icon would be a dead end — they return when real channels are
 // created.
 const LINK_COLUMNS = [
   {
     key: "product",
     links: [
-      { key: "features", href: "#fonctionnalites" },
-      { key: "pricing", href: "#tarifs" },
+      { key: "features", href: { pathname: "/", hash: "fonctionnalites" } },
+      { key: "pricing", href: { pathname: "/", hash: "tarifs" } },
       { key: "download", href: "/telechargement" },
       { key: "changelog", href: "/nouveautes" },
     ],
@@ -21,7 +24,7 @@ const LINK_COLUMNS = [
     key: "resources",
     links: [
       { key: "docs", href: "/docs" },
-      { key: "faq", href: "#faq" },
+      { key: "faq", href: { pathname: "/", hash: "faq" } },
       { key: "blog", href: "/blog" },
     ],
   },
@@ -29,8 +32,8 @@ const LINK_COLUMNS = [
     key: "company",
     links: [
       { key: "about", href: "/a-propos" },
-      { key: "contact", href: "#contact" },
-      { key: "founder", href: "#programme-fondateur" },
+      { key: "contact", href: { pathname: "/", hash: "contact" } },
+      { key: "founder", href: { pathname: "/", hash: "programme-fondateur" } },
     ],
   },
   {
@@ -52,7 +55,7 @@ export async function Footer() {
       <div className="mx-auto max-w-[1200px]">
         <div className="grid grid-cols-2 gap-10 sm:grid-cols-3 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
           <div className="col-span-2 sm:col-span-3 lg:col-span-1">
-            <a href="#" className="flex items-center gap-2.5 text-white">
+            <Link href="/" className="flex items-center gap-2.5 text-white">
               <span
                 aria-hidden="true"
                 className="inline-flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-teal-500 text-[15px] font-bold tracking-tight text-white"
@@ -62,7 +65,7 @@ export async function Footer() {
               <span className="text-[17px] font-bold tracking-tight text-white">
                 {t("brand")}
               </span>
-            </a>
+            </Link>
             <p className="mt-3.5 max-w-[260px] text-[13.5px] text-slate-400">
               {t("tagline")}
             </p>
@@ -78,14 +81,10 @@ export async function Footer() {
                   const label = t(`columns.${column.key}.links.${link.key}`);
                   const cls =
                     "text-slate-300 transition-colors hover:text-white";
-                  return link.href.startsWith("/") ? (
+                  return (
                     <Link key={link.key} href={link.href} className={cls}>
                       {label}
                     </Link>
-                  ) : (
-                    <a key={link.key} href={link.href} className={cls}>
-                      {label}
-                    </a>
                   );
                 })}
               </nav>
