@@ -1603,6 +1603,7 @@
       "logoReplace": "تغيير الشعار",
       "logoRemove": "إزالة",
       "logoUploading": "جارٍ الرفع…",
+      "logoUploadError": "فشل رفع الشعار. حاول مرة أخرى.",
       "logoLoading": "جارٍ تحميل الشعار…",
       "submit": "حفظ",
       "saving": "جارٍ الحفظ…",
@@ -2410,6 +2411,8 @@
   "update": {
     "readyTitle": "التحديث جاهز",
     "readyDescription": "سيتم تثبيت الإصدار {{version}} عند إعادة التشغيل التالية.",
-    "restartNow": "إعادة التشغيل الآن"
+    "installNow": "التثبيت الآن",
+    "later": "لاحقًا",
+    "skip": "تجاهل هذا الإصدار"
   }
 }

@@ -31,7 +31,7 @@ This repo is the **public marketing landing page** for **Centre Soutien** — an
 | i18n | next-intl | FR (default) + AR (RTL) |
 | Fonts | next/font | Inter for Latin, Noto Sans Arabic for Arabic |
 | Analytics | Vercel Analytics + Plausible | No cookies, GDPR/loi 09-08 compliant |
-| Deployment | Vercel | Domain: `centresoutien.com` |
+| Deployment | Netlify | Domain: `centresoutien.com`. Config in `netlify.toml` at repo root; `@netlify/plugin-nextjs` for the Node runtime. |
 | Package manager | **pnpm** | Same as the desktop app. Never use npm or yarn. |
 
 ---

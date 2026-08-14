@@ -1552,6 +1552,7 @@
       "logoReplace": "Changer le logo",
       "logoRemove": "Retirer",
       "logoUploading": "Téléversement…",
+      "logoUploadError": "L'envoi du logo a échoué. Réessayez.",
       "logoLoading": "Chargement du logo…",
       "submit": "Enregistrer",
       "saving": "Enregistrement…",
@@ -2340,6 +2341,8 @@
   "update": {
     "readyTitle": "Mise à jour prête",
     "readyDescription": "La version {{version}} sera installée au prochain démarrage.",
-    "restartNow": "Redémarrer maintenant"
+    "installNow": "Installer maintenant",
+    "later": "Plus tard",
+    "skip": "Ignorer cette version"
   }
 }

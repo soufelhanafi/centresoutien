@@ -63,6 +63,7 @@ function CenterProfileStepForm({ center }: { center: CenterDto | null }) {
   const { back, submit, canGoBack } = useWizardNav();
   const saveProfile = useSaveCenterProfile();
   const [logoPath, setLogoPath] = useState<string | null>(center?.logoPath ?? null);
+  const [logoUploadPending, setLogoUploadPending] = useState(false);
 
   const form = useForm<CenterProfileFormValues, unknown, CenterProfileInput>({
     resolver: zodResolver(centerProfileSchema),
@@ -75,6 +76,9 @@ function CenterProfileStepForm({ center }: { center: CenterDto | null }) {
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
+    // Block implicit submission (Enter) while the logo upload is still lifting
+    // its path — flushing a stale logoPath would lose the logo (SOU-250).
+    if (logoUploadPending) return;
     try {
       await saveProfile.mutateAsync({ ...values, logoPath });
       submit();
@@ -87,7 +91,11 @@ function CenterProfileStepForm({ center }: { center: CenterDto | null }) {
     <Form {...form}>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <CenterProfileFields control={form.control} />
-        <LogoField savedPath={logoPath} onChange={setLogoPath} />
+        <LogoField
+          savedPath={logoPath}
+          onChange={setLogoPath}
+          onPendingChange={setLogoUploadPending}
+        />
 
         {saveProfile.isError ? (
           <p role="alert" className="text-sm text-destructive">
@@ -100,7 +108,7 @@ function CenterProfileStepForm({ center }: { center: CenterDto | null }) {
           canGoBack={canGoBack}
           nextType="submit"
           nextLabel={t('wizard.next')}
-          nextPending={saveProfile.isPending}
+          nextPending={saveProfile.isPending || logoUploadPending}
         />
       </form>
     </Form>

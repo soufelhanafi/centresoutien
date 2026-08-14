@@ -1,0 +1,15 @@
+# Netlify deploy config for apps/landing (Next.js).
+# The landing app is not statically exportable: next-intl middleware (proxy.ts)
+# and Upstash rate limiting on the founder form require a Node runtime, which
+# @netlify/plugin-nextjs provides. `base` scopes the build to the landing
+# workspace; pnpm still resolves the monorepo root to link @centresoutien/ui.
+
+[build]
+  base = "apps/landing"
+  command = "pnpm build"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
