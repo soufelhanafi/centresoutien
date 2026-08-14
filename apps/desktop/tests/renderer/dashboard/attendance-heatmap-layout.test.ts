@@ -12,10 +12,15 @@ function cell(date: string, ratePercent: number | null = 0, isHoliday = false): 
 
 /** A contiguous run of daily cells starting at `start`, chronological like the read model. */
 function dailyRun(start: string, days: number): AttendanceHeatmapCellView[] {
-  const first = new Date(`${start}T00:00:00`);
+  const [year, month, day] = start.split('-').map(Number) as [number, number, number];
   return Array.from({ length: days }, (_day, offset) => {
-    const date = new Date(first.getFullYear(), first.getMonth(), first.getDate() + offset);
-    return cell(date.toISOString().slice(0, 10));
+    const date = new Date(year, month - 1, day + offset);
+    // Format the LOCAL date components — `toISOString()` would shift the day back
+    // in any positive-UTC-offset timezone and break the week grid (SOU-255).
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return cell(`${yyyy}-${mm}-${dd}`);
   });
 }
 
