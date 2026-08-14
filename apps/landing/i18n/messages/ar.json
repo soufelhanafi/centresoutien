@@ -841,5 +841,88 @@
         "body": "في حالة نزاع غير محلول مع المركز، يمكن لأي شخص معني أن يراسل اللجنة الوطنية لمراقبة حماية المعطيات ذات الطابع الشخصي (CNDP) بالمغرب."
       }
     }
+  },
+  "download": {
+    "meta_title": "تحميل Centre Soutien — macOS وWindows",
+    "meta_description": "حمّل Centre Soutien، برنامج تدبير مراكز الدعم المدرسي المغربية. متوفر لـ macOS (Apple Silicon وIntel) وWindows. يعمل دون اتصال بالإنترنت.",
+    "breadcrumb": "التحميل",
+    "badge": "برنامج التدبير لمراكز الدعم المدرسي",
+    "heading": "حمّل Centre Soutien",
+    "subheading": "دبّر تلاميذك وأساتذتك ومجموعاتك وجلساتك وفوترة الشهرية من برنامج واحد، حتى دون اتصال بالإنترنت.",
+    "platforms": {
+      "recommended": "موصى به",
+      "download": "تحميل",
+      "version_label": "الإصدار {version}",
+      "mac_apple_silicon": {
+        "name": "macOS Apple Silicon",
+        "subtitle": "أجهزة Mac M1 وM2 وM3 والأحدث"
+      },
+      "mac_intel": {
+        "name": "macOS Intel",
+        "subtitle": "أجهزة Mac بمعالج Intel"
+      },
+      "windows": {
+        "name": "Windows",
+        "subtitle": "Windows 10 والأحدث"
+      }
+    },
+    "trust": {
+      "offline": "يعمل دون اتصال",
+      "local_data": "البيانات مخزنة محلياً",
+      "updates": "تحديثات تلقائية"
+    },
+    "preview": {
+      "eyebrow": "نظرة عامة",
+      "heading": "كل مركزك في شاشة واحدة",
+      "subheading": "لوحة القيادة تجمع الأساسيات: الأعداد، عبء الأساتذة، الإيرادات والمتأخرات. بقية البرنامج بنفس المنطق، بالفرنسية أو بالعربية.",
+      "bilingual": "واجهة ثنائية اللغة بالكامل فرنسية / عربية، مع عرض من اليمين إلى اليسار.",
+      "invoices": "فوترة شهرية بالدرهم، تُولَّد تلقائياً انطلاقاً من الصيغ.",
+      "planning": "تخطيط أسبوعي للقاعات والمجموعات والأساتذة مع كشف التعارضات."
+    },
+    "steps": {
+      "heading": "التثبيت في ثلاث خطوات",
+      "one": {
+        "title": "حمّل المثبِّت",
+        "body": "اختر منصتك أعلاه وحمّل ملف التثبيت. التحميل سريع والبرنامج خفيف."
+      },
+      "two": {
+        "title": "افتح وقم بالتثبيت",
+        "body": "على macOS، اسحب التطبيق إلى مجلد التطبيقات. على Windows، شغّل المثبِّت واتبع التعليمات."
+      },
+      "three": {
+        "title": "أنشئ حسابك",
+        "body": "افتح Centre Soutien، أنشئ حسابك ومركزك. أنت جاهز لإضافة القاعات والأساتذة والتلاميذ."
+      }
+    },
+    "requirements": {
+      "heading": "المتطلبات",
+      "mac": {
+        "title": "macOS",
+        "body": "macOS 11 (Big Sur) أو أحدث. متوافق مع Apple Silicon وIntel."
+      },
+      "windows": {
+        "title": "Windows",
+        "body": "Windows 10 أو أحدث، نسخة 64 بت."
+      },
+      "offline": {
+        "title": "بدون اتصال",
+        "body": "يعمل البرنامج كلياً دون اتصال. تبقى بياناتك في مركزك، على جهازك."
+      }
+    }
+  },
+  "changelog": {
+    "meta_title": "الجديد — Centre Soutien",
+    "meta_description": "تعرّف على جديد وتحسينات آخر إصدارات Centre Soutien.",
+    "breadcrumb": "الجديد",
+    "badge": "سجل الإصدارات",
+    "heading": "الجديد",
+    "intro": "جديد وتحسينات Centre Soutien، إصداراً بعد إصدار.",
+    "version_label": "الإصدار {version}",
+    "latest_badge": "أحدث إصدار",
+    "published_on": "نُشر بتاريخ {date}",
+    "loading": "جاري تحميل الإصدارات…",
+    "fetch_error": "تعذر استرجاع الإصدارات حالياً.",
+    "view_on_github": "الاطلاع على GitHub",
+    "empty": "لم يُنشر أي إصدار بعد."
   }
 }

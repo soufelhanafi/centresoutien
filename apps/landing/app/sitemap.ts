@@ -5,6 +5,8 @@ import { SITE_URL } from "@/lib/structured-data";
 // Public routes (path suffix appended after the `/{locale}` prefix).
 const ROUTES = [
   { path: "", changeFrequency: "weekly" as const, priority: 1 },
+  { path: "/telechargement", changeFrequency: "weekly" as const, priority: 0.8 },
+  { path: "/nouveautes", changeFrequency: "weekly" as const, priority: 0.6 },
   { path: "/confidentialite", changeFrequency: "yearly" as const, priority: 0.3 },
   { path: "/a-propos", changeFrequency: "yearly" as const, priority: 0.3 },
   { path: "/mentions-legales", changeFrequency: "yearly" as const, priority: 0.3 },

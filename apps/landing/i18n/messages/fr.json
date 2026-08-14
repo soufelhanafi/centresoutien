@@ -841,5 +841,88 @@
         "body": "En cas de litige non résolu avec le centre, toute personne concernée peut saisir la Commission nationale de contrôle de la protection des données à caractère personnel (CNDP) au Maroc."
       }
     }
+  },
+  "download": {
+    "meta_title": "Télécharger Centre Soutien — macOS & Windows",
+    "meta_description": "Téléchargez Centre Soutien, le logiciel de gestion des centres de soutien scolaire marocains. Disponible pour macOS (Apple Silicon et Intel) et Windows. Fonctionne hors ligne.",
+    "breadcrumb": "Téléchargement",
+    "badge": "Logiciel de gestion pour centres de soutien",
+    "heading": "Télécharger Centre Soutien",
+    "subheading": "Gérez vos élèves, professeurs, groupes, séances et factures mensuelles depuis un seul logiciel, même sans connexion Internet.",
+    "platforms": {
+      "recommended": "Recommandé",
+      "download": "Télécharger",
+      "version_label": "Version {version}",
+      "mac_apple_silicon": {
+        "name": "macOS Apple Silicon",
+        "subtitle": "Mac M1, M2, M3 et plus récents"
+      },
+      "mac_intel": {
+        "name": "macOS Intel",
+        "subtitle": "Mac à processeur Intel"
+      },
+      "windows": {
+        "name": "Windows",
+        "subtitle": "Windows 10 et plus récents"
+      }
+    },
+    "trust": {
+      "offline": "Fonctionne hors ligne",
+      "local_data": "Données stockées localement",
+      "updates": "Mises à jour automatiques"
+    },
+    "preview": {
+      "eyebrow": "Aperçu",
+      "heading": "Tout votre centre, en un seul écran",
+      "subheading": "Le tableau de bord réunit l'essentiel : effectifs, charge des enseignants, revenus et impayés. Le reste du logiciel suit la même logique, en français ou en arabe.",
+      "bilingual": "Interface entièrement bilingue français / arabe, avec un affichage de droite à gauche.",
+      "invoices": "Facturation mensuelle en dirhams, générée automatiquement à partir des formules.",
+      "planning": "Planification hebdomadaire des salles, groupes et enseignants avec détection des conflits."
+    },
+    "steps": {
+      "heading": "Installation en trois étapes",
+      "one": {
+        "title": "Téléchargez l'installateur",
+        "body": "Choisissez votre plateforme ci-dessus et téléchargez le fichier d'installation. Le téléchargement est rapide et le logiciel est léger."
+      },
+      "two": {
+        "title": "Ouvrez et installez",
+        "body": "Sur macOS, glissez l'application dans le dossier Applications. Sur Windows, lancez l'installateur et suivez les instructions."
+      },
+      "three": {
+        "title": "Créez votre compte",
+        "body": "Ouvrez Centre Soutien, créez votre compte et votre centre. Vous êtes prêt à ajouter salles, professeurs et élèves."
+      }
+    },
+    "requirements": {
+      "heading": "Configuration requise",
+      "mac": {
+        "title": "macOS",
+        "body": "macOS 11 (Big Sur) ou version ultérieure. Compatible Apple Silicon et Intel."
+      },
+      "windows": {
+        "title": "Windows",
+        "body": "Windows 10 ou version ultérieure, version 64 bits."
+      },
+      "offline": {
+        "title": "Sans connexion",
+        "body": "Le logiciel fonctionne entièrement hors ligne. Vos données restent dans votre centre, sur votre ordinateur."
+      }
+    }
+  },
+  "changelog": {
+    "meta_title": "Nouveautés — Centre Soutien",
+    "meta_description": "Retrouvez les nouveautés et améliorations des dernières versions de Centre Soutien.",
+    "breadcrumb": "Nouveautés",
+    "badge": "Historique des versions",
+    "heading": "Nouveautés",
+    "intro": "Les nouveautés et améliorations apportées à Centre Soutien, version après version.",
+    "version_label": "Version {version}",
+    "latest_badge": "Dernière version",
+    "published_on": "Publié le {date}",
+    "loading": "Chargement des versions…",
+    "fetch_error": "Impossible de récupérer les versions pour le moment.",
+    "view_on_github": "Voir sur GitHub",
+    "empty": "Aucune version publiée pour le moment."
   }
 }
