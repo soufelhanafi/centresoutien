@@ -37,6 +37,8 @@ export {
 export { monthsEndingAt, monthDateRange, monthsBetween, previousMonth } from './value-objects/month';
 export type { GuardianRelation } from './value-objects/guardian-relation';
 export { GUARDIAN_RELATIONS, isGuardianRelation } from './value-objects/guardian-relation';
+export type { Role } from './value-objects/role';
+export { ROLES, isRole, roleRank, isRoleSufficient } from './value-objects/role';
 
 // Ports
 export type { Clock } from './ports/clock';
@@ -191,6 +193,7 @@ export {
   TeacherInUseError,
 } from './errors/people-errors';
 export { RoomInUseError, RoomNotFoundError } from './errors/room-errors';
+export { NotACenterMemberError, InsufficientRoleError } from './errors/authorization-errors';
 export {
   SubjectInUseError,
   SubjectNotFoundError,
@@ -432,6 +435,10 @@ export { PARENT_ID_PREFIX } from './entities/parent';
 export type { Parent, ParentId } from './entities/parent';
 export { ROOM_ID_PREFIX } from './entities/room';
 export type { Room, RoomId } from './entities/room';
+export { ORGANIZATION_ID_PREFIX } from './entities/organization';
+export type { Organization, OrganizationId } from './entities/organization';
+export { MEMBERSHIP_ID_PREFIX } from './entities/membership';
+export type { Membership, MembershipId } from './entities/membership';
 export { TEACHER_ID_PREFIX } from './entities/teacher';
 export type { Teacher, TeacherId } from './entities/teacher';
 export { HOLIDAY_ID_PREFIX } from './entities/holiday';
@@ -590,6 +597,7 @@ export type {
   StudentDependents,
 } from './ports/merge-students-unit-of-work';
 export type { RoomRepository } from './ports/room-repository';
+export type { MembershipRepository } from './ports/membership-repository';
 export type { TeacherRepository } from './ports/teacher-repository';
 // Teacher in-use guard — DECLARED CONTRACT ONLY; real adapter lands with Groups
 // (SOU-48) / payroll (SOU-70). Stubbed "never referenced" at the composition root.
@@ -846,6 +854,8 @@ export { ListParentChildren } from './use-cases/list-parent-children';
 export type { ListParentChildrenInput } from './use-cases/list-parent-children';
 export { CreateRoom } from './use-cases/create-room';
 export type { CreateRoomInput } from './use-cases/create-room';
+export { AuthorizeCenterAccess } from './use-cases/authorize-center-access';
+export type { AuthorizeCenterAccessInput } from './use-cases/authorize-center-access';
 export { CreateGroup } from './use-cases/create-group';
 export type { CreateGroupInput } from './use-cases/create-group';
 export { EnrollStudent } from './use-cases/enroll-student';
