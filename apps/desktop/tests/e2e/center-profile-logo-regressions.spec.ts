@@ -22,8 +22,6 @@ const TOAST = {
   ar: 'فشل رفع الشعار. حاول مرة أخرى.',
 } as const;
 
-const LOGO_ALT = { fr: 'Logo du centre', ar: 'شعار المركز' } as const;
-
 let live: cpf.Launched | null = null;
 test.afterEach(async () => {
   await live?.app.close();
