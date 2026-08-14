@@ -14,7 +14,11 @@ export class InMemoryMembershipRepository
 {
   async findByUserAndCentre(userId: UserId, centreId: CenterCode): Promise<Membership | null> {
     const match = [...this.rows.values()].find(
-      (row) => row.deletedAt === null && row.userId === userId && row.centreId === centreId,
+      (row) =>
+        row.deletedAt === null &&
+        row.userId === userId &&
+        row.centreId === centreId &&
+        row.centerCode === centreId,
     );
     return match ? structuredClone(match) : null;
   }

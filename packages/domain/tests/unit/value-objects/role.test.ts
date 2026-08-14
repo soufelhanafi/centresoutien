@@ -66,5 +66,30 @@ describe('Role', () => {
         expect(isRoleSufficient(actual, required)).toBe(sufficient);
       },
     );
+
+    describe('fails closed on unknown roles (SOU-95, Qodo)', () => {
+      it('an unknown actual role never out-ranks owner', () => {
+        expect(isRoleSufficient('hacker' as Role, 'viewer')).toBe(false);
+        expect(isRoleSufficient('hacker' as Role, 'owner')).toBe(false);
+      });
+
+      it('an unknown actual role is insufficient for EVERY required role, including the lowest', () => {
+        for (const required of ROLES) {
+          expect(isRoleSufficient('root' as Role, required)).toBe(false);
+        }
+      });
+
+      it('an unknown required role is never satisfied, even by owner', () => {
+        expect(isRoleSufficient('owner', 'superuser' as Role)).toBe(false);
+      });
+
+      it.each(['', ' admin ', 'Owner', 'guest'])(
+        'denies the malformed token %j on both sides',
+        (token) => {
+          expect(isRoleSufficient(token as Role, 'viewer')).toBe(false);
+          expect(isRoleSufficient('owner', token as Role)).toBe(false);
+        },
+      );
+    });
   });
 });

@@ -37,6 +37,15 @@ export class AuthorizeCenterAccess {
       throw new NotACenterMemberError(input.userId, input.centreId);
     }
 
+    // Fail-closed tenant invariant (SOU-95, Qodo): the returned row MUST belong to
+    // the selected center on both its `centreId` and its envelope `centerCode`. A
+    // faulty adapter or inconsistent data returning a cross-center row is denied as
+    // if no membership existed — never leak that a row was found. Redundant with a
+    // correct repo by design, mirroring the record-payment center cross-check.
+    if (membership.centreId !== input.centreId || membership.centerCode !== input.centreId) {
+      throw new NotACenterMemberError(input.userId, input.centreId);
+    }
+
     if (!isRoleSufficient(membership.role, input.requiredRole)) {
       throw new InsufficientRoleError(input.requiredRole, membership.role);
     }

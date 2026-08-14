@@ -28,7 +28,14 @@ export function roleRank(role: Role): number {
  * Whether `actual` satisfies `required` — the sufficiency check the authorization
  * use case runs. A role covers itself and every role beneath it: an `admin`
  * satisfies a `secretary` requirement, a `viewer` satisfies only `viewer`.
+ *
+ * Fails closed: either argument that is not a known role (a corrupt or
+ * deserialized value that bypassed the TS type) is denied outright, so an unknown
+ * token can never out-rank `owner` via a negative `indexOf` (SOU-95, Qodo).
  */
 export function isRoleSufficient(actual: Role, required: Role): boolean {
+  if (!isRole(actual) || !isRole(required)) {
+    return false;
+  }
   return roleRank(actual) >= roleRank(required);
 }

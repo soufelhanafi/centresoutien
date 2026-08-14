@@ -132,6 +132,23 @@ describe('AuthorizeCenterAccess', () => {
       });
     });
 
+    it('rejects an inconsistent row whose centreId and envelope centerCode disagree (fail-closed tenant invariant)', async () => {
+      // A corrupt/inconsistent row: it claims centreId CENTER_A but its envelope
+      // centerCode is CENTER_B. Neither selected center may authorize it.
+      const inconsistent: Membership = {
+        ...makeMembership({ centreId: CENTER_A, role: 'owner' }),
+        centerCode: CENTER_B,
+      };
+      await memberships.save(inconsistent);
+
+      await expect(authorize({ centreId: CENTER_A, requiredRole: 'viewer' })).rejects.toBeInstanceOf(
+        NotACenterMemberError,
+      );
+      await expect(authorize({ centreId: CENTER_B, requiredRole: 'viewer' })).rejects.toBeInstanceOf(
+        NotACenterMemberError,
+      );
+    });
+
     it('treats a revoked (soft-deleted) membership as no membership', async () => {
       const membership = makeMembership({ role: 'owner' });
       await memberships.save(membership);
