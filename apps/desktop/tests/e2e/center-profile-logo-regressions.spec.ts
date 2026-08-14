@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
@@ -6,12 +6,10 @@ import * as cpf from './center-profile.fixtures';
 import * as se from './schedule-export.fixtures';
 import * as inv from './invoices.fixtures';
 
-/**
- * QA-ad-hoc (SOU-250) — black-box coverage for the gaps the shipped E2E suite
- * leaves open: wizard-entry logo upload, save-gating while an upload is in
- * flight, the dedicated upload-failure toast, and the invoice-detail logo.
- * Verdicts come only from the running UI + the public bridge (`window.api.invoke`).
- */
+// SOU-250 — black-box coverage for the gaps the shipped E2E suite leaves open:
+// wizard-entry logo upload, save-gating while an upload is in flight, the
+// dedicated upload-failure toast, and the invoice-detail logo. Verdicts come
+// only from the running UI + the public bridge (`window.api.invoke`).
 
 type Locale = 'fr' | 'ar';
 
@@ -23,21 +21,31 @@ const TOAST = {
 } as const;
 
 let live: cpf.Launched | null = null;
+const tempDirs: string[] = [];
+let bigLogoPath: string | null = null;
+
 test.afterEach(async () => {
   await live?.app.close();
   live = null;
+  for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+  tempDirs.length = 0;
+  bigLogoPath = null;
 });
 
-/** A valid 1×1 PNG padded to ~2 MiB so the upload round-trip is observable. */
+// A valid 1×1 PNG padded to ~2 MiB so the upload round-trip is observable.
+// Built once per test (not per retry) and the temp dir is removed in afterEach.
 function makeBigLogoFile(): string {
+  if (bigLogoPath) return bigLogoPath;
   const png = Buffer.from(
     '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c63f8cfc0f01f0005000101a5f645b70000000049454e44ae426082',
     'hex',
   );
   const padded = Buffer.concat([png, Buffer.alloc(2 * 1024 * 1024 - 1 - png.length)]);
   const dir = mkdtempSync(join(tmpdir(), 'cs-qa-biglogo-'));
+  tempDirs.push(dir);
   const p = join(dir, 'logo.png');
   writeFileSync(p, padded);
+  bigLogoPath = p;
   return p;
 }
 
@@ -79,6 +87,7 @@ test('SOU-250 race — Settings Save is gated while a large logo upload is in fl
 
 // AC5 / failure path — when the upload fails, the dedicated toast (not the
 // generic save error) shows and nothing is persisted.
+test.skip(process.platform === 'win32', 'chmod-based fault injection is POSIX-only');
 test('SOU-250 failure — upload failure shows the dedicated toast and persists nothing new', async () => {
   const loc = locale();
   const t = cpf.CP[loc];
@@ -133,6 +142,9 @@ test('SOU-250 wizard — logo picked in the first-run wizard persists a logoPath
   await win.getByRole('button', { name: t.doneCta }).click();
 
   await win.evaluate(async (admin) => {
+    // The E2E window types the bridge as `window.api`, but `window` here is the
+    // Electron main-world global; the narrow cast gives the fixture a typed
+    // invoke without importing the preload contract into a black-box spec.
     const api = (window as unknown as {
       api: { invoke: (c: string, r: unknown) => Promise<unknown> };
     }).api;
@@ -158,8 +170,11 @@ test('SOU-250 invoice — logo renders in the invoice detail header', async () =
   const rowName = loc === 'ar' ? seeded.studentNameAr : seeded.studentNameFr;
   const row = win.getByRole('row', { name: inv.escapeRegExp(rowName) });
   await row.getByRole('link', { name: inv.escapeRegExp(seeded.studentNameFr) }).click();
-  await win.waitForTimeout(400);
 
+  // Deterministic wait for the detail page: its header renders the invoice
+  // number. The logo <img> (decorative, so aria-hidden — a CSS locator is the
+  // only stable handle) appears once center.get + center.logoBytes resolve.
+  await expect(win.getByText(seeded.invoiceId, { exact: true }).first()).toBeVisible();
   const logo = win.locator('img[aria-hidden="true"]').first();
   await expect(logo).toBeVisible();
   expect(await logo.getAttribute('src')).toMatch(/^blob:/);

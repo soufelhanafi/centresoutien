@@ -9,14 +9,12 @@ import { InvoiceDocumentHeader } from '../../../src/renderer/components/invoice/
 import type { InvoiceListItemView } from '../../../src/renderer/lib/invoices/invoice-view';
 import i18n from '../../../src/renderer/i18n/config';
 
-/**
- * SOU-250 — logo displays nowhere after a successful upload.
- *
- * These are regressions the happy-path E2E (pick → save → reload → visible with
- * a 1×1 PNG) cannot see: async races between the logo upload and the profile
- * save, blob-URL lifecycle under StrictMode, the invoice display location, and
- * non-PNG file formats.
- */
+// SOU-250 — logo displays nowhere after a successful upload.
+//
+// These are regressions the happy-path E2E (pick → save → reload → visible with
+// a 1×1 PNG) cannot see: async races between the logo upload and the profile
+// save, blob-URL lifecycle under StrictMode, the invoice display location, and
+// non-PNG file formats.
 
 const PNG_BYTES = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 const JPEG_BYTES = new Uint8Array([255, 216, 255, 224, 0, 16, 74, 70]);
@@ -53,12 +51,19 @@ function deferred<T>() {
 }
 
 function logoFile(name = 'logo.png', bytes = PNG_BYTES) {
+  // The fixture bytes are a plain `Uint8Array` whose backing is only
+  // `ArrayBufferLike`-typed (the library default), which `File`/`BlobPart`
+  // rejects at the type level — the narrow cast is a fixture convenience, not a
+  // real-IPC byte widening.
   return new File([bytes as unknown as BlobPart], name, { type: 'image/png' });
 }
 
+let objectUrlSeq = 0;
+
 beforeEach(async () => {
+  objectUrlSeq = 0;
   await i18n.changeLanguage('fr');
-  URL.createObjectURL = vi.fn(() => `blob:mock-${Math.random()}`);
+  URL.createObjectURL = vi.fn(() => `blob:mock-${++objectUrlSeq}`);
   URL.revokeObjectURL = vi.fn();
 });
 

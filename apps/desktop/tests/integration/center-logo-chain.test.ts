@@ -31,25 +31,21 @@ function build(planId: PlanId = 'essentiel') {
   });
 }
 
-/**
- * Mimic renderer→main argument crossing: Electron's `ipcRenderer.invoke` /
- * `contextBridge` serializes arguments with the V8 structured-clone algorithm,
- * which the unit tests bypass by calling the dispatcher directly. Cloning here
- * keeps the `center.saveLogo` → `center.save` → `center.get` → `center.logoBytes`
- * chain honest about what arrives at `ipcMain.handle` (SOU-250).
- */
+// Mimic renderer→main argument crossing: Electron's `ipcRenderer.invoke` /
+// `contextBridge` serializes arguments with the V8 structured-clone algorithm,
+// which the unit tests bypass by calling the dispatcher directly. Cloning here
+// keeps the `center.saveLogo` → `center.save` → `center.get` → `center.logoBytes`
+// chain honest about what arrives at `ipcMain.handle` (SOU-250).
 function throughIpc<T>(value: T): T {
   return structuredClone(value) as T;
 }
 
-/**
- * SOU-250 regression — the full write/persist/read/serve chain for the center
- * logo, end to end through the real dispatcher, FsLogoStore, and SQLite
- * repository. Uploading must write a file under app data, `center.save` must
- * persist its relative path, `center.get` must return it, and `center.logoBytes`
- * must serve back the exact bytes — so a "successful upload that never displays"
- * has no server-side seam left to hide in.
- */
+// SOU-250 regression — the full write/persist/read/serve chain for the center
+// logo, end to end through the real dispatcher, FsLogoStore, and SQLite
+// repository. Uploading must write a file under app data, `center.save` must
+// persist its relative path, `center.get` must return it, and `center.logoBytes`
+// must serve back the exact bytes — so a "successful upload that never displays"
+// has no server-side seam left to hide in.
 describe('center logo full chain (SOU-250)', () => {
   it('writes → persists → returns → serves the same bytes', async () => {
     const container = build();

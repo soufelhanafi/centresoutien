@@ -13,11 +13,9 @@ type LogoFieldProps = {
   savedPath: string | null;
   /** Called with the new relative path after upload, or null when removed. */
   onChange: (path: string | null) => void;
-  /**
-   * Reports whether an upload is in flight so the parent form can gate its
-   * submit button. Saving while the upload is pending would persist the stale
-   * `logoPath` and the freshly written file would never display (SOU-250).
-   */
+  // Reports whether an upload is in flight so the parent form can gate its
+  // submit button. Saving while the upload is pending would persist the stale
+  // `logoPath` and the freshly written file would never display (SOU-250).
   onPendingChange?: (pending: boolean) => void;
 };
 
