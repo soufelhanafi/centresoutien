@@ -81,14 +81,6 @@ describe('CreateAdminAccount (owner first-run)', () => {
     });
   });
 
-  describe('username uniqueness', () => {
-    it('rejects a duplicate username even before an owner exists is irrelevant — owner guard fires first', async () => {
-      await useCase.execute(validInput());
-      // Same username, but the owner guard rejects before username is checked.
-      await expect(useCase.execute(validInput())).rejects.toBeInstanceOf(OwnerAlreadyExistsError);
-    });
-  });
-
   describe('password policy', () => {
     it('rejects a password below the minimum length', async () => {
       await expect(useCase.execute(validInput({ password: 'Ab1' }))).rejects.toThrow();

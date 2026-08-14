@@ -37,8 +37,15 @@ export {
 export { monthsEndingAt, monthDateRange, monthsBetween, previousMonth } from './value-objects/month';
 export type { GuardianRelation } from './value-objects/guardian-relation';
 export { GUARDIAN_RELATIONS, isGuardianRelation } from './value-objects/guardian-relation';
-export type { Role } from './value-objects/role';
-export { ROLES, isRole, roleRank, isRoleSufficient } from './value-objects/role';
+export type { Role, InvitableRole } from './value-objects/role';
+export {
+  ROLES,
+  isRole,
+  roleRank,
+  isRoleSufficient,
+  INVITABLE_ROLES,
+  isInvitableRole,
+} from './value-objects/role';
 
 // Ports
 export type { Clock } from './ports/clock';
@@ -186,6 +193,7 @@ export {
   UsernameAlreadyTakenError,
   OwnerAlreadyExistsError,
   InvalidUserRoleError,
+  RoleNotInvitableError,
   UserNotFoundError,
   SetupCodeInvalidError,
   SetupCodeExpiredError,
@@ -565,7 +573,7 @@ export type { StudentRepository } from './ports/student-repository';
 export type { CenterHoursRepository } from './ports/center-hours-repository';
 export type { CenterHoursOverrideRepository } from './ports/center-hours-override-repository';
 export type { AdminAccountRepository } from './ports/admin-account-repository';
-export type { UserRepository } from './ports/user-repository';
+export type { UserRepository, SetupCodeRedemption } from './ports/user-repository';
 export type { PasswordHasher } from './ports/password-hasher';
 export type { SecureRandom } from './ports/secure-random';
 export type { RecoveryCodeRepository } from './ports/recovery-code-repository';

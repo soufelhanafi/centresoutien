@@ -9,19 +9,19 @@ import {
   SetupCodeAlreadyRedeemedError,
 } from '../errors/user-errors';
 
-/**
- * First-login redemption (SOU-252): an invited employee proves they hold the
- * one-time setup code and sets their own password. Single-use and time-bounded —
- * the code is rejected if already redeemed ({@link SetupCodeAlreadyRedeemedError})
- * or past its expiry ({@link SetupCodeExpiredError}), and a wrong/absent code is
- * an opaque {@link SetupCodeInvalidError} so a caller cannot probe which accounts
- * have an outstanding invite.
- *
- * On success the chosen password is hashed via the {@link PasswordHasher}, the
- * setup code hash is cleared, and the redemption is stamped — the account can
- * now log in. The director never learns the password: the plaintext only exists
- * on the employee's device during this call.
- */
+// First-login redemption (SOU-252): an invited employee proves they hold the
+// one-time setup code and sets their own password. Single-use and time-bounded —
+// the code is rejected if already redeemed (SetupCodeAlreadyRedeemedError) or past
+// its expiry (SetupCodeExpiredError), and a wrong/absent code is an opaque
+// SetupCodeInvalidError so a caller cannot probe which accounts have an invite.
+//
+// The commit is an atomic compare-and-set via `markSetupCodeRedeemed`, not a
+// read-modify-write: two concurrent redemptions cannot both win. The early checks
+// below give precise errors on the common paths; the CAS is the authority on the
+// race — a `false` return (the row is no longer pending on the verified hash) maps
+// to SetupCodeAlreadyRedeemedError, so a second redemption can never clobber the
+// first password. On success the setup code hash AND its expiry are cleared and the
+// redemption is stamped, all in one write; the director never learns the password.
 export class RedeemSetupCode {
   constructor(
     private readonly users: UserRepository,
@@ -36,22 +36,24 @@ export class RedeemSetupCode {
     if (user === null) throw new UserNotFoundError();
 
     if (user.setupCodeRedeemedAt !== null) throw new SetupCodeAlreadyRedeemedError();
-    if (user.setupCodeHash === null) throw new SetupCodeInvalidError();
+    const pendingHash = user.setupCodeHash;
+    if (pendingHash === null) throw new SetupCodeInvalidError();
 
     const now = this.clock.now();
-    if (user.setupCodeExpiresAt === null || now.getTime() > user.setupCodeExpiresAt.getTime()) {
+    if (user.setupCodeExpiresAt === null || now.getTime() > user.setupCodeExpiresAt) {
       throw new SetupCodeExpiredError();
     }
 
-    const matches = await this.hasher.verify(user.setupCodeHash, setupCode);
+    const matches = await this.hasher.verify(pendingHash, setupCode);
     if (!matches) throw new SetupCodeInvalidError();
 
-    user.passwordHash = await this.hasher.hash(newPassword);
-    user.setupCodeHash = null;
-    user.setupCodeRedeemedAt = now;
-    user.updatedAt = now;
-    user.updatedBy = user.id;
-
-    await this.users.save(user);
+    const redeemed = await this.users.markSetupCodeRedeemed({
+      id: user.id,
+      expectedSetupCodeHash: pendingHash,
+      passwordHash: await this.hasher.hash(newPassword),
+      redeemedAt: now,
+      updatedBy: user.id,
+    });
+    if (!redeemed) throw new SetupCodeAlreadyRedeemedError();
   }
 }

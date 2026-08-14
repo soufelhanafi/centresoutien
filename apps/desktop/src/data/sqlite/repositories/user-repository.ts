@@ -3,6 +3,7 @@ import type {
   User,
   UserId,
   UserRepository,
+  SetupCodeRedemption,
   Role,
   CenterCode,
   DeviceId,
@@ -25,7 +26,7 @@ type UserRow = {
   username_normalized: string;
   password_hash: string | null;
   setup_code_hash: string | null;
-  setup_code_expires_at: string | null;
+  setup_code_expires_at: number | null;
   setup_code_redeemed_at: string | null;
 };
 
@@ -51,7 +52,7 @@ function fromRow(row: UserRow): User {
     username: row.username,
     passwordHash: row.password_hash,
     setupCodeHash: row.setup_code_hash,
-    setupCodeExpiresAt: row.setup_code_expires_at === null ? null : new Date(row.setup_code_expires_at),
+    setupCodeExpiresAt: row.setup_code_expires_at,
     setupCodeRedeemedAt: row.setup_code_redeemed_at === null ? null : new Date(row.setup_code_redeemed_at),
   };
 }
@@ -94,7 +95,7 @@ function toSaveParams(user: User) {
     username_normalized: normalizeUsername(user.username),
     password_hash: user.passwordHash,
     setup_code_hash: user.setupCodeHash,
-    setup_code_expires_at: user.setupCodeExpiresAt ? user.setupCodeExpiresAt.toISOString() : null,
+    setup_code_expires_at: user.setupCodeExpiresAt,
     setup_code_redeemed_at: user.setupCodeRedeemedAt ? user.setupCodeRedeemedAt.toISOString() : null,
   };
 }
@@ -183,5 +184,47 @@ export class SqliteUserRepository implements UserRepository {
       .prepare('SELECT * FROM users WHERE updated_at > ? ORDER BY updated_at')
       .all(cursor.toISOString()) as UserRow[];
     return rows.map(fromRow);
+  }
+
+  async markSetupCodeRedeemed(redemption: SetupCodeRedemption): Promise<boolean> {
+    const iso = redemption.redeemedAt.toISOString();
+    return this.db.transaction(() => {
+      // Compare-and-set: only a row still pending on the verified hash (and not yet
+      // redeemed) is updated. A concurrent redemption that already cleared the hash
+      // matches zero rows, so the second attempt reports failure instead of
+      // clobbering the first password.
+      const info = this.db
+        .prepare(
+          `UPDATE users
+              SET password_hash          = @password_hash,
+                  setup_code_hash        = NULL,
+                  setup_code_expires_at  = NULL,
+                  setup_code_redeemed_at = @redeemed_at,
+                  updated_at             = @redeemed_at,
+                  updated_by             = @updated_by
+            WHERE id = @id
+              AND setup_code_hash = @expected_setup_code_hash
+              AND setup_code_redeemed_at IS NULL
+              AND deleted_at IS NULL`,
+        )
+        .run({
+          id: redemption.id,
+          expected_setup_code_hash: redemption.expectedSetupCodeHash,
+          password_hash: redemption.passwordHash,
+          redeemed_at: iso,
+          updated_by: redemption.updatedBy,
+        });
+      if (info.changes === 0) return false;
+
+      const row = this.db.prepare('SELECT * FROM users WHERE id = ?').get(redemption.id) as UserRow;
+      this.changeLog.record({
+        entityType: 'users',
+        entityId: toEntityId(redemption.id),
+        centerCode: row.center_code as CenterCode,
+        intent: 'upsert',
+        entity: fromRow(row),
+      });
+      return true;
+    })();
   }
 }

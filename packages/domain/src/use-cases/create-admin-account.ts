@@ -4,25 +4,24 @@ import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import { adminCredentialsSchema, type AdminCredentials } from '../schemas/admin-account';
-import { OwnerAlreadyExistsError, UsernameAlreadyTakenError } from '../errors/user-errors';
+import { OwnerAlreadyExistsError } from '../errors/user-errors';
 import { newEnvelope } from '../entities/envelope';
 import { USER_ID_PREFIX, type User } from '../entities/user';
 
 export type CreateAdminAccountInput = AdminCredentials;
 
-/**
- * Creates the center's owner account on first run (SOU-26, multi-user in
- * SOU-252). The first-run wizard writes a {@link User} with `role: 'owner'` and a
- * password set immediately (no setup code — the director chooses their own
- * password here). Validates credentials with the shared schema (password
- * strength included) and hashes through the injected {@link PasswordHasher} — the
- * plaintext is never persisted. Not plan-gated: auth is foundational.
- *
- * Enforces the single-owner invariant ({@link OwnerAlreadyExistsError}) and the
- * per-center username uniqueness the whole `users` table shares. `centerCode` and
- * `deviceOrigin` are the bootstrap envelope context; `updatedBy` is the owner's
- * own id, the one self-referential write in the system.
- */
+// Creates the center's owner account on first run (SOU-26, multi-user in SOU-252).
+// The first-run wizard writes a User with `role: 'owner'` and a password set
+// immediately (no setup code — the director chooses their own password here).
+// Validates credentials with the shared schema (password strength included) and
+// hashes through the injected PasswordHasher — the plaintext is never persisted.
+// Not plan-gated: auth is foundational.
+//
+// Enforces the single-owner invariant (OwnerAlreadyExistsError). Per-center
+// username uniqueness is guaranteed by the DB partial-unique index (no separate
+// check here — the owner guard fires first at first-run, so a username check would
+// be dead). `centerCode`/`deviceOrigin` are the bootstrap envelope context;
+// `updatedBy` is the owner's own id, the one self-referential write in the system.
 export class CreateAdminAccount {
   constructor(
     private readonly users: UserRepository,
@@ -36,9 +35,6 @@ export class CreateAdminAccount {
     const { username, password } = adminCredentialsSchema.parse(input);
 
     if ((await this.users.findOwner()) !== null) throw new OwnerAlreadyExistsError();
-    if ((await this.users.findByUsername(username)) !== null) {
-      throw new UsernameAlreadyTakenError(username);
-    }
 
     const id = this.ids.next(USER_ID_PREFIX) as UserId;
     const owner: User = {

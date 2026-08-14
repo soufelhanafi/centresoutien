@@ -28,6 +28,8 @@ afterEach(() => {
 });
 
 const AT = new Date('2026-07-29T10:00:00Z');
+// Setup-code expiry is epoch millis (INTEGER column), not a Date.
+const EXPIRES_MS = new Date('2026-08-05T10:00:00Z').getTime();
 
 function makeUser(over: Partial<User> = {}): User {
   return {
@@ -63,7 +65,7 @@ describe('SqliteUserRepository', () => {
       username: 'secretaire',
       passwordHash: null,
       setupCodeHash: '$argon2id$v=19$m=19456,t=2,p=1$code$hash',
-      setupCodeExpiresAt: new Date('2026-08-05T10:00:00Z'),
+      setupCodeExpiresAt: EXPIRES_MS,
       setupCodeRedeemedAt: null,
     });
     await repo.save(employee);
@@ -91,7 +93,7 @@ describe('SqliteUserRepository', () => {
         username: 'sec',
         passwordHash: null,
         setupCodeHash: 'pending',
-        setupCodeExpiresAt: new Date('2026-08-05T10:00:00Z'),
+        setupCodeExpiresAt: EXPIRES_MS,
       }),
     );
     await repo.save(
@@ -141,6 +143,82 @@ describe('SqliteUserRepository', () => {
     );
     const rows = await repo.listActive('CS-CASA-001' as CenterCode);
     expect(rows.map((u) => u.username)).toEqual(['amine', 'directrice']);
+  });
+
+  describe('markSetupCodeRedeemed (atomic compare-and-set)', () => {
+    const PENDING = makeUser({
+      id: 'usr_00000000000000000000000002' as UserId,
+      role: 'secretary',
+      username: 'amine',
+      passwordHash: null,
+      setupCodeHash: 'pending-hash',
+      setupCodeExpiresAt: EXPIRES_MS,
+      setupCodeRedeemedAt: null,
+    });
+    const REDEEMED_AT = new Date('2026-08-03T09:00:00Z');
+    const SELF = 'usr_00000000000000000000000002' as UserId;
+
+    it('redeems a pending row: sets the password and clears every setup-code field', async () => {
+      await repo.save(PENDING);
+      const ok = await repo.markSetupCodeRedeemed({
+        id: PENDING.id,
+        expectedSetupCodeHash: 'pending-hash',
+        passwordHash: 'new-hash',
+        redeemedAt: REDEEMED_AT,
+        updatedBy: SELF,
+      });
+      expect(ok).toBe(true);
+      const found = await repo.findById(PENDING.id);
+      expect(found?.passwordHash).toBe('new-hash');
+      expect(found?.setupCodeHash).toBeNull();
+      expect(found?.setupCodeExpiresAt).toBeNull();
+      expect(found?.setupCodeRedeemedAt).toEqual(REDEEMED_AT);
+    });
+
+    it('a second redemption with the now-stale hash matches no row and does not clobber the winner (TOCTOU)', async () => {
+      await repo.save(PENDING);
+      const first = await repo.markSetupCodeRedeemed({
+        id: PENDING.id,
+        expectedSetupCodeHash: 'pending-hash',
+        passwordHash: 'winner-hash',
+        redeemedAt: REDEEMED_AT,
+        updatedBy: SELF,
+      });
+      expect(first).toBe(true);
+
+      const second = await repo.markSetupCodeRedeemed({
+        id: PENDING.id,
+        expectedSetupCodeHash: 'pending-hash', // stale — the winner already cleared it
+        passwordHash: 'loser-hash',
+        redeemedAt: new Date('2026-08-03T09:05:00Z'),
+        updatedBy: SELF,
+      });
+      expect(second).toBe(false);
+      // The winner's password stands; the loser never overwrote it.
+      expect((await repo.findById(PENDING.id))?.passwordHash).toBe('winner-hash');
+    });
+
+    it('records exactly one change_log row for the redemption', async () => {
+      await repo.save(PENDING);
+      const before = (
+        db.prepare("SELECT COUNT(*) AS n FROM change_log WHERE entity_type = 'users'").get() as {
+          n: number;
+        }
+      ).n;
+      await repo.markSetupCodeRedeemed({
+        id: PENDING.id,
+        expectedSetupCodeHash: 'pending-hash',
+        passwordHash: 'new-hash',
+        redeemedAt: REDEEMED_AT,
+        updatedBy: SELF,
+      });
+      const after = (
+        db.prepare("SELECT COUNT(*) AS n FROM change_log WHERE entity_type = 'users'").get() as {
+          n: number;
+        }
+      ).n;
+      expect(after - before).toBe(1);
+    });
   });
 
   describe('DB constraints', () => {

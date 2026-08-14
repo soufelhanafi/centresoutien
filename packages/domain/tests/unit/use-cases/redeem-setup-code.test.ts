@@ -51,12 +51,14 @@ describe('RedeemSetupCode', () => {
   });
 
   describe('happy path', () => {
-    it('sets the password, clears the pending code, and stamps the redemption', async () => {
+    it('sets the password and clears ALL setup-code fields, stamping the redemption', async () => {
       await redeem.execute({ username: 'secretaire', setupCode, newPassword: NEW_PASSWORD });
 
       const user = await users.findByUsername('secretaire');
       expect(user?.passwordHash).toBe(`hashed:${NEW_PASSWORD}`);
       expect(user?.setupCodeHash).toBeNull();
+      // Expiry is cleared too — no stale expiry lingers once no code is pending.
+      expect(user?.setupCodeExpiresAt).toBeNull();
       expect(user?.setupCodeRedeemedAt).toEqual(new Date(NOW));
     });
 
@@ -74,6 +76,37 @@ describe('RedeemSetupCode', () => {
       await expect(
         redeem.execute({ username: 'secretaire', setupCode, newPassword: NEW_PASSWORD }),
       ).rejects.toBeInstanceOf(SetupCodeAlreadyRedeemedError);
+    });
+
+    it('maps a lost redemption race to already-redeemed without clobbering the winner (TOCTOU)', async () => {
+      // Models the race the compare-and-set closes: our pre-read saw a pending
+      // code, but a concurrent redemption committed first, so the CAS matches no
+      // row (markSetupCodeRedeemed → false). The use case must reject, not
+      // overwrite the winner's password.
+      class RacyRepo extends InMemoryUserRepository {
+        async markSetupCodeRedeemed(): Promise<boolean> {
+          return false;
+        }
+      }
+      const racy = new RacyRepo();
+      const racyClock = fakeClock(NOW);
+      const { setupCode: racyCode } = await new CreateUser(
+        racy,
+        fakeHasher(),
+        fakeSecureRandom(),
+        racyClock,
+        fakeIds(),
+      ).execute({ username: 'secretaire', role: 'secretary', ...CONTEXT });
+
+      await expect(
+        new RedeemSetupCode(racy, fakeHasher(), racyClock).execute({
+          username: 'secretaire',
+          setupCode: racyCode,
+          newPassword: NEW_PASSWORD,
+        }),
+      ).rejects.toBeInstanceOf(SetupCodeAlreadyRedeemedError);
+      // The losing redemption did not apply — no password was written.
+      expect((await racy.findByUsername('secretaire'))?.passwordHash).toBeNull();
     });
   });
 

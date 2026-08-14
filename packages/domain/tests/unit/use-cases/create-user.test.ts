@@ -4,6 +4,7 @@ import { SETUP_CODE_TTL_MS } from '../../../src/entities/user';
 import {
   UsernameAlreadyTakenError,
   InvalidUserRoleError,
+  RoleNotInvitableError,
 } from '../../../src/errors/user-errors';
 import { InMemoryUserRepository } from '../fakes/in-memory-user-repository';
 import { fakeHasher } from '../fakes/hasher';
@@ -55,9 +56,9 @@ describe('CreateUser', () => {
       expect(user.setupCodeRedeemedAt).toBeNull();
     });
 
-    it('sets the setup code to expire one TTL from now', async () => {
+    it('sets the setup code to expire one TTL from now (epoch millis, no new Date)', async () => {
       const { user } = await useCase.execute(command());
-      expect(user.setupCodeExpiresAt).toEqual(new Date(new Date(NOW).getTime() + SETUP_CODE_TTL_MS));
+      expect(user.setupCodeExpiresAt).toBe(new Date(NOW).getTime() + SETUP_CODE_TTL_MS);
     });
 
     it('carries a fresh envelope stamped by the inviting director', async () => {
@@ -100,6 +101,28 @@ describe('CreateUser', () => {
 
     it('rejects a blank role', async () => {
       await expect(useCase.execute(command({ role: '  ' }))).rejects.toThrow();
+    });
+  });
+
+  describe('invitable role only (SOU-252 privilege escalation)', () => {
+    it('rejects an owner invite — the owner is minted only at first-run', async () => {
+      await expect(useCase.execute(command({ role: 'owner' }))).rejects.toBeInstanceOf(
+        RoleNotInvitableError,
+      );
+      expect(users.all()).toHaveLength(0);
+    });
+
+    it('rejects an admin invite', async () => {
+      await expect(useCase.execute(command({ role: 'admin' }))).rejects.toBeInstanceOf(
+        RoleNotInvitableError,
+      );
+      expect(users.all()).toHaveLength(0);
+    });
+
+    it('rejects a viewer invite', async () => {
+      await expect(useCase.execute(command({ role: 'viewer' }))).rejects.toBeInstanceOf(
+        RoleNotInvitableError,
+      );
     });
   });
 

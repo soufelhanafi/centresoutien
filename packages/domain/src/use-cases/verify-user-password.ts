@@ -8,18 +8,15 @@ export type VerifyUserPasswordInput = {
   password: string;
 };
 
-/**
- * Resolves a login attempt against the `users` table (SOU-252), the multi-user
- * successor to `VerifyAdminPassword`. Returns the {@link AuthenticatedUser} on a
- * match, or `null` on any failure — an unknown username, an employee who has not
- * yet redeemed their setup code (no password set), or a wrong password are all
- * indistinguishable to the caller, so login cannot be used to enumerate accounts.
- *
- * A pure credential check: attempt counting and lockout are layered on top by
- * {@link AttemptLogin}. The username is passed straight to the repository, which
- * matches case-insensitively via `normalizeUsername` (SOU-153) — one
- * normalization rule, one home.
- */
+// Resolves a login attempt against the `users` table (SOU-252), the multi-user
+// successor to `VerifyAdminPassword`. Returns the AuthenticatedUser on a match, or
+// `null` on any failure — an unknown username, an employee who has not yet redeemed
+// their setup code (no password set), or a wrong password are all indistinguishable
+// to the caller, so login cannot be used to enumerate accounts.
+//
+// A pure credential check: attempt counting and lockout are layered on top by
+// AttemptLogin. The username is passed straight to the repository, which matches
+// case-insensitively via `normalizeUsername` (SOU-153) — one normalization rule.
 export class VerifyUserPassword {
   constructor(
     private readonly users: UserRepository,

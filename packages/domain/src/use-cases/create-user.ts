@@ -4,11 +4,15 @@ import type { SecureRandom } from '../ports/secure-random';
 import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
-import { isRole } from '../value-objects/role';
+import { isRole, isInvitableRole } from '../value-objects/role';
 import { newEnvelope } from '../entities/envelope';
 import { createUserInputSchema, type CreateUserInput } from '../schemas/user';
 import { USER_ID_PREFIX, SETUP_CODE_TTL_MS, type User } from '../entities/user';
-import { UsernameAlreadyTakenError, InvalidUserRoleError } from '../errors/user-errors';
+import {
+  UsernameAlreadyTakenError,
+  InvalidUserRoleError,
+  RoleNotInvitableError,
+} from '../errors/user-errors';
 
 export type CreateUserCommand = CreateUserInput & {
   centerCode: CenterCode;
@@ -16,12 +20,10 @@ export type CreateUserCommand = CreateUserInput & {
   updatedBy: UserId;
 };
 
-/**
- * A newly invited user together with the ONE-TIME setup code, returned exactly
- * once so the director can hand it to the employee on-screen. The plaintext code
- * is never persisted (only its hash is) and never logged — this is its sole
- * appearance.
- */
+// A newly invited user together with the ONE-TIME setup code, returned exactly
+// once so the director can hand it to the employee on-screen. The plaintext code
+// is never persisted (only its hash is) and never logged — this is its sole
+// appearance.
 export type CreateUserResult = {
   readonly user: User;
   readonly setupCode: string;
@@ -33,11 +35,9 @@ const SETUP_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 const SETUP_CODE_GROUPS = 3;
 const SETUP_CODE_GROUP_LEN = 4;
 
-/**
- * A human-readable one-time setup code (e.g. `A7K2-9FMP-3QRT`) drawn from the
- * cryptographically secure {@link SecureRandom}. Each byte maps uniformly onto
- * the 32-glyph alphabet (which divides 256 evenly).
- */
+// A human-readable one-time setup code (e.g. `A7K2-9FMP-3QRT`) drawn from the
+// cryptographically secure SecureRandom. Each byte maps uniformly onto the
+// 32-glyph alphabet (which divides 256 evenly).
 function generateSetupCode(random: SecureRandom): string {
   const total = SETUP_CODE_GROUPS * SETUP_CODE_GROUP_LEN;
   const bytes = random.bytes(total);
@@ -53,18 +53,16 @@ function generateSetupCode(random: SecureRandom): string {
   return groups.join('-');
 }
 
-/**
- * Invites an employee (SOU-252): the director supplies a username + role, and
- * this mints a single-use setup code that the employee redeems to set their own
- * password. No password is created here — `passwordHash` stays `null` until
- * {@link import('./redeem-setup-code').RedeemSetupCode} runs — so the director
- * never learns the employee's eventual password.
- *
- * Username must be unique per center among live accounts
- * ({@link UsernameAlreadyTakenError}); the role must be a known {@link Role}
- * (fail-closed, SOU-95). Only the code's hash is stored; the plaintext is
- * returned once for on-screen delivery.
- */
+// Invites an employee (SOU-252): the director supplies a username + role, and this
+// mints a single-use setup code that the employee redeems to set their own
+// password. No password is created here — `passwordHash` stays `null` until
+// RedeemSetupCode runs — so the director never learns the employee's password.
+//
+// The role must be known (fail-closed, SOU-95) AND invitable — the invite path may
+// only mint a `secretary`; `owner`/`admin`/`viewer` are rejected so an invite can
+// never bypass the first-run owner guard or grant a privileged role. Username must
+// be unique per center among live accounts (UsernameAlreadyTakenError). Only the
+// code's hash is stored; the plaintext is returned once for on-screen delivery.
 export class CreateUser {
   constructor(
     private readonly users: UserRepository,
@@ -81,6 +79,7 @@ export class CreateUser {
     });
 
     if (!isRole(role)) throw new InvalidUserRoleError(role);
+    if (!isInvitableRole(role)) throw new RoleNotInvitableError(role);
 
     const clash = await this.users.findByUsername(username);
     if (clash !== null) throw new UsernameAlreadyTakenError(username);
@@ -102,7 +101,7 @@ export class CreateUser {
       username,
       passwordHash: null,
       setupCodeHash: await this.hasher.hash(setupCode),
-      setupCodeExpiresAt: new Date(now.getTime() + SETUP_CODE_TTL_MS),
+      setupCodeExpiresAt: now.getTime() + SETUP_CODE_TTL_MS,
       setupCodeRedeemedAt: null,
     };
 

@@ -168,7 +168,8 @@ function userEntityToRow(entity: unknown): Record<string, unknown> {
     username_normalized: normalizeUsername(user.username),
     password_hash: user.passwordHash,
     setup_code_hash: user.setupCodeHash,
-    setup_code_expires_at: toNullableIsoString(user.setupCodeExpiresAt),
+    // Epoch millis (a number), not an ISO string — stored in an INTEGER column.
+    setup_code_expires_at: user.setupCodeExpiresAt,
     setup_code_redeemed_at: toNullableIsoString(user.setupCodeRedeemedAt),
   };
 }

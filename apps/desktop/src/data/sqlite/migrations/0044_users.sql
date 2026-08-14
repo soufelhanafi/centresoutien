@@ -37,7 +37,7 @@ CREATE TABLE users (
   username_normalized    TEXT    NOT NULL,               -- NFC+trim+lower; login matches on this
   password_hash          TEXT,                           -- Argon2id; NULL until an invite is redeemed
   setup_code_hash        TEXT,                           -- Argon2id of the pending one-time code; NULL once redeemed/owner
-  setup_code_expires_at  TEXT,                           -- ISO-8601 UTC; NULL when no code is pending
+  setup_code_expires_at  INTEGER,                        -- epoch millis UTC (Clock port); NULL when no code is pending
   setup_code_redeemed_at TEXT,                           -- ISO-8601 UTC; NULL while pending; single-use marker
   CHECK (id LIKE 'usr\_%' ESCAPE '\'),
   CHECK (role IN ('owner', 'admin', 'secretary', 'viewer'))

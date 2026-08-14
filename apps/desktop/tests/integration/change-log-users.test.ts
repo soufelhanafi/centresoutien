@@ -83,7 +83,7 @@ describe('change_log — users reprojection (SOU-252)', () => {
       username: 'amine',
       passwordHash: null,
       setupCodeHash: '$argon2id$v=19$m=19456,t=2,p=1$code$hash',
-      setupCodeExpiresAt: new Date('2026-08-22T10:00:00Z'),
+      setupCodeExpiresAt: new Date('2026-08-22T10:00:00Z').getTime(),
       setupCodeRedeemedAt: null,
     });
     await repo.save(owner);
