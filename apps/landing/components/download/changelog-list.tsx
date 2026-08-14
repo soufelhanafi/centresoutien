@@ -1,19 +1,19 @@
-"use client";
+// Presentational changelog list. Receives releases + failure state from
+// useRecentReleases and renders version + date per release. Falls back to the
+// GitHub releases page when the API is unreachable (never a 404). The empty
+// state renders only for a successful fetch with zero releases.
 
-// Changelog list. Fetches recent releases from the public releases repo and
-// renders version + date per release. Falls back to the GitHub releases page
-// when the API is unreachable (never a 404).
-
-import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowUpRight } from "lucide-react";
 import {
-  fetchRecentReleases,
   LATEST_RELEASE_PAGE_URL,
   type ReleaseInfo,
 } from "@/lib/releases";
 
-const MAX_RELEASES = 10;
+type ChangelogListProps = {
+  releases: ReleaseInfo[] | null;
+  failed: boolean;
+};
 
 // Compact YYYY-MM-DD from an ISO UTC timestamp, for the published date.
 function toDate(iso: string | null): string {
@@ -21,25 +21,8 @@ function toDate(iso: string | null): string {
   return iso.slice(0, 10);
 }
 
-export function ChangelogList() {
+export function ChangelogList({ releases, failed }: ChangelogListProps) {
   const t = useTranslations("changelog");
-  const [releases, setReleases] = useState<ReleaseInfo[] | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    fetchRecentReleases(MAX_RELEASES).then((list) => {
-      if (!mounted) return;
-      if (list.length === 0) {
-        setFailed(true);
-      } else {
-        setReleases(list);
-      }
-    });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   if (failed) {
     return (
@@ -56,7 +39,7 @@ export function ChangelogList() {
     );
   }
 
-  if (!releases) {
+  if (releases === null) {
     return <p className="text-sm text-muted-foreground">{t("loading")}</p>;
   }
 

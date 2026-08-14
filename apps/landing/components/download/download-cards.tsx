@@ -1,25 +1,19 @@
-"use client";
-
-// Download platform cards. Runs client-side: fetches the latest release from
-// the public releases repo (CORS-open), maps assets to the three platforms,
-// and renders a download button per platform with the visitor's OS pre-selected.
+// Presentational download platform cards. Receives the latest release and the
+// recommended platform from useLatestRelease (the data-fetching hook) and
+// renders a download button per platform with the visitor's OS pre-selected.
 // Falls back to the GitHub latest-release page when the API is unreachable, so
 // the buttons never 404.
 
-import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Apple, Download, Monitor, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import {
-  fetchLatestRelease,
   LATEST_RELEASE_PAGE_URL,
   mapAssetsToTargets,
+  type PlatformKey,
   type ReleaseInfo,
 } from "@/lib/releases";
-import { detectOs, type DetectedOs } from "@/lib/os-detect";
-
-type PlatformKey = "macAppleSilicon" | "macIntel" | "windows";
 
 const PLATFORM_ICONS: Record<PlatformKey, LucideIcon> = {
   macAppleSilicon: Apple,
@@ -27,38 +21,13 @@ const PLATFORM_ICONS: Record<PlatformKey, LucideIcon> = {
   windows: Monitor,
 };
 
-const DETECTED_TO_PLATFORM: Partial<Record<DetectedOs, PlatformKey>> = {
-  "mac-apple-silicon": "macAppleSilicon",
-  "mac-intel": "macIntel",
-  windows: "windows",
+type DownloadCardsProps = {
+  release: ReleaseInfo | null;
+  recommended: PlatformKey | null;
 };
 
-export function DownloadCards() {
+export function DownloadCards({ release, recommended }: DownloadCardsProps) {
   const t = useTranslations("download.platforms");
-  const [release, setRelease] = useState<ReleaseInfo | null>(null);
-  const [detected, setDetected] = useState<PlatformKey | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    fetchLatestRelease().then((info) => {
-      if (mounted && info) setRelease(info);
-    });
-    const platform = DETECTED_TO_PLATFORM[detectOs(navigator.userAgent)];
-    if (mounted && platform) {
-      // Deferred so the recommended badge does not set state synchronously in
-      // the effect body (react-hooks/set-state-in-effect).
-      const id = window.setTimeout(() => {
-        if (mounted) setDetected(platform);
-      }, 0);
-      return () => {
-        mounted = false;
-        window.clearTimeout(id);
-      };
-    }
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   const targets = release ? mapAssetsToTargets(release.assets) : {};
   const version = release?.version;
@@ -96,7 +65,7 @@ export function DownloadCards() {
     <div className="grid gap-4 sm:grid-cols-3">
       {platforms.map(({ key, name, subtitle, url }) => {
         const Icon = PLATFORM_ICONS[key];
-        const isRecommended = key === detected;
+        const isRecommended = key === recommended;
         return (
           <a
             key={key}

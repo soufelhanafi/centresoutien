@@ -875,7 +875,7 @@
       "eyebrow": "Aperçu",
       "heading": "Tout votre centre, en un seul écran",
       "subheading": "Le tableau de bord réunit l'essentiel : effectifs, charge des enseignants, revenus et impayés. Le reste du logiciel suit la même logique, en français ou en arabe.",
-      "bilingual": "Interface entièrement bilingue français / arabe, avec affichage RTL natif.",
+      "bilingual": "Interface entièrement bilingue français / arabe, avec un affichage de droite à gauche.",
       "invoices": "Facturation mensuelle en dirhams, générée automatiquement à partir des formules.",
       "planning": "Planification hebdomadaire des salles, groupes et enseignants avec détection des conflits."
     },

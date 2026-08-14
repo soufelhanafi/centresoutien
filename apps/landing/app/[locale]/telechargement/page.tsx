@@ -6,7 +6,7 @@ import { Check, ShieldCheck, WifiOff, Globe } from "lucide-react";
 import { routing } from "@/i18n/routing";
 import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
-import { DownloadCards } from "@/components/download/download-cards";
+import { DownloadSection } from "@/components/download/download-section";
 import { DashboardMockup } from "@/components/sections/hero/dashboard-mockup";
 import { JsonLd } from "@/components/seo/json-ld";
 import { SITE_URL } from "@/lib/structured-data";
@@ -102,7 +102,7 @@ export default async function DownloadPage({
               {t("subheading")}
             </p>
             <div className="mx-auto mt-10 max-w-[900px]">
-              <DownloadCards />
+              <DownloadSection />
             </div>
             <ul className="mt-9 flex flex-wrap justify-center gap-x-6 gap-y-3 text-[13.5px] text-muted-foreground">
               {TRUST_ITEMS.map((item) => {

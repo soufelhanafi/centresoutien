@@ -35,6 +35,8 @@ export type DownloadTargets = {
   windows?: ReleaseAsset;
 };
 
+export type PlatformKey = keyof DownloadTargets;
+
 // Pure mapping from release assets to the three platform targets. Asset names
 // follow the electron-builder convention: `-arm64.dmg` = Apple Silicon,
 // plain `.dmg` = Intel, `-Setup-*.exe` = Windows. `.blockmap` files are
@@ -101,18 +103,20 @@ export async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
   }
 }
 
+// Returns null when the API is unreachable, `[]` on a successful response with
+// no releases. Callers use this to distinguish "failed" from "empty".
 export async function fetchRecentReleases(
   count: number,
-): Promise<ReleaseInfo[]> {
+): Promise<ReleaseInfo[] | null> {
   try {
     const res = await fetch(
       `${API_BASE}/releases?per_page=${count}&page=1`,
       { headers: { Accept: "application/vnd.github+json" } },
     );
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const json = (await res.json()) as Record<string, unknown>[];
     return json.map(toReleaseInfo);
   } catch {
-    return [];
+    return null;
   }
 }

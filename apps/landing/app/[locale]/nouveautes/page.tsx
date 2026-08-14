@@ -5,7 +5,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { Header } from "@/components/sections/header";
 import { Footer } from "@/components/sections/footer";
-import { ChangelogList } from "@/components/download/changelog-list";
+import { ChangelogSection } from "@/components/download/changelog-section";
 import { JsonLd } from "@/components/seo/json-ld";
 import { SITE_URL } from "@/lib/structured-data";
 
@@ -90,7 +90,7 @@ export default async function ChangelogPage({
             {t("intro")}
           </p>
           <div className="mt-12">
-            <ChangelogList />
+            <ChangelogSection />
           </div>
         </section>
       </main>
