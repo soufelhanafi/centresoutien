@@ -2,19 +2,20 @@ import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 
 // Single source of link order per column. Labels resolve from next-intl by key.
-// On-page anchors point at real section ids; `#` placeholders are for targets
-// that do not exist yet — download/changelog/docs/blog (no real URLs to point
-// at; inventing 404s is worse). Tracked in SOU-208/209. The social icons were
-// removed in SOU-212: no LinkedIn/YouTube profiles exist, so a `#`-linked icon
-// would be a dead end — they return when real channels are created.
+// On-page anchors point at real section ids; `#` placeholders remain only for
+// targets that do not exist yet — docs/blog (no real URLs to point at; inventing
+// 404s is worse). Tracked in SOU-209. download/changelog were wired to real
+// routes in SOU-208. The social icons were removed in SOU-212: no LinkedIn/
+// YouTube profiles exist, so a `#`-linked icon would be a dead end — they
+// return when real channels are created.
 const LINK_COLUMNS = [
   {
     key: "product",
     links: [
       { key: "features", href: "#fonctionnalites" },
       { key: "pricing", href: "#tarifs" },
-      { key: "download", href: "#" }, // TODO: real route (SOU-202)
-      { key: "changelog", href: "#" }, // TODO: real route (SOU-202)
+      { key: "download", href: "/telechargement" },
+      { key: "changelog", href: "/nouveautes" },
     ],
   },
   {
