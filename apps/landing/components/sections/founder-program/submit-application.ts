@@ -50,15 +50,20 @@ export async function submitFounderApplication(
   }
 
   const h = await headers();
-  // Trust the platform-set `x-real-ip` when present; otherwise take the
-  // RIGHTMOST `x-forwarded-for` entry — Vercel appends the real client IP at
-  // the end, so the leftmost value is attacker-controlled and must never key
-  // the limiter (SOU-207).
+  // Key the limiter on the platform-set client IP only — never a value the
+  // client can spoof (SOU-207). Netlify sets `x-nf-client-connection-ip` to the
+  // true edge-observed client IP; prefer it. Falls back to `x-real-ip`, then the
+  // RIGHTMOST `x-forwarded-for` entry (the trusted proxy appends the real IP at
+  // the end, so the leftmost value is attacker-controlled).
   const forwarded = (h.get("x-forwarded-for") ?? "")
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
-  const ip = h.get("x-real-ip")?.trim() || forwarded.at(-1) || "unknown";
+  const ip =
+    h.get("x-nf-client-connection-ip")?.trim() ||
+    h.get("x-real-ip")?.trim() ||
+    forwarded.at(-1) ||
+    "unknown";
   const ipHash = hashIp(ip);
 
   if (!(await checkRateLimit(ipHash))) {

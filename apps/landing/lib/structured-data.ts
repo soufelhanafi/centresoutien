@@ -2,10 +2,10 @@ import { getTranslations } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 
 /** Canonical production origin. Keep in sync with app metadata + sitemap/robots. */
-// Canonical host. The apex domain 307-redirects to www on Vercel, so every SEO
-// signal (canonical, hreflang, og:url, sitemap, robots host, JSON-LD urls) must
-// use the www host to match the URL Google actually resolves — otherwise the
-// canonical points at a URL that immediately redirects.
+// Canonical host. The apex domain redirects to www (Netlify primary-domain
+// redirect), so every SEO signal (canonical, hreflang, og:url, sitemap, robots
+// host, JSON-LD urls) must use the www host to match the URL Google actually
+// resolves — otherwise the canonical points at a URL that immediately redirects.
 export const SITE_URL = "https://www.centresoutien.com";
 
 /** Maps our app locales to BCP-47 tags used by Schema.org `inLanguage`. */
