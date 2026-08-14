@@ -1,0 +1,112 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { CreateUser, type CreateUserCommand } from '../../../src/use-cases/create-user';
+import { SETUP_CODE_TTL_MS } from '../../../src/entities/user';
+import {
+  UsernameAlreadyTakenError,
+  InvalidUserRoleError,
+} from '../../../src/errors/user-errors';
+import { InMemoryUserRepository } from '../fakes/in-memory-user-repository';
+import { fakeHasher } from '../fakes/hasher';
+import { fakeSecureRandom } from '../fakes/secure-random';
+import { fakeClock } from '../fakes/clock';
+import { fakeIds } from '../fakes/ids';
+import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
+
+const NOW = '2026-07-29T10:00:00Z';
+
+function command(overrides: Partial<CreateUserCommand> = {}): CreateUserCommand {
+  return {
+    username: '  secretaire ',
+    role: 'secretary',
+    centerCode: 'CS-CASA-001' as CenterCode,
+    deviceOrigin: 'dev_00000000000000000000000001' as DeviceId,
+    updatedBy: 'usr_00000000000000000000000001' as UserId,
+    ...overrides,
+  };
+}
+
+describe('CreateUser', () => {
+  let users: InMemoryUserRepository;
+  let useCase: CreateUser;
+
+  beforeEach(() => {
+    users = new InMemoryUserRepository();
+    useCase = new CreateUser(
+      users,
+      fakeHasher(),
+      fakeSecureRandom(),
+      fakeClock(NOW),
+      fakeIds(),
+    );
+  });
+
+  describe('happy path', () => {
+    it('creates an invited employee with no password and a pending, hashed setup code', async () => {
+      const { user, setupCode } = await useCase.execute(command());
+
+      expect(user.id).toMatch(/^usr_/);
+      expect(user.role).toBe('secretary');
+      expect(user.username).toBe('secretaire');
+      expect(user.passwordHash).toBeNull();
+      expect(setupCode).toMatch(/^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/);
+      // Only the hash is stored, never the plaintext code.
+      expect(user.setupCodeHash).toBe(`hashed:${setupCode}`);
+      expect(user.setupCodeHash).not.toBe(setupCode);
+      expect(user.setupCodeRedeemedAt).toBeNull();
+    });
+
+    it('sets the setup code to expire one TTL from now', async () => {
+      const { user } = await useCase.execute(command());
+      expect(user.setupCodeExpiresAt).toEqual(new Date(new Date(NOW).getTime() + SETUP_CODE_TTL_MS));
+    });
+
+    it('carries a fresh envelope stamped by the inviting director', async () => {
+      const { user } = await useCase.execute(command());
+      expect(user.updatedBy).toBe('usr_00000000000000000000000001');
+      expect(user.centerCode).toBe('CS-CASA-001');
+      expect(user.version).toBe(0);
+      expect(user.deletedAt).toBeNull();
+      expect(user.createdAt).toEqual(new Date(NOW));
+    });
+
+    it('persists the user so it can be read back by username', async () => {
+      const { user } = await useCase.execute(command());
+      expect(await users.findByUsername('secretaire')).toEqual(user);
+    });
+  });
+
+  describe('username uniqueness', () => {
+    it('rejects a duplicate username in the same center', async () => {
+      await useCase.execute(command());
+      await expect(useCase.execute(command())).rejects.toBeInstanceOf(UsernameAlreadyTakenError);
+      expect(users.all()).toHaveLength(1);
+    });
+
+    it('rejects a duplicate that differs only by casing/whitespace', async () => {
+      await useCase.execute(command({ username: 'Secretaire' }));
+      await expect(useCase.execute(command({ username: '  SECRETAIRE ' }))).rejects.toBeInstanceOf(
+        UsernameAlreadyTakenError,
+      );
+    });
+  });
+
+  describe('fail-closed role (SOU-95)', () => {
+    it('rejects an unknown role token', async () => {
+      await expect(useCase.execute(command({ role: 'superuser' }))).rejects.toBeInstanceOf(
+        InvalidUserRoleError,
+      );
+      expect(users.all()).toHaveLength(0);
+    });
+
+    it('rejects a blank role', async () => {
+      await expect(useCase.execute(command({ role: '  ' }))).rejects.toThrow();
+    });
+  });
+
+  describe('validation', () => {
+    it('rejects a username below the minimum length', async () => {
+      await expect(useCase.execute(command({ username: 'ab' }))).rejects.toThrow();
+      expect(users.all()).toHaveLength(0);
+    });
+  });
+});

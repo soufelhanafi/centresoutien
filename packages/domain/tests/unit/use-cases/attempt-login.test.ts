@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CreateAdminAccount } from '../../../src/use-cases/create-admin-account';
-import { VerifyAdminPassword } from '../../../src/use-cases/verify-admin-password';
+import { VerifyUserPassword } from '../../../src/use-cases/verify-user-password';
 import { AttemptLogin } from '../../../src/use-cases/attempt-login';
 import { DeviceSessionService } from '../../../src/services/device-session-service';
 import {
@@ -8,12 +8,13 @@ import {
   MAX_FAILED_ATTEMPTS,
   LOCKOUT_DURATION_MS,
 } from '../../../src/policies/login-throttle-policy';
-import { InMemoryAdminAccountRepository } from '../fakes/in-memory-admin-account-repository';
+import { InMemoryUserRepository } from '../fakes/in-memory-user-repository';
 import { InMemoryLoginThrottleStore } from '../fakes/in-memory-login-throttle-store';
 import { InMemoryDeviceSessionStore } from '../fakes/in-memory-device-session-store';
 import { fakeHasher } from '../fakes/hasher';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
+import type { CenterCode, DeviceId } from '../../../src/value-objects/ids';
 
 const USERNAME = 'directrice';
 // Assembled from fragments so no literal password string appears in source
@@ -21,42 +22,51 @@ const USERNAME = 'directrice';
 const PASSWORD = ['Casa', '2026', '!'].join('');
 const WRONG = ['Wrong', '2026', '!'].join('');
 
+const CONTEXT = {
+  centerCode: 'CS-CASA-001' as CenterCode,
+  deviceOrigin: 'dev_00000000000000000000000001' as DeviceId,
+};
+
 /** Wire a full login stack sharing one clock so time can be advanced in tests. */
 async function makeLogin() {
-  const accounts = new InMemoryAdminAccountRepository();
+  const users = new InMemoryUserRepository();
   const throttleStore = new InMemoryLoginThrottleStore();
   const sessionStore = new InMemoryDeviceSessionStore();
   const hasher = fakeHasher();
   const clock = fakeClock('2026-07-28T10:00:00Z');
 
-  await new CreateAdminAccount(accounts, hasher, clock, fakeIds()).execute({
+  const owner = await new CreateAdminAccount(users, hasher, clock, fakeIds(), CONTEXT).execute({
     username: USERNAME,
     password: PASSWORD,
   });
 
   const sessions = new DeviceSessionService(sessionStore, clock, fakeIds());
   const login = new AttemptLogin(
-    new VerifyAdminPassword(accounts, hasher),
+    new VerifyUserPassword(users, hasher),
     throttleStore,
     new LoginThrottlePolicy(),
     sessions,
     clock,
   );
-  return { login, sessionStore, clock };
+  return { login, sessionStore, clock, owner };
 }
 
 describe('AttemptLogin', () => {
   let login: AttemptLogin;
   let sessionStore: InMemoryDeviceSessionStore;
   let clock: ReturnType<typeof fakeClock>;
+  let owner: Awaited<ReturnType<typeof makeLogin>>['owner'];
 
   beforeEach(async () => {
-    ({ login, sessionStore, clock } = await makeLogin());
+    ({ login, sessionStore, clock, owner } = await makeLogin());
   });
 
-  it('succeeds with correct credentials', async () => {
+  it('succeeds with correct credentials and returns the resolved user identity', async () => {
     const result = await login.execute({ username: USERNAME, password: PASSWORD });
-    expect(result).toEqual({ outcome: 'success' });
+    expect(result).toEqual({
+      outcome: 'success',
+      user: { userId: owner.id, username: USERNAME, role: 'owner' },
+    });
   });
 
   it('remembers the device only when the toggle is on', async () => {
@@ -109,7 +119,7 @@ describe('AttemptLogin', () => {
     clock.advance(LOCKOUT_DURATION_MS + 1);
 
     const result = await login.execute({ username: USERNAME, password: PASSWORD });
-    expect(result).toEqual({ outcome: 'success' });
+    expect(result).toMatchObject({ outcome: 'success' });
   });
 
   it('gives a full fresh set of attempts after the cooldown', async () => {
