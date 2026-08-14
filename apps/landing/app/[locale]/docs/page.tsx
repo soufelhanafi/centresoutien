@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { hasLocale } from "next-intl";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { StaticArticle } from "@/components/legal/static-article";
+import { Header } from "@/components/sections/header";
+import { Footer } from "@/components/sections/footer";
 import { SITE_URL } from "@/lib/structured-data";
 
 export function generateStaticParams() {
@@ -60,12 +62,17 @@ export default async function DocsPage({
   if (!hasLocale(routing.locales, locale)) {
     notFound();
   }
+  setRequestLocale(locale);
   return (
-    <StaticArticle
-      locale={locale}
-      namespace="docs"
-      path="/docs"
-      sections={SECTIONS}
-    />
+    <>
+      <Header />
+      <StaticArticle
+        locale={locale}
+        namespace="docs"
+        path="/docs"
+        sections={SECTIONS}
+      />
+      <Footer />
+    </>
   );
 }
