@@ -13,6 +13,7 @@
     "parents": "Parents",
     "subjects": "Matières",
     "formulas": "Formules",
+    "niveaux": "Niveaux",
     "groups": "Groupes",
     "rooms": "Salles",
     "planning": "Planning",
@@ -294,6 +295,9 @@
     "subject-in-use": "Cette matière est utilisée par au moins un groupe et ne peut pas être supprimée",
     "subject-not-found": "Cette matière est introuvable",
     "duplicate-subject-code": "Ce code est déjà utilisé par une autre matière",
+    "niveau-in-use": "Ce niveau est utilisé par au moins un élève, un groupe ou un enseignant",
+    "niveau-not-found": "Ce niveau est introuvable",
+    "duplicate-niveau-code": "Ce code est déjà utilisé par un autre niveau",
     "formula-immutable": "Cette formule a déjà été facturée et ne peut plus être modifiée. Dupliquez-la pour changer le prix, les matières ou le nom.",
     "formula-not-found": "Cette formule est introuvable",
     "formula-subject-not-found": "Une matière de cette formule est introuvable",
@@ -686,6 +690,92 @@
       "blockedBody_other": "« {{name}} » est utilisée par {{count, number}} éléments. Détachez-les d'abord, ou désactivez la matière à la place :",
       "referenceItem": "{{kind}} — {{label}}",
       "deactivateInstead": "Désactiver la matière"
+    }
+  },
+  "niveaux": {
+    "title": "Niveaux",
+    "subtitle": "Les niveaux scolaires du système marocain, utilisés pour les élèves, les groupes et les enseignants.",
+    "new": "Ajouter un niveau",
+    "category": {
+      "primaire": "Primaire",
+      "college": "Collège",
+      "lycee": "Lycée",
+      "emptyTitle": "Aucun niveau {{category}}",
+      "emptyBody": "Ajoutez un niveau en cliquant sur « Ajouter un niveau »."
+    },
+    "table": {
+      "code": "Code",
+      "name": "Nom",
+      "state": "État",
+      "usage": "Utilisation",
+      "actions": "Actions",
+      "noCode": "—"
+    },
+    "state": {
+      "active": "Actif",
+      "inactive": "Inactif"
+    },
+    "row": {
+      "menu": "Actions du niveau « {{name}} »",
+      "edit": "Modifier",
+      "deactivate": "Désactiver",
+      "activate": "Réactiver",
+      "deactivateBlockedHint": "Niveau utilisé — la désactivation affichera un avertissement."
+    },
+    "field": {
+      "label": "Niveau",
+      "placeholder": "Sélectionner un niveau",
+      "none": "Pas encore de niveau",
+      "teacherLabel": "Niveaux enseignés",
+      "loadError": "Impossible de charger les niveaux.",
+      "empty": "Aucun niveau disponible.",
+      "inactive": "inactif"
+    },
+    "filters": {
+      "label": "Filtrer par niveau",
+      "all": "Tous les niveaux"
+    },
+    "empty": {
+      "title": "Aucun niveau pour l'instant",
+      "body": "Ajoutez votre premier niveau pour structurer les élèves, les groupes et les enseignants.",
+      "cta": "Ajouter un niveau"
+    },
+    "loadError": {
+      "title": "Impossible de charger les niveaux",
+      "body": "Le chargement de la liste a échoué.",
+      "retry": "Réessayer"
+    },
+    "form": {
+      "createTitle": "Nouveau niveau",
+      "editTitle": "Modifier le niveau",
+      "createDescription": "Renseignez le nom bilingue, un code court et la catégorie.",
+      "editDescription": "Mettez à jour le nom, le code ou la catégorie du niveau.",
+      "nameFr": "Nom (français)",
+      "nameAr": "Nom (arabe)",
+      "code": "Code (optionnel)",
+      "codePlaceholder": "ex. 2BAC-SVT",
+      "codeHint": "Majuscules, chiffres, - et _ uniquement. Laissez vide si inutile.",
+      "category": "Catégorie",
+      "categoryPlaceholder": "Sélectionner une catégorie",
+      "create": "Créer le niveau",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "createSuccess": "Niveau créé",
+      "editSuccess": "Modifications enregistrées",
+      "error": "L'enregistrement a échoué. Réessayez."
+    },
+    "activate": {
+      "success": "Niveau réactivé",
+      "error": "La réactivation a échoué. Réessayez."
+    },
+    "deactivate": {
+      "success": "Niveau désactivé",
+      "error": "La désactivation a échoué. Réessayez.",
+      "title": "Désactiver « {{name}} » ?",
+      "inUseBody": "« {{name}} » est utilisé par {{students, number}} élève(s), {{groups, number}} groupe(s) et {{teachers, number}} enseignant(s). Le désactiver le masquera des nouveaux choix sans supprimer ces références.",
+      "confirm": "Désactiver",
+      "cancel": "Annuler"
     }
   },
   "formulas": {
