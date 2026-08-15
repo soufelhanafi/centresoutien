@@ -3,6 +3,7 @@ import type {
   Teacher,
   TeacherId,
   SubjectId,
+  NiveauId,
   TeacherRepository,
   PhoneNumber,
   CenterCode,
@@ -27,6 +28,7 @@ type TeacherRow = {
   phone: string;
   email: string | null;
   subject_ids: string;
+  niveau_ids: string;
   active: number;
 };
 
@@ -35,6 +37,13 @@ function parseSubjectIds(json: string): SubjectId[] {
   const parsed: unknown = JSON.parse(json);
   if (!Array.isArray(parsed)) return [];
   return parsed.filter((value): value is string => typeof value === 'string') as SubjectId[];
+}
+
+/** Parse the stored JSON niveau array back into branded NiveauIds. */
+function parseNiveauIds(json: string): NiveauId[] {
+  const parsed: unknown = JSON.parse(json);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter((value): value is string => typeof value === 'string') as NiveauId[];
 }
 
 function fromRow(row: TeacherRow): Teacher {
@@ -53,6 +62,7 @@ function fromRow(row: TeacherRow): Teacher {
     phone: row.phone as PhoneNumber,
     email: row.email,
     subjectIds: parseSubjectIds(row.subject_ids),
+    niveauIds: parseNiveauIds(row.niveau_ids),
     active: row.active === 1,
   };
 }
@@ -61,11 +71,11 @@ const SAVE_SQL = `
   INSERT INTO teachers
     (id, center_code, device_origin, created_at, updated_at, updated_by,
      deleted_at, version, natural_key, name_fr, name_ar, cin, phone, email,
-     subject_ids, active)
+     subject_ids, niveau_ids, active)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
      @deleted_at, @version, @natural_key, @name_fr, @name_ar, @cin, @phone, @email,
-     @subject_ids, @active)
+     @subject_ids, @niveau_ids, @active)
   ON CONFLICT(id) DO UPDATE SET
     updated_at  = excluded.updated_at,
     updated_by  = excluded.updated_by,
@@ -77,6 +87,7 @@ const SAVE_SQL = `
     phone       = excluded.phone,
     email       = excluded.email,
     subject_ids = excluded.subject_ids,
+    niveau_ids  = excluded.niveau_ids,
     active      = excluded.active
 `;
 
@@ -107,6 +118,7 @@ export class SqliteTeacherRepository implements TeacherRepository {
       phone: teacher.phone,
       email: teacher.email,
       subject_ids: JSON.stringify(teacher.subjectIds),
+      niveau_ids: JSON.stringify(teacher.niveauIds),
       active: teacher.active ? 1 : 0,
     });
   }

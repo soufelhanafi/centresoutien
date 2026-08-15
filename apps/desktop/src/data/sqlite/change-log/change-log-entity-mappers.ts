@@ -3,6 +3,7 @@ import type {
   CenterCode,
   CenterHoursOverride,
   DeviceId,
+  Niveau,
   Payment,
   Session,
   Subject,
@@ -142,6 +143,25 @@ function subjectEntityToRow(entity: unknown): Record<string, unknown> {
   };
 }
 
+function niveauEntityToRow(entity: unknown): Record<string, unknown> {
+  const niveau = entity as Niveau;
+  return {
+    id: niveau.id,
+    center_code: niveau.centerCode,
+    device_origin: niveau.deviceOrigin,
+    created_at: toIsoString(niveau.createdAt),
+    updated_at: toIsoString(niveau.updatedAt),
+    updated_by: niveau.updatedBy,
+    deleted_at: niveau.deletedAt === null ? null : toIsoString(niveau.deletedAt),
+    version: niveau.version,
+    name_fr: niveau.name.fr,
+    name_ar: niveau.name.ar,
+    code: niveau.code,
+    category: niveau.category,
+    active: niveau.active ? 1 : 0,
+  };
+}
+
 function toIsoString(value: Date | string): string {
   return typeof value === 'string' ? value : value.toISOString();
 }
@@ -233,6 +253,9 @@ function paymentEntityToRow(entity: unknown): Record<string, unknown> {
 // Default registration: `subjects` is the first repo-written entityType in the
 // log (SOU-79 representative slice); its payload is the nested domain Subject.
 registerChangeLogEntityToRowMapper('subjects', subjectEntityToRow);
+// `niveaux` (SOU-260): the niveau catalog repository logs nested domain Niveaux
+// (bilingual name, category), so sync-apply projects them onto the real columns.
+registerChangeLogEntityToRowMapper('niveaux', niveauEntityToRow);
 // `weekly_recurring_sessions` + `sessions` (SOU-132): the planner grid derives a
 // session's subject/level/kind from the group via the join, so sync-apply must
 // project `groupId` onto `group_id` or laptop B renders the neutral fallback.

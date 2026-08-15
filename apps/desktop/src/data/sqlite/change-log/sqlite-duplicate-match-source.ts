@@ -9,6 +9,7 @@ import type {
   Teacher,
   TeacherId,
   SubjectId,
+  NiveauId,
   PhoneNumber,
   GuardianRelation,
   UserId,
@@ -25,7 +26,7 @@ const SELECT_PARENTS_BY_PHONE = `
 const SELECT_TEACHERS_BY_PHONE = `
   SELECT id, center_code, device_origin, created_at, updated_at, updated_by,
          deleted_at, version, natural_key, name_fr, name_ar, phone, email, cin,
-         subject_ids, active
+         subject_ids, niveau_ids, active
     FROM teachers
    WHERE center_code = ? AND phone = ? AND deleted_at IS NULL
 `;
@@ -33,7 +34,7 @@ const SELECT_TEACHERS_BY_PHONE = `
 const SELECT_STUDENTS_BY_NAME = `
   SELECT id, center_code, device_origin, created_at, updated_at, updated_by,
          deleted_at, version, natural_key, name_fr, name_ar, birth_date, level,
-         school, notes, guardian_ids
+         school, notes, guardian_ids, niveau_id
     FROM students
    WHERE center_code = ? AND deleted_at IS NULL
 `;
@@ -87,6 +88,7 @@ export class SqliteDuplicateMatchSource implements DuplicateMatchSource {
       email: row.email,
       cin: row.cin,
       subjectIds: JSON.parse(row.subject_ids) as SubjectId[],
+      niveauIds: JSON.parse(row.niveau_ids) as NiveauId[],
       active: row.active === 1,
     }));
   }
@@ -115,6 +117,7 @@ export class SqliteDuplicateMatchSource implements DuplicateMatchSource {
       school: row.school,
       notes: row.notes,
       guardianIds: JSON.parse(row.guardian_ids) as ParentId[],
+      niveauId: row.niveau_id === null ? null : (row.niveau_id as NiveauId),
     }));
   }
 }
@@ -152,6 +155,7 @@ type TeacherRow = {
   email: string | null;
   cin: string | null;
   subject_ids: string;
+  niveau_ids: string;
   active: number;
 };
 
@@ -172,4 +176,5 @@ type StudentRow = {
   school: string | null;
   notes: string | null;
   guardian_ids: string;
+  niveau_id: string | null;
 };

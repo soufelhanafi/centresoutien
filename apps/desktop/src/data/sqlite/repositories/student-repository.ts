@@ -3,6 +3,7 @@ import type {
   Student,
   StudentId,
   ParentId,
+  NiveauId,
   StudentRepository,
   CenterCode,
   DeviceId,
@@ -27,6 +28,7 @@ type StudentRow = {
   school: string | null;
   notes: string | null;
   guardian_ids: string;
+  niveau_id: string | null;
 };
 
 /** Parse the stored JSON guardian array back into branded ParentIds. */
@@ -53,6 +55,7 @@ function fromRow(row: StudentRow): Student {
     school: row.school,
     notes: row.notes,
     guardianIds: parseGuardianIds(row.guardian_ids),
+    niveauId: row.niveau_id === null ? null : (row.niveau_id as NiveauId),
   };
 }
 
@@ -60,11 +63,11 @@ const SAVE_SQL = `
   INSERT INTO students
     (id, center_code, device_origin, created_at, updated_at, updated_by,
      deleted_at, version, natural_key, name_fr, name_ar, birth_date, level,
-     school, notes, guardian_ids)
+     school, notes, guardian_ids, niveau_id)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
      @deleted_at, @version, @natural_key, @name_fr, @name_ar, @birth_date, @level,
-     @school, @notes, @guardian_ids)
+     @school, @notes, @guardian_ids, @niveau_id)
   ON CONFLICT(id) DO UPDATE SET
     updated_at  = excluded.updated_at,
     updated_by  = excluded.updated_by,
@@ -76,7 +79,8 @@ const SAVE_SQL = `
     level       = excluded.level,
     school      = excluded.school,
     notes       = excluded.notes,
-    guardian_ids = excluded.guardian_ids
+    guardian_ids = excluded.guardian_ids,
+    niveau_id    = excluded.niveau_id
 `;
 
 /**
@@ -106,6 +110,7 @@ export class SqliteStudentRepository implements StudentRepository {
       school: student.school,
       notes: student.notes,
       guardian_ids: JSON.stringify(student.guardianIds),
+      niveau_id: student.niveauId,
     });
   }
 
