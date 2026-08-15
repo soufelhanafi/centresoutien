@@ -16,7 +16,10 @@ import {
   generatedCandidateToScheduledRef,
   type GeneratedBlockCandidate,
   type GeneratedScheduleConflict,
+  type GeneratorAvailabilityContext,
 } from '../policies/generated-schedule-conflicts';
+import type { TeacherAvailabilityRules } from '../policies/teacher-availability-policy';
+import { WEEKDAYS } from '../value-objects/weekday';
 import { InfeasibleGeneratorConfigError, NoRoomsConfiguredError } from '../errors/session-generator-errors';
 
 /** Which groups and teachers the run targets; the caller resolves `'all'` to concrete ids. */
@@ -113,6 +116,13 @@ export type SessionGenerationInput = {
   readonly rooms: readonly RoomId[];
   readonly centerHours: readonly DayHours[];
   readonly existingSchedule: readonly ScheduledSessionRef[];
+  /**
+   * SOU-259: declared availability per configured teacher — teachers with no
+   * configuration are simply absent and never checked. Optional so callers
+   * without the feature (or its plan flag) pass nothing and the run behaves
+   * exactly as before.
+   */
+  readonly availabilityByTeacher?: ReadonlyMap<EntityId, TeacherAvailabilityRules>;
 };
 
 /**
@@ -148,6 +158,7 @@ type GroupPlacementContext = {
   readonly teacherByGroup: ReadonlyMap<GroupId, EntityId | null>;
   readonly existingSchedule: readonly ScheduledSessionRef[];
   readonly centerHours: readonly DayHours[];
+  readonly availability: GeneratorAvailabilityContext | undefined;
 };
 
 /**
@@ -360,6 +371,7 @@ export class SessionGenerator {
       teacherByGroup: input.teacherByGroup,
       existingSchedule,
       centerHours,
+      availability: this.availabilityContext(input),
     };
 
     const committed: GeneratedBlockCandidate[] = [];
@@ -389,8 +401,32 @@ export class SessionGenerator {
         teacherId: scheduled.teacherId,
       })),
     );
-    const conflicts = detectGeneratedScheduleConflicts(roomedCommitted, existingSchedule, centerHours);
+    const conflicts = detectGeneratedScheduleConflicts(
+      roomedCommitted,
+      existingSchedule,
+      centerHours,
+      context.availability,
+    );
     return { proposals, conflicts };
+  }
+
+  /**
+   * Folds the caller's per-teacher rules into the detection pass's context
+   * (SOU-259): resolves the run's materialization window once per weekday — the
+   * `occurrenceCount` range variant ends on a different date per weekday — so
+   * the exception check never re-derives dates per candidate. `undefined` when
+   * no teacher has anything configured, which skips the check entirely.
+   */
+  private availabilityContext(input: SessionGenerationInput): GeneratorAvailabilityContext | undefined {
+    const rulesByTeacher = input.availabilityByTeacher;
+    if (rulesByTeacher === undefined || rulesByTeacher.size === 0) return undefined;
+    const rangeByWeekday = new Map<WeekdayIndex, DateRange>(
+      WEEKDAYS.map((weekday) => [
+        weekday,
+        resolveGeneratorMaterializationRange(input.config.range, weekday),
+      ]),
+    );
+    return { rulesByTeacher, rangeByWeekday };
   }
 
   /**
@@ -570,6 +606,7 @@ export class SessionGenerator {
       candidates,
       [...context.existingSchedule, ...priorRuns],
       context.centerHours,
+      context.availability,
     );
     return conflicts.length === 0;
   }

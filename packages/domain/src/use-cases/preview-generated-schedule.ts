@@ -1,16 +1,20 @@
 import type { GroupRepository } from '../ports/group-repository';
 import type { RoomRepository } from '../ports/room-repository';
 import type { CenterHoursRepository } from '../ports/center-hours-repository';
+import type { TeacherAvailabilityRepository } from '../ports/teacher-availability-repository';
+import type { TeacherAvailabilityExceptionRepository } from '../ports/teacher-availability-exception-repository';
 import type { WeeklyRecurringSessionRepository } from '../ports/weekly-recurring-session-repository';
 import type { PlanPolicy } from '../plans/plan-policy';
-import type { CenterCode, EntityId } from '../value-objects/ids';
-import type { WeekdayIndex } from '../value-objects/weekday';
+import { toEntityId, type CenterCode, type EntityId } from '../value-objects/ids';
+import { WEEKDAYS, type WeekdayIndex } from '../value-objects/weekday';
 import type { Group, GroupId } from '../entities/group';
 import type { ScheduledSessionRef } from '../errors/scheduling-errors';
-import type {
-  SessionGenerator,
-  SessionGeneratorConfig,
-  SessionGeneratorResult,
+import type { TeacherAvailabilityRules } from '../policies/teacher-availability-policy';
+import {
+  resolveGeneratorMaterializationRange,
+  type SessionGenerator,
+  type SessionGeneratorConfig,
+  type SessionGeneratorResult,
 } from '../services/session-generator';
 import { resolveWeek } from './weekly-session-scheduling';
 
@@ -39,6 +43,8 @@ export class PreviewGeneratedSchedule {
     private readonly rooms: RoomRepository,
     private readonly centerHours: CenterHoursRepository,
     private readonly recurrences: WeeklyRecurringSessionRepository,
+    private readonly availability: TeacherAvailabilityRepository,
+    private readonly availabilityExceptions: TeacherAvailabilityExceptionRepository,
     private readonly generator: SessionGenerator,
     private readonly plan: PlanPolicy,
   ) {}
@@ -55,6 +61,7 @@ export class PreviewGeneratedSchedule {
     const rooms = (await this.rooms.listActive(centerCode)).map((room) => room.id);
     const centerHours = resolveWeek(await this.centerHours.listForCenter(centerCode));
     const existingSchedule = await this.loadExistingSchedule(centerCode, config);
+    const availabilityByTeacher = await this.loadAvailability(centerCode, teacherByGroup, config);
 
     return this.generator.generate({
       config,
@@ -63,7 +70,60 @@ export class PreviewGeneratedSchedule {
       rooms,
       centerHours,
       existingSchedule,
+      availabilityByTeacher,
     });
+  }
+
+  /**
+   * SOU-259: the declared availability of every teacher staffing a scoped group
+   * — weekly windows plus one-off absences overlapping the run's widest
+   * materialization span (the `occurrenceCount` range variant ends latest on
+   * whichever weekday lands last, so the span is the max across all seven).
+   * Skipped entirely — teachers read as unrestricted — when the plan lacks
+   * `planning.teacher-availability`: the generator's warning layer is a paid
+   * convenience, unlike the hard conflict checks that always run.
+   */
+  private async loadAvailability(
+    centerCode: CenterCode,
+    teacherByGroup: ReadonlyMap<GroupId, EntityId | null>,
+    config: SessionGeneratorConfig,
+  ): Promise<ReadonlyMap<EntityId, TeacherAvailabilityRules>> {
+    const rulesByTeacher = new Map<EntityId, TeacherAvailabilityRules>();
+    if (!this.plan.has('planning.teacher-availability')) return rulesByTeacher;
+    const scopedTeachers = new Set(
+      [...teacherByGroup.values()].filter((teacherId): teacherId is EntityId => teacherId !== null),
+    );
+    if (scopedTeachers.size === 0) return rulesByTeacher;
+
+    const span = this.materializationSpan(config);
+    const [weeklyRows, exceptionRows] = await Promise.all([
+      this.availability.listForCenter(centerCode),
+      this.availabilityExceptions.listOverlapping(centerCode, span.start, span.end),
+    ]);
+
+    for (const row of weeklyRows) {
+      const teacherId = toEntityId(row.teacherId);
+      if (!scopedTeachers.has(teacherId)) continue;
+      rulesByTeacher.set(teacherId, { weeklyWindows: row.weeklyWindows, exceptions: [] });
+    }
+    for (const row of exceptionRows) {
+      const teacherId = toEntityId(row.teacherId);
+      if (!scopedTeachers.has(teacherId)) continue;
+      const rules = rulesByTeacher.get(teacherId) ?? { weeklyWindows: null, exceptions: [] };
+      rulesByTeacher.set(teacherId, {
+        weeklyWindows: rules.weeklyWindows,
+        exceptions: [...rules.exceptions, row.dateRange],
+      });
+    }
+    return rulesByTeacher;
+  }
+
+  /** The widest `[start, end]` the run can materialize over, across all weekdays. */
+  private materializationSpan(config: SessionGeneratorConfig): { start: string; end: string } {
+    const ends = WEEKDAYS.map(
+      (weekday) => resolveGeneratorMaterializationRange(config.range, weekday).end,
+    );
+    return { start: config.range.startDate, end: ends.reduce((a, b) => (a > b ? a : b)) };
   }
 
   /**
