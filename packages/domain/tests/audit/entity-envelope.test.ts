@@ -28,6 +28,16 @@ const LOCAL_ENTITY_FILES = [
 
 const HELPER_FILES = ['envelope.ts', 'write.ts'];
 
+/**
+ * Synced entities whose branded id is the shared {@link UserId} defined in
+ * `value-objects/ids` rather than a fresh per-entity brand. A `User`'s id IS the
+ * same brand every envelope's `updatedBy` references — the acting user in the
+ * conflict UI is a row in this table (SOU-252) — so it reuses that brand instead
+ * of redefining an identical one. They still declare a ULID prefix and a branded
+ * `readonly id`; only the local `Brand<string, …>` definition is delegated.
+ */
+const SHARED_ID_BRAND_FILES = ['user.ts'];
+
 function entityFiles(): string[] {
   return readdirSync(ENTITIES_DIR).filter(
     (filename) => filename.endsWith('.ts') && !HELPER_FILES.includes(filename),
@@ -101,6 +111,12 @@ describe('Sync-safe entity envelope audit', () => {
         });
 
         test('defines at least one branded ID type', () => {
+          if (SHARED_ID_BRAND_FILES.includes(filename)) {
+            // Its branded id is the shared UserId from value-objects/ids — see
+            // SHARED_ID_BRAND_FILES. It still imports that brand for `readonly id`.
+            expect(clean).toContain('UserId');
+            return;
+          }
           expect(definesBrandedType(clean)).toBe(true);
         });
 

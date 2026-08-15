@@ -1,49 +1,61 @@
-import type { AdminAccountRepository } from '../ports/admin-account-repository';
+import type { UserRepository } from '../ports/user-repository';
 import type { PasswordHasher } from '../ports/password-hasher';
 import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
+import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import { adminCredentialsSchema, type AdminCredentials } from '../schemas/admin-account';
-import { AdminAccountAlreadyExistsError } from '../errors/auth-errors';
-import {
-  ADMIN_ACCOUNT_ID_PREFIX,
-  type AdminAccount,
-  type AdminAccountId,
-} from '../entities/admin-account';
+import { OwnerAlreadyExistsError } from '../errors/user-errors';
+import { newEnvelope } from '../entities/envelope';
+import { USER_ID_PREFIX, type User } from '../entities/user';
 
 export type CreateAdminAccountInput = AdminCredentials;
 
-/**
- * Creates the single local admin account (SOU-26). Validates credentials with
- * the shared schema (password strength included), enforces the single-admin
- * invariant, and hashes the password through the injected {@link PasswordHasher}
- * — the plaintext is never persisted. Not plan-gated: auth is foundational and
- * present on every plan.
- */
+// Creates the center's owner account on first run (SOU-26, multi-user in SOU-252).
+// The first-run wizard writes a User with `role: 'owner'` and a password set
+// immediately (no setup code — the director chooses their own password here).
+// Validates credentials with the shared schema (password strength included) and
+// hashes through the injected PasswordHasher — the plaintext is never persisted.
+// Not plan-gated: auth is foundational.
+//
+// Enforces the single-owner invariant (OwnerAlreadyExistsError). Per-center
+// username uniqueness is guaranteed by the DB partial-unique index (no separate
+// check here — the owner guard fires first at first-run, so a username check would
+// be dead). `centerCode`/`deviceOrigin` are the bootstrap envelope context;
+// `updatedBy` is the owner's own id, the one self-referential write in the system.
 export class CreateAdminAccount {
   constructor(
-    private readonly accounts: AdminAccountRepository,
+    private readonly users: UserRepository,
     private readonly hasher: PasswordHasher,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    private readonly context: { centerCode: CenterCode; deviceOrigin: DeviceId },
   ) {}
 
-  async execute(input: CreateAdminAccountInput): Promise<AdminAccount> {
+  async execute(input: CreateAdminAccountInput): Promise<User> {
     const { username, password } = adminCredentialsSchema.parse(input);
 
-    if (await this.accounts.exists()) {
-      throw new AdminAccountAlreadyExistsError();
-    }
+    if ((await this.users.findOwner()) !== null) throw new OwnerAlreadyExistsError();
 
-    const now = this.clock.now();
-    const account: AdminAccount = {
-      id: this.ids.next(ADMIN_ACCOUNT_ID_PREFIX) as AdminAccountId,
+    const id = this.ids.next(USER_ID_PREFIX) as UserId;
+    const owner: User = {
+      id,
+      ...newEnvelope(
+        {
+          centerCode: this.context.centerCode,
+          deviceOrigin: this.context.deviceOrigin,
+          updatedBy: id,
+        },
+        this.clock,
+      ),
+      role: 'owner',
       username,
       passwordHash: await this.hasher.hash(password),
-      createdAt: now,
-      updatedAt: now,
+      setupCodeHash: null,
+      setupCodeExpiresAt: null,
+      setupCodeRedeemedAt: null,
     };
 
-    await this.accounts.save(account);
-    return account;
+    await this.users.save(owner);
+    return owner;
   }
 }

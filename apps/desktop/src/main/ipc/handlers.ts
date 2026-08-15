@@ -123,6 +123,8 @@ import type {
   WeeklyRecurringSessionId,
   GenerationBatchId,
   CreateAdminAccount,
+  CreateUser,
+  RedeemSetupCode,
   ChangeAdminPassword,
   SaveCenterHours,
   GetCenterHours,
@@ -269,6 +271,8 @@ export type RecordSessionAttendanceUseCase = Pick<RecordSessionAttendance, 'exec
 export type GetStudentAttendanceReportUseCase = Pick<GetStudentAttendanceReport, 'execute'>;
 export type GetGroupAttendanceSheetUseCase = Pick<GetGroupAttendanceSheet, 'execute'>;
 export type CreateAdminAccountUseCase = Pick<CreateAdminAccount, 'execute'>;
+export type CreateUserUseCase = Pick<CreateUser, 'execute'>;
+export type RedeemSetupCodeUseCase = Pick<RedeemSetupCode, 'execute'>;
 export type ChangeAdminPasswordUseCase = Pick<ChangeAdminPassword, 'execute'>;
 export type SaveCenterHoursUseCase = Pick<SaveCenterHours, 'execute'>;
 export type GetCenterHoursUseCase = Pick<GetCenterHours, 'execute'>;
@@ -868,6 +872,8 @@ export type HandlerDeps = BackupHandlerDeps &
   adminExists: AdminExists;
   adminUsername: () => Promise<string>;
   createAdminAccount: CreateAdminAccountUseCase;
+  createUser: CreateUserUseCase;
+  redeemSetupCode: RedeemSetupCodeUseCase;
   changeAdminPassword: ChangeAdminPasswordUseCase;
   attemptLogin: AttemptLoginUseCase;
   deviceSessions: DeviceSessions;
