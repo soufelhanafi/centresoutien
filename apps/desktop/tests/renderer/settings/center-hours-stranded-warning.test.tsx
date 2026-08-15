@@ -12,10 +12,16 @@ import { planWithout } from '../fakes/plan';
 
 type StrandedResult = Pick<UseQueryResult<readonly StrandedSessionView[]>, 'data'>;
 
-const mockStranded = vi.hoisted(() => ({ result: { data: [] } as StrandedResult }));
+const mockStranded = vi.hoisted(() => ({
+  result: { data: [] } as StrandedResult,
+  spy: vi.fn(),
+}));
 
 vi.mock('../../../src/renderer/hooks/schedule-audit/use-stranded-sessions', () => ({
-  useStrandedSessions: () => mockStranded.result,
+  useStrandedSessions: (options?: { enabled?: boolean }) => {
+    mockStranded.spy(options);
+    return mockStranded.result;
+  },
 }));
 
 // Stub the router Link with a plain anchor so the warning renders synchronously,
@@ -52,6 +58,7 @@ function strandedList(count: number): readonly StrandedSessionView[] {
 
 beforeEach(() => {
   mockStranded.result = { data: [] };
+  mockStranded.spy.mockClear();
   usePlanStore.setState({ planId: 'essentiel', plan: PLANS.essentiel });
 });
 
@@ -69,7 +76,7 @@ describe('CenterHoursStrandedWarning — French', () => {
     const { container } = render(<CenterHoursStrandedWarning />);
 
     expect(container).toBeEmptyDOMElement();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('warns with the singular count and a review CTA to Planning', () => {
@@ -94,12 +101,13 @@ describe('CenterHoursStrandedWarning — French', () => {
     );
   });
 
-  it('renders nothing when the center-hours feature is off', () => {
+  it('renders nothing and keeps the audit query dormant when the feature is off', () => {
     usePlanStore.setState({ plan: planWithout('settings.center-hours') });
     mockStranded.result = { data: strandedList(2) };
     const { container } = render(<CenterHoursStrandedWarning />);
 
     expect(container).toBeEmptyDOMElement();
+    expect(mockStranded.spy).toHaveBeenCalledWith({ enabled: false });
   });
 });
 

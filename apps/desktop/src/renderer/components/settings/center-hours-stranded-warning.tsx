@@ -18,7 +18,7 @@ import { planningModule } from '../../app/nav-items';
 export function CenterHoursStrandedWarning() {
   const { t } = useTranslation();
   const hasCenterHours = useFeature('settings.center-hours');
-  const query = useStrandedSessions();
+  const query = useStrandedSessions({ enabled: hasCenterHours });
   // On a loading/errored audit `data` is undefined and the warning stays hidden:
   // a transient IPC failure must not fabricate a scary count, and the same
   // stranded flag is always reachable from the Planning audit dialog regardless.
