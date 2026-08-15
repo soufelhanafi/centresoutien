@@ -143,6 +143,30 @@ describe('SqliteTeacherAvailabilityRepository', () => {
     });
   });
 
+  describe('two-device convergence (qodo #4)', () => {
+    // Inbound sync projects rows by id (`ON CONFLICT(id)`): when two devices
+    // each created an availability row for the same teacher before their first
+    // sync, BOTH rows must land without a constraint error, and every read must
+    // resolve the same deterministic winner — greatest id, the same rule
+    // `activeOverrideOn` uses — so the fleet converges instead of rejecting.
+    it('accepts two live rows for one teacher and resolves the greatest id everywhere', async () => {
+      const deviceA = makeAvailability({
+        weeklyWindows: { ...emptyWeek(), 1: [win('09:00', '12:00')] },
+      });
+      const deviceB = makeAvailability({
+        weeklyWindows: { ...emptyWeek(), 2: [win('14:00', '18:00')] },
+      });
+      await availabilityRepo.save(deviceA);
+      await availabilityRepo.save(deviceB);
+
+      const winner = await availabilityRepo.findByTeacher(CENTER, TEACHER);
+      expect(winner?.id).toBe(deviceB.id);
+
+      const listed = await availabilityRepo.listForCenter(CENTER);
+      expect(listed.map((row) => row.id)).toEqual([deviceA.id, deviceB.id]);
+    });
+  });
+
   it('appends one change_log row per write with the nested domain payload', async () => {
     const availability = makeAvailability();
     await availabilityRepo.save(availability);
