@@ -33,6 +33,7 @@ export const FEATURE_FLAGS = [
   'io.excel.import',
   'io.excel.sync',
   'planning.custom-grid',
+  'planning.teacher-availability',
   // premium
   'dashboard.advanced',
   'planning.random-auto',
@@ -89,6 +90,7 @@ const sharedFeatures: readonly FeatureFlag[] = [
   'io.excel.import',
   'io.excel.sync',
   'planning.custom-grid',
+  'planning.teacher-availability',
   'dashboard.advanced',
   'planning.random-auto',
   'sync.multi-device',

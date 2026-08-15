@@ -25,5 +25,13 @@
  * schema-handshake path, NOT the local `DatabaseSchemaAheadOfAppError` migration
  * guard — no migration is added here (the table already exists since 0040), so
  * that guard never fires for this change.
+ *
+ * v3 (SOU-259): `teacher_availability` and `teacher_availability_exceptions`
+ * become synced entity types — the same failure mode as v2: the shapes are new
+ * (payload version stays 1, no upcaster), but a pre-SOU-259 app has neither the
+ * tables (migration 0045) nor the registered mappers, so on pull it would
+ * shadow-store the changes, project nothing, and silently advance its cursor —
+ * permanent invisible loss of every synced availability row. The bump makes the
+ * handshake reject that old app loudly ("mise à jour requise") on both sides.
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
