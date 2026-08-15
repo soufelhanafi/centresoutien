@@ -11,7 +11,7 @@ type NiveauIdsFormValue = { niveauIds?: string[] };
 /**
  * Level multi-select for the teacher create/edit form (SOU-260), bound to the
  * `niveauIds` field. Reads the form methods from context; options come from
- * `niveau.listActive`. A since-deactivated level that a teacher still holds stays
+ * the level options (`niveau.list` with scope `active`). A since-deactivated level that a teacher still holds stays
  * visible (and removable) rather than being silently dropped on save. A checkbox
  * group, mirroring `TeacherSubjectsField`. Covers loading / error / empty states.
  */

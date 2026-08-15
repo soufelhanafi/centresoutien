@@ -1,20 +1,19 @@
-import type { NiveauView, NiveauInput, NiveauUpdateInput, NiveauUsageView } from './niveau-view';
+import type { NiveauInput, NiveauScope, NiveauUpdateInput, NiveauUsageView, NiveauView } from './niveau-view';
 import { ipcNiveauxGateway } from './ipc-niveaux-gateway';
 
 /**
- * The seam the Niveau UI depends on (Dependency Inversion). Hooks call this
- * interface, never `window.api` directly, so the concrete adapter is swappable
- * in one place with no change to any component. Mirrors `SubjectsGateway`.
+ * The seam the niveau-consuming UI depends on (Dependency Inversion). Hooks call
+ * this interface, never `window.api` directly, so the concrete adapter is swappable
+ * in one place with no change to any component. `list` back the manage screen and
+ * the list filters; `listWithUsage` / `create` / `update` back the CRUD screen.
+ * Mirrors `SubjectsGateway`.
  */
 export interface NiveauxGateway {
-  /** Every live level (active and inactive) — for filters and the manage screen. */
-  list(): Promise<readonly NiveauView[]>;
-  /** The assignable picker set — for form selects. */
-  listActive(): Promise<readonly NiveauView[]>;
-  /** Every level paired with its reference counts — for the manage screen + archive guard. */
+  list(scope: NiveauScope): Promise<readonly NiveauView[]>;
+  get(id: string): Promise<NiveauView | null>;
   listWithUsage(): Promise<readonly NiveauUsageView[]>;
   create(input: NiveauInput): Promise<NiveauView>;
-  update(input: NiveauUpdateInput): Promise<NiveauView>;
+  update(id: string, input: NiveauUpdateInput): Promise<NiveauView>;
 }
 
 /** The active gateway: the real IPC adapter. Swapping it is this one line. */

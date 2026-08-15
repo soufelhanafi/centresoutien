@@ -93,7 +93,6 @@ const studentViewSchema = z.object({
   school: z.string().nullable(),
   notes: z.string().nullable(),
   guardianIds: z.array(z.string()),
-  niveauId: z.string().nullable().optional(),
   archived: z.boolean(),
   createdAt: z.string(),
   version: z.number().int(),
@@ -139,7 +138,6 @@ const groupViewSchema = z.object({
   id: z.string(),
   subjectId: z.string(),
   teacherId: z.string().nullable(),
-  niveauId: z.string().nullable().optional(),
   level: z.string(),
   // SOU-260: the level-taxonomy link. Optional until the domain-backend merge
   // populates it; the renderer reads `group.niveauId ?? null`.
@@ -149,6 +147,7 @@ const groupViewSchema = z.object({
   archived: z.boolean(),
   createdAt: z.string(),
 });
+
 
 // The group list enriched with its live enrollment count (SOU-127) — `groupView`
 // plus `enrolledCount`, so the list screen renders fill % = enrolledCount /
@@ -2304,7 +2303,10 @@ export type InvoiceListItemDto = z.infer<typeof invoiceListItemViewSchema>;
 
 /** The Teacher boundary DTO — the renderer's `TeacherView` is an alias of this. */
 export type TeacherDto = z.infer<typeof teacherViewSchema>;
-
+/** The Niveau boundary DTO — the renderer's `NiveauView` is an alias of this. */
+export type NiveauDto = z.infer<typeof niveauViewSchema>;
+/** A Niveau with its in-use reference breakdown — the renderer's `NiveauUsageView` aliases this. */
+export type NiveauUsageDto = z.infer<typeof niveauUsageViewSchema>;
 /** One command-palette result — the renderer's `PersonSearchResultView` aliases this. */
 export type PersonSearchResultDto = z.infer<typeof personSearchResultSchema>;
 

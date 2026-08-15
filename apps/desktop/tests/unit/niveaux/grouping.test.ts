@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { NiveauUsage } from '../../../src/renderer/lib/niveau-contract';
+import type { NiveauUsageView } from '../../../src/renderer/lib/niveaux/niveau-view';
 import { groupNiveauxByCategory, totalNiveauUsage } from '../../../src/renderer/lib/niveaux/grouping';
 
-function usage(id: string, category: NiveauUsage['niveau']['category'], code: string | null): NiveauUsage {
+function usage(id: string, category: NiveauUsageView['niveau']['category'], code: string | null): NiveauUsageView {
   return {
     niveau: {
       id: `niv_${id}`,
@@ -11,13 +11,13 @@ function usage(id: string, category: NiveauUsage['niveau']['category'], code: st
       category,
       active: true,
     },
-    studentCount: 0,
-    groupCount: 0,
-    teacherCount: 0,
+    inUseCount: 0,
+    canDelete: true,
+    references: [],
   };
 }
 
-const rows: NiveauUsage[] = [
+const rows: NiveauUsageView[] = [
   usage('1ac', 'college', '1AC'),
   usage('2ac', 'college', '2AC'),
   usage('1ap', 'primaire', '1AP'),
@@ -53,14 +53,7 @@ describe('groupNiveauxByCategory', () => {
 });
 
 describe('totalNiveauUsage', () => {
-  it('sums the three reference kinds', () => {
-    expect(
-      totalNiveauUsage({
-        niveau: usage('x', 'primaire', '1AP').niveau,
-        studentCount: 2,
-        groupCount: 3,
-        teacherCount: 1,
-      }),
-    ).toBe(6);
+  it('reads the in-use count', () => {
+    expect(totalNiveauUsage({ ...usage('x', 'primaire', '1AP'), inUseCount: 6, canDelete: false })).toBe(6);
   });
 });

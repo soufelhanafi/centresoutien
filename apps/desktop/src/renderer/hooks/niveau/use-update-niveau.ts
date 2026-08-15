@@ -12,8 +12,8 @@ import { niveauKeys } from './keys';
 export function useUpdateNiveau(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: Omit<NiveauUpdateInput, 'id'>) =>
-      niveauxGateway.update({ ...input, id }),
+    mutationFn: (input: NiveauUpdateInput) =>
+      niveauxGateway.update(id, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: niveauKeys.all }),
   });
 }

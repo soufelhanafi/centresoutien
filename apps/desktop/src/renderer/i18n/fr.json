@@ -773,9 +773,16 @@
       "success": "Niveau désactivé",
       "error": "La désactivation a échoué. Réessayez.",
       "title": "Désactiver « {{name}} » ?",
-      "inUseBody": "« {{name}} » est utilisé par {{students, number}} élève(s), {{groups, number}} groupe(s) et {{teachers, number}} enseignant(s). Le désactiver le masquera des nouveaux choix sans supprimer ces références.",
+      "inUseBody_one": "« {{name}} » est utilisé par {{count, number}} élément. Le désactiver le masquera des nouveaux choix sans supprimer ces références :",
+      "inUseBody_other": "« {{name}} » est utilisé par {{count, number}} éléments. Le désactiver le masquera des nouveaux choix sans supprimer ces références :",
+      "referenceItem": "{{kind}} — {{label}}",
       "confirm": "Désactiver",
       "cancel": "Annuler"
+    },
+    "referenceKind": {
+      "student": "Élève",
+      "group": "Groupe",
+      "teacher": "Enseignant"
     }
   },
   "formulas": {
@@ -1720,6 +1727,7 @@
         "coreStudents": "Gestion des élèves",
         "coreGroups": "Gestion des groupes",
         "coreSubjects": "Gestion des matières",
+        "coreNiveaux": "Niveaux scolaires",
         "coreFormulas": "Gestion des formules",
         "coreCalendarWeek": "Planning hebdomadaire",
         "coreInvoicing": "Facturation mensuelle",

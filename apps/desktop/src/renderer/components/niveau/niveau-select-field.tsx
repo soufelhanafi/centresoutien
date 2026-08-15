@@ -30,7 +30,7 @@ type NiveauIdFormValue = { niveauId?: string | null };
  * Single-level select for the student and group forms, bound to the `niveauId`
  * field (nullable — the "no level yet" option maps to `null`). Reads the form
  * methods from context (the `Form` wrapper is a `FormProvider`); options come
- * from `niveau.listActive`.
+ * from the level options (`niveau.list` with scope `active`).
  */
 export function NiveauSelectField() {
   const { t, i18n } = useTranslation();

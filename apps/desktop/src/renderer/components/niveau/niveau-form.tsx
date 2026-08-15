@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
-import { niveauInputSchema, NIVEAU_CATEGORIES, NIVEAU_CODE_MAX, type NiveauCategory } from '../../lib/niveau-contract';
+import { NIVEAU_CATEGORIES, NIVEAU_CODE_MAX, niveauInputSchema, type NiveauCategory } from '@centresoutien/domain';
 
 /** Pre-transform shape RHF holds (empty strings), vs the parsed output. */
 export type NiveauFormInput = z.input<typeof niveauInputSchema>;
