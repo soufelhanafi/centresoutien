@@ -38,9 +38,14 @@ export type DayHours = Pick<CenterHours, 'dayOfWeek' | 'windows'>;
 /**
  * Strict half-open overlap: two intervals clash only when each starts before the
  * other ends. Touching endpoints (back-to-back, `end === start`) do **not**
- * overlap; a single shared minute does.
+ * overlap; a single shared minute does. Exported (SOU-261) so the session
+ * generator's collision-aware room draw shares the exact same rule as the
+ * conflict checks below — one definition, no drift.
  */
-function strictlyOverlaps(a: SessionTimeCandidate, b: ScheduledSessionRef): boolean {
+export function strictlyOverlaps(
+  a: { readonly start: TimeOfDay; readonly end: TimeOfDay },
+  b: { readonly start: TimeOfDay; readonly end: TimeOfDay },
+): boolean {
   return toMinutes(a.start) < toMinutes(b.end) && toMinutes(b.start) < toMinutes(a.end);
 }
 

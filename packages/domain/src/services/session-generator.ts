@@ -7,7 +7,7 @@ import type { GroupId, GroupKind } from '../entities/group';
 import type { TeacherId } from '../entities/teacher';
 import type { RoomId } from '../entities/room';
 import type { ScheduledSessionRef } from '../errors/scheduling-errors';
-import type { DayHours } from '../policies/session-conflict-policy';
+import { strictlyOverlaps, type DayHours } from '../policies/session-conflict-policy';
 import { weeklyBlockInFittingWindow, type WeeklyBlock } from '../value-objects/weekly-block';
 import { gapViolations, satisfiesMinGap, type WeekdayGap } from '../policies/weekday-gap';
 import { endDateAfterWeekdayOccurrences, type DateRange } from '../value-objects/date-range';
@@ -165,31 +165,59 @@ export type UnroomedBlock = {
 };
 
 /**
- * Assigns a room to every entry in `blocks`, in list order, drawing from
- * `rooms` via `random` — except when the same teacher already has another
- * entry in this same list back-to-back on the same weekday (one block's `end`
- * equals another's `start`), in which case the later block reuses the earlier
- * one's room rather than drawing a fresh one. Chains longer than two blocks
- * propagate the same room through every link. This reasoning is intra-batch
- * only: `blocks` is the full set generated in one run, nothing outside it is
- * consulted. Throws {@link NoRoomsConfiguredError} when `blocks` is non-empty
- * and `rooms` is empty — every generated block needs a room.
+ * Assigns a room to every entry in `blocks`, in list order, drawing via
+ * `random` from the rooms still **free at that entry's weekday+time** (SOU-261):
+ * a room already given to an overlapping sibling in this same batch, or held by
+ * an overlapping `occupied` ref from the real committed schedule, is excluded
+ * from the draw. Only when every room is taken at that slot does the draw fall
+ * back to the full pool — the resulting double-booking is then surfaced by
+ * {@link detectGeneratedScheduleConflicts}, never silently avoided by dropping
+ * the block. Back-to-back continuity still wins over the free-room draw: when
+ * the same teacher has another entry in this list back-to-back on the same
+ * weekday (one block's `end` equals another's `start`), the later block reuses
+ * the earlier one's room, chains propagating through every link. Throws
+ * {@link NoRoomsConfiguredError} when `blocks` is non-empty and `rooms` is
+ * empty — every generated block needs a room.
  */
 export function assignRoomsToBlocks(
   blocks: readonly UnroomedBlock[],
   rooms: readonly RoomId[],
   random: RandomPort,
+  occupied: readonly ScheduledSessionRef[] = [],
 ): ReadonlyMap<WeeklyBlock, RoomId> {
   if (blocks.length === 0) return new Map();
   if (rooms.length === 0) throw new NoRoomsConfiguredError();
 
   const predecessorOf = linkBackToBackChains(blocks);
   const roomByEntry = new Map<UnroomedBlock, RoomId>();
+
+  const roomsTakenAtSlot = (entry: UnroomedBlock): ReadonlySet<RoomId> => {
+    const taken = new Set<RoomId>();
+    for (const [sibling, roomId] of roomByEntry) {
+      if (sibling.block.dayOfWeek === entry.block.dayOfWeek && strictlyOverlaps(sibling.block, entry.block)) {
+        taken.add(roomId);
+      }
+    }
+    for (const ref of occupied) {
+      if (ref.dayOfWeek === entry.block.dayOfWeek && strictlyOverlaps(ref, entry.block)) {
+        taken.add(ref.roomId);
+      }
+    }
+    return taken;
+  };
+
+  const drawFreeRoom = (entry: UnroomedBlock): RoomId => {
+    const taken = roomsTakenAtSlot(entry);
+    const free = rooms.filter((roomId) => !taken.has(roomId));
+    const pool = free.length > 0 ? free : rooms;
+    return pool[random.nextInt(pool.length)]!;
+  };
+
   const resolveRoom = (entry: UnroomedBlock): RoomId => {
     const cached = roomByEntry.get(entry);
     if (cached !== undefined) return cached;
     const predecessor = predecessorOf.get(entry) ?? null;
-    const roomId = predecessor !== null ? resolveRoom(predecessor) : rooms[random.nextInt(rooms.length)]!;
+    const roomId = predecessor !== null ? resolveRoom(predecessor) : drawFreeRoom(entry);
     roomByEntry.set(entry, roomId);
     return roomId;
   };
@@ -251,13 +279,14 @@ function linkBackToBackChains(entries: readonly UnroomedBlock[]): ReadonlyMap<Un
  * the later block reuses the earlier block's room instead of drawing a fresh
  * one, so the teacher never switches rooms between consecutive classes even when
  * those classes belong to different groups. Rooming the whole run together — not
- * group by group — is what lets that continuity chain span groups. This
- * reasoning is **intra-batch only**: it never reads the real, already-committed
- * schedule, so a room draw here can still land on one already occupied by an
- * existing session or by another group's proposal in this same run. Catching
- * that is the final pass, {@link detectGeneratedScheduleConflicts} (SOU-161),
- * run over the re-roomed blocks — it never changes the picked room, only reports
- * the clash for the caller to act on.
+ * group by group — is what lets that continuity chain span groups. Every draw is
+ * **collision-aware** (SOU-261): it only picks among rooms free at that block's
+ * weekday+time, counting both sibling blocks in this run and the real committed
+ * schedule, and falls back to the full pool only when no room is free — a
+ * genuine over-capacity slot. The final pass,
+ * {@link detectGeneratedScheduleConflicts} (SOU-161), still runs over the
+ * re-roomed blocks and reports any remaining clash (fallback draws, chain
+ * overrides) for the caller to act on — it never changes the picked room.
  *
  * Randomization runs through the injected {@link RandomPort}, never
  * `Math.random()`, so a seeded fake makes every test deterministic. Each
@@ -271,7 +300,11 @@ function linkBackToBackChains(entries: readonly UnroomedBlock[]): ReadonlyMap<Un
  * (SOU-161, via {@link detectGeneratedScheduleConflicts}) is a center-hours
  * overrun plus room/teacher double-booking against the real committed schedule
  * or against a sibling proposal in the same run — reported as
- * non-blocking `conflicts`, never thrown.
+ * non-blocking `conflicts`, never thrown. Auto mode additionally **fails fast**
+ * (SOU-261) on two configs that cannot fit at all: a session duration no
+ * opening window on any pool day can hold (`duration-exceeds-windows`), and a
+ * weekly demand beyond the center's one-slot-per-weekday room capacity
+ * (`room-capacity-exceeded`).
  */
 export class SessionGenerator {
   constructor(private readonly random: RandomPort) {}
@@ -279,7 +312,10 @@ export class SessionGenerator {
   generate(input: SessionGenerationInput): SessionGeneratorResult {
     const { config, groups, centerHours, existingSchedule } = input;
     const windowsByWeekday = this.windowsByWeekday(centerHours);
-    const eligiblePool = [...new Set(config.weekdayPool)].filter((day) => windowsByWeekday.has(day));
+    const openPool = [...new Set(config.weekdayPool)].filter((day) => windowsByWeekday.has(day));
+    const eligiblePool =
+      config.mode === 'auto' ? this.poolFittingDuration(openPool, windowsByWeekday, config) : openPool;
+    if (config.mode === 'auto') this.assertRoomCapacity(config, groups, eligiblePool, input.rooms);
     const context: GroupPlacementContext = {
       windowsByWeekday,
       rooms: input.rooms,
@@ -338,7 +374,7 @@ export class SessionGenerator {
         block: scheduled.block,
       })),
     );
-    const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random);
+    const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random, context.existingSchedule);
     return proposals.map((proposal) => ({
       ...proposal,
       blocks: proposal.blocks.map((scheduled) => ({
@@ -347,6 +383,62 @@ export class SessionGenerator {
         teacherId: scheduled.teacherId,
       })),
     }));
+  }
+
+  /**
+   * Drops pool days where no single opening window can hold the session
+   * duration (SOU-261 F4): keeping such a day would anchor a block that is
+   * guaranteed to overrun closing time. When the filter empties a non-empty
+   * pool, the run is infeasible as configured — auto mode throws instead of
+   * generating known-broken blocks. Custom mode never runs this: an admin's
+   * explicit pick is flagged by the conflicts pass, not blocked.
+   */
+  private poolFittingDuration(
+    openPool: readonly WeekdayIndex[],
+    windowsByWeekday: ReadonlyMap<WeekdayIndex, readonly TimeWindow[]>,
+    config: SessionGeneratorConfigBase,
+  ): readonly WeekdayIndex[] {
+    const fitsDuration = (day: WeekdayIndex): boolean =>
+      (windowsByWeekday.get(day) ?? []).some(
+        (window) => toMinutes(window.close) - toMinutes(window.open) >= config.sessionDurationMinutes,
+      );
+    const fittingPool = openPool.filter(fitsDuration);
+    if (openPool.length > 0 && fittingPool.length === 0) {
+      throw new InfeasibleGeneratorConfigError(
+        'duration-exceeds-windows',
+        openPool,
+        config.sessionsPerWeek,
+        config.minGapDays,
+      );
+    }
+    return fittingPool;
+  }
+
+  /**
+   * Fails fast when the run's weekly demand cannot fit the center (SOU-261 F3):
+   * every block anchors at one slot per weekday, so the week holds at most
+   * `eligibleDays × rooms` blocks and `groups × sessionsPerWeek` beyond that is
+   * guaranteed to double-book. Skipped when the per-group pool checks own the
+   * diagnosis (empty rooms → {@link NoRoomsConfiguredError}; pool too small or a
+   * non-positive weekly count → the more actionable per-group reasons).
+   */
+  private assertRoomCapacity(
+    config: SessionGeneratorConfigBase,
+    groups: readonly GroupId[],
+    eligiblePool: readonly WeekdayIndex[],
+    rooms: readonly RoomId[],
+  ): void {
+    const perGroupChecksOwnDiagnosis =
+      rooms.length === 0 || config.sessionsPerWeek < 1 || config.sessionsPerWeek > eligiblePool.length;
+    if (perGroupChecksOwnDiagnosis) return;
+    if (groups.length * config.sessionsPerWeek > eligiblePool.length * rooms.length) {
+      throw new InfeasibleGeneratorConfigError(
+        'room-capacity-exceeded',
+        eligiblePool,
+        config.sessionsPerWeek,
+        config.minGapDays,
+      );
+    }
   }
 
   /**
@@ -368,9 +460,10 @@ export class SessionGenerator {
     committed: readonly GeneratedBlockCandidate[],
   ): GroupScheduleProposal {
     const combinations = this.feasibleCombinations(eligiblePool, config.sessionsPerWeek, config.minGapDays);
+    const occupied = [...context.existingSchedule, ...committed.map(generatedCandidateToScheduledRef)];
     let firstCommittable: readonly ScheduledBlockProposal[] | undefined;
     for (const weekdays of combinations) {
-      const blocks = this.roomBlocksForGroup(groupId, weekdays, config, context);
+      const blocks = this.roomBlocksForGroup(groupId, weekdays, config, context, occupied);
       firstCommittable ??= blocks;
       if (this.isConflictFree(groupId, blocks, context, committed)) {
         return { groupId, blocks, gapViolations: [] };
@@ -386,7 +479,7 @@ export class SessionGenerator {
   ): GroupScheduleProposal {
     return {
       groupId,
-      blocks: this.roomBlocksForGroup(groupId, config.pickedWeekdays, config, context),
+      blocks: this.roomBlocksForGroup(groupId, config.pickedWeekdays, config, context, context.existingSchedule),
       gapViolations: gapViolations(config.pickedWeekdays, config.minGapDays),
     };
   }
@@ -406,11 +499,12 @@ export class SessionGenerator {
     weekdays: readonly WeekdayIndex[],
     config: SessionGeneratorConfigBase,
     context: GroupPlacementContext,
+    occupied: readonly ScheduledSessionRef[],
   ): readonly ScheduledBlockProposal[] {
     const blocks = this.buildBlocks(weekdays, context.windowsByWeekday, config.sessionDurationMinutes);
     const teacherId = context.teacherByGroup.get(groupId) ?? null;
     const entries: UnroomedBlock[] = blocks.map((block) => ({ groupId, teacherId, block }));
-    const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random);
+    const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random, occupied);
     return blocks.map((block) => ({ block, roomId: roomByBlock.get(block)!, teacherId }));
   }
 

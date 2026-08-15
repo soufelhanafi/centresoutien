@@ -5,7 +5,9 @@ import type { WeekdayIndex } from '../value-objects/weekday';
 export type InfeasibleGeneratorReason =
   | 'non-positive-sessions-per-week' // asked for zero (or fewer) sessions a week
   | 'pool-smaller-than-sessions' // fewer eligible weekdays than sessions requested
-  | 'gap-unsatisfiable'; // no placement of the sessions keeps every pair ≥ minGapDays apart
+  | 'gap-unsatisfiable' // no placement of the sessions keeps every pair ≥ minGapDays apart
+  | 'room-capacity-exceeded' // groups × sessionsPerWeek outgrows eligibleDays × rooms (SOU-261)
+  | 'duration-exceeds-windows'; // no opening window on any eligible day fits sessionDurationMinutes (SOU-261)
 
 /**
  * Thrown by the auto mode of the session generator (SOU-158) when no set of
