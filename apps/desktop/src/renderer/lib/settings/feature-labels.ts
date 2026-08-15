@@ -12,6 +12,7 @@ export const FEATURE_LABEL_KEYS: Record<FeatureFlag, string> = {
   'core.students': 'coreStudents',
   'core.groups': 'coreGroups',
   'core.subjects': 'coreSubjects',
+  'core.niveaux': 'coreNiveaux',
   'core.formulas': 'coreFormulas',
   'core.calendar.week': 'coreCalendarWeek',
   'core.invoicing': 'coreInvoicing',

@@ -15,6 +15,12 @@ import {
   GetSubject,
   ListSubjectsWithUsage,
   UpdateSubject,
+  CreateNiveau,
+  UpdateNiveau,
+  ArchiveNiveau,
+  ListNiveaux,
+  GetNiveau,
+  ListNiveauxWithUsage,
   CreateFormula,
   UpdateFormula,
   GetFormula,
@@ -152,6 +158,7 @@ import type {
   IdGenerator,
   RoomReferencePort,
   SubjectReferencePort,
+  NiveauReferencePort,
   TeacherReferencePort,
   StudentSubscriptionReferencePort,
   SyncHubPort,
@@ -177,6 +184,8 @@ import { HubServer } from './hub-server/hub-server';
 import { HttpSyncHubClient } from '../data/sync/http-sync-hub-client';
 import { ChangeLogOutbox } from '../data/sqlite/change-log/change-log-outbox';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
+import { SqliteNiveauRepository } from '../data/sqlite/repositories/niveau-repository';
+import { SqliteNiveauReference } from '../data/sqlite/repositories/niveau-reference';
 import { SqliteChangeLogWriter } from '../data/sqlite/change-log/sqlite-change-log-writer';
 import { SqliteLocalSyncRepository } from '../data/sqlite/change-log/sqlite-sync-local-repository';
 import { SqliteDuplicateMatchSource } from '../data/sqlite/change-log/sqlite-duplicate-match-source';
@@ -602,6 +611,17 @@ export function buildContainer(options: ContainerOptions): Container {
   const getSubject = new GetSubject(subjectRepo, plan);
   const listSubjectsWithUsage = new ListSubjectsWithUsage(subjectRepo, plan);
   const updateSubject = new UpdateSubject(subjectRepo, clock, plan);
+
+  const niveauRepo = new SqliteNiveauRepository(db, changeLog);
+  const createNiveau = new CreateNiveau(niveauRepo, clock, ids, plan);
+  const listNiveaux = new ListNiveaux(niveauRepo, plan);
+  const getNiveau = new GetNiveau(niveauRepo, plan);
+  const listNiveauxWithUsage = new ListNiveauxWithUsage(niveauRepo, plan);
+  const updateNiveau = new UpdateNiveau(niveauRepo, clock, plan);
+  // The niveau in-use guard's real backing: a composite over the live
+  // student / group / teacher reference queries, wired into `ArchiveNiveau`.
+  const niveauReference: NiveauReferencePort = new SqliteNiveauReference(db);
+  const archiveNiveau = new ArchiveNiveau(niveauRepo, niveauReference, clock, plan);
 
   const formulaRepo = new SqliteFormulaRepository(db);
   const createFormula = new CreateFormula(formulaRepo, subjectRepo, clock, ids, plan);
@@ -1283,6 +1303,12 @@ export function buildContainer(options: ContainerOptions): Container {
     getSubject,
     listSubjectsWithUsage,
     updateSubject,
+    createNiveau,
+    updateNiveau,
+    archiveNiveau,
+    listNiveaux,
+    getNiveau,
+    listNiveauxWithUsage,
     createFormula,
     updateFormula,
     getFormula,
