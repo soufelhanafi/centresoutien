@@ -70,5 +70,5 @@ test('Create succeeds with a valid group (success feedback + row appears)', asyn
   ).toHaveCount(0);
   await expect(win.getByText(L.form.createSuccess)).toBeVisible();
   await expect(dialog).toBeHidden();
-  await expect(win.getByRole('row', { name: /2AC/ })).toBeVisible();
+  await expect(win.getByRole('row', { name: niveauName(locale(), '2AC') })).toBeVisible();
 });

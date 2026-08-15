@@ -31,7 +31,7 @@ export const BOOLEAN_COLUMNS = new Set([
 
 /** Domain columns stored as a JSON array string in SQLite, comma-joined in the
  *  workbook (ULIDs contain no commas, so the join is unambiguous). */
-export const JSON_ID_COLUMNS = new Set(['guardianIds', 'subjectIds']);
+export const JSON_ID_COLUMNS = new Set(['guardianIds', 'subjectIds', 'niveauIds']);
 
 /** Columns never rewritten on an upsert conflict — identity, not state.
  *  `version` is the hub-assigned optimistic-concurrency counter: a restore

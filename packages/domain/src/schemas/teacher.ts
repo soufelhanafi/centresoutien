@@ -94,7 +94,10 @@ export const teacherInputSchema = z.object({
   phone: phoneField,
   email: emailField.optional().transform((v) => v ?? null),
   subjectIds: z.array(subjectId).default([]),
-  niveauIds: z.array(niveauId).optional(),
+  // Mirrors `subjectIds`: arrays are full-replacement fields, so an omitted
+  // value defaults to `[]` (never `undefined`) — the same explicit semantics a
+  // caller omitting `subjectIds` already gets.
+  niveauIds: z.array(niveauId).default([]),
 });
 
 export type TeacherInput = z.infer<typeof teacherInputSchema>;

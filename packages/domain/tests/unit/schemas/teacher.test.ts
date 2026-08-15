@@ -18,6 +18,7 @@ describe('teacherInputSchema', () => {
       phone: '+212612345678',
       email: null,
       subjectIds: [],
+      niveauIds: [],
     });
   });
 
@@ -30,7 +31,8 @@ describe('teacherInputSchema', () => {
     ).toEqual(['niv_00000000000000000000000001']);
 
     const omitted = teacherInputSchema.parse({ ...base, subjectIds: [] });
-    expect(omitted.niveauIds).toBeUndefined();
+    // Mirrors `subjectIds`: an omitted id-array defaults to `[]`, never undefined.
+    expect(omitted.niveauIds).toEqual([]);
 
     const r = teacherInputSchema.safeParse({ ...base, niveauIds: ['not-a-niveau'] });
     expect(r.success).toBe(false);

@@ -48,6 +48,20 @@ const SELECT_STUDENTS_BY_NAME = `
  * normalization decide (its Arabic→Latin transliteration is the same one the
  * write path stamps, so a device never needs to mirror it here).
  */
+
+/** Parse a stored JSON id-array (e.g. `teachers.subject_ids`) defensively:
+ *  malformed/non-array JSON yields an empty list rather than a runtime shape
+ *  error downstream. Mirrors `parseNiveauIds` in the teacher repository. */
+function parseJsonIdArray(json: string): string[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return [];
+  }
+  return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : [];
+}
+
 export class SqliteDuplicateMatchSource implements DuplicateMatchSource {
   constructor(private readonly db: DB) {}
 
@@ -87,8 +101,8 @@ export class SqliteDuplicateMatchSource implements DuplicateMatchSource {
       phone: row.phone as PhoneNumber,
       email: row.email,
       cin: row.cin,
-      subjectIds: JSON.parse(row.subject_ids) as SubjectId[],
-      niveauIds: JSON.parse(row.niveau_ids) as NiveauId[],
+      subjectIds: parseJsonIdArray(row.subject_ids) as SubjectId[],
+      niveauIds: parseJsonIdArray(row.niveau_ids) as NiveauId[],
       active: row.active === 1,
     }));
   }

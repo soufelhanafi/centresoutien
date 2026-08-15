@@ -62,13 +62,14 @@ export type BackupSheetSpec = {
   columns: readonly BackupColumn[];
 };
 
-/** The 16 entity sheets, in import dependency order. */
+/** The 17 entity sheets, in import dependency order. */
 export type BackupSheetName =
   | 'parents'
   | 'students'
   | 'teachers'
   | 'rooms'
   | 'subjects'
+  | 'niveaux'
   | 'groups'
   | 'formulas'
   | 'student-subscriptions'

@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
-import { useNiveauxActive } from '../../hooks/niveau/use-niveaux-active';
+import { useNiveauxAll } from '../../hooks/niveau/use-niveaux-all';
 import { localizedNiveauName } from '../../lib/niveaux/niveau-view';
 
 /** Sentinel for the "no level yet" option — Radix Select needs a string value. */
@@ -32,13 +32,20 @@ type NiveauIdFormValue = { niveauId?: string | null; level?: string };
  * free-text `level` field was replaced by this picker (SOU-260), so the chosen
  * level's code (or fr name when it has no code) is mirrored into the form's
  * `level` field — keeping the backward-compatible label populated for filters
- * and tables that still read it. Reads the form methods from context; options
- * come from the level options (`niveau.list` with scope `active`).
+ * and tables that still read it. Reads the form methods from context.
+ *
+ * Options are the active levels plus the currently-assigned one even when it
+ * has since been deactivated (an edit must display and manage a retained
+ * assignment, not blank it out) — matching `NiveauMultiSelectField`.
  */
 export function NiveauSelectField() {
   const { t, i18n } = useTranslation();
-  const { control, setValue } = useFormContext<NiveauIdFormValue>();
-  const niveaux = useNiveauxActive().data ?? [];
+  const { control, watch, setValue } = useFormContext<NiveauIdFormValue>();
+  const currentId = watch('niveauId');
+  const allNiveaux = useNiveauxAll().data ?? [];
+  const options = allNiveaux.filter(
+    (niveau) => niveau.active || niveau.id === currentId,
+  );
 
   return (
     <FormField
@@ -52,7 +59,7 @@ export function NiveauSelectField() {
             onValueChange={(value) => {
               const niveauId = value === NIVEAU_NONE ? null : value;
               field.onChange(niveauId);
-              const niveau = niveaux.find((n) => n.id === niveauId);
+              const niveau = allNiveaux.find((n) => n.id === niveauId);
               setValue('level', niveau ? (niveau.code ?? niveau.name.fr) : '');
             }}
           >
@@ -63,9 +70,14 @@ export function NiveauSelectField() {
             </FormControl>
             <SelectContent>
               <SelectItem value={NIVEAU_NONE}>{t('niveaux.field.none')}</SelectItem>
-              {niveaux.map((niveau) => (
+              {options.map((niveau) => (
                 <SelectItem key={niveau.id} value={niveau.id}>
                   {localizedNiveauName(niveau.name, i18n.language)}
+                  {!niveau.active && (
+                    <span className="ms-2 text-xs text-muted-foreground">
+                      {t('niveaux.field.inactive')}
+                    </span>
+                  )}
                 </SelectItem>
               ))}
             </SelectContent>

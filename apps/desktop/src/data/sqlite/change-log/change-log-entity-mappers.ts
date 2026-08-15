@@ -4,6 +4,7 @@ import type {
   CenterHoursOverride,
   DeviceId,
   Niveau,
+  NiveauId,
   Payment,
   Session,
   Subject,
@@ -101,6 +102,30 @@ export function subjectBackupRowToEntity(row: BackupRow): Subject {
     version: row['version'] as number,
     name: { fr: row['name_fr'] as string, ar: row['name_ar'] as string },
     code: row['code'] as string | null,
+    active: row['active'] === true || row['active'] === 1,
+  };
+}
+
+/**
+ * Converts the flat workbook `niveaux` row (SHEET_SQL logical shape) into the
+ * canonical domain {@link Niveau}, so a restore logs the same payload shape the
+ * niveau repository does (SOU-260). One shape per entityType is what makes the
+ * log replayable/applicable on any device (SOU-170) — mirrors
+ * `subjectBackupRowToEntity`.
+ */
+export function niveauBackupRowToEntity(row: BackupRow): Niveau {
+  return {
+    id: row['id'] as NiveauId,
+    centerCode: row['centerCode'] as CenterCode,
+    deviceOrigin: row['deviceOrigin'] as DeviceId,
+    createdAt: new Date(row['createdAt'] as string),
+    updatedAt: new Date(row['updatedAt'] as string),
+    updatedBy: row['updatedBy'] as UserId,
+    deletedAt: row['deletedAt'] == null ? null : new Date(row['deletedAt'] as string),
+    version: row['version'] as number,
+    name: { fr: row['name_fr'] as string, ar: row['name_ar'] as string },
+    code: row['code'] as string | null,
+    category: row['category'] as Niveau['category'],
     active: row['active'] === true || row['active'] === 1,
   };
 }

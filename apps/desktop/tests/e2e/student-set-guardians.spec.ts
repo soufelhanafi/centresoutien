@@ -40,6 +40,14 @@ import {
 
 const locale = () => test.info().project.name as Locale;
 
+/** The seeded niveau label the info tab renders after a level edit (localized). */
+function niveauDisplayName(l: 'fr' | 'ar', code: string): string {
+  const names: Record<string, { fr: string; ar: string }> = {
+    '1AC': { fr: '1ère Année Collège', ar: 'السنة الأولى إعدادي' },
+  };
+  return names[code]![l === 'ar' ? 'ar' : 'fr']!;
+}
+
 let live: Launched | null = null;
 test.afterEach(async () => {
   await live?.app.close();
@@ -232,7 +240,7 @@ test('Scenario 4b — link a guardian then edit info tab: the link is not revert
 
   await win.getByRole('tab', { name: F.tabInfo }).click();
   await editStudentField(win, F, 'level', '1AC');
-  await expect(win.getByText('1AC')).toBeVisible();
+  await expect(win.getByText(niveauDisplayName(locale(), '1AC'))).toBeVisible();
 
   await win.getByRole('tab', { name: L.guardians.tab }).click();
   await expect(win.getByText('Ahmed Alaoui').first()).toBeVisible();

@@ -82,7 +82,7 @@ test('Scenario 3 — create a student and see it in the list', async () => {
 
   const row = win.getByRole('row', { name: /Yassine Alaoui/ });
   await expect(row).toBeVisible();
-  await expect(row).toContainText('3AC');
+  await expect(row).toContainText(niveauName(locale(), '3AC'));
 });
 
 // ---------------------------------------------------------------------------
