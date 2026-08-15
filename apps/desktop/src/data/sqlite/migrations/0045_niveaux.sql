@@ -1,4 +1,4 @@
--- 0044_niveaux.sql
+-- 0045_niveaux.sql
 -- What: niveaux table — the per-center catalog of grade levels (1AP, 1AC,
 --       2ème Bac SVT…) + the nullable niveau retrofit columns on students,
 --       groups, and teachers.
