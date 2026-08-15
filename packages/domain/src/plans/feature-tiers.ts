@@ -22,6 +22,7 @@ export const FEATURE_TIER: Readonly<Record<FeatureFlag, PlanId>> = {
   'core.students': 'essentiel',
   'core.groups': 'essentiel',
   'core.subjects': 'essentiel',
+  'core.niveaux': 'essentiel',
   'core.formulas': 'essentiel',
   'core.calendar.week': 'essentiel',
   'core.invoicing': 'essentiel',

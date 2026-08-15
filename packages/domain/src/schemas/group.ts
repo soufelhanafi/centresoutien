@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { hasIdPrefix } from '../value-objects/ids';
 import { SUBJECT_ID_PREFIX } from '../entities/subject';
+import { NIVEAU_ID_PREFIX } from '../entities/niveau';
 import { GROUP_KINDS } from '../entities/group';
 
 /**
@@ -36,9 +37,25 @@ const teacherRef = z
   .nullable()
   .default(null);
 
+/**
+ * Optional Niveau reference (SOU-260): absent, `null`, or blank collapses to
+ * `null` ("not classified yet"); a present value must carry the `niv_` prefix —
+ * a shape check only. Exactly one niveau per group when set. Optional (not
+ * defaulted) so pre-SOU-260 callers that omit it keep compiling — the use case
+ * stores `null`.
+ */
+const niveauRef = z
+  .string()
+  .nullable()
+  .refine((value) => value === null || hasIdPrefix(value, NIVEAU_ID_PREFIX), {
+    message: 'invalid-id',
+  })
+  .optional();
+
 export const groupInputSchema = z.object({
   subjectId: subjectRef,
   teacherId: teacherRef,
+  niveauId: niveauRef,
   level: z
     .string()
     .trim()

@@ -199,6 +199,11 @@ export {
   SubjectNotFoundError,
   DuplicateSubjectCodeError,
 } from './errors/subject-errors';
+export {
+  NiveauInUseError,
+  NiveauNotFoundError,
+  DuplicateNiveauCodeError,
+} from './errors/niveau-errors';
 export { HolidayNotFoundError } from './errors/holiday-errors';
 export { CenterHoursOverrideNotFoundError } from './errors/center-hours-override-errors';
 export {
@@ -266,6 +271,14 @@ export {
   SUBJECT_CODE_PATTERN,
 } from './schemas/subject';
 export type { SubjectInput, SubjectUpdateInput } from './schemas/subject';
+export {
+  niveauInputSchema,
+  niveauUpdateInputSchema,
+  NIVEAU_NAME_MAX,
+  NIVEAU_CODE_MAX,
+  NIVEAU_CODE_PATTERN,
+} from './schemas/niveau';
+export type { NiveauInput, NiveauUpdateInput } from './schemas/niveau';
 export {
   studentInputSchema,
   setStudentGuardiansInputSchema,
@@ -405,6 +418,8 @@ export type { CreateBackupInputSchema, BackupConfigInput } from './schemas/backu
 // Entities
 export { SUBJECT_ID_PREFIX } from './entities/subject';
 export type { Subject, SubjectId } from './entities/subject';
+export { NIVEAU_ID_PREFIX, NIVEAU_CATEGORIES } from './entities/niveau';
+export type { Niveau, NiveauId, NiveauCategory } from './entities/niveau';
 export { STUDENT_ID_PREFIX } from './entities/student';
 export type { Student, StudentId } from './entities/student';
 export { CENTER_HOURS_ID_PREFIX, isClosed } from './entities/center-hours';
@@ -549,6 +564,16 @@ export { SUBJECT_USAGE_REFERENCE_KINDS } from './ports/subject-repository';
 // Subject in-use guard — its concrete adapter (SOU-46) is the live-groups
 // reference query; sessions/formulas join the scope once they reference subjects.
 export type { SubjectReferencePort } from './ports/subject-reference';
+export type {
+  NiveauRepository,
+  NiveauUsage,
+  NiveauUsageReference,
+  NiveauUsageReferenceKind,
+} from './ports/niveau-repository';
+export { NIVEAU_USAGE_REFERENCE_KINDS } from './ports/niveau-repository';
+// Niveau in-use guard — its concrete adapter (SOU-260) is a composite over the
+// live-student / live-group / live-teacher reference queries.
+export type { NiveauReferencePort } from './ports/niveau-reference';
 export type { StudentRepository } from './ports/student-repository';
 export type { CenterHoursRepository } from './ports/center-hours-repository';
 export type { CenterHoursOverrideRepository } from './ports/center-hours-override-repository';
@@ -813,6 +838,23 @@ export { ListSubjectsWithUsage } from './use-cases/list-subjects-with-usage';
 export type { ListSubjectsWithUsageInput } from './use-cases/list-subjects-with-usage';
 export { UpdateSubject } from './use-cases/update-subject';
 export type { UpdateSubjectInput } from './use-cases/update-subject';
+export { CreateNiveau } from './use-cases/create-niveau';
+export type { CreateNiveauInput } from './use-cases/create-niveau';
+export { UpdateNiveau } from './use-cases/update-niveau';
+export type { UpdateNiveauInput } from './use-cases/update-niveau';
+export { ArchiveNiveau } from './use-cases/archive-niveau';
+export type { ArchiveNiveauInput } from './use-cases/archive-niveau';
+export { ListNiveaux } from './use-cases/list-niveaux';
+export type { ListNiveauxInput, NiveauScope } from './use-cases/list-niveaux';
+export { GetNiveau } from './use-cases/get-niveau';
+export type { GetNiveauInput } from './use-cases/get-niveau';
+export { ListNiveauxWithUsage } from './use-cases/list-niveaux-with-usage';
+export type { ListNiveauxWithUsageInput } from './use-cases/list-niveaux-with-usage';
+export {
+  NIVEAU_SEED_CATALOG,
+  newDefaultNiveaux,
+} from './use-cases/seed-default-niveaux';
+export type { SeedDefaultNiveauxInput } from './use-cases/seed-default-niveaux';
 export { CreateStudent } from './use-cases/create-student';
 export type { CreateStudentInput } from './use-cases/create-student';
 export { ListStudents } from './use-cases/list-students';

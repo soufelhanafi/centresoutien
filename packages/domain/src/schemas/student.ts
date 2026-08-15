@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { hasIdPrefix } from '../value-objects/ids';
 import { PARENT_ID_PREFIX } from '../entities/student';
+import { NIVEAU_ID_PREFIX } from '../entities/niveau';
 
 /**
  * Student input schema — the user-editable fields when creating a Student. The
@@ -62,6 +63,22 @@ const guardianId = z
   .string()
   .refine((value) => hasIdPrefix(value, PARENT_ID_PREFIX), { message: 'invalid-id' });
 
+/**
+ * Optional Niveau reference (SOU-260): absent, `null`, or blank collapses to
+ * `null` ("not classified yet"); a present value must carry the `niv_` prefix —
+ * a shape check only, mirroring `guardianIds`. The Niveau's actual existence is
+ * not verified here; `ArchiveNiveau` guards the reverse direction. Optional (not
+ * defaulted) so pre-SOU-260 callers that omit it keep compiling — the use case
+ * stores `null`.
+ */
+const niveauId = z
+  .string()
+  .nullable()
+  .refine((value) => value === null || hasIdPrefix(value, NIVEAU_ID_PREFIX), {
+    message: 'invalid-id',
+  })
+  .optional();
+
 export const studentInputSchema = z.object({
   name: z.object({ fr: localizedName, ar: localizedName }),
   birthDate,
@@ -73,6 +90,7 @@ export const studentInputSchema = z.object({
   school: optionalText(STUDENT_SCHOOL_MAX),
   notes: optionalText(STUDENT_NOTES_MAX),
   guardianIds: z.array(guardianId).default([]),
+  niveauId,
 });
 
 export type StudentInput = z.infer<typeof studentInputSchema>;

@@ -18,6 +18,7 @@ import {
   type CenterId,
 } from "../entities/center";
 import { newDefaultCenterHours } from "./seed-default-center-hours";
+import { newDefaultNiveaux } from "./seed-default-niveaux";
 
 export type SaveCenterProfileInput = CenterProfileInput & {
   logoPath: string | null;
@@ -65,6 +66,7 @@ export class SaveCenterProfile {
     await this.setup.commit({
       center,
       defaultHours: newDefaultCenterHours(context, this.clock, this.ids),
+      defaultNiveaux: newDefaultNiveaux(context, this.clock, this.ids),
       trial: this.licenseAccess.hasActiveLicense()
         ? null
         : newCenterTrial(this.clock.now()),

@@ -5,6 +5,7 @@ import type { CenterCode, UserId } from '../value-objects/ids';
 import { studentInputSchema, type StudentInput } from '../schemas/student';
 import { StudentNotFoundError } from '../errors/student-errors';
 import type { ParentId, Student, StudentId } from '../entities/student';
+import type { NiveauId } from '../entities/niveau';
 
 export type UpdateStudentInput = StudentInput & {
   centerCode: CenterCode;
@@ -50,6 +51,7 @@ export class UpdateStudent {
       school: fields.school,
       notes: fields.notes,
       guardianIds: fields.guardianIds as ParentId[],
+      niveauId: (fields.niveauId ?? null) as NiveauId | null,
     };
 
     await this.students.save(updated);

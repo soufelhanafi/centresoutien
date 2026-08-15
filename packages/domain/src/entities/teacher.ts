@@ -1,6 +1,7 @@
 import type { Brand } from '../value-objects/brand';
 import type { PhoneNumber } from '../value-objects/phone-number';
 import type { SubjectId } from './subject';
+import type { NiveauId } from './niveau';
 import type { EntityEnvelope } from './envelope';
 
 /** ULID id prefix for teachers: `tch_01HW…`. */
@@ -41,5 +42,14 @@ export type Teacher = EntityEnvelope & {
   phone: PhoneNumber;
   email: string | null;
   subjectIds: readonly SubjectId[];
+  /**
+   * The grade levels this teacher can cover, as references to the center's Niveau
+   * catalog (SOU-260). Many-to-many as a single field — mirroring `subjectIds` —
+   * so it syncs as one entry in the change log; no junction table. An empty
+   * array means "any / not classified". The referenced Niveaux's existence is
+   * not enforced here (a matching hint); the reverse direction is guarded by
+   * `ArchiveNiveau`.
+   */
+  niveauIds: readonly NiveauId[];
   active: boolean;
 };

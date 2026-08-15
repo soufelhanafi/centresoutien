@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { normalizePhone } from '../value-objects/phone-number';
 import { hasIdPrefix } from '../value-objects/ids';
 import { SUBJECT_ID_PREFIX } from '../entities/subject';
+import { NIVEAU_ID_PREFIX } from '../entities/niveau';
 
 /**
  * Teacher input schema — the user-editable fields. The envelope (ULID,
@@ -81,12 +82,19 @@ const subjectId = z
   .string()
   .refine((value) => hasIdPrefix(value, SUBJECT_ID_PREFIX), { message: 'invalid-id' });
 
+/** Each niveau id must carry the `niv_` prefix — a shape check only, mirroring
+ *  `subjectIds`; existence is not verified here. */
+const niveauId = z
+  .string()
+  .refine((value) => hasIdPrefix(value, NIVEAU_ID_PREFIX), { message: 'invalid-id' });
+
 export const teacherInputSchema = z.object({
   name: z.object({ fr: localizedName, ar: localizedName }),
   cin: cinField.optional().transform((v) => v ?? null),
   phone: phoneField,
   email: emailField.optional().transform((v) => v ?? null),
   subjectIds: z.array(subjectId).default([]),
+  niveauIds: z.array(niveauId).optional(),
 });
 
 export type TeacherInput = z.infer<typeof teacherInputSchema>;
