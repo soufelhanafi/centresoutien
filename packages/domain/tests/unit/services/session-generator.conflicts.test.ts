@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SessionGenerator, type SessionGeneratorConfig, type SessionGenerationInput } from '../../../src/services/session-generator';
+import { InfeasibleGeneratorConfigError } from '../../../src/errors/session-generator-errors';
 import type { DayHours } from '../../../src/policies/session-conflict-policy';
 import type { ScheduledSessionRef } from '../../../src/errors/scheduling-errors';
 import type { GroupId, GroupKind } from '../../../src/entities/group';
@@ -65,17 +66,13 @@ describe('SessionGenerator — conflict detection (SOU-161)', () => {
     expect(conflicts).toEqual([]);
   });
 
-  it('flags a generated block that overruns center closing time, without dropping the block', () => {
+  it('auto mode refuses a pool whose only day cannot hold the duration (SOU-261)', () => {
     const generator = new SessionGenerator(fakeRandom());
-    // Monday closes at 10:00; a 90-minute block from 09:00 overruns it by 30 minutes.
-    const { proposals, conflicts } = generator.generate(input(autoConfig({ weekdayPool: [MON] }), [G1]));
-
-    expect(proposals[0]!.blocks).toEqual([
-      { block: { dayOfWeek: MON, start: '09:00', end: '10:30' }, roomId: ROOM_A, teacherId: null },
-    ]);
-    expect(conflicts).toEqual([
-      { kind: 'hours', groupId: G1, start: '09:00', end: '10:30', error: expect.objectContaining({ reason: 'after-close' }) },
-    ]);
+    // Monday closes at 10:00; a 90-minute block from 09:00 would overrun it by
+    // 30 minutes on every possible placement — infeasible, not flaggable.
+    expect(() => generator.generate(input(autoConfig({ weekdayPool: [MON] }), [G1]))).toThrow(
+      InfeasibleGeneratorConfigError,
+    );
   });
 
   it('flags a room double-booked against the real, already-committed schedule', () => {
@@ -116,13 +113,16 @@ describe('SessionGenerator — conflict detection (SOU-161)', () => {
     ]);
   });
 
-  it('flags two sibling groups double-booked into the same room by random draw in one run', () => {
+  it('sibling groups sharing a slot spread across free rooms instead of double-booking (SOU-261)', () => {
+    // Before the collision-aware draw, [0, 0] put both groups in ROOM_A and the
+    // run reported two room conflicts despite a free room sitting empty.
     const generator = new SessionGenerator(sequenceRandom([0, 0]));
     const config = autoConfig({ weekdayPool: [TUE] });
 
-    const { conflicts } = generator.generate(input(config, [G1, G2], { rooms: [ROOM_A, ROOM_B] }));
+    const { proposals, conflicts } = generator.generate(input(config, [G1, G2], { rooms: [ROOM_A, ROOM_B] }));
 
-    expect(conflicts.map((c) => c.kind)).toEqual(['room', 'room']);
-    expect(conflicts.map((c) => c.groupId).sort()).toEqual([G1, G2]);
+    const roomsUsed = proposals.map((proposal) => proposal.blocks[0]!.roomId);
+    expect(new Set(roomsUsed).size).toBe(2);
+    expect(conflicts).toEqual([]);
   });
 });

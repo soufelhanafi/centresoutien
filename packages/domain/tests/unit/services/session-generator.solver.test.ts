@@ -148,15 +148,17 @@ describe('SessionGenerator — run-wide final rooming (SOU-182)', () => {
   it('re-rooms every committed block in one run-wide pass, not group by group', () => {
     // Two groups share one teacher and one weekday, pinned via custom mode so
     // the run draws no shuffle randomness and every draw is a room draw in a
-    // fixed order. The per-group day search rooms each group provisionally
-    // (draws #1 → rooms[0], #2 → rooms[0]); the run-wide final pass then re-rooms
-    // the whole run together (draws #3 → rooms[1] for group 1, #4 → rooms[2] for
-    // group 2). The result carrying the run-wide draws (ROOM_B, ROOM_C) rather
-    // than the search draws (both ROOM_A) is what proves the final rooming is a
-    // single pass over every group. The continuity rule itself is covered by the
-    // assignRoomsToBlocks unit tests; it cannot fire through generate() because
-    // every block anchors at its weekday's one opening time, so two groups on a
-    // weekday overlap rather than sit back-to-back.
+    // fixed order. The per-group placement rooms each group provisionally
+    // (draws #1 → free[0] = A, #2 → free[0] = A); the run-wide final pass then
+    // re-rooms the whole run together: draw #3 picks free[1] = B for group 1,
+    // and draw #4 sees only {A, C} free (B is taken at the overlapping slot,
+    // SOU-261) so value 2 % 2 = 0 picks A for group 2. The result carrying the
+    // run-wide draws (B, A) rather than the provisional ones (both A) proves
+    // the final rooming is a single pass over every group. The continuity rule
+    // itself is covered by the assignRoomsToBlocks unit tests; it cannot fire
+    // through generate() because every block anchors at its weekday's one
+    // opening time, so two groups on a weekday overlap rather than sit
+    // back-to-back.
     const generator = new SessionGenerator(sequenceRandom([0, 0, 1, 2]));
     const config = {
       scope: { groups: 'all', teachers: 'all' },
@@ -184,6 +186,6 @@ describe('SessionGenerator — run-wide final rooming (SOU-182)', () => {
     const { proposals } = generator.generate(runInput);
 
     expect(proposals[0]!.blocks[0]!.roomId).toBe(ROOM_B);
-    expect(proposals[1]!.blocks[0]!.roomId).toBe(ROOM_C);
+    expect(proposals[1]!.blocks[0]!.roomId).toBe(ROOM_A);
   });
 });
