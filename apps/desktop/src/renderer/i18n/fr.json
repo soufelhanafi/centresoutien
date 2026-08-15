@@ -1054,6 +1054,59 @@
       "success": "Enseignant archivé",
       "error": "L'archivage a échoué. Réessayez."
     },
+    "availability": {
+      "title": "Disponibilités hebdomadaires",
+      "subtitle": "Les créneaux où cet enseignant peut donner cours. Le générateur de séances signale tout placement en dehors.",
+      "unrestrictedHint": "Aucune disponibilité configurée — l'enseignant est considéré disponible à tout moment tant que rien n'est enregistré.",
+      "available": "Disponible",
+      "off": "Indisponible",
+      "toggleLabel": "Basculer la disponibilité du {{day}}",
+      "windowsLabel": "Créneaux de disponibilité",
+      "from": "De",
+      "to": "À",
+      "addWindow": "Ajouter un créneau",
+      "removeWindow": "Supprimer ce créneau",
+      "save": "Enregistrer les disponibilités",
+      "saving": "Enregistrement…",
+      "saved": "Disponibilités enregistrées",
+      "saveError": "L'enregistrement a échoué. Réessayez.",
+      "loadError": {
+        "title": "Impossible de charger les disponibilités",
+        "body": "Le chargement a échoué.",
+        "retry": "Réessayer"
+      },
+      "exceptions": {
+        "title": "Absences ponctuelles",
+        "subtitle": "Congés, examens ou indisponibilités sur une période donnée.",
+        "new": "Ajouter une absence",
+        "empty": {
+          "title": "Aucune absence enregistrée",
+          "body": "Les absences ponctuelles de cet enseignant apparaîtront ici."
+        },
+        "form": {
+          "title": "Nouvelle absence",
+          "description": "L'enseignant sera signalé indisponible sur toute la période.",
+          "startDate": "Du",
+          "endDate": "Au",
+          "label": "Motif (facultatif)",
+          "labelPlaceholder": "ex. congé, surveillance d'examen",
+          "create": "Ajouter",
+          "saving": "Enregistrement…",
+          "cancel": "Annuler",
+          "success": "Absence ajoutée",
+          "error": "L'enregistrement a échoué. Réessayez."
+        },
+        "archive": {
+          "action": "Supprimer cette absence",
+          "title": "Supprimer cette absence ?",
+          "body": "L'absence du {{period}} sera supprimée.",
+          "confirm": "Supprimer",
+          "cancel": "Annuler",
+          "success": "Absence supprimée",
+          "error": "La suppression a échoué. Réessayez."
+        }
+      }
+    },
     "detail": {
       "back": "Retour aux enseignants",
       "archivedBadge": "Archivé",
@@ -1065,7 +1118,8 @@
         "info": "Informations",
         "subjects": "Matières",
         "groups": "Groupes",
-        "payroll": "Rémunération"
+        "payroll": "Rémunération",
+        "availability": "Disponibilités"
       },
       "subjects": {
         "empty": {
