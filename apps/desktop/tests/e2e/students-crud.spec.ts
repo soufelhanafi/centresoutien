@@ -18,6 +18,15 @@ import { STR, boot, gotoStudents, pageCrashed, type Launched, type Locale } from
 
 const locale = () => test.info().project.name as Locale;
 
+/** The seeded niveau label the student form select renders (localized). */
+function niveauName(l: Locale, code: string): string {
+  const names: Record<string, { fr: string; ar: string }> = {
+    '1AC': { fr: '1ère Année Collège', ar: 'السنة الأولى إعدادي' },
+    '3AC': { fr: '3ème Année Collège', ar: 'السنة الثالثة إعدادي' },
+  };
+  return names[code]![l === 'ar' ? 'ar' : 'fr']!;
+}
+
 let live: Launched | null = null;
 test.afterEach(async () => {
   await live?.app.close();
@@ -34,7 +43,8 @@ async function createStudent(win: Page, L: (typeof STR)[Locale], s: NewStudent):
   await dialog.getByLabel(L.form.nameFr, { exact: false }).fill(s.nameFr);
   await dialog.getByLabel(L.form.nameAr, { exact: false }).fill(s.nameAr);
   await dialog.getByLabel(L.form.birthDate, { exact: false }).fill(s.birthDate);
-  await dialog.getByLabel(L.form.level, { exact: false }).fill(s.level);
+  await dialog.getByRole('combobox', { name: L.form.level }).click();
+  await win.getByRole('option', { name: niveauName(locale(), s.level) }).click();
   if (s.school) await dialog.getByLabel(L.form.school, { exact: false }).fill(s.school);
   if (s.notes) await dialog.getByLabel(L.form.notes, { exact: false }).fill(s.notes);
   await dialog.getByRole('button', { name: L.form.create }).click();

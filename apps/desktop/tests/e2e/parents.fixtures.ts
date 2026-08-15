@@ -197,6 +197,9 @@ export async function boot(locale: Locale, plan: PlanId = 'essentiel'): Promise<
     const api = (window as unknown as { api: { invoke: (c: string, r: unknown) => Promise<unknown> } }).api;
     await api.invoke('admin.create', admin);
     await api.invoke('auth.login', { ...admin, rememberDevice: true });
+    // Replicate the wizard's `center.save` so the default niveau catalog seeds
+    // (the level select on the quick-add student form needs options).
+    await api.invoke('center.save', { name: 'Centre de Soutien', address: '', phone: '', email: '', logoPath: null });
   }, VALID_ADMIN);
   await live.win.reload();
   await live.win.waitForLoadState('domcontentloaded');

@@ -60,20 +60,7 @@ export function GroupForm({ formId, defaultValues, options, onSubmit }: GroupFor
       <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
         <GroupPickerFields control={form.control} options={options} />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="level"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('groups.form.level')}</FormLabel>
-                <FormControl>
-                  <Input placeholder={t('groups.form.levelPlaceholder')} {...field} />
-                </FormControl>
-                <FieldMessage />
-              </FormItem>
-            )}
-          />
+        <div className="grid gap-4 sm:grid-cols-1">
           <FormField
             control={form.control}
             name="capacity"

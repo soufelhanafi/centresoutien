@@ -34,6 +34,16 @@ const dirname = fileURLToPath(new URL('.', import.meta.url));
 export const MAIN_ENTRY = join(dirname, '../../out/main/index.js');
 
 export type Locale = 'fr' | 'ar';
+
+/** The seeded niveau label the student form select renders, localized from the STR bundle. */
+function niveauName(L: (typeof STR)[Locale], code: string): string {
+  const names: Record<string, { fr: string; ar: string }> = {
+    '1AC': { fr: '1ère Année Collège', ar: 'السنة الأولى إعدادي' },
+    '3AC': { fr: '3ème Année Collège', ar: 'السنة الثالثة إعدادي' },
+  };
+  const isAr = L.form.nameFr === 'الاسم (بالفرنسية)';
+  return names[code]![isAr ? 'ar' : 'fr']!;
+}
 export type PlanId = 'essentiel' | 'pro' | 'premium';
 
 export const DIRECTION: Record<Locale, 'ltr' | 'rtl'> = { fr: 'ltr', ar: 'rtl' };
@@ -148,6 +158,9 @@ export async function boot(locale: Locale, plan: PlanId = 'premium'): Promise<La
     const api = (window as unknown as { api: Bridge }).api;
     await api.invoke('admin.create', admin);
     await api.invoke('auth.login', { ...admin, rememberDevice: true });
+    // Replicate the wizard's `center.save` so the default niveau catalog seeds
+    // (the level select on the student form needs options).
+    await api.invoke('center.save', { name: 'Centre de Soutien', address: '', phone: '', email: '', logoPath: null });
   }, VALID_ADMIN);
   await live.win.reload();
   await live.win.waitForLoadState('domcontentloaded');
@@ -170,7 +183,8 @@ export async function createStudentAndOpenDetail(win: Page, L: (typeof STR)[Loca
   await dialog.getByLabel(L.form.nameFr, { exact: false }).fill(s.nameFr);
   await dialog.getByLabel(L.form.nameAr, { exact: false }).fill(s.nameAr);
   await dialog.getByLabel(L.form.birthDate, { exact: false }).fill(s.birthDate);
-  await dialog.getByLabel(L.form.level, { exact: false }).fill(s.level);
+  await dialog.getByRole('combobox', { name: L.form.level }).click();
+  await win.getByRole('option', { name: niveauName(L, s.level) }).click();
   await dialog.getByRole('button', { name: L.form.create }).click();
   await win.waitForTimeout(400);
   await win.getByRole('row', { name: new RegExp(s.nameFr) }).getByRole('link', { name: new RegExp(s.nameFr) }).click();

@@ -162,8 +162,9 @@ describe('CreateStudent', () => {
       await expect(useCase.execute(validInput({ birthDate: '2011-02-30' }))).rejects.toThrow();
     });
 
-    it('rejects a missing level', async () => {
-      await expect(useCase.execute(validInput({ level: '' }))).rejects.toThrow();
+    it('defaults a missing level to empty (the niveau is the typed axis)', async () => {
+      const created = await useCase.execute(validInput({ level: '' }));
+      expect(created.level).toBe('');
     });
 
     it('rejects a guardian id without the prt_ prefix', async () => {

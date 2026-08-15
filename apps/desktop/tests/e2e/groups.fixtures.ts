@@ -304,6 +304,9 @@ export async function boot(
     const api = (window as unknown as { api: Bridge }).api;
     await api.invoke('admin.create', admin);
     await api.invoke('auth.login', { ...admin, rememberDevice: true });
+    // Replicate the wizard's `center.save` so the default niveau catalog seeds
+    // (the level select on the group form needs options).
+    await api.invoke('center.save', { name: 'Centre de Soutien', address: '', phone: '', email: '', logoPath: null });
   }, VALID_ADMIN);
 
   const subjects = await live.win.evaluate(async (seed) => {

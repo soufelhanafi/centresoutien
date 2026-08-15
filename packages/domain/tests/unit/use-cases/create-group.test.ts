@@ -168,9 +168,9 @@ describe('CreateGroup', () => {
   });
 
   describe('validation', () => {
-    it('rejects a blank level', async () => {
-      await expect(build(PLANS.essentiel).execute(validInput({ level: '   ' }))).rejects.toThrow();
-      expect(groups.all()).toHaveLength(0);
+    it('defaults a blank level to empty (the niveau is the typed axis)', async () => {
+      const created = await build(PLANS.essentiel).execute(validInput({ level: '   ' }));
+      expect(created.level).toBe('');
     });
 
     it('rejects an invalid kind', async () => {

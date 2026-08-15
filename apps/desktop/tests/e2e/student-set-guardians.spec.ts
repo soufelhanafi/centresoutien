@@ -231,8 +231,8 @@ test('Scenario 4b — link a guardian then edit info tab: the link is not revert
   await expect(win.getByText(L.guardians.linkSuccess).first()).toBeVisible();
 
   await win.getByRole('tab', { name: F.tabInfo }).click();
-  await editStudentField(win, F, 'level', 'EDITED_LEVEL_AFTER_LINK');
-  await expect(win.getByText('EDITED_LEVEL_AFTER_LINK')).toBeVisible();
+  await editStudentField(win, F, 'level', '1AC');
+  await expect(win.getByText('1AC')).toBeVisible();
 
   await win.getByRole('tab', { name: L.guardians.tab }).click();
   await expect(win.getByText('Ahmed Alaoui').first()).toBeVisible();

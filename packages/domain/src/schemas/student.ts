@@ -82,11 +82,13 @@ const niveauId = z
 export const studentInputSchema = z.object({
   name: z.object({ fr: localizedName, ar: localizedName }),
   birthDate,
+  // Free-text grade label — legacy (SOU-260). The typed axis is `niveauId`;
+  // `level` stays for backward-compatible display but is no longer required.
   level: z
     .string()
     .trim()
-    .min(1, { message: 'required' })
-    .max(STUDENT_LEVEL_MAX, { message: 'too-long' }),
+    .max(STUDENT_LEVEL_MAX, { message: 'too-long' })
+    .default(''),
   school: optionalText(STUDENT_SCHOOL_MAX),
   notes: optionalText(STUDENT_NOTES_MAX),
   guardianIds: z.array(guardianId).default([]),

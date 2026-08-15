@@ -56,11 +56,13 @@ export const groupInputSchema = z.object({
   subjectId: subjectRef,
   teacherId: teacherRef,
   niveauId: niveauRef,
+  // Free-text grade label — legacy (SOU-260). The typed axis is `niveauId`;
+  // `level` stays for backward-compatible display but is no longer required.
   level: z
     .string()
     .trim()
-    .min(1, { message: 'required' })
-    .max(GROUP_LEVEL_MAX, { message: 'too-long' }),
+    .max(GROUP_LEVEL_MAX, { message: 'too-long' })
+    .default(''),
   // An empty numeric field arrives as NaN; the base-type `error` maps that — and
   // any non-number — to the same `not-an-integer` code the form localizes.
   capacity: z

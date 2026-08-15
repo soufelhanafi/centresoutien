@@ -90,19 +90,6 @@ export function StudentForm({ formId, defaultValues, onSubmit }: StudentFormProp
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="level"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('students.form.level')}</FormLabel>
-              <FormControl>
-                <Input placeholder={t('students.form.levelPlaceholder')} {...field} />
-              </FormControl>
-              <FieldMessage />
-            </FormItem>
-          )}
-        />
         <NiveauSelectField />
         <FormField
           control={form.control}

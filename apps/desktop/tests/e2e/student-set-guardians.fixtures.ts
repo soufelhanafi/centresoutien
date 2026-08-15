@@ -68,6 +68,7 @@ export type StudentFormLocale = keyof typeof STUDENT_FORM_STR;
  * Open the top-level "Modifier" dialog on an already-open student detail page
  * and change exactly one field (notes / level / school), leaving the others
  * untouched, then save. Asserts the edit-success toast and dialog close.
+ * The level field is the SOU-260 niveau select (a combobox), not free text.
  */
 export async function editStudentField(
   win: Page,
@@ -78,10 +79,25 @@ export async function editStudentField(
   await win.getByRole('button', { name: L.editBtn }).first().click();
   const dialog = win.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel(L.fields[field], { exact: false }).fill(value);
+  if (field === 'level') {
+    await dialog.getByRole('combobox', { name: L.fields.level }).click();
+    await win.getByRole('option', { name: niveauName(L, value) }).click();
+  } else {
+    await dialog.getByLabel(L.fields[field], { exact: false }).fill(value);
+  }
   await dialog.getByRole('button', { name: L.save }).click();
   await expect(win.getByText(L.editSuccess).first()).toBeVisible();
   await expect(dialog).toBeHidden();
+}
+
+/** The seeded niveau label the level select renders, localized from the STR bundle. */
+function niveauName(L: (typeof STUDENT_FORM_STR)[StudentFormLocale], code: string): string {
+  const names: Record<string, { fr: string; ar: string }> = {
+    '1AC': { fr: '1ère Année Collège', ar: 'السنة الأولى إعدادي' },
+    '3AC': { fr: '3ème Année Collège', ar: 'السنة الثالثة إعدادي' },
+  };
+  const isAr = L.fields.nameFr === 'الاسم (بالفرنسية)';
+  return names[code]![isAr ? 'ar' : 'fr']!;
 }
 
 /** Fetch the current definition-list values on the (visible) "Informations" tab. */

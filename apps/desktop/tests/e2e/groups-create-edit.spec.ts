@@ -34,11 +34,20 @@ async function openCreate(win: Page, L: (typeof STR)[Locale]) {
 }
 
 /** Fill the create form with a subject chosen from the form's own list. */
-async function fillValidGroup(win: Page, dialog: ReturnType<Page['getByRole']>, L: (typeof STR)[Locale], level: string) {
+async function fillValidGroup(win: Page, dialog: ReturnType<Page['getByRole']>, L: (typeof STR)[Locale], niveauCode: string) {
   await dialog.getByRole('combobox', { name: L.form.subject }).click();
   await win.getByRole('option').first().click();
-  await dialog.getByLabel(L.form.level, { exact: false }).fill(level);
+  await dialog.getByRole('combobox', { name: L.form.level }).click();
+  await win.getByRole('option', { name: niveauName(locale(), niveauCode) }).click();
   await dialog.getByLabel(L.form.capacity, { exact: false }).fill('15');
+}
+
+/** The seeded niveau display label the select renders (localized). */
+function niveauName(l: Locale, code: string): string {
+  const names: Record<string, { fr: string; ar: string }> = {
+    '2AC': { fr: '2ème Année Collège', ar: 'السنة الثانية إعدادي' },
+  };
+  return names[code]![l === 'ar' ? 'ar' : 'fr']!;
 }
 
 // ---------------------------------------------------------------------------
@@ -52,7 +61,7 @@ test('Create succeeds with a valid group (success feedback + row appears)', asyn
   await gotoGroups(win, L);
 
   const dialog = await openCreate(win, L);
-  await fillValidGroup(win, dialog, L, 'ZZ-CREATED');
+  await fillValidGroup(win, dialog, L, '2AC');
   await dialog.getByRole('button', { name: L.form.create }).click();
 
   await expect(
@@ -61,5 +70,5 @@ test('Create succeeds with a valid group (success feedback + row appears)', asyn
   ).toHaveCount(0);
   await expect(win.getByText(L.form.createSuccess)).toBeVisible();
   await expect(dialog).toBeHidden();
-  await expect(win.getByRole('row', { name: /ZZ-CREATED/ })).toBeVisible();
+  await expect(win.getByRole('row', { name: /2AC/ })).toBeVisible();
 });

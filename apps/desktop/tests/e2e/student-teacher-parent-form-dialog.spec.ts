@@ -24,6 +24,8 @@ import {
 const locale = () => test.info().project.name as Locale;
 const MATH = { nameFr: 'Mathématiques', nameAr: 'الرياضيات', code: 'MATH' };
 const subjectName = (l: Locale) => (l === 'ar' ? MATH.nameAr : MATH.nameFr);
+/** The seeded niveau the student form select renders (localized). */
+const niveauName = (l: Locale) => (l === 'ar' ? 'السنة الثانية إعدادي' : '2ème Année Collège');
 
 let live: Launched | null = null;
 test.afterEach(async () => {
@@ -75,7 +77,8 @@ test('student add form opens as a centered dialog, is fillable and submittable',
   await dialog.getByLabel(L.students.nameFr, { exact: false }).fill('Sara Benali');
   await dialog.getByLabel(L.students.nameAr, { exact: false }).fill('سارة بنعلي');
   await dialog.getByLabel(L.students.birthDate, { exact: false }).fill('2011-03-22');
-  await dialog.getByLabel(L.students.level, { exact: false }).fill('2AC');
+  await dialog.getByRole('combobox', { name: L.students.level }).click();
+  await win.getByRole('option', { name: niveauName(locale()) }).click();
   await dialog.getByRole('button', { name: L.students.create }).click();
   await expect(win.getByText(L.students.createSuccess).first()).toBeVisible();
   await expect(dialog).toBeHidden();
