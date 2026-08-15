@@ -8,9 +8,11 @@ import type {
   Session,
   Subject,
   SubjectId,
+  User,
   UserId,
   WeeklyRecurringSession,
 } from '@centresoutien/domain';
+import { normalizeUsername } from '@centresoutien/domain';
 import { SHEET_BY_TABLE } from '../repositories/backup-store-sheets';
 import { toSqlValue, type SheetSqlConfig } from '../repositories/backup-store-config';
 
@@ -166,6 +168,32 @@ function toIsoString(value: Date | string): string {
   return typeof value === 'string' ? value : value.toISOString();
 }
 
+function toNullableIsoString(value: Date | string | null): string | null {
+  return value === null ? null : toIsoString(value);
+}
+
+function userEntityToRow(entity: unknown): Record<string, unknown> {
+  const user = entity as User;
+  return {
+    id: user.id,
+    center_code: user.centerCode,
+    device_origin: user.deviceOrigin,
+    created_at: toIsoString(user.createdAt),
+    updated_at: toIsoString(user.updatedAt),
+    updated_by: user.updatedBy,
+    deleted_at: toNullableIsoString(user.deletedAt),
+    version: user.version,
+    role: user.role,
+    username: user.username,
+    username_normalized: normalizeUsername(user.username),
+    password_hash: user.passwordHash,
+    setup_code_hash: user.setupCodeHash,
+    // Epoch millis (a number), not an ISO string — stored in an INTEGER column.
+    setup_code_expires_at: user.setupCodeExpiresAt,
+    setup_code_redeemed_at: toNullableIsoString(user.setupCodeRedeemedAt),
+  };
+}
+
 function weeklyRecurringSessionEntityToRow(entity: unknown): Record<string, unknown> {
   const session = entity as WeeklyRecurringSession;
   return {
@@ -268,3 +296,8 @@ registerChangeLogEntityToRowMapper('sessions', sessionEntityToRow);
 // real table instead of the neutral fallback.
 registerChangeLogEntityToRowMapper('center_hours_overrides', centerHoursOverrideEntityToRow);
 registerChangeLogEntityToRowMapper('payments', paymentEntityToRow, 'append-only');
+// `users` (SOU-252): the multi-user credential/identity store. Its nested
+// setup-code dates flatten to their ISO columns and `username_normalized` is
+// recomputed, exactly as the repository's SAVE_SQL does, so a pulled user lands
+// on laptop B's real table (login works there) instead of the neutral fallback.
+registerChangeLogEntityToRowMapper('users', userEntityToRow);

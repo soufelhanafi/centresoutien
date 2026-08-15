@@ -151,7 +151,33 @@ function toReversalDedupView(dedup: ReversalDedup) {
   };
 }
 
-/** Project a SyncConflict to its boundary DTO — Dates to ISO strings. */
+// Fields that must never cross IPC to the renderer, keyed by entity type. A
+// `users` conflict carries the full domain User — including the Argon2id
+// `passwordHash` and `setupCodeHash`. Those replicate inside the trusted
+// data/sync layer, but the renderer only ever needs to SHOW the diff, so they are
+// stripped here at the main-process boundary before the conflict card can ever see
+// (or stringify) them (SOU-252, Qodo High).
+const CREDENTIAL_FIELDS_BY_ENTITY: Readonly<Record<string, readonly string[]>> = {
+  users: ['passwordHash', 'setupCodeHash'],
+};
+
+// Strip credential fields from a conflict-side entity snapshot for a given entity
+// type. Returns a copy without the secret keys; a type with nothing to redact is
+// forwarded unchanged.
+export function redactConflictEntity(
+  entityType: string,
+  entity: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  const secrets = CREDENTIAL_FIELDS_BY_ENTITY[entityType];
+  const copy: Record<string, unknown> = { ...entity };
+  if (secrets) {
+    for (const field of secrets) delete copy[field];
+  }
+  return copy;
+}
+
+/** Project a SyncConflict to its boundary DTO — Dates to ISO strings, credential
+ *  fields redacted before they can reach the renderer. */
 function toConflictView(conflict: SyncConflict) {
   switch (conflict.kind) {
     case 'field-clash':
@@ -161,8 +187,8 @@ function toConflictView(conflict: SyncConflict) {
         entityId: conflict.entityId,
         version: conflict.version,
         fields: [...conflict.fields],
-        mine: toSideView(conflict.mine),
-        theirs: toSideView(conflict.theirs),
+        mine: toSideView(conflict.entityType, conflict.mine),
+        theirs: toSideView(conflict.entityType, conflict.theirs),
       };
     case 'delete-vs-edit':
       return {
@@ -170,8 +196,8 @@ function toConflictView(conflict: SyncConflict) {
         entityType: conflict.entityType,
         entityId: conflict.entityId,
         version: conflict.version,
-        mine: toSideView(conflict.mine),
-        theirs: toSideView(conflict.theirs),
+        mine: toSideView(conflict.entityType, conflict.mine),
+        theirs: toSideView(conflict.entityType, conflict.theirs),
       };
     case 'probable-duplicate':
       return {
@@ -185,13 +211,13 @@ function toConflictView(conflict: SyncConflict) {
   }
 }
 
-function toSideView(side: ConflictSide) {
+function toSideView(entityType: string, side: ConflictSide) {
   return {
     updatedBy: side.updatedBy,
     deviceId: side.deviceId,
     op: side.op,
     changedFields: [...side.changedFields],
     at: side.at.toISOString(),
-    entity: side.entity,
+    entity: redactConflictEntity(entityType, side.entity),
   };
 }

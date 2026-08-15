@@ -37,8 +37,15 @@ export {
 export { monthsEndingAt, monthDateRange, monthsBetween, previousMonth } from './value-objects/month';
 export type { GuardianRelation } from './value-objects/guardian-relation';
 export { GUARDIAN_RELATIONS, isGuardianRelation } from './value-objects/guardian-relation';
-export type { Role } from './value-objects/role';
-export { ROLES, isRole, roleRank, isRoleSufficient } from './value-objects/role';
+export type { Role, InvitableRole } from './value-objects/role';
+export {
+  ROLES,
+  isRole,
+  roleRank,
+  isRoleSufficient,
+  INVITABLE_ROLES,
+  isInvitableRole,
+} from './value-objects/role';
 
 // Ports
 export type { Clock } from './ports/clock';
@@ -176,13 +183,22 @@ export {
   LicenseRestrictedError,
 } from './errors/license-errors';
 export {
-  AdminAccountAlreadyExistsError,
   AdminAccountNotFoundError,
   InvalidCurrentPasswordError,
   NoRecoveryCodesError,
   InvalidRecoveryCodeError,
   NotAuthenticatedError,
 } from './errors/auth-errors';
+export {
+  UsernameAlreadyTakenError,
+  OwnerAlreadyExistsError,
+  InvalidUserRoleError,
+  RoleNotInvitableError,
+  UserNotFoundError,
+  SetupCodeInvalidError,
+  SetupCodeExpiredError,
+  SetupCodeAlreadyRedeemedError,
+} from './errors/user-errors';
 export { StudentNotFoundError, StudentVersionConflictError } from './errors/student-errors';
 export { MergeSameEntityError } from './errors/merge-errors';
 export {
@@ -314,6 +330,8 @@ export {
 export type { CenterHoursOverrideInput } from './schemas/center-hours-override';
 export { loginInputSchema } from './schemas/login';
 export type { LoginInput } from './schemas/login';
+export { createUserInputSchema, redeemSetupCodeInputSchema } from './schemas/user';
+export type { CreateUserInput, RedeemSetupCodeInput } from './schemas/user';
 export {
   recoveryCodeSchema,
   recoveryCodeGroupSchema,
@@ -432,6 +450,8 @@ export type {
 } from './entities/center-hours-override';
 export { ADMIN_ACCOUNT_ID_PREFIX } from './entities/admin-account';
 export type { AdminAccount, AdminAccountId } from './entities/admin-account';
+export { USER_ID_PREFIX, SETUP_CODE_TTL_MS, isSetupCodePending, canLogin } from './entities/user';
+export type { User } from './entities/user';
 export { RECOVERY_CODE_ID_PREFIX } from './entities/recovery-code';
 export type { RecoveryCode, RecoveryCodeId } from './entities/recovery-code';
 export { SECURITY_QUESTION_ID_PREFIX, SECURITY_QUESTION_KEYS } from './entities/security-question';
@@ -578,6 +598,7 @@ export type { StudentRepository } from './ports/student-repository';
 export type { CenterHoursRepository } from './ports/center-hours-repository';
 export type { CenterHoursOverrideRepository } from './ports/center-hours-override-repository';
 export type { AdminAccountRepository } from './ports/admin-account-repository';
+export type { UserRepository, SetupCodeRedemption } from './ports/user-repository';
 export type { PasswordHasher } from './ports/password-hasher';
 export type { SecureRandom } from './ports/secure-random';
 export type { RecoveryCodeRepository } from './ports/recovery-code-repository';
@@ -1133,12 +1154,15 @@ export { ArchiveCenterHoursOverride } from './use-cases/archive-center-hours-ove
 export type { ArchiveCenterHoursOverrideInput } from './use-cases/archive-center-hours-override';
 export { CreateAdminAccount } from './use-cases/create-admin-account';
 export type { CreateAdminAccountInput } from './use-cases/create-admin-account';
-export { VerifyAdminPassword } from './use-cases/verify-admin-password';
-export type { VerifyAdminPasswordInput } from './use-cases/verify-admin-password';
+export { CreateUser } from './use-cases/create-user';
+export type { CreateUserCommand, CreateUserResult } from './use-cases/create-user';
+export { RedeemSetupCode } from './use-cases/redeem-setup-code';
+export { VerifyUserPassword } from './use-cases/verify-user-password';
+export type { VerifyUserPasswordInput } from './use-cases/verify-user-password';
 export { ChangeAdminPassword } from './use-cases/change-admin-password';
 export type { ChangeAdminPasswordInput } from './use-cases/change-admin-password';
 export { AttemptLogin } from './use-cases/attempt-login';
-export type { LoginResult, CredentialVerifier } from './use-cases/attempt-login';
+export type { LoginResult, CredentialVerifier, AuthenticatedUser } from './use-cases/attempt-login';
 export { GenerateRecoveryCodes } from './use-cases/generate-recovery-codes';
 export { VerifyRecoveryCode } from './use-cases/verify-recovery-code';
 export type { VerifyRecoveryCodeInput, VerifyRecoveryCodeResult } from './use-cases/verify-recovery-code';

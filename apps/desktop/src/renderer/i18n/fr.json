@@ -1888,6 +1888,11 @@
     "retry": "Réessayer",
     "defaultHint": "Tant que vous n'avez pas enregistré vos horaires, les séances sont vérifiées avec une fenêtre par défaut de 09:00 à 18:00.",
     "dismissDefaultHint": "Masquer cette information",
+    "strandedWarning": {
+      "message_one": "{{count}} séance tombe désormais hors des horaires d'ouverture.",
+      "message_other": "{{count}} séances tombent désormais hors des horaires d'ouverture.",
+      "reviewCta": "Vérifier le planning"
+    },
     "weekdays": {
       "0": "Dimanche",
       "1": "Lundi",

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import { CenterProfileSettings } from '../components/settings/settings-page';
 import { CenterHoursSettings } from '../components/center-hours/center-hours-settings';
+import { CenterHoursStrandedWarning } from '../components/settings/center-hours-stranded-warning';
 import { CenterHoursOverrides } from '../components/center-hours-overrides/center-hours-overrides';
 import { HolidaysSettings } from '../components/holiday/holidays-settings';
 import { PasswordSettings } from '../components/settings/password-settings';
@@ -45,6 +46,7 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="hours" className="flex flex-col gap-8">
           <CenterHoursSettings />
+          <CenterHoursStrandedWarning />
           <CenterHoursOverrides />
         </TabsContent>
         <TabsContent value="holidays">

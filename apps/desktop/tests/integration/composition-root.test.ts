@@ -168,7 +168,7 @@ describe('composition root', () => {
       username: 'directrice',
       password: PASS,
     });
-    expect(id).toMatch(/^adm_/);
+    expect(id).toMatch(/^usr_/);
     first.dispose();
 
     // Reopen the same encrypted file: the account persists and verifies.
@@ -1065,7 +1065,7 @@ describe('composition root', () => {
       });
       expect(saved.center).toMatchObject({ name: 'Centre Al Ilm' });
       const admin = await dispatch('admin.create', { username: 'directrice', password: PASS });
-      expect(admin.id).toMatch(/^adm_/);
+      expect(admin.id).toMatch(/^usr_/);
 
       expect((await dispatch('license.status', {})).status).toBe('trial-active');
       expect((await dispatch('student.list', { search: '' })).students).toEqual([]);
