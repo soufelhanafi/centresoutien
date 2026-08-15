@@ -22,6 +22,7 @@ function validInput(overrides: Partial<CreateStudentInput> = {}): CreateStudentI
     school: null,
     notes: null,
     guardianIds: [],
+    niveauId: null,
     centerCode: CENTER,
     deviceOrigin: DEVICE,
     updatedBy: USER,

@@ -54,6 +54,7 @@ function makeGroup(over: Partial<Group> = {}): Group {
     version: 0,
     subjectId: SUBJECT_ID,
     teacherId: null,
+    niveauId: null,
     level: '2ème Bac',
     capacity: 15,
     kind: 'regular',

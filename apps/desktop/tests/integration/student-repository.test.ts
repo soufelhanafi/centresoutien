@@ -56,6 +56,7 @@ function makeStudent(over: Partial<Student> = {}): Student {
     school: null,
     notes: null,
     guardianIds: [],
+    niveauId: null,
     ...over,
   };
 }

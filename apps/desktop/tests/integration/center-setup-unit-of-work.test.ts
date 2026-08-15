@@ -10,6 +10,8 @@ import type {
   CenterHoursId,
   CenterId,
   DeviceId,
+  Niveau,
+  NiveauId,
   UserId,
   WeekdayIndex,
 } from '@centresoutien/domain';
@@ -52,6 +54,23 @@ function setupUnit(): CenterSetupUnit {
     windows: [{ open: '09:00', close: '18:00' }],
   }));
 
+  const defaultNiveaux: Niveau[] = [
+    {
+      id: 'niv_00000000000000000000000001' as NiveauId,
+      centerCode: CENTER,
+      deviceOrigin: DEVICE,
+      createdAt: AT,
+      updatedAt: AT,
+      updatedBy: USER,
+      deletedAt: null,
+      version: 0,
+      name: { fr: '1ère Année Primaire', ar: 'السنة الأولى ابتدائي' },
+      code: '1AP',
+      category: 'primaire',
+      active: true,
+    },
+  ];
+
   return {
     center: {
       id: 'ctr_00000000000000000000000001' as CenterId,
@@ -70,6 +89,7 @@ function setupUnit(): CenterSetupUnit {
       plan: 'essentiel',
     },
     defaultHours,
+    defaultNiveaux,
     trial: { startedAt: AT, lastSeenAt: AT },
   };
 }
@@ -87,6 +107,7 @@ describe('SqliteCenterSetupUnitOfWork', () => {
     await expect(setup.commit(unit)).rejects.toThrow('injected setup failure');
     expect(db.prepare('SELECT COUNT(*) AS count FROM center').get()).toEqual({ count: 0 });
     expect(db.prepare('SELECT COUNT(*) AS count FROM center_hours').get()).toEqual({ count: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS count FROM niveaux').get()).toEqual({ count: 0 });
     expect(db.prepare('SELECT COUNT(*) AS count FROM center_trial').get()).toEqual({ count: 0 });
 
     fail = false;
@@ -94,6 +115,8 @@ describe('SqliteCenterSetupUnitOfWork', () => {
 
     expect(db.prepare('SELECT COUNT(*) AS count FROM center').get()).toEqual({ count: 1 });
     expect(db.prepare('SELECT COUNT(*) AS count FROM center_hours').get()).toEqual({ count: 7 });
+    expect(db.prepare('SELECT COUNT(*) AS count FROM niveaux').get()).toEqual({ count: 1 });
+    expect(db.prepare('SELECT code FROM niveaux').get()).toEqual({ code: '1AP' });
     expect(db.prepare('SELECT COUNT(*) AS count FROM center_trial').get()).toEqual({ count: 1 });
     expect(db.prepare('SELECT started_at FROM center_trial').get()).toEqual({ started_at: AT.toISOString() });
   });
