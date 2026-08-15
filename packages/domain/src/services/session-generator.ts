@@ -165,8 +165,10 @@ export type UnroomedBlock = {
 };
 
 /**
- * Assigns a room to every entry in `blocks`, in list order, drawing via
- * `random` from the rooms still **free at that entry's weekday+time** (SOU-261):
+ * Assigns a room to every entry in `blocks`, processed earliest-start-first
+ * regardless of caller order (greedy interval coloring is only optimal in that
+ * order), drawing via `random` from the rooms still **free at that entry's
+ * weekday+time** (SOU-261):
  * a room already given to an overlapping sibling in this same batch, or held by
  * an overlapping `occupied` ref from the real committed schedule, is excluded
  * from the draw. Only when every room is taken at that slot does the draw fall
@@ -190,6 +192,7 @@ export function assignRoomsToBlocks(
 
   const predecessorOf = linkBackToBackChains(blocks);
   const roomByEntry = new Map<UnroomedBlock, RoomId>();
+  const occupiedByDay = groupRefsByDay(occupied);
 
   const roomsTakenAtSlot = (entry: UnroomedBlock): ReadonlySet<RoomId> => {
     const taken = new Set<RoomId>();
@@ -198,10 +201,8 @@ export function assignRoomsToBlocks(
         taken.add(roomId);
       }
     }
-    for (const ref of occupied) {
-      if (ref.dayOfWeek === entry.block.dayOfWeek && strictlyOverlaps(ref, entry.block)) {
-        taken.add(ref.roomId);
-      }
+    for (const ref of occupiedByDay.get(entry.block.dayOfWeek) ?? []) {
+      if (strictlyOverlaps(ref, entry.block)) taken.add(ref.roomId);
     }
     return taken;
   };
@@ -222,11 +223,38 @@ export function assignRoomsToBlocks(
     return roomId;
   };
 
+  for (const entry of inStartTimeOrder(blocks)) {
+    resolveRoom(entry);
+  }
   const roomByBlock = new Map<WeeklyBlock, RoomId>();
   for (const entry of blocks) {
-    roomByBlock.set(entry.block, resolveRoom(entry));
+    roomByBlock.set(entry.block, roomByEntry.get(entry)!);
   }
   return roomByBlock;
+}
+
+/**
+ * Entries in ascending block start order (stable across equal starts). Greedy
+ * free-room assignment is only guaranteed to stay within the max number of
+ * simultaneously overlapping blocks when intervals are colored earliest-start
+ * first — in caller order, a late-starting block processed early can "use up"
+ * both rooms of a slot a middle block still needs. Sorting here makes the
+ * fallback genuinely mean over-capacity, independent of caller order.
+ */
+function inStartTimeOrder(blocks: readonly UnroomedBlock[]): readonly UnroomedBlock[] {
+  return [...blocks].sort((a, b) => toMinutes(a.block.start) - toMinutes(b.block.start));
+}
+
+function groupRefsByDay(
+  refs: readonly ScheduledSessionRef[],
+): ReadonlyMap<WeekdayIndex, readonly ScheduledSessionRef[]> {
+  const byDay = new Map<WeekdayIndex, ScheduledSessionRef[]>();
+  for (const ref of refs) {
+    const day = byDay.get(ref.dayOfWeek);
+    if (day === undefined) byDay.set(ref.dayOfWeek, [ref]);
+    else day.push(ref);
+  }
+  return byDay;
 }
 
 /**
@@ -313,6 +341,16 @@ export class SessionGenerator {
     const { config, groups, centerHours, existingSchedule } = input;
     const windowsByWeekday = this.windowsByWeekday(centerHours);
     const openPool = [...new Set(config.weekdayPool)].filter((day) => windowsByWeekday.has(day));
+    if (config.mode === 'auto' && config.sessionsPerWeek < 1) {
+      // Before the duration filter, so a config broken in two ways reports the
+      // scalar mistake first — the more actionable remediation.
+      throw new InfeasibleGeneratorConfigError(
+        'non-positive-sessions-per-week',
+        openPool,
+        config.sessionsPerWeek,
+        config.minGapDays,
+      );
+    }
     const eligiblePool =
       config.mode === 'auto' ? this.poolFittingDuration(openPool, windowsByWeekday, config) : openPool;
     if (config.mode === 'auto') this.assertRoomCapacity(config, groups, eligiblePool, input.rooms);

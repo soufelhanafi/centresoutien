@@ -128,6 +128,21 @@ describe('assignRoomsToBlocks — collision-aware draw (SOU-261 F1)', () => {
     expect(roomByBlock.get(later.block)).toBe(ROOM_A);
   });
 
+  it('assigns conflict-free regardless of caller order when a feasible coloring exists', () => {
+    // A and B never overlap each other; C overlaps both. Processed in caller
+    // order (A, B, C) a greedy draw could park A and B in different rooms and
+    // leave C nothing — earliest-start-first processing keeps a room free.
+    const a = unroomed(G1, null, at(MON, '09:00', '10:00'));
+    const b = unroomed(G2, null, at(MON, '10:30', '12:00'));
+    const c = unroomed(G3, null, at(MON, '09:30', '11:30'));
+
+    const roomByBlock = assignRoomsToBlocks([a, b, c], [ROOM_A, ROOM_B], sequenceRandom([0, 0, 0]));
+
+    expect(roomByBlock.get(a.block)).toBe(ROOM_A);
+    expect(roomByBlock.get(c.block)).toBe(ROOM_B);
+    expect(roomByBlock.get(b.block)).toBe(ROOM_A);
+  });
+
   it('falls back to a random room when every room is taken at the overlapping slot', () => {
     const blocks = [G1, G2, G3].map((group) => unroomed(group, null, at(MON, '09:00', '11:00')));
 
@@ -242,6 +257,17 @@ describe('SessionGenerator — duration guard (SOU-261 F4)', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(InfeasibleGeneratorConfigError);
       expect((error as InfeasibleGeneratorConfigError).reason).toBe('duration-exceeds-windows');
+    }
+  });
+
+  it('reports non-positive-sessions-per-week ahead of the duration filter when both are broken', () => {
+    const config = autoConfig({ weekdayPool: [MON, TUE], sessionsPerWeek: 0, sessionDurationMinutes: 600 });
+
+    try {
+      new SessionGenerator(fakeRandom()).generate(input(config, [G1]));
+      expect.unreachable('expected an infeasible-config throw');
+    } catch (error) {
+      expect((error as InfeasibleGeneratorConfigError).reason).toBe('non-positive-sessions-per-week');
     }
   });
 
