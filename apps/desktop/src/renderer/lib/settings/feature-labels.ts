@@ -30,6 +30,7 @@ export const FEATURE_LABEL_KEYS: Record<FeatureFlag, string> = {
   'io.excel.import': 'excelImport',
   'io.excel.sync': 'excelSync',
   'planning.custom-grid': 'planningCustomGrid',
+  'planning.teacher-availability': 'planningTeacherAvailability',
   'dashboard.advanced': 'dashboardAdvanced',
   'planning.random-auto': 'planningRandomAuto',
   'sync.multi-device': 'syncMultiDevice',

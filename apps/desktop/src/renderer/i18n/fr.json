@@ -1512,6 +1512,10 @@
         },
         "room": "Salle {{room}} déjà occupée le {{day}}.",
         "teacher": "Enseignant déjà occupé le {{day}}.",
+        "teacherAvailability": {
+          "outOfWindow": "{{day}} : hors des disponibilités de l'enseignant.",
+          "exception": "Enseignant absent du {{from}} au {{to}}."
+        },
         "gap": "Écart inférieur au minimum ({{count}} jour(s))."
       },
       "conflictAction": {
@@ -1648,6 +1652,7 @@
         "excelImport": "Import Excel",
         "excelSync": "Synchronisation Excel",
         "planningCustomGrid": "Planning personnalisé",
+        "planningTeacherAvailability": "Disponibilités des enseignants",
         "dashboardAdvanced": "Tableau de bord avancé",
         "planningRandomAuto": "Planning automatique",
         "syncMultiDevice": "Synchronisation multi-appareils",

@@ -1563,6 +1563,10 @@
         },
         "room": "القاعة {{room}} مشغولة يوم {{day}}.",
         "teacher": "الأستاذ مشغول يوم {{day}}.",
+        "teacherAvailability": {
+          "outOfWindow": "{{day}}: خارج أوقات توفر الأستاذ.",
+          "exception": "الأستاذ غائب من {{from}} إلى {{to}}."
+        },
         "gap": "الفارق أقل من الحد الأدنى ({{count}} يوم)."
       },
       "conflictAction": {
@@ -1699,6 +1703,7 @@
         "excelImport": "استيراد Excel",
         "excelSync": "مزامنة Excel",
         "planningCustomGrid": "جدولة مخصصة",
+        "planningTeacherAvailability": "أوقات توفر الأساتذة",
         "dashboardAdvanced": "لوحة قيادة متقدمة",
         "planningRandomAuto": "جدولة تلقائية",
         "syncMultiDevice": "مزامنة متعددة الأجهزة",

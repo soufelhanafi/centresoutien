@@ -28,6 +28,17 @@ export function GeneratorWarnings({
       lines.push(t(`planning.generator.warnings.hours.${conflict.reason}`, { day: weekday(conflict.dayOfWeek) }));
     } else if (conflict.kind === 'teacher') {
       lines.push(t('planning.generator.warnings.teacher', { day: weekday(conflict.dayOfWeek) }));
+    } else if (conflict.kind === 'teacher-availability') {
+      lines.push(
+        conflict.reason === 'exception' && conflict.exception !== null
+          ? t('planning.generator.warnings.teacherAvailability.exception', {
+              from: conflict.exception.start,
+              to: conflict.exception.end,
+            })
+          : t('planning.generator.warnings.teacherAvailability.outOfWindow', {
+              day: weekday(conflict.dayOfWeek),
+            }),
+      );
     } else {
       lines.push(
         t('planning.generator.warnings.room', {

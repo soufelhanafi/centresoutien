@@ -72,7 +72,7 @@ function blockMatchesAnyConflict(
 ): boolean {
   return conflicts.some((conflict) => {
     if (conflict.dayOfWeek !== block.dayOfWeek) return false;
-    if (conflict.kind === 'teacher') {
+    if (conflict.kind === 'teacher' || conflict.kind === 'teacher-availability') {
       return (
         block.teacherId === conflict.teacherId &&
         conflict.start === block.start &&
