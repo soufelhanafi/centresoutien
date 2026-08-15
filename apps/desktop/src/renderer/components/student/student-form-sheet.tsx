@@ -1,6 +1,5 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { StudentInput } from '@centresoutien/domain';
 import {
   Button,
   Dialog,
@@ -12,14 +11,15 @@ import {
   ScrollArea,
 } from '@centresoutien/ui';
 import { StudentForm } from './student-form';
+import type { StudentNiveauFormValues } from '../../lib/niveaux/form-schemas';
 
 type StudentFormSheetProps = {
   mode: 'create' | 'edit';
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaultValues: StudentInput;
+  defaultValues: StudentNiveauFormValues;
   pending: boolean;
-  onSubmit: (values: StudentInput) => void | Promise<void>;
+  onSubmit: (values: StudentNiveauFormValues) => void | Promise<void>;
 };
 
 /**

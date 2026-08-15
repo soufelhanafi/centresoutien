@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { toast } from '@centresoutien/ui';
-import type { GroupInput } from '@centresoutien/domain';
 import { useCreateGroup } from '../../hooks/group/use-create-group';
 import { useGroupOptions } from '../../hooks/group/use-group-options';
 import { GroupFormSheet } from './group-form-sheet';
 import { EMPTY_GROUP_INPUT } from './group-form';
+import type { GroupNiveauFormValues } from '../../lib/niveaux/form-schemas';
 
 /** Create-group flow: owns the mutation, toasts the result, closes on success. */
 export function CreateGroupSheet({
@@ -18,7 +18,7 @@ export function CreateGroupSheet({
   const create = useCreateGroup();
   const options = useGroupOptions();
 
-  const handleSubmit = async (values: GroupInput) => {
+  const handleSubmit = async (values: GroupNiveauFormValues) => {
     try {
       await create.mutateAsync(values);
       toast.success(t('groups.form.createSuccess'));

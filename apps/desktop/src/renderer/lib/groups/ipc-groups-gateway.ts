@@ -157,6 +157,7 @@ function toRow(
         ? null
         : (teachers.get(group.teacherId) ?? { fr: group.teacherId, ar: group.teacherId }),
     level: group.level,
+    niveauId: group.niveauId ?? null,
     capacity: group.capacity,
     kind: group.kind,
     enrolledCount: group.enrolledCount,
