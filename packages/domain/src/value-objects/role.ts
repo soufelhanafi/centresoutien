@@ -39,3 +39,19 @@ export function isRoleSufficient(actual: Role, required: Role): boolean {
   }
   return roleRank(actual) >= roleRank(required);
 }
+
+// The roles the director may hand out via the employee-invite path (SOU-252).
+// `owner` is deliberately excluded — the single owner is the director, minted only
+// at first-run — and `admin`/`viewer` are unused in the MVP, so an invite may only
+// create a `secretary`. Widening this later is an edit to this array alone; the
+// invite use case reads it, so the guard has one home.
+export const INVITABLE_ROLES = ['secretary'] as const;
+
+export type InvitableRole = (typeof INVITABLE_ROLES)[number];
+
+// Whether `role` may be granted through an employee invite. Owner/admin/viewer
+// return false so an invite can never bypass the first-run owner guard or mint an
+// unsurfaced role.
+export function isInvitableRole(role: Role): role is InvitableRole {
+  return (INVITABLE_ROLES as readonly string[]).includes(role);
+}

@@ -81,7 +81,9 @@ import {
   PreviewGeneratedSchedule,
   CommitGeneratedSchedule,
   CreateAdminAccount,
-  VerifyAdminPassword,
+  CreateUser,
+  RedeemSetupCode,
+  VerifyUserPassword,
   ChangeAdminPassword,
   GenerateRecoveryCodes,
   VerifyRecoveryCode,
@@ -205,6 +207,7 @@ import { SqliteAttendanceRepository } from '../data/sqlite/repositories/attendan
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteCenterHoursOverrideRepository } from '../data/sqlite/repositories/center-hours-override-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
+import { SqliteUserRepository } from '../data/sqlite/repositories/user-repository';
 import { SqliteRecoveryCodeRepository } from '../data/sqlite/repositories/recovery-code-repository';
 import { SqliteRecoveryCodeResetUnitOfWork } from '../data/sqlite/repositories/recovery-code-reset-unit-of-work';
 import { SqliteSecurityQuestionRepository } from '../data/sqlite/repositories/security-question-repository';
@@ -369,13 +372,18 @@ function licenseFileFingerprint(filePath: string): string | null {
 }
 
 /**
- * Whether an admin account has been created — the durable marker that the
+ * Whether the center's owner has been created — the durable marker that the
  * first-run wizard finished (see `restricted-mode.ts`). A trivial indexed probe;
  * mirrors `SqliteAdminAccountRepository.exists`, read synchronously here because
- * the restricted-mode dispatch gate is synchronous.
+ * the restricted-mode dispatch gate is synchronous. Reads `users` (SOU-252): the
+ * owner is a `users` row, whether freshly created there or backfilled from the
+ * legacy `admin_accounts` table by migration 0044.
  */
 function adminAccountExists(db: DB): boolean {
-  return db.prepare('SELECT 1 FROM admin_accounts LIMIT 1').get() !== undefined;
+  return (
+    db.prepare("SELECT 1 FROM users WHERE role = 'owner' AND deleted_at IS NULL LIMIT 1").get() !==
+    undefined
+  );
 }
 
 /** Read the device's stable origin id, generating and persisting it on first run. */
@@ -1090,12 +1098,21 @@ export function buildContainer(options: ContainerOptions): Container {
   );
 
   const hasher = new HashWasmPasswordHasher();
+  const userRepo = new SqliteUserRepository(db, changeLog);
+  // AdminAccount is now a compatibility view over the owner `users` row (SOU-252):
+  // change-password / recovery-reset keep their port but share the one credential
+  // store. Login, first-run, and invites go through userRepo directly.
   const adminRepo = new SqliteAdminAccountRepository(db);
-  const createAdminAccount = new CreateAdminAccount(adminRepo, hasher, clock, ids);
-  const verifyAdminPassword = new VerifyAdminPassword(adminRepo, hasher);
+  const createAdminAccount = new CreateAdminAccount(userRepo, hasher, clock, ids, {
+    centerCode: options.centerCode,
+    deviceOrigin,
+  });
+  const verifyUserPassword = new VerifyUserPassword(userRepo, hasher);
   const changeAdminPassword = new ChangeAdminPassword(adminRepo, hasher, clock);
 
   const random = new NodeSecureRandom();
+  const createUser = new CreateUser(userRepo, hasher, random, clock, ids);
+  const redeemSetupCode = new RedeemSetupCode(userRepo, hasher, clock);
   const recoveryCodeRepo = new SqliteRecoveryCodeRepository(db);
   const auditLogRepo = new SqliteAuthAuditLogRepository(db);
   const generateRecoveryCodes = new GenerateRecoveryCodes(
@@ -1230,7 +1247,7 @@ export function buildContainer(options: ContainerOptions): Container {
   const resolveConflict = new ResolveConflict(localSyncRepository, clock, plan, localSyncRepository);
 
   const attemptLogin = new AttemptLogin(
-    verifyAdminPassword,
+    verifyUserPassword,
     new SqliteLoginThrottleStore(db),
     new LoginThrottlePolicy(),
     deviceSessions,
@@ -1384,6 +1401,8 @@ export function buildContainer(options: ContainerOptions): Container {
       return account?.username ?? '';
     },
     createAdminAccount,
+    createUser,
+    redeemSetupCode,
     changeAdminPassword,
     attemptLogin,
     deviceSessions,
