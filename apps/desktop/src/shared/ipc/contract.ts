@@ -87,9 +87,8 @@ const studentViewSchema = z.object({
   name: z.object({ fr: z.string(), ar: z.string() }),
   birthDate: z.string(),
   level: z.string(),
-  // SOU-260: the level-taxonomy link. Optional until the domain-backend merge
-  // populates it; the renderer reads `student.niveauId ?? null`.
-  niveauId: z.string().nullable().optional(),
+  // SOU-260: the level-taxonomy link, always emitted by `toStudentView`.
+  niveauId: z.string().nullable(),
   school: z.string().nullable(),
   notes: z.string().nullable(),
   guardianIds: z.array(z.string()),
@@ -139,9 +138,8 @@ const groupViewSchema = z.object({
   subjectId: z.string(),
   teacherId: z.string().nullable(),
   level: z.string(),
-  // SOU-260: the level-taxonomy link. Optional until the domain-backend merge
-  // populates it; the renderer reads `group.niveauId ?? null`.
-  niveauId: z.string().nullable().optional(),
+  // SOU-260: the level-taxonomy link, always emitted by `toGroupView`.
+  niveauId: z.string().nullable(),
   capacity: z.number().int(),
   kind: z.enum(['regular', 'exam-prep']),
   archived: z.boolean(),
@@ -291,9 +289,8 @@ const teacherViewSchema = z.object({
   phone: z.string(),
   email: z.string().nullable(),
   subjectIds: z.array(z.string()),
-  // SOU-260: the level-taxonomy links. Optional until the domain-backend merge
-  // populates them; the renderer reads `teacher.niveauIds ?? []`.
-  niveauIds: z.array(z.string()).optional(),
+  // SOU-260: the level-taxonomy links, always emitted by `toTeacherView`.
+  niveauIds: z.array(z.string()),
   archived: z.boolean(),
   createdAt: z.string(),
 });

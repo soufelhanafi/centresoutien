@@ -36,6 +36,10 @@ class IpcNiveauxGateway implements NiveauxGateway {
     const { niveau } = await window.api.invoke('niveau.update', { ...input, id });
     return niveau;
   }
+
+  async archive(id: string): Promise<void> {
+    await window.api.invoke('niveau.archive', { id });
+  }
 }
 
 export const ipcNiveauxGateway: NiveauxGateway = new IpcNiveauxGateway();

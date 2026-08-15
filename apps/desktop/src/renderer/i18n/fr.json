@@ -720,7 +720,10 @@
       "edit": "Modifier",
       "deactivate": "Désactiver",
       "activate": "Réactiver",
-      "deactivateBlockedHint": "Niveau utilisé — la désactivation affichera un avertissement."
+      "delete": "Supprimer",
+      "deactivateBlockedHint": "Niveau utilisé — la désactivation affichera un avertissement.",
+      "deleteBlockedHint_one": "Utilisé par {{count, number}} élément — désactivez-le à la place.",
+      "deleteBlockedHint_other": "Utilisé par {{count, number}} éléments — désactivez-le à la place."
     },
     "field": {
       "label": "Niveau",
@@ -778,6 +781,19 @@
       "referenceItem": "{{kind}} — {{label}}",
       "confirm": "Désactiver",
       "cancel": "Annuler"
+    },
+    "delete": {
+      "success": "Niveau supprimé",
+      "error": "La suppression a échoué. Réessayez.",
+      "title": "Supprimer « {{name}} » ?",
+      "body": "Ce niveau sera retiré des choix. Cette action est définitive.",
+      "blockedTitle": "Impossible de supprimer ce niveau",
+      "blockedBody_one": "« {{name}} » est utilisé par {{count, number}} élément. Détachez-le d'abord, ou désactivez le niveau à la place :",
+      "blockedBody_other": "« {{name}} » est utilisé par {{count, number}} éléments. Détachez-les d'abord, ou désactivez le niveau à la place :",
+      "referenceItem": "{{kind}} — {{label}}",
+      "confirm": "Supprimer",
+      "cancel": "Annuler",
+      "deactivateInstead": "Désactiver le niveau"
     },
     "referenceKind": {
       "student": "Élève",

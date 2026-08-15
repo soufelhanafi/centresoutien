@@ -743,7 +743,13 @@
       "edit": "تعديل",
       "deactivate": "تعطيل",
       "activate": "إعادة التفعيل",
-      "deactivateBlockedHint": "مستوى مستخدم — سيُعرض تحذير عند التعطيل."
+      "delete": "حذف",
+      "deactivateBlockedHint": "مستوى مستخدم — سيُعرض تحذير عند التعطيل.",
+      "deleteBlockedHint_one": "مستخدم في عنصر واحد — عطّله بدلاً من ذلك.",
+      "deleteBlockedHint_two": "مستخدم في عنصرين — عطّله بدلاً من ذلك.",
+      "deleteBlockedHint_few": "مستخدم في {{count, number}} عناصر — عطّله بدلاً من ذلك.",
+      "deleteBlockedHint_many": "مستخدم في {{count, number}} عنصرًا — عطّله بدلاً من ذلك.",
+      "deleteBlockedHint_other": "مستخدم في {{count, number}} عنصر — عطّله بدلاً من ذلك."
     },
     "field": {
       "label": "المستوى",
@@ -805,6 +811,23 @@
       "referenceItem": "{{kind}} — {{label}}",
       "confirm": "تعطيل",
       "cancel": "إلغاء"
+    },
+    "delete": {
+      "success": "تم حذف المستوى",
+      "error": "فشل الحذف. حاول مجددًا.",
+      "title": "حذف «{{name}}»؟",
+      "body": "سيُزال هذا المستوى من الاختيارات. هذا الإجراء نهائي.",
+      "blockedTitle": "تعذّر حذف هذا المستوى",
+      "blockedBody_zero": "«{{name}}» غير مستخدم في أي عنصر حالياً. أعد المحاولة.",
+      "blockedBody_one": "«{{name}}» مستخدم في عنصر واحد. افصله أولًا، أو عطّل المستوى بدلاً من ذلك:",
+      "blockedBody_two": "«{{name}}» مستخدم في عنصرين. افصلهما أولًا، أو عطّل المستوى بدلاً من ذلك:",
+      "blockedBody_few": "«{{name}}» مستخدم في {{count, number}} عناصر. افصلها أولًا، أو عطّل المستوى بدلاً من ذلك:",
+      "blockedBody_many": "«{{name}}» مستخدم في {{count, number}} عنصرًا. افصلها أولًا، أو عطّل المستوى بدلاً من ذلك:",
+      "blockedBody_other": "«{{name}}» مستخدم في {{count, number}} عنصر. افصلها أولًا، أو عطّل المستوى بدلاً من ذلك:",
+      "referenceItem": "{{kind}} — {{label}}",
+      "confirm": "حذف",
+      "cancel": "إلغاء",
+      "deactivateInstead": "تعطيل المستوى"
     },
     "referenceKind": {
       "student": "تلميذ",

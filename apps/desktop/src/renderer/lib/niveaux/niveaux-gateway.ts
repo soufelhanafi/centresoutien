@@ -14,6 +14,7 @@ export interface NiveauxGateway {
   listWithUsage(): Promise<readonly NiveauUsageView[]>;
   create(input: NiveauInput): Promise<NiveauView>;
   update(id: string, input: NiveauUpdateInput): Promise<NiveauView>;
+  archive(id: string): Promise<void>;
 }
 
 /** The active gateway: the real IPC adapter. Swapping it is this one line. */
