@@ -44,14 +44,14 @@ export function SetupCodeDialog({
 
         <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 p-4">
           <span
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-accent text-primary"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"
             aria-hidden="true"
           >
             <KeyRound className="h-5 w-5" />
           </span>
           <code
             dir="ltr"
-            className="grow select-all text-lg font-semibold tracking-[0.2em] text-foreground"
+            className="grow select-all text-lg font-semibold tracking-widest text-foreground"
           >
             {setupCode}
           </code>
@@ -70,7 +70,7 @@ export function SetupCodeDialog({
           </Button>
         </div>
 
-        <p role="alert" className="text-[12.5px] text-muted-foreground">
+        <p role="alert" className="text-xs text-muted-foreground">
           {t('team.setupCode.warning')}
         </p>
 

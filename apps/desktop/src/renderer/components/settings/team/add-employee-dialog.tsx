@@ -12,7 +12,7 @@ import {
   toast,
 } from '@centresoutien/ui';
 import { useCreateUser } from '../../../hooks/user/use-create-user';
-import { mapCreateUserError } from '../../../lib/users/create-user-error';
+import { mapCreateUserError, USERNAME_FIELD_ERROR } from '../../../lib/users/create-user-error';
 import type { CreateUserResult } from '../../../lib/users/users-gateway';
 import { AddEmployeeForm, type EmployeeFormServerFieldError } from './add-employee-form';
 
@@ -48,7 +48,7 @@ export function AddEmployeeDialog({
       onOpenChange(false);
     } catch (error) {
       const code = mapCreateUserError(error);
-      if (code === 'username-already-taken') {
+      if (code === USERNAME_FIELD_ERROR) {
         setServerFieldError({ field: 'username', code });
         return;
       }

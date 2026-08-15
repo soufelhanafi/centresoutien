@@ -4,10 +4,11 @@ import type { UserView } from '../../../lib/users/user-view';
 import { sortUsersForRoster } from '../../../lib/users/sort-users';
 
 /**
- * The team roster (SOU-256): username, translated role, and a "setup pending"
- * badge for invites whose code has not been redeemed yet. The owner — the single
- * first-run account — carries a distinct role badge so it reads apart from the
- * employees it manages. Sorting is renderer-side (owner → active → pending).
+ * The team roster (SOU-256): username, translated role, and a login-readiness
+ * badge — active, a pending invite (code still redeemable), or an expired invite
+ * (code lapsed, account still has no password and cannot log in). The owner — the
+ * single first-run account — carries a distinct role badge so it reads apart from
+ * the employees it manages. Sorting is renderer-side (owner → active → invites).
  */
 export function UserTable({ users }: { users: readonly UserView[] }) {
   const { t } = useTranslation();
@@ -33,12 +34,16 @@ export function UserTable({ users }: { users: readonly UserView[] }) {
                 </Badge>
               </TableCell>
               <TableCell>
-                {user.setupPending ? (
+                {user.status === 'active' ? (
+                  <span className="text-sm text-muted-foreground">{t('team.status.active')}</span>
+                ) : user.status === 'setup-expired' ? (
+                  <Badge variant="destructive" dot>
+                    {t('team.status.setupExpired')}
+                  </Badge>
+                ) : (
                   <Badge variant="warning" dot>
                     {t('team.status.setupPending')}
                   </Badge>
-                ) : (
-                  <span className="text-sm text-muted-foreground">{t('team.status.active')}</span>
                 )}
               </TableCell>
             </TableRow>

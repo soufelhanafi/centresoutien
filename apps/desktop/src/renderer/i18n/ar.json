@@ -1600,6 +1600,7 @@
     },
     "status": {
       "setupPending": "في انتظار التفعيل",
+      "setupExpired": "انتهت صلاحية الرمز",
       "active": "نشط"
     },
     "empty": {

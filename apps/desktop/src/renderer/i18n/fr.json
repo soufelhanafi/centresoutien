@@ -1549,6 +1549,7 @@
     },
     "status": {
       "setupPending": "En attente d'activation",
+      "setupExpired": "Code expiré",
       "active": "Actif"
     },
     "empty": {

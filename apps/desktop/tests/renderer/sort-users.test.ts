@@ -3,14 +3,14 @@ import { sortUsersForRoster } from '../../src/renderer/lib/users/sort-users';
 import type { UserView } from '../../src/renderer/lib/users/user-view';
 
 function user(partial: Partial<UserView> & Pick<UserView, 'id' | 'username'>): UserView {
-  return { role: 'secretary', setupPending: false, ...partial };
+  return { role: 'secretary', status: 'active', ...partial };
 }
 
 describe('sortUsersForRoster', () => {
   it('orders owner first, then active employees, then pending invites', () => {
     const rows = sortUsersForRoster([
-      user({ id: '3', username: 'zineb', setupPending: true }),
-      user({ id: '2', username: 'bilal', setupPending: false }),
+      user({ id: '3', username: 'zineb', status: 'setup-pending' }),
+      user({ id: '2', username: 'bilal', status: 'active' }),
       user({ id: '1', username: 'omar', role: 'owner' }),
     ]);
 
@@ -19,8 +19,8 @@ describe('sortUsersForRoster', () => {
 
   it('alphabetizes by username within each band', () => {
     const rows = sortUsersForRoster([
-      user({ id: 'p2', username: 'yassine', setupPending: true }),
-      user({ id: 'p1', username: 'amine', setupPending: true }),
+      user({ id: 'p2', username: 'yassine', status: 'setup-pending' }),
+      user({ id: 'p1', username: 'amine', status: 'setup-pending' }),
       user({ id: 'a2', username: 'nadia' }),
       user({ id: 'a1', username: 'fatima' }),
     ]);

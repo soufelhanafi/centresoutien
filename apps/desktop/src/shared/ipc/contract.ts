@@ -66,14 +66,14 @@ const featureFlagSchema = z.enum(FEATURE_FLAGS);
 // The safe projection of a User across the IPC boundary (SOU-256). Credential
 // material — `passwordHash`, `setupCodeHash`, and the one-time setup code — is
 // NEVER present here: only the fields the user-management list renders survive.
-// `setupPending` is the domain-derived "invite still redeemable" flag (from
-// `isSetupCodePending`), computed in main; the renderer never sees a hash. This is
-// the single source of truth for the renderer's `UserView` type.
+// `status` is the domain-derived login-readiness (active | setup-pending |
+// setup-expired), computed in main; the renderer never sees a hash. This is the
+// single source of truth for the renderer's `UserView` type.
 const userViewSchema = z.object({
   id: z.string(),
   username: z.string(),
   role: z.enum(ROLES),
-  setupPending: z.boolean(),
+  status: z.enum(['active', 'setup-pending', 'setup-expired']),
 });
 
 /** The center profile as it crosses the IPC boundary — envelope dates stay in main. */
@@ -1976,8 +1976,8 @@ export const ipcContract = {
     response: z.object({ ok: z.literal(true) }),
   },
   // The center's live user accounts for the management list. Returns only the safe
-  // view (never a credential hash or the setup code); `setupPending` tells the UI
-  // which invites are still outstanding.
+  // view (never a credential hash or the setup code); `status` tells the UI which
+  // accounts are active, still-pending invites, or expired invites.
   'user.list': {
     request: z.object({}),
     response: z.object({ users: z.array(userViewSchema) }),

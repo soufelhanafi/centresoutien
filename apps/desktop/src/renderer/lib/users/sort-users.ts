@@ -13,5 +13,5 @@ export function sortUsersForRoster(users: readonly UserView[]): readonly UserVie
 
 function rank(user: UserView): number {
   if (user.role === 'owner') return 0;
-  return user.setupPending ? 2 : 1;
+  return user.status === 'active' ? 1 : 2;
 }

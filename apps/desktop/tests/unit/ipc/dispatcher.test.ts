@@ -120,7 +120,7 @@ const stubCreateAdminAccount: CreateAdminAccountUseCase = {
     updatedAt: new Date('2026-07-29T10:00:00Z'),
   }),
 };
-// User-management stubs (SOU-256). A fixed clock so `setupPending` is
+// User-management stubs (SOU-256). A fixed clock so the derived account status is
 // deterministic; the invited user's code expires after `NOW`, so it is pending.
 const NOW = new Date('2026-08-14T00:00:00Z');
 const SETUP_CODE_EXPIRES_MS = new Date('2026-08-20T00:00:00Z').getTime();
@@ -164,7 +164,7 @@ const stubRedeemSetupCode: RedeemSetupCodeUseCase = {
   },
 };
 // One pending invite (has hashes) + one redeemed account (password set), so the
-// list test can assert redaction and both `setupPending` values.
+// list test can assert redaction and both derived status values.
 const stubListUsers = async () => [
   {
     id: 'usr_00000000000000000000000003' as UserId,
@@ -731,32 +731,54 @@ describe('createIpcDispatcher', () => {
 
   it('runs user.create, forwards the injected envelope context, and returns the view + one-time code', async () => {
     lastCreateUserCommand = null;
-    await expect(dispatch('user.create', { username: 'amine', role: 'secretary' })).resolves.toEqual({
-      user: {
-        id: 'usr_00000000000000000000000002',
+    remembered = true;
+    try {
+      await expect(dispatch('user.create', { username: 'amine', role: 'secretary' })).resolves.toEqual(
+        {
+          user: {
+            id: 'usr_00000000000000000000000002',
+            username: 'amine',
+            role: 'secretary',
+            status: 'setup-pending',
+          },
+          setupCode: 'A7K2-9FMP-3QRT',
+        },
+      );
+      // The renderer sent only username + role; center/device/user were injected in main.
+      expect(lastCreateUserCommand).toEqual({
         username: 'amine',
         role: 'secretary',
-        setupPending: true,
-      },
-      setupCode: 'A7K2-9FMP-3QRT',
-    });
-    // The renderer sent only username + role; center/device/user were injected in main.
-    expect(lastCreateUserCommand).toEqual({
-      username: 'amine',
-      role: 'secretary',
-      centerCode: context.centerCode,
-    });
+        centerCode: context.centerCode,
+      });
+    } finally {
+      remembered = false;
+    }
   });
 
   it('never leaks credential material through the user.create response', async () => {
-    const res = await dispatch('user.create', { username: 'amine', role: 'secretary' });
-    expect(res.user).not.toHaveProperty('passwordHash');
-    expect(res.user).not.toHaveProperty('setupCodeHash');
-    expect(JSON.stringify(res.user)).not.toContain('argon2id');
+    remembered = true;
+    try {
+      const res = await dispatch('user.create', { username: 'amine', role: 'secretary' });
+      expect(res.user).not.toHaveProperty('passwordHash');
+      expect(res.user).not.toHaveProperty('setupCodeHash');
+      expect(JSON.stringify(res.user)).not.toContain('argon2id');
+    } finally {
+      remembered = false;
+    }
   });
 
   it('rejects user.create whose username fails the shared schema', async () => {
-    await expect(dispatch('user.create', { username: 'a', role: 'secretary' })).rejects.toThrow();
+    remembered = true;
+    try {
+      await expect(dispatch('user.create', { username: 'a', role: 'secretary' })).rejects.toThrow();
+    } finally {
+      remembered = false;
+    }
+  });
+
+  it('rejects user.create from an unauthenticated renderer (director-only channel)', async () => {
+    remembered = false;
+    await expect(dispatch('user.create', { username: 'amine', role: 'secretary' })).rejects.toThrow();
   });
 
   it('runs user.redeemSetupCode and forwards the request to the use case', async () => {
@@ -772,25 +794,40 @@ describe('createIpcDispatcher', () => {
   });
 
   it('runs user.list and returns only redacted views (no credential hashes)', async () => {
-    const res = await dispatch('user.list', {});
-    expect(res).toEqual({
-      users: [
-        { id: 'usr_00000000000000000000000003', username: 'amine', role: 'secretary', setupPending: true },
-        {
-          id: 'usr_00000000000000000000000001',
-          username: 'directrice',
-          role: 'owner',
-          setupPending: false,
-        },
-      ],
-    });
-    // Belt-and-braces: no serialized hash survives the boundary.
-    expect(JSON.stringify(res)).not.toContain('argon2id');
-    for (const user of res.users) {
-      expect(user).not.toHaveProperty('passwordHash');
-      expect(user).not.toHaveProperty('setupCodeHash');
-      expect(user).not.toHaveProperty('setupCode');
+    remembered = true;
+    try {
+      const res = await dispatch('user.list', {});
+      expect(res).toEqual({
+        users: [
+          {
+            id: 'usr_00000000000000000000000003',
+            username: 'amine',
+            role: 'secretary',
+            status: 'setup-pending',
+          },
+          {
+            id: 'usr_00000000000000000000000001',
+            username: 'directrice',
+            role: 'owner',
+            status: 'active',
+          },
+        ],
+      });
+      // Belt-and-braces: no serialized hash survives the boundary.
+      expect(JSON.stringify(res)).not.toContain('argon2id');
+      for (const user of res.users) {
+        expect(user).not.toHaveProperty('passwordHash');
+        expect(user).not.toHaveProperty('setupCodeHash');
+        expect(user).not.toHaveProperty('setupCode');
+      }
+    } finally {
+      remembered = false;
     }
+  });
+
+  it('rejects user.list from an unauthenticated renderer (director-only channel)', async () => {
+    remembered = false;
+    await expect(dispatch('user.list', {})).rejects.toThrow();
   });
 
   // SOU-97: the bare `admin.verify` channel was removed so a locked console
