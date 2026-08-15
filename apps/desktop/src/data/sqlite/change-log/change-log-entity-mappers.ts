@@ -7,6 +7,8 @@ import type {
   Session,
   Subject,
   SubjectId,
+  TeacherAvailability,
+  TeacherAvailabilityException,
   User,
   UserId,
   WeeklyRecurringSession,
@@ -237,6 +239,40 @@ function centerHoursOverrideEntityToRow(entity: unknown): Record<string, unknown
   };
 }
 
+function teacherAvailabilityEntityToRow(entity: unknown): Record<string, unknown> {
+  const availability = entity as TeacherAvailability;
+  return {
+    id: availability.id,
+    center_code: availability.centerCode,
+    device_origin: availability.deviceOrigin,
+    created_at: toIsoString(availability.createdAt),
+    updated_at: toIsoString(availability.updatedAt),
+    updated_by: availability.updatedBy,
+    deleted_at: availability.deletedAt === null ? null : toIsoString(availability.deletedAt),
+    version: availability.version,
+    teacher_id: availability.teacherId,
+    weekly_windows: JSON.stringify(availability.weeklyWindows),
+  };
+}
+
+function teacherAvailabilityExceptionEntityToRow(entity: unknown): Record<string, unknown> {
+  const exception = entity as TeacherAvailabilityException;
+  return {
+    id: exception.id,
+    center_code: exception.centerCode,
+    device_origin: exception.deviceOrigin,
+    created_at: toIsoString(exception.createdAt),
+    updated_at: toIsoString(exception.updatedAt),
+    updated_by: exception.updatedBy,
+    deleted_at: exception.deletedAt === null ? null : toIsoString(exception.deletedAt),
+    version: exception.version,
+    teacher_id: exception.teacherId,
+    start_date: exception.dateRange.start,
+    end_date: exception.dateRange.end,
+    label: exception.label,
+  };
+}
+
 function paymentEntityToRow(entity: unknown): Record<string, unknown> {
   const payment = entity as Payment;
   return {
@@ -272,6 +308,15 @@ registerChangeLogEntityToRowMapper('sessions', sessionEntityToRow);
 // as the repository's own SAVE_SQL does — so a pulled override lands on laptop B's
 // real table instead of the neutral fallback.
 registerChangeLogEntityToRowMapper('center_hours_overrides', centerHoursOverrideEntityToRow);
+// `teacher_availability` + `teacher_availability_exceptions` (SOU-259): synced
+// per-teacher scheduling constraints. `weeklyWindows` serializes to JSON text and
+// the exception's nested `dateRange.{start,end}` flatten to their columns,
+// exactly as each repository's SAVE_SQL does.
+registerChangeLogEntityToRowMapper('teacher_availability', teacherAvailabilityEntityToRow);
+registerChangeLogEntityToRowMapper(
+  'teacher_availability_exceptions',
+  teacherAvailabilityExceptionEntityToRow,
+);
 registerChangeLogEntityToRowMapper('payments', paymentEntityToRow, 'append-only');
 // `users` (SOU-252): the multi-user credential/identity store. Its nested
 // setup-code dates flatten to their ISO columns and `username_normalized` is
