@@ -130,11 +130,6 @@ describe('SqliteTeacherAvailabilityRepository', () => {
       ).rejects.toThrow();
     });
 
-    it('rejects a second live row for the same teacher (partial unique index)', async () => {
-      await availabilityRepo.save(makeAvailability());
-      await expect(availabilityRepo.save(makeAvailability())).rejects.toThrow();
-    });
-
     it('allows re-creating after the previous row is tombstoned', async () => {
       const first = makeAvailability();
       await availabilityRepo.save(first);

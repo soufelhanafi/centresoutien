@@ -135,15 +135,21 @@ export class SqliteTeacherAvailabilityRepository implements TeacherAvailabilityR
   }
 
   async findByTeacher(centerCode: CenterCode, teacherId: TeacherId): Promise<TeacherAvailability | null> {
+    // Greatest id wins when concurrent first-creates left duplicates (see the
+    // 0045 migration header) — deterministic across devices, like activeOverrideOn.
     const row = this.db
       .prepare(
-        'SELECT * FROM teacher_availability WHERE center_code = ? AND teacher_id = ? AND deleted_at IS NULL',
+        `SELECT * FROM teacher_availability
+         WHERE center_code = ? AND teacher_id = ? AND deleted_at IS NULL
+         ORDER BY id DESC LIMIT 1`,
       )
       .get(centerCode, teacherId) as TeacherAvailabilityRow | undefined;
     return row ? fromRow(row) : null;
   }
 
   async listForCenter(centerCode: CenterCode): Promise<readonly TeacherAvailability[]> {
+    // Ascending id: a caller folding rows into a per-teacher map lands on the
+    // same greatest-id winner findByTeacher resolves.
     const rows = this.db
       .prepare(
         'SELECT * FROM teacher_availability WHERE center_code = ? AND deleted_at IS NULL ORDER BY id',

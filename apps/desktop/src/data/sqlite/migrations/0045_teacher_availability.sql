@@ -6,8 +6,14 @@
 --       warnings (SOU-189 style) instead of discovering the clash after the fact.
 -- First ships in: v2.0.0.
 --
--- teacher_availability holds AT MOST ONE live row per (center_code, teacher_id)
--- — absence of a row means the teacher is unrestricted. weekly_windows is a JSON
+-- teacher_availability aims at ONE live row per (center_code, teacher_id) —
+-- absence of a row means the teacher is unrestricted. That invariant is an
+-- application-level upsert rule, NOT a unique index: two devices can each
+-- create a row for the same teacher before their first sync, and inbound
+-- projection (ON CONFLICT(id)) must land both rows rather than reject the
+-- batch. Reads resolve the duplicate deterministically — greatest id wins,
+-- the same rule center-hours overrides use — so every device converges on the
+-- same winner and later saves edit that winner. weekly_windows is a JSON
 -- object keyed "0".."6" (0=Sunday … 6=Saturday); each value is an ordered,
 -- non-overlapping array of { "open": "HH:mm", "close": "HH:mm" } — an empty
 -- array is a whole day off. Shape + ordering invariants are enforced by the
@@ -40,9 +46,10 @@ CREATE TABLE teacher_availability (
 
 CREATE INDEX ix_teacher_availability_updated_at ON teacher_availability(updated_at);
 CREATE INDEX ix_teacher_availability_center     ON teacher_availability(center_code, deleted_at);
--- The one-live-row-per-teacher invariant the domain upsert relies on.
-CREATE UNIQUE INDEX ux_teacher_availability_teacher
-  ON teacher_availability(center_code, teacher_id) WHERE deleted_at IS NULL;
+-- Deliberately NOT unique (see header): concurrent first-creates on two devices
+-- must both project; the greatest-id read rule arbitrates.
+CREATE INDEX ix_teacher_availability_teacher
+  ON teacher_availability(center_code, teacher_id, deleted_at);
 
 CREATE TABLE teacher_availability_exceptions (
   id            TEXT PRIMARY KEY,              -- ULID with 'tae_' prefix

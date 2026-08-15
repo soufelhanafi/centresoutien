@@ -63,7 +63,7 @@ export function TeacherAvailabilityExceptions({
       ) : (
         <ul className="flex flex-col gap-2">
           {exceptions.map((exception) => (
-            <ExceptionRow key={exception.id} teacherId={teacherId} exception={exception} />
+            <ExceptionRow key={exception.id} exception={exception} />
           ))}
         </ul>
       )}
@@ -77,13 +77,7 @@ export function TeacherAvailabilityExceptions({
   );
 }
 
-function ExceptionRow({
-  teacherId,
-  exception,
-}: {
-  teacherId: string;
-  exception: ExceptionView;
-}) {
+function ExceptionRow({ exception }: { exception: ExceptionView }) {
   const { t, i18n } = useTranslation();
   const [archiveOpen, setArchiveOpen] = useState(false);
   const archive = useArchiveTeacherAvailabilityException();
@@ -94,7 +88,7 @@ function ExceptionRow({
 
   const handleConfirm = async () => {
     try {
-      await archive.mutateAsync({ id: exception.id, teacherId });
+      await archive.mutateAsync(exception.id);
       toast.success(t('teachers.availability.exceptions.archive.success'));
       setArchiveOpen(false);
     } catch {

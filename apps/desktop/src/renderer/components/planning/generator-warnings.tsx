@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { TriangleAlert } from 'lucide-react';
+import { formatIsoDate } from '../../lib/center-hours-overrides/dates';
 import type { GeneratorConflict, GeneratorGroupProposal } from '../../lib/planning/session-generator-gateway';
 
 /**
@@ -17,7 +18,7 @@ export function GeneratorWarnings({
   gapViolations: GeneratorGroupProposal['gapViolations'];
   roomName: (roomId: string) => string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const weekday = (day: number): string => t(`planning.weekdays.${day}`);
 
   if (conflicts.length === 0 && gapViolations.length === 0) return null;
@@ -32,8 +33,8 @@ export function GeneratorWarnings({
       lines.push(
         conflict.reason === 'exception' && conflict.exception !== null
           ? t('planning.generator.warnings.teacherAvailability.exception', {
-              from: conflict.exception.start,
-              to: conflict.exception.end,
+              from: formatIsoDate(conflict.exception.start, i18n.language),
+              to: formatIsoDate(conflict.exception.end, i18n.language),
             })
           : t('planning.generator.warnings.teacherAvailability.outOfWindow', {
               day: weekday(conflict.dayOfWeek),

@@ -10,9 +10,11 @@ export type TeacherAvailabilityId = Brand<string, 'TeacherAvailabilityId'>;
 
 /**
  * A teacher's declared weekly teaching windows (SOU-259) — when the director
- * says this teacher can be scheduled, per weekday. One row per teacher (unique
- * on `(centerCode, teacherId)` among live rows); **absence of a row means the
- * teacher is unrestricted** — availability is an opt-in convenience layer, so a
+ * says this teacher can be scheduled, per weekday. One live row per teacher is
+ * the upsert invariant (not a DB constraint — concurrent first-creates on two
+ * devices must both sync; reads resolve the greatest id as the winner);
+ * **absence of a row means the teacher is unrestricted** — availability is an
+ * opt-in convenience layer, so a
  * teacher nobody configured is never flagged. A weekday's empty list means the
  * teacher is off that whole day. Reuses {@link WeeklyTimeWindows} so a day can
  * carry split windows (e.g. `09:00–12:00` then `15:00–18:00`), each list ordered

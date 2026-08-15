@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 /** Query-key factory: one cache entry per teacher's availability picture. */
 export const teacherAvailabilityKeys = {
+  all: ['teacher-availability'] as const,
   detail: (teacherId: string) => ['teacher-availability', teacherId] as const,
 };
 
