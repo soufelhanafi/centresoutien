@@ -125,6 +125,7 @@ import type {
   CreateAdminAccount,
   CreateUser,
   RedeemSetupCode,
+  User,
   ChangeAdminPassword,
   SaveCenterHours,
   GetCenterHours,
@@ -165,6 +166,7 @@ import {
   CenterHoursOverrideNotFoundError,
   NotAuthenticatedError,
   SECURITY_QUESTION_KEYS,
+  isSetupCodePending,
 } from '@centresoutien/domain';
 import type { RegisterableIpcHandlers, IpcRequest } from '../../shared/ipc/contract';
 import type { LocalePreference } from '../infra/locale-preference-store';
@@ -364,6 +366,20 @@ function toSubjectView(subject: Subject) {
     name: { fr: subject.name.fr, ar: subject.name.ar },
     code: subject.code,
     active: subject.active,
+  };
+}
+
+/** Project a User to its boundary DTO (SOU-256): credential material NEVER crosses
+ *  the boundary — `passwordHash`, `setupCodeHash`, and the raw setup code are
+ *  stripped, leaving only the fields the user-management list renders. `setupPending`
+ *  is the domain-derived "still-redeemable invite" flag, computed against the injected
+ *  clock — never a raw hash the renderer could inspect. */
+function toUserView(user: User, now: Date) {
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    setupPending: isSetupCodePending(user, now),
   };
 }
 
@@ -874,6 +890,8 @@ export type HandlerDeps = BackupHandlerDeps &
   createAdminAccount: CreateAdminAccountUseCase;
   createUser: CreateUserUseCase;
   redeemSetupCode: RedeemSetupCodeUseCase;
+  listUsers: () => Promise<readonly User[]>;
+  now: () => Date;
   changeAdminPassword: ChangeAdminPasswordUseCase;
   attemptLogin: AttemptLoginUseCase;
   deviceSessions: DeviceSessions;
@@ -1671,6 +1689,22 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     'admin.changePassword': async (request) => {
       await deps.changeAdminPassword.execute(request);
       return { ok: true };
+    },
+    'user.create': async (request) => {
+      const { user, setupCode } = await deps.createUser.execute({
+        ...request,
+        ...deps.envelopeContext(),
+      });
+      return { user: toUserView(user, deps.now()), setupCode };
+    },
+    'user.redeemSetupCode': async (request) => {
+      await deps.redeemSetupCode.execute(request);
+      return { ok: true };
+    },
+    'user.list': async () => {
+      const users = await deps.listUsers();
+      const now = deps.now();
+      return { users: users.map((user) => toUserView(user, now)) };
     },
     'auth.login': async (request) => {
       const result = await deps.attemptLogin.execute(request);
