@@ -246,6 +246,16 @@
     "password-mismatch": "Les mots de passe ne correspondent pas",
     "invalid-current-password": "Mot de passe actuel incorrect",
     "admin-account-not-found": "Ce compte administrateur est introuvable. Contactez le support.",
+    "role-required": "Choisissez un rôle",
+    "setup-code-required": "Le code d'installation est requis",
+    "setup-code-too-long": "Code d'installation trop long",
+    "username-already-taken": "Ce nom d'utilisateur est déjà utilisé",
+    "invalid-user-role": "Rôle invalide",
+    "role-not-invitable": "Ce rôle ne peut pas être attribué par invitation",
+    "user-not-found": "Aucun compte ne correspond à ce nom d'utilisateur",
+    "setup-code-invalid": "Code d'installation invalide",
+    "setup-code-expired": "Ce code d'installation a expiré. Demandez-en un nouveau à votre responsable.",
+    "setup-code-already-redeemed": "Ce code d'installation a déjà été utilisé",
     "security-answer-too-short": "La réponse est trop courte",
     "security-answer-too-long": "La réponse est trop longue",
     "security-question-required": "Choisissez une question",
@@ -1693,12 +1703,64 @@
       }
     }
   },
+  "team": {
+    "title": "Équipe",
+    "subtitle": "Invitez vos employés et gérez leurs accès à l'application.",
+    "invite": "Ajouter un employé",
+    "roles": {
+      "owner": "Propriétaire",
+      "admin": "Administrateur",
+      "secretary": "Secrétaire",
+      "viewer": "Lecture seule"
+    },
+    "table": {
+      "username": "Nom d'utilisateur",
+      "role": "Rôle",
+      "status": "Statut"
+    },
+    "status": {
+      "setupPending": "En attente d'activation",
+      "setupExpired": "Code expiré",
+      "active": "Actif"
+    },
+    "empty": {
+      "title": "Aucun employé pour l'instant",
+      "body": "Ajoutez un employé pour lui donner accès à l'application avec son propre compte.",
+      "cta": "Ajouter un employé"
+    },
+    "loadError": {
+      "title": "Impossible de charger l'équipe",
+      "body": "Le chargement des comptes a échoué.",
+      "retry": "Réessayer"
+    },
+    "form": {
+      "title": "Ajouter un employé",
+      "description": "Créez un compte pour un employé. Un code d'installation à usage unique sera généré.",
+      "usernameLabel": "Nom d'utilisateur",
+      "usernamePlaceholder": "ex. fatima.secretaire",
+      "roleLabel": "Rôle",
+      "roleHint": "L'employé pourra se connecter avec ce rôle après avoir activé son compte.",
+      "cancel": "Annuler",
+      "submit": "Créer le compte",
+      "saving": "Création…",
+      "error": "La création du compte a échoué. Réessayez."
+    },
+    "setupCode": {
+      "title": "Code d'installation créé",
+      "description": "Transmettez ce code à {{username}} pour qu'il/elle active son compte lors de sa première connexion.",
+      "copy": "Copier le code",
+      "copied": "Code copié",
+      "warning": "Ce code n'est affiché qu'une seule fois. Notez-le ou copiez-le maintenant : il ne pourra plus être consulté après la fermeture de cette fenêtre.",
+      "done": "J'ai noté le code"
+    }
+  },
   "settings": {
     "title": "Paramètres",
     "tabs": {
       "profile": "Profil",
       "hours": "Horaires",
       "holidays": "Vacances",
+      "team": "Équipe",
       "password": "Mot de passe",
       "security": "Questions de sécurité",
       "language": "Langue",
@@ -2024,6 +2086,22 @@
       "errorTitle": "Impossible de vérifier la session",
       "errorBody": "La vérification de la session a échoué.",
       "retry": "Réessayer"
+    },
+    "setup": {
+      "link": "Première connexion ? Activer mon compte",
+      "title": "Activer mon compte",
+      "subtitle": "Saisissez le code d'installation que votre responsable vous a remis, puis choisissez votre mot de passe.",
+      "back": "Retour",
+      "username": "Nom d'utilisateur",
+      "code": "Code d'installation",
+      "codeHint": "Le code à usage unique que votre responsable vous a communiqué.",
+      "newPassword": "Nouveau mot de passe",
+      "passwordHint": "Au moins 8 caractères, avec une majuscule, une minuscule et un chiffre.",
+      "confirmPassword": "Confirmer le mot de passe",
+      "submit": "Activer mon compte",
+      "submitting": "Activation…",
+      "success": "Compte activé. Connectez-vous avec votre nouveau mot de passe.",
+      "error": "L'activation a échoué. Vérifiez votre connexion et réessayez."
     },
     "forgot": {
       "link": "Mot de passe oublié ?",

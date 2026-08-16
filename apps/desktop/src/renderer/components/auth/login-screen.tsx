@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card, CardContent } from '@centresoutien/ui';
+import { Button, Card, CardContent } from '@centresoutien/ui';
 import { LanguageToggle } from '../language-toggle';
 import { LoginForm } from './login-form';
 import { ForgotPasswordFlow } from './forgot-password/forgot-password-flow';
+import { SetupCodeRedeemFlow } from './setup-code/setup-code-redeem-flow';
 import { LoginCenterSelector } from './login-center-selector';
 import { useFeature } from '../../hooks/use-feature';
 import { useCenters } from '../../hooks/center/use-centers';
@@ -17,7 +18,7 @@ import { useCenters } from '../../hooks/center/use-centers';
  */
 export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
   const { t } = useTranslation();
-  const [view, setView] = useState<'login' | 'forgot' | 'selectCenter'>('login');
+  const [view, setView] = useState<'login' | 'forgot' | 'redeem' | 'selectCenter'>('login');
   const canMultiCenter = useFeature('org.multi-center');
   const centers = useCenters({ enabled: canMultiCenter });
 
@@ -54,7 +55,18 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
                 onAuthenticated={handleAuthenticated}
                 onForgotPassword={() => setView('forgot')}
               />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="self-center"
+                onClick={() => setView('redeem')}
+              >
+                {t('auth.setup.link')}
+              </Button>
             </>
+          ) : view === 'redeem' ? (
+            <SetupCodeRedeemFlow onClose={() => setView('login')} />
           ) : (
             <ForgotPasswordFlow onClose={() => setView('login')} />
           )}

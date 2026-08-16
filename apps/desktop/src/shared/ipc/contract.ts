@@ -35,6 +35,9 @@ import {
   confirmMonthlyPayrollsSchema,
   payrollMonthQuerySchema,
   adminCredentialsSchema,
+  createUserInputSchema,
+  redeemSetupCodeInputSchema,
+  ROLES,
   changeAdminPasswordSchema,
   recoveryCodeSchema,
   resetPasswordWithRecoveryCodeSchema,
@@ -63,6 +66,19 @@ import {
 } from '@centresoutien/domain';
 
 const featureFlagSchema = z.enum(FEATURE_FLAGS);
+
+// The safe projection of a User across the IPC boundary (SOU-256). Credential
+// material — `passwordHash`, `setupCodeHash`, and the one-time setup code — is
+// NEVER present here: only the fields the user-management list renders survive.
+// `status` is the domain-derived login-readiness (active | setup-pending |
+// setup-expired), computed in main; the renderer never sees a hash. This is the
+// single source of truth for the renderer's `UserView` type.
+const userViewSchema = z.object({
+  id: z.string(),
+  username: z.string(),
+  role: z.enum(ROLES),
+  status: z.enum(['active', 'setup-pending', 'setup-expired']),
+});
 
 /** The center profile as it crosses the IPC boundary — envelope dates stay in main. */
 const centerDto = z.object({
@@ -2062,6 +2078,32 @@ export const ipcContract = {
   'admin.changePassword': {
     request: changeAdminPasswordSchema,
     response: z.object({ ok: z.literal(true) }),
+  },
+  // User management (SOU-256). The director invites an employee via `user.create`,
+  // which returns the created user's safe view plus the ONE-TIME `setupCode` in
+  // plaintext — its sole appearance, handed to the employee on-screen and never
+  // re-readable (no listable channel exposes it). center/device/user are injected
+  // in main from the envelope context, never sent by the renderer. Domain errors
+  // (username-already-taken, invalid-user-role, role-not-invitable, plus the shared
+  // schema's validation codes) surface via the standard error-code transport.
+  'user.create': {
+    request: createUserInputSchema,
+    response: z.object({ user: userViewSchema, setupCode: z.string() }),
+  },
+  // First-login redemption (SOU-256): an invited employee proves they hold the
+  // one-time code and sets their own password. Domain errors user-not-found,
+  // setup-code-invalid, setup-code-expired, setup-code-already-redeemed (plus the
+  // password-strength codes) surface via the error-code transport.
+  'user.redeemSetupCode': {
+    request: redeemSetupCodeInputSchema,
+    response: z.object({ ok: z.literal(true) }),
+  },
+  // The center's live user accounts for the management list. Returns only the safe
+  // view (never a credential hash or the setup code); `status` tells the UI which
+  // accounts are active, still-pending invites, or expired invites.
+  'user.list': {
+    request: z.object({}),
+    response: z.object({ users: z.array(userViewSchema) }),
   },
   // Center opening hours (SOU-29). `get` returns only persisted rows (empty on a
   // fresh center — the renderer seeds from the domain's DEFAULT_WEEKLY_HOURS).

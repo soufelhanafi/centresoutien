@@ -5,6 +5,7 @@ import { CenterHoursSettings } from '../components/center-hours/center-hours-set
 import { CenterHoursStrandedWarning } from '../components/settings/center-hours-stranded-warning';
 import { CenterHoursOverrides } from '../components/center-hours-overrides/center-hours-overrides';
 import { HolidaysSettings } from '../components/holiday/holidays-settings';
+import { TeamSettings } from '../components/settings/team/team-settings';
 import { PasswordSettings } from '../components/settings/password-settings';
 import { SecurityQuestionsSettings } from '../components/settings/security-questions-settings';
 import { LanguageSettings } from '../components/settings/language-settings';
@@ -33,6 +34,7 @@ export function SettingsPage() {
           <TabsTrigger value="profile">{t('settings.tabs.profile')}</TabsTrigger>
           <TabsTrigger value="hours">{t('settings.tabs.hours')}</TabsTrigger>
           <TabsTrigger value="holidays">{t('settings.tabs.holidays')}</TabsTrigger>
+          <TabsTrigger value="team">{t('settings.tabs.team')}</TabsTrigger>
           <TabsTrigger value="password">{t('settings.tabs.password')}</TabsTrigger>
           <TabsTrigger value="security">{t('settings.tabs.security')}</TabsTrigger>
           <TabsTrigger value="language">{t('settings.tabs.language')}</TabsTrigger>
@@ -51,6 +53,9 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="holidays">
           <HolidaysSettings />
+        </TabsContent>
+        <TabsContent value="team">
+          <TeamSettings />
         </TabsContent>
         <TabsContent value="password">
           <PasswordSettings />

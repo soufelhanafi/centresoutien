@@ -35,6 +35,8 @@ import {
   type CreateSubjectUseCase,
   type CreateParentUseCase,
   type CreateAdminAccountUseCase,
+  type CreateUserUseCase,
+  type RedeemSetupCodeUseCase,
   type CreateGroupUseCase,
   type ListGroupsUseCase,
   type ListGroupsWithCountsUseCase,
@@ -118,6 +120,86 @@ const stubCreateAdminAccount: CreateAdminAccountUseCase = {
     updatedAt: new Date('2026-07-29T10:00:00Z'),
   }),
 };
+// User-management stubs (SOU-256). A fixed clock so the derived account status is
+// deterministic; the invited user's code expires after `NOW`, so it is pending.
+const NOW = new Date('2026-08-14T00:00:00Z');
+const SETUP_CODE_EXPIRES_MS = new Date('2026-08-20T00:00:00Z').getTime();
+
+// Captures the last command `user.create` forwarded, so a test can assert the
+// envelope context (center/device/user) was injected in main, not sent by the
+// renderer.
+let lastCreateUserCommand: { username: string; role: string; centerCode: string } | null = null;
+const stubCreateUser: CreateUserUseCase = {
+  execute: async (command) => {
+    lastCreateUserCommand = {
+      username: command.username,
+      role: command.role,
+      centerCode: command.centerCode,
+    };
+    return {
+      user: {
+        id: 'usr_00000000000000000000000002' as UserId,
+        centerCode: command.centerCode,
+        deviceOrigin: command.deviceOrigin,
+        createdAt: NOW,
+        updatedAt: NOW,
+        updatedBy: command.updatedBy,
+        deletedAt: null,
+        version: 0,
+        role: 'secretary',
+        username: command.username,
+        passwordHash: null,
+        setupCodeHash: '$argon2id$v=19$m=19456,t=2,p=1$code$hash',
+        setupCodeExpiresAt: SETUP_CODE_EXPIRES_MS,
+        setupCodeRedeemedAt: null,
+      },
+      setupCode: 'A7K2-9FMP-3QRT',
+    };
+  },
+};
+let lastRedeemInput: { username: string; setupCode: string } | null = null;
+const stubRedeemSetupCode: RedeemSetupCodeUseCase = {
+  execute: async (input) => {
+    lastRedeemInput = { username: input.username, setupCode: input.setupCode };
+  },
+};
+// One pending invite (has hashes) + one redeemed account (password set), so the
+// list test can assert redaction and both derived status values.
+const stubListUsers = async () => [
+  {
+    id: 'usr_00000000000000000000000003' as UserId,
+    centerCode: context.centerCode,
+    deviceOrigin: context.deviceOrigin,
+    createdAt: NOW,
+    updatedAt: NOW,
+    updatedBy: context.updatedBy,
+    deletedAt: null,
+    version: 0,
+    role: 'secretary' as const,
+    username: 'amine',
+    passwordHash: null,
+    setupCodeHash: '$argon2id$v=19$m=19456,t=2,p=1$abc$def',
+    setupCodeExpiresAt: SETUP_CODE_EXPIRES_MS,
+    setupCodeRedeemedAt: null,
+  },
+  {
+    id: 'usr_00000000000000000000000001' as UserId,
+    centerCode: context.centerCode,
+    deviceOrigin: context.deviceOrigin,
+    createdAt: NOW,
+    updatedAt: NOW,
+    updatedBy: context.updatedBy,
+    deletedAt: null,
+    version: 0,
+    role: 'owner' as const,
+    username: 'directrice',
+    passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$owner$hash',
+    setupCodeHash: null,
+    setupCodeExpiresAt: null,
+    setupCodeRedeemedAt: NOW,
+  },
+];
+
 // Stub login use case — locked when the password is 'locked', wrong when it is
 // 'nope', otherwise success. Enough to exercise all three response shapes.
 const LOCKED_UNTIL_MS = new Date('2026-07-29T10:15:00Z').getTime();
@@ -412,6 +494,10 @@ const dispatch = createIpcDispatcher(
     envelopeContext: () => context,
     adminExists: async () => false,
     createAdminAccount: stubCreateAdminAccount,
+    createUser: stubCreateUser,
+    redeemSetupCode: stubRedeemSetupCode,
+    listUsers: stubListUsers,
+    now: () => NOW,
     attemptLogin: stubAttemptLogin,
     deviceSessions: stubDeviceSessions,
     getCenterProfile: stubGetCenter,
@@ -642,6 +728,107 @@ describe('createIpcDispatcher', () => {
     await expect(
       dispatch('admin.create', { username: 'directrice', password: 'weak' }),
     ).rejects.toThrow();
+  });
+
+  it('runs user.create, forwards the injected envelope context, and returns the view + one-time code', async () => {
+    lastCreateUserCommand = null;
+    remembered = true;
+    try {
+      await expect(dispatch('user.create', { username: 'amine', role: 'secretary' })).resolves.toEqual(
+        {
+          user: {
+            id: 'usr_00000000000000000000000002',
+            username: 'amine',
+            role: 'secretary',
+            status: 'setup-pending',
+          },
+          setupCode: 'A7K2-9FMP-3QRT',
+        },
+      );
+      // The renderer sent only username + role; center/device/user were injected in main.
+      expect(lastCreateUserCommand).toEqual({
+        username: 'amine',
+        role: 'secretary',
+        centerCode: context.centerCode,
+      });
+    } finally {
+      remembered = false;
+    }
+  });
+
+  it('never leaks credential material through the user.create response', async () => {
+    remembered = true;
+    try {
+      const res = await dispatch('user.create', { username: 'amine', role: 'secretary' });
+      expect(res.user).not.toHaveProperty('passwordHash');
+      expect(res.user).not.toHaveProperty('setupCodeHash');
+      expect(JSON.stringify(res.user)).not.toContain('argon2id');
+    } finally {
+      remembered = false;
+    }
+  });
+
+  it('rejects user.create whose username fails the shared schema', async () => {
+    remembered = true;
+    try {
+      await expect(dispatch('user.create', { username: 'a', role: 'secretary' })).rejects.toThrow();
+    } finally {
+      remembered = false;
+    }
+  });
+
+  it('rejects user.create from an unauthenticated renderer (director-only channel)', async () => {
+    remembered = false;
+    await expect(dispatch('user.create', { username: 'amine', role: 'secretary' })).rejects.toThrow();
+  });
+
+  it('runs user.redeemSetupCode and forwards the request to the use case', async () => {
+    lastRedeemInput = null;
+    await expect(
+      dispatch('user.redeemSetupCode', {
+        username: 'amine',
+        setupCode: 'A7K2-9FMP-3QRT',
+        newPassword: 'Casa2026!',
+      }),
+    ).resolves.toEqual({ ok: true });
+    expect(lastRedeemInput).toEqual({ username: 'amine', setupCode: 'A7K2-9FMP-3QRT' });
+  });
+
+  it('runs user.list and returns only redacted views (no credential hashes)', async () => {
+    remembered = true;
+    try {
+      const res = await dispatch('user.list', {});
+      expect(res).toEqual({
+        users: [
+          {
+            id: 'usr_00000000000000000000000003',
+            username: 'amine',
+            role: 'secretary',
+            status: 'setup-pending',
+          },
+          {
+            id: 'usr_00000000000000000000000001',
+            username: 'directrice',
+            role: 'owner',
+            status: 'active',
+          },
+        ],
+      });
+      // Belt-and-braces: no serialized hash survives the boundary.
+      expect(JSON.stringify(res)).not.toContain('argon2id');
+      for (const user of res.users) {
+        expect(user).not.toHaveProperty('passwordHash');
+        expect(user).not.toHaveProperty('setupCodeHash');
+        expect(user).not.toHaveProperty('setupCode');
+      }
+    } finally {
+      remembered = false;
+    }
+  });
+
+  it('rejects user.list from an unauthenticated renderer (director-only channel)', async () => {
+    remembered = false;
+    await expect(dispatch('user.list', {})).rejects.toThrow();
   });
 
   // SOU-97: the bare `admin.verify` channel was removed so a locked console

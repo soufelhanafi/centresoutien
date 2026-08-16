@@ -1470,6 +1470,8 @@ export function buildContainer(options: ContainerOptions): Container {
     createAdminAccount,
     createUser,
     redeemSetupCode,
+    listUsers: () => userRepo.listActive(context.centerCode),
+    now: () => clock.now(),
     changeAdminPassword,
     attemptLogin,
     deviceSessions,
