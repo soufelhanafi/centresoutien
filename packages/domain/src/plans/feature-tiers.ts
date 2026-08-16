@@ -42,6 +42,7 @@ export const FEATURE_TIER: Readonly<Record<FeatureFlag, PlanId>> = {
   'io.excel.import': 'pro',
   'io.excel.sync': 'pro',
   'planning.custom-grid': 'pro',
+  'planning.teacher-availability': 'pro',
   // premium
   'dashboard.advanced': 'premium',
   'planning.random-auto': 'premium',

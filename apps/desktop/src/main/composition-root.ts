@@ -104,6 +104,10 @@ import {
   GetCenterHoursOverrides,
   GetActiveCenterHoursOverride,
   ArchiveCenterHoursOverride,
+  SaveTeacherAvailability,
+  GetTeacherAvailability,
+  SaveTeacherAvailabilityException,
+  ArchiveTeacherAvailabilityException,
   AttemptLogin,
   LoginThrottlePolicy,
   DeviceSessionService,
@@ -215,6 +219,8 @@ import { SqliteSessionRepository } from '../data/sqlite/repositories/session-rep
 import { SqliteAttendanceRepository } from '../data/sqlite/repositories/attendance-repository';
 import { SqliteCenterHoursRepository } from '../data/sqlite/repositories/center-hours-repository';
 import { SqliteCenterHoursOverrideRepository } from '../data/sqlite/repositories/center-hours-override-repository';
+import { SqliteTeacherAvailabilityRepository } from '../data/sqlite/repositories/teacher-availability-repository';
+import { SqliteTeacherAvailabilityExceptionRepository } from '../data/sqlite/repositories/teacher-availability-exception-repository';
 import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-account-repository';
 import { SqliteUserRepository } from '../data/sqlite/repositories/user-repository';
 import { SqliteRecoveryCodeRepository } from '../data/sqlite/repositories/recovery-code-repository';
@@ -1047,6 +1053,35 @@ export function buildContainer(options: ContainerOptions): Container {
   const getActiveCenterHoursOverride = new GetActiveCenterHoursOverride(centerHoursOverrideRepo, plan);
   const archiveCenterHoursOverride = new ArchiveCenterHoursOverride(centerHoursOverrideRepo, clock, plan);
 
+  // Teacher availability (SOU-259): weekly windows + one-off absences, edited on
+  // the Teacher screen and fed into the generator preview as forceable warnings.
+  const teacherAvailabilityRepo = new SqliteTeacherAvailabilityRepository(db, changeLog);
+  const teacherAvailabilityExceptionRepo = new SqliteTeacherAvailabilityExceptionRepository(db, changeLog);
+  const saveTeacherAvailability = new SaveTeacherAvailability(
+    teacherAvailabilityRepo,
+    teacherRepo,
+    clock,
+    ids,
+    plan,
+  );
+  const getTeacherAvailability = new GetTeacherAvailability(
+    teacherAvailabilityRepo,
+    teacherAvailabilityExceptionRepo,
+    plan,
+  );
+  const saveTeacherAvailabilityException = new SaveTeacherAvailabilityException(
+    teacherAvailabilityExceptionRepo,
+    teacherRepo,
+    clock,
+    ids,
+    plan,
+  );
+  const archiveTeacherAvailabilityException = new ArchiveTeacherAvailabilityException(
+    teacherAvailabilityExceptionRepo,
+    clock,
+    plan,
+  );
+
   // Read-only out-of-effective-hours audit (SOU-201): sweeps every live
   // materialized session against the CURRENT override-aware hours + holidays,
   // reusing the same repos the generator and hours screens already own. It reads
@@ -1113,6 +1148,8 @@ export function buildContainer(options: ContainerOptions): Container {
     roomRepo,
     centerHoursRepo,
     sessionRepo,
+    teacherAvailabilityRepo,
+    teacherAvailabilityExceptionRepo,
     new SessionGenerator(new NodeRandomPort()),
     plan,
   );
@@ -1420,6 +1457,10 @@ export function buildContainer(options: ContainerOptions): Container {
     getCenterHoursOverrides,
     getActiveCenterHoursOverride,
     archiveCenterHoursOverride,
+    saveTeacherAvailability,
+    getTeacherAvailability,
+    saveTeacherAvailabilityException,
+    archiveTeacherAvailabilityException,
     envelopeContext: () => context,
     adminExists: () => adminRepo.exists(),
     adminUsername: async () => {

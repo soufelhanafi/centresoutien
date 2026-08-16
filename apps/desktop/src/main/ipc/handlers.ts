@@ -144,6 +144,13 @@ import type {
   ArchiveCenterHoursOverride,
   CenterHoursOverride,
   CenterHoursOverrideId,
+  SaveTeacherAvailability,
+  GetTeacherAvailability,
+  SaveTeacherAvailabilityException,
+  ArchiveTeacherAvailabilityException,
+  TeacherAvailability,
+  TeacherAvailabilityException,
+  TeacherAvailabilityExceptionId,
   AttemptLogin,
   GenerateRecoveryCodes,
   VerifyRecoveryCode,
@@ -173,6 +180,7 @@ import {
   HolidayNotFoundError,
   CenterHoursOverrideNotFoundError,
   NiveauNotFoundError,
+  TeacherAvailabilityExceptionNotFoundError,
   NotAuthenticatedError,
   SECURITY_QUESTION_KEYS,
 } from '@centresoutien/domain';
@@ -296,6 +304,13 @@ export type SaveCenterHoursOverrideUseCase = Pick<SaveCenterHoursOverride, 'exec
 export type GetCenterHoursOverridesUseCase = Pick<GetCenterHoursOverrides, 'execute'>;
 export type GetActiveCenterHoursOverrideUseCase = Pick<GetActiveCenterHoursOverride, 'execute'>;
 export type ArchiveCenterHoursOverrideUseCase = Pick<ArchiveCenterHoursOverride, 'execute'>;
+export type SaveTeacherAvailabilityUseCase = Pick<SaveTeacherAvailability, 'execute'>;
+export type GetTeacherAvailabilityUseCase = Pick<GetTeacherAvailability, 'execute'>;
+export type SaveTeacherAvailabilityExceptionUseCase = Pick<SaveTeacherAvailabilityException, 'execute'>;
+export type ArchiveTeacherAvailabilityExceptionUseCase = Pick<
+  ArchiveTeacherAvailabilityException,
+  'execute'
+>;
 export type AttemptLoginUseCase = Pick<AttemptLogin, 'execute'>;
 export type GenerateRecoveryCodesUseCase = Pick<GenerateRecoveryCodes, 'execute'>;
 export type VerifyRecoveryCodeUseCase = Pick<VerifyRecoveryCode, 'execute'>;
@@ -705,6 +720,36 @@ function toSessionGeneratorConfig(
     : { ...base, mode: 'custom', pickedWeekdays: request.pickedWeekdays as WeekdayIndex[] };
 }
 
+/** Project a TeacherAvailability to its boundary DTO: envelope stripped, the
+ *  `0..6`-keyed weekday window record passed through (SOU-259). */
+function toTeacherAvailabilityView(availability: TeacherAvailability) {
+  const dayWindows = (dayOfWeek: WeekdayIndex) =>
+    availability.weeklyWindows[dayOfWeek].map((window) => ({ open: window.open, close: window.close }));
+  return {
+    id: availability.id,
+    teacherId: availability.teacherId,
+    weeklyWindows: {
+      0: dayWindows(0),
+      1: dayWindows(1),
+      2: dayWindows(2),
+      3: dayWindows(3),
+      4: dayWindows(4),
+      5: dayWindows(5),
+      6: dayWindows(6),
+    },
+  };
+}
+
+/** Project a TeacherAvailabilityException to its boundary DTO (SOU-259). */
+function toTeacherAvailabilityExceptionView(exception: TeacherAvailabilityException) {
+  return {
+    id: exception.id,
+    teacherId: exception.teacherId,
+    dateRange: { start: exception.dateRange.start, end: exception.dateRange.end },
+    label: exception.label,
+  };
+}
+
 /** Project one generator run's proposed group schedule to its boundary DTO:
  *  the block's `WeeklyBlock` flattened alongside its assigned `roomId`. */
 function toGroupScheduleProposalView(proposal: GroupScheduleProposal) {
@@ -757,6 +802,22 @@ function toGeneratedScheduleConflictView(conflict: GeneratedScheduleConflict) {
         start: ref.start,
         end: ref.end,
       })),
+    };
+  }
+  if (conflict.kind === 'teacher-availability') {
+    return {
+      kind: 'teacher-availability' as const,
+      groupId: conflict.groupId,
+      teacherId: conflict.error.teacherId,
+      dayOfWeek: conflict.error.dayOfWeek,
+      start: conflict.start,
+      end: conflict.end,
+      reason: conflict.error.reason,
+      windows: conflict.error.windows.map((window) => ({ open: window.open, close: window.close })),
+      exception:
+        conflict.error.exception === null
+          ? null
+          : { start: conflict.error.exception.start, end: conflict.error.exception.end },
     };
   }
   return {
@@ -922,6 +983,10 @@ export type HandlerDeps = BackupHandlerDeps &
   getCenterHoursOverrides: GetCenterHoursOverridesUseCase;
   getActiveCenterHoursOverride: GetActiveCenterHoursOverrideUseCase;
   archiveCenterHoursOverride: ArchiveCenterHoursOverrideUseCase;
+  saveTeacherAvailability: SaveTeacherAvailabilityUseCase;
+  getTeacherAvailability: GetTeacherAvailabilityUseCase;
+  saveTeacherAvailabilityException: SaveTeacherAvailabilityExceptionUseCase;
+  archiveTeacherAvailabilityException: ArchiveTeacherAvailabilityExceptionUseCase;
   envelopeContext: () => EnvelopeContext;
   adminExists: AdminExists;
   adminUsername: () => Promise<string>;
@@ -1768,6 +1833,49 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
         // report success instead of a generic error toast. The domain use case
         // still throws so other callers/tests stay strict. Mirrors holiday.archive.
         if (!(error instanceof CenterHoursOverrideNotFoundError)) throw error;
+      }
+      return { ok: true };
+    },
+    'teacherAvailability.get': async (request) => {
+      const view = await deps.getTeacherAvailability.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        teacherId: request.teacherId as TeacherId,
+      });
+      return {
+        availability: view.availability === null ? null : toTeacherAvailabilityView(view.availability),
+        exceptions: view.exceptions.map(toTeacherAvailabilityExceptionView),
+      };
+    },
+    'teacherAvailability.save': async (request) => {
+      const availability = await deps.saveTeacherAvailability.execute({
+        ...deps.envelopeContext(),
+        teacherId: request.teacherId,
+        weeklyWindows: request.weeklyWindows,
+      });
+      return { availability: toTeacherAvailabilityView(availability) };
+    },
+    'teacherAvailabilityException.save': async (request) => {
+      const exception = await deps.saveTeacherAvailabilityException.execute({
+        ...deps.envelopeContext(),
+        ...(request.id !== undefined ? { id: request.id as TeacherAvailabilityExceptionId } : {}),
+        teacherId: request.teacherId,
+        dateRange: request.dateRange,
+        label: request.label,
+      });
+      return { exception: toTeacherAvailabilityExceptionView(exception) };
+    },
+    'teacherAvailabilityException.archive': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      try {
+        await deps.archiveTeacherAvailabilityException.execute({
+          centerCode,
+          exceptionId: request.id as TeacherAvailabilityExceptionId,
+          updatedBy,
+        });
+      } catch (error) {
+        // Idempotent at the boundary, mirroring centerHoursOverride.archive: an
+        // unknown or already-archived absence already holds the desired end-state.
+        if (!(error instanceof TeacherAvailabilityExceptionNotFoundError)) throw error;
       }
       return { ok: true };
     },

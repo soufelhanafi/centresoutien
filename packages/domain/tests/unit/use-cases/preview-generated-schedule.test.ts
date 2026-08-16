@@ -17,10 +17,19 @@ import type { WeeklyRecurringSession, WeeklyRecurringSessionId } from '../../../
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
 import type { WeekdayIndex } from '../../../src/value-objects/weekday';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
+import type { TimeWindow } from '../../../src/value-objects/time-window';
+import type { WeeklyTimeWindows } from '../../../src/entities/center-hours-override';
+import type { TeacherAvailability, TeacherAvailabilityId } from '../../../src/entities/teacher-availability';
+import type {
+  TeacherAvailabilityException,
+  TeacherAvailabilityExceptionId,
+} from '../../../src/entities/teacher-availability-exception';
 import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
 import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
 import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-repository';
 import { InMemoryWeeklyRecurringSessionRepository } from '../fakes/in-memory-weekly-recurring-session-repository';
+import { InMemoryTeacherAvailabilityRepository } from '../fakes/in-memory-teacher-availability-repository';
+import { InMemoryTeacherAvailabilityExceptionRepository } from '../fakes/in-memory-teacher-availability-exception-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeRandom } from '../fakes/random';
 import { planWithoutFeature } from '../fakes/plans';
@@ -98,11 +107,45 @@ function autoConfig(overrides: Partial<SessionGeneratorConfig> = {}): SessionGen
   } as SessionGeneratorConfig;
 }
 
+const emptyWeek = (): WeeklyTimeWindows => ({ 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] });
+const window = (open: string, close: string): TimeWindow => ({
+  open: open as TimeOfDay,
+  close: close as TimeOfDay,
+});
+
+let availabilitySeq = 0;
+function makeAvailability(teacherId: TeacherId, weeklyWindows: WeeklyTimeWindows): TeacherAvailability {
+  availabilitySeq += 1;
+  return {
+    id: `tav_${String(availabilitySeq).padStart(26, '0')}` as TeacherAvailabilityId,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
+    teacherId,
+    weeklyWindows,
+  };
+}
+
+let exceptionSeq = 0;
+function makeException(
+  teacherId: TeacherId,
+  dateRange: { start: string; end: string },
+): TeacherAvailabilityException {
+  exceptionSeq += 1;
+  return {
+    id: `tae_${String(exceptionSeq).padStart(26, '0')}` as TeacherAvailabilityExceptionId,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
+    teacherId,
+    dateRange,
+    label: null,
+  };
+}
+
 describe('PreviewGeneratedSchedule', () => {
   let groups: InMemoryGroupRepository;
   let rooms: InMemoryRoomRepository;
   let centerHours: InMemoryCenterHoursRepository;
   let recurrences: InMemoryWeeklyRecurringSessionRepository;
+  let availability: InMemoryTeacherAvailabilityRepository;
+  let availabilityExceptions: InMemoryTeacherAvailabilityExceptionRepository;
   let useCase: PreviewGeneratedSchedule;
 
   function build(plan: Plan = PLANS.premium): PreviewGeneratedSchedule {
@@ -111,6 +154,8 @@ describe('PreviewGeneratedSchedule', () => {
       rooms,
       centerHours,
       recurrences,
+      availability,
+      availabilityExceptions,
       new SessionGenerator(fakeRandom()),
       new PlanPolicy(plan),
     );
@@ -125,6 +170,8 @@ describe('PreviewGeneratedSchedule', () => {
     rooms = new InMemoryRoomRepository();
     centerHours = new InMemoryCenterHoursRepository();
     recurrences = new InMemoryWeeklyRecurringSessionRepository();
+    availability = new InMemoryTeacherAvailabilityRepository();
+    availabilityExceptions = new InMemoryTeacherAvailabilityExceptionRepository();
     await rooms.save(makeRoom(ROOM_A));
     useCase = build();
   });
@@ -232,6 +279,63 @@ describe('PreviewGeneratedSchedule', () => {
       await recurrences.save(makeRecurring({ roomId: ROOM_A, dayOfWeek: OTHER_DAY }));
 
       const result = await useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 })));
+      expect(result.conflicts).toEqual([]);
+    });
+  });
+
+  describe('teacher availability (SOU-259)', () => {
+    it('flags a block outside the staffing teacher’s weekly windows', async () => {
+      await groups.save(makeGroup({ teacherId: TEACHER_1 as unknown as EntityId }));
+      await availability.save(
+        makeAvailability(TEACHER_1, { ...emptyWeek(), [MON]: [window('14:00', '16:00')] }),
+      );
+
+      const result = await useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 })));
+
+      expect(result.conflicts.some((c) => c.kind === 'teacher-availability')).toBe(true);
+    });
+
+    it('never flags availability when the plan lacks planning.teacher-availability', async () => {
+      await groups.save(makeGroup({ teacherId: TEACHER_1 as unknown as EntityId }));
+      await availability.save(
+        makeAvailability(TEACHER_1, { ...emptyWeek(), [MON]: [window('14:00', '16:00')] }),
+      );
+
+      const result = await build(planWithoutFeature('planning.teacher-availability')).execute(
+        input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 })),
+      );
+
+      expect(result.conflicts.some((c) => c.kind === 'teacher-availability')).toBe(false);
+    });
+
+    it('flags a one-off absence overlapping the run range, even with no weekly pattern', async () => {
+      await groups.save(makeGroup({ teacherId: TEACHER_1 as unknown as EntityId }));
+      await availabilityExceptions.save(
+        makeException(TEACHER_1, { start: '2026-10-01', end: '2026-10-15' }),
+      );
+
+      const result = await useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 })));
+
+      expect(result.conflicts.some((c) => c.kind === 'teacher-availability')).toBe(true);
+    });
+
+    it('ignores an absence entirely outside the run range', async () => {
+      await groups.save(makeGroup({ teacherId: TEACHER_1 as unknown as EntityId }));
+      await availabilityExceptions.save(
+        makeException(TEACHER_1, { start: '2027-01-01', end: '2027-01-15' }),
+      );
+
+      const result = await useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 })));
+
+      expect(result.conflicts).toEqual([]);
+    });
+
+    it('ignores availability rows of teachers outside the run scope', async () => {
+      await groups.save(makeGroup({ teacherId: null }));
+      await availability.save(makeAvailability(TEACHER_2, emptyWeek()));
+
+      const result = await useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 })));
+
       expect(result.conflicts).toEqual([]);
     });
   });

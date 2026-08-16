@@ -223,6 +223,11 @@ export {
 export { HolidayNotFoundError } from './errors/holiday-errors';
 export { CenterHoursOverrideNotFoundError } from './errors/center-hours-override-errors';
 export {
+  TeacherUnavailableError,
+  TeacherAvailabilityExceptionNotFoundError,
+} from './errors/teacher-availability-errors';
+export type { TeacherUnavailableReason } from './errors/teacher-availability-errors';
+export {
   GroupSubjectUnavailableError,
   GroupNotFoundError,
   GroupOverCapacityError,
@@ -328,6 +333,15 @@ export {
   hoursByWeekdaySchema,
 } from './schemas/center-hours-override';
 export type { CenterHoursOverrideInput } from './schemas/center-hours-override';
+export {
+  teacherAvailabilityInputSchema,
+  teacherAvailabilityExceptionInputSchema,
+  toWeeklyTimeWindows,
+} from './schemas/teacher-availability';
+export type {
+  TeacherAvailabilityInput,
+  TeacherAvailabilityExceptionInput,
+} from './schemas/teacher-availability';
 export { loginInputSchema } from './schemas/login';
 export type { LoginInput } from './schemas/login';
 export { createUserInputSchema, redeemSetupCodeInputSchema } from './schemas/user';
@@ -448,6 +462,13 @@ export type {
   CenterHoursOverrideId,
   WeeklyTimeWindows,
 } from './entities/center-hours-override';
+export { TEACHER_AVAILABILITY_ID_PREFIX } from './entities/teacher-availability';
+export type { TeacherAvailability, TeacherAvailabilityId } from './entities/teacher-availability';
+export { TEACHER_AVAILABILITY_EXCEPTION_ID_PREFIX } from './entities/teacher-availability-exception';
+export type {
+  TeacherAvailabilityException,
+  TeacherAvailabilityExceptionId,
+} from './entities/teacher-availability-exception';
 export { ADMIN_ACCOUNT_ID_PREFIX } from './entities/admin-account';
 export type { AdminAccount, AdminAccountId } from './entities/admin-account';
 export { USER_ID_PREFIX, SETUP_CODE_TTL_MS, isSetupCodePending, canLogin } from './entities/user';
@@ -597,6 +618,8 @@ export type { NiveauReferencePort } from './ports/niveau-reference';
 export type { StudentRepository } from './ports/student-repository';
 export type { CenterHoursRepository } from './ports/center-hours-repository';
 export type { CenterHoursOverrideRepository } from './ports/center-hours-override-repository';
+export type { TeacherAvailabilityRepository } from './ports/teacher-availability-repository';
+export type { TeacherAvailabilityExceptionRepository } from './ports/teacher-availability-exception-repository';
 export type { AdminAccountRepository } from './ports/admin-account-repository';
 export type { UserRepository, SetupCodeRedemption } from './ports/user-repository';
 export type { PasswordHasher } from './ports/password-hasher';
@@ -783,7 +806,10 @@ export { detectGeneratedScheduleConflicts } from './policies/generated-schedule-
 export type {
   GeneratedBlockCandidate,
   GeneratedScheduleConflict,
+  GeneratorAvailabilityContext,
 } from './policies/generated-schedule-conflicts';
+export { teacherUnavailability, weekdayOccursWithin } from './policies/teacher-availability-policy';
+export type { TeacherAvailabilityRules } from './policies/teacher-availability-policy';
 export { buildStudentNaturalKey, buildTeacherNaturalKey } from './policies/natural-key';
 export { INVOICE_STATUS_TRANSITIONS, canTransitionInvoice } from './policies/invoice-status';
 export { invoiceTotalMad } from './policies/invoice-total';
@@ -1152,6 +1178,17 @@ export { GetActiveCenterHoursOverride } from './use-cases/get-active-center-hour
 export type { GetActiveCenterHoursOverrideInput } from './use-cases/get-active-center-hours-override';
 export { ArchiveCenterHoursOverride } from './use-cases/archive-center-hours-override';
 export type { ArchiveCenterHoursOverrideInput } from './use-cases/archive-center-hours-override';
+export { SaveTeacherAvailability } from './use-cases/save-teacher-availability';
+export type { SaveTeacherAvailabilityInput } from './use-cases/save-teacher-availability';
+export { GetTeacherAvailability } from './use-cases/get-teacher-availability';
+export type {
+  GetTeacherAvailabilityInput,
+  TeacherAvailabilityView,
+} from './use-cases/get-teacher-availability';
+export { SaveTeacherAvailabilityException } from './use-cases/save-teacher-availability-exception';
+export type { SaveTeacherAvailabilityExceptionInput } from './use-cases/save-teacher-availability-exception';
+export { ArchiveTeacherAvailabilityException } from './use-cases/archive-teacher-availability-exception';
+export type { ArchiveTeacherAvailabilityExceptionInput } from './use-cases/archive-teacher-availability-exception';
 export { CreateAdminAccount } from './use-cases/create-admin-account';
 export type { CreateAdminAccountInput } from './use-cases/create-admin-account';
 export { CreateUser } from './use-cases/create-user';

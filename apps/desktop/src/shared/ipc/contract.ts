@@ -43,6 +43,8 @@ import {
   SECURITY_QUESTION_KEYS,
   weeklyHoursSchema,
   centerHoursOverrideInputSchema,
+  teacherAvailabilityInputSchema,
+  teacherAvailabilityExceptionInputSchema,
   loginInputSchema,
   centerProfileSchema,
   CENTER_LOGO_PATH_MAX,
@@ -723,6 +725,21 @@ const generatedScheduleConflictViewSchema = z.discriminatedUnion('kind', [
     end: z.string(),
     conflicts: z.array(scheduledSessionRefViewSchema),
   }),
+  // SOU-259: the block sits outside the teacher's declared availability —
+  // either off their weekly windows (`out-of-window`, `windows` = that
+  // weekday's list, empty = whole day off) or covered by a one-off absence
+  // (`exception`, the absence range carried). Forceable like any other kind.
+  z.object({
+    kind: z.literal('teacher-availability'),
+    groupId: z.string(),
+    teacherId: z.string(),
+    dayOfWeek: generatorWeekday,
+    start: z.string(),
+    end: z.string(),
+    reason: z.enum(['out-of-window', 'exception']),
+    windows: z.array(z.object({ open: z.string(), close: z.string() })),
+    exception: z.object({ start: z.string(), end: z.string() }).nullable(),
+  }),
 ]);
 
 const committedGeneratedTemplateViewSchema = z.object({
@@ -992,6 +1009,24 @@ const centerHoursOverrideViewSchema = z.object({
   hoursByWeekday: hoursByWeekdayViewSchema,
   archived: z.boolean(),
   createdAt: z.string(),
+});
+
+// The display shape of a teacher's weekly availability (SOU-259): envelope
+// stripped, the `0..6`-keyed weekday window record passed through. `null` at
+// the channel level means nothing configured — the teacher is unrestricted.
+const teacherAvailabilityViewSchema = z.object({
+  id: z.string(),
+  teacherId: z.string(),
+  weeklyWindows: hoursByWeekdayViewSchema,
+});
+
+// One one-off teacher absence (SOU-259): inclusive civil-date range plus the
+// director's optional label. Envelope stripped.
+const teacherAvailabilityExceptionViewSchema = z.object({
+  id: z.string(),
+  teacherId: z.string(),
+  dateRange: z.object({ start: z.string(), end: z.string() }),
+  label: z.string().nullable(),
 });
 
 // One date `session.generate` skipped because the template's fixed time no longer
@@ -2069,6 +2104,35 @@ export const ipcContract = {
   // Soft-delete one override. Idempotent at the boundary (an unknown/already-
   // archived id still reports ok), mirroring `holiday.archive`.
   'centerHoursOverride.archive': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  // Teacher availability (SOU-259) — weekly windows + one-off absences, gated by
+  // `planning.teacher-availability` in the use cases; centerCode/device/user are
+  // injected in main, never sent. `get` reads one teacher's full picture in a
+  // single round trip (`availability: null` = unrestricted).
+  'teacherAvailability.get': {
+    request: z.object({ teacherId: z.string().min(1) }),
+    response: z.object({
+      availability: teacherAvailabilityViewSchema.nullable(),
+      exceptions: z.array(teacherAvailabilityExceptionViewSchema),
+    }),
+  },
+  // Upsert the weekly windows — the body is the domain's own schema (seven
+  // ordered non-overlapping weekday window lists), validated once here and
+  // reused by the form via zodResolver.
+  'teacherAvailability.save': {
+    request: teacherAvailabilityInputSchema,
+    response: z.object({ availability: teacherAvailabilityViewSchema }),
+  },
+  // Create (omit `id`) or edit (supply `id`) one absence.
+  'teacherAvailabilityException.save': {
+    request: teacherAvailabilityExceptionInputSchema.extend({ id: z.string().optional() }),
+    response: z.object({ exception: teacherAvailabilityExceptionViewSchema }),
+  },
+  // Soft-delete one absence. Idempotent at the boundary (an unknown/already-
+  // archived id still reports ok), mirroring `centerHoursOverride.archive`.
+  'teacherAvailabilityException.archive': {
     request: z.object({ id: z.string() }),
     response: z.object({ ok: z.literal(true) }),
   },

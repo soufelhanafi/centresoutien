@@ -52,6 +52,7 @@ describe('PLANS registry', () => {
       'io.excel.import',
       'io.excel.sync',
       'planning.custom-grid',
+      'planning.teacher-availability',
       'dashboard.advanced',
       'planning.random-auto',
       'sync.multi-device',
