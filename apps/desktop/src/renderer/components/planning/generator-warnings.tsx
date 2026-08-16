@@ -53,9 +53,13 @@ export function GeneratorWarnings({
     lines.push(t('planning.generator.warnings.gap', { count: gap.gapDays }));
   }
 
+  // A sibling double-book is detected from both blocks' sides and two identical
+  // clashes can word identically — one message per distinct problem (SOU-262).
+  const uniqueLines = [...new Set(lines)];
+
   return (
     <ul className="space-y-1">
-      {lines.map((line, index) => (
+      {uniqueLines.map((line, index) => (
         <li key={index} className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400">
           <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{line}</span>

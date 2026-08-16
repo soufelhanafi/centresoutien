@@ -13,6 +13,7 @@ import {
   ScrollArea,
 } from '@centresoutien/ui';
 import { useStrandedSessions } from '../../hooks/schedule-audit/use-stranded-sessions';
+import { groupStrandedSessions } from '../../lib/schedule-audit/group-stranded';
 import { ScheduleAuditList, type ScheduleAuditStatus } from './schedule-audit-list';
 
 /**
@@ -34,7 +35,9 @@ export function ScheduleAuditDialog() {
       : stranded.length > 0
         ? 'ready'
         : 'empty';
-  const count = stranded.length;
+  // The badge counts structural problems (grouped, SOU-262), not raw dated
+  // rows — "3 things to fix", never "34 occurrences of one thing".
+  const count = groupStrandedSessions(stranded).length;
 
   const handleOpenChange = (next: boolean) => {
     if (next && query.isStale) void query.refetch();
