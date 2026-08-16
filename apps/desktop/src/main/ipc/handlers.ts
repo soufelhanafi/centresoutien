@@ -125,6 +125,7 @@ import type {
   CreateAdminAccount,
   CreateUser,
   RedeemSetupCode,
+  User,
   ChangeAdminPassword,
   SaveCenterHours,
   GetCenterHours,
@@ -173,6 +174,8 @@ import {
   TeacherAvailabilityExceptionNotFoundError,
   NotAuthenticatedError,
   SECURITY_QUESTION_KEYS,
+  isSetupCodePending,
+  canLogin,
 } from '@centresoutien/domain';
 import type { RegisterableIpcHandlers, IpcRequest } from '../../shared/ipc/contract';
 import type { LocalePreference } from '../infra/locale-preference-store';
@@ -379,6 +382,31 @@ function toSubjectView(subject: Subject) {
     name: { fr: subject.name.fr, ar: subject.name.ar },
     code: subject.code,
     active: subject.active,
+  };
+}
+
+/** A user's login-readiness as the roster renders it (SOU-256): `active` once a
+ *  password exists, `setup-pending` while the invite code is still redeemable, and
+ *  `setup-expired` for an invite whose code lapsed before redemption — the latter
+ *  has no password and cannot log in, so it must read distinctly from `active`
+ *  (which the old boolean `setupPending` collapsed them into). */
+function userAccountStatus(user: User, now: Date): 'active' | 'setup-pending' | 'setup-expired' {
+  if (canLogin(user)) return 'active';
+  if (isSetupCodePending(user, now)) return 'setup-pending';
+  return 'setup-expired';
+}
+
+/** Project a User to its boundary DTO (SOU-256): credential material NEVER crosses
+ *  the boundary — `passwordHash`, `setupCodeHash`, and the raw setup code are
+ *  stripped, leaving only the fields the user-management list renders. `status` is
+ *  the domain-derived login-readiness, computed against the injected clock — never a
+ *  raw hash the renderer could inspect. */
+function toUserView(user: User, now: Date) {
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    status: userAccountStatus(user, now),
   };
 }
 
@@ -939,6 +967,8 @@ export type HandlerDeps = BackupHandlerDeps &
   createAdminAccount: CreateAdminAccountUseCase;
   createUser: CreateUserUseCase;
   redeemSetupCode: RedeemSetupCodeUseCase;
+  listUsers: () => Promise<readonly User[]>;
+  now: () => Date;
   changeAdminPassword: ChangeAdminPasswordUseCase;
   attemptLogin: AttemptLoginUseCase;
   deviceSessions: DeviceSessions;
@@ -1779,6 +1809,31 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     'admin.changePassword': async (request) => {
       await deps.changeAdminPassword.execute(request);
       return { ok: true };
+    },
+    'user.create': async (request) => {
+      // Inviting staff is director-only work. Renderer visibility is not an
+      // authorization boundary — the preload bridge exposes this channel directly,
+      // so a logged-out renderer could otherwise mint an employee, read the
+      // one-time setup code, redeem it, and gain access with no prior credential.
+      // (Role-scoping to owner/admin is SOU-265 — main has no session principal yet.)
+      if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
+      const { user, setupCode } = await deps.createUser.execute({
+        ...request,
+        ...deps.envelopeContext(),
+      });
+      return { user: toUserView(user, deps.now()), setupCode };
+    },
+    // Intentionally unauthenticated: this IS the first-login flow — the invited
+    // employee has no session yet. Single-use + expiry are enforced in the domain.
+    'user.redeemSetupCode': async (request) => {
+      await deps.redeemSetupCode.execute(request);
+      return { ok: true };
+    },
+    'user.list': async () => {
+      if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
+      const users = await deps.listUsers();
+      const now = deps.now();
+      return { users: users.map((user) => toUserView(user, now)) };
     },
     'auth.login': async (request) => {
       const result = await deps.attemptLogin.execute(request);
