@@ -120,10 +120,23 @@ export const OV: Record<
 
 type Bridge = { invoke: (channel: string, req: unknown) => Promise<unknown> };
 
-/** The current real week runs Sunday 2026-08-09 .. Saturday 2026-08-15 (system clock is 2026-08-10, Monday). */
-export const CURRENT_WEEK = { start: '2026-08-09', end: '2026-08-15' } as const;
+/**
+ * The current real week (Sunday .. Saturday around today). The planner has no
+ * in-UI date navigation and renders the current real week, so the override range
+ * must always cover today — computed here, never a fixed date that silently
+ * lapses into the past and drops the override from the rendered week.
+ */
+function isoDayOffset(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - d.getDay() + days);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+export const CURRENT_WEEK = { start: isoDayOffset(0), end: isoDayOffset(6) } as const;
 /** A date range that does NOT cover the current week (a later, non-overlapping week). */
-export const OTHER_WEEK = { start: '2026-09-06', end: '2026-09-12' } as const;
+export const OTHER_WEEK = { start: isoDayOffset(28), end: isoDayOffset(34) } as const;
 export const MONDAY = 1;
 
 /** Launch, size the window large enough that the tall override dialog fits fully in view, and get into the shell. */
