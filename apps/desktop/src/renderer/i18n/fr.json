@@ -1487,6 +1487,12 @@
     "title": "Audit du planning",
     "subtitle": "Séances déjà planifiées qui tombent désormais hors des horaires ou un jour férié. Vérifiez puis annulez au cas par cas.",
     "unknownSubject": "Matière inconnue",
+    "group": {
+      "repeats": "Se répète chaque semaine (×{{count}})",
+      "range": "Du {{from}} au {{to}}",
+      "showDates": "Voir les {{count}} dates",
+      "hideDates": "Masquer les dates"
+    },
     "reason": {
       "outsideHours": "Hors horaires",
       "holiday": "Jour férié"
@@ -1620,8 +1626,8 @@
     },
     "audit": {
       "trigger": "Audit du planning",
-      "badgeAria_one": "{{count}} séance à vérifier",
-      "badgeAria_other": "{{count}} séances à vérifier"
+      "badgeAria_one": "{{count}} problème de planning à corriger",
+      "badgeAria_other": "{{count}} problèmes de planning à corriger"
     },
     "generator": {
       "trigger": "Générer",

@@ -74,6 +74,8 @@ export const STR: Record<
     dialogBack: string;
     emptyTitle: string;
     emptySubtitle: string;
+    groupRepeats: (count: number) => string;
+    groupShowDates: (count: number) => string;
     dir: 'ltr' | 'rtl';
   }
 > = {
@@ -94,6 +96,8 @@ export const STR: Record<
     dialogBack: 'Retour',
     emptyTitle: 'Aucune séance hors horaires',
     emptySubtitle: 'Toutes les séances planifiées tiennent dans les horaires du centre et évitent les jours fériés.',
+    groupRepeats: (count) => `Se répète chaque semaine (×${count})`,
+    groupShowDates: (count) => `Voir les ${count} dates`,
     dir: 'ltr',
   },
   ar: {
@@ -111,6 +115,8 @@ export const STR: Record<
     dialogBack: 'رجوع',
     emptyTitle: 'لا توجد حصص خارج ساعات العمل',
     emptySubtitle: 'كل الحصص المجدولة تقع ضمن ساعات عمل المركز وتتجنّب أيام العطل.',
+    groupRepeats: (count) => `يتكرر كل أسبوع (×${count})`,
+    groupShowDates: (count) => `عرض التواريخ (${count})`,
     dir: 'rtl',
   },
 };
