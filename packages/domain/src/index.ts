@@ -46,6 +46,7 @@ export {
   INVITABLE_ROLES,
   isInvitableRole,
 } from './value-objects/role';
+export { requireRole } from './policies/require-role';
 
 // Ports
 export type { Clock } from './ports/clock';

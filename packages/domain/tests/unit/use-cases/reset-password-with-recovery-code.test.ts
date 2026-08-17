@@ -113,6 +113,7 @@ describe('ResetPasswordWithRecoveryCode', () => {
       id: 'ses_1' as DeviceSessionId,
       createdAt: clock.now().getTime(),
       expiresAt: clock.now().getTime() + 1_000_000,
+      userId: null,
     });
 
     await useCase.execute({
@@ -130,6 +131,7 @@ describe('ResetPasswordWithRecoveryCode', () => {
       id: 'ses_1' as DeviceSessionId,
       createdAt: clock.now().getTime(),
       expiresAt: clock.now().getTime() + 1_000_000,
+      userId: null,
     });
 
     await useCase.execute({
@@ -159,6 +161,7 @@ describe('ResetPasswordWithRecoveryCode', () => {
       id: 'ses_1' as DeviceSessionId,
       createdAt: clock.now().getTime(),
       expiresAt: clock.now().getTime() + 1_000_000,
+      userId: null,
     });
 
     await expect(
@@ -233,6 +236,7 @@ describe('ResetPasswordWithRecoveryCode', () => {
       id: 'ses_1' as DeviceSessionId,
       createdAt: clock.now().getTime(),
       expiresAt: clock.now().getTime() + 1_000_000,
+      userId: null,
     });
 
     const failingUnitOfWork = new InMemoryRecoveryCodeResetUnitOfWork(
