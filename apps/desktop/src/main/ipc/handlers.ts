@@ -159,6 +159,7 @@ import type {
   CenterCode,
   DeviceId,
   UserId,
+  Role,
   GetStudentAttendanceReport,
   GetGroupAttendanceSheet,
 } from '@centresoutien/domain';
@@ -173,6 +174,7 @@ import {
   CenterHoursOverrideNotFoundError,
   TeacherAvailabilityExceptionNotFoundError,
   NotAuthenticatedError,
+  requireRole,
   SECURITY_QUESTION_KEYS,
   isSetupCodePending,
   canLogin,
@@ -309,6 +311,9 @@ export type RequestPasswordResetViaSecurityQuestionsUseCase = Pick<
   'execute'
 >;
 export type DeviceSessions = Pick<DeviceSessionService, 'isAuthenticated' | 'forget'>;
+
+/** The trusted session principal (SOU-265): who is signed in on this device. */
+export type SessionPrincipal = { readonly userId: UserId; readonly role: Role };
 export type GetCenterProfileUseCase = Pick<GetCenterProfile, 'execute'>;
 export type SaveCenterProfileUseCase = Pick<SaveCenterProfile, 'execute'>;
 export type StoreCenterLogoUseCase = Pick<StoreCenterLogo, 'execute'>;
@@ -972,6 +977,15 @@ export type HandlerDeps = BackupHandlerDeps &
   changeAdminPassword: ChangeAdminPasswordUseCase;
   attemptLogin: AttemptLoginUseCase;
   deviceSessions: DeviceSessions;
+  /**
+   * Resolve the trusted session principal (SOU-265) from the remembered session,
+   * refreshing the envelope's cached identity as a side effect. Returns `null`
+   * when no authenticated principal can be established (no/expired/legacy session,
+   * or a removed user). The director-only role guard reads this per call.
+   */
+  resolvePrincipal: () => Promise<SessionPrincipal | null>;
+  /** Drop the cached session principal on logout so later writes stop attributing to it. */
+  clearPrincipal: () => void;
   generateRecoveryCodes: GenerateRecoveryCodesUseCase;
   verifyRecoveryCode: VerifyRecoveryCodeUseCase;
   resetPasswordWithRecoveryCode: ResetPasswordWithRecoveryCodeUseCase;
@@ -987,6 +1001,22 @@ export type HandlerDeps = BackupHandlerDeps &
   centerContext: () => CenterContext;
   saveLocalePreference: (locale: LocalePreference) => void;
 };
+
+// The director-only authorization gate (SOU-265) for the user-management channels.
+// Renderer visibility is not a boundary — the preload bridge exposes these channels
+// directly — so main enforces the real check: an established principal (else
+// NotAuthenticatedError) whose role is `admin` or higher (else InsufficientRoleError,
+// which the shared error-code transport carries to the renderer as `insufficient-role`).
+// A legacy/expired/unknown session resolves to `null` and is rejected as
+// unauthenticated: the device must log in again to re-establish who it is.
+async function requireDirector(
+  deps: Pick<HandlerDeps, 'resolvePrincipal'>,
+): Promise<SessionPrincipal> {
+  const principal = await deps.resolvePrincipal();
+  if (principal === null) throw new NotAuthenticatedError();
+  requireRole(principal.role, 'admin');
+  return principal;
+}
 
 export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
   const handlers: RegisterableIpcHandlers = {
@@ -1815,8 +1845,9 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       // authorization boundary — the preload bridge exposes this channel directly,
       // so a logged-out renderer could otherwise mint an employee, read the
       // one-time setup code, redeem it, and gain access with no prior credential.
-      // (Role-scoping to owner/admin is SOU-265 — main has no session principal yet.)
-      if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
+      // Now role-scoped (SOU-265): only owner/admin may invite; secretary/viewer
+      // are rejected with `insufficient-role`.
+      await requireDirector(deps);
       const { user, setupCode } = await deps.createUser.execute({
         ...request,
         ...deps.envelopeContext(),
@@ -1830,7 +1861,8 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       return { ok: true };
     },
     'user.list': async () => {
-      if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
+      // Director-only (SOU-265): the team roster is owner/admin-visible only.
+      await requireDirector(deps);
       const users = await deps.listUsers();
       const now = deps.now();
       return { users: users.map((user) => toUserView(user, now)) };
@@ -1839,6 +1871,11 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       const result = await deps.attemptLogin.execute(request);
       switch (result.outcome) {
         case 'success':
+          // Seed the session principal (SOU-265) from the just-remembered session
+          // so writes in this run attribute to the real user. A non-remembered
+          // login persists no session, so this resolves to null — the same
+          // "authenticated == remembered device" model the guards already use.
+          await deps.resolvePrincipal();
           return { outcome: 'success' };
         case 'invalid-credentials':
           return { outcome: 'invalid-credentials', remainingAttempts: result.remainingAttempts };
@@ -1846,9 +1883,16 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
           return { outcome: 'locked-out', lockedUntilMs: result.lockedUntil };
       }
     },
-    'auth.session': async () => ({ authenticated: await deps.deviceSessions.isAuthenticated() }),
+    'auth.session': async () => {
+      // The renderer polls this on boot; refresh the cached principal here so a
+      // remember-me reopen has an attributed identity ready before the first write
+      // (SOU-265). `authenticated` still reflects the remembered device.
+      await deps.resolvePrincipal();
+      return { authenticated: await deps.deviceSessions.isAuthenticated() };
+    },
     'auth.logout': async () => {
       await deps.deviceSessions.forget();
+      deps.clearPrincipal();
       return { ok: true };
     },
     'admin.recovery.generate': async () => {
