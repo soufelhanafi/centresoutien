@@ -159,7 +159,6 @@ import type {
   CenterCode,
   DeviceId,
   UserId,
-  Role,
   GetStudentAttendanceReport,
   GetGroupAttendanceSheet,
 } from '@centresoutien/domain';
@@ -180,6 +179,7 @@ import {
   canLogin,
 } from '@centresoutien/domain';
 import type { RegisterableIpcHandlers, IpcRequest } from '../../shared/ipc/contract';
+import type { SessionPrincipal } from '../session/session-principal';
 import type { LocalePreference } from '../infra/locale-preference-store';
 import { createBackupHandlers, type BackupHandlerDeps } from './backup-handlers';
 import { createBackupExcelHandlers, type BackupExcelHandlerDeps } from './backup-excel-handlers';
@@ -312,8 +312,6 @@ export type RequestPasswordResetViaSecurityQuestionsUseCase = Pick<
 >;
 export type DeviceSessions = Pick<DeviceSessionService, 'isAuthenticated' | 'forget'>;
 
-/** The trusted session principal (SOU-265): who is signed in on this device. */
-export type SessionPrincipal = { readonly userId: UserId; readonly role: Role };
 export type GetCenterProfileUseCase = Pick<GetCenterProfile, 'execute'>;
 export type SaveCenterProfileUseCase = Pick<SaveCenterProfile, 'execute'>;
 export type StoreCenterLogoUseCase = Pick<StoreCenterLogo, 'execute'>;
