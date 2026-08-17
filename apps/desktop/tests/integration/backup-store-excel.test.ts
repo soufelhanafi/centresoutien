@@ -236,6 +236,244 @@ describe('SqliteBackupStore + ExcelBackupAdapter round-trip', () => {
     expect(all.find((row) => row['id'] === 'pay_00000000000000000000000009')).toBeDefined();
   });
 
+  it('round-trips the synced settings tables (SOU-264): center_hours_overrides, teacher_availability, teacher_availability_exceptions', async () => {
+    const HOURS = {
+      0: [{ open: '09:00', close: '15:00' }, { open: '21:00', close: '23:00' }],
+      1: [{ open: '09:00', close: '15:00' }],
+      2: [{ open: '09:00', close: '15:00' }],
+      3: [{ open: '09:00', close: '15:00' }],
+      4: [{ open: '09:00', close: '15:00' }],
+      5: [],
+      6: [{ open: '09:00', close: '15:00' }],
+    };
+    const WINDOWS = {
+      0: [{ open: '08:00', close: '12:00' }],
+      1: [{ open: '08:00', close: '12:00' }],
+      2: [{ open: '08:00', close: '12:00' }],
+      3: [{ open: '08:00', close: '12:00' }],
+      4: [{ open: '08:00', close: '12:00' }],
+      5: [],
+      6: [],
+    };
+    const CHO = 'cho_00000000000000000000000001';
+    const TAV = 'tav_00000000000000000000000001';
+    const TAE = 'tae_00000000000000000000000001';
+    const TCH = 'tch_00000000000000000000000001';
+
+    db.prepare(
+      `INSERT INTO center_hours_overrides
+         (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, start_date, end_date, hours_by_weekday)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', NULL, 0, '2026-02-18', '2026-03-19', ?)`,
+    ).run(CHO, CENTER, JSON.stringify(HOURS));
+    db.prepare(
+      `INSERT INTO teacher_availability
+         (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, teacher_id, weekly_windows)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', NULL, 0, ?, ?)`,
+    ).run(TAV, CENTER, TCH, JSON.stringify(WINDOWS));
+    db.prepare(
+      `INSERT INTO teacher_availability_exceptions
+         (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, teacher_id, start_date, end_date, label)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', NULL, 0, ?, '2026-05-01', '2026-05-15', 'Omra')`,
+    ).run(TAE, CENTER, TCH);
+
+    const store = makeStore(db, CENTER);
+    const excel = new ExcelBackupAdapter();
+    const sheets = [];
+    for (const sheetName of ['center-hours-overrides', 'teacher-availability', 'teacher-availability-exceptions'] as const) {
+      const rows = await store.readAllRows(sheetName);
+      sheets.push({ name: sheetName, columns: sheetColumnNames(findBackupSheet(sheetName)!), rows });
+    }
+    const workbookPath = join(dir, 'synced-settings.xlsx');
+    await excel.writeWorkbook(workbookPath, { sheets });
+
+    const roundTripped = await excel.readWorkbook(workbookPath);
+    const choSheet = roundTripped.sheets.find((sheet) => sheet.name === 'center-hours-overrides')!;
+    expect(choSheet.rows[0]).toMatchObject({
+      id: CHO,
+      startDate: '2026-02-18',
+      endDate: '2026-03-19',
+      hoursByWeekday: JSON.stringify(HOURS),
+    });
+    const tavSheet = roundTripped.sheets.find((sheet) => sheet.name === 'teacher-availability')!;
+    expect(tavSheet.rows[0]).toMatchObject({
+      id: TAV,
+      teacherId: TCH,
+      weeklyWindows: JSON.stringify(WINDOWS),
+    });
+    const taeSheet = roundTripped.sheets.find((sheet) => sheet.name === 'teacher-availability-exceptions')!;
+    expect(taeSheet.rows[0]).toMatchObject({
+      id: TAE,
+      teacherId: TCH,
+      startDate: '2026-05-01',
+      endDate: '2026-05-15',
+      label: 'Omra',
+    });
+
+    // Import into a fresh center: all three synced settings survive, tombstones too.
+    const dir2 = mkdtempSync(join(tmpdir(), 'cs-backup-excel-settings-'));
+    const db2 = openDatabase({ centreId: 'C2', key: KEY, dir: dir2 });
+    runMigrations(db2, REAL_MIGRATIONS);
+    try {
+      const store2 = makeStore(db2, CENTER);
+      await store2.applyRows(
+        roundTripped.sheets
+          .filter((sheet): sheet is { name: BackupSheetName; columns: readonly string[]; rows: readonly BackupRow[] } =>
+            ['center-hours-overrides', 'teacher-availability', 'teacher-availability-exceptions'].includes(sheet.name),
+          )
+          .map((sheet) => ({ sheetName: sheet.name, rows: sheet.rows })),
+      );
+      const restoredCho = await store2.readAllRows('center-hours-overrides');
+      expect(restoredCho).toHaveLength(1);
+      expect(restoredCho[0]).toMatchObject({
+        id: CHO,
+        startDate: '2026-02-18',
+        endDate: '2026-03-19',
+        hoursByWeekday: JSON.stringify(HOURS),
+      });
+      const restoredTav = await store2.readAllRows('teacher-availability');
+      expect(restoredTav).toHaveLength(1);
+      expect(restoredTav[0]).toMatchObject({
+        id: TAV,
+        teacherId: TCH,
+        weeklyWindows: JSON.stringify(WINDOWS),
+      });
+      const restoredTae = await store2.readAllRows('teacher-availability-exceptions');
+      expect(restoredTae).toHaveLength(1);
+      expect(restoredTae[0]).toMatchObject({
+        id: TAE,
+        teacherId: TCH,
+        startDate: '2026-05-01',
+        endDate: '2026-05-15',
+        label: 'Omra',
+      });
+    } finally {
+      db2.close();
+      rmSync(dir2, { recursive: true, force: true });
+    }
+  });
+
+  it('exports and restores a tombstoned override/availability through a fresh database (SOU-264)', async () => {
+    const CHO = 'cho_00000000000000000000000002';
+    const TAV = 'tav_00000000000000000000000002';
+    const TAE = 'tae_00000000000000000000000002';
+    const TCH = 'tch_00000000000000000000000002';
+    const HOURS = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+    const WINDOWS = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+    db.prepare(
+      `INSERT INTO center_hours_overrides
+         (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, start_date, end_date, hours_by_weekday)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', '2026-02-01T10:00:00.000Z', 1, '2026-02-18', '2026-03-19', ?)`,
+    ).run(CHO, CENTER, JSON.stringify(HOURS));
+    db.prepare(
+      `INSERT INTO teacher_availability
+         (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, teacher_id, weekly_windows)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', '2026-02-01T10:00:00.000Z', 1, ?, ?)`,
+    ).run(TAV, CENTER, TCH, JSON.stringify(WINDOWS));
+    db.prepare(
+      `INSERT INTO teacher_availability_exceptions
+         (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, teacher_id, start_date, end_date, label)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', '2026-02-01T10:00:00.000Z', 1, ?, '2026-05-01', '2026-05-15', NULL)`,
+    ).run(TAE, CENTER, TCH);
+
+    const store = makeStore(db, CENTER);
+    const excel = new ExcelBackupAdapter();
+    const sheets = [];
+    for (const sheetName of ['center-hours-overrides', 'teacher-availability', 'teacher-availability-exceptions'] as const) {
+      const rows = await store.readAllRows(sheetName);
+      sheets.push({ name: sheetName, columns: sheetColumnNames(findBackupSheet(sheetName)!), rows });
+    }
+    const workbookPath = join(dir, 'synced-settings-tombstones.xlsx');
+    await excel.writeWorkbook(workbookPath, { sheets });
+    const read = await excel.readWorkbook(workbookPath);
+
+    const dir2 = mkdtempSync(join(tmpdir(), 'cs-backup-excel-settings-'));
+    const db2 = openDatabase({ centreId: 'C2', key: KEY, dir: dir2 });
+    runMigrations(db2, REAL_MIGRATIONS);
+    try {
+      await makeStore(db2, CENTER).applyRows(
+        read.sheets
+          .filter((sheet): sheet is { name: BackupSheetName; columns: readonly string[]; rows: readonly BackupRow[] } =>
+            ['center-hours-overrides', 'teacher-availability', 'teacher-availability-exceptions'].includes(sheet.name),
+          )
+          .map((sheet) => ({ sheetName: sheet.name, rows: sheet.rows })),
+      );
+      const restoredCho = await makeStore(db2, CENTER).readAllRows('center-hours-overrides');
+      expect(restoredCho).toHaveLength(1);
+      expect(restoredCho[0]!['deletedAt']).toBe('2026-02-01T10:00:00.000Z');
+      const restoredTav = await makeStore(db2, CENTER).readAllRows('teacher-availability');
+      expect(restoredTav).toHaveLength(1);
+      expect(restoredTav[0]!['deletedAt']).toBe('2026-02-01T10:00:00.000Z');
+      const restoredTae = await makeStore(db2, CENTER).readAllRows('teacher-availability-exceptions');
+      expect(restoredTae).toHaveLength(1);
+      expect(restoredTae[0]!['deletedAt']).toBe('2026-02-01T10:00:00.000Z');
+    } finally {
+      db2.close();
+      rmSync(dir2, { recursive: true, force: true });
+    }
+  });
+
+  it('logs the synced-settings restore as the DOMAIN payload shape, not the flat row (SOU-264)', async () => {
+    const CHO = 'cho_00000000000000000000000003';
+    const TAV = 'tav_00000000000000000000000003';
+    const TAE = 'tae_00000000000000000000000003';
+    const TCH = 'tch_00000000000000000000000003';
+    db.prepare(
+      `INSERT INTO center_hours_overrides
+         (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, start_date, end_date, hours_by_weekday)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', NULL, 0, '2026-02-18', '2026-03-19', '{"0":[{"open":"09:00","close":"15:00"}]}')`,
+    ).run(CHO, CENTER);
+    db.prepare(
+      `INSERT INTO teacher_availability
+         (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, teacher_id, weekly_windows)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', NULL, 0, ?, '{"0":[{"open":"08:00","close":"12:00"}]}')`,
+    ).run(TAV, CENTER, TCH);
+    db.prepare(
+      `INSERT INTO teacher_availability_exceptions
+         (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, teacher_id, start_date, end_date, label)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', NULL, 0, ?, '2026-05-01', '2026-05-15', NULL)`,
+    ).run(TAE, CENTER, TCH);
+
+    const store = makeStore(db, CENTER);
+    const excel = new ExcelBackupAdapter();
+    const sheets = [];
+    for (const sheetName of ['center-hours-overrides', 'teacher-availability', 'teacher-availability-exceptions'] as const) {
+      const rows = await store.readAllRows(sheetName);
+      sheets.push({ name: sheetName, columns: sheetColumnNames(findBackupSheet(sheetName)!), rows });
+    }
+    const workbookPath = join(dir, 'synced-settings-log.xlsx');
+    await excel.writeWorkbook(workbookPath, { sheets });
+    const read = await excel.readWorkbook(workbookPath);
+
+    const dir2 = mkdtempSync(join(tmpdir(), 'cs-backup-excel-log-'));
+    const db2 = openDatabase({ centreId: 'C2', key: KEY, dir: dir2 });
+    runMigrations(db2, REAL_MIGRATIONS);
+    try {
+      await makeStore(db2, CENTER).applyRows(
+        read.sheets
+          .filter((sheet): sheet is { name: BackupSheetName; columns: readonly string[]; rows: readonly BackupRow[] } =>
+            ['center-hours-overrides', 'teacher-availability', 'teacher-availability-exceptions'].includes(sheet.name),
+          )
+          .map((sheet) => ({ sheetName: sheet.name, rows: sheet.rows })),
+      );
+      const logged = db2
+        .prepare('SELECT entity_type, payload FROM change_log ORDER BY rowid')
+        .all() as { entity_type: string; payload: string }[];
+      const byType = (type: string) => JSON.parse(logged.find((row) => row.entity_type === type)!.payload).entity;
+      const cho = byType('center_hours_overrides');
+      expect(cho.dateRange).toEqual({ start: '2026-02-18', end: '2026-03-19' });
+      expect(cho.hoursByWeekday).toEqual({ 0: [{ open: '09:00', close: '15:00' }] });
+      const tav = byType('teacher_availability');
+      expect(tav.teacherId).toBe(TCH);
+      expect(tav.weeklyWindows).toEqual({ 0: [{ open: '08:00', close: '12:00' }] });
+      const tae = byType('teacher_availability_exceptions');
+      expect(tae.dateRange).toEqual({ start: '2026-05-01', end: '2026-05-15' });
+      expect(tae.label).toBeNull();
+    } finally {
+      db2.close();
+      rmSync(dir2, { recursive: true, force: true });
+    }
+  });
+
   it('appends a change_log entry for every actually-written row, none for a skipped replay (SOU-79)', async () => {
     seedCenterRows(CENTER);
     const store = makeStore(db, CENTER);
