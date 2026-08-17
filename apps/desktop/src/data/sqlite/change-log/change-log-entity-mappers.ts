@@ -2,6 +2,7 @@ import type {
   BackupRow,
   CenterCode,
   CenterHoursOverride,
+  CenterHoursOverrideId,
   DeviceId,
   Niveau,
   NiveauId,
@@ -11,6 +12,9 @@ import type {
   SubjectId,
   TeacherAvailability,
   TeacherAvailabilityException,
+  TeacherAvailabilityId,
+  TeacherAvailabilityExceptionId,
+  TeacherId,
   User,
   UserId,
   WeeklyRecurringSession,
@@ -129,6 +133,70 @@ export function niveauBackupRowToEntity(row: BackupRow): Niveau {
     code: row['code'] as string | null,
     category: row['category'] as Niveau['category'],
     active: row['active'] === true || row['active'] === 1,
+  };
+}
+
+/**
+ * Converts the flat workbook `center-hours-overrides` row (SHEET_SQL logical
+ * shape) into the canonical domain {@link CenterHoursOverride}, so a restore
+ * logs the same payload shape the override repository does (SOU-264). The
+ * weekly-window JSON cell parses back to the `hoursByWeekday` record; an opaque
+ * JSON string can round-trip byte-for-byte only because the domain schema owns
+ * the shape invariants and SQLite stores the validated text.
+ */
+export function centerHoursOverrideBackupRowToEntity(row: BackupRow): CenterHoursOverride {
+  return {
+    id: row['id'] as CenterHoursOverrideId,
+    centerCode: row['centerCode'] as CenterCode,
+    deviceOrigin: row['deviceOrigin'] as DeviceId,
+    createdAt: new Date(row['createdAt'] as string),
+    updatedAt: new Date(row['updatedAt'] as string),
+    updatedBy: row['updatedBy'] as UserId,
+    deletedAt: row['deletedAt'] == null ? null : new Date(row['deletedAt'] as string),
+    version: row['version'] as number,
+    dateRange: { start: row['startDate'] as string, end: row['endDate'] as string },
+    hoursByWeekday: JSON.parse(row['hoursByWeekday'] as string) as CenterHoursOverride['hoursByWeekday'],
+  };
+}
+
+/**
+ * Converts the flat workbook `teacher-availability` row into the canonical
+ * domain {@link TeacherAvailability} (SOU-264) — `weeklyWindows` JSON cell
+ * parses back to the window record, mirroring `centerHoursOverrideBackupRowToEntity`.
+ */
+export function teacherAvailabilityBackupRowToEntity(row: BackupRow): TeacherAvailability {
+  return {
+    id: row['id'] as TeacherAvailabilityId,
+    centerCode: row['centerCode'] as CenterCode,
+    deviceOrigin: row['deviceOrigin'] as DeviceId,
+    createdAt: new Date(row['createdAt'] as string),
+    updatedAt: new Date(row['updatedAt'] as string),
+    updatedBy: row['updatedBy'] as UserId,
+    deletedAt: row['deletedAt'] == null ? null : new Date(row['deletedAt'] as string),
+    version: row['version'] as number,
+    teacherId: row['teacherId'] as TeacherId,
+    weeklyWindows: JSON.parse(row['weeklyWindows'] as string) as TeacherAvailability['weeklyWindows'],
+  };
+}
+
+/**
+ * Converts the flat workbook `teacher-availability-exceptions` row into the
+ * canonical domain {@link TeacherAvailabilityException} (SOU-264) — the
+ * inclusive civil `startDate`/`endDate` cells become the `dateRange` pair.
+ */
+export function teacherAvailabilityExceptionBackupRowToEntity(row: BackupRow): TeacherAvailabilityException {
+  return {
+    id: row['id'] as TeacherAvailabilityExceptionId,
+    centerCode: row['centerCode'] as CenterCode,
+    deviceOrigin: row['deviceOrigin'] as DeviceId,
+    createdAt: new Date(row['createdAt'] as string),
+    updatedAt: new Date(row['updatedAt'] as string),
+    updatedBy: row['updatedBy'] as UserId,
+    deletedAt: row['deletedAt'] == null ? null : new Date(row['deletedAt'] as string),
+    version: row['version'] as number,
+    teacherId: row['teacherId'] as TeacherId,
+    dateRange: { start: row['startDate'] as string, end: row['endDate'] as string },
+    label: row['label'] as string | null,
   };
 }
 

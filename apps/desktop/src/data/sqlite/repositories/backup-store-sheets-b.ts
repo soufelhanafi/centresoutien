@@ -22,7 +22,10 @@ export const SHEET_SQL_B: Readonly<
     | 'invoice-lines'
     | 'payments'
     | 'center-hours'
-    | 'holidays',
+    | 'holidays'
+    | 'center-hours-overrides'
+    | 'teacher-availability'
+    | 'teacher-availability-exceptions',
     SheetSqlConfig
   >
 > = {
@@ -136,6 +139,36 @@ export const SHEET_SQL_B: Readonly<
       ['kind', 'kind'],
       ['startDate', 'start_date'],
       ['endDate', 'end_date'],
+    ],
+  },
+  'center-hours-overrides': {
+    table: 'center_hours_overrides',
+    conflict: 'upsert',
+    columns: [
+      ...ENVELOPE_COLUMNS,
+      ['startDate', 'start_date'],
+      ['endDate', 'end_date'],
+      ['hoursByWeekday', 'hours_by_weekday'],
+    ],
+  },
+  'teacher-availability': {
+    table: 'teacher_availability',
+    conflict: 'upsert',
+    columns: [
+      ...ENVELOPE_COLUMNS,
+      ['teacherId', 'teacher_id'],
+      ['weeklyWindows', 'weekly_windows'],
+    ],
+  },
+  'teacher-availability-exceptions': {
+    table: 'teacher_availability_exceptions',
+    conflict: 'upsert',
+    columns: [
+      ...ENVELOPE_COLUMNS,
+      ['teacherId', 'teacher_id'],
+      ['startDate', 'start_date'],
+      ['endDate', 'end_date'],
+      ['label', 'label'],
     ],
   },
 };
