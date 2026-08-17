@@ -120,10 +120,28 @@ export const OV: Record<
 
 type Bridge = { invoke: (channel: string, req: unknown) => Promise<unknown> };
 
-/** The current real week runs Sunday 2026-08-09 .. Saturday 2026-08-15 (system clock is 2026-08-10, Monday). */
-export const CURRENT_WEEK = { start: '2026-08-09', end: '2026-08-15' } as const;
-/** A date range that does NOT cover the current week (a later, non-overlapping week). */
-export const OTHER_WEEK = { start: '2026-09-06', end: '2026-09-12' } as const;
+/** `YYYY-MM-DD` from LOCAL date components — never `toISOString()`, whose UTC
+ *  shift moves the civil date near midnight (the SOU-255 lesson). */
+function isoDate(date: Date): string {
+  const yyyy = String(date.getFullYear()).padStart(4, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function daysFromWeekStart(offset: number): string {
+  const now = new Date();
+  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + offset);
+  return isoDate(day);
+}
+
+/** The real Sunday-start week containing today (SOU-266): the app runs on the
+ *  real clock and the planner renders the current week, so "the override covers
+ *  the rendered week" must be computed at run time — a literal range rots the
+ *  day the hardcoded week ends. */
+export const CURRENT_WEEK = { start: daysFromWeekStart(0), end: daysFromWeekStart(6) };
+/** A date range that does NOT cover the current week (four weeks later, non-overlapping). */
+export const OTHER_WEEK = { start: daysFromWeekStart(28), end: daysFromWeekStart(34) };
 export const MONDAY = 1;
 
 /** Launch, size the window large enough that the tall override dialog fits fully in view, and get into the shell. */
