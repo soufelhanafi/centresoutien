@@ -1,0 +1,113 @@
+import type { CenterCode, CreateUser, DeviceId, RedeemSetupCode, User, UserId } from '@centresoutien/domain';
+import {
+  NotAuthenticatedError,
+  requireRole,
+  canLogin,
+  isSetupCodePending,
+} from '@centresoutien/domain';
+import type { IpcHandlers } from '../../shared/ipc/contract';
+import type { SessionPrincipal } from '../session/session-principal';
+
+export type CreateUserUseCase = Pick<CreateUser, 'execute'>;
+export type RedeemSetupCodeUseCase = Pick<RedeemSetupCode, 'execute'>;
+
+// The center/device/user envelope stamped on every write; structurally the same
+// object `handlers.ts` builds, kept local so this module owns no import cycle.
+export type UserEnvelopeContext = {
+  centerCode: CenterCode;
+  deviceOrigin: DeviceId;
+  updatedBy: UserId;
+};
+
+export type UserHandlerDeps = {
+  // Resolve the trusted session principal (SOU-265) from the remembered session,
+  // refreshing the envelope's cached identity as a side effect. Returns `null`
+  // when no authenticated principal can be established (no/expired/legacy session,
+  // or a removed user). The director-only role guard reads this per call.
+  resolvePrincipal: () => Promise<SessionPrincipal | null>;
+  createUser: CreateUserUseCase;
+  redeemSetupCode: RedeemSetupCodeUseCase;
+  listUsers: () => Promise<readonly User[]>;
+  envelopeContext: () => UserEnvelopeContext;
+  now: () => Date;
+};
+
+// A user's login-readiness as the roster renders it (SOU-256): `active` once a
+// password exists, `setup-pending` while the invite code is still redeemable, and
+// `setup-expired` for an invite whose code lapsed before redemption — the latter
+// has no password and cannot log in, so it must read distinctly from `active`.
+function userAccountStatus(user: User, now: Date): 'active' | 'setup-pending' | 'setup-expired' {
+  if (canLogin(user)) return 'active';
+  if (isSetupCodePending(user, now)) return 'setup-pending';
+  return 'setup-expired';
+}
+
+// Project a User to its boundary DTO (SOU-256): credential material NEVER crosses
+// the boundary — `passwordHash`, `setupCodeHash`, and the raw setup code are
+// stripped, leaving only the fields the user-management list renders.
+function toUserView(user: User, now: Date) {
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    status: userAccountStatus(user, now),
+  };
+}
+
+// The director-only authorization gate (SOU-265) for the user-management channels.
+// Renderer visibility is not a boundary — the preload bridge exposes these channels
+// directly — so main enforces the real check: an established principal (else
+// NotAuthenticatedError) whose role is `admin` or higher (else InsufficientRoleError,
+// which the shared error-code transport carries to the renderer as `insufficient-role`).
+// A legacy/expired/unknown session resolves to `null` and is rejected as
+// unauthenticated: the device must log in again to re-establish who it is. The
+// resolved principal is RETURNED so guarded writes stamp `updatedBy` from it
+// directly, never re-reading the mutable cache after another await could have
+// changed it (a concurrent logout would otherwise mis-attribute the write).
+async function requireDirector(
+  deps: Pick<UserHandlerDeps, 'resolvePrincipal'>,
+): Promise<SessionPrincipal> {
+  const principal = await deps.resolvePrincipal();
+  if (principal === null) throw new NotAuthenticatedError();
+  requireRole(principal.role, 'admin');
+  return principal;
+}
+
+// User-management IPC handlers (SOU-256, role-scoped in SOU-265), split out of
+// `handlers.ts` like the other channel factories. The director gate runs in main,
+// before the use case, and is unbypassable — the renderer never carries identity.
+export function createUserHandlers(
+  deps: UserHandlerDeps,
+): Pick<IpcHandlers, 'user.create' | 'user.redeemSetupCode' | 'user.list'> {
+  return {
+    'user.create': async (request) => {
+      // Inviting staff is director-only work. Renderer visibility is not an
+      // authorization boundary — the preload bridge exposes this channel directly,
+      // so a logged-out renderer could otherwise mint an employee, read the
+      // one-time setup code, redeem it, and gain access with no prior credential.
+      // Only owner/admin may invite; secretary/viewer are rejected. The write is
+      // attributed to the authorized principal returned by the guard, not the
+      // global cache, closing the auth-then-stamp race (SOU-265).
+      const principal = await requireDirector(deps);
+      const { user, setupCode } = await deps.createUser.execute({
+        ...request,
+        ...deps.envelopeContext(),
+        updatedBy: principal.userId,
+      });
+      return { user: toUserView(user, deps.now()), setupCode };
+    },
+    // Intentionally unauthenticated: this IS the first-login flow — the invited
+    // employee has no session yet. Single-use + expiry are enforced in the domain.
+    'user.redeemSetupCode': async (request) => {
+      await deps.redeemSetupCode.execute(request);
+      return { ok: true };
+    },
+    'user.list': async () => {
+      // Director-only (SOU-265): the team roster is owner/admin-visible only.
+      await requireDirector(deps);
+      const users = await deps.listUsers();
+      const now = deps.now();
+      return { users: users.map((user) => toUserView(user, now)) };
+    },
+  };
+}

@@ -204,11 +204,16 @@ const stubListUsers = async () => [
 // Stub login use case — locked when the password is 'locked', wrong when it is
 // 'nope', otherwise success. Enough to exercise all three response shapes.
 const LOCKED_UNTIL_MS = new Date('2026-07-29T10:15:00Z').getTime();
+const LOGGED_IN_USER = {
+  userId: 'usr_00000000000000000000000001' as UserId,
+  username: 'directrice',
+  role: 'owner' as Role,
+};
 const stubAttemptLogin: AttemptLoginUseCase = {
   execute: async (input) => {
     if (input.password === 'locked') return { outcome: 'locked-out', lockedUntil: LOCKED_UNTIL_MS };
     if (input.password === 'nope') return { outcome: 'invalid-credentials', remainingAttempts: 3 };
-    return { outcome: 'success' };
+    return { outcome: 'success', user: LOGGED_IN_USER };
   },
 };
 let remembered = false;
@@ -223,6 +228,11 @@ const stubDeviceSessions: DeviceSessions = {
 // gate on user.create / user.list.
 let principal: { userId: UserId; role: Role } | null = null;
 const stubResolvePrincipal = async () => principal;
+// Login establishes the principal in memory directly from the verified identity
+// (SOU-265) — independent of any persisted session — so the stub mirrors that.
+const stubSetPrincipal = (next: { userId: UserId; role: Role }) => {
+  principal = next;
+};
 const stubClearPrincipal = () => {
   principal = null;
 };
@@ -518,7 +528,12 @@ const dispatch = createIpcDispatcher(
     now: () => NOW,
     attemptLogin: stubAttemptLogin,
     deviceSessions: stubDeviceSessions,
+    adminUsername: async () => 'directrice',
+    resetPasswordWithRecoveryCode: {
+      execute: async () => ({ outcome: 'success' as const }),
+    },
     resolvePrincipal: stubResolvePrincipal,
+    setPrincipal: stubSetPrincipal,
     clearPrincipal: stubClearPrincipal,
     getCenterProfile: stubGetCenter,
     saveCenterProfile: stubSaveCenter,
@@ -890,6 +905,33 @@ describe('createIpcDispatcher', () => {
     await expect(
       dispatch('auth.login', { username: 'directrice', password: PASS, rememberDevice: true }),
     ).resolves.toEqual({ outcome: 'success' });
+  });
+
+  it('establishes the principal on a NON-remembered login so the director clears the guard (SOU-265 B1)', async () => {
+    principal = null;
+    // rememberDevice omitted/false: no session is persisted, so re-reading the
+    // session would resolve to null. Login must still establish the principal in
+    // memory from the verified identity — otherwise the director is wrongly
+    // rejected at the role guard and writes mis-attribute to the bootstrap user.
+    await expect(
+      dispatch('auth.login', { username: 'directrice', password: PASS }),
+    ).resolves.toEqual({ outcome: 'success' });
+    expect(principal).toEqual({ userId: LOGGED_IN_USER.userId, role: 'owner' });
+    // The freshly-established owner now passes the director-only guard.
+    await expect(
+      dispatch('user.create', { username: 'amine', role: 'secretary' }),
+    ).resolves.toHaveProperty('setupCode');
+    principal = null;
+  });
+
+  it('clears the principal on a recovery-code password reset (SOU-265 B4)', async () => {
+    principal = { userId: LOGGED_IN_USER.userId, role: 'owner' };
+    await expect(
+      dispatch('auth.resetWithCode', { code: 'ABCD-EFGH-JKLM-NPQR', password: 'Casa2026!' }),
+    ).resolves.toEqual({ outcome: 'success' });
+    // The reset invalidated the device session, so the stale principal must be
+    // dropped — the guard now fails closed until the device authenticates again.
+    expect(principal).toBeNull();
   });
 
   it('serializes auth.login invalid-credentials with remaining attempts', async () => {

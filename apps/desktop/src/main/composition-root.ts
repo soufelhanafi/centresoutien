@@ -242,7 +242,7 @@ import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
 import { PdfLibScheduleRenderer } from '../data/pdf/pdf-lib-schedule-renderer';
-import { SessionPrincipalService } from './session/session-principal';
+import { wireSessionPrincipal } from './session/session-principal-wiring';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { HashWasmPasswordHasher } from './infra/hash-wasm-password-hasher';
@@ -272,13 +272,7 @@ const hubMigrationFiles = import.meta.glob('../data/sqlite/hub/migrations/*.sql'
   eager: true,
 }) as Record<string, string>;
 
-// The bootstrap/first-run attribution fallback (SOU-265): used only when NO session
-// principal is established — pre-login writes, first-run owner creation, seeding a
-// fresh center. Once a user is signed in (via the remembered session), writes
-// attribute to their real `userId` instead (see `resolveUpdatedBy`). The
-// device-local sync outbox/engine and the Excel import path still snapshot this at
-// construction (they run device-level, outside a request's principal) — a
-// documented follow-up, not a regression.
+// Bootstrap/first-run attribution fallback (SOU-265): used only when NO principal is established (pre-login / first-run owner+center creation).
 const DEV_USER = 'usr_local-device' as UserId;
 
 export type ContainerOptions = {
@@ -1196,20 +1190,7 @@ export function buildContainer(options: ContainerOptions): Container {
     ids,
   );
   const deviceSessions = new DeviceSessionService(new SqliteDeviceSessionStore(db), clock, ids);
-  // The trusted session principal (SOU-265): recovered from the remembered device
-  // session (which carries the user id) + the users table (for the role). Seeded
-  // now, before the window opens, so a remember-me reopen attributes writes to the
-  // real user; login/logout keep it fresh. Fire-and-forget like the scheduled
-  // backup — a failed seed just leaves the bootstrap fallback in place.
-  const sessionPrincipal = new SessionPrincipalService(deviceSessions, userRepo);
-  void sessionPrincipal.resolve().catch((error: unknown) => {
-    console.error('[auth] failed to resolve session principal at startup', error);
-  });
-  // The effective `updatedBy` for every write: the signed-in user when a principal
-  // is established, else the local placeholder for pre-login / first-run bootstrap
-  // writes (creating the very first owner, seeding a fresh center) where no
-  // principal exists yet. Resolved per call so it tracks login/logout live.
-  const resolveUpdatedBy = (): UserId => sessionPrincipal.current()?.userId ?? DEV_USER;
+  const { resolveUpdatedBy, ...principalControls } = wireSessionPrincipal(deviceSessions, userRepo, DEV_USER);
   const recoveryCodeResetUnitOfWork = new SqliteRecoveryCodeResetUnitOfWork(db);
   const resetPasswordWithRecoveryCode = new ResetPasswordWithRecoveryCode(
     verifyRecoveryCode,
@@ -1331,10 +1312,6 @@ export function buildContainer(options: ContainerOptions): Container {
     clock,
   );
 
-  // The static center/device envelope base. Its `updatedBy` is the bootstrap
-  // fallback; the handler-facing `envelopeContext`/`centerContext` below spread
-  // this and overwrite `updatedBy` with the live principal via `resolveUpdatedBy`.
-  // The device-level Excel import path (`applyImportBackup`) snapshots this base.
   const context: EnvelopeContext = {
     centerCode: options.centerCode,
     deviceOrigin,
@@ -1499,8 +1476,7 @@ export function buildContainer(options: ContainerOptions): Container {
     changeAdminPassword,
     attemptLogin,
     deviceSessions,
-    resolvePrincipal: () => sessionPrincipal.resolve(),
-    clearPrincipal: () => sessionPrincipal.clear(),
+    ...principalControls,
     generateRecoveryCodes,
     verifyRecoveryCode,
     resetPasswordWithRecoveryCode,

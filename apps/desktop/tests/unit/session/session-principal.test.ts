@@ -77,4 +77,61 @@ describe('SessionPrincipalService', () => {
     service.clear();
     expect(service.current()).toBeNull();
   });
+
+  it('set() establishes the principal directly from a verified login, no session read (B1)', () => {
+    // The session reader returns null (a non-remembered login persists nothing);
+    // set() must still establish the principal from the verified identity.
+    const service = new SessionPrincipalService(makeSessions(null), makeUsers(null));
+    service.set({ userId: OWNER, role: 'admin' });
+    expect(service.current()).toEqual({ userId: OWNER, role: 'admin' });
+  });
+
+  it('discards an in-flight resolve superseded by clear() — logout cannot be resurrected (B3)', async () => {
+    let release!: (id: UserId | null) => void;
+    const gate = new Promise<UserId | null>((resolve) => {
+      release = resolve;
+    });
+    const service = new SessionPrincipalService(
+      { activeUserId: () => gate },
+      makeUsers(makeUser(OWNER, 'owner')),
+    );
+    const inFlight = service.resolve();
+    // Logout lands while the session read is still pending.
+    service.clear();
+    // The now-stale read completes afterwards; it must NOT restore the principal.
+    release(OWNER);
+    expect(await inFlight).toBeNull();
+    expect(service.current()).toBeNull();
+  });
+
+  it('a login (set) during an in-flight resolve is not clobbered by the stale resolve (B3)', async () => {
+    let release!: (id: UserId | null) => void;
+    const gate = new Promise<UserId | null>((resolve) => {
+      release = resolve;
+    });
+    const service = new SessionPrincipalService(
+      { activeUserId: () => gate },
+      makeUsers(makeUser(OWNER, 'secretary')),
+    );
+    const inFlight = service.resolve();
+    service.set({ userId: OWNER, role: 'owner' });
+    release(OWNER);
+    await inFlight;
+    // The freshly-established login wins over the stale resolve's secretary read.
+    expect(service.current()).toEqual({ userId: OWNER, role: 'owner' });
+  });
+
+  it('fails closed on a transient read error — a stale principal is not retained (B5)', async () => {
+    const users: UserByIdReader = {
+      findById: async () => {
+        throw new Error('sqlite busy');
+      },
+    };
+    const service = new SessionPrincipalService(makeSessions(OWNER), users);
+    // A principal is established, then a transient DB error hits the next resolve.
+    service.set({ userId: OWNER, role: 'owner' });
+    await expect(service.resolve()).rejects.toThrow('sqlite busy');
+    // The now-unverifiable principal must be dropped, not silently trusted.
+    expect(service.current()).toBeNull();
+  });
 });
