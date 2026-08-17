@@ -99,12 +99,10 @@ export class SqliteBackupStore implements BackupStore {
     ensurePaymentReversalUniqueIndex(this.db);
   }
 
-  /**
-   * The change-log payload for a written row. Repositories that log a nested
-   * domain entity for their table convert the flat workbook row back to that
-   * canonical shape (SOU-170 one-payload-per-type); everything else logs the
-   * flat logical row directly.
-   */
+  // The change-log payload for a written row. Repositories that log a nested
+  // domain entity for their table convert the flat workbook row back to that
+  // canonical shape (SOU-170 one-payload-per-type); everything else logs the
+  // flat logical row directly.
   private loggedEntityFor(table: string, row: BackupRow): Record<string, unknown> {
     switch (table) {
       case 'subjects':

@@ -1,12 +1,13 @@
 import type { BackupSheetName, BackupSheetSpec } from './backup-columns';
 import { BACKUP_SHEETS_A } from './backup-sheets-a';
 import { BACKUP_SHEETS_B } from './backup-sheets-b';
+import { BACKUP_SHEETS_C } from './backup-sheets-c';
 
 /**
  * The ordered sheet registry — the order IS the import dependency order
  * (parents before students before dependents), so apply can iterate it directly.
- * Split across two files only to respect the repo's file-size ceilings; the two
- * halves concatenate into one ordered array here.
+ * Split across three files only to respect the repo's file-size ceilings; the
+ * three halves concatenate into one ordered array here.
  */
 export const BACKUP_SHEET_NAMES: readonly BackupSheetName[] = [
   'parents',
@@ -31,7 +32,11 @@ export const BACKUP_SHEET_NAMES: readonly BackupSheetName[] = [
   'teacher-availability-exceptions',
 ];
 
-export const BACKUP_SHEETS: readonly BackupSheetSpec[] = [...BACKUP_SHEETS_A, ...BACKUP_SHEETS_B];
+export const BACKUP_SHEETS: readonly BackupSheetSpec[] = [
+  ...BACKUP_SHEETS_A,
+  ...BACKUP_SHEETS_B,
+  ...BACKUP_SHEETS_C,
+];
 
 /** Column names of a sheet's workbook columns, in header order. */
 export function sheetColumnNames(spec: BackupSheetSpec): readonly string[] {

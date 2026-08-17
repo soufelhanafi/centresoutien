@@ -154,48 +154,4 @@ export const BACKUP_SHEETS_B: readonly BackupSheetSpec[] = [
       createRequiredColumn('endDate', 'string'),
     ],
   },
-  {
-    name: 'center-hours-overrides',
-    idPrefix: 'cho',
-    peopleLike: false,
-    naturalKeyColumn: null,
-    restoreConflict: 'upsert',
-    columns: [
-      ...BACKUP_ENVELOPE_COLUMNS,
-      createRequiredColumn('startDate', 'string'),
-      createRequiredColumn('endDate', 'string'),
-      // Weekly-window JSON, one opaque string like the center-hours `windows`
-      // cell (SOU-264): the ordered/non-overlapping invariants are enforced by
-      // the domain schema and the SQLite column just stores the validated JSON
-      // text, so the workbook round-trips it byte-for-byte.
-      createRequiredColumn('hoursByWeekday', 'string'),
-    ],
-  },
-  {
-    name: 'teacher-availability',
-    idPrefix: 'tav',
-    peopleLike: false,
-    naturalKeyColumn: null,
-    restoreConflict: 'upsert',
-    columns: [
-      ...BACKUP_ENVELOPE_COLUMNS,
-      createRequiredColumn('teacherId', 'string'),
-      // Same opaque weekly-window JSON contract as `hoursByWeekday`.
-      createRequiredColumn('weeklyWindows', 'string'),
-    ],
-  },
-  {
-    name: 'teacher-availability-exceptions',
-    idPrefix: 'tae',
-    peopleLike: false,
-    naturalKeyColumn: null,
-    restoreConflict: 'upsert',
-    columns: [
-      ...BACKUP_ENVELOPE_COLUMNS,
-      createRequiredColumn('teacherId', 'string'),
-      createRequiredColumn('startDate', 'string'),
-      createRequiredColumn('endDate', 'string'),
-      createRequiredColumn('label', 'string-or-null'),
-    ],
-  },
 ];

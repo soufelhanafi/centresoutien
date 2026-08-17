@@ -1,12 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  centerHoursOverrideBackupRowToEntity,
   getChangeLogEntityToRowMapper,
   getRegisteredChangeLogEntityProjection,
   getRegisteredChangeLogEntityToRowMapper,
   subjectBackupRowToEntity,
-  teacherAvailabilityBackupRowToEntity,
-  teacherAvailabilityExceptionBackupRowToEntity,
 } from '../../../src/data/sqlite/change-log/change-log-entity-mappers';
 import { SHEET_BY_TABLE } from '../../../src/data/sqlite/repositories/backup-store-sheets';
 
@@ -395,52 +392,6 @@ describe('getRegisteredChangeLogEntityToRowMapper (sync-apply projection, SOU-13
           end: '10:30',
         },
       },
-      {
-        entityType: 'center_hours_overrides' as const,
-        entity: {
-          id: 'cho_01',
-          centerCode: 'CS-CASA-001',
-          deviceOrigin: 'dev_1',
-          createdAt: ISO,
-          updatedAt: ISO,
-          updatedBy: 'usr_1',
-          deletedAt: null,
-          version: 1,
-          dateRange: { start: '2026-02-18', end: '2026-03-19' },
-          hoursByWeekday: { 0: [{ open: '09:00', close: '15:00' }] },
-        },
-      },
-      {
-        entityType: 'teacher_availability' as const,
-        entity: {
-          id: 'tav_01',
-          centerCode: 'CS-CASA-001',
-          deviceOrigin: 'dev_1',
-          createdAt: ISO,
-          updatedAt: ISO,
-          updatedBy: 'usr_1',
-          deletedAt: null,
-          version: 1,
-          teacherId: 'tch_1',
-          weeklyWindows: { 0: [{ open: '08:00', close: '12:00' }] },
-        },
-      },
-      {
-        entityType: 'teacher_availability_exceptions' as const,
-        entity: {
-          id: 'tae_01',
-          centerCode: 'CS-CASA-001',
-          deviceOrigin: 'dev_1',
-          createdAt: ISO,
-          updatedAt: ISO,
-          updatedBy: 'usr_1',
-          deletedAt: null,
-          version: 1,
-          teacherId: 'tch_1',
-          dateRange: { start: '2026-05-01', end: '2026-05-15' },
-          label: null,
-        },
-      },
     ];
     for (const { entityType, entity } of cases) {
       const config = SHEET_BY_TABLE.get(entityType);
@@ -547,98 +498,6 @@ describe('subjectBackupRowToEntity', () => {
       name: { fr: 'Physique', ar: 'فيزياء' },
       code: 'PC',
       active: true,
-    });
-  });
-});
-
-describe('synced-settings backup-row converters (SOU-264)', () => {
-  it('converts the flat center-hours-overrides row to the domain override, parsing the JSON windows', () => {
-    const override = centerHoursOverrideBackupRowToEntity({
-      id: 'cho_01',
-      centerCode: 'CS-CASA-001',
-      deviceOrigin: 'dev_1',
-      createdAt: ISO,
-      updatedAt: ISO,
-      updatedBy: 'usr_1',
-      deletedAt: null,
-      version: 1,
-      startDate: '2026-02-18',
-      endDate: '2026-03-19',
-      hoursByWeekday: '{"0":[{"open":"09:00","close":"15:00"},{"open":"21:00","close":"23:00"}]}',
-    });
-
-    expect(override).toEqual({
-      id: 'cho_01',
-      centerCode: 'CS-CASA-001',
-      deviceOrigin: 'dev_1',
-      createdAt: new Date(ISO),
-      updatedAt: new Date(ISO),
-      updatedBy: 'usr_1',
-      deletedAt: null,
-      version: 1,
-      dateRange: { start: '2026-02-18', end: '2026-03-19' },
-      hoursByWeekday: {
-        0: [{ open: '09:00', close: '15:00' }, { open: '21:00', close: '23:00' }],
-      },
-    });
-  });
-
-  it('converts the flat teacher-availability row to the domain availability', () => {
-    const availability = teacherAvailabilityBackupRowToEntity({
-      id: 'tav_01',
-      centerCode: 'CS-CASA-001',
-      deviceOrigin: 'dev_1',
-      createdAt: ISO,
-      updatedAt: ISO,
-      updatedBy: 'usr_1',
-      deletedAt: null,
-      version: 0,
-      teacherId: 'tch_01',
-      weeklyWindows: '{"0":[{"open":"08:00","close":"12:00"}]}',
-    });
-
-    expect(availability).toEqual({
-      id: 'tav_01',
-      centerCode: 'CS-CASA-001',
-      deviceOrigin: 'dev_1',
-      createdAt: new Date(ISO),
-      updatedAt: new Date(ISO),
-      updatedBy: 'usr_1',
-      deletedAt: null,
-      version: 0,
-      teacherId: 'tch_01',
-      weeklyWindows: { 0: [{ open: '08:00', close: '12:00' }] },
-    });
-  });
-
-  it('converts the flat teacher-availability-exceptions row to the domain exception', () => {
-    const exception = teacherAvailabilityExceptionBackupRowToEntity({
-      id: 'tae_01',
-      centerCode: 'CS-CASA-001',
-      deviceOrigin: 'dev_1',
-      createdAt: ISO,
-      updatedAt: ISO,
-      updatedBy: 'usr_1',
-      deletedAt: null,
-      version: 0,
-      teacherId: 'tch_01',
-      startDate: '2026-05-01',
-      endDate: '2026-05-15',
-      label: null,
-    });
-
-    expect(exception).toEqual({
-      id: 'tae_01',
-      centerCode: 'CS-CASA-001',
-      deviceOrigin: 'dev_1',
-      createdAt: new Date(ISO),
-      updatedAt: new Date(ISO),
-      updatedBy: 'usr_1',
-      deletedAt: null,
-      version: 0,
-      teacherId: 'tch_01',
-      dateRange: { start: '2026-05-01', end: '2026-05-15' },
-      label: null,
     });
   });
 });

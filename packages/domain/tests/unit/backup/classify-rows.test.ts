@@ -163,6 +163,71 @@ describe('classifyImportRow', () => {
       expect(validateBackupRow(spec, row)).toContain('invalid-windows');
     });
   });
+
+  describe('weekly-window JSON (SOU-264)', () => {
+    const VALID_WEEK = {
+      0: [{ open: '09:00', close: '15:00' }],
+      1: [],
+      2: [],
+      3: [],
+      4: [],
+      5: [],
+      6: [],
+    };
+
+    it.each(['center-hours-overrides', 'teacher-availability'] as const)(
+      'accepts a valid weekly-window JSON string on %s',
+      (sheet) => {
+        const spec = findBackupSheet(sheet)!;
+        const column = sheet === 'center-hours-overrides' ? 'hoursByWeekday' : 'weeklyWindows';
+        const row = validBackupRow(sheet, { [column]: JSON.stringify(VALID_WEEK) });
+        expect(validateBackupRow(spec, row)).toEqual([]);
+      },
+    );
+
+    it.each(['center-hours-overrides', 'teacher-availability'] as const)(
+      'rejects a weekly-window cell that is not valid JSON on %s',
+      (sheet) => {
+        const spec = findBackupSheet(sheet)!;
+        const column = sheet === 'center-hours-overrides' ? 'hoursByWeekday' : 'weeklyWindows';
+        expect(validateBackupRow(spec, validBackupRow(sheet, { [column]: 'not-json' }))).toContain(
+          'invalid-weekly-windows',
+        );
+      },
+    );
+
+    it.each(['center-hours-overrides', 'teacher-availability'] as const)(
+      'rejects an incomplete week (missing weekday keys) even when the JSON parses on %s',
+      (sheet) => {
+        const spec = findBackupSheet(sheet)!;
+        const column = sheet === 'center-hours-overrides' ? 'hoursByWeekday' : 'weeklyWindows';
+        const row = validBackupRow(sheet, { [column]: '{"0":[{"open":"09:00","close":"15:00"}]}' });
+        expect(validateBackupRow(spec, row)).toContain('invalid-weekly-windows');
+      },
+    );
+
+    it.each(['center-hours-overrides', 'teacher-availability'] as const)(
+      'rejects overlapping windows even when the week is complete on %s',
+      (sheet) => {
+        const spec = findBackupSheet(sheet)!;
+        const column = sheet === 'center-hours-overrides' ? 'hoursByWeekday' : 'weeklyWindows';
+        const overlapping = {
+          0: [
+            { open: '09:00', close: '15:00' },
+            { open: '14:00', close: '18:00' },
+          ],
+          1: [],
+          2: [],
+          3: [],
+          4: [],
+          5: [],
+          6: [],
+        };
+        const row = validBackupRow(sheet, { [column]: JSON.stringify(overlapping) });
+        expect(validateBackupRow(spec, row)).toContain('invalid-weekly-windows');
+      },
+    );
+  });
 });
 
 describe('normalizeBackupRow (legacy center-hours open/close → windows)', () => {
