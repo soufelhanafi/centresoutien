@@ -3,6 +3,8 @@ import type {
   CenterCode,
   CenterHoursOverride,
   DeviceId,
+  Niveau,
+  NiveauId,
   Payment,
   Session,
   Subject,
@@ -107,6 +109,30 @@ export function subjectBackupRowToEntity(row: BackupRow): Subject {
 }
 
 /**
+ * Converts the flat workbook `niveaux` row (SHEET_SQL logical shape) into the
+ * canonical domain {@link Niveau}, so a restore logs the same payload shape the
+ * niveau repository does (SOU-260). One shape per entityType is what makes the
+ * log replayable/applicable on any device (SOU-170) — mirrors
+ * `subjectBackupRowToEntity`.
+ */
+export function niveauBackupRowToEntity(row: BackupRow): Niveau {
+  return {
+    id: row['id'] as NiveauId,
+    centerCode: row['centerCode'] as CenterCode,
+    deviceOrigin: row['deviceOrigin'] as DeviceId,
+    createdAt: new Date(row['createdAt'] as string),
+    updatedAt: new Date(row['updatedAt'] as string),
+    updatedBy: row['updatedBy'] as UserId,
+    deletedAt: row['deletedAt'] == null ? null : new Date(row['deletedAt'] as string),
+    version: row['version'] as number,
+    name: { fr: row['name_fr'] as string, ar: row['name_ar'] as string },
+    code: row['code'] as string | null,
+    category: row['category'] as Niveau['category'],
+    active: row['active'] === true || row['active'] === 1,
+  };
+}
+
+/**
  * Fallback mapper for backup-sheet entityTypes whose payload is the FLAT logical
  * workbook row (what {@link SqliteBackupStore} logs), not a domain entity with
  * nested/typed fields. Each column pair from the sheet config converts one
@@ -143,6 +169,25 @@ function subjectEntityToRow(entity: unknown): Record<string, unknown> {
     name_ar: subject.name.ar,
     code: subject.code,
     active: subject.active ? 1 : 0,
+  };
+}
+
+function niveauEntityToRow(entity: unknown): Record<string, unknown> {
+  const niveau = entity as Niveau;
+  return {
+    id: niveau.id,
+    center_code: niveau.centerCode,
+    device_origin: niveau.deviceOrigin,
+    created_at: toIsoString(niveau.createdAt),
+    updated_at: toIsoString(niveau.updatedAt),
+    updated_by: niveau.updatedBy,
+    deleted_at: niveau.deletedAt === null ? null : toIsoString(niveau.deletedAt),
+    version: niveau.version,
+    name_fr: niveau.name.fr,
+    name_ar: niveau.name.ar,
+    code: niveau.code,
+    category: niveau.category,
+    active: niveau.active ? 1 : 0,
   };
 }
 
@@ -297,6 +342,9 @@ function paymentEntityToRow(entity: unknown): Record<string, unknown> {
 // Default registration: `subjects` is the first repo-written entityType in the
 // log (SOU-79 representative slice); its payload is the nested domain Subject.
 registerChangeLogEntityToRowMapper('subjects', subjectEntityToRow);
+// `niveaux` (SOU-260): the niveau catalog repository logs nested domain Niveaux
+// (bilingual name, category), so sync-apply projects them onto the real columns.
+registerChangeLogEntityToRowMapper('niveaux', niveauEntityToRow);
 // `weekly_recurring_sessions` + `sessions` (SOU-132): the planner grid derives a
 // session's subject/level/kind from the group via the join, so sync-apply must
 // project `groupId` onto `group_id` or laptop B renders the neutral fallback.

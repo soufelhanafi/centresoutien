@@ -5,6 +5,7 @@ import { ArrowLeft, Archive, CalendarCheck, FileSpreadsheet, SquarePen } from 'l
 import { Badge, BilingualText, Button, KindBadge } from '@centresoutien/ui';
 import type { GroupRow } from '../../lib/groups/group-view';
 import { localizedName } from '../../lib/groups/localized-name';
+import { useNiveauLabel } from '../../lib/niveaux/niveau-label';
 import { useFeature } from '../../hooks/use-feature';
 import { TakeAttendanceSheet } from '../attendance/take-attendance-sheet';
 import { GroupAttendanceSheetDialog } from '../attendance/group-attendance-sheet-dialog';
@@ -39,6 +40,7 @@ export function GroupDetailHeader({
   const teacher = group.teacherName
     ? localizedName(group.teacherName, i18n.language)
     : t('groups.table.unassigned');
+  const levelLabel = useNiveauLabel(group.niveauId ?? null, group.level);
 
   return (
     <header className="flex flex-col gap-4">
@@ -93,7 +95,7 @@ export function GroupDetailHeader({
 
       <div className="flex flex-wrap items-end gap-6 rounded-xl border border-border bg-card p-4">
         <Meta label={t('groups.detail.meta.teacher')} value={teacher} />
-        <Meta label={t('groups.detail.meta.level')} value={group.level} />
+        <Meta label={t('groups.detail.meta.level')} value={levelLabel} />
         <div className="flex flex-col gap-1">
           <span className="text-xs uppercase tracking-wide text-muted-foreground">
             {t('groups.detail.meta.capacity')}

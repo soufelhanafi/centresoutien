@@ -10,7 +10,7 @@ import type {
 import { toEntityId } from '@centresoutien/domain';
 import { fromSqlValue, IDENTITY_COLUMNS, toSqlValue, type SheetSqlConfig } from './backup-store-config';
 import { SHEET_SQL } from './backup-store-sheets';
-import { subjectBackupRowToEntity } from '../change-log/change-log-entity-mappers';
+import { niveauBackupRowToEntity, subjectBackupRowToEntity } from '../change-log/change-log-entity-mappers';
 import { ensurePaymentReversalUniqueIndex, REVERSAL_ONCE_INDEX } from '../repairs/payment-reversal-index';
 
 /**
@@ -72,10 +72,16 @@ export class SqliteBackupStore implements BackupStore {
                 entityId: toEntityId(id),
                 centerCode: row['centerCode'] as CenterCode,
                 intent: 'upsert',
-                // The logical row the adapter persisted. `subjects` is converted
-                // to its canonical domain shape because the subject repository
-                // also logs that entityType (SOU-170: one payload shape per type).
-                entity: config.table === 'subjects' ? subjectBackupRowToEntity(row) : row,
+                // The logical row the adapter persisted. `subjects` and `niveaux`
+                // are converted to their canonical domain shapes because those
+                // repositories also log that entityType (SOU-170: one payload
+                // shape per type).
+                entity:
+                  config.table === 'subjects'
+                    ? subjectBackupRowToEntity(row)
+                    : config.table === 'niveaux'
+                      ? niveauBackupRowToEntity(row)
+                      : row,
               });
             }
           }

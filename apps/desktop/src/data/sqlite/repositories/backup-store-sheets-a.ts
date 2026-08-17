@@ -13,7 +13,17 @@ const ENVELOPE_COLUMNS: readonly (readonly [string, string])[] = [
 
 /** Sheet configs for the people-like + pricing/scheduling core tables. */
 export const SHEET_SQL_A: Readonly<
-  Record<'parents' | 'students' | 'teachers' | 'rooms' | 'subjects' | 'groups' | 'formulas', SheetSqlConfig>
+  Record<
+    | 'parents'
+    | 'students'
+    | 'teachers'
+    | 'rooms'
+    | 'subjects'
+    | 'niveaux'
+    | 'groups'
+    | 'formulas',
+    SheetSqlConfig
+  >
 > = {
   parents: {
     table: 'parents',
@@ -38,6 +48,7 @@ export const SHEET_SQL_A: Readonly<
       ['name_ar', 'name_ar'],
       ['birthDate', 'birth_date'],
       ['level', 'level'],
+      ['niveauId', 'niveau_id'],
       ['school', 'school'],
       ['notes', 'notes'],
       ['guardianIds', 'guardian_ids'],
@@ -55,6 +66,7 @@ export const SHEET_SQL_A: Readonly<
       ['phone', 'phone'],
       ['email', 'email'],
       ['subjectIds', 'subject_ids'],
+      ['niveauIds', 'niveau_ids'],
       ['active', 'active'],
     ],
   },
@@ -74,6 +86,18 @@ export const SHEET_SQL_A: Readonly<
       ['active', 'active'],
     ],
   },
+  niveaux: {
+    table: 'niveaux',
+    conflict: 'upsert',
+    columns: [
+      ...ENVELOPE_COLUMNS,
+      ['name_fr', 'name_fr'],
+      ['name_ar', 'name_ar'],
+      ['code', 'code'],
+      ['category', 'category'],
+      ['active', 'active'],
+    ],
+  },
   groups: {
     table: 'groups',
     conflict: 'upsert',
@@ -81,6 +105,7 @@ export const SHEET_SQL_A: Readonly<
       ...ENVELOPE_COLUMNS,
       ['subjectId', 'subject_id'],
       ['teacherId', 'teacher_id'],
+      ['niveauId', 'niveau_id'],
       ['level', 'level'],
       ['capacity', 'capacity'],
       ['kind', 'kind'],

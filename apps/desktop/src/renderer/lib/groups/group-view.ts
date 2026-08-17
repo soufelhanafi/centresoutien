@@ -57,6 +57,7 @@ export type GroupRow = {
   readonly teacherId: string | null;
   readonly teacherName: LocalizedName | null;
   readonly level: string;
+  readonly niveauId: string | null;
   readonly capacity: number;
   readonly kind: GroupKind;
   readonly enrolledCount: number;

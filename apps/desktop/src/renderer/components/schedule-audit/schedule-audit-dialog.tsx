@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock } from 'lucide-react';
 import {
@@ -13,6 +13,7 @@ import {
   ScrollArea,
 } from '@centresoutien/ui';
 import { useStrandedSessions } from '../../hooks/schedule-audit/use-stranded-sessions';
+import { groupStrandedSessions } from '../../lib/schedule-audit/group-stranded';
 import { ScheduleAuditList, type ScheduleAuditStatus } from './schedule-audit-list';
 
 /**
@@ -26,15 +27,19 @@ export function ScheduleAuditDialog() {
   const [open, setOpen] = useState(false);
   const query = useStrandedSessions();
 
-  const stranded = query.data ?? [];
+  const stranded = query.data;
+  // Grouped once here (SOU-262) and shared by the badge and the list — the
+  // badge counts structural problems, "3 things to fix", never "34 occurrences
+  // of one thing".
+  const groups = useMemo(() => groupStrandedSessions(stranded ?? []), [stranded]);
   const status: ScheduleAuditStatus = query.isPending
     ? 'loading'
     : query.isError
       ? 'error'
-      : stranded.length > 0
+      : groups.length > 0
         ? 'ready'
         : 'empty';
-  const count = stranded.length;
+  const count = groups.length;
 
   const handleOpenChange = (next: boolean) => {
     if (next && query.isStale) void query.refetch();
@@ -60,7 +65,7 @@ export function ScheduleAuditDialog() {
           <DialogDescription>{t('scheduleAudit.subtitle')}</DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[65vh]" contentClassName="pe-1">
-          <ScheduleAuditList status={status} stranded={stranded} onRetry={() => void query.refetch()} />
+          <ScheduleAuditList status={status} groups={groups} onRetry={() => void query.refetch()} />
         </ScrollArea>
       </DialogContent>
     </Dialog>

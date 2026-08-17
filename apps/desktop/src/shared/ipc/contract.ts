@@ -7,6 +7,8 @@ import type { syncConflictViewSchema, syncResultViewSchema } from './sync-contra
 import {
   subjectInputSchema,
   subjectUpdateInputSchema,
+  niveauInputSchema,
+  niveauUpdateInputSchema,
   formulaInputSchema,
   studentInputSchema,
   setStudentGuardiansInputSchema,
@@ -103,6 +105,8 @@ const studentViewSchema = z.object({
   name: z.object({ fr: z.string(), ar: z.string() }),
   birthDate: z.string(),
   level: z.string(),
+  // SOU-260: the level-taxonomy link, always emitted by `toStudentView`.
+  niveauId: z.string().nullable(),
   school: z.string().nullable(),
   notes: z.string().nullable(),
   guardianIds: z.array(z.string()),
@@ -152,11 +156,14 @@ const groupViewSchema = z.object({
   subjectId: z.string(),
   teacherId: z.string().nullable(),
   level: z.string(),
+  // SOU-260: the level-taxonomy link, always emitted by `toGroupView`.
+  niveauId: z.string().nullable(),
   capacity: z.number().int(),
   kind: z.enum(['regular', 'exam-prep']),
   archived: z.boolean(),
   createdAt: z.string(),
 });
+
 
 // The group list enriched with its live enrollment count (SOU-127) — `groupView`
 // plus `enrolledCount`, so the list screen renders fill % = enrolledCount /
@@ -300,6 +307,8 @@ const teacherViewSchema = z.object({
   phone: z.string(),
   email: z.string().nullable(),
   subjectIds: z.array(z.string()),
+  // SOU-260: the level-taxonomy links, always emitted by `toTeacherView`.
+  niveauIds: z.array(z.string()),
   archived: z.boolean(),
   createdAt: z.string(),
 });
@@ -921,6 +930,47 @@ const subjectUsageViewSchema = z.object({
   references: z.array(subjectUsageReferenceSchema),
 });
 
+// The presentation projection of a Niveau across the IPC boundary (SOU-260) —
+// the sync envelope is stripped, exactly like `subjectViewSchema`. `active` is
+// the real domain flag; tombstones never reach these reads, so no `archived` is
+// exposed. `category` is the primaire/college/lycee band. Single source of truth
+// for the renderer's `NiveauView` type.
+const niveauViewSchema = z.object({
+  id: z.string(),
+  name: z.object({ fr: z.string(), ar: z.string() }),
+  code: z.string().nullable(),
+  category: z.enum(['primaire', 'college', 'lycee']),
+  active: z.boolean(),
+});
+
+// One entity referencing a Niveau, named for the delete-blocked modal (SOU-260):
+// "impossible de supprimer : utilisé par l'élève Yassine Alaoui" instead of a bare
+// count. `kind` is 'student' | 'group' | 'teacher' (the three entities that can
+// reference a niveau). `label` is bilingual; for a `'group'` reference the domain
+// duplicates the group's plain `level` string into both `fr` and `ar` since a
+// Group has no translated name of its own.
+const niveauUsageReferenceSchema = z.object({
+  kind: z.enum(['student', 'group', 'teacher']),
+  id: z.string(),
+  label: z.object({ fr: z.string(), ar: z.string() }),
+});
+
+// A niveau paired with its in-use reference count across the boundary (SOU-260),
+// backing the manage screen: the lean `niveauView` plus `inUseCount` and the
+// derived `canDelete` (`inUseCount === 0`) so a row can enable/disable its archive
+// action without a second round-trip. A sibling of `niveauViewSchema` rather than
+// a field on it, so the name channels stay lean and only the manage screen pays
+// for the counts. `references` is the named breakdown behind `inUseCount` — always
+// the same length — so the delete-blocked modal can list what's blocking a delete
+// instead of just disabling the button. Single source of truth for the renderer's
+// `NiveauUsageView` type.
+const niveauUsageViewSchema = z.object({
+  niveau: niveauViewSchema,
+  inUseCount: z.number().int().nonnegative(),
+  canDelete: z.boolean(),
+  references: z.array(niveauUsageReferenceSchema),
+});
+
 // The presentation projection of a Formula across the IPC boundary (SOU-62) — the
 // sync envelope (version, deviceOrigin, updatedBy…, and the Date timestamps) is
 // stripped, exactly like `subjectViewSchema`. `isImmutable` crosses the boundary
@@ -1132,6 +1182,44 @@ export const ipcContract = {
   'subject.update': {
     request: subjectUpdateInputSchema.extend({ id: z.string() }),
     response: z.object({ subject: subjectViewSchema }),
+  },
+  // Niveau catalog channels (SOU-260), mirroring the subject channels. `create`
+  // takes the domain's `niveauInputSchema` (bilingual name + optional code +
+  // category); `archive` is a soft delete guarded in the domain by the in-use
+  // rule — a niveau still referenced by a live student, group, or teacher is
+  // rejected with `NiveauInUseError`. `list` selects the active picker set or
+  // every live niveau via `scope`; `get` resolves a single niveau to its view or
+  // null for an unknown/archived/foreign-center id. `listWithUsage` returns each
+  // live niveau with its in-use count + derived `canDelete` + named `references`
+  // for the manage screen, kept separate so the name channels stay lean. `update`
+  // takes `niveauUpdateInputSchema` (name, category, code — editable here — and
+  // the `active` toggle) plus the id and echoes the saved view. centerCode/user
+  // are injected in main, never sent from the renderer. All gated by
+  // `core.niveaux` (every plan) in the use cases; reads strip the envelope to
+  // `niveauViewSchema`.
+  'niveau.create': {
+    request: niveauInputSchema,
+    response: z.object({ id: z.string() }),
+  },
+  'niveau.update': {
+    request: niveauUpdateInputSchema.extend({ id: z.string() }),
+    response: z.object({ niveau: niveauViewSchema }),
+  },
+  'niveau.archive': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'niveau.list': {
+    request: z.object({ scope: z.enum(['active', 'all']) }),
+    response: z.object({ niveaux: z.array(niveauViewSchema) }),
+  },
+  'niveau.get': {
+    request: z.object({ id: z.string() }),
+    response: z.object({ niveau: niveauViewSchema.nullable() }),
+  },
+  'niveau.listWithUsage': {
+    request: z.object({}),
+    response: z.object({ niveaux: z.array(niveauUsageViewSchema) }),
   },
   // The request is the domain's own input schema — validated once, shared by the
   // form (zodResolver), the preload types, and this boundary. centerCode/device/
@@ -2318,7 +2406,10 @@ export type InvoiceListItemDto = z.infer<typeof invoiceListItemViewSchema>;
 
 /** The Teacher boundary DTO — the renderer's `TeacherView` is an alias of this. */
 export type TeacherDto = z.infer<typeof teacherViewSchema>;
-
+/** The Niveau boundary DTO — the renderer's `NiveauView` is an alias of this. */
+export type NiveauDto = z.infer<typeof niveauViewSchema>;
+/** A Niveau with its in-use reference breakdown — the renderer's `NiveauUsageView` aliases this. */
+export type NiveauUsageDto = z.infer<typeof niveauUsageViewSchema>;
 /** One command-palette result — the renderer's `PersonSearchResultView` aliases this. */
 export type PersonSearchResultDto = z.infer<typeof personSearchResultSchema>;
 

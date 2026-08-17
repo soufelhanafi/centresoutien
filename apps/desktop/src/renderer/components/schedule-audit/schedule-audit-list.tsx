@@ -1,19 +1,20 @@
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, CircleCheck } from 'lucide-react';
 import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
-import type { StrandedSessionView } from '../../lib/schedule-audit/stranded-session-view';
-import { StrandedSessionRow } from './stranded-session-row';
+import type { StrandedGroup } from '../../lib/schedule-audit/group-stranded';
+import { StrandedGroupRow } from './stranded-group-row';
 
 export type ScheduleAuditStatus = 'loading' | 'error' | 'empty' | 'ready';
 
 type ScheduleAuditListProps = {
   status: ScheduleAuditStatus;
-  stranded: readonly StrandedSessionView[];
+  /** Pre-grouped by the dialog (SOU-262) so badge and list share one computation. */
+  groups: readonly StrandedGroup[];
   onRetry: () => void;
 };
 
 /** Renders the correct state for the audit report: loading, error, empty, or list. */
-export function ScheduleAuditList({ status, stranded, onRetry }: ScheduleAuditListProps) {
+export function ScheduleAuditList({ status, groups, onRetry }: ScheduleAuditListProps) {
   const { t } = useTranslation();
 
   if (status === 'loading') {
@@ -53,8 +54,8 @@ export function ScheduleAuditList({ status, stranded, onRetry }: ScheduleAuditLi
 
   return (
     <ul className="space-y-2.5">
-      {stranded.map((item) => (
-        <StrandedSessionRow key={item.session.id} stranded={item} />
+      {groups.map((group) => (
+        <StrandedGroupRow key={group.key} group={group} />
       ))}
     </ul>
   );

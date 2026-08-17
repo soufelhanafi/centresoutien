@@ -18,7 +18,25 @@ describe('teacherInputSchema', () => {
       phone: '+212612345678',
       email: null,
       subjectIds: [],
+      niveauIds: [],
     });
+  });
+
+  it('carries valid niveau ids through and treats an omitted niveauIds as none', () => {
+    expect(
+      teacherInputSchema.parse({
+        ...base,
+        niveauIds: ['niv_00000000000000000000000001'],
+      }).niveauIds,
+    ).toEqual(['niv_00000000000000000000000001']);
+
+    const omitted = teacherInputSchema.parse({ ...base, subjectIds: [] });
+    // Mirrors `subjectIds`: an omitted id-array defaults to `[]`, never undefined.
+    expect(omitted.niveauIds).toEqual([]);
+
+    const r = teacherInputSchema.safeParse({ ...base, niveauIds: ['not-a-niveau'] });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues.some((i) => i.message === 'invalid-id')).toBe(true);
   });
 
   it('carries valid cin + email through and collapses blanks to null', () => {

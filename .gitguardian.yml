@@ -1,0 +1,10 @@
+# GitGuardian config — suppress false positives on deliberately fake test
+# credentials. e2e / unit tests seed a real user + password on a fresh, throwaway
+# SQLCipher DB (e2e runs never touch production data), and the username/password
+# detector trips on those fixtures. The values are inert test constants
+# (`Casa2026!`, `Fatima2026!`, `NewPass2!`) — nothing here is a live secret.
+version: 2
+
+match_ignore:
+  - name: test fixture user credentials
+    match: "(Casa2026!|Fatima2026!|NewPass2!?|Motdepasse1|Password1)"

@@ -14,6 +14,7 @@ export const BACKUP_SHEET_NAMES: readonly BackupSheetName[] = [
   'teachers',
   'rooms',
   'subjects',
+  'niveaux',
   'groups',
   'formulas',
   'student-subscriptions',

@@ -1,6 +1,7 @@
 import type { Brand } from '../value-objects/brand';
 import type { EntityEnvelope } from './envelope';
 import type { ParentId } from './parent';
+import type { NiveauId } from './niveau';
 
 /** ULID id prefix for students: `stu_01HW…`. */
 export const STUDENT_ID_PREFIX = 'stu';
@@ -35,6 +36,15 @@ export type Student = EntityEnvelope & {
   school: string | null; // external school the student attends; null when unknown
   notes: string | null; // free-form notes; null when none
   guardianIds: readonly ParentId[]; // links to guardians (Parents); empty until linked
+  /**
+   * The grade level the student is in, as a reference to the center's Niveau
+   * catalog (SOU-260) rather than the free-text `level` label — the typed axis
+   * that levels filters and reports. Nullable so existing students stay
+   * backfill-non-breaking; `null` means "not classified yet". The referenced
+   * Niveau's existence is not enforced here (a matching hint, like guardian
+   * links); the reverse direction is guarded by `ArchiveNiveau`.
+   */
+  niveauId: NiveauId | null;
   /**
    * Set ONLY on the loser tombstone of a `MergeStudents` (SOU-92): the id of the
    * surviving record this one was folded into. Absent/null on a never-merged

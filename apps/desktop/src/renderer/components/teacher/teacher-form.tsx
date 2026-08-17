@@ -2,18 +2,23 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
 import type { z } from 'zod';
-import { teacherInputSchema, type TeacherInput } from '@centresoutien/domain';
 import { Form, FormControl, FormField, FormItem, FormLabel, Input } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
 import { TeacherSubjectsField } from './teacher-subjects-field';
+import { NiveauMultiSelectField } from '../niveau/niveau-multi-select-field';
+import {
+  teacherNiveauFormSchema,
+  type TeacherNiveauFormValues,
+} from '../../lib/niveaux/form-schemas';
 
-/** Pre-transform shape RHF holds (empty strings), vs the parsed `TeacherInput` output. */
-export type TeacherFormInput = z.input<typeof teacherInputSchema>;
+/** Pre-transform shape RHF holds (empty strings), vs the parsed output. */
+export type TeacherFormInput = z.input<typeof teacherNiveauFormSchema>;
 
 /**
  * Blank defaults for the create flow. `subjectIds` starts empty and is edited via
- * the {@link TeacherSubjectsField} multi-select (SOU-124); on edit the teacher's
- * existing links are passed in and preserved.
+ * the {@link TeacherSubjectsField} multi-select (SOU-124); `niveauIds` likewise
+ * via {@link NiveauMultiSelectField} (SOU-260). On edit the teacher's existing
+ * links are passed in and preserved.
  */
 export const EMPTY_TEACHER_INPUT: TeacherFormInput = {
   name: { fr: '', ar: '' },
@@ -21,25 +26,27 @@ export const EMPTY_TEACHER_INPUT: TeacherFormInput = {
   phone: '',
   email: '',
   subjectIds: [],
+  niveauIds: [],
 };
 
 type TeacherFormProps = {
   /** Lets the submit button live in the sheet footer, outside the `<form>`. */
   formId: string;
   defaultValues: TeacherFormInput;
-  onSubmit: (values: TeacherInput) => void | Promise<void>;
+  onSubmit: (values: TeacherNiveauFormValues) => void | Promise<void>;
 };
 
 /**
  * The teacher create/edit fields, validated by the shared domain schema
- * (`teacherInputSchema`). Presentation only — the caller owns the mutation and
- * decides what "submit" means (create vs edit). Phone is required and normalized
- * to E.164 by the schema; CIN and email collapse empty back to `null` on submit.
+ * (`teacherInputSchema`) extended with the SOU-260 `niveauIds`. Presentation only
+ * — the caller owns the mutation and decides what "submit" means (create vs
+ * edit). Phone is required and normalized to E.164 by the schema; CIN and email
+ * collapse empty back to `null` on submit.
  */
 export function TeacherForm({ formId, defaultValues, onSubmit }: TeacherFormProps) {
   const { t } = useTranslation();
-  const form = useForm<TeacherFormInput, unknown, TeacherInput>({
-    resolver: zodResolver(teacherInputSchema),
+  const form = useForm<TeacherFormInput, unknown, TeacherNiveauFormValues>({
+    resolver: zodResolver(teacherNiveauFormSchema),
     defaultValues,
   });
   const submit = form.handleSubmit(async (values) => {
@@ -130,6 +137,7 @@ export function TeacherForm({ formId, defaultValues, onSubmit }: TeacherFormProp
           )}
         />
         <TeacherSubjectsField control={form.control} />
+        <NiveauMultiSelectField />
       </form>
     </Form>
   );

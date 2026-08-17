@@ -55,6 +55,7 @@ function makeTeacher(over: Partial<Teacher> = {}): Teacher {
     phone: '+212612345678' as PhoneNumber,
     email: 'yassine@centre.ma',
     subjectIds: [SUB_MATH, SUB_PHYS],
+    niveauIds: [],
     active: true,
     ...over,
   };

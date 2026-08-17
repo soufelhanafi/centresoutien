@@ -43,6 +43,7 @@ function editInput(id: TeacherId, over: Partial<UpdateTeacherInput> = {}): Updat
     phone: '0655555555',
     email: null,
     subjectIds: [SUB_MATH, SUB_PHYS],
+    niveauIds: [],
     centerCode: CENTER,
     id,
     updatedBy: EDITOR,
@@ -75,6 +76,21 @@ describe('UpdateTeacher', () => {
     expect(updated.updatedBy).toBe(EDITOR);
     expect(updated.updatedAt).toEqual(new Date('2026-07-29T10:01:00Z'));
     expect(await teachers.findById(original.id)).toEqual(updated);
+  });
+
+  it('replaces the whole niveauIds set (many-to-many retrofit, SOU-260)', async () => {
+    const original = await seedTeacher(teachers, clock);
+    clock.advance(60_000);
+
+    const assigned = await useCase.execute(
+      editInput(original.id, {
+        niveauIds: ['niv_00000000000000000000000001', 'niv_00000000000000000000000002'],
+      }),
+    );
+    expect(assigned.niveauIds).toEqual(['niv_00000000000000000000000001', 'niv_00000000000000000000000002']);
+
+    const cleared = await useCase.execute(editInput(original.id, { niveauIds: [] }));
+    expect(cleared.niveauIds).toEqual([]);
   });
 
   it('preserves identity, provenance, active, version, and the immutable naturalKey', async () => {

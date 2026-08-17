@@ -38,7 +38,6 @@ describe('studentInputSchema', () => {
     ['blank fr name', { ...base, name: { fr: '  ', ar: 'ياسين' } }],
     ['blank ar name', { ...base, name: { fr: 'Yassine', ar: '' } }],
     ['name too long', { ...base, name: { fr: 'x'.repeat(STUDENT_NAME_MAX + 1), ar: 'ياسين' } }],
-    ['missing level', { ...base, level: '' }],
     ['level too long', { ...base, level: 'x'.repeat(STUDENT_LEVEL_MAX + 1) }],
     ['school too long', { ...base, school: 'x'.repeat(STUDENT_SCHOOL_MAX + 1) }],
     ['notes too long', { ...base, notes: 'x'.repeat(STUDENT_NOTES_MAX + 1) }],

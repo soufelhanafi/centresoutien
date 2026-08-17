@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { Button } from '@centresoutien/ui';
 import { useStudents } from '../../hooks/student/use-students';
-import { deriveLevels, filterByLevel } from '../../lib/students/list-utils';
+import { deriveLevels, filterByLevel, filterByNiveau } from '../../lib/students/list-utils';
 import { StudentListToolbar } from '../../components/student/student-list-toolbar';
 import { StudentSeatsNotice } from '../../components/student/student-seats-notice';
 import {
@@ -17,13 +17,17 @@ export function StudentsPage() {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState('');
+  const [niveauId, setNiveauId] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
 
   const query = useStudents(search);
   const all = useMemo(() => query.data ?? [], [query.data]);
   const levels = useMemo(() => deriveLevels(all), [all]);
-  const students = useMemo(() => filterByLevel(all, level), [all, level]);
-  const isFiltered = search.trim() !== '' || level !== '';
+  const students = useMemo(
+    () => filterByNiveau(filterByLevel(all, level), niveauId),
+    [all, level, niveauId],
+  );
+  const isFiltered = search.trim() !== '' || level !== '' || niveauId !== '';
 
   const status: StudentListStatus = query.isPending
     ? 'loading'
@@ -57,6 +61,8 @@ export function StudentsPage() {
         level={level}
         onLevelChange={setLevel}
         levels={levels}
+        niveauId={niveauId}
+        onNiveauChange={setNiveauId}
       />
 
       <StudentListContent

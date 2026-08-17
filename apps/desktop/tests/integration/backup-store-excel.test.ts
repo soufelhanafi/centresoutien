@@ -106,6 +106,80 @@ describe('SqliteBackupStore + ExcelBackupAdapter round-trip', () => {
     }
   });
 
+  it('round-trips the niveau catalog and the student/group/teacher niveau links (SOU-260)', async () => {
+    const NIV = 'niv_00000000000000000000000001';
+    const STU = 'stu_00000000000000000000000001';
+    const GRP = 'grp_00000000000000000000000001';
+    const TCH = 'tch_00000000000000000000000001';
+    db.prepare(
+      `INSERT INTO niveaux (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, name_fr, name_ar, code, category, active)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', NULL, 0, '3ème Année Collège', 'السنة الثالثة إعدادي', '3AC', 'college', 1)`,
+    ).run(NIV, CENTER);
+    db.prepare(
+      `INSERT INTO students (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, natural_key, name_fr, name_ar, birth_date, level, niveau_id, school, notes, guardian_ids)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', NULL, 0, ?, 'Yassine', 'ياسين', '2010-01-01', '3AC', ?, NULL, NULL, '[]')`,
+    ).run(STU, CENTER, `${CENTER}::yassine::2010-01-01`, NIV);
+    db.prepare(
+      `INSERT INTO groups (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, subject_id, teacher_id, niveau_id, level, capacity, kind, active)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', NULL, 0, 'sub_00000000000000000000000001', NULL, ?, '3AC', 15, 'regular', 1)`,
+    ).run(GRP, CENTER, NIV);
+    db.prepare(
+      `INSERT INTO teachers (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version, natural_key, name_fr, name_ar, cin, phone, email, subject_ids, niveau_ids, active)
+       VALUES (?, ?, 'dev_1', '2026-01-01T10:00:00.000Z', '2026-01-01T10:00:00.000Z', 'usr_1', NULL, 0, ?, 'Prof', 'أستاذ', NULL, '+212600000001', NULL, '[]', ?, 1)`,
+    ).run(TCH, CENTER, `${CENTER}::prof::+212600000001`, JSON.stringify([NIV]));
+
+    const store = makeStore(db, CENTER);
+    const excel = new ExcelBackupAdapter();
+    const sheets = [];
+    for (const sheetName of ['niveaux', 'students', 'groups', 'teachers'] as const) {
+      const rows = await store.readAllRows(sheetName);
+      sheets.push({ name: sheetName, columns: sheetColumnNames(findBackupSheet(sheetName)!), rows });
+    }
+    const workbookPath = join(dir, 'niveau-backup.xlsx');
+    await excel.writeWorkbook(workbookPath, { sheets });
+
+    const roundTripped = await excel.readWorkbook(workbookPath);
+    const nivSheet = roundTripped.sheets.find((sheet) => sheet.name === 'niveaux')!;
+    expect(nivSheet.rows[0]).toMatchObject({
+      id: NIV,
+      code: '3AC',
+      category: 'college',
+      active: true,
+      name_fr: '3ème Année Collège',
+    });
+    const stuSheet = roundTripped.sheets.find((sheet) => sheet.name === 'students')!;
+    expect(stuSheet.rows[0]!['niveauId']).toBe(NIV);
+    const grpSheet = roundTripped.sheets.find((sheet) => sheet.name === 'groups')!;
+    expect(grpSheet.rows[0]!['niveauId']).toBe(NIV);
+    const tchSheet = roundTripped.sheets.find((sheet) => sheet.name === 'teachers')!;
+    expect(tchSheet.rows[0]!['niveauIds']).toBe(NIV);
+
+    // Import into a fresh center: catalog + links survive.
+    const dir2 = mkdtempSync(join(tmpdir(), 'cs-backup-excel-niv-'));
+    const db2 = openDatabase({ centreId: 'C2', key: KEY, dir: dir2 });
+    runMigrations(db2, REAL_MIGRATIONS);
+    try {
+      const store2 = makeStore(db2, CENTER);
+      await store2.applyRows(
+        roundTripped.sheets
+          .filter((sheet): sheet is { name: BackupSheetName; columns: readonly string[]; rows: readonly BackupRow[] } =>
+            ['niveaux', 'students', 'groups', 'teachers'].includes(sheet.name),
+          )
+          .map((sheet) => ({ sheetName: sheet.name, rows: sheet.rows })),
+      );
+      const restoredNiv = await store2.readAllRows('niveaux');
+      expect(restoredNiv).toHaveLength(1);
+      expect(restoredNiv[0]!['code']).toBe('3AC');
+      const restoredStu = await store2.readAllRows('students');
+      expect(restoredStu[0]!['niveauId']).toBe(NIV);
+      const restoredTch = await store2.readAllRows('teachers');
+      expect(restoredTch[0]!['niveauIds']).toBe(NIV);
+    } finally {
+      db2.close();
+      rmSync(dir2, { recursive: true, force: true });
+    }
+  });
+
   it('is tenant-scoped on reads', async () => {
     seedCenterRows(CENTER);
     seedCenterRows(OTHER_CENTER);

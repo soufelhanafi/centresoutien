@@ -24,6 +24,7 @@ function validInput(overrides: Partial<CreateTeacherInput> = {}): CreateTeacherI
     phone: '06 12 34 56 78',
     email: '  yassine@centre.ma ',
     subjectIds: [SUB_MATH],
+    niveauIds: [],
     centerCode: CENTER,
     deviceOrigin: DEVICE,
     updatedBy: USER,
