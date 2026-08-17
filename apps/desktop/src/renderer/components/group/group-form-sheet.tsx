@@ -1,6 +1,5 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { GroupInput } from '@centresoutien/domain';
 import {
   Button,
   ScrollArea,
@@ -14,6 +13,7 @@ import {
 } from '@centresoutien/ui';
 import { GroupForm, type GroupFormInput } from './group-form';
 import type { GroupFormOptions } from '../../lib/groups/group-view';
+import type { GroupNiveauFormValues } from '../../lib/niveaux/form-schemas';
 
 type GroupFormSheetProps = {
   mode: 'create' | 'edit';
@@ -23,7 +23,7 @@ type GroupFormSheetProps = {
   /** Subject/teacher picker options, or `undefined` while they load. */
   options: GroupFormOptions | undefined;
   pending: boolean;
-  onSubmit: (values: GroupInput) => void | Promise<void>;
+  onSubmit: (values: GroupNiveauFormValues) => void | Promise<void>;
 };
 
 /**

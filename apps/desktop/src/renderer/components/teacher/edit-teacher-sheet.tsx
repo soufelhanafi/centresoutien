@@ -1,16 +1,15 @@
 import { useTranslation } from 'react-i18next';
 import { toast } from '@centresoutien/ui';
-import type { TeacherInput } from '@centresoutien/domain';
 import { useUpdateTeacher } from '../../hooks/teacher/use-update-teacher';
 import type { TeacherView } from '../../lib/teachers/teacher-view';
 import { TeacherFormSheet } from './teacher-form-sheet';
 import type { TeacherFormInput } from './teacher-form';
+import type { TeacherNiveauFormValues } from '../../lib/niveaux/form-schemas';
 
 /**
  * Maps the read DTO back to the editable form shape. `cin`/`email` render as `''`
- * (the schema collapses empty back to `null` on submit); `subjectIds` is carried
- * unchanged so a re-save preserves the teacher's subject links until the picker
- * lands.
+ * (the schema collapses empty back to `null` on submit); `subjectIds` and
+ * `niveauIds` are carried unchanged so a re-save preserves the teacher's links.
  */
 function toFormInput(teacher: TeacherView): TeacherFormInput {
   return {
@@ -19,6 +18,7 @@ function toFormInput(teacher: TeacherView): TeacherFormInput {
     phone: teacher.phone,
     email: teacher.email ?? '',
     subjectIds: [...teacher.subjectIds],
+    niveauIds: [...(teacher.niveauIds ?? [])],
   };
 }
 
@@ -35,7 +35,7 @@ export function EditTeacherSheet({
   const { t } = useTranslation();
   const update = useUpdateTeacher(teacher.id);
 
-  const handleSubmit = async (values: TeacherInput) => {
+  const handleSubmit = async (values: TeacherNiveauFormValues) => {
     try {
       await update.mutateAsync(values);
       toast.success(t('teachers.form.editSuccess'));

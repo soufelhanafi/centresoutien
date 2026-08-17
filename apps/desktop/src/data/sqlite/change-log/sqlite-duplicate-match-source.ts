@@ -9,6 +9,7 @@ import type {
   Teacher,
   TeacherId,
   SubjectId,
+  NiveauId,
   PhoneNumber,
   GuardianRelation,
   UserId,
@@ -25,7 +26,7 @@ const SELECT_PARENTS_BY_PHONE = `
 const SELECT_TEACHERS_BY_PHONE = `
   SELECT id, center_code, device_origin, created_at, updated_at, updated_by,
          deleted_at, version, natural_key, name_fr, name_ar, phone, email, cin,
-         subject_ids, active
+         subject_ids, niveau_ids, active
     FROM teachers
    WHERE center_code = ? AND phone = ? AND deleted_at IS NULL
 `;
@@ -33,7 +34,7 @@ const SELECT_TEACHERS_BY_PHONE = `
 const SELECT_STUDENTS_BY_NAME = `
   SELECT id, center_code, device_origin, created_at, updated_at, updated_by,
          deleted_at, version, natural_key, name_fr, name_ar, birth_date, level,
-         school, notes, guardian_ids
+         school, notes, guardian_ids, niveau_id
     FROM students
    WHERE center_code = ? AND deleted_at IS NULL
 `;
@@ -47,6 +48,20 @@ const SELECT_STUDENTS_BY_NAME = `
  * normalization decide (its Arabic→Latin transliteration is the same one the
  * write path stamps, so a device never needs to mirror it here).
  */
+
+/** Parse a stored JSON id-array (e.g. `teachers.subject_ids`) defensively:
+ *  malformed/non-array JSON yields an empty list rather than a runtime shape
+ *  error downstream. Mirrors `parseNiveauIds` in the teacher repository. */
+function parseJsonIdArray(json: string): string[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return [];
+  }
+  return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : [];
+}
+
 export class SqliteDuplicateMatchSource implements DuplicateMatchSource {
   constructor(private readonly db: DB) {}
 
@@ -86,7 +101,8 @@ export class SqliteDuplicateMatchSource implements DuplicateMatchSource {
       phone: row.phone as PhoneNumber,
       email: row.email,
       cin: row.cin,
-      subjectIds: JSON.parse(row.subject_ids) as SubjectId[],
+      subjectIds: parseJsonIdArray(row.subject_ids) as SubjectId[],
+      niveauIds: parseJsonIdArray(row.niveau_ids) as NiveauId[],
       active: row.active === 1,
     }));
   }
@@ -115,6 +131,7 @@ export class SqliteDuplicateMatchSource implements DuplicateMatchSource {
       school: row.school,
       notes: row.notes,
       guardianIds: JSON.parse(row.guardian_ids) as ParentId[],
+      niveauId: row.niveau_id === null ? null : (row.niveau_id as NiveauId),
     }));
   }
 }
@@ -152,6 +169,7 @@ type TeacherRow = {
   email: string | null;
   cin: string | null;
   subject_ids: string;
+  niveau_ids: string;
   active: number;
 };
 
@@ -172,4 +190,5 @@ type StudentRow = {
   school: string | null;
   notes: string | null;
   guardian_ids: string;
+  niveau_id: string | null;
 };

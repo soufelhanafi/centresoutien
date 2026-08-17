@@ -13,6 +13,15 @@ import type {
   Subject,
   SubjectUsage,
   SubjectId,
+  CreateNiveau,
+  UpdateNiveau,
+  ArchiveNiveau,
+  ListNiveaux,
+  GetNiveau,
+  ListNiveauxWithUsage,
+  Niveau,
+  NiveauId,
+  NiveauUsage,
   CreateFormula,
   UpdateFormula,
   GetFormula,
@@ -171,6 +180,7 @@ import {
   TeacherNotFoundError,
   HolidayNotFoundError,
   CenterHoursOverrideNotFoundError,
+  NiveauNotFoundError,
   TeacherAvailabilityExceptionNotFoundError,
   NotAuthenticatedError,
   SECURITY_QUESTION_KEYS,
@@ -209,6 +219,12 @@ export type ListSubjectsUseCase = Pick<ListSubjects, 'execute'>;
 export type GetSubjectUseCase = Pick<GetSubject, 'execute'>;
 export type ListSubjectsWithUsageUseCase = Pick<ListSubjectsWithUsage, 'execute'>;
 export type UpdateSubjectUseCase = Pick<UpdateSubject, 'execute'>;
+export type CreateNiveauUseCase = Pick<CreateNiveau, 'execute'>;
+export type UpdateNiveauUseCase = Pick<UpdateNiveau, 'execute'>;
+export type ArchiveNiveauUseCase = Pick<ArchiveNiveau, 'execute'>;
+export type ListNiveauxUseCase = Pick<ListNiveaux, 'execute'>;
+export type GetNiveauUseCase = Pick<GetNiveau, 'execute'>;
+export type ListNiveauxWithUsageUseCase = Pick<ListNiveauxWithUsage, 'execute'>;
 export type CreateFormulaUseCase = Pick<CreateFormula, 'execute'>;
 export type UpdateFormulaUseCase = Pick<UpdateFormula, 'execute'>;
 export type GetFormulaUseCase = Pick<GetFormula, 'execute'>;
@@ -352,6 +368,7 @@ function toStudentView(student: Student) {
     school: student.school,
     notes: student.notes,
     guardianIds: [...student.guardianIds],
+    niveauId: student.niveauId,
     archived: student.deletedAt !== null,
     createdAt: student.createdAt.toISOString(),
     version: student.version,
@@ -382,6 +399,35 @@ function toSubjectView(subject: Subject) {
     name: { fr: subject.name.fr, ar: subject.name.ar },
     code: subject.code,
     active: subject.active,
+  };
+}
+
+/** Project a Niveau to its boundary DTO (SOU-260): envelope stripped, leaving
+ *  the fields the pickers and the manage screen need. `active` is the real
+ *  domain flag; tombstones never reach these reads, so no `archived` is exposed. */
+function toNiveauView(niveau: Niveau) {
+  return {
+    id: niveau.id,
+    name: { fr: niveau.name.fr, ar: niveau.name.ar },
+    code: niveau.code,
+    category: niveau.category,
+    active: niveau.active,
+  };
+}
+
+/** Project a niveau + its in-use count to the list-with-usage DTO: the lean
+ *  niveau view plus `inUseCount`, the derived `canDelete`, and the named
+ *  breakdown (`references`) the delete-blocked modal lists. */
+function toNiveauUsageView(row: NiveauUsage) {
+  return {
+    niveau: toNiveauView(row.niveau),
+    inUseCount: row.inUseCount,
+    canDelete: row.canDelete,
+    references: row.references.map((ref) => ({
+      kind: ref.kind,
+      id: ref.id,
+      label: { fr: ref.label.fr, ar: ref.label.ar },
+    })),
   };
 }
 
@@ -460,6 +506,7 @@ function toGroupView(group: Group) {
     id: group.id,
     subjectId: group.subjectId,
     teacherId: group.teacherId,
+    niveauId: group.niveauId,
     level: group.level,
     capacity: group.capacity,
     kind: group.kind,
@@ -545,6 +592,7 @@ function toTeacherView(teacher: Teacher) {
     phone: teacher.phone,
     email: teacher.email,
     subjectIds: [...teacher.subjectIds],
+    niveauIds: [...teacher.niveauIds],
     archived: teacher.deletedAt !== null,
     createdAt: teacher.createdAt.toISOString(),
   };
@@ -879,6 +927,12 @@ export type HandlerDeps = BackupHandlerDeps &
   getSubject: GetSubjectUseCase;
   listSubjectsWithUsage: ListSubjectsWithUsageUseCase;
   updateSubject: UpdateSubjectUseCase;
+  createNiveau: CreateNiveauUseCase;
+  updateNiveau: UpdateNiveauUseCase;
+  archiveNiveau: ArchiveNiveauUseCase;
+  listNiveaux: ListNiveauxUseCase;
+  getNiveau: GetNiveauUseCase;
+  listNiveauxWithUsage: ListNiveauxWithUsageUseCase;
   createFormula: CreateFormulaUseCase;
   updateFormula: UpdateFormulaUseCase;
   getFormula: GetFormulaUseCase;
@@ -1053,6 +1107,60 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
         updatedBy,
       });
       return { subject: toSubjectView(subject) };
+    },
+    'niveau.create': async (request) => {
+      const niveau = await deps.createNiveau.execute({ ...request, ...deps.envelopeContext() });
+      return { id: niveau.id };
+    },
+    'niveau.update': async (request) => {
+      const { id, ...fields } = request;
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      const niveau = await deps.updateNiveau.execute({
+        ...fields,
+        centerCode,
+        id: id as NiveauId,
+        updatedBy,
+      });
+      return { niveau: toNiveauView(niveau) };
+    },
+    'niveau.archive': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      try {
+        await deps.archiveNiveau.execute({
+          centerCode,
+          niveauId: request.id as NiveauId,
+          updatedBy,
+        });
+      } catch (error) {
+        // Archiving is idempotent at the boundary: an already-archived or unknown
+        // niveau means the desired end-state (row inactive) already holds, so
+        // report success instead of a generic error toast. The domain use case
+        // still throws so other callers/tests stay strict. (NiveauInUseError is a
+        // real failure and is NOT swallowed — the UI must tell the user to detach
+        // the niveau's students/groups/teachers first.) Mirrors subject.archive.
+        if (!(error instanceof NiveauNotFoundError)) throw error;
+      }
+      return { ok: true };
+    },
+    'niveau.list': async (request) => {
+      const niveaux = await deps.listNiveaux.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        scope: request.scope,
+      });
+      return { niveaux: niveaux.map(toNiveauView) };
+    },
+    'niveau.get': async (request) => {
+      const niveau = await deps.getNiveau.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        id: request.id as NiveauId,
+      });
+      return { niveau: niveau ? toNiveauView(niveau) : null };
+    },
+    'niveau.listWithUsage': async () => {
+      const rows = await deps.listNiveauxWithUsage.execute({
+        centerCode: deps.envelopeContext().centerCode,
+      });
+      return { niveaux: rows.map(toNiveauUsageView) };
     },
     'formula.create': async (request) => {
       const formula = await deps.createFormula.execute({ ...request, ...deps.envelopeContext() });

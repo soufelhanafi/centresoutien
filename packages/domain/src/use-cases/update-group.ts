@@ -14,6 +14,7 @@ import {
 } from '../errors/group-errors';
 import type { Group, GroupId } from '../entities/group';
 import type { SubjectId } from '../entities/subject';
+import type { NiveauId } from '../entities/niveau';
 import type { CenterCode, EntityId, UserId } from '../value-objects/ids';
 
 export type UpdateGroupInput = GroupInput & {
@@ -100,6 +101,7 @@ export class UpdateGroup {
       {
         subjectId,
         teacherId: fields.teacherId as EntityId | null,
+        niveauId: (fields.niveauId ?? null) as NiveauId | null,
         level: fields.level,
         capacity: fields.capacity,
         kind: fields.kind,

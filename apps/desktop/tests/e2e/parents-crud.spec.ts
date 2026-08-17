@@ -24,6 +24,15 @@ import { STR, boot, gotoParents, pageCrashed, type Launched, type Locale } from 
 
 const locale = () => test.info().project.name as Locale;
 
+/** The seeded niveau label the student form select renders (localized). */
+function niveauName(l: Locale, code: string): string {
+  const names: Record<string, { fr: string; ar: string }> = {
+    '2AC': { fr: '2ème Année Collège', ar: 'السنة الثانية إعدادي' },
+    '3AC': { fr: '3ème Année Collège', ar: 'السنة الثالثة إعدادي' },
+  };
+  return names[code]![l === 'ar' ? 'ar' : 'fr']!;
+}
+
 let live: Launched | null = null;
 test.afterEach(async () => {
   await live?.app.close();
@@ -99,7 +108,8 @@ test('Scenario 6 — same-name children under different fathers are both kept', 
   await s.getByLabel(L.student.nameFr, { exact: false }).fill('Yassine Alaoui');
   await s.getByLabel(L.student.nameAr, { exact: false }).fill('ياسين العلوي');
   await s.getByLabel(L.student.birthDate, { exact: false }).fill('2010-05-14');
-  await s.getByLabel(L.student.level, { exact: false }).fill('3AC');
+  await s.getByRole('combobox', { name: L.student.level }).click();
+  await win.getByRole('option', { name: niveauName(locale(), '3AC') }).click();
   await s.getByRole('button', { name: L.student.create }).click();
   await expect(win.getByText(L.student.createSuccess).first()).toBeVisible();
   // Close the sheet back to the list.
@@ -114,7 +124,8 @@ test('Scenario 6 — same-name children under different fathers are both kept', 
   await s.getByLabel(L.student.nameFr, { exact: false }).fill('Yassine Alaoui');
   await s.getByLabel(L.student.nameAr, { exact: false }).fill('ياسين العلوي');
   await s.getByLabel(L.student.birthDate, { exact: false }).fill('2011-09-02');
-  await s.getByLabel(L.student.level, { exact: false }).fill('2AC');
+  await s.getByRole('combobox', { name: L.student.level }).click();
+  await win.getByRole('option', { name: niveauName(locale(), '2AC') }).click();
   await s.getByRole('button', { name: L.student.create }).click();
 
   // Must succeed — different father => not a duplicate. Child appears under B.

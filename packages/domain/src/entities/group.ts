@@ -2,6 +2,7 @@ import type { Brand } from '../value-objects/brand';
 import type { EntityEnvelope } from './envelope';
 import type { EntityId } from '../value-objects/ids';
 import type { SubjectId } from './subject';
+import type { NiveauId } from './niveau';
 
 /** ULID id prefix for groups: `grp_01HW…`. */
 export const GROUP_ID_PREFIX = 'grp';
@@ -43,6 +44,14 @@ export type Group = EntityEnvelope & {
   subjectId: SubjectId;
   teacherId: EntityId | null;
   level: string;
+  /**
+   * The grade level this group is for, as a reference to the center's Niveau
+   * catalog (SOU-260) — exactly one niveau per group when set, mirroring
+   * `subjectId`. Nullable so existing groups stay backfill-non-breaking; the
+   * referenced Niveau's existence is not enforced here (a matching hint); the
+   * reverse direction is guarded by `ArchiveNiveau`.
+   */
+  niveauId: NiveauId | null;
   capacity: number;
   kind: GroupKind;
   active: boolean;

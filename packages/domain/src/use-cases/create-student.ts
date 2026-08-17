@@ -12,6 +12,7 @@ import {
   type Student,
   type StudentId,
 } from '../entities/student';
+import type { NiveauId } from '../entities/niveau';
 
 export type CreateStudentInput = StudentInput & {
   centerCode: CenterCode;
@@ -62,6 +63,7 @@ export class CreateStudent {
       school: fields.school,
       notes: fields.notes,
       guardianIds: fields.guardianIds as ParentId[],
+      niveauId: (fields.niveauId ?? null) as NiveauId | null,
     };
 
     await this.students.save(student);

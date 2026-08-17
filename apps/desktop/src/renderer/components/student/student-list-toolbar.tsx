@@ -11,6 +11,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@centresoutien/ui';
+import { useNiveauxActive } from '../../hooks/niveau/use-niveaux-active';
+import { localizedNiveauName } from '../../lib/niveaux/niveau-view';
 
 const ALL = '__all__';
 
@@ -20,17 +22,22 @@ type StudentListToolbarProps = {
   level: string;
   onLevelChange: (value: string) => void;
   levels: readonly string[];
+  niveauId: string;
+  onNiveauChange: (value: string) => void;
 };
 
-/** Search box + level filter + (disabled) group filter shell. */
+/** Search box + level filter + niveau filter + (disabled) group filter shell. */
 export function StudentListToolbar({
   search,
   onSearchChange,
   level,
   onLevelChange,
   levels,
+  niveauId,
+  onNiveauChange,
 }: StudentListToolbarProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const niveaux = useNiveauxActive().data ?? [];
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -58,6 +65,23 @@ export function StudentListToolbar({
           {levels.map((lvl) => (
             <SelectItem key={lvl} value={lvl}>
               {lvl}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={niveauId === '' ? ALL : niveauId}
+        onValueChange={(v) => onNiveauChange(v === ALL ? '' : v)}
+      >
+        <SelectTrigger className="sm:w-52" aria-label={t('niveaux.filters.label')}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>{t('niveaux.filters.all')}</SelectItem>
+          {niveaux.map((niveau) => (
+            <SelectItem key={niveau.id} value={niveau.id}>
+              {localizedNiveauName(niveau.name, i18n.language)}
             </SelectItem>
           ))}
         </SelectContent>

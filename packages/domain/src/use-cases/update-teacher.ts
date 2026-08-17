@@ -7,6 +7,7 @@ import { teacherInputSchema, type TeacherInput } from '../schemas/teacher';
 import { TeacherNotFoundError } from '../errors/people-errors';
 import type { Teacher, TeacherId } from '../entities/teacher';
 import type { SubjectId } from '../entities/subject';
+import type { NiveauId } from '../entities/niveau';
 
 export type UpdateTeacherInput = TeacherInput & {
   centerCode: CenterCode;
@@ -43,6 +44,7 @@ export class UpdateTeacher {
       phone: input.phone,
       email: input.email,
       subjectIds: input.subjectIds,
+      niveauIds: input.niveauIds,
     });
 
     const existing = await this.teachers.findById(input.id);
@@ -60,6 +62,7 @@ export class UpdateTeacher {
         phone: fields.phone,
         email: fields.email,
         subjectIds: fields.subjectIds as SubjectId[],
+        niveauIds: (fields.niveauIds ?? []) as NiveauId[],
       },
       { clock: this.clock, updatedBy: input.updatedBy },
     );

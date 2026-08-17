@@ -173,6 +173,10 @@ export async function boot(
     const api = (window as unknown as { api: Bridge }).api;
     await api.invoke('admin.create', admin);
     await api.invoke('auth.login', { ...admin, rememberDevice: true });
+    // The real first-run wizard always reaches `center.save` (seeding the default
+    // niveau catalog via the setup unit-of-work); replicate it so the level
+    // pickers in the student/group/teacher forms have options.
+    await api.invoke('center.save', { name: 'Centre de Soutien', address: '', phone: '', email: '', logoPath: null });
   }, VALID_ADMIN);
 
   const created = await live.win.evaluate(

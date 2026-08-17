@@ -8,6 +8,7 @@ import { buildTeacherNaturalKey } from '../policies/natural-key';
 import { teacherInputSchema, type TeacherInput } from '../schemas/teacher';
 import { TEACHER_ID_PREFIX, type Teacher, type TeacherId } from '../entities/teacher';
 import type { SubjectId } from '../entities/subject';
+import type { NiveauId } from '../entities/niveau';
 import { DuplicateTeacherError } from '../errors/people-errors';
 
 export type CreateTeacherInput = TeacherInput & {
@@ -44,6 +45,7 @@ export class CreateTeacher {
       phone: input.phone,
       email: input.email,
       subjectIds: input.subjectIds,
+      niveauIds: input.niveauIds,
     });
 
     const activeCount = await this.teachers.countActive(input.centerCode);
@@ -74,6 +76,7 @@ export class CreateTeacher {
       phone: fields.phone,
       email: fields.email,
       subjectIds: fields.subjectIds as SubjectId[],
+      niveauIds: (fields.niveauIds ?? []) as NiveauId[],
       active: true,
     };
 

@@ -8,6 +8,7 @@ import { newEnvelope } from '../entities/envelope';
 import { groupInputSchema, type GroupInput } from '../schemas/group';
 import { GROUP_ID_PREFIX, type Group, type GroupId } from '../entities/group';
 import type { SubjectId } from '../entities/subject';
+import type { NiveauId } from '../entities/niveau';
 import { GroupSubjectUnavailableError } from '../errors/group-errors';
 
 export type CreateGroupInput = GroupInput & {
@@ -68,6 +69,7 @@ export class CreateGroup {
       ),
       subjectId,
       teacherId: fields.teacherId as EntityId | null,
+      niveauId: (fields.niveauId ?? null) as NiveauId | null,
       level: fields.level,
       capacity: fields.capacity,
       kind: fields.kind,

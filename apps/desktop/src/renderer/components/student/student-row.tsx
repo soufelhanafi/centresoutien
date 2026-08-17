@@ -2,11 +2,13 @@ import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
 import { BilingualText, DataTableCell, DataTableRow } from '@centresoutien/ui';
 import type { StudentView } from '../../lib/students/student-view';
+import { useNiveauLabel } from '../../lib/niveaux/niveau-label';
 import { StudentRowActions } from './student-row-actions';
 
 /** One student row: bilingual name (FR + AR), level, school, guardian count, actions. */
 export function StudentRow({ student }: { student: StudentView }) {
   const { t } = useTranslation();
+  const levelLabel = useNiveauLabel(student.niveauId ?? null, student.level);
 
   return (
     <DataTableRow>
@@ -24,7 +26,7 @@ export function StudentRow({ student }: { student: StudentView }) {
           className="mt-0.5 block text-xs text-muted-foreground"
         />
       </DataTableCell>
-      <DataTableCell>{student.level}</DataTableCell>
+      <DataTableCell>{levelLabel}</DataTableCell>
       <DataTableCell>{student.school ?? t('students.info.none')}</DataTableCell>
       <DataTableCell className="text-muted-foreground">
         {t('students.guardiansCount', { count: student.guardianIds.length })}

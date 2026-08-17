@@ -25,6 +25,7 @@ function createInput(): CreateStudentInput {
     school: null,
     notes: null,
     guardianIds: [],
+    niveauId: null,
     centerCode: CENTER,
     deviceOrigin: DEVICE,
     updatedBy: USER,
@@ -39,6 +40,7 @@ function editFields(overrides: Partial<StudentInput> = {}): StudentInput {
     school: null,
     notes: null,
     guardianIds: [],
+    niveauId: null,
     ...overrides,
   };
 }
@@ -103,6 +105,25 @@ describe('UpdateStudent', () => {
       ...editFields({ level: '3AC' }),
     });
     expect((await students.findById(created.id))?.level).toBe('3AC');
+  });
+
+  it('assigns a niveauId (nullable retrofit, SOU-260)', async () => {
+    const created = await create.execute(createInput());
+    const assigned = await update.execute({
+      centerCode: CENTER,
+      id: created.id,
+      updatedBy: EDITOR,
+      ...editFields({ niveauId: 'niv_00000000000000000000000001' }),
+    });
+    expect(assigned.niveauId).toBe('niv_00000000000000000000000001');
+
+    const cleared = await update.execute({
+      centerCode: CENTER,
+      id: created.id,
+      updatedBy: EDITOR,
+      ...editFields({ niveauId: null }),
+    });
+    expect(cleared.niveauId).toBeNull();
   });
 
   it('throws StudentNotFoundError for an unknown id', async () => {

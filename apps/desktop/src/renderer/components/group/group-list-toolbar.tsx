@@ -10,7 +10,9 @@ import {
   SelectValue,
 } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
+import { useNiveauxActive } from '../../hooks/niveau/use-niveaux-active';
 import { localizedName } from '../../lib/groups/localized-name';
+import { localizedNiveauName } from '../../lib/niveaux/niveau-view';
 import type { GroupFilters } from './group-filters';
 import { ALL } from './group-filters';
 import type { SubjectOption } from '../../lib/groups/group-view';
@@ -30,6 +32,7 @@ type GroupListToolbarProps = {
 export function GroupListToolbar({ filters, onChange, subjects }: GroupListToolbarProps) {
   const { t, i18n } = useTranslation();
   const examPrepEnabled = useFeature('core.exam-prep');
+  const niveaux = useNiveauxActive().data ?? [];
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -60,6 +63,23 @@ export function GroupListToolbar({ filters, onChange, subjects }: GroupListToolb
           {subjects.map((subject) => (
             <SelectItem key={subject.id} value={subject.id}>
               {localizedName(subject.name, i18n.language)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={filters.niveauId}
+        onValueChange={(value) => onChange({ ...filters, niveauId: value })}
+      >
+        <SelectTrigger className="sm:w-52" aria-label={t('niveaux.filters.label')}>
+          <SelectValue placeholder={t('niveaux.filters.all')} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>{t('niveaux.filters.all')}</SelectItem>
+          {niveaux.map((niveau) => (
+            <SelectItem key={niveau.id} value={niveau.id}>
+              {localizedNiveauName(niveau.name, i18n.language)}
             </SelectItem>
           ))}
         </SelectContent>

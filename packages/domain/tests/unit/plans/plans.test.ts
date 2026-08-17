@@ -33,6 +33,7 @@ describe('PLANS registry', () => {
       'core.students',
       'core.groups',
       'core.subjects',
+      'core.niveaux',
       'core.formulas',
       'core.calendar.week',
       'core.invoicing',

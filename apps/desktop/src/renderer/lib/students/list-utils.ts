@@ -12,3 +12,11 @@ export function filterByLevel(
 ): readonly StudentView[] {
   return level === '' ? students : students.filter((s) => s.level === level);
 }
+
+/** Client-side niveau filter layered on top of the gateway's search. */
+export function filterByNiveau(
+  students: readonly StudentView[],
+  niveauId: string,
+): readonly StudentView[] {
+  return niveauId === '' ? students : students.filter((s) => s.niveauId === niveauId);
+}

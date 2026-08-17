@@ -42,6 +42,16 @@ export type PlanId = 'essentiel' | 'pro' | 'premium';
 
 export const DIRECTION: Record<Locale, 'ltr' | 'rtl'> = { fr: 'ltr', ar: 'rtl' };
 
+/** The seeded niveau label the student form select renders, localized from the STR bundle. */
+function niveauName(L: (typeof STR)[Locale], code: string): string {
+  const names: Record<string, { fr: string; ar: string }> = {
+    '1AC': { fr: '1ère Année Collège', ar: 'السنة الأولى إعدادي' },
+    '3AC': { fr: '3ème Année Collège', ar: 'السنة الثالثة إعدادي' },
+  };
+  const isAr = L.students.form.nameFr === 'الاسم (بالفرنسية)';
+  return names[code]![isAr ? 'ar' : 'fr']!;
+}
+
 // Non-secret throwaway admin (assembled at runtime; secret-scan friendly).
 export const VALID_ADMIN = { username: 'directrice', password: ['Casa', '2026', '!'].join('') } as const;
 
@@ -205,6 +215,9 @@ export async function boot(locale: Locale, plan: PlanId = 'premium'): Promise<La
     const api = (window as unknown as { api: { invoke: (c: string, r: unknown) => Promise<unknown> } }).api;
     await api.invoke('admin.create', admin);
     await api.invoke('auth.login', { ...admin, rememberDevice: true });
+    // Replicate the wizard's `center.save` so the default niveau catalog seeds
+    // (the level select on the student form needs options).
+    await api.invoke('center.save', { name: 'Centre de Soutien', address: '', phone: '', email: '', logoPath: null });
   }, VALID_ADMIN);
   await live.win.reload();
   await live.win.waitForLoadState('domcontentloaded');
@@ -243,7 +256,8 @@ export async function createStudent(win: Page, L: (typeof STR)[Locale], s: NewSt
   await dialog.getByLabel(L.students.form.nameFr, { exact: false }).fill(s.nameFr);
   await dialog.getByLabel(L.students.form.nameAr, { exact: false }).fill(s.nameAr);
   await dialog.getByLabel(L.students.form.birthDate, { exact: false }).fill(s.birthDate);
-  await dialog.getByLabel(L.students.form.level, { exact: false }).fill(s.level);
+  await dialog.getByRole('combobox', { name: L.students.form.level }).click();
+  await win.getByRole('option', { name: niveauName(L, s.level) }).click();
   await dialog.getByRole('button', { name: L.students.form.create }).click();
   await expect(win.getByText(L.students.form.createSuccess).first()).toBeVisible();
   await expect(dialog).toBeHidden();

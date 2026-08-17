@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { BilingualText, DataTableCell, DataTableRow, KindBadge } from '@centresoutien/ui';
 import type { GroupRow as GroupRowData, GroupStatus } from '../../lib/groups/group-view';
 import { localizedName } from '../../lib/groups/localized-name';
+import { useNiveauLabel } from '../../lib/niveaux/niveau-label';
 import { GroupFill } from './group-fill';
 import { GroupRowActions } from './group-row-actions';
 
@@ -20,6 +21,7 @@ export function GroupRow({
 }) {
   const { t, i18n } = useTranslation();
   const subjectFr = group.subjectName.fr;
+  const levelLabel = useNiveauLabel(group.niveauId ?? null, group.level);
 
   return (
     <DataTableRow>
@@ -47,7 +49,7 @@ export function GroupRow({
           className="mt-0.5 block text-xs text-muted-foreground"
         />
       </DataTableCell>
-      <DataTableCell>{group.level}</DataTableCell>
+      <DataTableCell>{levelLabel}</DataTableCell>
       <DataTableCell className="text-muted-foreground">
         {group.teacherName ? localizedName(group.teacherName, i18n.language) : t('groups.table.unassigned')}
       </DataTableCell>

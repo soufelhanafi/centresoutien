@@ -4,6 +4,7 @@ import type {
   CenterHours,
   CenterSetupUnit,
   CenterSetupUnitOfWork,
+  Niveau,
 } from "@centresoutien/domain";
 
 const SAVE_CENTER_SQL = `
@@ -30,6 +31,15 @@ const SAVE_TRIAL_SQL = `
   ON CONFLICT(singleton) DO NOTHING
 `;
 
+const SAVE_NIVEAU_SQL = `
+  INSERT INTO niveaux
+    (id, center_code, device_origin, created_at, updated_at, updated_by,
+     deleted_at, version, name_fr, name_ar, code, category, active)
+  VALUES
+    (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
+     @deleted_at, @version, @name_fr, @name_ar, @code, @category, @active)
+`;
+
 /** Test-only hook for asserting that partial setup writes roll back. */
 export type SqliteCenterSetupUnitOfWorkOptions = {
   readonly afterCenterInsert?: () => void;
@@ -51,6 +61,7 @@ export class SqliteCenterSetupUnitOfWork implements CenterSetupUnitOfWork {
       this.insertCenter(unit.center);
       this.options.afterCenterInsert?.();
       this.insertHours(unit.defaultHours);
+      this.insertNiveaux(unit.defaultNiveaux);
       this.insertTrial(unit);
     })();
   }
@@ -62,6 +73,11 @@ export class SqliteCenterSetupUnitOfWork implements CenterSetupUnitOfWork {
   private insertHours(hours: readonly CenterHours[]): void {
     const saveHours = this.db.prepare(SAVE_HOURS_SQL);
     for (const day of hours) saveHours.run(centerHoursRow(day));
+  }
+
+  private insertNiveaux(niveaux: readonly Niveau[]): void {
+    const saveNiveau = this.db.prepare(SAVE_NIVEAU_SQL);
+    for (const niveau of niveaux) saveNiveau.run(niveauRow(niveau));
   }
 
   private insertTrial(unit: CenterSetupUnit): void {
@@ -106,5 +122,23 @@ function centerHoursRow(hours: CenterHours) {
     version: hours.version,
     day_of_week: hours.dayOfWeek,
     windows: JSON.stringify(hours.windows),
+  };
+}
+
+function niveauRow(niveau: Niveau) {
+  return {
+    id: niveau.id,
+    center_code: niveau.centerCode,
+    device_origin: niveau.deviceOrigin,
+    created_at: niveau.createdAt.toISOString(),
+    updated_at: niveau.updatedAt.toISOString(),
+    updated_by: niveau.updatedBy,
+    deleted_at: niveau.deletedAt ? niveau.deletedAt.toISOString() : null,
+    version: niveau.version,
+    name_fr: niveau.name.fr,
+    name_ar: niveau.name.ar,
+    code: niveau.code,
+    category: niveau.category,
+    active: niveau.active ? 1 : 0,
   };
 }

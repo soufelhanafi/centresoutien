@@ -1,11 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import { toast } from '@centresoutien/ui';
-import type { GroupInput } from '@centresoutien/domain';
 import { useUpdateGroup } from '../../hooks/group/use-update-group';
 import { useGroupOptions } from '../../hooks/group/use-group-options';
 import type { GroupRow } from '../../lib/groups/group-view';
 import { GroupFormSheet } from './group-form-sheet';
 import type { GroupFormInput } from './group-form';
+import type { GroupNiveauFormValues } from '../../lib/niveaux/form-schemas';
 
 /** Maps the enriched read row back to the editable form shape. */
 function toFormInput(group: GroupRow): GroupFormInput {
@@ -13,6 +13,7 @@ function toFormInput(group: GroupRow): GroupFormInput {
     subjectId: group.subjectId,
     teacherId: group.teacherId,
     level: group.level,
+    niveauId: group.niveauId,
     capacity: group.capacity,
     kind: group.kind,
   };
@@ -32,7 +33,7 @@ export function EditGroupSheet({
   const update = useUpdateGroup(group.id);
   const options = useGroupOptions();
 
-  const handleSubmit = async (values: GroupInput) => {
+  const handleSubmit = async (values: GroupNiveauFormValues) => {
     try {
       await update.mutateAsync(values);
       toast.success(t('groups.form.editSuccess'));

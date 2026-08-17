@@ -8,13 +8,14 @@ import {
 } from '../../../src/backup/backup-workbook';
 
 describe('backup workbook registry', () => {
-  it('has exactly the 16 confirmed sheets, in import dependency order', () => {
+  it('has exactly the 17 confirmed sheets, in import dependency order', () => {
     expect(BACKUP_SHEET_NAMES).toEqual([
       'parents',
       'students',
       'teachers',
       'rooms',
       'subjects',
+      'niveaux',
       'groups',
       'formulas',
       'student-subscriptions',
