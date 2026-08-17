@@ -1551,11 +1551,11 @@
     },
     "audit": {
       "trigger": "تدقيق الجدولة",
-      "badgeAria_one": "{{count}} حصة للمراجعة",
-      "badgeAria_two": "{{count}} حصتان للمراجعة",
-      "badgeAria_few": "{{count}} حصص للمراجعة",
-      "badgeAria_many": "{{count}} حصة للمراجعة",
-      "badgeAria_other": "{{count}} حصة للمراجعة"
+      "badgeAria_one": "{{count}} مشكلة جدولة للتصحيح",
+      "badgeAria_two": "{{count}} مشكلتا جدولة للتصحيح",
+      "badgeAria_few": "{{count}} مشاكل جدولة للتصحيح",
+      "badgeAria_many": "{{count}} مشكلة جدولة للتصحيح",
+      "badgeAria_other": "{{count}} مشكلة جدولة للتصحيح"
     },
     "generator": {
       "trigger": "توليد",

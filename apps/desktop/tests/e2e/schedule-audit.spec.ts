@@ -114,10 +114,12 @@ test('Scenario 2 — holiday badge appears, and a both-affected occurrence shows
 });
 
 // ---------------------------------------------------------------------------
-// Scenario 3 — THE money scenario (data-loss guard). Cancel one stranded row:
-// the confirm dialog states only that date is removed; after confirm the row
-// disappears while the recurring weekly template AND the other dated occurrence
-// both survive.
+// Scenario 3 — THE money scenario (data-loss guard). Both stranded dates come
+// from ONE weekly template, so the report shows a single grouped card
+// (SOU-262) with a ×2 badge; the per-date rows live behind its expand toggle.
+// Cancel one date there: the confirm dialog states only that date is removed;
+// after confirm that date disappears while the recurring weekly template AND
+// the other dated occurrence both survive.
 // ---------------------------------------------------------------------------
 test('Scenario 3 — cancelling one stranded occurrence keeps the weekly template and the other date', async () => {
   const L = STR[locale()];
@@ -133,10 +135,15 @@ test('Scenario 3 — cancelling one stranded occurrence keeps the weekly templat
   expect(templateBefore, 'the weekly recurring template exists before cancel').toBeTruthy();
 
   await gotoAudit(win, L);
-  await expect(auditRows(win)).toHaveCount(2);
+  // One structural problem, not two dated rows (SOU-262).
+  await expect(auditRows(win)).toHaveCount(1);
+  const groupCard = auditRows(win).first();
+  await expect(groupCard.getByText(L.groupRepeats(2))).toBeVisible();
+  await groupCard.getByRole('button', { name: L.groupShowDates(2) }).click();
 
-  // Cancel the 08-17 occurrence.
-  await rowForDate(win, D.d17).getByRole('button', { name: L.cancelRowBtn }).click();
+  // Cancel the 08-17 occurrence from the expanded per-date list. `.last()`
+  // targets the inner date row — the outer group card also matches by text.
+  await rowForDate(win, D.d17).last().getByRole('button', { name: L.cancelRowBtn }).click();
 
   const dialog = confirmDialog(win, L.dialogTitle);
   await expect(dialog).toBeVisible();
@@ -145,10 +152,12 @@ test('Scenario 3 — cancelling one stranded occurrence keeps the weekly templat
   await expect(dialog).toContainText(L.dialogBody);
   await dialog.getByRole('button', { name: L.dialogConfirm, exact: true }).click();
 
-  // The cancelled row is gone; the OTHER stranded date survives.
+  // The cancelled date is gone; the OTHER stranded date survives — now a group
+  // of one, rendered as a plain dated row (no repeat badge, no expand toggle).
   await expect(rowForDate(win, D.d17)).toHaveCount(0);
   await expect(rowForDate(win, D.d24)).toBeVisible();
   await expect(auditRows(win)).toHaveCount(1);
+  await expect(win.getByRole('dialog').getByText(L.groupRepeats(2))).toHaveCount(0);
 
   // The recurring weekly template is untouched (same id, same day/time).
   const weekAfter = await readWeek(win);

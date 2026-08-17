@@ -23,14 +23,27 @@ export function GeneratorWarnings({
 
   if (conflicts.length === 0 && gapViolations.length === 0) return null;
 
-  const lines: string[] = [];
+  // Dedup is by STRUCTURAL key, never by rendered text (SOU-262): two distinct
+  // problems may word identically (e.g. two gap breaches with equal gapDays on
+  // different day pairs) and must both survive; only true duplicates — the same
+  // kind at the same slot against the same room/teacher — collapse to one line.
+  const lineByKey = new Map<string, string>();
+  const slot = (conflict: GeneratorConflict): string =>
+    `${conflict.dayOfWeek}|${conflict.start}|${conflict.end}`;
   for (const conflict of conflicts) {
     if (conflict.kind === 'hours') {
-      lines.push(t(`planning.generator.warnings.hours.${conflict.reason}`, { day: weekday(conflict.dayOfWeek) }));
+      lineByKey.set(
+        `hours|${slot(conflict)}|${conflict.reason}`,
+        t(`planning.generator.warnings.hours.${conflict.reason}`, { day: weekday(conflict.dayOfWeek) }),
+      );
     } else if (conflict.kind === 'teacher') {
-      lines.push(t('planning.generator.warnings.teacher', { day: weekday(conflict.dayOfWeek) }));
+      lineByKey.set(
+        `teacher|${slot(conflict)}|${conflict.teacherId}`,
+        t('planning.generator.warnings.teacher', { day: weekday(conflict.dayOfWeek) }),
+      );
     } else if (conflict.kind === 'teacher-availability') {
-      lines.push(
+      lineByKey.set(
+        `teacher-availability|${slot(conflict)}|${conflict.teacherId}|${conflict.reason}`,
         conflict.reason === 'exception' && conflict.exception !== null
           ? t('planning.generator.warnings.teacherAvailability.exception', {
               from: formatIsoDate(conflict.exception.start, i18n.language),
@@ -41,7 +54,8 @@ export function GeneratorWarnings({
             }),
       );
     } else {
-      lines.push(
+      lineByKey.set(
+        `room|${slot(conflict)}|${conflict.roomId}`,
         t('planning.generator.warnings.room', {
           room: roomName(conflict.roomId),
           day: weekday(conflict.dayOfWeek),
@@ -50,12 +64,12 @@ export function GeneratorWarnings({
     }
   }
   for (const gap of gapViolations) {
-    lines.push(t('planning.generator.warnings.gap', { count: gap.gapDays }));
+    lineByKey.set(
+      `gap|${gap.fromDay}|${gap.toDay}|${gap.gapDays}`,
+      t('planning.generator.warnings.gap', { count: gap.gapDays }),
+    );
   }
-
-  // A sibling double-book is detected from both blocks' sides and two identical
-  // clashes can word identically — one message per distinct problem (SOU-262).
-  const uniqueLines = [...new Set(lines)];
+  const uniqueLines = [...lineByKey.values()];
 
   return (
     <ul className="space-y-1">

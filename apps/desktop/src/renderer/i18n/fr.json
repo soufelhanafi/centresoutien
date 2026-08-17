@@ -1503,8 +1503,8 @@
     },
     "audit": {
       "trigger": "Audit du planning",
-      "badgeAria_one": "{{count}} séance à vérifier",
-      "badgeAria_other": "{{count}} séances à vérifier"
+      "badgeAria_one": "{{count}} problème de planning à corriger",
+      "badgeAria_other": "{{count}} problèmes de planning à corriger"
     },
     "generator": {
       "trigger": "Générer",
