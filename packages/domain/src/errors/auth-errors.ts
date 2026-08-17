@@ -32,8 +32,14 @@ export class InvalidRecoveryCodeError extends DomainError {
   }
 }
 
-/** Thrown when an authenticated operation is attempted without a valid session. */
+/**
+ * Thrown when an authenticated operation is attempted without a valid session.
+ * Resolves the stable `not-authenticated` code so the renderer localizes it via
+ * `t(\`errors.${code}\`)` instead of surfacing the class name.
+ */
 export class NotAuthenticatedError extends DomainError {
+  readonly code = 'not-authenticated';
+
   constructor() {
     super('Not authenticated.');
   }
