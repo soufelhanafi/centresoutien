@@ -26,6 +26,9 @@ export const BACKUP_SHEET_NAMES: readonly BackupSheetName[] = [
   'payments',
   'center-hours',
   'holidays',
+  'center-hours-overrides',
+  'teacher-availability',
+  'teacher-availability-exceptions',
 ];
 
 export const BACKUP_SHEETS: readonly BackupSheetSpec[] = [...BACKUP_SHEETS_A, ...BACKUP_SHEETS_B];
