@@ -23,11 +23,11 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-/** Apply every migration strictly before the 0046 user-id migration. */
-function migrateToBefore0046() {
+/** Apply every migration strictly before the 0047 user-id migration. */
+function migrateToBefore0047() {
   const migrations = loadMigrations(REAL_MIGRATIONS);
   const userIdMigration = migrations.find((m) => m.name.includes('device_session_user_id'));
-  if (!userIdMigration) throw new Error('0046_device_session_user_id migration not found');
+  if (!userIdMigration) throw new Error('0047_device_session_user_id migration not found');
   applyMigrations(
     db,
     migrations.filter((m) => m.version < userIdMigration.version),
@@ -35,9 +35,9 @@ function migrateToBefore0046() {
   return userIdMigration;
 }
 
-describe('migration 0046 device_sessions.user_id', () => {
+describe('migration 0047 device_sessions.user_id', () => {
   it('adds user_id, preserving an existing remembered session as an unknown principal', async () => {
-    const userIdMigration = migrateToBefore0046();
+    const userIdMigration = migrateToBefore0047();
 
     // A device remembered on the OLD schema: no user_id column yet.
     db.prepare(
@@ -64,7 +64,7 @@ describe('migration 0046 device_sessions.user_id', () => {
   });
 
   it('lets a fresh save persist and read back the user id after upgrade', async () => {
-    const userIdMigration = migrateToBefore0046();
+    const userIdMigration = migrateToBefore0047();
     applyMigrations(db, [userIdMigration]);
 
     const store = new SqliteDeviceSessionStore(db);
