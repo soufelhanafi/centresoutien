@@ -50,9 +50,11 @@ export class ResetPasswordWithRecoveryCode {
     const now = this.clock.now();
     account.passwordHash = await this.hasher.hash(newPassword);
     account.updatedAt = now;
+    const replicate = await this.accounts.participatesInSync(account.id);
 
     await this.resetUnitOfWork.commit({
       account,
+      replicate,
       consumedCodeId: result.codeId,
       consumedAt: now,
       auditEvents: [

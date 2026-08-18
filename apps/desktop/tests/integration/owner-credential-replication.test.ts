@@ -94,7 +94,28 @@ describe('owner credential changes replicate when the owner is sync-participatin
     expect(usersChangeLogCount()).toBe(before + 1);
   });
 
-  it('ChangeAdminPassword does NOT log for a migrated owner (backfilled, no sync presence)', async () => {
+  it('ChangeAdminPassword logs for an owner that arrived via sync (sync_local_entity presence)', async () => {
+    // An owner pulled from the hub has a sync_local_entity shadow row but no
+    // change_log history (inbound applies do not log). Its rotation must still
+    // replicate back to the other laptops.
+    await users.save(makeOwner('hashed:OldPass1!'));
+    db.prepare(
+      `INSERT INTO sync_local_entity (entity_type, entity_id, version, entity_json, pending_json, blocked, conflict_json, center_code)
+       VALUES ('users', 'usr_00000000000000000000000001', 3, '{}', NULL, 0, NULL, 'CS-CASA-001')`,
+    ).run();
+    const before = usersChangeLogCount();
+
+    await new ChangeAdminPassword(adminRepo, hasher, { now: () => AT }).execute({
+      currentPassword: 'OldPass1!',
+      newPassword: 'NewPass2!',
+    });
+
+    expect(usersChangeLogCount()).toBe(before + 1);
+  });
+});
+
+describe('a migrated owner stays device-local (SOU-258)', () => {
+  it('ChangeAdminPassword does NOT log for a backfilled owner with no sync presence', async () => {
     // Migration 0044 backfills the owner with a raw INSERT and NO change_log row;
     // this is the device-local migrated-owner case that must stay that way.
     db.prepare(
@@ -117,24 +138,5 @@ describe('owner credential changes replicate when the owner is sync-participatin
     expect((await adminRepo.findOnly())?.passwordHash).toBe('hashed:NewPass2!');
     // Preserved: the migrated owner stays device-local — no change_log row.
     expect(usersChangeLogCount()).toBe(0);
-  });
-
-  it('ChangeAdminPassword logs for an owner that arrived via sync (sync_local_entity presence)', async () => {
-    // An owner pulled from the hub has a sync_local_entity shadow row but no
-    // change_log history (inbound applies do not log). Its rotation must still
-    // replicate back to the other laptops.
-    await users.save(makeOwner('hashed:OldPass1!'));
-    db.prepare(
-      `INSERT INTO sync_local_entity (entity_type, entity_id, version, entity_json, pending_json, blocked, conflict_json, center_code)
-       VALUES ('users', 'usr_00000000000000000000000001', 3, '{}', NULL, 0, NULL, 'CS-CASA-001')`,
-    ).run();
-    const before = usersChangeLogCount();
-
-    await new ChangeAdminPassword(adminRepo, hasher, { now: () => AT }).execute({
-      currentPassword: 'OldPass1!',
-      newPassword: 'NewPass2!',
-    });
-
-    expect(usersChangeLogCount()).toBe(before + 1);
   });
 });

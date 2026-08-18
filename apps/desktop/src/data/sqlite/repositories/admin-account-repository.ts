@@ -59,24 +59,20 @@ export function adminAccountToSaveParams(account: AdminAccount) {
   };
 }
 
-// Writes the owner credential AND, when the owner is sync-participating,
-// appends a `users` change_log entry so the rotation / reset replicates to
-// paired devices (SOU-258). Participation is decided by sync presence, never by
-// the Clock: an owner that was created through `SqliteUserRepository` (which
-// logs) or arrived via sync (a `sync_local_entity` shadow row) has a reason to
-// replicate; a MIGRATED owner — backfilled by migration 0044 with a device-local
-// ULID and NO change_log / sync presence — stays device-local on purpose,
-// because pushing it would collide on `ux_users_username_live`. Runs the UPDATE
-// and the conditional log append as plain statements so callers can wrap them in
-// their own transaction (the recovery UoW commits password + code-consume +
-// session clear atomically).
+// Writes the owner credential and, when the DOMAIN says to replicate (`options.replicate`,
+// SOU-258), appends a `users` change_log entry in the same transaction. The policy
+// — which owners participate in the sync feed — is computed by the use case via
+// {@link SqliteAdminAccountRepository.participatesInSync}; this helper only persists
+// the decision. Runs as plain statements so the recovery UoW can wrap them with
+// the code-consume + session clear atomically.
 export function saveOwnerCredentialAndMaybeReplicate(
   db: DB,
   changeLog: ChangeLogWriter,
   account: AdminAccount,
+  replicate: boolean,
 ): void {
   db.prepare(ADMIN_ACCOUNT_SAVE_SQL).run(adminAccountToSaveParams(account));
-  if (!ownerParticipatesInSync(db, account.id)) return;
+  if (!replicate) return;
 
   const row = db.prepare('SELECT * FROM users WHERE id = ?').get(account.id) as UserRow | undefined;
   if (!row) return;
@@ -87,20 +83,6 @@ export function saveOwnerCredentialAndMaybeReplicate(
     intent: 'upsert',
     entity: userRowToUser(row),
   });
-}
-
-// True when the owner row already participates in the sync feed — created via
-// the logging user repository, or pulled from the hub into `sync_local_entity`.
-// Migrated (backfilled) owners have neither and stay device-local (SOU-258).
-function ownerParticipatesInSync(db: DB, ownerId: string): boolean {
-  const logged = db
-    .prepare("SELECT 1 FROM change_log WHERE entity_type = 'users' AND entity_id = ? LIMIT 1")
-    .get(ownerId);
-  if (logged !== undefined) return true;
-  const synced = db
-    .prepare("SELECT 1 FROM sync_local_entity WHERE entity_type = 'users' AND entity_id = ? LIMIT 1")
-    .get(ownerId);
-  return synced !== undefined;
 }
 
 /**
@@ -144,8 +126,26 @@ export class SqliteAdminAccountRepository implements AdminAccountRepository {
     return row ? fromRow(row) : null;
   }
 
-  async save(account: AdminAccount): Promise<void> {
+  async participatesInSync(ownerId: AdminAccountId): Promise<boolean> {
+    // The owner participates in the sync feed when it was created through the
+    // logging user repository (a `users` change_log row) or pulled from the hub
+    // into `sync_local_entity`. A migrated owner — backfilled by migration 0044
+    // with a device-local ULID — has neither, so its credentials stay
+    // device-local (SOU-258; colliding with ux_users_username_live if pushed).
+    const logged = this.db
+      .prepare("SELECT 1 FROM change_log WHERE entity_type = 'users' AND entity_id = ? LIMIT 1")
+      .get(ownerId);
+    if (logged !== undefined) return true;
+    const synced = this.db
+      .prepare("SELECT 1 FROM sync_local_entity WHERE entity_type = 'users' AND entity_id = ? LIMIT 1")
+      .get(ownerId);
+    return synced !== undefined;
+  }
+
+  async save(account: AdminAccount, options?: { readonly replicate: boolean }): Promise<void> {
     // The password write + its conditional change_log append commit together.
-    this.db.transaction(() => saveOwnerCredentialAndMaybeReplicate(this.db, this.changeLog, account))();
+    this.db.transaction(() =>
+      saveOwnerCredentialAndMaybeReplicate(this.db, this.changeLog, account, options?.replicate ?? false),
+    )();
   }
 }

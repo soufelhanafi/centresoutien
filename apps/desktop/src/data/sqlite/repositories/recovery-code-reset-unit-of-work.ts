@@ -11,10 +11,11 @@ import { DEVICE_SESSION_CLEAR_SQL, DEVICE_SESSION_EXISTS_SQL } from './device-se
 // lot back and the code is never spent on an unchanged password. It owns no SQL
 // of its own: every statement is imported from the repository that owns that
 // table, so there is one source of truth per write. The owner credential write
-// goes through saveOwnerCredentialAndMaybeReplicate (SOU-258), so a sync-
-// participating owner's reset appends a `users` change_log row in the SAME
-// transaction (password + log commit or roll back together); a migrated owner
-// stays device-local.
+// goes through saveOwnerCredentialAndMaybeReplicate with the DOMAIN-decided
+// `u.replicate` flag (SOU-258): a sync-participating owner's reset appends a
+// `users` change_log row in the SAME transaction (password + log commit or roll
+// back together); a migrated owner stays device-local. The adapter never decides
+// who replicates.
 //
 // State-dependent decisions are made INSIDE the transaction, not trusted from a
 // pre-read (the same discipline as SqlitePaymentLedgerUnitOfWork): the consume is
@@ -40,7 +41,7 @@ export class SqliteRecoveryCodeResetUnitOfWork implements RecoveryCodeResetUnitO
 
   async commit(unit: RecoveryCodeResetUnit): Promise<void> {
     const run = this.db.transaction((u: RecoveryCodeResetUnit): void => {
-      saveOwnerCredentialAndMaybeReplicate(this.db, this.changeLog, u.account);
+      saveOwnerCredentialAndMaybeReplicate(this.db, this.changeLog, u.account, u.replicate);
 
       const consumed = this.consumeCode.run({
         id: u.consumedCodeId,

@@ -156,7 +156,12 @@ describe('change_log — users reprojection (SOU-252)', () => {
     if (!account) throw new Error('expected owner');
     account.passwordHash = '$argon2id$v=19$m=19456,t=2,p=1$rotated$hash';
     account.updatedAt = new Date('2026-08-17T10:00:00Z');
-    await adminRepo.save(account);
+    // The domain decides replication (SOU-258): this owner was created through
+    // the logging user repository, so it participates in sync and the rotation
+    // must log. The adapter only persists the decision.
+    const replicate = await adminRepo.participatesInSync(account.id);
+    expect(replicate).toBe(true);
+    await adminRepo.save(account, { replicate });
 
     const targetDir = mkdtempSync(join(tmpdir(), 'cs-changelog-users-target3-'));
     const target = openDatabase({ centreId: 'C2', key: KEY, dir: targetDir });

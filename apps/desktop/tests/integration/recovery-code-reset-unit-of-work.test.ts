@@ -100,6 +100,10 @@ function auditEvent(eventType: AuthAuditEventType): AuthAuditEvent {
 function makeUnit(over: Partial<RecoveryCodeResetUnit> = {}): RecoveryCodeResetUnit {
   return {
     account: makeAccount(NEW_HASH, LATER),
+    // The seeded owner (written through SqliteUserRepository) participates in
+    // sync, so the default reset replicates (SOU-258); the migrated test
+    // overrides this to false.
+    replicate: true,
     consumedCodeId: CODE_ID,
     consumedAt: LATER,
     auditEvents: [auditEvent('recovery-code-consumed'), auditEvent('password-reset-via-recovery-code')],
@@ -214,7 +218,9 @@ describe('SqliteRecoveryCodeResetUnitOfWork', () => {
     ).run(MIGRATED_ID, MIGRATED_ID, OLD_HASH);
     const before = usersChangeLogCount();
 
-    await uow.commit(makeUnit({ account: makeAccount(NEW_HASH, LATER, MIGRATED_ID) }));
+    await uow.commit(
+      makeUnit({ account: makeAccount(NEW_HASH, LATER, MIGRATED_ID), replicate: false }),
+    );
 
     expect((await accounts.findOnly())?.passwordHash).toBe(NEW_HASH);
     expect(await codes.countUnconsumed()).toBe(0);

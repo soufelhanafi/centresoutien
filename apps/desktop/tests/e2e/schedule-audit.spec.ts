@@ -3,6 +3,9 @@ import {
   STR,
   DATE,
   REF,
+  ONE_MONDAY_RANGE,
+  TWO_MONDAY_RANGE,
+  secondMondayIso,
   seedGeneratedSessions,
   narrowMondayOverride,
   addHoliday,
@@ -22,11 +25,11 @@ import {
  * Black-box, driven only through the running packaged app + the public preload
  * bridge. Runs under both the `fr` (LTR) and `ar` (RTL) Playwright projects.
  *
- * The materialized window is Mon 2026-08-17 + Mon 2026-08-24 (both future vs the
- * mid-August system clock). Occurrences are generated FIRST, then stranded by an
- * override and/or a holiday — matching the "added after a session was generated"
- * acceptance wording. Navigation is always: sidebar → Planning → header "Audit
- * du planning" trigger → review modal.
+ * The materialized window is the two next future Mondays (computed from the real
+ * clock — never fixed dates that lapse into the past). Occurrences are generated
+ * FIRST, then stranded by an override and/or a holiday — matching the "added
+ * after a session was generated" acceptance wording. Navigation is always:
+ * sidebar → Planning → header "Audit du planning" trigger → review modal.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -50,8 +53,8 @@ test('Scenario 1 — override strands an occurrence: "outside hours" row shows n
   live = await launch(locale());
   const win = live.win;
 
-  await seedGeneratedSessions(win, '2026-08-16', '2026-08-18'); // materializes only Mon 08-17
-  await narrowMondayOverride(win, '2026-08-16', '2026-08-18'); // Monday 09:00–14:00 → 15:00–17:00 stranded
+  await seedGeneratedSessions(win, ONE_MONDAY_RANGE.start, ONE_MONDAY_RANGE.end); // materializes only the first Monday
+  await narrowMondayOverride(win, ONE_MONDAY_RANGE.start, ONE_MONDAY_RANGE.end); // Monday 09:00–14:00 → 15:00–17:00 stranded
   await gotoAudit(win, L);
 
   await expect(win.locator('html')).toHaveAttribute('dir', L.dir);
@@ -94,9 +97,9 @@ test('Scenario 2 — holiday badge appears, and a both-affected occurrence shows
   live = await launch(locale());
   const win = live.win;
 
-  await seedGeneratedSessions(win, '2026-08-16', '2026-08-25'); // Mon 08-17 + Mon 08-24
-  await narrowMondayOverride(win, '2026-08-16', '2026-08-25'); // both Mondays now outside hours
-  await addHoliday(win, '2026-08-24'); // 08-24 is now ALSO a holiday
+  await seedGeneratedSessions(win, TWO_MONDAY_RANGE.start, TWO_MONDAY_RANGE.end); // both future Mondays
+  await narrowMondayOverride(win, TWO_MONDAY_RANGE.start, TWO_MONDAY_RANGE.end); // both Mondays now outside hours
+  await addHoliday(win, secondMondayIso()); // the second Monday is now ALSO a holiday
   await gotoAudit(win, L);
 
   await expect(auditRows(win)).toHaveCount(2);
@@ -127,8 +130,8 @@ test('Scenario 3 — cancelling one stranded occurrence keeps the weekly templat
   live = await launch(locale());
   const win = live.win;
 
-  const seeded = await seedGeneratedSessions(win, '2026-08-16', '2026-08-25'); // 08-17 + 08-24
-  await narrowMondayOverride(win, '2026-08-16', '2026-08-25'); // both stranded (outside hours)
+  const seeded = await seedGeneratedSessions(win, TWO_MONDAY_RANGE.start, TWO_MONDAY_RANGE.end); // both future Mondays
+  await narrowMondayOverride(win, TWO_MONDAY_RANGE.start, TWO_MONDAY_RANGE.end); // both stranded (outside hours)
 
   const weekBefore = await readWeek(win);
   const templateBefore = weekBefore.find((s) => s.id === seeded.recurringSessionId);
@@ -179,7 +182,7 @@ test('Scenario 4 — no stranded sessions shows the good empty state, not an err
   const win = live.win;
 
   // Materialize occurrences but strand nothing (no override, no holiday).
-  await seedGeneratedSessions(win, '2026-08-16', '2026-08-25');
+  await seedGeneratedSessions(win, ONE_MONDAY_RANGE.start, ONE_MONDAY_RANGE.end);
   await gotoAudit(win, L);
 
   await expect(win.getByRole('heading', { name: L.pageTitle })).toBeVisible();
