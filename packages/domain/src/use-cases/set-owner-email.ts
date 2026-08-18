@@ -9,7 +9,7 @@ import type { User } from '../entities/user';
 // validated + normalized by the Email VO. Renderer input is untrusted, so the
 // string is parsed here, never trusted as already-canonical.
 export type SetOwnerEmailInput = {
-  email: string | null;
+  readonly email: string | null;
 };
 
 /**
@@ -37,7 +37,9 @@ export class SetOwnerEmail {
 
     const email = input.email === null || input.email.trim() === '' ? null : normalizeEmail(input.email);
 
-    const { next } = applyWrite(owner, { email }, { clock: this.clock, updatedBy: owner.id });
+    const { next, changedFields } = applyWrite(owner, { email }, { clock: this.clock, updatedBy: owner.id });
+    if (changedFields.length === 0) return owner;
+
     await this.users.save(next);
     return next;
   }

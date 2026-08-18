@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SetOwnerEmail } from '../../../src/use-cases/set-owner-email';
 import { InvalidEmailError, type Email } from '../../../src/value-objects/email';
 import { UserNotFoundError } from '../../../src/errors/user-errors';
@@ -69,13 +69,17 @@ describe('SetOwnerEmail', () => {
     expect(result.email).toBeNull();
   });
 
-  it('is a no-op (no updatedAt bump) when the owner has no email and none is set', async () => {
+  it('is a no-op (no updatedAt bump, no save/sync delta) when the owner has no email and none is set', async () => {
     await users.save(owner());
+    const save = vi.spyOn(users, 'save');
 
     const result = await useCase.execute({ email: null });
 
     expect(result.email).toBeNull();
     expect(result.updatedAt).toEqual(new Date(CREATED));
+    // An unchanged email must not re-save: the SQLite repo writes a change-log
+    // entry on every save, so a redundant save is spurious replication traffic.
+    expect(save).not.toHaveBeenCalled();
   });
 
   it('rejects an invalid email and leaves the stored account untouched', async () => {
