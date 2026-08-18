@@ -91,8 +91,14 @@ export function NiveauForm({ formId, defaultValues, onSubmit, serverCodeError = 
             <FormItem>
               <FormLabel>{t('niveaux.form.nameAr')}</FormLabel>
               <FormControl>
-                <Input lang="ar" dir="rtl" {...field} />
+                <Input
+                  lang="ar"
+                  dir="rtl"
+                  placeholder={t('common.arabicNameOptionalPlaceholder')}
+                  {...field}
+                />
               </FormControl>
+              <p className="text-xs text-muted-foreground">{t('common.arabicNameOptionalHint')}</p>
               <FieldMessage />
             </FormItem>
           )}

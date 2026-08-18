@@ -257,3 +257,48 @@ describe('normalizeBackupRow (legacy center-hours open/close → windows)', () =
     expect(normalizeBackupRow(spec, row)).toBe(row);
   });
 });
+
+describe('normalizeBackupRow — empty AR name/label cells (SOU-271)', () => {
+  // exceljs reads an empty AR cell back as `null`; a raw workbook row therefore
+  // arrives with name_ar/label_ar = null, which the `string` type check would
+  // reject. Coercing it to '' first keeps a FR-only workbook importable and
+  // satisfies the NOT NULL column on restore.
+  it.each([
+    ['students', 'name_ar'],
+    ['teachers', 'name_ar'],
+    ['subjects', 'name_ar'],
+    ['niveaux', 'name_ar'],
+    ['formulas', 'name_ar'],
+    ['holidays', 'name_ar'],
+    ['invoice-lines', 'label_ar'],
+  ] as const)('coerces a null %s.%s cell to an empty string', (sheet, column) => {
+    const spec = findBackupSheet(sheet)!;
+    const row = validBackupRow(sheet, { [column]: null });
+    expect(normalizeBackupRow(spec, row)[column]).toBe('');
+  });
+
+  it('coerces an absent name_ar cell (undefined) to an empty string', () => {
+    const spec = findBackupSheet('students')!;
+    const row = validBackupRow('students', { name_ar: undefined });
+    expect(normalizeBackupRow(spec, row)['name_ar']).toBe('');
+  });
+
+  it('leaves a present AR name untouched', () => {
+    const spec = findBackupSheet('students')!;
+    const row = validBackupRow('students', { name_ar: 'ياسين' });
+    expect(normalizeBackupRow(spec, row)['name_ar']).toBe('ياسين');
+  });
+
+  it('rejects a null name_ar before normalization, then accepts it after (import path)', () => {
+    const spec = findBackupSheet('students')!;
+    const raw = validBackupRow('students', { name_ar: null });
+    expect(validateBackupRow(spec, raw)).toContain('bad-type:name_ar');
+    expect(validateBackupRow(spec, normalizeBackupRow(spec, raw))).toEqual([]);
+  });
+
+  it('classifies a FR-only student row (empty AR) as created once normalized', () => {
+    const spec = findBackupSheet('students')!;
+    const raw = validBackupRow('students', { name_ar: null });
+    expect(classify('students', normalizeBackupRow(spec, raw))).toEqual({ status: 'created', reason: null });
+  });
+});

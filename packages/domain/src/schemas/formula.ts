@@ -17,10 +17,17 @@ import { GROUP_KINDS } from '../entities/group';
 
 export const FORMULA_NAME_MAX = 80;
 
-const localizedName = z
+const frName = z
   .string()
   .trim()
   .min(1, { message: 'required' })
+  .max(FORMULA_NAME_MAX, { message: 'too-long' });
+
+// AR is optional-but-length-capped (SOU-271): FR-only data entry is supported,
+// so an empty AR name is valid; an over-length one still fails.
+const arName = z
+  .string()
+  .trim()
   .max(FORMULA_NAME_MAX, { message: 'too-long' });
 
 const subjectRef = z
@@ -28,7 +35,7 @@ const subjectRef = z
   .refine((value) => hasIdPrefix(value, SUBJECT_ID_PREFIX), { message: 'invalid-id' });
 
 export const formulaInputSchema = z.object({
-  name: z.object({ fr: localizedName, ar: localizedName }),
+  name: z.object({ fr: frName, ar: arName }),
   // A priced bundle covers at least one subject.
   subjectIds: z.array(subjectRef).min(1, { message: 'subjects-required' }),
   // Integer MAD centimes, matching InvoiceLine.amountMad; a formula must have a

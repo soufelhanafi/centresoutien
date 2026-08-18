@@ -44,7 +44,10 @@ type HolidayFormProps = {
  */
 export function HolidayForm({ formId, defaultValues, onSubmit }: HolidayFormProps) {
   const { t } = useTranslation();
-  const form = useForm<HolidayInput>({ resolver: zodResolver(holidayInputSchema), defaultValues });
+  const form = useForm<HolidayInput>({
+    resolver: zodResolver(holidayInputSchema),
+    defaultValues,
+  });
   const submit = form.handleSubmit(async (values) => {
     await onSubmit(values);
   });
@@ -74,6 +77,7 @@ export function HolidayForm({ formId, defaultValues, onSubmit }: HolidayFormProp
               <FormControl>
                 <Input lang="ar" dir="rtl" placeholder={t('holidays.form.nameArPlaceholder')} {...field} />
               </FormControl>
+              <p className="text-xs text-muted-foreground">{t('common.arabicNameOptionalHint')}</p>
               <FieldMessage />
             </FormItem>
           )}

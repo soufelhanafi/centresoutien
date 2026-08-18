@@ -138,23 +138,54 @@ function parseWeeklyWindowsJson(value: string): unknown {
 }
 
 /**
+ * The bilingual AR name/label columns (SOU-271). AR is optional data entry now:
+ * an unused AR value is stored as `''` (never null) in its `TEXT NOT NULL` column.
+ * exceljs reads an empty cell back as `null`, so a FR-only workbook arrives with
+ * `name_ar`/`label_ar` = null — see {@link coerceEmptyArColumns}.
+ */
+const EMPTY_ALLOWED_AR_COLUMNS: ReadonlySet<string> = new Set(['name_ar', 'label_ar']);
+
+/**
+ * Coerce a null/absent AR name-or-label cell back to `''` before classification
+ * and apply (SOU-271). Without this a FR-only workbook — whose empty AR cell
+ * round-trips through exceljs as `null` — would fail the `string` type check
+ * (`bad-type`) and, even if it passed, bind `null` into the `NOT NULL` column on
+ * restore. Only the AR columns a sheet actually declares are touched, so no other
+ * required-string column loosens.
+ */
+function coerceEmptyArColumns(spec: BackupSheetSpec, row: BackupRow): BackupRow {
+  let coerced: BackupRow | null = null;
+  for (const column of spec.columns) {
+    if (!EMPTY_ALLOWED_AR_COLUMNS.has(column.name)) continue;
+    const value = row[column.name];
+    if (value === null || value === undefined) {
+      coerced ??= { ...row };
+      coerced[column.name] = '';
+    }
+  }
+  return coerced ?? row;
+}
+
+/**
  * A legacy center-hours backup (pre-SOU-197) exported one `open`/`close` pair per
  * weekday instead of the current `windows` list. On import, such rows carry no
  * `windows` column and would be classified invalid and silently dropped — losing
  * the center's hours. Upcast them the same way the 0041 migration backfills:
  * an open day becomes a single window, a closed (`null`/`null`) day becomes `[]`.
- * Rows that already carry `windows` pass through unchanged.
+ * Rows that already carry `windows` pass through unchanged. Empty AR name/label
+ * cells are coerced to `''` here too (SOU-271) so preview and apply agree.
  */
 export function normalizeBackupRow(spec: BackupSheetSpec, row: BackupRow): BackupRow {
-  if (spec.name !== 'center-hours') return row;
-  if ('windows' in row) return row;
-  const open = row['open'];
-  const close = row['close'];
+  const withArDefaults = coerceEmptyArColumns(spec, row);
+  if (spec.name !== 'center-hours') return withArDefaults;
+  if ('windows' in withArDefaults) return withArDefaults;
+  const open = withArDefaults['open'];
+  const close = withArDefaults['close'];
   const windows =
     typeof open === 'string' && typeof close === 'string'
       ? JSON.stringify([{ open, close }])
       : '[]';
-  return { ...row, windows };
+  return { ...withArDefaults, windows };
 }
 
 /**

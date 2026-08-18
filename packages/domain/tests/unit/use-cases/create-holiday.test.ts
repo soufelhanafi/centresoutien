@@ -87,9 +87,12 @@ describe('CreateHoliday', () => {
       expect(holidays.all()).toHaveLength(0);
     });
 
-    it('rejects a blank Arabic name', async () => {
-      await expect(useCase.execute(validInput({ name: { fr: 'x', ar: '' } }))).rejects.toThrow();
-      expect(holidays.all()).toHaveLength(0);
+    // SOU-271: AR is optional data entry — a blank AR name is accepted (kept as
+    // '') rather than rejected; FR stays required.
+    it('accepts a blank Arabic name (FR-only entry) and stores it as ""', async () => {
+      const holiday = await useCase.execute(validInput({ name: { fr: 'x', ar: '' } }));
+      expect(holiday.name).toEqual({ fr: 'x', ar: '' });
+      expect(holidays.all()).toHaveLength(1);
     });
 
     it('rejects a malformed date', async () => {

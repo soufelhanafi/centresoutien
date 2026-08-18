@@ -38,7 +38,10 @@ type FormulaFormProps = {
 export function FormulaForm({ formId, defaultValues, onSubmit }: FormulaFormProps) {
   const { t } = useTranslation();
   const examPrepEnabled = useFeature('core.exam-prep');
-  const form = useForm<FormulaFormInput>({ resolver: zodResolver(formulaInputSchema), defaultValues });
+  const form = useForm<FormulaFormInput>({
+    resolver: zodResolver(formulaInputSchema),
+    defaultValues,
+  });
   const submit = form.handleSubmit(async (values) => {
     await onSubmit(values);
   });
@@ -67,8 +70,15 @@ export function FormulaForm({ formId, defaultValues, onSubmit }: FormulaFormProp
             <FormItem>
               <FormLabel>{t('formulas.form.nameAr')}</FormLabel>
               <FormControl>
-                <Input lang="ar" dir="rtl" maxLength={FORMULA_NAME_MAX} {...field} />
+                <Input
+                  lang="ar"
+                  dir="rtl"
+                  maxLength={FORMULA_NAME_MAX}
+                  placeholder={t('common.arabicNameOptionalPlaceholder')}
+                  {...field}
+                />
               </FormControl>
+              <p className="text-xs text-muted-foreground">{t('common.arabicNameOptionalHint')}</p>
               <FieldMessage />
             </FormItem>
           )}

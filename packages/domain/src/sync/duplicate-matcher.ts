@@ -50,14 +50,21 @@ export type DuplicateMatch = {
 
 /**
  * Normalize a person name for matching whether it is a plain string (Parent)
- * or the bilingual `{ fr, ar }` object (Teacher). A raw `String()` of the
- * object would be `"[object Object]"` on both sides and make every shared-phone
- * teacher an "exact" match — the `shared-phone` fuzzy tier must stay reachable.
+ * or the bilingual `{ fr, ar }` object (Teacher). For the bilingual object the
+ * identity is the **FR name only** (SOU-271): AR is now optional/empty for
+ * FR-only data entry, so it can no longer anchor matching. This is the same
+ * rule {@link buildTeacherNaturalKey} stamps — the matcher must key on the FR
+ * name exactly as the write path does, or a genuine same-name+phone teacher
+ * whose AR names merely differ (or one is blank) would be downgraded from the
+ * `exact` same-name-phone tier to the `shared-phone` fuzzy tier. A raw `String()`
+ * of the object would be `"[object Object]"` on both sides and make every
+ * shared-phone teacher an "exact" match, so the FR slot is extracted explicitly —
+ * the `shared-phone` fuzzy tier stays reachable whenever the FR names differ.
  */
 function normalizePersonName(raw: unknown): string {
   if (typeof raw === 'object' && raw !== null) {
-    const bilingual = raw as { fr?: unknown; ar?: unknown };
-    return normalizeNameForMatch(`${String(bilingual.fr ?? '')} ${String(bilingual.ar ?? '')}`);
+    const bilingual = raw as { fr?: unknown };
+    return normalizeNameForMatch(String(bilingual.fr ?? ''));
   }
   return normalizeNameForMatch(String(raw ?? ''));
 }
@@ -112,8 +119,11 @@ export class DuplicateMatcher {
     entity: Readonly<Record<string, unknown>>;
     selfId: EntityId;
   }): readonly DuplicateMatch[] {
-    const name = input.entity['name'] as { fr?: unknown; ar?: unknown };
-    const nameKey = normalizeNameForMatch(`${String(name?.fr ?? '')} ${String(name?.ar ?? '')}`);
+    const name = input.entity['name'] as { fr?: unknown };
+    // FR-only identity (SOU-271), matching buildStudentNaturalKey — AR is optional
+    // and can no longer anchor matching, so a differing/blank AR never downgrades
+    // an otherwise-identical student.
+    const nameKey = normalizeNameForMatch(String(name?.fr ?? ''));
     const birthDate = String(input.entity['birthDate'] ?? '');
     const guardians = (input.entity['guardianIds'] ?? []) as readonly ParentId[];
 

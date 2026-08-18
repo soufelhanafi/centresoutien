@@ -136,8 +136,10 @@ export function normalizeNaturalKey(input: {
  * duplicate anchor is the **birth date** (until parent-linked matching lands in
  * SOU-92) — two children sharing a normalized name but a different birth date get
  * different keys. Delegates to {@link normalizeNaturalKey} so students and parents
- * share one normalization, with the FR + AR names combined into the name slot.
- * Stamped once at creation and never recomputed, so sync matching stays stable.
+ * share one normalization. The name slot is the **FR name only** (SOU-271): AR is
+ * now optional/empty for FR-only data entry, so it can no longer anchor matching —
+ * same FR name + same birth date + same center is the collision rule. Stamped once
+ * at creation and never recomputed, so sync matching stays stable.
  */
 export function buildStudentNaturalKey(input: {
   centerCode: CenterCode;
@@ -146,7 +148,7 @@ export function buildStudentNaturalKey(input: {
 }): string {
   return normalizeNaturalKey({
     centerCode: input.centerCode,
-    fullName: `${input.name.fr} ${input.name.ar}`,
+    fullName: input.name.fr,
     contact: input.birthDate,
   });
 }
@@ -156,9 +158,10 @@ export function buildStudentNaturalKey(input: {
  * anchored on the **E.164 phone** (already canonical from the {@link normalizePhone}
  * value object), so two teachers sharing a number but with different names get
  * different keys (both saved), while the same name + same phone collides (a
- * genuine duplicate). The bilingual FR + AR names are combined into the name slot,
- * exactly as {@link buildStudentNaturalKey} does. Stamped once at creation and
- * never recomputed, so sync matching stays stable.
+ * genuine duplicate). The name slot is the **FR name only** (SOU-271), exactly as
+ * {@link buildStudentNaturalKey} does — AR is now optional/empty and can no longer
+ * anchor matching. Stamped once at creation and never recomputed, so sync matching
+ * stays stable.
  */
 export function buildTeacherNaturalKey(input: {
   centerCode: CenterCode;
@@ -167,7 +170,7 @@ export function buildTeacherNaturalKey(input: {
 }): string {
   return normalizeNaturalKey({
     centerCode: input.centerCode,
-    fullName: `${input.name.fr} ${input.name.ar}`,
+    fullName: input.name.fr,
     contact: input.phone,
   });
 }

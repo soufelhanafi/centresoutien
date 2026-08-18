@@ -54,8 +54,14 @@ export function EditSubjectForm({ formId, defaultValues, onSubmit }: EditSubject
             <FormItem>
               <FormLabel>{t('subjects.form.nameAr')}</FormLabel>
               <FormControl>
-                <Input lang="ar" dir="rtl" {...field} />
+                <Input
+                  lang="ar"
+                  dir="rtl"
+                  placeholder={t('common.arabicNameOptionalPlaceholder')}
+                  {...field}
+                />
               </FormControl>
+              <p className="text-xs text-muted-foreground">{t('common.arabicNameOptionalHint')}</p>
               <FieldMessage />
             </FormItem>
           )}

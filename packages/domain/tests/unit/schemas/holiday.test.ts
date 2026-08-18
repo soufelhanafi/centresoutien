@@ -30,6 +30,13 @@ describe('holidayInputSchema', () => {
     expect(holidayInputSchema.safeParse({ ...valid, startDate: '2026-05-27', endDate: '2026-05-27' }).success).toBe(true);
   });
 
+  // SOU-271: AR is optional data entry — a holiday with an empty AR name is
+  // valid and keeps '' (never null).
+  it.each(['', '   '])('accepts an empty AR name (FR-only entry): %o', (ar) => {
+    const parsed = holidayInputSchema.parse({ ...valid, name: { fr: 'Aïd', ar } });
+    expect(parsed.name).toEqual({ fr: 'Aïd', ar: '' });
+  });
+
   it('accepts a cross-year range (end later as a full date)', () => {
     expect(holidayInputSchema.safeParse({ ...valid, startDate: '2026-12-24', endDate: '2027-01-04' }).success).toBe(true);
   });
@@ -37,6 +44,7 @@ describe('holidayInputSchema', () => {
   it.each([
     [{ ...valid, name: { fr: '', ar: 'عيد' } }, 'required'],
     [{ ...valid, name: { fr: 'x'.repeat(81), ar: 'عيد' } }, 'too-long'],
+    [{ ...valid, name: { fr: 'Aïd', ar: 'ع'.repeat(81) } }, 'too-long'],
     [{ ...valid, startDate: '2026-02-30' }, 'invalid-date'],
     [{ ...valid, startDate: '2026-13-01' }, 'invalid-date'],
     [{ ...valid, endDate: 'not-a-date' }, 'invalid-date'],

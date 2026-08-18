@@ -27,7 +27,10 @@ const formulaRef = z
 
 const bilingualLabel = z.object({
   fr: z.string().trim().min(1, { message: 'required' }).max(INVOICE_LINE_LABEL_MAX),
-  ar: z.string().trim().min(1, { message: 'required' }).max(INVOICE_LINE_LABEL_MAX),
+  // AR is optional-but-length-capped (SOU-271): a formula with an empty AR name
+  // snapshots an empty AR label and still generates a valid invoice line. The
+  // invoice PDF is FR-only, so no AR label is ever surfaced.
+  ar: z.string().trim().max(INVOICE_LINE_LABEL_MAX),
 });
 
 /** One frozen line snapshot: what was billed, not how it was derived. */

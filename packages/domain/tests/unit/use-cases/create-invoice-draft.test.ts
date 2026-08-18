@@ -102,6 +102,19 @@ describe('CreateInvoiceDraft', () => {
       expect(lines[1]?.label).toEqual({ fr: 'Préparation Bac', ar: 'تحضير الباك' });
     });
 
+    // SOU-271: a formula created FR-only carries `name.ar === ''`; snapshotting
+    // that name onto the invoice line must produce a valid line (`label_ar === ''`)
+    // — the invoice PDF is FR-only, so nothing renders the empty AR label.
+    it('accepts a line whose AR label is empty (FR-only formula) and snapshots label_ar as ""', async () => {
+      const { lines } = await build(PLANS.essentiel).execute(
+        validInput({
+          lines: [{ formulaId: FORMULA_ID, label: { fr: 'Math', ar: '' }, kind: 'regular', amountMad: 20000 }],
+        }),
+      );
+      expect(lines).toHaveLength(1);
+      expect(lines[0]?.label).toEqual({ fr: 'Math', ar: '' });
+    });
+
     it('persists the header and lines so they can be read back, and the total derives from the lines', async () => {
       const { invoice } = await build(PLANS.essentiel).execute(
         validInput({

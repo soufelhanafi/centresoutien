@@ -29,7 +29,10 @@ type SubjectFormProps = {
  */
 export function SubjectForm({ formId, defaultValues, onSubmit, serverCodeError = null }: SubjectFormProps) {
   const { t } = useTranslation();
-  const form = useForm<SubjectInput>({ resolver: zodResolver(subjectInputSchema), defaultValues });
+  const form = useForm<SubjectInput>({
+    resolver: zodResolver(subjectInputSchema),
+    defaultValues,
+  });
 
   useEffect(() => {
     if (serverCodeError) form.setError('code', { message: serverCodeError.code });
@@ -64,8 +67,14 @@ export function SubjectForm({ formId, defaultValues, onSubmit, serverCodeError =
             <FormItem>
               <FormLabel>{t('subjects.form.nameAr')}</FormLabel>
               <FormControl>
-                <Input lang="ar" dir="rtl" {...field} />
+                <Input
+                  lang="ar"
+                  dir="rtl"
+                  placeholder={t('common.arabicNameOptionalPlaceholder')}
+                  {...field}
+                />
               </FormControl>
+              <p className="text-xs text-muted-foreground">{t('common.arabicNameOptionalHint')}</p>
               <FieldMessage />
             </FormItem>
           )}

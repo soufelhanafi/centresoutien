@@ -26,14 +26,29 @@ describe('SubjectForm — French', () => {
     await i18n.changeLanguage('fr');
   });
 
-  it('shows a translated required error per field and does not call onSubmit', async () => {
+  it('requires only the French name and does not call onSubmit', async () => {
     const onSubmit = renderForm();
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: 'submit' }));
 
-    expect(await screen.findAllByText('Ce champ est requis')).toHaveLength(2);
+    expect(await screen.findAllByText('Ce champ est requis')).toHaveLength(1);
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('submits with the Arabic name left blank (SOU-271)', async () => {
+    const onSubmit = vi.fn();
+    renderForm(onSubmit);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText('Nom (français)'), 'Mathématiques');
+    await user.click(screen.getByRole('button', { name: 'submit' }));
+
+    await vi.waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ name: { fr: 'Mathématiques', ar: '' } }),
+      ),
+    );
   });
 
   it('submits the bilingual name and the trimmed/uppercased code', async () => {
@@ -60,14 +75,14 @@ describe('SubjectForm — Arabic (RTL)', () => {
     await i18n.changeLanguage('ar');
   });
 
-  it('renders Arabic labels and shows the Arabic required error', async () => {
+  it('renders Arabic labels and shows the Arabic required error on the French name only', async () => {
     renderForm();
     const user = userEvent.setup();
 
     expect(screen.getByLabelText('الاسم (بالفرنسية)')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'submit' }));
 
-    expect(await screen.findAllByText('هذا الحقل مطلوب')).toHaveLength(2);
+    expect(await screen.findAllByText('هذا الحقل مطلوب')).toHaveLength(1);
   });
 });
 
