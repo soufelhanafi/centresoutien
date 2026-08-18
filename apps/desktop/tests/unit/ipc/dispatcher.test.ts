@@ -808,9 +808,9 @@ describe('createIpcDispatcher', () => {
     const error = await dispatch('user.create', { username: 'amine', role: 'secretary' }).catch(
       (e: unknown) => e as Error,
     );
-    // Unknown/absent principal surfaces as NotAuthenticatedError (no `code`, so the
-    // transport carries the class name) — not the role code.
-    expect(decodeDomainError(error.message)?.code).toBe('NotAuthenticatedError');
+    // Unknown/absent principal surfaces as NotAuthenticatedError, whose stable
+    // `not-authenticated` code the renderer localizes — not the role code.
+    expect(decodeDomainError(error.message)?.code).toBe('not-authenticated');
   });
 
   it('allows an admin (not just an owner) to run user.create', async () => {
@@ -878,7 +878,7 @@ describe('createIpcDispatcher', () => {
   it('rejects user.list from an unauthenticated renderer (director-only channel)', async () => {
     principal = null;
     const error = await dispatch('user.list', {}).catch((e: unknown) => e as Error);
-    expect(decodeDomainError(error.message)?.code).toBe('NotAuthenticatedError');
+    expect(decodeDomainError(error.message)?.code).toBe('not-authenticated');
   });
 
   it.each(['secretary', 'viewer'] as const)(
