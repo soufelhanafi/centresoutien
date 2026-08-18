@@ -31,7 +31,8 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
 const dirname = fileURLToPath(new URL('.', import.meta.url));
 export const MAIN_ENTRY = join(dirname, '../../out/main/index.js');
 
-export type Locale = 'fr' | 'ar';
+export { MONDAYS, SEED_FIRST_ONLY, SEED_BOTH, DATE, type Locale } from './schedule-audit.dates';
+import type { Locale } from './schedule-audit.dates';
 
 export const VALID_ADMIN = { username: 'directrice', password: ['Casa', '2026', '!'].join('') } as const;
 
@@ -44,69 +45,6 @@ export const REF = {
   subjectAr: 'الرياضيات',
   groupLevel: '2 Bac SM',
 } as const;
-
-/**
- * The two materialized Mondays used across the suite, computed from the real
- * system clock (never fixed dates that silently lapse into the past — the same
- * date-bomb the SOU-266 fix eliminated from center-hours-overrides). The
- * generator materializes only future occurrences, so both Mondays are strictly
- * ahead of today: `first` is the next Monday, `second` the one after. Localized
- * date labels are produced with the same BCP-47 tags and format the renderer's
- * `formatDate` uses (fr-MA / ar-MA, long month), so the asserted strings always
- * match what the running app renders.
- */
-export const DATE: Record<Locale, { d17: string; d24: string }> = {
-  fr: { d17: dateLabel('fr', firstMonday()), d24: dateLabel('fr', secondMonday()) },
-  ar: { d17: dateLabel('ar', firstMonday()), d24: dateLabel('ar', secondMonday()) },
-};
-
-/** The ISO `YYYY-MM-DD` of the Monday strictly after today (never in the past). */
-function firstMonday(): string {
-  const now = new Date();
-  now.setDate(now.getDate() + 1); // strictly future
-  const daysUntilMonday = (1 - now.getDay() + 7) % 7;
-  now.setDate(now.getDate() + daysUntilMonday);
-  return isoDate(now);
-}
-
-/** The Monday one week after {@link firstMonday}. */
-function secondMonday(): string {
-  const d = new Date(`${firstMonday()}T00:00:00`);
-  d.setDate(d.getDate() + 7);
-  return isoDate(d);
-}
-
-function isoDate(d: Date): string {
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
-
-function dateLabel(locale: 'fr' | 'ar', iso: string): string {
-  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-MA' : 'fr-MA', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date(`${iso}T00:00:00`));
-}
-
-/** An inclusive range [start, end] that covers exactly one Monday (scenario 1). */
-export const ONE_MONDAY_RANGE = { start: isoDayOffset(firstMonday(), -1), end: isoDayOffset(firstMonday(), 1) };
-
-/** An inclusive range [start, end] covering both future Mondays (scenarios 2 & 3). */
-export const TWO_MONDAY_RANGE = { start: isoDayOffset(firstMonday(), -1), end: isoDayOffset(secondMonday(), 1) };
-
-/** The ISO `YYYY-MM-DD` of the second future Monday (the holiday date in scenario 2). */
-export function secondMondayIso(): string {
-  return secondMonday();
-}
-
-/** `iso` shifted by `days` whole civil days, returned as `YYYY-MM-DD`. */
-function isoDayOffset(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  return isoDate(d);
-}
 
 /** All copy the specs assert on, mirrored from the LIVE running app in both locales. */
 export const STR: Record<

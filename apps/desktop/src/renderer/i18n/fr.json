@@ -252,6 +252,8 @@
     "username-already-taken": "Ce nom d'utilisateur est déjà utilisé",
     "invalid-user-role": "Rôle invalide",
     "role-not-invitable": "Ce rôle ne peut pas être attribué par invitation",
+    "insufficient-role": "Vous n'avez pas les droits nécessaires pour cette action.",
+    "not-authenticated": "Votre session a expiré. Reconnectez-vous pour continuer.",
     "user-not-found": "Aucun compte ne correspond à ce nom d'utilisateur",
     "setup-code-invalid": "Code d'installation invalide",
     "setup-code-expired": "Ce code d'installation a expiré. Demandez-en un nouveau à votre responsable.",
