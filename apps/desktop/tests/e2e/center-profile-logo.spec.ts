@@ -61,7 +61,14 @@ test('picking a logo persists a relative filename and shows a preview after relo
   await gotoSettings(win, loc);
   await expect.poll(async () => (await getCenter(win))?.logoPath).toBe(stored?.logoPath);
   await win.screenshot({ path: `test-results/center-logo-${loc}.png` });
-  await expect(win.locator('form img').first()).toBeVisible({ timeout: 5000 });
+  // The <img> must be visible AND actually decode (naturalWidth > 0) — `toBeVisible`
+  // alone passes on a broken image, which the CSP `img-src` regression (SOU-28 logo)
+  // proved: a blob URL blocked by `default-src 'self'` still occupies layout space.
+  const img = win.locator('form img').first();
+  await expect(img).toBeVisible({ timeout: 5000 });
+  await expect
+    .poll(async () => img.evaluate((el) => (el as HTMLImageElement).naturalWidth), { timeout: 5000 })
+    .toBeGreaterThan(0);
 });
 
 // Removing a logo (symmetric, low-risk case) trimmed per SOU-142 — critical-only E2E.
