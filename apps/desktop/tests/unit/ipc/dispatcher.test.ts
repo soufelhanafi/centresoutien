@@ -12,6 +12,7 @@ import type {
   ParentId,
   StudentId,
   PhoneNumber,
+  Role,
   RoomId,
   SubjectId,
   TimeOfDay,
@@ -203,11 +204,16 @@ const stubListUsers = async () => [
 // Stub login use case — locked when the password is 'locked', wrong when it is
 // 'nope', otherwise success. Enough to exercise all three response shapes.
 const LOCKED_UNTIL_MS = new Date('2026-07-29T10:15:00Z').getTime();
+const LOGGED_IN_USER = {
+  userId: 'usr_00000000000000000000000001' as UserId,
+  username: 'directrice',
+  role: 'owner' as Role,
+};
 const stubAttemptLogin: AttemptLoginUseCase = {
   execute: async (input) => {
     if (input.password === 'locked') return { outcome: 'locked-out', lockedUntil: LOCKED_UNTIL_MS };
     if (input.password === 'nope') return { outcome: 'invalid-credentials', remainingAttempts: 3 };
-    return { outcome: 'success' };
+    return { outcome: 'success', user: LOGGED_IN_USER };
   },
 };
 let remembered = false;
@@ -217,6 +223,28 @@ const stubDeviceSessions: DeviceSessions = {
     remembered = false;
   },
 };
+// The trusted session principal the SOU-265 role guard reads. `null` == no
+// established principal (rejected as unauthenticated); a role drives the director
+// gate on user.create / user.list.
+let principal: { userId: UserId; role: Role } | null = null;
+const stubResolvePrincipal = async () => principal;
+// Login establishes the principal in memory directly from the verified identity
+// (SOU-265) — independent of any persisted session — so the stub mirrors that.
+const stubSetPrincipal = (next: { userId: UserId; role: Role }) => {
+  principal = next;
+};
+const stubClearPrincipal = () => {
+  principal = null;
+};
+/** Run `body` with a principal set, always restoring null afterwards. */
+async function asPrincipal(role: Role, body: () => Promise<void>): Promise<void> {
+  principal = { userId: 'usr_00000000000000000000000001' as UserId, role };
+  try {
+    await body();
+  } finally {
+    principal = null;
+  }
+}
 
 // Center stubs (SOU-28). The store echoes the last saved profile; the plan is
 // seeded from the context and never overwritten by the request.
@@ -500,6 +528,13 @@ const dispatch = createIpcDispatcher(
     now: () => NOW,
     attemptLogin: stubAttemptLogin,
     deviceSessions: stubDeviceSessions,
+    adminUsername: async () => 'directrice',
+    resetPasswordWithRecoveryCode: {
+      execute: async () => ({ outcome: 'success' as const }),
+    },
+    resolvePrincipal: stubResolvePrincipal,
+    setPrincipal: stubSetPrincipal,
+    clearPrincipal: stubClearPrincipal,
     getCenterProfile: stubGetCenter,
     saveCenterProfile: stubSaveCenter,
     storeCenterLogo: stubStoreLogo,
@@ -732,8 +767,7 @@ describe('createIpcDispatcher', () => {
 
   it('runs user.create, forwards the injected envelope context, and returns the view + one-time code', async () => {
     lastCreateUserCommand = null;
-    remembered = true;
-    try {
+    await asPrincipal('owner', async () => {
       await expect(dispatch('user.create', { username: 'amine', role: 'secretary' })).resolves.toEqual(
         {
           user: {
@@ -751,36 +785,54 @@ describe('createIpcDispatcher', () => {
         role: 'secretary',
         centerCode: context.centerCode,
       });
-    } finally {
-      remembered = false;
-    }
+    });
   });
 
   it('never leaks credential material through the user.create response', async () => {
-    remembered = true;
-    try {
+    await asPrincipal('owner', async () => {
       const res = await dispatch('user.create', { username: 'amine', role: 'secretary' });
       expect(res.user).not.toHaveProperty('passwordHash');
       expect(res.user).not.toHaveProperty('setupCodeHash');
       expect(JSON.stringify(res.user)).not.toContain('argon2id');
-    } finally {
-      remembered = false;
-    }
+    });
   });
 
   it('rejects user.create whose username fails the shared schema', async () => {
-    remembered = true;
-    try {
+    await asPrincipal('owner', async () => {
       await expect(dispatch('user.create', { username: 'a', role: 'secretary' })).rejects.toThrow();
-    } finally {
-      remembered = false;
-    }
+    });
   });
 
   it('rejects user.create from an unauthenticated renderer (director-only channel)', async () => {
-    remembered = false;
-    await expect(dispatch('user.create', { username: 'amine', role: 'secretary' })).rejects.toThrow();
+    principal = null;
+    const error = await dispatch('user.create', { username: 'amine', role: 'secretary' }).catch(
+      (e: unknown) => e as Error,
+    );
+    // Unknown/absent principal surfaces as NotAuthenticatedError, whose stable
+    // `not-authenticated` code the renderer localizes — not the role code.
+    expect(decodeDomainError(error.message)?.code).toBe('not-authenticated');
   });
+
+  it('allows an admin (not just an owner) to run user.create', async () => {
+    await asPrincipal('admin', async () => {
+      await expect(
+        dispatch('user.create', { username: 'amine', role: 'secretary' }),
+      ).resolves.toHaveProperty('setupCode');
+    });
+  });
+
+  it.each(['secretary', 'viewer'] as const)(
+    'rejects user.create from a %s with the insufficient-role code (director-only)',
+    async (role) => {
+      await asPrincipal(role, async () => {
+        const error = await dispatch('user.create', {
+          username: 'amine',
+          role: 'secretary',
+        }).catch((e: unknown) => e as Error);
+        expect(decodeDomainError(error.message)?.code).toBe('insufficient-role');
+      });
+    },
+  );
 
   it('runs user.redeemSetupCode and forwards the request to the use case', async () => {
     lastRedeemInput = null;
@@ -795,8 +847,7 @@ describe('createIpcDispatcher', () => {
   });
 
   it('runs user.list and returns only redacted views (no credential hashes)', async () => {
-    remembered = true;
-    try {
+    await asPrincipal('owner', async () => {
       const res = await dispatch('user.list', {});
       expect(res).toEqual({
         users: [
@@ -821,15 +872,24 @@ describe('createIpcDispatcher', () => {
         expect(user).not.toHaveProperty('setupCodeHash');
         expect(user).not.toHaveProperty('setupCode');
       }
-    } finally {
-      remembered = false;
-    }
+    });
   });
 
   it('rejects user.list from an unauthenticated renderer (director-only channel)', async () => {
-    remembered = false;
-    await expect(dispatch('user.list', {})).rejects.toThrow();
+    principal = null;
+    const error = await dispatch('user.list', {}).catch((e: unknown) => e as Error);
+    expect(decodeDomainError(error.message)?.code).toBe('not-authenticated');
   });
+
+  it.each(['secretary', 'viewer'] as const)(
+    'rejects user.list from a %s with the insufficient-role code (director-only)',
+    async (role) => {
+      await asPrincipal(role, async () => {
+        const error = await dispatch('user.list', {}).catch((e: unknown) => e as Error);
+        expect(decodeDomainError(error.message)?.code).toBe('insufficient-role');
+      });
+    },
+  );
 
   // SOU-97: the bare `admin.verify` channel was removed so a locked console
   // cannot be probed for a password bypassing the lockout throttle. Password
@@ -845,6 +905,33 @@ describe('createIpcDispatcher', () => {
     await expect(
       dispatch('auth.login', { username: 'directrice', password: PASS, rememberDevice: true }),
     ).resolves.toEqual({ outcome: 'success' });
+  });
+
+  it('establishes the principal on a NON-remembered login so the director clears the guard (SOU-265 B1)', async () => {
+    principal = null;
+    // rememberDevice omitted/false: no session is persisted, so re-reading the
+    // session would resolve to null. Login must still establish the principal in
+    // memory from the verified identity — otherwise the director is wrongly
+    // rejected at the role guard and writes mis-attribute to the bootstrap user.
+    await expect(
+      dispatch('auth.login', { username: 'directrice', password: PASS }),
+    ).resolves.toEqual({ outcome: 'success' });
+    expect(principal).toEqual({ userId: LOGGED_IN_USER.userId, role: 'owner' });
+    // The freshly-established owner now passes the director-only guard.
+    await expect(
+      dispatch('user.create', { username: 'amine', role: 'secretary' }),
+    ).resolves.toHaveProperty('setupCode');
+    principal = null;
+  });
+
+  it('clears the principal on a recovery-code password reset (SOU-265 B4)', async () => {
+    principal = { userId: LOGGED_IN_USER.userId, role: 'owner' };
+    await expect(
+      dispatch('auth.resetWithCode', { code: 'ABCD-EFGH-JKLM-NPQR', password: 'Casa2026!' }),
+    ).resolves.toEqual({ outcome: 'success' });
+    // The reset invalidated the device session, so the stale principal must be
+    // dropped — the guard now fails closed until the device authenticates again.
+    expect(principal).toBeNull();
   });
 
   it('serializes auth.login invalid-credentials with remaining attempts', async () => {

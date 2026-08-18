@@ -134,7 +134,6 @@ import type {
   CreateAdminAccount,
   CreateUser,
   RedeemSetupCode,
-  User,
   ChangeAdminPassword,
   SaveCenterHours,
   GetCenterHours,
@@ -184,10 +183,9 @@ import {
   TeacherAvailabilityExceptionNotFoundError,
   NotAuthenticatedError,
   SECURITY_QUESTION_KEYS,
-  isSetupCodePending,
-  canLogin,
 } from '@centresoutien/domain';
 import type { RegisterableIpcHandlers, IpcRequest } from '../../shared/ipc/contract';
+import type { SessionPrincipal } from '../session/session-principal';
 import type { LocalePreference } from '../infra/locale-preference-store';
 import { createBackupHandlers, type BackupHandlerDeps } from './backup-handlers';
 import { createBackupExcelHandlers, type BackupExcelHandlerDeps } from './backup-excel-handlers';
@@ -205,6 +203,7 @@ import { createPaymentReceiptHandlers, type PaymentReceiptHandlerDeps } from './
 import { createScheduleHandlers, type ScheduleHandlerDeps } from './schedule-handlers';
 import { createSyncHandlers, type SyncHandlerDeps } from './sync-handlers';
 import { createCenterSwitchHandlers, type CenterSwitchHandlerDeps } from './center-switch-handlers';
+import { createUserHandlers, type UserHandlerDeps } from './user-handlers';
 import {
   createAttendanceReportingHandlers,
   type AttendanceReportingHandlerDeps,
@@ -325,6 +324,7 @@ export type RequestPasswordResetViaSecurityQuestionsUseCase = Pick<
   'execute'
 >;
 export type DeviceSessions = Pick<DeviceSessionService, 'isAuthenticated' | 'forget'>;
+
 export type GetCenterProfileUseCase = Pick<GetCenterProfile, 'execute'>;
 export type SaveCenterProfileUseCase = Pick<SaveCenterProfile, 'execute'>;
 export type StoreCenterLogoUseCase = Pick<StoreCenterLogo, 'execute'>;
@@ -428,31 +428,6 @@ function toNiveauUsageView(row: NiveauUsage) {
       id: ref.id,
       label: { fr: ref.label.fr, ar: ref.label.ar },
     })),
-  };
-}
-
-/** A user's login-readiness as the roster renders it (SOU-256): `active` once a
- *  password exists, `setup-pending` while the invite code is still redeemable, and
- *  `setup-expired` for an invite whose code lapsed before redemption — the latter
- *  has no password and cannot log in, so it must read distinctly from `active`
- *  (which the old boolean `setupPending` collapsed them into). */
-function userAccountStatus(user: User, now: Date): 'active' | 'setup-pending' | 'setup-expired' {
-  if (canLogin(user)) return 'active';
-  if (isSetupCodePending(user, now)) return 'setup-pending';
-  return 'setup-expired';
-}
-
-/** Project a User to its boundary DTO (SOU-256): credential material NEVER crosses
- *  the boundary — `passwordHash`, `setupCodeHash`, and the raw setup code are
- *  stripped, leaving only the fields the user-management list renders. `status` is
- *  the domain-derived login-readiness, computed against the injected clock — never a
- *  raw hash the renderer could inspect. */
-function toUserView(user: User, now: Date) {
-  return {
-    id: user.id,
-    username: user.username,
-    role: user.role,
-    status: userAccountStatus(user, now),
   };
 }
 
@@ -914,7 +889,8 @@ export type HandlerDeps = BackupHandlerDeps &
   ScheduleHandlerDeps &
   AttendanceReportingHandlerDeps &
   SyncHandlerDeps &
-  CenterSwitchHandlerDeps & {
+  CenterSwitchHandlerDeps &
+  UserHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
   activePlanFeatures: () => readonly FeatureFlag[];
@@ -1019,13 +995,21 @@ export type HandlerDeps = BackupHandlerDeps &
   adminExists: AdminExists;
   adminUsername: () => Promise<string>;
   createAdminAccount: CreateAdminAccountUseCase;
-  createUser: CreateUserUseCase;
-  redeemSetupCode: RedeemSetupCodeUseCase;
-  listUsers: () => Promise<readonly User[]>;
+  // createUser / redeemSetupCode / listUsers / resolvePrincipal come from
+  // UserHandlerDeps (the extracted user-management channel factory, SOU-265).
   now: () => Date;
   changeAdminPassword: ChangeAdminPasswordUseCase;
   attemptLogin: AttemptLoginUseCase;
   deviceSessions: DeviceSessions;
+  /** Establish the trusted principal in memory from a just-verified login (SOU-265),
+   *  independent of whether a remember-me session was persisted. Login is the
+   *  authoritative moment identity is set; the persisted-session re-resolve only
+   *  serves the remember-me reopen path. */
+  setPrincipal: (principal: SessionPrincipal) => void;
+  /** Drop the cached session principal (logout / password reset / session
+   *  invalidation) so later writes stop attributing to it and the role guard
+   *  fails closed until the device authenticates again. */
+  clearPrincipal: () => void;
   generateRecoveryCodes: GenerateRecoveryCodesUseCase;
   verifyRecoveryCode: VerifyRecoveryCodeUseCase;
   resetPasswordWithRecoveryCode: ResetPasswordWithRecoveryCodeUseCase;
@@ -1918,35 +1902,17 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       await deps.changeAdminPassword.execute(request);
       return { ok: true };
     },
-    'user.create': async (request) => {
-      // Inviting staff is director-only work. Renderer visibility is not an
-      // authorization boundary — the preload bridge exposes this channel directly,
-      // so a logged-out renderer could otherwise mint an employee, read the
-      // one-time setup code, redeem it, and gain access with no prior credential.
-      // (Role-scoping to owner/admin is SOU-265 — main has no session principal yet.)
-      if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
-      const { user, setupCode } = await deps.createUser.execute({
-        ...request,
-        ...deps.envelopeContext(),
-      });
-      return { user: toUserView(user, deps.now()), setupCode };
-    },
-    // Intentionally unauthenticated: this IS the first-login flow — the invited
-    // employee has no session yet. Single-use + expiry are enforced in the domain.
-    'user.redeemSetupCode': async (request) => {
-      await deps.redeemSetupCode.execute(request);
-      return { ok: true };
-    },
-    'user.list': async () => {
-      if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
-      const users = await deps.listUsers();
-      const now = deps.now();
-      return { users: users.map((user) => toUserView(user, now)) };
-    },
     'auth.login': async (request) => {
       const result = await deps.attemptLogin.execute(request);
       switch (result.outcome) {
         case 'success':
+          // Login is the authoritative moment the principal is established
+          // (SOU-265): the use case already verified the credential and resolved
+          // who is in, so set it in memory directly from that result — regardless
+          // of whether a remember-me session was persisted. A non-remembered
+          // login persists no session, so re-reading it would wrongly resolve to
+          // null and both drop attribution and lock the director out of the guard.
+          deps.setPrincipal({ userId: result.user.userId, role: result.user.role });
           return { outcome: 'success' };
         case 'invalid-credentials':
           return { outcome: 'invalid-credentials', remainingAttempts: result.remainingAttempts };
@@ -1954,9 +1920,17 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
           return { outcome: 'locked-out', lockedUntilMs: result.lockedUntil };
       }
     },
-    'auth.session': async () => ({ authenticated: await deps.deviceSessions.isAuthenticated() }),
+    'auth.session': async () => {
+      // Only reports whether the device is remembered. It must NOT re-resolve the
+      // principal (SOU-265): a non-remembered login established the principal in
+      // memory with no persisted session, so re-reading the session here would
+      // wrongly wipe it. The remember-me reopen path re-resolves once, at the
+      // startup seed in the composition root — the single re-resolution site.
+      return { authenticated: await deps.deviceSessions.isAuthenticated() };
+    },
     'auth.logout': async () => {
       await deps.deviceSessions.forget();
+      deps.clearPrincipal();
       return { ok: true };
     },
     'admin.recovery.generate': async () => {
@@ -1978,6 +1952,12 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       });
       switch (result.outcome) {
         case 'success':
+          // The reset invalidated the device session (see the reset use case's
+          // unit of work), so the in-memory principal is now stale — drop it too
+          // (SOU-265) or the role guard and write attribution would trust a
+          // credential the user just reset. Every session-invalidating path must
+          // clear the principal, not only logout.
+          deps.clearPrincipal();
           return { outcome: 'success' };
         case 'locked-out':
           return { outcome: 'locked-out', lockedUntilMs: result.lockedUntil };
@@ -2040,6 +2020,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     ...createAttendanceReportingHandlers(deps),
     ...createSyncHandlers(deps),
     ...createCenterSwitchHandlers(deps),
+    ...createUserHandlers(deps),
   };
 
   // Dev-only plan switcher (SOU-98): `import.meta.env.DEV` is a build-time

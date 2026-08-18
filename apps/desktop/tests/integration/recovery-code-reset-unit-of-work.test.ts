@@ -83,7 +83,12 @@ function makeCode(): RecoveryCode {
 }
 
 function makeSession(): DeviceSession {
-  return { id: SESSION_ID, createdAt: AT.getTime(), expiresAt: LATER.getTime() };
+  return {
+    id: SESSION_ID,
+    createdAt: AT.getTime(),
+    expiresAt: LATER.getTime(),
+    userId: 'usr_00000000000000000000000001' as UserId,
+  };
 }
 
 let seq = 1;
