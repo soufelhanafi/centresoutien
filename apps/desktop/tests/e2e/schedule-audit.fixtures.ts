@@ -31,7 +31,8 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
 const dirname = fileURLToPath(new URL('.', import.meta.url));
 export const MAIN_ENTRY = join(dirname, '../../out/main/index.js');
 
-export type Locale = 'fr' | 'ar';
+export { MONDAYS, SEED_FIRST_ONLY, SEED_BOTH, DATE, type Locale } from './schedule-audit.dates';
+import type { Locale } from './schedule-audit.dates';
 
 export const VALID_ADMIN = { username: 'directrice', password: ['Casa', '2026', '!'].join('') } as const;
 
@@ -44,57 +45,6 @@ export const REF = {
   subjectAr: 'الرياضيات',
   groupLevel: '2 Bac SM',
 } as const;
-
-/**
- * The two materialized Mondays used across the suite are computed from the
- * runtime clock (SOU-255 rule) — the next two Mondays strictly after today, so
- * the audit, which only surfaces live (non-past) occurrences, always lists them.
- * Dates are built from LOCAL calendar components (never `toISOString`, which
- * would shift the day across the UTC boundary).
- */
-function isoLocalDate(date: Date): string {
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${mm}-${dd}`;
-}
-
-function nextMondayStrictlyAfter(base: Date): Date {
-  const date = new Date(base.getFullYear(), base.getMonth(), base.getDate());
-  const daysUntilMonday = (1 - date.getDay() + 7) % 7 || 7;
-  date.setDate(date.getDate() + daysUntilMonday);
-  return date;
-}
-
-/**
- * The date label exactly as the running app renders it: day + long month + year,
- * space-separated. Moroccan Arabic (`ar-MA`) names August "غشت"; the app renders
- * Arabic dates with LATIN digits, so `numberingSystem: 'latn'` is forced to match
- * the live audit row (which `rowForDate` matches by `hasText`).
- */
-function dateLabel(date: Date, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-MA' : 'fr', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    numberingSystem: 'latn',
-  }).format(date);
-}
-
-const firstMonday = nextMondayStrictlyAfter(new Date());
-const secondMonday = new Date(firstMonday.getFullYear(), firstMonday.getMonth(), firstMonday.getDate() + 7);
-
-/** The two materialized Mondays as `YYYY-MM-DD`, both strictly future vs the runtime clock. */
-export const MONDAYS = { first: isoLocalDate(firstMonday), second: isoLocalDate(secondMonday) } as const;
-
-/** `session.generate` materializes every Monday within [from,to] inclusive. */
-export const SEED_FIRST_ONLY = { from: MONDAYS.first, to: MONDAYS.first } as const;
-export const SEED_BOTH = { from: MONDAYS.first, to: MONDAYS.second } as const;
-
-/** Localized labels for the two Mondays, matched verbatim against the live audit rows. */
-export const DATE: Record<Locale, { first: string; second: string }> = {
-  fr: { first: dateLabel(firstMonday, 'fr'), second: dateLabel(secondMonday, 'fr') },
-  ar: { first: dateLabel(firstMonday, 'ar'), second: dateLabel(secondMonday, 'ar') },
-};
 
 /** All copy the specs assert on, mirrored from the LIVE running app in both locales. */
 export const STR: Record<
