@@ -7,8 +7,7 @@ export type InfeasibleGeneratorReason =
   | 'pool-smaller-than-sessions' // fewer eligible weekdays than sessions requested
   | 'gap-unsatisfiable' // no placement of the sessions keeps every pair ≥ minGapDays apart
   | 'room-capacity-exceeded' // groups × sessionsPerWeek outgrows eligibleDays × rooms (SOU-261)
-  | 'duration-exceeds-windows' // no opening window on any eligible day fits sessionDurationMinutes (SOU-261)
-  | 'group-exceeds-room-capacity'; // a scoped group's seat count is larger than every room can hold (SOU-268)
+  | 'duration-exceeds-windows'; // no opening window on any eligible day fits sessionDurationMinutes (SOU-261)
 
 /**
  * Thrown by the auto mode of the session generator (SOU-158) when no set of
@@ -50,5 +49,29 @@ export class NoRoomsConfiguredError extends DomainError {
 
   constructor() {
     super('Cannot assign rooms to the generated plan: no rooms are configured for this center.');
+  }
+}
+
+/**
+ * Thrown by the auto session-generator (SOU-272) when a scoped group needs more
+ * seats than the largest configured room can hold — no room assignment could
+ * ever satisfy the seat-fit invariant {@link GroupOverCapacityError} enforces at
+ * commit, so the run is infeasible as configured. Kept distinct from
+ * {@link InfeasibleGeneratorConfigError}, whose reasons all advise reordering
+ * days/gaps: this one carries its own stable `group-exceeds-room-capacity` code
+ * so the renderer surfaces the right remediation ("add a larger room or shrink
+ * the group") via `t(\`errors.${code}\`)` instead of the gap advice. Surfacing it
+ * on the preview beats a mid-commit crash.
+ */
+export class GroupExceedsRoomCapacityError extends DomainError {
+  readonly code = 'group-exceeds-room-capacity';
+
+  constructor(
+    readonly groupCapacity: number,
+    readonly largestRoomCapacity: number,
+  ) {
+    super(
+      `A group needs ${groupCapacity} seats but the largest room holds only ${largestRoomCapacity}.`,
+    );
   }
 }

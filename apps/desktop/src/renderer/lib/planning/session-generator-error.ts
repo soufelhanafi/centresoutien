@@ -6,10 +6,11 @@ import { resolveDomainErrorCode } from '../ipc/resolve-domain-error-code';
  * the stable code from the IPC rejection (see `resolveDomainErrorCode`) and
  * localizes a fixed line via `t(\`errors.${code}\`)`.
  *
- * - `infeasible-generator-config` / `no-rooms-configured` are raised by the
- *   **preview** (the pure engine can't place the requested pattern, or the center
- *   has no rooms to assign) — surfaced inline on the config step so the admin can
- *   fix the config before ever committing.
+ * - `infeasible-generator-config` / `no-rooms-configured` /
+ *   `group-exceeds-room-capacity` are raised by the **preview** (the pure engine
+ *   can't place the requested pattern, the center has no rooms to assign, or a
+ *   group is larger than every room) — surfaced inline on the config step so the
+ *   admin can fix the config before ever committing.
  * - The scheduling clashes (`room-conflict`, `session-outside-center-hours`,
  *   `weekly-recurring-session-not-found`) are raised by the **commit** step, which
  *   re-runs the composite conflict check against the live schedule at write time.
@@ -17,6 +18,7 @@ import { resolveDomainErrorCode } from '../ipc/resolve-domain-error-code';
 export type GeneratorErrorCode =
   | 'infeasible-generator-config'
   | 'no-rooms-configured'
+  | 'group-exceeds-room-capacity'
   | 'room-conflict'
   | 'session-outside-center-hours'
   | 'weekly-recurring-session-not-found';
@@ -24,6 +26,7 @@ export type GeneratorErrorCode =
 const DECODED_CODE_TO_RENDERER_CODE: Readonly<Record<string, GeneratorErrorCode>> = {
   'infeasible-generator-config': 'infeasible-generator-config',
   'no-rooms-configured': 'no-rooms-configured',
+  'group-exceeds-room-capacity': 'group-exceeds-room-capacity',
   RoomConflictError: 'room-conflict',
   SessionOutsideCenterHoursError: 'session-outside-center-hours',
   'weekly-recurring-session-not-found': 'weekly-recurring-session-not-found',

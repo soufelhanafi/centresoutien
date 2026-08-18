@@ -8,7 +8,7 @@ import type { SessionGeneratorConfig } from '../../../src/services/session-gener
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
-import { InfeasibleGeneratorConfigError } from '../../../src/errors/session-generator-errors';
+import { GroupExceedsRoomCapacityError } from '../../../src/errors/session-generator-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Group, GroupId } from '../../../src/entities/group';
 import type { SubjectId } from '../../../src/entities/subject';
@@ -360,7 +360,7 @@ describe('PreviewGeneratedSchedule', () => {
 
       await expect(
         useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 }))),
-      ).rejects.toBeInstanceOf(InfeasibleGeneratorConfigError);
+      ).rejects.toBeInstanceOf(GroupExceedsRoomCapacityError);
     });
   });
 

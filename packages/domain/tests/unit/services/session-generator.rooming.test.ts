@@ -6,7 +6,10 @@ import {
   type SessionGenerationInput,
   type UnroomedBlock,
 } from '../../../src/services/session-generator';
-import { InfeasibleGeneratorConfigError } from '../../../src/errors/session-generator-errors';
+import {
+  GroupExceedsRoomCapacityError,
+  InfeasibleGeneratorConfigError,
+} from '../../../src/errors/session-generator-errors';
 import type { DayHours } from '../../../src/policies/session-conflict-policy';
 import type { ScheduledSessionRef } from '../../../src/errors/scheduling-errors';
 import type { GroupId, GroupKind } from '../../../src/entities/group';
@@ -233,6 +236,52 @@ describe('assignRoomsToBlocks — seat-fit draw (SOU-272)', () => {
 
     expect(roomByBlock.get(block.block)).toBe(ROOM_A);
   });
+
+  it('breaks teacher room continuity when the inherited room cannot seat the later group', () => {
+    const teacher = TEACHERS[0]!;
+    // Same teacher, back-to-back on Monday: a small group then a larger one.
+    const small = unroomed(G1, teacher, at(MON, '09:00', '11:00'));
+    const big = unroomed(G2, teacher, at(MON, '11:00', '13:00'));
+    const seatFit = {
+      roomCapacity: new Map([
+        [ROOM_A, 12],
+        [ROOM_B, 20],
+      ]),
+      seatsByGroup: new Map([
+        [G1, 5],
+        [G2, 16],
+      ]),
+    };
+
+    // The small group draws ROOM_A (index 0). Continuity would hand ROOM_A (12)
+    // to the 16-seat group and reproduce the commit-time over-capacity failure —
+    // seat-fit must break the chain and re-draw the only room that fits.
+    const roomByBlock = assignRoomsToBlocks([small, big], [ROOM_A, ROOM_B], sequenceRandom([0, 0]), [], seatFit);
+
+    expect(roomByBlock.get(small.block)).toBe(ROOM_A);
+    expect(roomByBlock.get(big.block)).toBe(ROOM_B);
+  });
+
+  it('keeps teacher room continuity when the inherited room still seats the later group', () => {
+    const teacher = TEACHERS[0]!;
+    const first = unroomed(G1, teacher, at(MON, '09:00', '11:00'));
+    const second = unroomed(G2, teacher, at(MON, '11:00', '13:00'));
+    const seatFit = {
+      roomCapacity: new Map([
+        [ROOM_A, 20],
+        [ROOM_B, 20],
+      ]),
+      seatsByGroup: new Map([
+        [G1, 10],
+        [G2, 16],
+      ]),
+    };
+
+    const roomByBlock = assignRoomsToBlocks([first, second], [ROOM_A, ROOM_B], sequenceRandom([0, 0]), [], seatFit);
+
+    expect(roomByBlock.get(first.block)).toBe(ROOM_A);
+    expect(roomByBlock.get(second.block)).toBe(ROOM_A);
+  });
 });
 
 describe('SessionGenerator — seat-fit rooming end to end (SOU-272)', () => {
@@ -266,10 +315,11 @@ describe('SessionGenerator — seat-fit rooming end to end (SOU-272)', () => {
 
     try {
       new SessionGenerator(fakeRandom()).generate(run);
-      expect.unreachable('expected an infeasible-config throw');
+      expect.unreachable('expected a group-exceeds-room-capacity throw');
     } catch (error) {
-      expect(error).toBeInstanceOf(InfeasibleGeneratorConfigError);
-      expect((error as InfeasibleGeneratorConfigError).reason).toBe('group-exceeds-room-capacity');
+      expect(error).toBeInstanceOf(GroupExceedsRoomCapacityError);
+      expect((error as GroupExceedsRoomCapacityError).groupCapacity).toBe(16);
+      expect((error as GroupExceedsRoomCapacityError).largestRoomCapacity).toBe(12);
     }
   });
 
