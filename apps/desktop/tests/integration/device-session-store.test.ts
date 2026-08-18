@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Database as DB } from 'better-sqlite3';
-import type { DeviceSession, DeviceSessionId } from '@centresoutien/domain';
+import type { DeviceSession, DeviceSessionId, UserId } from '@centresoutien/domain';
 import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteDeviceSessionStore } from '../../src/data/sqlite/repositories/device-session-store';
@@ -31,6 +31,7 @@ function makeSession(over: Partial<DeviceSession> = {}): DeviceSession {
     id: 'ses_00000000000000000000000001' as DeviceSessionId,
     createdAt: new Date('2026-07-29T10:00:00Z').getTime(),
     expiresAt: new Date('2026-08-28T10:00:00Z').getTime(),
+    userId: 'usr_00000000000000000000000001' as UserId,
     ...over,
   };
 }
@@ -40,10 +41,30 @@ describe('SqliteDeviceSessionStore', () => {
     expect(await store.getCurrent()).toBeNull();
   });
 
-  it('round-trips a session through save + getCurrent', async () => {
-    const session = makeSession();
+  it('round-trips a session through save + getCurrent, including the user id', async () => {
+    const session = makeSession({ userId: 'usr_00000000000000000000000042' as UserId });
     await store.save(session);
     expect(await store.getCurrent()).toEqual(session);
+  });
+
+  it('reads back a legacy row (user_id NULL) as userId null — the unknown-principal degrade', async () => {
+    // Simulate a device remembered before migration 0046 added the column: the
+    // session row exists but its user_id is NULL.
+    db.prepare(
+      `UPDATE device_sessions
+         SET session_id = @id, created_at = @createdAt, expires_at = @expiresAt, user_id = NULL
+       WHERE id = 1`,
+    ).run({
+      id: 'ses_00000000000000000000000005',
+      createdAt: new Date('2026-07-29T10:00:00Z').getTime(),
+      expiresAt: new Date('2026-08-28T10:00:00Z').getTime(),
+    });
+    expect(await store.getCurrent()).toEqual({
+      id: 'ses_00000000000000000000000005',
+      createdAt: new Date('2026-07-29T10:00:00Z').getTime(),
+      expiresAt: new Date('2026-08-28T10:00:00Z').getTime(),
+      userId: null,
+    });
   });
 
   it('clear nulls the columns so getCurrent is null again — no row is deleted', async () => {
