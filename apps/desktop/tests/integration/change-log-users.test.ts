@@ -115,6 +115,38 @@ describe('change_log — users reprojection (SOU-252)', () => {
     }
   });
 
+  it('replays a legacy payload written before the email column existed as email = NULL (SOU-157)', async () => {
+    // A change_log row authored by an older build has an entity snapshot with no
+    // `email` key at all. Replay must land it as NULL, not crash — the mapper's
+    // `?? null` guards the undefined → NULL path the driver would otherwise coerce
+    // silently. Simulate by stripping `email` from a real payload's entity.
+    await repo.save(makeUser({ email: 'directrice@example.com' as User['email'] }));
+
+    const targetDir = mkdtempSync(join(tmpdir(), 'cs-changelog-users-legacy-'));
+    const target = openDatabase({ centreId: 'C2', key: KEY, dir: targetDir });
+    try {
+      runMigrations(target, REAL_MIGRATIONS);
+      const insert = target.prepare(
+        `INSERT INTO change_log
+           (entity_type, entity_id, revision, op, payload, device_id, created_at, center_code)
+         VALUES (@entity_type, @entity_id, @revision, @op, @payload, @device_id, @created_at, @center_code)`,
+      );
+      for (const row of logRows(db)) {
+        const payload = JSON.parse(row.payload as string) as { version: number; entity: Record<string, unknown> };
+        delete payload.entity.email;
+        insert.run({ ...row, payload: JSON.stringify(payload) });
+      }
+
+      replayChangeLog(target);
+
+      const rebuilt = target.prepare('SELECT email FROM users').all();
+      expect(rebuilt).toEqual([{ email: null }]);
+    } finally {
+      target.close();
+      rmSync(targetDir, { recursive: true, force: true });
+    }
+  });
+
   it('reprojects a redeemed employee so the credential + redemption stamp land on laptop B', async () => {
     const redeemed = makeUser({
       id: 'usr_00000000000000000000000003' as UserId,

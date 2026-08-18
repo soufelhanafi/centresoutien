@@ -43,7 +43,12 @@ export function generateResetCode(): string {
 // A server-side pepper makes an offline brute force of the 6-digit space
 // infeasible from a Redis dump alone (the pepper is never stored).
 function codePepper(): string {
-  return process.env.RESET_CODE_PEPPER ?? "centresoutien-reset-pepper";
+  const pepper = process.env.RESET_CODE_PEPPER;
+  if (pepper) return pepper;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("reset_pepper_not_configured");
+  }
+  return "centresoutien-reset-pepper-dev-only";
 }
 
 function normalizeEmail(email: string): string {
@@ -177,8 +182,17 @@ export async function verifyAndConsumeResetCode(
 }
 
 /** One-way, truncated hash of an email for audit logs (never store PII). */
+function requiredSalt(envVar: string, devFallback: string): string {
+  const value = process.env[envVar];
+  if (value) return value;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(`${envVar.toLowerCase()}_not_configured`);
+  }
+  return devFallback;
+}
+
 export function hashEmailForAudit(email: string): string {
-  const salt = process.env.AUDIT_HASH_SALT ?? "centresoutien-audit";
+  const salt = requiredSalt("AUDIT_HASH_SALT", "centresoutien-audit-dev-only");
   return createHash("sha256")
     .update(`${salt}:${normalizeEmail(email)}`)
     .digest("hex")
@@ -187,7 +201,7 @@ export function hashEmailForAudit(email: string): string {
 
 /** One-way, truncated hash of a client IP for rate-limit keys and audit logs. */
 export function hashIpForAudit(ip: string): string {
-  const salt = process.env.IP_HASH_SALT ?? "centresoutien";
+  const salt = requiredSalt("IP_HASH_SALT", "centresoutien-ip-dev-only");
   return createHash("sha256").update(`${salt}:${ip}`).digest("hex").slice(0, 16);
 }
 

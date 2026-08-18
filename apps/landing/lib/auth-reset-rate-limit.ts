@@ -38,7 +38,15 @@ if (!hasUpstashCredentials) {
   );
 }
 
-async function passes(limiter: Ratelimit | null, identifier: string): Promise<boolean> {
+// `failOpenOnError` decides behavior when Upstash itself errors (not when it's
+// unconfigured — that's always fail-open for dev). The confirm endpoint is the
+// brute-force surface, so it fails CLOSED on an outage; the request endpoint
+// fails open so a legitimate user can still start a reset during an outage.
+async function passes(
+  limiter: Ratelimit | null,
+  identifier: string,
+  failOpenOnError: boolean,
+): Promise<boolean> {
   if (!limiter) return true;
   try {
     const { success } = await limiter.limit(identifier);
@@ -46,10 +54,10 @@ async function passes(limiter: Ratelimit | null, identifier: string): Promise<bo
   } catch (err) {
     // Log a stable code only — err.message may echo the REST endpoint URL.
     console.warn(
-      "[auth-reset] Upstash rate-limit check failed; allowing request",
+      "[auth-reset] Upstash rate-limit check failed",
       err instanceof Error ? err.constructor.name : "unknown",
     );
-    return true;
+    return failOpenOnError;
   }
 }
 
@@ -62,8 +70,8 @@ export async function checkResetRequestRateLimit({
   ipHash,
 }: ResetRateLimitKeys): Promise<boolean> {
   const [emailOk, ipOk] = await Promise.all([
-    passes(requestByEmail, emailHash),
-    passes(requestByIp, ipHash),
+    passes(requestByEmail, emailHash, true),
+    passes(requestByIp, ipHash, true),
   ]);
   return emailOk && ipOk;
 }
@@ -74,8 +82,8 @@ export async function checkResetConfirmRateLimit({
   ipHash,
 }: ResetRateLimitKeys): Promise<boolean> {
   const [emailOk, ipOk] = await Promise.all([
-    passes(confirmByEmail, emailHash),
-    passes(confirmByIp, ipHash),
+    passes(confirmByEmail, emailHash, false),
+    passes(confirmByIp, ipHash, false),
   ]);
   return emailOk && ipOk;
 }
