@@ -756,6 +756,21 @@ const generatedScheduleConflictViewSchema = z.discriminatedUnion('kind', [
     windows: z.array(z.object({ open: z.string(), close: z.string() })),
     exception: z.object({ start: z.string(), end: z.string() }).nullable(),
   }),
+  // SOU-275: a custom-mode block whose assigned room cannot seat its group —
+  // seat overflow that would throw `GroupOverCapacityError` at commit. Unlike the
+  // other kinds this is NON-forceable: the renderer offers no "force" toggle for
+  // it and disables commit entirely while any capacity conflict is present, so
+  // the admin must fix the room/config and re-preview. `groupCapacity` /
+  // `roomCapacity` carry the two figures for the attributing message.
+  z.object({
+    kind: z.literal('capacity'),
+    groupId: z.string(),
+    roomId: z.string(),
+    start: z.string(),
+    end: z.string(),
+    groupCapacity: z.number().int(),
+    roomCapacity: z.number().int(),
+  }),
 ]);
 
 const committedGeneratedTemplateViewSchema = z.object({

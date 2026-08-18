@@ -823,6 +823,19 @@ function toGeneratedScheduleConflictView(conflict: GeneratedScheduleConflict) {
           : { start: conflict.error.exception.start, end: conflict.error.exception.end },
     };
   }
+  // SOU-275: seat overflow (assigned room too small for the group). Non-forceable
+  // in the UI — flattens `GroupOverCapacityError`'s two figures for the message.
+  if (conflict.kind === 'capacity') {
+    return {
+      kind: 'capacity' as const,
+      groupId: conflict.groupId,
+      roomId: conflict.error.roomId,
+      start: conflict.start,
+      end: conflict.end,
+      groupCapacity: conflict.error.groupCapacity,
+      roomCapacity: conflict.error.roomCapacity,
+    };
+  }
   return {
     kind: 'room' as const,
     groupId: conflict.groupId,
