@@ -46,14 +46,61 @@ export const REF = {
 } as const;
 
 /**
- * The two materialized Mondays used across the suite. The real system clock is
- * mid-August 2026; both dates are future, so an audit that only surfaces live
- * (non-past) occurrences still lists them. Localized date labels were read off
- * the running app (Moroccan Arabic renders August as "غشت").
+ * The two materialized Mondays used across the suite, computed from the
+ * runner's real clock so both are always strictly in the future — an audit that
+ * only surfaces live (non-past) occurrences must still list them on any run
+ * date (SOU-269; same rule as SOU-255/SOU-266: build fixture dates from local
+ * date components, never literals or UTC ISO slicing).
  */
-export const DATE: Record<Locale, { d17: string; d24: string }> = {
-  fr: { d17: '17 août 2026', d24: '24 août 2026' },
-  ar: { d17: '17 غشت 2026', d24: '24 غشت 2026' },
+function nextMondayAfterToday(): Date {
+  const now = new Date();
+  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  do {
+    day.setDate(day.getDate() + 1);
+  } while (day.getDay() !== 1);
+  return day;
+}
+
+function addDays(base: Date, days: number): Date {
+  return new Date(base.getFullYear(), base.getMonth(), base.getDate() + days);
+}
+
+function isoDate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const dayOfMonth = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${dayOfMonth}`;
+}
+
+const MONDAY_1 = nextMondayAfterToday();
+const MONDAY_2 = addDays(MONDAY_1, 7);
+
+/**
+ * Seed/override windows: [Sunday before, day after] the target Monday(s), so
+ * `session.generate` materializes exactly the intended Monday occurrence(s).
+ */
+export const WINDOW = {
+  monday1: isoDate(MONDAY_1),
+  monday2: isoDate(MONDAY_2),
+  oneMonday: { from: isoDate(addDays(MONDAY_1, -1)), to: isoDate(addDays(MONDAY_1, 1)) },
+  twoMondays: { from: isoDate(addDays(MONDAY_1, -1)), to: isoDate(addDays(MONDAY_2, 1)) },
+} as const;
+
+/**
+ * Localized row labels built with the exact recipe of the renderer's
+ * `formatDate` (`lib/format.ts`): `-MA` BCP-47 tags (Moroccan Arabic renders
+ * Western digits and "غشت" for August) and date-only parsing at local midnight.
+ */
+function rowDateLabel(iso: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-MA' : 'fr-MA', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date(`${iso}T00:00:00`));
+}
+
+export const DATE: Record<Locale, { monday1: string; monday2: string }> = {
+  fr: { monday1: rowDateLabel(WINDOW.monday1, 'fr'), monday2: rowDateLabel(WINDOW.monday2, 'fr') },
+  ar: { monday1: rowDateLabel(WINDOW.monday1, 'ar'), monday2: rowDateLabel(WINDOW.monday2, 'ar') },
 };
 
 /** All copy the specs assert on, mirrored from the LIVE running app in both locales. */

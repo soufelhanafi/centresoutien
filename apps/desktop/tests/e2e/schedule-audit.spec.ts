@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import {
   STR,
   DATE,
+  WINDOW,
   REF,
   seedGeneratedSessions,
   narrowMondayOverride,
@@ -22,8 +23,9 @@ import {
  * Black-box, driven only through the running packaged app + the public preload
  * bridge. Runs under both the `fr` (LTR) and `ar` (RTL) Playwright projects.
  *
- * The materialized window is Mon 2026-08-17 + Mon 2026-08-24 (both future vs the
- * mid-August system clock). Occurrences are generated FIRST, then stranded by an
+ * The materialized window is the next two Mondays strictly after the runner's
+ * real clock (WINDOW.monday1 / monday2 — always future, whatever the run
+ * date). Occurrences are generated FIRST, then stranded by an
  * override and/or a holiday — matching the "added after a session was generated"
  * acceptance wording. Navigation is always: sidebar → Planning → header "Audit
  * du planning" trigger → review modal.
@@ -50,8 +52,8 @@ test('Scenario 1 — override strands an occurrence: "outside hours" row shows n
   live = await launch(locale());
   const win = live.win;
 
-  await seedGeneratedSessions(win, '2026-08-16', '2026-08-18'); // materializes only Mon 08-17
-  await narrowMondayOverride(win, '2026-08-16', '2026-08-18'); // Monday 09:00–14:00 → 15:00–17:00 stranded
+  await seedGeneratedSessions(win, WINDOW.oneMonday.from, WINDOW.oneMonday.to); // materializes only the first Monday
+  await narrowMondayOverride(win, WINDOW.oneMonday.from, WINDOW.oneMonday.to); // Monday 09:00–14:00 → 15:00–17:00 stranded
   await gotoAudit(win, L);
 
   await expect(win.locator('html')).toHaveAttribute('dir', L.dir);
@@ -59,7 +61,7 @@ test('Scenario 1 — override strands an occurrence: "outside hours" row shows n
   await expect(win.getByText(L.subtitle)).toBeVisible();
 
   await expect(auditRows(win)).toHaveCount(1);
-  const row = rowForDate(win, D.d17);
+  const row = rowForDate(win, D.monday1);
   await expect(row).toBeVisible();
   await expect(row.getByText(L.reasonOutsideHours)).toBeVisible();
 
@@ -69,7 +71,7 @@ test('Scenario 1 — override strands an occurrence: "outside hours" row shows n
   await expect(row).toContainText(REF.groupLevel);
   await expect(row).toContainText(REF.room);
   await expect(row).toContainText(teacherName);
-  await expect(row).toContainText(D.d17);
+  await expect(row).toContainText(D.monday1);
   await expect(row).toContainText('15:00');
   await expect(row).toContainText('17:00');
 
@@ -85,8 +87,8 @@ test('Scenario 1 — override strands an occurrence: "outside hours" row shows n
 // Scenario 2 — a holiday added after generation flags the occurrence with an
 // "on holiday" badge; when an occurrence is BOTH outside hours AND on a holiday
 // the reason shown is the holiday (precedence). Both rows in one setup:
-//   08-17 → outside hours only  → "Hors horaires"
-//   08-24 → outside hours + holiday → "Jour férié" (holiday wins)
+//   Monday 1 → outside hours only  → "Hors horaires"
+//   Monday 2 → outside hours + holiday → "Jour férié" (holiday wins)
 // ---------------------------------------------------------------------------
 test('Scenario 2 — holiday badge appears, and a both-affected occurrence shows the holiday reason', async () => {
   const L = STR[locale()];
@@ -94,17 +96,17 @@ test('Scenario 2 — holiday badge appears, and a both-affected occurrence shows
   live = await launch(locale());
   const win = live.win;
 
-  await seedGeneratedSessions(win, '2026-08-16', '2026-08-25'); // Mon 08-17 + Mon 08-24
-  await narrowMondayOverride(win, '2026-08-16', '2026-08-25'); // both Mondays now outside hours
-  await addHoliday(win, '2026-08-24'); // 08-24 is now ALSO a holiday
+  await seedGeneratedSessions(win, WINDOW.twoMondays.from, WINDOW.twoMondays.to); // both Mondays
+  await narrowMondayOverride(win, WINDOW.twoMondays.from, WINDOW.twoMondays.to); // both Mondays now outside hours
+  await addHoliday(win, WINDOW.monday2); // the second Monday is now ALSO a holiday
   await gotoAudit(win, L);
 
   await expect(auditRows(win)).toHaveCount(2);
 
-  const outsideRow = rowForDate(win, D.d17);
+  const outsideRow = rowForDate(win, D.monday1);
   await expect(outsideRow.getByText(L.reasonOutsideHours)).toBeVisible();
 
-  const holidayRow = rowForDate(win, D.d24);
+  const holidayRow = rowForDate(win, D.monday2);
   await expect(holidayRow.getByText(L.reasonHoliday)).toBeVisible();
   // Precedence: the both-affected row shows the holiday reason, NOT the hours reason.
   await expect(holidayRow.getByText(L.reasonOutsideHours)).toHaveCount(0);
@@ -125,8 +127,8 @@ test('Scenario 3 — cancelling one stranded occurrence keeps the weekly templat
   live = await launch(locale());
   const win = live.win;
 
-  const seeded = await seedGeneratedSessions(win, '2026-08-16', '2026-08-25'); // 08-17 + 08-24
-  await narrowMondayOverride(win, '2026-08-16', '2026-08-25'); // both stranded (outside hours)
+  const seeded = await seedGeneratedSessions(win, WINDOW.twoMondays.from, WINDOW.twoMondays.to); // both Mondays
+  await narrowMondayOverride(win, WINDOW.twoMondays.from, WINDOW.twoMondays.to); // both stranded (outside hours)
 
   const weekBefore = await readWeek(win);
   const templateBefore = weekBefore.find((s) => s.id === seeded.recurringSessionId);
@@ -135,8 +137,8 @@ test('Scenario 3 — cancelling one stranded occurrence keeps the weekly templat
   await gotoAudit(win, L);
   await expect(auditRows(win)).toHaveCount(2);
 
-  // Cancel the 08-17 occurrence.
-  await rowForDate(win, D.d17).getByRole('button', { name: L.cancelRowBtn }).click();
+  // Cancel the first Monday's occurrence.
+  await rowForDate(win, D.monday1).getByRole('button', { name: L.cancelRowBtn }).click();
 
   const dialog = confirmDialog(win, L.dialogTitle);
   await expect(dialog).toBeVisible();
@@ -146,8 +148,8 @@ test('Scenario 3 — cancelling one stranded occurrence keeps the weekly templat
   await dialog.getByRole('button', { name: L.dialogConfirm, exact: true }).click();
 
   // The cancelled row is gone; the OTHER stranded date survives.
-  await expect(rowForDate(win, D.d17)).toHaveCount(0);
-  await expect(rowForDate(win, D.d24)).toBeVisible();
+  await expect(rowForDate(win, D.monday1)).toHaveCount(0);
+  await expect(rowForDate(win, D.monday2)).toBeVisible();
   await expect(auditRows(win)).toHaveCount(1);
 
   // The recurring weekly template is untouched (same id, same day/time).
@@ -170,7 +172,7 @@ test('Scenario 4 — no stranded sessions shows the good empty state, not an err
   const win = live.win;
 
   // Materialize occurrences but strand nothing (no override, no holiday).
-  await seedGeneratedSessions(win, '2026-08-16', '2026-08-25');
+  await seedGeneratedSessions(win, WINDOW.twoMondays.from, WINDOW.twoMondays.to);
   await gotoAudit(win, L);
 
   await expect(win.getByRole('heading', { name: L.pageTitle })).toBeVisible();
