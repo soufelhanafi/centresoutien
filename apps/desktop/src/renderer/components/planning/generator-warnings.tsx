@@ -35,7 +35,7 @@ export function GeneratorWarnings({
   // kind at the same slot against the same room/teacher — collapse to one line.
   const lineByKey = new Map<string, WarningLine>();
   const slot = (conflict: GeneratorConflict): string =>
-    'dayOfWeek' in conflict ? `${conflict.dayOfWeek}|${conflict.start}|${conflict.end}` : `${conflict.start}|${conflict.end}`;
+    `${conflict.dayOfWeek}|${conflict.start}|${conflict.end}`;
   for (const conflict of conflicts) {
     if (conflict.kind === 'hours') {
       lineByKey.set(`hours|${slot(conflict)}|${conflict.reason}`, {
