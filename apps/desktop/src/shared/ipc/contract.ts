@@ -756,6 +756,22 @@ const generatedScheduleConflictViewSchema = z.discriminatedUnion('kind', [
     windows: z.array(z.object({ open: z.string(), close: z.string() })),
     exception: z.object({ start: z.string(), end: z.string() }).nullable(),
   }),
+  // SOU-275: a block whose assigned room cannot seat its group. Custom mode
+  // surfaces this as a non-blocking warning (auto mode fails fast on it), but
+  // unlike the other kinds it is NOT forceable — `session.generator.commit`
+  // rejects the whole batch with the `schedule-capacity-conflict` error if any
+  // block carries it. `groupCapacity` = seats the group needs, `roomCapacity` =
+  // seats the assigned room holds.
+  z.object({
+    kind: z.literal('capacity'),
+    groupId: z.string(),
+    roomId: z.string(),
+    dayOfWeek: generatorWeekday,
+    start: z.string(),
+    end: z.string(),
+    groupCapacity: z.number(),
+    roomCapacity: z.number(),
+  }),
 ]);
 
 const committedGeneratedTemplateViewSchema = z.object({

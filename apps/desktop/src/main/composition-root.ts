@@ -1139,6 +1139,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // re-check as one booked by hand.
   const commitGeneratedSchedule = new CommitGeneratedSchedule(
     groupRepo,
+    roomRepo,
     createWeeklySession,
     generateSessions,
     plan,
