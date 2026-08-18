@@ -12,7 +12,7 @@ import type {
 import { toEntityId, normalizeUsername, isRole } from '@centresoutien/domain';
 
 /** The `users` table row shape as SQLite returns it. */
-type UserRow = {
+export type UserRow = {
   id: string;
   center_code: string;
   device_origin: string;
@@ -38,8 +38,14 @@ function toRole(value: string): Role {
   return value;
 }
 
-function fromRow(row: UserRow): User {
-  return {
+// Maps a `users` row to the domain {@link User}. Exported so the compat
+// admin-account repository (SOU-258) logs the same domain shape the user
+// repository does — one payload shape per entityType (SOU-170).
+export function userRowToUser(row: UserRow): User {
+  return fromRow(row);
+}
+
+function fromRow(row: UserRow): User {  return {
     id: row.id as UserId,
     centerCode: row.center_code as CenterCode,
     deviceOrigin: row.device_origin as DeviceId,

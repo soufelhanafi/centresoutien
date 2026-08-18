@@ -7,6 +7,7 @@ import type { User, UserId, CenterCode, DeviceId } from '@centresoutien/domain';
 import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteUserRepository } from '../../src/data/sqlite/repositories/user-repository';
+import { SqliteAdminAccountRepository } from '../../src/data/sqlite/repositories/admin-account-repository';
 import { SqliteChangeLogWriter } from '../../src/data/sqlite/change-log/sqlite-change-log-writer';
 import { replayChangeLog } from '../../src/data/sqlite/change-log/replay-change-log';
 
@@ -136,6 +137,42 @@ describe('change_log — users reprojection (SOU-252)', () => {
       );
       // Read back through the domain shape: every field survived the round-trip.
       expect(await projected.findById(redeemed.id)).toEqual(redeemed);
+    } finally {
+      target.close();
+      rmSync(targetDir, { recursive: true, force: true });
+    }
+  });
+
+  it('reprojects an owner password rotation made through the admin repo (SOU-258)', async () => {
+    const owner = makeUser();
+    await repo.save(owner);
+    // Rotate the owner password through the compat admin repo — the SOU-258 path
+    // that must now log the rotation so it replicates.
+    const adminRepo = new SqliteAdminAccountRepository(
+      db,
+      new SqliteChangeLogWriter(db, { now: () => new Date('2026-08-17T10:00:00Z') }, ACTING_DEVICE),
+    );
+    const account = await adminRepo.findOnly();
+    if (!account) throw new Error('expected owner');
+    account.passwordHash = '$argon2id$v=19$m=19456,t=2,p=1$rotated$hash';
+    account.updatedAt = new Date('2026-08-17T10:00:00Z');
+    await adminRepo.save(account);
+
+    const targetDir = mkdtempSync(join(tmpdir(), 'cs-changelog-users-target3-'));
+    const target = openDatabase({ centreId: 'C2', key: KEY, dir: targetDir });
+    try {
+      runMigrations(target, REAL_MIGRATIONS);
+      copyChangeLog(db, target);
+      replayChangeLog(target);
+
+      const projected = new SqliteUserRepository(
+        target,
+        new SqliteChangeLogWriter(target, { now: () => AT }, ACTING_DEVICE),
+      );
+      const onLaptopB = await projected.findById(owner.id);
+      expect(onLaptopB).not.toBeNull();
+      expect(onLaptopB!.passwordHash).toBe('$argon2id$v=19$m=19456,t=2,p=1$rotated$hash');
+      expect(onLaptopB!.updatedAt).toEqual(new Date('2026-08-17T10:00:00Z'));
     } finally {
       target.close();
       rmSync(targetDir, { recursive: true, force: true });

@@ -62,9 +62,9 @@ function makeOwner(passwordHash: string): User {
   };
 }
 
-function makeAccount(passwordHash: string, updatedAt: Date): AdminAccount {
+function makeAccount(passwordHash: string, updatedAt: Date, id: AdminAccountId = ACCOUNT_ID): AdminAccount {
   return {
-    id: ACCOUNT_ID,
+    id,
     username: 'directrice',
     passwordHash,
     createdAt: AT,
@@ -135,10 +135,10 @@ beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'cs-reset-uow-'));
   db = openDatabase({ centreId: 'C1', key: KEY, dir });
   runMigrations(db, REAL_MIGRATIONS);
-  accounts = new SqliteAdminAccountRepository(db);
+  accounts = new SqliteAdminAccountRepository(db, changeLogWriterForTest(db));
   codes = new SqliteRecoveryCodeRepository(db);
   sessions = new SqliteDeviceSessionStore(db);
-  uow = new SqliteRecoveryCodeResetUnitOfWork(db);
+  uow = new SqliteRecoveryCodeResetUnitOfWork(db, changeLogWriterForTest(db));
 
   // Seed the owner in `users` (the credential store); AdminAccountRepository is a
   // view over it, and the UoW's ADMIN_ACCOUNT_SAVE_SQL updates its password_hash.
@@ -154,7 +154,9 @@ afterEach(() => {
 describe('SqliteRecoveryCodeResetUnitOfWork', () => {
   it('commits password, consume, session clear, and all audit rows together', async () => {
     await sessions.save(makeSession());
-    // Only the initial owner save (seed) logged a users change_log row.
+    // The seeded owner (written through SqliteUserRepository) is sync-
+    // participating, so the reset appends exactly one users change_log row
+    // (SOU-258) — the rotated hash replicates to paired devices.
     const usersLoggedBefore = usersChangeLogCount();
 
     await uow.commit(makeUnit());
@@ -165,9 +167,7 @@ describe('SqliteRecoveryCodeResetUnitOfWork', () => {
     expect(auditCount('recovery-code-consumed')).toBe(1);
     expect(auditCount('password-reset-via-recovery-code')).toBe(1);
     expect(auditCount('device-session-invalidated-after-reset')).toBe(1);
-    // SOU-252 deviation #3: the owner password write is NOT replicated — the
-    // reset adds no users change_log row (admin credentials never synced).
-    expect(usersChangeLogCount()).toBe(usersLoggedBefore);
+    expect(usersChangeLogCount()).toBe(usersLoggedBefore + 1);
   });
 
   it('skips the session clear and its audit row when no session is remembered', async () => {
@@ -182,6 +182,7 @@ describe('SqliteRecoveryCodeResetUnitOfWork', () => {
   it('rolls the whole reset back when the code was already consumed (no partial state)', async () => {
     await sessions.save(makeSession());
     await codes.consumeById(CODE_ID, AT);
+    const usersLoggedBefore = usersChangeLogCount();
 
     await expect(uow.commit(makeUnit())).rejects.toBeInstanceOf(InvalidRecoveryCodeError);
 
@@ -190,5 +191,34 @@ describe('SqliteRecoveryCodeResetUnitOfWork', () => {
     expect(auditCount('recovery-code-consumed')).toBe(0);
     expect(auditCount('password-reset-via-recovery-code')).toBe(0);
     expect(auditCount('device-session-invalidated-after-reset')).toBe(0);
+    // The change_log append lives inside the same transaction — it rolls back too.
+    expect(usersChangeLogCount()).toBe(usersLoggedBefore);
+  });
+
+  it('keeps a migrated owner device-local: reset appends no users change_log row', async () => {
+    const MIGRATED_ID = 'usr_00000000000000000000000002' as AdminAccountId;
+    // The beforeEach seeds a fresh owner (which logs); drop the row so the
+    // migrated owner below owns the single username slot. change_log is
+    // append-only, so its seeded entry stays — it does not touch the migrated id.
+    db.prepare("DELETE FROM users WHERE id = 'usr_00000000000000000000000001'").run();
+    // Migration 0044 backfills the owner with a raw INSERT and NO change_log row.
+    db.prepare(
+      `INSERT INTO users
+         (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at,
+          version, role, username, username_normalized, password_hash,
+          setup_code_hash, setup_code_expires_at, setup_code_redeemed_at)
+       VALUES
+         (?, 'CS-CASA-001', 'dev_00000000000000000000000002',
+          '2026-08-01T10:00:00.000Z', '2026-08-01T10:00:00.000Z', ?,
+          NULL, 0, 'owner', 'directrice', 'directrice', ?, NULL, NULL, NULL)`,
+    ).run(MIGRATED_ID, MIGRATED_ID, OLD_HASH);
+    const before = usersChangeLogCount();
+
+    await uow.commit(makeUnit({ account: makeAccount(NEW_HASH, LATER, MIGRATED_ID) }));
+
+    expect((await accounts.findOnly())?.passwordHash).toBe(NEW_HASH);
+    expect(await codes.countUnconsumed()).toBe(0);
+    // Preserved: the migrated owner stays device-local — no change_log row for it.
+    expect(usersChangeLogCount()).toBe(before);
   });
 });
