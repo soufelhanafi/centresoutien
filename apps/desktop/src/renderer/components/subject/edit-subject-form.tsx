@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { subjectUpdateInputSchema, type SubjectUpdateInput } from '@centresoutien/domain';
 import { Form, FormControl, FormField, FormItem, FormLabel, Input } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
+import { withOptionalArabicName } from '../../lib/forms/optional-arabic-name';
 
 type EditSubjectFormProps = {
   /** Lets the submit button live in the dialog footer, outside the `<form>`. */
@@ -23,7 +24,7 @@ type EditSubjectFormProps = {
 export function EditSubjectForm({ formId, defaultValues, onSubmit }: EditSubjectFormProps) {
   const { t } = useTranslation();
   const form = useForm<SubjectUpdateInput>({
-    resolver: zodResolver(subjectUpdateInputSchema),
+    resolver: withOptionalArabicName(zodResolver(subjectUpdateInputSchema)),
     defaultValues,
   });
   const submit = form.handleSubmit(async (values) => {
@@ -54,8 +55,14 @@ export function EditSubjectForm({ formId, defaultValues, onSubmit }: EditSubject
             <FormItem>
               <FormLabel>{t('subjects.form.nameAr')}</FormLabel>
               <FormControl>
-                <Input lang="ar" dir="rtl" {...field} />
+                <Input
+                  lang="ar"
+                  dir="rtl"
+                  placeholder={t('common.arabicNameOptionalPlaceholder')}
+                  {...field}
+                />
               </FormControl>
+              <p className="text-xs text-muted-foreground">{t('common.arabicNameOptionalHint')}</p>
               <FieldMessage />
             </FormItem>
           )}

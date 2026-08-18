@@ -4,7 +4,9 @@
   },
   "common": {
     "close": "إغلاق",
-    "undo": "تراجع"
+    "undo": "تراجع",
+    "arabicNameOptionalHint": "اختياري — يمكنك ترك هذا الحقل فارغًا.",
+    "arabicNameOptionalPlaceholder": "اختياري"
   },
   "nav": {
     "dashboard": "لوحة القيادة",
