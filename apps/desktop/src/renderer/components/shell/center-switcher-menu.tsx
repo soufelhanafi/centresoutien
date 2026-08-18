@@ -11,6 +11,7 @@ import {
   cn,
 } from '@centresoutien/ui';
 import type { CenterListItemView, CurrentCenterView } from '../../lib/center/center-gateway';
+import { CenterLogo } from './center-logo';
 
 type CenterSwitcherMenuProps = {
   centers: readonly CenterListItemView[];
@@ -38,7 +39,10 @@ export function CenterSwitcherMenu({ centers, current, isSwitching, onSwitch }: 
           disabled={isSwitching}
           aria-label={t('centerSwitcher.trigger', { name: current.displayName })}
         >
-          <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <CenterLogo
+            className="h-5 w-5 shrink-0 rounded-sm object-contain"
+            fallback={<Building2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+          />
           <span className="truncate text-sm font-semibold text-foreground">{current.displayName}</span>
           {isSwitching ? (
             <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />

@@ -5,6 +5,7 @@ import { cn, ScrollArea } from '@centresoutien/ui';
 import { NAV_MODULES } from '../../app/nav-items';
 import { NavItem } from './nav-item';
 import { PlanSwitcher } from '../plan-switcher';
+import { CenterLogo } from './center-logo';
 
 /**
  * Primary navigation rail. Owns its own collapse state (only this component
@@ -25,12 +26,17 @@ export function Sidebar() {
       )}
     >
       <div className="flex h-14 items-center gap-2 border-b border-border px-3">
-        <span
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-primary to-teal-500 text-[15px] font-bold tracking-tight text-white"
-          aria-hidden="true"
-        >
-          CS
-        </span>
+        <CenterLogo
+          className="h-8 w-8 shrink-0 rounded-lg object-contain"
+          fallback={
+            <span
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-primary to-teal-500 text-[15px] font-bold tracking-tight text-white"
+              aria-hidden="true"
+            >
+              CS
+            </span>
+          }
+        />
         <span className={cn('truncate text-sm font-semibold text-foreground', collapsed && 'sr-only')}>
           {t('app.title')}
         </span>
