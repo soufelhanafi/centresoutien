@@ -61,7 +61,7 @@ export function GeneratorWarnings({
         blocking: false,
       });
     } else if (conflict.kind === 'capacity') {
-      lineByKey.set(`capacity|${conflict.roomId}`, {
+      lineByKey.set(`capacity|${slot(conflict)}|${conflict.roomId}`, {
         text: t('planning.generator.warnings.capacity', {
           room: roomName(conflict.roomId),
           groupCapacity: conflict.groupCapacity,

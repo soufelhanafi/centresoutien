@@ -12,8 +12,12 @@ import { resolveDomainErrorCode } from '../ipc/resolve-domain-error-code';
  *   group is larger than every room) — surfaced inline on the config step so the
  *   admin can fix the config before ever committing.
  * - The scheduling clashes (`room-conflict`, `session-outside-center-hours`,
- *   `weekly-recurring-session-not-found`) are raised by the **commit** step, which
- *   re-runs the composite conflict check against the live schedule at write time.
+ *   `weekly-recurring-session-not-found`) and `schedule-capacity-conflict` are
+ *   raised by the **commit** step, which re-runs the composite conflict check
+ *   against the live schedule at write time. `schedule-capacity-conflict` (SOU-275)
+ *   is the seat-overflow pre-flight refusing the whole batch when a room shrank or
+ *   a group grew between preview and commit — the preview gating normally prevents
+ *   it, so it only surfaces on that race.
  */
 export type GeneratorErrorCode =
   | 'infeasible-generator-config'
@@ -21,6 +25,7 @@ export type GeneratorErrorCode =
   | 'group-exceeds-room-capacity'
   | 'room-conflict'
   | 'session-outside-center-hours'
+  | 'schedule-capacity-conflict'
   | 'weekly-recurring-session-not-found';
 
 const DECODED_CODE_TO_RENDERER_CODE: Readonly<Record<string, GeneratorErrorCode>> = {
@@ -29,6 +34,7 @@ const DECODED_CODE_TO_RENDERER_CODE: Readonly<Record<string, GeneratorErrorCode>
   'group-exceeds-room-capacity': 'group-exceeds-room-capacity',
   RoomConflictError: 'room-conflict',
   SessionOutsideCenterHoursError: 'session-outside-center-hours',
+  'schedule-capacity-conflict': 'schedule-capacity-conflict',
   'weekly-recurring-session-not-found': 'weekly-recurring-session-not-found',
 };
 

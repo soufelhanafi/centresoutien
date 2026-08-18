@@ -331,6 +331,7 @@
     "infeasible-generator-config": "Impossible de placer ces séances avec cet écart minimum sur les jours choisis. Réduisez l'écart ou ajoutez des jours.",
     "no-rooms-configured": "Aucune salle n'est configurée pour ce centre.",
     "group-exceeds-room-capacity": "Ce groupe dépasse la capacité de toutes les salles. Créez une salle plus grande ou réduisez l'effectif du groupe.",
+    "schedule-capacity-conflict": "Une salle assignée est trop petite pour son groupe. Corrigez la salle ou l'effectif, puis relancez l'aperçu.",
     "pool-smaller-than-sessions": "Le nombre de séances par semaine dépasse le nombre de jours éligibles."
   },
   "groups": {
