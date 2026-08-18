@@ -7,7 +7,8 @@ export type InfeasibleGeneratorReason =
   | 'pool-smaller-than-sessions' // fewer eligible weekdays than sessions requested
   | 'gap-unsatisfiable' // no placement of the sessions keeps every pair ≥ minGapDays apart
   | 'room-capacity-exceeded' // groups × sessionsPerWeek outgrows eligibleDays × rooms (SOU-261)
-  | 'duration-exceeds-windows'; // no opening window on any eligible day fits sessionDurationMinutes (SOU-261)
+  | 'duration-exceeds-windows' // no opening window on any eligible day fits sessionDurationMinutes (SOU-261)
+  | 'group-exceeds-room-capacity'; // a scoped group's seat count is larger than every room can hold (SOU-268)
 
 /**
  * Thrown by the auto mode of the session generator (SOU-158) when no set of

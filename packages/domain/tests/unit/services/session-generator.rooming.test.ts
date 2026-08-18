@@ -70,6 +70,8 @@ function input(
     hours?: readonly DayHours[];
     teacherByGroup?: ReadonlyMap<GroupId, EntityId | null>;
     existingSchedule?: readonly ScheduledSessionRef[];
+    roomCapacities?: ReadonlyMap<RoomId, number>;
+    groupCapacities?: ReadonlyMap<GroupId, number>;
   } = {},
 ): SessionGenerationInput {
   return {
@@ -79,6 +81,8 @@ function input(
     rooms: options.rooms ?? ROOMS,
     centerHours: options.hours ?? centerHours([MON, TUE, WED, THU, FRI, SAT]),
     existingSchedule: options.existingSchedule ?? [],
+    ...(options.roomCapacities !== undefined ? { roomCapacities: options.roomCapacities } : {}),
+    ...(options.groupCapacities !== undefined ? { groupCapacities: options.groupCapacities } : {}),
   };
 }
 
@@ -152,6 +156,138 @@ describe('assignRoomsToBlocks — collision-aware draw (SOU-261 F1)', () => {
     expect(roomByBlock.get(blocks[1]!.block)).toBe(ROOM_B);
     // Third block: no free room left — the draw runs over the full pool again.
     expect(roomByBlock.get(blocks[2]!.block)).toBe(ROOM_B);
+  });
+});
+
+describe('assignRoomsToBlocks — seat-fit draw (SOU-272)', () => {
+  function unroomed(groupId: GroupId, teacherId: EntityId | null, block: WeeklyBlock): UnroomedBlock {
+    return { groupId, teacherId, block };
+  }
+  const at = (dayOfWeek: WeekdayIndex, start: string, end: string): WeeklyBlock => ({
+    dayOfWeek,
+    start: start as TimeOfDay,
+    end: end as TimeOfDay,
+  });
+
+  it('prefers a room that seats the group over an equally-free but too-small room', () => {
+    const block = unroomed(G1, null, at(MON, '09:00', '11:00'));
+    const seatFit = {
+      roomCapacity: new Map([
+        [ROOM_A, 12],
+        [ROOM_B, 20],
+      ]),
+      seatsByGroup: new Map([[G1, 16]]),
+    };
+
+    // A seat-blind draw would give ROOM_A (index 0); the group needs 16 seats.
+    const roomByBlock = assignRoomsToBlocks([block], [ROOM_A, ROOM_B], sequenceRandom([0]), [], seatFit);
+
+    expect(roomByBlock.get(block.block)).toBe(ROOM_B);
+  });
+
+  it('double-books a seat-fitting room rather than a free but too-small one', () => {
+    const block = unroomed(G1, null, at(MON, '09:00', '11:00'));
+    // ROOM_B (the only room big enough) is already taken at this slot; ROOM_A is
+    // free but too small. Seat-fit is a hard commit invariant, a room double-book
+    // is a soft (surfaced) one, so the big room wins even at the cost of a clash.
+    const occupied: readonly ScheduledSessionRef[] = [
+      { id: 'ses_1' as EntityId, roomId: ROOM_B, dayOfWeek: MON, start: '09:00' as TimeOfDay, end: '11:00' as TimeOfDay },
+    ];
+    const seatFit = {
+      roomCapacity: new Map([
+        [ROOM_A, 12],
+        [ROOM_B, 20],
+      ]),
+      seatsByGroup: new Map([[G1, 16]]),
+    };
+
+    const roomByBlock = assignRoomsToBlocks([block], [ROOM_A, ROOM_B], sequenceRandom([0]), occupied, seatFit);
+
+    expect(roomByBlock.get(block.block)).toBe(ROOM_B);
+  });
+
+  it('falls back to the free pool when no room can seat the group', () => {
+    const block = unroomed(G1, null, at(MON, '09:00', '11:00'));
+    const seatFit = {
+      roomCapacity: new Map([
+        [ROOM_A, 10],
+        [ROOM_B, 12],
+      ]),
+      seatsByGroup: new Map([[G1, 16]]),
+    };
+
+    // No room fits 16 — the draw still returns a room (never drops the block).
+    const roomByBlock = assignRoomsToBlocks([block], [ROOM_A, ROOM_B], sequenceRandom([0]), [], seatFit);
+
+    expect(roomByBlock.get(block.block)).toBe(ROOM_A);
+  });
+
+  it('treats a room with unknown capacity as fitting (never wrongly excluded)', () => {
+    const block = unroomed(G1, null, at(MON, '09:00', '11:00'));
+    const seatFit = {
+      roomCapacity: new Map([[ROOM_B, 20]]),
+      seatsByGroup: new Map([[G1, 16]]),
+    };
+
+    const roomByBlock = assignRoomsToBlocks([block], [ROOM_A, ROOM_B], sequenceRandom([0]), [], seatFit);
+
+    expect(roomByBlock.get(block.block)).toBe(ROOM_A);
+  });
+});
+
+describe('SessionGenerator — seat-fit rooming end to end (SOU-272)', () => {
+  it('assigns a room that seats the group even when the random draw favors a small one', () => {
+    const config = customConfig([MON], { sessionsPerWeek: 1 });
+    const run = input(config, [G1], {
+      rooms: [ROOM_A, ROOM_B],
+      roomCapacities: new Map([
+        [ROOM_A, 12],
+        [ROOM_B, 20],
+      ]),
+      groupCapacities: new Map([[G1, 16]]),
+    });
+
+    const { proposals } = new SessionGenerator(sequenceRandom([0, 0, 0, 0])).generate(run);
+
+    expect(proposals[0]!.blocks[0]!.roomId).toBe(ROOM_B);
+  });
+
+  it('auto mode throws group-exceeds-room-capacity when a group outgrows every room', () => {
+    const config = autoConfig({ weekdayPool: [MON, WED, FRI], sessionsPerWeek: 1, minGapDays: 1 });
+    const run = input(config, [G1], {
+      hours: centerHours([MON, WED, FRI]),
+      rooms: [ROOM_A, ROOM_B],
+      roomCapacities: new Map([
+        [ROOM_A, 10],
+        [ROOM_B, 12],
+      ]),
+      groupCapacities: new Map([[G1, 16]]),
+    });
+
+    try {
+      new SessionGenerator(fakeRandom()).generate(run);
+      expect.unreachable('expected an infeasible-config throw');
+    } catch (error) {
+      expect(error).toBeInstanceOf(InfeasibleGeneratorConfigError);
+      expect((error as InfeasibleGeneratorConfigError).reason).toBe('group-exceeds-room-capacity');
+    }
+  });
+
+  it('auto mode does not throw when the group fits at least one room', () => {
+    const config = autoConfig({ weekdayPool: [MON, WED, FRI], sessionsPerWeek: 1, minGapDays: 1 });
+    const run = input(config, [G1], {
+      hours: centerHours([MON, WED, FRI]),
+      rooms: [ROOM_A, ROOM_B],
+      roomCapacities: new Map([
+        [ROOM_A, 10],
+        [ROOM_B, 20],
+      ]),
+      groupCapacities: new Map([[G1, 16]]),
+    });
+
+    const { proposals } = new SessionGenerator(fakeRandom()).generate(run);
+
+    expect(proposals[0]!.blocks[0]!.roomId).toBe(ROOM_B);
   });
 });
 

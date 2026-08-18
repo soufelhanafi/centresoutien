@@ -8,6 +8,7 @@ import type { SessionGeneratorConfig } from '../../../src/services/session-gener
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
+import { InfeasibleGeneratorConfigError } from '../../../src/errors/session-generator-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Group, GroupId } from '../../../src/entities/group';
 import type { SubjectId } from '../../../src/entities/subject';
@@ -63,7 +64,7 @@ function makeGroup(overrides: Partial<Group> = {}): Group {
   };
 }
 
-function makeRoom(id: RoomId, overrides: Partial<{ centerCode: CenterCode }> = {}) {
+function makeRoom(id: RoomId, overrides: Partial<{ centerCode: CenterCode; capacity: number }> = {}) {
   return {
     id,
     ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
@@ -337,6 +338,29 @@ describe('PreviewGeneratedSchedule', () => {
       const result = await useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 })));
 
       expect(result.conflicts).toEqual([]);
+    });
+  });
+
+  describe('seat capacity (SOU-272)', () => {
+    it('only ever assigns a room large enough to seat the group', async () => {
+      // ROOM_A (from beforeEach) holds 20; re-save it at 10 and add ROOM_B at 20.
+      // The group needs 16 — only ROOM_B fits.
+      await rooms.save(makeRoom(ROOM_A, { capacity: 10 }));
+      await rooms.save(makeRoom(ROOM_B, { capacity: 20 }));
+      await groups.save(makeGroup({ capacity: 16 }));
+
+      const result = await useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 })));
+
+      expect(result.proposals[0]!.blocks.every((block) => block.roomId === ROOM_B)).toBe(true);
+    });
+
+    it('fails fast on the preview when a group outgrows every room', async () => {
+      // Only ROOM_A (holds 20) exists; the group needs 25.
+      await groups.save(makeGroup({ capacity: 25 }));
+
+      await expect(
+        useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 }))),
+      ).rejects.toBeInstanceOf(InfeasibleGeneratorConfigError);
     });
   });
 
