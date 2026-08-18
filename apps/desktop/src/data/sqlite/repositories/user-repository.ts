@@ -13,7 +13,7 @@ import type {
 import { toEntityId, normalizeUsername, isRole } from '@centresoutien/domain';
 
 /** The `users` table row shape as SQLite returns it. */
-type UserRow = {
+export type UserRow = {
   id: string;
   center_code: string;
   device_origin: string;
@@ -40,7 +40,7 @@ function toRole(value: string): Role {
   return value;
 }
 
-function fromRow(row: UserRow): User {
+export function userRowToUser(row: UserRow): User {
   return {
     id: row.id as UserId,
     centerCode: row.center_code as CenterCode,
@@ -138,21 +138,21 @@ export class SqliteUserRepository implements UserRepository {
     const row = this.db
       .prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL')
       .get(id) as UserRow | undefined;
-    return row ? fromRow(row) : null;
+    return row ? userRowToUser(row) : null;
   }
 
   async findByUsername(username: string): Promise<User | null> {
     const row = this.db
       .prepare('SELECT * FROM users WHERE username_normalized = ? AND deleted_at IS NULL')
       .get(normalizeUsername(username)) as UserRow | undefined;
-    return row ? fromRow(row) : null;
+    return row ? userRowToUser(row) : null;
   }
 
   async findOwner(): Promise<User | null> {
     const row = this.db
       .prepare("SELECT * FROM users WHERE role = 'owner' AND deleted_at IS NULL LIMIT 1")
       .get() as UserRow | undefined;
-    return row ? fromRow(row) : null;
+    return row ? userRowToUser(row) : null;
   }
 
   async listActive(centerCode: CenterCode): Promise<readonly User[]> {
@@ -163,7 +163,7 @@ export class SqliteUserRepository implements UserRepository {
           ORDER BY username COLLATE NOCASE, id`,
       )
       .all(centerCode) as UserRow[];
-    return rows.map(fromRow);
+    return rows.map(userRowToUser);
   }
 
   async softDelete(id: UserId, at: Date, by: UserId): Promise<void> {
@@ -179,7 +179,7 @@ export class SqliteUserRepository implements UserRepository {
         entityId: toEntityId(id),
         centerCode: row.center_code as CenterCode,
         intent: 'delete',
-        entity: { ...fromRow(row), deletedAt: at, updatedAt: at, updatedBy: by },
+        entity: { ...userRowToUser(row), deletedAt: at, updatedAt: at, updatedBy: by },
       });
     })();
   }
@@ -188,7 +188,7 @@ export class SqliteUserRepository implements UserRepository {
     const rows = this.db
       .prepare('SELECT * FROM users WHERE updated_at > ? ORDER BY updated_at')
       .all(cursor.toISOString()) as UserRow[];
-    return rows.map(fromRow);
+    return rows.map(userRowToUser);
   }
 
   async markSetupCodeRedeemed(redemption: SetupCodeRedemption): Promise<boolean> {
@@ -227,7 +227,7 @@ export class SqliteUserRepository implements UserRepository {
         entityId: toEntityId(redemption.id),
         centerCode: row.center_code as CenterCode,
         intent: 'upsert',
-        entity: fromRow(row),
+        entity: userRowToUser(row),
       });
       return true;
     })();

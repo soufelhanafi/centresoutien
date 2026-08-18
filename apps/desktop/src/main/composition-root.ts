@@ -242,6 +242,7 @@ import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
 import { PdfLibScheduleRenderer } from '../data/pdf/pdf-lib-schedule-renderer';
+import { wireSessionPrincipal } from './session/session-principal-wiring';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { HashWasmPasswordHasher } from './infra/hash-wasm-password-hasher';
@@ -271,8 +272,7 @@ const hubMigrationFiles = import.meta.glob('../data/sqlite/hub/migrations/*.sql'
   eager: true,
 }) as Record<string, string>;
 
-// TODO(auth): real editor identity arrives with user accounts. Until then every
-// write is attributed to a single local placeholder user.
+// Bootstrap/first-run attribution fallback (SOU-265): used only when NO principal is established (pre-login / first-run owner+center creation).
 const DEV_USER = 'usr_local-device' as UserId;
 
 export type ContainerOptions = {
@@ -1159,7 +1159,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // AdminAccount is now a compatibility view over the owner `users` row (SOU-252):
   // change-password / recovery-reset keep their port but share the one credential
   // store. Login, first-run, and invites go through userRepo directly.
-  const adminRepo = new SqliteAdminAccountRepository(db);
+  const adminRepo = new SqliteAdminAccountRepository(db, changeLog);
   const createAdminAccount = new CreateAdminAccount(userRepo, hasher, clock, ids, {
     centerCode: options.centerCode,
     deviceOrigin,
@@ -1190,7 +1190,8 @@ export function buildContainer(options: ContainerOptions): Container {
     ids,
   );
   const deviceSessions = new DeviceSessionService(new SqliteDeviceSessionStore(db), clock, ids);
-  const recoveryCodeResetUnitOfWork = new SqliteRecoveryCodeResetUnitOfWork(db);
+  const { resolveUpdatedBy, ...principalControls } = wireSessionPrincipal(deviceSessions, userRepo, DEV_USER);
+  const recoveryCodeResetUnitOfWork = new SqliteRecoveryCodeResetUnitOfWork(db, changeLog);
   const resetPasswordWithRecoveryCode = new ResetPasswordWithRecoveryCode(
     verifyRecoveryCode,
     adminRepo,
@@ -1426,7 +1427,7 @@ export function buildContainer(options: ContainerOptions): Container {
     confirmMonthlyPayrolls,
     listTeacherPayouts,
     getTeacherAttributionBreakdown,
-    currentUserId: () => context.updatedBy,
+    currentUserId: () => resolveUpdatedBy(),
     generatePayslipPdf,
     generatePaymentReceiptPdf,
     createHoliday,
@@ -1461,7 +1462,7 @@ export function buildContainer(options: ContainerOptions): Container {
     getTeacherAvailability,
     saveTeacherAvailabilityException,
     archiveTeacherAvailabilityException,
-    envelopeContext: () => context,
+    envelopeContext: () => ({ ...context, updatedBy: resolveUpdatedBy() }),
     adminExists: () => adminRepo.exists(),
     adminUsername: async () => {
       const account = await adminRepo.findOnly();
@@ -1475,6 +1476,7 @@ export function buildContainer(options: ContainerOptions): Container {
     changeAdminPassword,
     attemptLogin,
     deviceSessions,
+    ...principalControls,
     generateRecoveryCodes,
     verifyRecoveryCode,
     resetPasswordWithRecoveryCode,
@@ -1492,7 +1494,7 @@ export function buildContainer(options: ContainerOptions): Container {
     switchCenter,
     listCenters,
     currentCentreId: () => options.centreId,
-    centerContext: () => centerContext,
+    centerContext: () => ({ ...centerContext, updatedBy: resolveUpdatedBy() }),
     saveLocalePreference: (locale) => localePreferences.write(locale),
     createBackup,
     getBackupConfig,
@@ -1503,7 +1505,7 @@ export function buildContainer(options: ContainerOptions): Container {
     applyImportBackup,
     activeCenterCode: () => options.centerCode,
     centerCode: () => options.centerCode,
-    updatedBy: () => context.updatedBy,
+    updatedBy: () => resolveUpdatedBy(),
     dbKey: () => options.key,
     scheduleRestart: options.scheduleRestart,
     plan,

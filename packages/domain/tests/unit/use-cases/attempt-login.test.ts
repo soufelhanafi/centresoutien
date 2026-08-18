@@ -69,9 +69,13 @@ describe('AttemptLogin', () => {
     });
   });
 
-  it('remembers the device only when the toggle is on', async () => {
+  it('remembers the device only when the toggle is on, stamping the signed-in user', async () => {
     await login.execute({ username: USERNAME, password: PASSWORD, rememberDevice: true });
-    expect(await sessionStore.getCurrent()).not.toBeNull();
+    const session = await sessionStore.getCurrent();
+    expect(session).not.toBeNull();
+    // SOU-265: the remembered session carries who logged in so main can recover
+    // the principal on a remember-me reopen.
+    expect(session?.userId).toBe(owner.id);
   });
 
   it('does not persist a session when remember is off, and clears a stale one', async () => {

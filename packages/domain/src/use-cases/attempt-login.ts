@@ -60,7 +60,9 @@ export class AttemptLogin {
     const user = await this.verify.execute({ username, password });
     if (user !== null) {
       await this.throttle.reset();
-      if (rememberDevice) await this.sessions.remember();
+      // Stamp the remembered session with the resolved user so a remember-me
+      // reopen can recover the trusted session principal (SOU-265).
+      if (rememberDevice) await this.sessions.remember(user.userId);
       else await this.sessions.forget();
       return { outcome: 'success', user };
     }

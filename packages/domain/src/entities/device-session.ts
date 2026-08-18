@@ -1,4 +1,5 @@
 import type { Brand } from '../value-objects/brand';
+import type { UserId } from '../value-objects/ids';
 
 /** ULID id prefix for a remembered device session: `ses_01HW…`. */
 export const DEVICE_SESSION_ID_PREFIX = 'ses';
@@ -19,11 +20,18 @@ export type DeviceSessionId = Brand<string, 'DeviceSessionId'>;
  * `createdAt` / `expiresAt` are **epoch milliseconds** (UTC), not `Date`s:
  * `expiresAt` is a computed instant (now + TTL), and the domain derives computed
  * instants with plain arithmetic rather than constructing `Date`s.
+ *
+ * `userId` records WHICH user this remembered login belongs to (SOU-265), so the
+ * main process can recover the trusted session principal on a remember-me reopen
+ * with no fresh login. `null` only for a legacy row remembered before SOU-265
+ * added the column — such a session degrades to an "unknown principal" (the device
+ * must re-login to re-establish who it is), never a crash.
  */
 export type DeviceSession = {
   readonly id: DeviceSessionId;
   readonly createdAt: number;
   readonly expiresAt: number;
+  readonly userId: UserId | null;
 };
 
 /**

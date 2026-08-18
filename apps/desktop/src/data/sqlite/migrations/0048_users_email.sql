@@ -1,4 +1,4 @@
--- 0047_users_email.sql
+-- 0048_users_email.sql
 -- What: adds a nullable `email` column to `users` — the owner/employee account's
 --       optional contact address.
 -- Why:  SOU-157 — the password-reset-by-email relay needs somewhere to send to.

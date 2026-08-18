@@ -28,6 +28,10 @@ export class InMemoryAdminAccountRepository implements AdminAccountRepository {
     return first ? structuredClone(first) : null;
   }
 
+  async participatesInSync(): Promise<boolean> {
+    return true;
+  }
+
   async save(account: AdminAccount): Promise<void> {
     this.rows.set(account.id, structuredClone(account));
   }

@@ -18,6 +18,14 @@ import type { AuthAuditEvent } from '../entities/auth-audit-event';
 export type RecoveryCodeResetUnit = {
   /** The account carrying the new `passwordHash` and bumped `updatedAt`. */
   readonly account: AdminAccount;
+  /**
+   * The DOMAIN's replication decision (SOU-258): true when the owner already
+   * participates in the sync feed, so the reset's password write appends a
+   * `users` change_log row in the same transaction. A migrated owner (backfilled
+   * by migration 0044, no sync presence) stays device-local. The adapter
+   * persists row + log atomically; it never re-derives this policy.
+   */
+  readonly replicate: boolean;
   /** The recovery code this reset spends; consumed only if still unconsumed in-transaction. */
   readonly consumedCodeId: RecoveryCodeId;
   /** When the code was consumed (from the injected Clock, UTC). */
