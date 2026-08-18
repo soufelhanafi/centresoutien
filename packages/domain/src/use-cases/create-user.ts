@@ -103,6 +103,7 @@ export class CreateUser {
       setupCodeHash: await this.hasher.hash(setupCode),
       setupCodeExpiresAt: now.getTime() + SETUP_CODE_TTL_MS,
       setupCodeRedeemedAt: null,
+      email: null,
     };
 
     await this.users.save(user);
