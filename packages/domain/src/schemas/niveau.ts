@@ -18,10 +18,17 @@ export const NIVEAU_CODE_MAX = 16;
 /** A niveau code starts alphanumeric, then allows alphanumerics, `_`, and `-`. */
 export const NIVEAU_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]*$/;
 
-const localizedName = z
+const frName = z
   .string()
   .trim()
   .min(1, { message: 'required' })
+  .max(NIVEAU_NAME_MAX, { message: 'too-long' });
+
+// AR is optional-but-length-capped (SOU-271): FR-only data entry is supported,
+// so an empty AR name is valid; an over-length one still fails.
+const arName = z
+  .string()
+  .trim()
   .max(NIVEAU_NAME_MAX, { message: 'too-long' });
 
 /**
@@ -50,8 +57,8 @@ const niveauCode = z
 /** The bilingual name block, shared by the create and update schemas so both
  *  enforce the exact same per-locale required + length rules. */
 const niveauName = z.object({
-  fr: localizedName,
-  ar: localizedName,
+  fr: frName,
+  ar: arName,
 });
 
 export const niveauInputSchema = z.object({

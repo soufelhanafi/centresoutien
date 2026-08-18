@@ -34,10 +34,17 @@ describe('studentInputSchema', () => {
     expect(parsed.notes).toBeNull();
   });
 
+  // SOU-271: AR is optional data entry — FR-only create with an empty AR name
+  // parses and keeps '' (never null), so the entity type stays `ar: string`.
+  it.each(['', '   '])('accepts an empty AR name (FR-only entry): %o', (ar) => {
+    const parsed = studentInputSchema.parse({ ...base, name: { fr: 'Yassine', ar } });
+    expect(parsed.name).toEqual({ fr: 'Yassine', ar: '' });
+  });
+
   it.each([
     ['blank fr name', { ...base, name: { fr: '  ', ar: 'ياسين' } }],
-    ['blank ar name', { ...base, name: { fr: 'Yassine', ar: '' } }],
     ['name too long', { ...base, name: { fr: 'x'.repeat(STUDENT_NAME_MAX + 1), ar: 'ياسين' } }],
+    ['ar name too long', { ...base, name: { fr: 'Yassine', ar: 'ي'.repeat(STUDENT_NAME_MAX + 1) } }],
     ['level too long', { ...base, level: 'x'.repeat(STUDENT_LEVEL_MAX + 1) }],
     ['school too long', { ...base, school: 'x'.repeat(STUDENT_SCHOOL_MAX + 1) }],
     ['notes too long', { ...base, notes: 'x'.repeat(STUDENT_NOTES_MAX + 1) }],

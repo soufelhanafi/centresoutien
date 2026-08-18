@@ -33,6 +33,14 @@ describe('niveauInputSchema', () => {
         ).toBeNull();
       }
     });
+
+    // SOU-271: AR is optional data entry — FR-only create with an empty AR name
+    // passes and keeps '' (never null).
+    it.each(['', '   '])('accepts an empty AR name (FR-only entry): %o', (ar) => {
+      const result = niveauInputSchema.safeParse({ name: { fr: 'Niveau', ar }, category: 'lycee' });
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.name.ar).toBe('');
+    });
   });
 
   describe('code', () => {
@@ -77,7 +85,6 @@ describe('niveauInputSchema', () => {
   describe('validation error codes', () => {
     const cases = [
       { name: 'empty fr', input: { name: { fr: '', ar: 'مستوى' } }, code: 'required' },
-      { name: 'empty ar', input: { name: { fr: 'Niveau', ar: '' } }, code: 'required' },
       { name: 'whitespace-only fr', input: { name: { fr: '   ', ar: 'مستوى' } }, code: 'required' },
       {
         name: 'fr over max length',

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { teacherInputSchema } from '../../../src/schemas/teacher';
+import { teacherInputSchema, TEACHER_NAME_MAX } from '../../../src/schemas/teacher';
 
 const base = {
   name: { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' },
@@ -56,12 +56,24 @@ describe('teacherInputSchema', () => {
     expect(r.error?.issues.some((i) => i.message === 'invalid-id')).toBe(true);
   });
 
-  describe('name (bilingual, required)', () => {
-    it('rejects a blank FR or AR name with the "required" code', () => {
+  describe('name (FR required, AR optional)', () => {
+    it('rejects a blank FR name with the "required" code', () => {
       const fr = teacherInputSchema.safeParse({ ...base, name: { fr: '  ', ar: 'ياسين' } });
-      const ar = teacherInputSchema.safeParse({ ...base, name: { fr: 'Yassine', ar: '  ' } });
       expect(fr.success).toBe(false);
-      expect(ar.success).toBe(false);
+      expect(fr.error?.issues.some((i) => i.message === 'required')).toBe(true);
+    });
+
+    // SOU-271: AR is optional data entry — a blank AR name is accepted and kept
+    // as '' (FR-only entry), while an over-length AR name still fails.
+    it.each(['', '   '])('accepts an empty AR name (FR-only entry): %o', (ar) => {
+      const parsed = teacherInputSchema.parse({ ...base, name: { fr: 'Yassine', ar } });
+      expect(parsed.name).toEqual({ fr: 'Yassine', ar: '' });
+    });
+
+    it('still rejects an over-length AR name with "too-long"', () => {
+      const r = teacherInputSchema.safeParse({ ...base, name: { fr: 'Yassine', ar: 'ي'.repeat(TEACHER_NAME_MAX + 1) } });
+      expect(r.success).toBe(false);
+      expect(r.error?.issues.some((i) => i.message === 'too-long')).toBe(true);
     });
   });
 

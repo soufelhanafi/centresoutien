@@ -45,13 +45,25 @@ describe('formulaInputSchema', () => {
     ).toBeNull();
   });
 
+  // SOU-271: AR is optional data entry — a formula created with an empty AR name
+  // is valid and keeps '' (this is what makes a FR-only invoice line generate).
+  it.each(['', '   '])('accepts an empty AR name (FR-only entry): %o', (ar) => {
+    const result = formulaInputSchema.safeParse(validInput({ name: { fr: 'Math', ar } }));
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.name.ar).toBe('');
+  });
+
   describe('validation error codes', () => {
     const cases = [
       { name: 'empty fr name', input: validInput({ name: { fr: '', ar: 'رياضيات' } }), code: 'required' },
-      { name: 'empty ar name', input: validInput({ name: { fr: 'Math', ar: '' } }), code: 'required' },
       {
         name: 'fr name over max length',
         input: validInput({ name: { fr: 'x'.repeat(FORMULA_NAME_MAX + 1), ar: 'رياضيات' } }),
+        code: 'too-long',
+      },
+      {
+        name: 'ar name over max length',
+        input: validInput({ name: { fr: 'Math', ar: 'ي'.repeat(FORMULA_NAME_MAX + 1) } }),
         code: 'too-long',
       },
       { name: 'no subjects', input: validInput({ subjectIds: [] }), code: 'subjects-required' },

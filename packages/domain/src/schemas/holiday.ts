@@ -21,10 +21,17 @@ import { isCalendarDate } from './student';
 
 export const HOLIDAY_NAME_MAX = 80;
 
-const localizedName = z
+const frName = z
   .string()
   .trim()
   .min(1, { message: 'required' })
+  .max(HOLIDAY_NAME_MAX, { message: 'too-long' });
+
+// AR is optional-but-length-capped (SOU-271): FR-only data entry is supported,
+// so an empty AR name is valid; an over-length one still fails.
+const arName = z
+  .string()
+  .trim()
   .max(HOLIDAY_NAME_MAX, { message: 'too-long' });
 
 const calendarDate = z
@@ -34,7 +41,7 @@ const calendarDate = z
 
 export const holidayInputSchema = z
   .object({
-    name: z.object({ fr: localizedName, ar: localizedName }),
+    name: z.object({ fr: frName, ar: arName }),
     kind: z.enum(['fixed', 'lunar'], { message: 'invalid-holiday-kind' }),
     startDate: calendarDate,
     endDate: calendarDate,

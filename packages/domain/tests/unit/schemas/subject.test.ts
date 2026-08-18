@@ -23,6 +23,14 @@ describe('subjectInputSchema', () => {
         expect(result.data.code).toBeUndefined();
       }
     });
+
+    // SOU-271: AR is optional data entry — FR-only create with an empty AR name
+    // passes; the empty value is preserved as '' (never null).
+    it.each(['', '   '])('accepts an empty AR name (FR-only entry): %o', (ar) => {
+      const result = subjectInputSchema.safeParse({ name: { fr: 'Mathématiques', ar } });
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.name).toEqual({ fr: 'Mathématiques', ar: '' });
+    });
   });
 
   describe('code', () => {
@@ -62,7 +70,6 @@ describe('subjectInputSchema', () => {
   describe('validation error codes', () => {
     const cases = [
       { name: 'empty fr', input: { name: { fr: '', ar: 'الرياضيات' } }, code: 'required' },
-      { name: 'empty ar', input: { name: { fr: 'Maths', ar: '' } }, code: 'required' },
       { name: 'whitespace-only fr', input: { name: { fr: '   ', ar: 'الرياضيات' } }, code: 'required' },
       {
         name: 'fr over max length',

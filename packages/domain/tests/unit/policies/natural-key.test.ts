@@ -55,16 +55,28 @@ describe('normalizeNaturalKey', () => {
 describe('buildStudentNaturalKey', () => {
   const name = { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' };
 
-  it('delegates to normalizeNaturalKey with the FR+AR name and birth date as contact', () => {
+  // SOU-271: the name slot is the FR name ONLY — AR is optional/empty now and can
+  // no longer anchor matching.
+  it('delegates to normalizeNaturalKey with the FR name and birth date as contact', () => {
     const key = buildStudentNaturalKey({ centerCode: CENTER, name, birthDate: '2012-05-03' });
     expect(key).toBe(
       normalizeNaturalKey({
         centerCode: CENTER,
-        fullName: `${name.fr} ${name.ar}`,
+        fullName: name.fr,
         contact: '2012-05-03',
       }),
     );
     expect(key.startsWith('CS-CASA-001::')).toBe(true);
+  });
+
+  it('collides for two students with the same FR name + same birth date + same center', () => {
+    const a = buildStudentNaturalKey({ centerCode: CENTER, name, birthDate: '2012-05-03' });
+    const b = buildStudentNaturalKey({
+      centerCode: CENTER,
+      name: { fr: 'Yassine Alaoui', ar: 'اسم آخر' },
+      birthDate: '2012-05-03',
+    });
+    expect(a).toBe(b);
   });
 
   it('gives two children with the same name but different birth dates different keys', () => {
@@ -73,11 +85,21 @@ describe('buildStudentNaturalKey', () => {
     expect(a).not.toBe(b);
   });
 
-  it('is stable across name spacing/case variants', () => {
+  it('no longer lets the AR name affect the key (empty or differing AR is identical)', () => {
+    const withAr = buildStudentNaturalKey({ centerCode: CENTER, name, birthDate: '2012-05-03' });
+    const emptyAr = buildStudentNaturalKey({
+      centerCode: CENTER,
+      name: { fr: 'Yassine Alaoui', ar: '' },
+      birthDate: '2012-05-03',
+    });
+    expect(withAr).toBe(emptyAr);
+  });
+
+  it('is stable across FR name spacing/case variants (AR ignored)', () => {
     const a = buildStudentNaturalKey({ centerCode: CENTER, name, birthDate: '2012-05-03' });
     const b = buildStudentNaturalKey({
       centerCode: CENTER,
-      name: { fr: '  Yassine   Alaoui ', ar: ' ياسين  العلوي ' },
+      name: { fr: '  Yassine   Alaoui ', ar: '' },
       birthDate: '2012-05-03',
     });
     expect(a).toBe(b);
@@ -87,16 +109,28 @@ describe('buildStudentNaturalKey', () => {
 describe('buildTeacherNaturalKey', () => {
   const name = { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' };
 
-  it('delegates to normalizeNaturalKey with the FR+AR name and E.164 phone as contact', () => {
+  // SOU-271: the name slot is the FR name ONLY — AR is optional/empty now and can
+  // no longer anchor matching.
+  it('delegates to normalizeNaturalKey with the FR name and E.164 phone as contact', () => {
     const key = buildTeacherNaturalKey({ centerCode: CENTER, name, phone: '+212612345678' });
     expect(key).toBe(
       normalizeNaturalKey({
         centerCode: CENTER,
-        fullName: `${name.fr} ${name.ar}`,
+        fullName: name.fr,
         contact: '+212612345678',
       }),
     );
     expect(key.startsWith('CS-CASA-001::')).toBe(true);
+  });
+
+  it('collides for two teachers with the same FR name + same phone + same center', () => {
+    const a = buildTeacherNaturalKey({ centerCode: CENTER, name, phone: '+212612345678' });
+    const b = buildTeacherNaturalKey({
+      centerCode: CENTER,
+      name: { fr: 'Yassine Alaoui', ar: 'اسم آخر' },
+      phone: '+212612345678',
+    });
+    expect(a).toBe(b);
   });
 
   it('gives two teachers sharing a phone but with different names different keys', () => {
@@ -109,11 +143,21 @@ describe('buildTeacherNaturalKey', () => {
     expect(a).not.toBe(b);
   });
 
-  it('is stable across name spacing/case variants (immutable matching key)', () => {
+  it('no longer lets the AR name affect the key (empty or differing AR is identical)', () => {
+    const withAr = buildTeacherNaturalKey({ centerCode: CENTER, name, phone: '+212612345678' });
+    const emptyAr = buildTeacherNaturalKey({
+      centerCode: CENTER,
+      name: { fr: 'Yassine Alaoui', ar: '' },
+      phone: '+212612345678',
+    });
+    expect(withAr).toBe(emptyAr);
+  });
+
+  it('is stable across FR name spacing/case variants (AR ignored, immutable matching key)', () => {
     const a = buildTeacherNaturalKey({ centerCode: CENTER, name, phone: '+212612345678' });
     const b = buildTeacherNaturalKey({
       centerCode: CENTER,
-      name: { fr: '  Yassine   Alaoui ', ar: ' ياسين  العلوي ' },
+      name: { fr: '  Yassine   Alaoui ', ar: '' },
       phone: '+212612345678',
     });
     expect(a).toBe(b);

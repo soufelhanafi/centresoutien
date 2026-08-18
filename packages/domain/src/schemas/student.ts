@@ -18,10 +18,17 @@ export const STUDENT_LEVEL_MAX = 40;
 export const STUDENT_SCHOOL_MAX = 120;
 export const STUDENT_NOTES_MAX = 2000;
 
-const localizedName = z
+const frName = z
   .string()
   .trim()
   .min(1, { message: 'required' })
+  .max(STUDENT_NAME_MAX, { message: 'too-long' });
+
+// AR is optional-but-length-capped (SOU-271): FR-only data entry is supported,
+// so an empty AR name is valid; an over-length one still fails.
+const arName = z
+  .string()
+  .trim()
   .max(STUDENT_NAME_MAX, { message: 'too-long' });
 
 /** Days in a Gregorian month — pure arithmetic, no `Date` (the domain reads time
@@ -80,7 +87,7 @@ const niveauId = z
   .optional();
 
 export const studentInputSchema = z.object({
-  name: z.object({ fr: localizedName, ar: localizedName }),
+  name: z.object({ fr: frName, ar: arName }),
   birthDate,
   // Free-text grade label — legacy (SOU-260). The typed axis is `niveauId`;
   // `level` stays for backward-compatible display but is no longer required.

@@ -222,6 +222,23 @@ describe('ApplyImportBackup', () => {
     expect(saved.find((row) => row['dayOfWeek'] === 2)?.['windows']).toBe('[]');
   });
 
+  // SOU-271: exceljs reads a FR-only workbook's empty AR cell back as `null`.
+  // Import must accept such a row (not reject it as bad-type) and persist name_ar
+  // as '' so the NOT NULL column is satisfied — the AR-optional round-trip.
+  it('accepts a student row whose AR name cell is blank (null) and persists name_ar as ""', async () => {
+    await seedWorkbook([
+      {
+        name: 'students',
+        columns: ['id', 'centerCode', 'naturalKey', 'name_fr', 'name_ar', 'birthDate', 'level', 'guardianIds'],
+        rows: [validBackupRow('students', { id: validId('stu'), name_fr: 'Yassine', name_ar: null })],
+      },
+    ]);
+
+    const result = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+    expect(result.counts).toEqual({ created: 1, updated: 0, duplicate: 0, invalid: 0 });
+    expect(store.allRows('students')[0]!['name_ar']).toBe('');
+  });
+
   it('skips a center-hours row whose windows cell is not valid window JSON', async () => {
     await seedWorkbook([
       {

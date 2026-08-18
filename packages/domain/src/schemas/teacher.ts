@@ -22,10 +22,17 @@ export const TEACHER_EMAIL_MAX = 160;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const localizedName = z
+const frName = z
   .string()
   .trim()
   .min(1, { message: 'required' })
+  .max(TEACHER_NAME_MAX, { message: 'too-long' });
+
+// AR is optional-but-length-capped (SOU-271): FR-only data entry is supported,
+// so an empty AR name is valid; an over-length one still fails.
+const arName = z
+  .string()
+  .trim()
   .max(TEACHER_NAME_MAX, { message: 'too-long' });
 
 /**
@@ -89,7 +96,7 @@ const niveauId = z
   .refine((value) => hasIdPrefix(value, NIVEAU_ID_PREFIX), { message: 'invalid-id' });
 
 export const teacherInputSchema = z.object({
-  name: z.object({ fr: localizedName, ar: localizedName }),
+  name: z.object({ fr: frName, ar: arName }),
   cin: cinField.optional().transform((v) => v ?? null),
   phone: phoneField,
   email: emailField.optional().transform((v) => v ?? null),
