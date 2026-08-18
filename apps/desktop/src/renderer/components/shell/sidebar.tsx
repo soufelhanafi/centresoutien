@@ -26,7 +26,7 @@ export function Sidebar() {
     >
       <div className="flex h-14 items-center gap-2 border-b border-border px-3">
         <span
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-primary to-teal-500 text-[15px] font-bold tracking-tight text-white"
           aria-hidden="true"
         >
           CS
