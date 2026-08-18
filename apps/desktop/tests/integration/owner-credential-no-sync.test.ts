@@ -63,6 +63,7 @@ function makeOwner(passwordHash: string): User {
     setupCodeHash: null,
     setupCodeExpiresAt: null,
     setupCodeRedeemedAt: null,
+    email: null,
   };
 }
 

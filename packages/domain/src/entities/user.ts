@@ -1,6 +1,7 @@
 import type { EntityEnvelope } from './envelope';
 import type { Role } from '../value-objects/role';
 import type { UserId } from '../value-objects/ids';
+import type { Email } from '../value-objects/email';
 
 export type { UserId } from '../value-objects/ids';
 
@@ -50,6 +51,14 @@ export type User = EntityEnvelope & {
   setupCodeExpiresAt: number | null;
   // When the setup code was redeemed (UTC); `null` while still pending. Single-use marker.
   setupCodeRedeemedAt: Date | null;
+  // Optional contact address, canonical (trim + lower-cased) via the Email VO;
+  // `null` when the account has none (SOU-157). Set later through the account, never
+  // required and never back-filled — its sole purpose is giving the future
+  // password-reset-by-email relay somewhere to send to. A mutable people-field: a
+  // change bumps updatedAt/updatedBy and is tracked in the per-field change log like
+  // any other editable column. NOT a duplicate-matching key (accounts match on
+  // username), so it is absent from the naturalKey and uniqueness index.
+  email: Email | null;
 };
 
 // True when a user still has a redeemable setup code (pending and unexpired at `now`).

@@ -1,0 +1,21 @@
+-- 0047_users_email.sql
+-- What: adds a nullable `email` column to `users` — the owner/employee account's
+--       optional contact address.
+-- Why:  SOU-157 — the password-reset-by-email relay needs somewhere to send to.
+--       Accounts stay username-first; email is a new OPTIONAL channel, never
+--       required and set later through the domain (`SetOwnerEmail`, validated by
+--       the Email VO). Not a duplicate-matching key — accounts match on username,
+--       so this is not part of any natural_key or uniqueness index.
+-- Rollback: additive-only; logical undo is dropping the column (never applied to a
+--       released DB in place).
+-- First ships in: v2.x (SOU-157).
+--
+-- Additive + sync-neutral: the column ships nullable with NO backfill, so no
+-- existing row is touched and no updated_at / updated_by / version is bumped —
+-- every replica converges to the same NULL on its own, zero sync traffic and zero
+-- phantom conflicts. Population happens later through the normal domain write path
+-- (SetOwnerEmail), where the change-log/updated_at bump is correct. `users` is the
+-- synced credential store (0044); a stale device that pulls a row with this field
+-- populated tolerates it (the payload mapper ignores unknown fields).
+
+ALTER TABLE users ADD COLUMN email TEXT;

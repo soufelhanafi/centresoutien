@@ -53,6 +53,7 @@ export class CreateAdminAccount {
       setupCodeHash: null,
       setupCodeExpiresAt: null,
       setupCodeRedeemedAt: null,
+      email: null,
     };
 
     await this.users.save(owner);
