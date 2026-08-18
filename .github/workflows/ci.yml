@@ -42,6 +42,7 @@ jobs:
         run: pnpm --filter @centresoutien/landing build
 
   e2e:
+    if: github.event_name == 'pull_request' 
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
