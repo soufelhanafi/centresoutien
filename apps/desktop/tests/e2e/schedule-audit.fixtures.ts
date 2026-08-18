@@ -31,7 +31,8 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
 const dirname = fileURLToPath(new URL('.', import.meta.url));
 export const MAIN_ENTRY = join(dirname, '../../out/main/index.js');
 
-export type Locale = 'fr' | 'ar';
+export { MONDAYS, SEED_FIRST_ONLY, SEED_BOTH, DATE, type Locale } from './schedule-audit.dates';
+import type { Locale } from './schedule-audit.dates';
 
 export const VALID_ADMIN = { username: 'directrice', password: ['Casa', '2026', '!'].join('') } as const;
 
@@ -44,17 +45,6 @@ export const REF = {
   subjectAr: 'الرياضيات',
   groupLevel: '2 Bac SM',
 } as const;
-
-/**
- * The two materialized Mondays used across the suite. The real system clock is
- * mid-August 2026; both dates are future, so an audit that only surfaces live
- * (non-past) occurrences still lists them. Localized date labels were read off
- * the running app (Moroccan Arabic renders August as "غشت").
- */
-export const DATE: Record<Locale, { d17: string; d24: string }> = {
-  fr: { d17: '17 août 2026', d24: '24 août 2026' },
-  ar: { d17: '17 غشت 2026', d24: '24 غشت 2026' },
-};
 
 /** All copy the specs assert on, mirrored from the LIVE running app in both locales. */
 export const STR: Record<
@@ -74,6 +64,8 @@ export const STR: Record<
     dialogBack: string;
     emptyTitle: string;
     emptySubtitle: string;
+    groupRepeats: (count: number) => string;
+    groupShowDates: (count: number) => string;
     dir: 'ltr' | 'rtl';
   }
 > = {
@@ -94,6 +86,8 @@ export const STR: Record<
     dialogBack: 'Retour',
     emptyTitle: 'Aucune séance hors horaires',
     emptySubtitle: 'Toutes les séances planifiées tiennent dans les horaires du centre et évitent les jours fériés.',
+    groupRepeats: (count) => `Se répète chaque semaine (×${count})`,
+    groupShowDates: (count) => `Voir les ${count} dates`,
     dir: 'ltr',
   },
   ar: {
@@ -111,6 +105,8 @@ export const STR: Record<
     dialogBack: 'رجوع',
     emptyTitle: 'لا توجد حصص خارج ساعات العمل',
     emptySubtitle: 'كل الحصص المجدولة تقع ضمن ساعات عمل المركز وتتجنّب أيام العطل.',
+    groupRepeats: (count) => `يتكرر كل أسبوع (×${count})`,
+    groupShowDates: (count) => `عرض التواريخ (${count})`,
     dir: 'rtl',
   },
 };
