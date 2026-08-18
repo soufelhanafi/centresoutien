@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { subjectInputSchema, SUBJECT_CODE_MAX, type SubjectInput } from '@centresoutien/domain';
 import { Form, FormControl, FormField, FormItem, FormLabel, Input } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
+import { withOptionalArabicName } from '../../lib/forms/optional-arabic-name';
 
 /** Blank defaults for the create flow. `code` is optional and starts empty. */
 export const EMPTY_SUBJECT_INPUT: SubjectInput = { name: { fr: '', ar: '' }, code: '' };
@@ -29,7 +30,10 @@ type SubjectFormProps = {
  */
 export function SubjectForm({ formId, defaultValues, onSubmit, serverCodeError = null }: SubjectFormProps) {
   const { t } = useTranslation();
-  const form = useForm<SubjectInput>({ resolver: zodResolver(subjectInputSchema), defaultValues });
+  const form = useForm<SubjectInput>({
+    resolver: withOptionalArabicName(zodResolver(subjectInputSchema)),
+    defaultValues,
+  });
 
   useEffect(() => {
     if (serverCodeError) form.setError('code', { message: serverCodeError.code });
@@ -64,8 +68,14 @@ export function SubjectForm({ formId, defaultValues, onSubmit, serverCodeError =
             <FormItem>
               <FormLabel>{t('subjects.form.nameAr')}</FormLabel>
               <FormControl>
-                <Input lang="ar" dir="rtl" {...field} />
+                <Input
+                  lang="ar"
+                  dir="rtl"
+                  placeholder={t('common.arabicNameOptionalPlaceholder')}
+                  {...field}
+                />
               </FormControl>
+              <p className="text-xs text-muted-foreground">{t('common.arabicNameOptionalHint')}</p>
               <FieldMessage />
             </FormItem>
           )}

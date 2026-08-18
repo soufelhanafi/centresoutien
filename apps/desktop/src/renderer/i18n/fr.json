@@ -4,7 +4,9 @@
   },
   "common": {
     "close": "Fermer",
-    "undo": "Annuler"
+    "undo": "Annuler",
+    "arabicNameOptionalHint": "Facultatif — vous pouvez laisser ce champ vide.",
+    "arabicNameOptionalPlaceholder": "Optionnel"
   },
   "nav": {
     "dashboard": "Tableau de bord",

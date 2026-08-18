@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { formulaInputSchema, FORMULA_NAME_MAX, type FormulaInput } from '@centresoutien/domain';
 import { Form, FormControl, FormField, FormItem, FormLabel, Input } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
+import { withOptionalArabicName } from '../../lib/forms/optional-arabic-name';
 import { useFeature } from '../../hooks/use-feature';
 import { centimesToMad, madToCentimes } from '../../lib/formulas/price-mad';
 import { FormulaSubjectsField } from './formula-subjects-field';
@@ -38,7 +39,10 @@ type FormulaFormProps = {
 export function FormulaForm({ formId, defaultValues, onSubmit }: FormulaFormProps) {
   const { t } = useTranslation();
   const examPrepEnabled = useFeature('core.exam-prep');
-  const form = useForm<FormulaFormInput>({ resolver: zodResolver(formulaInputSchema), defaultValues });
+  const form = useForm<FormulaFormInput>({
+    resolver: withOptionalArabicName(zodResolver(formulaInputSchema)),
+    defaultValues,
+  });
   const submit = form.handleSubmit(async (values) => {
     await onSubmit(values);
   });
@@ -67,8 +71,15 @@ export function FormulaForm({ formId, defaultValues, onSubmit }: FormulaFormProp
             <FormItem>
               <FormLabel>{t('formulas.form.nameAr')}</FormLabel>
               <FormControl>
-                <Input lang="ar" dir="rtl" maxLength={FORMULA_NAME_MAX} {...field} />
+                <Input
+                  lang="ar"
+                  dir="rtl"
+                  maxLength={FORMULA_NAME_MAX}
+                  placeholder={t('common.arabicNameOptionalPlaceholder')}
+                  {...field}
+                />
               </FormControl>
+              <p className="text-xs text-muted-foreground">{t('common.arabicNameOptionalHint')}</p>
               <FieldMessage />
             </FormItem>
           )}
