@@ -1,12 +1,14 @@
 import type { GroupRepository } from '../ports/group-repository';
+import type { RoomRepository } from '../ports/room-repository';
 import type { PlanPolicy } from '../plans/plan-policy';
-import type { CenterCode, DeviceId, EntityId, UserId } from '../value-objects/ids';
-import type { GroupId } from '../entities/group';
+import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
+import type { Group, GroupId } from '../entities/group';
 import type { RoomId } from '../entities/room';
 import type { GenerationBatchId } from '../entities/session';
 import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-session';
 import type { WeeklyBlock } from '../value-objects/weekly-block';
 import { GroupNotFoundError } from '../errors/group-errors';
+import { GeneratedScheduleCapacityConflictError } from '../errors/session-generator-errors';
 import {
   resolveGeneratorMaterializationRange,
   type SessionGeneratorRange,
@@ -84,6 +86,18 @@ export type CommitGeneratedScheduleResult = {
  * given. Forcing only bypasses the schedule-conflict check; the seat-fit and
  * not-found hard checks inside `CreateWeeklyRecurringSession` always run.
  *
+ * **Capacity conflicts are non-forceable and reject the whole batch (SOU-275).**
+ * Before committing any block, a pre-flight pass re-reads each group's live
+ * capacity and each block's assigned room, and throws
+ * {@link GeneratedScheduleCapacityConflictError} if any block's room cannot seat
+ * its group — regardless of `allowScheduleConflict`, since seat overflow is a
+ * hard invariant, not a double-book the admin may accept. The block is never
+ * auto-dropped: the whole run is refused up front (nothing persisted) so the
+ * admin fixes the room/group config and re-previews. This is an earlier, cleaner
+ * guard than the {@link assertGroupFitsRoom} invariant inside
+ * `CreateWeeklyRecurringSession`, which stays in place as defense in depth but
+ * would otherwise fire mid-run, after earlier blocks had already committed.
+ *
  * Blocks are committed **sequentially, not in parallel**: each
  * `CreateWeeklyRecurringSession` call reads the repository's live state, so an
  * earlier block in this same run is already visible to the room-conflict check
@@ -108,6 +122,7 @@ export type CommitGeneratedScheduleResult = {
 export class CommitGeneratedSchedule {
   constructor(
     private readonly groups: GroupRepository,
+    private readonly rooms: RoomRepository,
     private readonly createWeeklySession: CreateWeeklyRecurringSession,
     private readonly generateAndPersist: GenerateAndPersistSessions,
     private readonly plan: PlanPolicy,
@@ -117,9 +132,11 @@ export class CommitGeneratedSchedule {
     this.plan.require(input.mode === 'auto' ? 'planning.random-auto' : 'planning.custom-grid');
     const { centerCode, deviceOrigin, updatedBy, proposals, range } = input;
 
+    await this.assertEveryBlockFitsItsRoom(centerCode, proposals);
+
     const templates: CommittedGeneratedTemplate[] = [];
     for (const proposal of proposals) {
-      const teacherId = await this.resolveTeacherId(centerCode, proposal.groupId);
+      const { teacherId } = await this.resolveGroup(centerCode, proposal.groupId);
       for (const scheduled of proposal.blocks) {
         const created = await this.createWeeklySession.execute({
           centerCode,
@@ -156,11 +173,34 @@ export class CommitGeneratedSchedule {
     return { templates };
   }
 
-  private async resolveTeacherId(centerCode: CenterCode, groupId: GroupId): Promise<EntityId | null> {
+  /**
+   * The whole-batch capacity guard (SOU-275): re-reads every group's live
+   * capacity and every block's assigned room up front, throwing before a single
+   * block is committed so a run with any seat overflow leaves nothing persisted.
+   * A room missing since the preview is left to `CreateWeeklyRecurringSession`'s
+   * own not-found check in the commit loop — only a present, too-small room is a
+   * capacity conflict here.
+   */
+  private async assertEveryBlockFitsItsRoom(
+    centerCode: CenterCode,
+    proposals: readonly CommitGroupProposal[],
+  ): Promise<void> {
+    for (const proposal of proposals) {
+      const group = await this.resolveGroup(centerCode, proposal.groupId);
+      for (const scheduled of proposal.blocks) {
+        const room = await this.rooms.findById(scheduled.roomId);
+        if (room !== null && group.capacity > room.capacity) {
+          throw new GeneratedScheduleCapacityConflictError(group.id, room.id, group.capacity, room.capacity);
+        }
+      }
+    }
+  }
+
+  private async resolveGroup(centerCode: CenterCode, groupId: GroupId): Promise<Group> {
     const group = await this.groups.findById(groupId);
     if (group === null || group.centerCode !== centerCode) {
       throw new GroupNotFoundError(groupId);
     }
-    return group.teacherId;
+    return group;
   }
 }

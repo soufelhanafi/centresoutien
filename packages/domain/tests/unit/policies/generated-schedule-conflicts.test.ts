@@ -225,4 +225,110 @@ describe('detectGeneratedScheduleConflicts', () => {
     );
     expect(result.map((c) => c.kind).sort()).toEqual(['hours', 'room']);
   });
+
+  describe('capacity overflow (SOU-275)', () => {
+    function seatFit(
+      rooms: readonly (readonly [RoomId, number])[],
+      groups: readonly (readonly [GroupId, number])[],
+    ): { roomCapacity: ReadonlyMap<RoomId, number>; seatsByGroup: ReadonlyMap<GroupId, number> } {
+      return { roomCapacity: new Map(rooms), seatsByGroup: new Map(groups) };
+    }
+
+    it('flags a block whose assigned room cannot seat its group, attributing the block', () => {
+      const result = detectGeneratedScheduleConflicts(
+        [block(G1, ROOM_A, '09:00', '10:30')],
+        [],
+        centerHours,
+        undefined,
+        seatFit([[ROOM_A, 12]], [[G1, 16]]),
+      );
+
+      expect(result).toEqual([
+        {
+          kind: 'capacity',
+          groupId: G1,
+          dayOfWeek: MON,
+          start: '09:00',
+          end: '10:30',
+          roomId: ROOM_A,
+          groupCapacity: 16,
+          roomCapacity: 12,
+        },
+      ]);
+    });
+
+    it('does not flag a block whose assigned room seats the group exactly', () => {
+      const result = detectGeneratedScheduleConflicts(
+        [block(G1, ROOM_A, '09:00', '10:30')],
+        [],
+        centerHours,
+        undefined,
+        seatFit([[ROOM_A, 16]], [[G1, 16]]),
+      );
+      expect(result).toEqual([]);
+    });
+
+    it('treats a room of unknown capacity as unbounded (never flags it)', () => {
+      const result = detectGeneratedScheduleConflicts(
+        [block(G1, ROOM_A, '09:00', '10:30')],
+        [],
+        centerHours,
+        undefined,
+        seatFit([[ROOM_B, 12]], [[G1, 16]]),
+      );
+      expect(result).toEqual([]);
+    });
+
+    it('imposes no capacity constraint on a group of unknown seat count', () => {
+      const result = detectGeneratedScheduleConflicts(
+        [block(G1, ROOM_A, '09:00', '10:30')],
+        [],
+        centerHours,
+        undefined,
+        seatFit([[ROOM_A, 12]], [[G2, 16]]),
+      );
+      expect(result).toEqual([]);
+    });
+
+    it('flags only the overflowing block among several', () => {
+      const result = detectGeneratedScheduleConflicts(
+        [block(G1, ROOM_A, '09:00', '10:30'), block(G2, ROOM_B, '11:00', '12:30')],
+        [],
+        centerHours,
+        undefined,
+        seatFit(
+          [
+            [ROOM_A, 12],
+            [ROOM_B, 20],
+          ],
+          [
+            [G1, 16],
+            [G2, 18],
+          ],
+        ),
+      );
+
+      expect(result).toEqual([
+        {
+          kind: 'capacity',
+          groupId: G1,
+          dayOfWeek: MON,
+          start: '09:00',
+          end: '10:30',
+          roomId: ROOM_A,
+          groupCapacity: 16,
+          roomCapacity: 12,
+        },
+      ]);
+    });
+
+    it('reports no capacity conflict when no seat-fit context is supplied', () => {
+      const result = detectGeneratedScheduleConflicts(
+        [block(G1, ROOM_A, '09:00', '10:30')],
+        [],
+        centerHours,
+      );
+      expect(result).toEqual([]);
+    });
+  });
 });

@@ -282,6 +282,7 @@ export {
 } from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/scheduling-errors';
 export {
+  GeneratedScheduleCapacityConflictError,
   GroupExceedsRoomCapacityError,
   InfeasibleGeneratorConfigError,
   NoRoomsConfiguredError,
@@ -812,6 +813,7 @@ export type {
   GeneratedBlockCandidate,
   GeneratedScheduleConflict,
   GeneratorAvailabilityContext,
+  GeneratorSeatCapacities,
 } from './policies/generated-schedule-conflicts';
 export { teacherUnavailability, weekdayOccursWithin } from './policies/teacher-availability-policy';
 export type { TeacherAvailabilityRules } from './policies/teacher-availability-policy';

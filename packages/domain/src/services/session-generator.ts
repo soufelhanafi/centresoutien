@@ -17,6 +17,7 @@ import {
   type GeneratedBlockCandidate,
   type GeneratedScheduleConflict,
   type GeneratorAvailabilityContext,
+  type GeneratorSeatCapacities,
 } from '../policies/generated-schedule-conflicts';
 import type { TeacherAvailabilityRules } from '../policies/teacher-availability-policy';
 import { WEEKDAYS } from '../value-objects/weekday';
@@ -197,10 +198,7 @@ export type UnroomedBlock = {
  * `seatsByGroup` imposes no seat constraint — so an entirely undefined
  * {@link SeatFit} reproduces the pre-SOU-272 seat-blind draw exactly.
  */
-export type SeatFit = {
-  readonly roomCapacity: ReadonlyMap<RoomId, number>;
-  readonly seatsByGroup: ReadonlyMap<GroupId, number>;
-};
+export type SeatFit = GeneratorSeatCapacities;
 
 function roomSeatsGroup(seatFit: SeatFit | undefined, groupId: GroupId, roomId: RoomId): boolean {
   const seats = seatFit?.seatsByGroup.get(groupId);
@@ -472,6 +470,7 @@ export class SessionGenerator {
       existingSchedule,
       centerHours,
       context.availability,
+      context.seatFit,
     );
     return { proposals, conflicts };
   }

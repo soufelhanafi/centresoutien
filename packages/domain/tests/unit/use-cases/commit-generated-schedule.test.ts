@@ -11,6 +11,7 @@ import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
 import { GroupNotFoundError } from '../../../src/errors/group-errors';
+import { GeneratedScheduleCapacityConflictError } from '../../../src/errors/session-generator-errors';
 import { RoomConflictError } from '../../../src/errors/scheduling-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Group, GroupId } from '../../../src/entities/group';
@@ -120,7 +121,7 @@ describe('CommitGeneratedSchedule', () => {
       new GenerateSessions(clock, ids),
       policy,
     );
-    return new CommitGeneratedSchedule(groups, createWeeklySession, generateAndPersist, policy);
+    return new CommitGeneratedSchedule(groups, rooms, createWeeklySession, generateAndPersist, policy);
   }
 
   function input(overrides: Partial<CommitGeneratedScheduleInput> = {}): CommitGeneratedScheduleInput {
@@ -388,6 +389,80 @@ describe('CommitGeneratedSchedule', () => {
           input({ proposals: [proposal(group.id, [block(MON, '09:00', '10:30', ROOM_A, false)])] }),
         ),
       ).rejects.toBeInstanceOf(RoomConflictError);
+    });
+  });
+
+  describe('capacity conflict rejection (SOU-275)', () => {
+    it('rejects the whole batch when a block\'s assigned room cannot seat its group, persisting nothing', async () => {
+      const group = makeGroup({ capacity: 40 }); // larger than either 30-seat room
+      await groups.save(group);
+
+      await expect(
+        useCase.execute(input({ proposals: [proposal(group.id, [block(MON, '09:00', '10:30', ROOM_A)])] })),
+      ).rejects.toBeInstanceOf(GeneratedScheduleCapacityConflictError);
+
+      expect(await recurrences.listRefsForDay(CENTER, MON)).toEqual([]);
+    });
+
+    it('rejects even when the offending block is forced (capacity overflow is non-forceable)', async () => {
+      const group = makeGroup({ capacity: 40 });
+      await groups.save(group);
+
+      await expect(
+        useCase.execute(
+          input({ proposals: [proposal(group.id, [block(MON, '09:00', '10:30', ROOM_A, true)])] }),
+        ),
+      ).rejects.toBeInstanceOf(GeneratedScheduleCapacityConflictError);
+    });
+
+    it('rejects the whole batch before committing any block when only a later proposal overflows', async () => {
+      const fitting = makeGroup({ capacity: 15 });
+      const overflowing = makeGroup({ capacity: 40 });
+      await groups.save(fitting);
+      await groups.save(overflowing);
+
+      await expect(
+        useCase.execute(
+          input({
+            proposals: [
+              proposal(fitting.id, [block(MON, '09:00', '10:30', ROOM_A)]),
+              proposal(overflowing.id, [block(WED, '09:00', '10:30', ROOM_B)]),
+            ],
+          }),
+        ),
+      ).rejects.toBeInstanceOf(GeneratedScheduleCapacityConflictError);
+
+      expect(await recurrences.listRefsForDay(CENTER, MON)).toEqual([]);
+      expect(await recurrences.listRefsForDay(CENTER, WED)).toEqual([]);
+    });
+
+    it('attributes the offending group and room on the thrown error', async () => {
+      const group = makeGroup({ capacity: 40 });
+      await groups.save(group);
+
+      try {
+        await useCase.execute(input({ proposals: [proposal(group.id, [block(MON, '09:00', '10:30', ROOM_A)])] }));
+        expect.unreachable('expected a capacity-conflict throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(GeneratedScheduleCapacityConflictError);
+        const capacity = error as GeneratedScheduleCapacityConflictError;
+        expect(capacity.code).toBe('schedule-capacity-conflict');
+        expect(capacity.groupId).toBe(group.id);
+        expect(capacity.roomId).toBe(ROOM_A);
+        expect(capacity.groupCapacity).toBe(40);
+        expect(capacity.roomCapacity).toBe(30);
+      }
+    });
+
+    it('commits normally when every block\'s assigned room seats its group', async () => {
+      const group = makeGroup({ capacity: 30 }); // exactly fills the 30-seat room
+      await groups.save(group);
+
+      const result = await useCase.execute(
+        input({ proposals: [proposal(group.id, [block(MON, '09:00', '10:30', ROOM_A)])] }),
+      );
+
+      expect(result.templates).toHaveLength(1);
     });
   });
 

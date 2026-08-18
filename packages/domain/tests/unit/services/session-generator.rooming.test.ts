@@ -323,6 +323,50 @@ describe('SessionGenerator — seat-fit rooming end to end (SOU-272)', () => {
     }
   });
 
+  it('custom mode surfaces a non-blocking capacity conflict instead of throwing when a group outgrows every room', () => {
+    const config = customConfig([MON], { sessionsPerWeek: 1 });
+    const run = input(config, [G1], {
+      rooms: [ROOM_A, ROOM_B],
+      roomCapacities: new Map([
+        [ROOM_A, 10],
+        [ROOM_B, 12],
+      ]),
+      groupCapacities: new Map([[G1, 16]]),
+    });
+
+    const { proposals, conflicts } = new SessionGenerator(sequenceRandom([0, 0, 0, 0])).generate(run);
+
+    expect(proposals).toHaveLength(1);
+    const assignedRoom = proposals[0]!.blocks[0]!.roomId;
+    const capacityConflict = conflicts.find((conflict) => conflict.kind === 'capacity');
+    expect(capacityConflict).toEqual({
+      kind: 'capacity',
+      groupId: G1,
+      dayOfWeek: proposals[0]!.blocks[0]!.block.dayOfWeek,
+      start: proposals[0]!.blocks[0]!.block.start,
+      end: proposals[0]!.blocks[0]!.block.end,
+      roomId: assignedRoom,
+      groupCapacity: 16,
+      roomCapacity: assignedRoom === ROOM_A ? 10 : 12,
+    });
+  });
+
+  it('custom mode reports no capacity conflict when the assigned room seats the group', () => {
+    const config = customConfig([MON], { sessionsPerWeek: 1 });
+    const run = input(config, [G1], {
+      rooms: [ROOM_A, ROOM_B],
+      roomCapacities: new Map([
+        [ROOM_A, 20],
+        [ROOM_B, 20],
+      ]),
+      groupCapacities: new Map([[G1, 16]]),
+    });
+
+    const { conflicts } = new SessionGenerator(sequenceRandom([0, 0, 0, 0])).generate(run);
+
+    expect(conflicts.some((conflict) => conflict.kind === 'capacity')).toBe(false);
+  });
+
   it('auto mode does not throw when the group fits at least one room', () => {
     const config = autoConfig({ weekdayPool: [MON, WED, FRI], sessionsPerWeek: 1, minGapDays: 1 });
     const run = input(config, [G1], {
