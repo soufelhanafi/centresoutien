@@ -27,11 +27,11 @@ function parent(id: string, name: string, phone: string): Parent {
   } as Parent;
 }
 
-function teacher(id: string, name: string, phone: string): Teacher {
+function teacher(id: string, name: string, phone: string, arName = name): Teacher {
   return {
     id: id as Teacher['id'],
     naturalKey: '',
-    name: { fr: name, ar: name },
+    name: { fr: name, ar: arName },
     phone: phone as PhoneNumber,
     cin: null,
     email: null,
@@ -40,11 +40,17 @@ function teacher(id: string, name: string, phone: string): Teacher {
   } as Teacher;
 }
 
-function student(id: string, name: string, birthDate: string, guardianIds: string[]): Student {
+function student(
+  id: string,
+  name: string,
+  birthDate: string,
+  guardianIds: string[],
+  arName = name,
+): Student {
   return {
     id: id as Student['id'],
     naturalKey: '',
-    name: { fr: name, ar: name },
+    name: { fr: name, ar: arName },
     birthDate,
     level: '2 Bac',
     school: null,
@@ -146,6 +152,37 @@ describe('DuplicateMatcher — parents (E.164 phone anchor)', () => {
 
     expect(matches[0]).toEqual({ tier: 'fuzzy', candidateId: asEntity('tch_A'), reason: 'shared-phone' });
   });
+
+  it('same FR name + same phone but DIFFERENT Arabic names → exact (FR-only identity, SOU-271)', () => {
+    // Identity is the FR name only (buildTeacherNaturalKey). A differing AR name —
+    // or a blank one, now common for FR-only data entry — must NOT downgrade a
+    // genuine same-name+phone duplicate from exact to the shared-phone fuzzy tier.
+    const matcher = new DuplicateMatcher(
+      source({ findTeachersByPhone: () => [teacher('tch_A', 'Salma Bennani', '+212700000002', 'سلمى بناني')] }),
+    );
+    const matches = matcher.match({
+      entityType: 'teachers',
+      centerCode: CENTER,
+      entity: { id: 'tch_B', name: { fr: 'Salma Bennani', ar: '' }, phone: '+212700000002' },
+      selfId: SELF,
+    });
+
+    expect(matches[0]).toEqual({ tier: 'exact', candidateId: asEntity('tch_A'), reason: 'same-name-phone' });
+  });
+
+  it('different FR name + same phone → still fuzzy shared-phone even when AR names happen to match', () => {
+    const matcher = new DuplicateMatcher(
+      source({ findTeachersByPhone: () => [teacher('tch_A', 'Salma Bennani', '+212700000002', 'كريم')] }),
+    );
+    const matches = matcher.match({
+      entityType: 'teachers',
+      centerCode: CENTER,
+      entity: { id: 'tch_B', name: { fr: 'Karim Idrissi', ar: 'كريم' }, phone: '+212700000002' },
+      selfId: SELF,
+    });
+
+    expect(matches[0]).toEqual({ tier: 'fuzzy', candidateId: asEntity('tch_A'), reason: 'shared-phone' });
+  });
 });
 
 describe('DuplicateMatcher — students (name + guardian)', () => {
@@ -197,6 +234,56 @@ describe('DuplicateMatcher — students (name + guardian)', () => {
     });
 
     expect(matches[0]).toEqual({ tier: 'fuzzy', candidateId: asEntity('stu_A'), reason: 'separated-family' });
+  });
+
+  it('same FR name + shared guardian, differing/blank AR → exact (FR-only identity, SOU-271)', () => {
+    const matcher = new DuplicateMatcher(
+      source({
+        findStudentsByName: () => [student('stu_A', 'Yassine Alaoui', '2010-01-15', ['prt_A'], 'ياسين علوي')],
+      }),
+    );
+    const matches = matcher.match({
+      entityType: 'students',
+      centerCode: CENTER,
+      entity: { id: 'stu_B', name: { fr: 'Yassine Alaoui', ar: '' }, birthDate: '2010-01-15', guardianIds: ['prt_A'] },
+      selfId: SELF,
+    });
+
+    expect(matches[0]).toEqual({ tier: 'exact', candidateId: asEntity('stu_A'), reason: 'shared-guardian' });
+  });
+
+  it('same FR name + same birth date, DIFFERENT guardians, blank AR → fuzzy separated-family', () => {
+    const matcher = new DuplicateMatcher(
+      source({
+        findStudentsByName: () => [student('stu_A', 'Yassine Alaoui', '2010-01-15', ['prt_A'], 'ياسين علوي')],
+      }),
+    );
+    const matches = matcher.match({
+      entityType: 'students',
+      centerCode: CENTER,
+      entity: { id: 'stu_B', name: { fr: 'Yassine Alaoui', ar: '' }, birthDate: '2010-01-15', guardianIds: ['prt_B'] },
+      selfId: SELF,
+    });
+
+    expect(matches[0]).toEqual({ tier: 'fuzzy', candidateId: asEntity('stu_A'), reason: 'separated-family' });
+  });
+
+  it('blank AR yields the same tier as a populated AR when the FR name is identical', () => {
+    const local = student('stu_A', 'Yassine Alaoui', '2010-01-15', ['prt_A'], 'ياسين علوي');
+    const withPopulatedAr = new DuplicateMatcher(source({ findStudentsByName: () => [local] })).match({
+      entityType: 'students',
+      centerCode: CENTER,
+      entity: { id: 'stu_B', name: { fr: 'Yassine Alaoui', ar: 'ياسين علوي' }, birthDate: '2010-01-15', guardianIds: ['prt_A'] },
+      selfId: SELF,
+    });
+    const withBlankAr = new DuplicateMatcher(source({ findStudentsByName: () => [local] })).match({
+      entityType: 'students',
+      centerCode: CENTER,
+      entity: { id: 'stu_B', name: { fr: 'Yassine Alaoui', ar: '' }, birthDate: '2010-01-15', guardianIds: ['prt_A'] },
+      selfId: SELF,
+    });
+
+    expect(withBlankAr).toEqual(withPopulatedAr);
   });
 
   it('non-people entity types are ignored', () => {
