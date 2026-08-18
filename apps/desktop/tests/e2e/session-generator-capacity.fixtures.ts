@@ -16,6 +16,9 @@ import type { Locale } from './planning-sessions.fixtures';
  * with the stable IPC error code `schedule-capacity-conflict`.
  */
 
+// The preload bridge (`window.api`) is injected at runtime and has no ambient type
+// inside Playwright's `page.evaluate` browser sandbox, so each call site casts `window`
+// through `unknown` to reach it. Narrowed to just `invoke` — the only channel these tests use.
 type Bridge = { invoke: (channel: string, req: unknown) => Promise<unknown> };
 
 export type GeneratedBlock = { dayOfWeek: number; start: string; end: string; roomId: string; teacherId: string | null };
@@ -61,14 +64,16 @@ export const CAPACITY_STR: Record<
 > = {
   fr: {
     keyword: /trop petite/,
-    warning: (room, g, r) => `Salle ${room} trop petite : ${g} élèves pour ${r} places.`,
+    warning: (room, groupCapacity, roomCapacity) =>
+      `Salle ${room} trop petite : ${groupCapacity} élèves pour ${roomCapacity} places.`,
     blockedHint:
       "Une salle est trop petite pour son groupe. Un dépassement de capacité ne peut pas être forcé : corrigez la salle ou la configuration, puis relancez l'aperçu.",
     rawKeyLeak: /planning\.generator/,
   },
   ar: {
     keyword: /صغيرة جدًا/,
-    warning: (room, g, r) => `القاعة ${room} صغيرة جدًا: ${g} تلميذًا مقابل ${r} مقعدًا.`,
+    warning: (room, groupCapacity, roomCapacity) =>
+      `القاعة ${room} صغيرة جدًا: ${groupCapacity} تلميذًا مقابل ${roomCapacity} مقعدًا.`,
     blockedHint:
       'توجد قاعة أصغر من أن تتّسع لمجموعتها. لا يمكن فرض تجاوز السعة: صحّح القاعة أو الإعدادات ثم أعد المعاينة.',
     rawKeyLeak: /planning\.generator/,
@@ -82,6 +87,7 @@ export async function previewCustom(
   opts: { pickedWeekdays: number[]; sessionDurationMinutes?: number },
 ): Promise<PreviewResult> {
   return win.evaluate(async (args) => {
+    // untyped preload bridge in the evaluate sandbox — see Bridge
     const api = (window as unknown as { api: Bridge }).api;
     return api.invoke('session.generator.preview', {
       mode: 'custom',
@@ -110,6 +116,7 @@ export async function commitProposalsExpectingError(
 ): Promise<{ code: string | null; raw: string }> {
   return win.evaluate(
     async (props) => {
+      // untyped preload bridge in the evaluate sandbox — see Bridge
       const api = (window as unknown as { api: Bridge }).api;
       const request = {
         mode: 'custom' as const,
@@ -145,6 +152,7 @@ export async function commitProposals(
   proposals: PreviewResult['proposals'],
 ): Promise<{ templates: unknown[] }> {
   return win.evaluate(async (props) => {
+    // untyped preload bridge in the evaluate sandbox — see Bridge
     const api = (window as unknown as { api: Bridge }).api;
     return api.invoke('session.generator.commit', {
       mode: 'custom',
@@ -164,6 +172,7 @@ export async function previewAutoExpectingError(
 ): Promise<{ code: string | null; raw: string }> {
   return win.evaluate(
     async (gid) => {
+      // untyped preload bridge in the evaluate sandbox — see Bridge
       const api = (window as unknown as { api: Bridge }).api;
       try {
         await api.invoke('session.generator.preview', {

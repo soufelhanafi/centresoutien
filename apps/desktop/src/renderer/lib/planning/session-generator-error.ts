@@ -18,6 +18,11 @@ import { resolveDomainErrorCode } from '../ipc/resolve-domain-error-code';
  *   is the seat-overflow pre-flight refusing the whole batch when a room shrank or
  *   a group grew between preview and commit — the preview gating normally prevents
  *   it, so it only surfaces on that race.
+ * - `group-over-capacity` is the per-block seat-fit invariant inside
+ *   `CreateWeeklyRecurringSession`, the defense-in-depth backstop to the pre-flight
+ *   above. It only fires if the room shrank or group grew *between* the batch
+ *   pre-flight and a later block's write; mapping it here degrades that race to the
+ *   same actionable seat-overflow message instead of a generic toast (SOU-275).
  */
 export type GeneratorErrorCode =
   | 'infeasible-generator-config'
@@ -26,6 +31,7 @@ export type GeneratorErrorCode =
   | 'room-conflict'
   | 'session-outside-center-hours'
   | 'schedule-capacity-conflict'
+  | 'group-over-capacity'
   | 'weekly-recurring-session-not-found';
 
 const DECODED_CODE_TO_RENDERER_CODE: Readonly<Record<string, GeneratorErrorCode>> = {
@@ -35,6 +41,7 @@ const DECODED_CODE_TO_RENDERER_CODE: Readonly<Record<string, GeneratorErrorCode>
   RoomConflictError: 'room-conflict',
   SessionOutsideCenterHoursError: 'session-outside-center-hours',
   'schedule-capacity-conflict': 'schedule-capacity-conflict',
+  'group-over-capacity': 'group-over-capacity',
   'weekly-recurring-session-not-found': 'weekly-recurring-session-not-found',
 };
 
