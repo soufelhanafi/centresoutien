@@ -10,7 +10,13 @@ import type {
 import { toEntityId } from '@centresoutien/domain';
 import { fromSqlValue, IDENTITY_COLUMNS, toSqlValue, type SheetSqlConfig } from './backup-store-config';
 import { SHEET_SQL } from './backup-store-sheets';
-import { niveauBackupRowToEntity, subjectBackupRowToEntity } from '../change-log/change-log-entity-mappers';
+import {
+  centerHoursOverrideBackupRowToEntity,
+  niveauBackupRowToEntity,
+  subjectBackupRowToEntity,
+  teacherAvailabilityBackupRowToEntity,
+  teacherAvailabilityExceptionBackupRowToEntity,
+} from '../change-log/change-log-entity-mappers';
 import { ensurePaymentReversalUniqueIndex, REVERSAL_ONCE_INDEX } from '../repairs/payment-reversal-index';
 
 /**
@@ -72,16 +78,14 @@ export class SqliteBackupStore implements BackupStore {
                 entityId: toEntityId(id),
                 centerCode: row['centerCode'] as CenterCode,
                 intent: 'upsert',
-                // The logical row the adapter persisted. `subjects` and `niveaux`
-                // are converted to their canonical domain shapes because those
-                // repositories also log that entityType (SOU-170: one payload
-                // shape per type).
-                entity:
-                  config.table === 'subjects'
-                    ? subjectBackupRowToEntity(row)
-                    : config.table === 'niveaux'
-                      ? niveauBackupRowToEntity(row)
-                      : row,
+                // The logical row the adapter persisted. `subjects`, `niveaux`,
+                // `center_hours_overrides`, `teacher_availability` and
+                // `teacher_availability_exceptions` are converted to their
+                // canonical domain shapes because those repositories also log
+                // that entityType (SOU-170: one payload shape per type) — a
+                // synced override/availability must land on the real columns,
+                // not the neutral flat fallback.
+                entity: this.loggedEntityFor(config.table, row),
               });
             }
           }
@@ -93,6 +97,27 @@ export class SqliteBackupStore implements BackupStore {
     // (with the pending double-void reported) when the import introduced one. Runs outside
     // the restore tx because a dirty import must NOT roll the whole restore back.
     ensurePaymentReversalUniqueIndex(this.db);
+  }
+
+  // The change-log payload for a written row. Repositories that log a nested
+  // domain entity for their table convert the flat workbook row back to that
+  // canonical shape (SOU-170 one-payload-per-type); everything else logs the
+  // flat logical row directly.
+  private loggedEntityFor(table: string, row: BackupRow): Record<string, unknown> {
+    switch (table) {
+      case 'subjects':
+        return subjectBackupRowToEntity(row);
+      case 'niveaux':
+        return niveauBackupRowToEntity(row);
+      case 'center_hours_overrides':
+        return centerHoursOverrideBackupRowToEntity(row);
+      case 'teacher_availability':
+        return teacherAvailabilityBackupRowToEntity(row);
+      case 'teacher_availability_exceptions':
+        return teacherAvailabilityExceptionBackupRowToEntity(row);
+      default:
+        return row;
+    }
   }
 
   /**

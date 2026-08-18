@@ -62,7 +62,7 @@ export type BackupSheetSpec = {
   columns: readonly BackupColumn[];
 };
 
-/** The 17 entity sheets, in import dependency order. */
+// The 20 entity sheets, in import dependency order.
 export type BackupSheetName =
   | 'parents'
   | 'students'
@@ -80,7 +80,10 @@ export type BackupSheetName =
   | 'invoice-lines'
   | 'payments'
   | 'center-hours'
-  | 'holidays';
+  | 'holidays'
+  | 'center-hours-overrides'
+  | 'teacher-availability'
+  | 'teacher-availability-exceptions';
 
 /**
  * The shared envelope columns. `id` and every envelope column except

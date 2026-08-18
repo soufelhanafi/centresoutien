@@ -8,7 +8,7 @@ import {
 } from '../../../src/backup/backup-workbook';
 
 describe('backup workbook registry', () => {
-  it('has exactly the 17 confirmed sheets, in import dependency order', () => {
+  it('has exactly the 20 confirmed sheets, in import dependency order', () => {
     expect(BACKUP_SHEET_NAMES).toEqual([
       'parents',
       'students',
@@ -27,6 +27,9 @@ describe('backup workbook registry', () => {
       'payments',
       'center-hours',
       'holidays',
+      'center-hours-overrides',
+      'teacher-availability',
+      'teacher-availability-exceptions',
     ]);
     expect(BACKUP_SHEETS).toHaveLength(BACKUP_SHEET_NAMES.length);
   });

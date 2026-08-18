@@ -3,6 +3,7 @@ import { hasIdPrefix } from '../value-objects/ids';
 import type { CenterCode } from '../value-objects/ids';
 import type { TimeOfDay } from '../value-objects/time-of-day';
 import { areOrderedNonOverlappingWindows, type TimeWindow } from '../value-objects/time-window';
+import { hoursByWeekdaySchema } from '../schemas/center-hours-override';
 
 /**
  * Row-level validation and import classification for the backup engine (SOU-44).
@@ -77,6 +78,18 @@ export function validateBackupRow(
         reasons.push('invalid-windows');
       }
     }
+    // SOU-264: the synced-settings sheets carry the weekly-window record as one
+    // opaque JSON string (`hoursByWeekday`, `weeklyWindows`). Validate the
+    // complete `0..6` weekday record with the same domain schema the form and
+    // use case use, so a hand-edited or partial cell is rejected here (stable
+    // row-level reason) instead of being JSON.parsed into a broken domain
+    // entity — or worse, aborting the atomic restore after the preview accepted
+    // it.
+    if (column.name === 'hoursByWeekday' || column.name === 'weeklyWindows') {
+      if (parseWeeklyWindowsJson(value as string) === null) {
+        reasons.push('invalid-weekly-windows');
+      }
+    }
   }
   return reasons;
 }
@@ -100,6 +113,25 @@ function parseWindowsJson(value: string): readonly TimeWindow[] | null {
       windows.push({ open: record.open as TimeOfDay, close: record.close as TimeOfDay });
     }
     return windows;
+  } catch {
+    return null;
+  }
+}
+
+// Parse a `hoursByWeekday` / `weeklyWindows` cell — a JSON object keyed
+// `"0".."6"` whose values are arrays of `{ open, close }` windows — or `null`
+// when the text is not a well-formed weekly-window record. Shape and ordering
+// are validated by the shared `hoursByWeekdaySchema` (the same one the
+// SOU-165/259 forms and use cases use), so the workbook cell is held to the
+// exact domain contract: all seven weekdays present, each an ordered,
+// non-overlapping window list. Decoding an object of arrays by hand mirrors
+// `parseWindowsJson`; the schema does the narrowing.
+function parseWeeklyWindowsJson(value: string): unknown {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+    const result = hoursByWeekdaySchema.safeParse(parsed);
+    return result.success ? parsed : null;
   } catch {
     return null;
   }

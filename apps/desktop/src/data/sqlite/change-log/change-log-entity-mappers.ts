@@ -2,6 +2,7 @@ import type {
   BackupRow,
   CenterCode,
   CenterHoursOverride,
+  CenterHoursOverrideId,
   DeviceId,
   Niveau,
   NiveauId,
@@ -11,10 +12,14 @@ import type {
   SubjectId,
   TeacherAvailability,
   TeacherAvailabilityException,
+  TeacherAvailabilityId,
+  TeacherAvailabilityExceptionId,
+  TeacherId,
   User,
   UserId,
   WeeklyRecurringSession,
 } from '@centresoutien/domain';
+import { hoursByWeekdaySchema } from '@centresoutien/domain';
 import { normalizeUsername } from '@centresoutien/domain';
 import { SHEET_BY_TABLE } from '../repositories/backup-store-sheets';
 import { toSqlValue, type SheetSqlConfig } from '../repositories/backup-store-config';
@@ -132,6 +137,67 @@ export function niveauBackupRowToEntity(row: BackupRow): Niveau {
   };
 }
 
+// Converts the flat workbook `center-hours-overrides` row (SHEET_SQL logical
+// shape) into the canonical domain {@link CenterHoursOverride}, so a restore
+// logs the same payload shape the override repository does (SOU-264). The
+// weekly-window JSON cell parses back to the `hoursByWeekday` record; an opaque
+// JSON string can round-trip byte-for-byte only because the domain schema owns
+// the shape invariants and SQLite stores the validated text. The cell is
+// narrowed by {@link hoursByWeekdaySchema} before the cast — an invalid weekly
+// record (malformed JSON, missing weekday, overlapping window) aborts the
+// restore loudly instead of persisting a broken payload into the change log.
+export function centerHoursOverrideBackupRowToEntity(row: BackupRow): CenterHoursOverride {
+  return {
+    id: row['id'] as CenterHoursOverrideId,
+    centerCode: row['centerCode'] as CenterCode,
+    deviceOrigin: row['deviceOrigin'] as DeviceId,
+    createdAt: new Date(row['createdAt'] as string),
+    updatedAt: new Date(row['updatedAt'] as string),
+    updatedBy: row['updatedBy'] as UserId,
+    deletedAt: row['deletedAt'] == null ? null : new Date(row['deletedAt'] as string),
+    version: row['version'] as number,
+    dateRange: { start: row['startDate'] as string, end: row['endDate'] as string },
+    hoursByWeekday: parseWeeklyWindows(row['hoursByWeekday'] as string),
+  };
+}
+
+// Converts the flat workbook `teacher-availability` row into the canonical
+// domain {@link TeacherAvailability} (SOU-264) — `weeklyWindows` JSON cell
+// parses back to the window record, mirroring `centerHoursOverrideBackupRowToEntity`.
+export function teacherAvailabilityBackupRowToEntity(row: BackupRow): TeacherAvailability {
+  return {
+    id: row['id'] as TeacherAvailabilityId,
+    centerCode: row['centerCode'] as CenterCode,
+    deviceOrigin: row['deviceOrigin'] as DeviceId,
+    createdAt: new Date(row['createdAt'] as string),
+    updatedAt: new Date(row['updatedAt'] as string),
+    updatedBy: row['updatedBy'] as UserId,
+    deletedAt: row['deletedAt'] == null ? null : new Date(row['deletedAt'] as string),
+    version: row['version'] as number,
+    teacherId: row['teacherId'] as TeacherId,
+    weeklyWindows: parseWeeklyWindows(row['weeklyWindows'] as string),
+  };
+}
+
+// Converts the flat workbook `teacher-availability-exceptions` row into the
+// canonical domain {@link TeacherAvailabilityException} (SOU-264) — the
+// inclusive civil `startDate`/`endDate` cells become the `dateRange` pair.
+export function teacherAvailabilityExceptionBackupRowToEntity(row: BackupRow): TeacherAvailabilityException {
+  return {
+    id: row['id'] as TeacherAvailabilityExceptionId,
+    centerCode: row['centerCode'] as CenterCode,
+    deviceOrigin: row['deviceOrigin'] as DeviceId,
+    createdAt: new Date(row['createdAt'] as string),
+    updatedAt: new Date(row['updatedAt'] as string),
+    updatedBy: row['updatedBy'] as UserId,
+    deletedAt: row['deletedAt'] == null ? null : new Date(row['deletedAt'] as string),
+    version: row['version'] as number,
+    teacherId: row['teacherId'] as TeacherId,
+    dateRange: { start: row['startDate'] as string, end: row['endDate'] as string },
+    label: row['label'] as string | null,
+  };
+}
+
 /**
  * Fallback mapper for backup-sheet entityTypes whose payload is the FLAT logical
  * workbook row (what {@link SqliteBackupStore} logs), not a domain entity with
@@ -193,6 +259,25 @@ function niveauEntityToRow(entity: unknown): Record<string, unknown> {
 
 function toIsoString(value: Date | string): string {
   return typeof value === 'string' ? value : value.toISOString();
+}
+
+// Parses a weekly-window JSON cell (`hoursByWeekday` / `weeklyWindows`) through
+// the shared domain schema — the same narrowing the workbook classifier applies,
+// kept here so a direct `applyRows` call cannot persist a malformed weekly
+// record. Throws a descriptive error rather than returning `null` so the
+// restore transaction aborts loudly instead of writing a broken payload.
+function parseWeeklyWindows(value: string): CenterHoursOverride['hoursByWeekday'] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error('invalid weekly-window JSON: malformed JSON');
+  }
+  const result = hoursByWeekdaySchema.safeParse(parsed);
+  if (!result.success) {
+    throw new Error(`invalid weekly-window JSON: ${result.error.issues.map((issue) => issue.message).join(', ')}`);
+  }
+  return parsed as CenterHoursOverride['hoursByWeekday'];
 }
 
 function toNullableIsoString(value: Date | string | null): string | null {
