@@ -35,7 +35,8 @@ test('S3 — ordinary director writes still succeed (create student + record pay
   await dialog.getByLabel(L.form.nameFr, { exact: false }).fill('Salma Bennani');
   await dialog.getByLabel(L.form.nameAr, { exact: false }).fill('سلمى بناني');
   await dialog.getByLabel(L.form.birthDate, { exact: false }).fill('2011-03-09');
-  await dialog.getByLabel(L.form.level, { exact: false }).fill('2AC');
+  // Grade level (niveau) is optional (SOU-260) and irrelevant to this write smoke,
+  // so it is left unset — the level field is now a niveau select, not a text input.
   await dialog.getByRole('button', { name: L.form.create }).click();
   await expect(win.getByText(L.form.createSuccess).first()).toBeVisible();
   await expect(win.getByRole('row', { name: /Salma Bennani/ })).toBeVisible();
