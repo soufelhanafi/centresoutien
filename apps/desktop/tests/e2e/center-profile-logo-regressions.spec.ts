@@ -178,4 +178,9 @@ test('SOU-250 invoice — logo renders in the invoice detail header', async () =
   const logo = win.locator('img[aria-hidden="true"]').first();
   await expect(logo).toBeVisible();
   expect(await logo.getAttribute('src')).toMatch(/^blob:/);
+  // Decode, not just presence: a CSP-blocked blob still renders a broken <img>
+  // that `toBeVisible` would accept (SOU-28 logo regression).
+  await expect
+    .poll(async () => logo.evaluate((el) => (el as HTMLImageElement).naturalWidth), { timeout: 5000 })
+    .toBeGreaterThan(0);
 });
