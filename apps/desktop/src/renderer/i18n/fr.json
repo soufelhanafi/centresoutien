@@ -1702,13 +1702,15 @@
           "outOfWindow": "{{day}} : hors des disponibilités de l'enseignant.",
           "exception": "Enseignant absent du {{from}} au {{to}}."
         },
-        "gap": "Écart inférieur au minimum ({{count}} jour(s))."
+        "gap": "Écart inférieur au minimum ({{count}} jour(s)).",
+        "capacity": "Salle {{room}} trop petite : {{groupCapacity}} élèves pour {{roomCapacity}} places."
       },
       "conflictAction": {
         "decisionRequired": "Décision requise",
         "include": "Inclure malgré le conflit",
         "exclude": "Exclure de cette génération",
-        "commitBlockedHint": "Décidez pour chaque créneau en conflit (inclure ou exclure) avant de générer."
+        "commitBlockedHint": "Décidez pour chaque créneau en conflit (inclure ou exclure) avant de générer.",
+        "capacityBlockedHint": "Une salle est trop petite pour son groupe. Un dépassement de capacité ne peut pas être forcé : corrigez la salle ou la configuration, puis relancez l'aperçu."
       }
     }
   },
