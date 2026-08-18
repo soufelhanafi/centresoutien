@@ -3,10 +3,11 @@ import { sendPasswordResetEmail } from "@/lib/email";
 import { checkResetRequestRateLimit } from "@/lib/auth-reset-rate-limit";
 import {
   extractClientIp,
+  generateResetCode,
   hashEmailForAudit,
   hashIpForAudit,
+  persistResetCode,
   resetRequestSchema,
-  storeResetCode,
 } from "@/lib/auth-reset";
 
 export const runtime = "nodejs";
@@ -49,8 +50,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const code = await storeResetCode({ email, accountId });
+    // Send BEFORE persisting: a failed delivery must not overwrite a prior live
+    // code. The identity's existing code stays usable and the new one is dropped.
+    const code = generateResetCode();
     await sendPasswordResetEmail({ to: email, code });
+    await persistResetCode({ email, accountId }, code);
     audit({ emailHash, outcome: "sent" });
   } catch {
     // Never surface internal failures to the caller — a differing response

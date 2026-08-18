@@ -80,6 +80,42 @@ function passwordResetBody(code: string): string {
   ].join("\n");
 }
 
+type SesConfig = {
+  region: string;
+  from: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+};
+
+// Resolves SES credentials from the environment. Returns null when unconfigured
+// so the caller can skip sending in dev; throws in production where a missing
+// config is a deployment fault, not a testable no-op.
+function resolveSesConfig(): SesConfig | null {
+  const region = process.env.SES_REGION;
+  const from = process.env.SES_FROM;
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+  if (!region || !from || !accessKeyId || !secretAccessKey) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("email_not_configured");
+    }
+    console.info("[reset] SES not configured — email skipped (dev)");
+    return null;
+  }
+  return { region, from, accessKeyId, secretAccessKey };
+}
+
+function passwordResetCommand(config: SesConfig, to: string, code: string): SendEmailCommand {
+  return new SendEmailCommand({
+    Source: config.from,
+    Destination: { ToAddresses: [to] },
+    Message: {
+      Subject: { Data: "Code de réinitialisation — Centre Soutien", Charset: "UTF-8" },
+      Body: { Text: { Data: passwordResetBody(code), Charset: "UTF-8" } },
+    },
+  });
+}
+
 /*
  * Sends a single-use password-reset code via AWS SES (the SES key stays
  * server-side — it can never live in the Electron bundle). Returns
@@ -91,40 +127,16 @@ export async function sendPasswordResetEmail(params: {
   to: string;
   code: string;
 }): Promise<{ sent: boolean }> {
-  const region = process.env.SES_REGION;
-  const from = process.env.SES_FROM;
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-
-  if (!region || !from || !accessKeyId || !secretAccessKey) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("email_not_configured");
-    }
-    console.info("[reset] SES not configured — email skipped (dev)");
-    return { sent: false };
-  }
+  const config = resolveSesConfig();
+  if (config === null) return { sent: false };
 
   const client = new SESClient({
-    region,
-    credentials: { accessKeyId, secretAccessKey },
+    region: config.region,
+    credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
   });
 
   try {
-    await client.send(
-      new SendEmailCommand({
-        Source: from,
-        Destination: { ToAddresses: [params.to] },
-        Message: {
-          Subject: {
-            Data: "Code de réinitialisation — Centre Soutien",
-            Charset: "UTF-8",
-          },
-          Body: {
-            Text: { Data: passwordResetBody(params.code), Charset: "UTF-8" },
-          },
-        },
-      }),
-    );
+    await client.send(passwordResetCommand(config, params.to, params.code));
   } catch {
     // Deliberately opaque: the SES error may echo the recipient address.
     throw new Error("email_send_failed");

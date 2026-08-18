@@ -47,7 +47,16 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
   }
 
-  const valid = await verifyAndConsumeResetCode({ email, accountId, code });
+  let valid: boolean;
+  try {
+    valid = await verifyAndConsumeResetCode({ email, accountId, code });
+  } catch {
+    // A store outage (Upstash GET/EVAL) must return the endpoint's uniform error,
+    // never a framework 500 that would leak that this path behaves differently.
+    // No PII, no error message logged.
+    audit({ emailHash, outcome: "store_error" });
+    return NextResponse.json(GENERIC_ERROR, { status: 400 });
+  }
   if (!valid) {
     audit({ emailHash, outcome: "invalid" });
     return NextResponse.json(GENERIC_ERROR, { status: 400 });
