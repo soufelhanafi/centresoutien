@@ -20,7 +20,11 @@ import {
 } from '../policies/generated-schedule-conflicts';
 import type { TeacherAvailabilityRules } from '../policies/teacher-availability-policy';
 import { WEEKDAYS } from '../value-objects/weekday';
-import { InfeasibleGeneratorConfigError, NoRoomsConfiguredError } from '../errors/session-generator-errors';
+import {
+  GroupExceedsRoomCapacityError,
+  InfeasibleGeneratorConfigError,
+  NoRoomsConfiguredError,
+} from '../errors/session-generator-errors';
 
 /** Which groups and teachers the run targets; the caller resolves `'all'` to concrete ids. */
 export type SessionGeneratorScope = {
@@ -123,6 +127,16 @@ export type SessionGenerationInput = {
    * exactly as before.
    */
   readonly availabilityByTeacher?: ReadonlyMap<EntityId, TeacherAvailabilityRules>;
+  /**
+   * SOU-272: seat capacity of each assignable room and each scoped group. When
+   * both are present the room draw honors the seat-fit invariant that
+   * {@link CreateWeeklyRecurringSession} enforces at commit — so the generator
+   * never proposes a room too small to seat the group, and auto mode fails fast
+   * when a group outgrows every room. Optional: absent maps reproduce the
+   * pre-SOU-272 seat-blind behavior exactly.
+   */
+  readonly roomCapacities?: ReadonlyMap<RoomId, number>;
+  readonly groupCapacities?: ReadonlyMap<GroupId, number>;
 };
 
 /**
@@ -159,6 +173,7 @@ type GroupPlacementContext = {
   readonly existingSchedule: readonly ScheduledSessionRef[];
   readonly centerHours: readonly DayHours[];
   readonly availability: GeneratorAvailabilityContext | undefined;
+  readonly seatFit: SeatFit | undefined;
 };
 
 /**
@@ -174,6 +189,46 @@ export type UnroomedBlock = {
   readonly teacherId: EntityId | null;
   readonly block: WeeklyBlock;
 };
+
+/**
+ * The seat-fit inputs the room draw reads (SOU-272): how many seats each group
+ * needs and how many each room holds. A room absent from `roomCapacity` is
+ * treated as unbounded (never wrongly excluded), and a group absent from
+ * `seatsByGroup` imposes no seat constraint — so an entirely undefined
+ * {@link SeatFit} reproduces the pre-SOU-272 seat-blind draw exactly.
+ */
+export type SeatFit = {
+  readonly roomCapacity: ReadonlyMap<RoomId, number>;
+  readonly seatsByGroup: ReadonlyMap<GroupId, number>;
+};
+
+function roomSeatsGroup(seatFit: SeatFit | undefined, groupId: GroupId, roomId: RoomId): boolean {
+  const seats = seatFit?.seatsByGroup.get(groupId);
+  if (seatFit === undefined || seats === undefined) return true;
+  return (seatFit.roomCapacity.get(roomId) ?? Number.POSITIVE_INFINITY) >= seats;
+}
+
+/**
+ * The candidate rooms to draw one block's room from, in descending preference:
+ * free-and-seats-the-group, then any room that seats it (accepting a surfaced
+ * double-book, since seat overflow is a hard commit invariant and a clash is a
+ * soft one), then any free room, and only then the full pool. With no seat data
+ * `seats` is always true, so this collapses to "free rooms, else the full pool"
+ * — the pre-SOU-272 collision-aware behavior (SOU-261).
+ */
+function preferredRoomPool(
+  rooms: readonly RoomId[],
+  taken: ReadonlySet<RoomId>,
+  seats: (roomId: RoomId) => boolean,
+): readonly RoomId[] {
+  const free = rooms.filter((roomId) => !taken.has(roomId));
+  const freeAndSeats = free.filter(seats);
+  if (freeAndSeats.length > 0) return freeAndSeats;
+  const anySeats = rooms.filter(seats);
+  if (anySeats.length > 0) return anySeats;
+  if (free.length > 0) return free;
+  return rooms;
+}
 
 /**
  * Assigns a room to every entry in `blocks`, processed earliest-start-first
@@ -197,6 +252,7 @@ export function assignRoomsToBlocks(
   rooms: readonly RoomId[],
   random: RandomPort,
   occupied: readonly ScheduledSessionRef[] = [],
+  seatFit?: SeatFit,
 ): ReadonlyMap<WeeklyBlock, RoomId> {
   if (blocks.length === 0) return new Map();
   if (rooms.length === 0) throw new NoRoomsConfiguredError();
@@ -220,16 +276,24 @@ export function assignRoomsToBlocks(
 
   const drawFreeRoom = (entry: UnroomedBlock): RoomId => {
     const taken = roomsTakenAtSlot(entry);
-    const free = rooms.filter((roomId) => !taken.has(roomId));
-    const pool = free.length > 0 ? free : rooms;
+    const pool = preferredRoomPool(rooms, taken, (roomId) => roomSeatsGroup(seatFit, entry.groupId, roomId));
     return pool[random.nextInt(pool.length)]!;
   };
 
+  // Teacher room continuity (a back-to-back chain reuses the earlier room) is a
+  // soft convenience; seat-fit is a hard commit invariant. So the inherited room
+  // is kept only when it still seats the later group — otherwise the chain breaks
+  // and the block re-draws a fitting room (SOU-272), never previewing an
+  // undersized room that would throw GroupOverCapacityError at commit.
   const resolveRoom = (entry: UnroomedBlock): RoomId => {
     const cached = roomByEntry.get(entry);
     if (cached !== undefined) return cached;
     const predecessor = predecessorOf.get(entry) ?? null;
-    const roomId = predecessor !== null ? resolveRoom(predecessor) : drawFreeRoom(entry);
+    const inherited = predecessor !== null ? resolveRoom(predecessor) : null;
+    const roomId =
+      inherited !== null && roomSeatsGroup(seatFit, entry.groupId, inherited)
+        ? inherited
+        : drawFreeRoom(entry);
     roomByEntry.set(entry, roomId);
     return roomId;
   };
@@ -364,7 +428,8 @@ export class SessionGenerator {
     }
     const eligiblePool =
       config.mode === 'auto' ? this.poolFittingDuration(openPool, windowsByWeekday, config) : openPool;
-    if (config.mode === 'auto') this.assertRoomCapacity(config, groups, eligiblePool, input.rooms);
+    const seatFit = this.seatFitContext(input);
+    if (config.mode === 'auto') this.assertAutoRoomFeasibility(config, groups, eligiblePool, input.rooms, seatFit);
     const context: GroupPlacementContext = {
       windowsByWeekday,
       rooms: input.rooms,
@@ -372,6 +437,7 @@ export class SessionGenerator {
       existingSchedule,
       centerHours,
       availability: this.availabilityContext(input),
+      seatFit,
     };
 
     const committed: GeneratedBlockCandidate[] = [];
@@ -448,7 +514,13 @@ export class SessionGenerator {
         block: scheduled.block,
       })),
     );
-    const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random, context.existingSchedule);
+    const roomByBlock = assignRoomsToBlocks(
+      entries,
+      context.rooms,
+      this.random,
+      context.existingSchedule,
+      context.seatFit,
+    );
     return proposals.map((proposal) => ({
       ...proposal,
       blocks: proposal.blocks.map((scheduled) => ({
@@ -496,6 +568,55 @@ export class SessionGenerator {
    * diagnosis (empty rooms → {@link NoRoomsConfiguredError}; pool too small or a
    * non-positive weekly count → the more actionable per-group reasons).
    */
+  /**
+   * Bundles the run's seat capacities into a {@link SeatFit} the room draw reads
+   * (SOU-272), or `undefined` when the caller passed neither map — which keeps
+   * the seat-blind behavior for callers (and tests) that don't supply capacities.
+   */
+  private seatFitContext(input: SessionGenerationInput): SeatFit | undefined {
+    if (input.roomCapacities === undefined || input.groupCapacities === undefined) return undefined;
+    return { roomCapacity: input.roomCapacities, seatsByGroup: input.groupCapacities };
+  }
+
+  /**
+   * The auto-mode room fail-fast guards, in the order that reports the most
+   * actionable reason first: weekly demand beyond one-slot-per-weekday capacity
+   * (SOU-261), then a group larger than every room (SOU-272).
+   */
+  private assertAutoRoomFeasibility(
+    config: SessionGeneratorConfigBase,
+    groups: readonly GroupId[],
+    eligiblePool: readonly WeekdayIndex[],
+    rooms: readonly RoomId[],
+    seatFit: SeatFit | undefined,
+  ): void {
+    this.assertRoomCapacity(config, groups, eligiblePool, rooms);
+    this.assertGroupsFitSomeRoom(groups, rooms, seatFit);
+  }
+
+  /**
+   * Fails fast (auto mode) when a scoped group needs more seats than the largest
+   * room can hold (SOU-272): no room assignment could ever satisfy the seat-fit
+   * invariant {@link GroupOverCapacityError} enforces at commit, so the run is
+   * infeasible as configured — surfacing it here on the preview beats a
+   * mid-commit crash. Skipped when no seat data was supplied. Custom mode never
+   * throws — its clashes are flagged, not blocked.
+   */
+  private assertGroupsFitSomeRoom(
+    groups: readonly GroupId[],
+    rooms: readonly RoomId[],
+    seatFit: SeatFit | undefined,
+  ): void {
+    if (seatFit === undefined || rooms.length === 0) return;
+    const largestRoom = Math.max(
+      ...rooms.map((roomId) => seatFit.roomCapacity.get(roomId) ?? Number.POSITIVE_INFINITY),
+    );
+    const oversizedGroup = groups.find((groupId) => (seatFit.seatsByGroup.get(groupId) ?? 0) > largestRoom);
+    if (oversizedGroup !== undefined) {
+      throw new GroupExceedsRoomCapacityError(seatFit.seatsByGroup.get(oversizedGroup)!, largestRoom);
+    }
+  }
+
   private assertRoomCapacity(
     config: SessionGeneratorConfigBase,
     groups: readonly GroupId[],
@@ -578,7 +699,7 @@ export class SessionGenerator {
     const blocks = this.buildBlocks(weekdays, context.windowsByWeekday, config.sessionDurationMinutes);
     const teacherId = context.teacherByGroup.get(groupId) ?? null;
     const entries: UnroomedBlock[] = blocks.map((block) => ({ groupId, teacherId, block }));
-    const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random, occupied);
+    const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random, occupied, context.seatFit);
     return blocks.map((block) => ({ block, roomId: roomByBlock.get(block)!, teacherId }));
   }
 

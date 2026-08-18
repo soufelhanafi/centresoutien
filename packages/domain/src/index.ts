@@ -281,7 +281,11 @@ export {
   GenerationBatchNotFoundError,
 } from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/scheduling-errors';
-export { InfeasibleGeneratorConfigError, NoRoomsConfiguredError } from './errors/session-generator-errors';
+export {
+  GroupExceedsRoomCapacityError,
+  InfeasibleGeneratorConfigError,
+  NoRoomsConfiguredError,
+} from './errors/session-generator-errors';
 export type { InfeasibleGeneratorReason } from './errors/session-generator-errors';
 
 // Input validation schemas (shared by forms via zodResolver and by use cases)

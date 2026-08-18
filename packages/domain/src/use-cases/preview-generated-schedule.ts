@@ -58,7 +58,10 @@ export class PreviewGeneratedSchedule {
       scopedGroups.map((group) => [group.id, group.teacherId]),
     );
 
-    const rooms = (await this.rooms.listActive(centerCode)).map((room) => room.id);
+    const roomEntities = await this.rooms.listActive(centerCode);
+    const rooms = roomEntities.map((room) => room.id);
+    const roomCapacities = new Map(roomEntities.map((room) => [room.id, room.capacity]));
+    const groupCapacities = new Map(scopedGroups.map((group) => [group.id, group.capacity]));
     const centerHours = resolveWeek(await this.centerHours.listForCenter(centerCode));
     const existingSchedule = await this.loadExistingSchedule(centerCode, config);
     const availabilityByTeacher = await this.loadAvailability(centerCode, teacherByGroup, config);
@@ -68,6 +71,8 @@ export class PreviewGeneratedSchedule {
       groups: scopedGroups.map((group) => group.id),
       teacherByGroup,
       rooms,
+      roomCapacities,
+      groupCapacities,
       centerHours,
       existingSchedule,
       availabilityByTeacher,

@@ -51,3 +51,27 @@ export class NoRoomsConfiguredError extends DomainError {
     super('Cannot assign rooms to the generated plan: no rooms are configured for this center.');
   }
 }
+
+/**
+ * Thrown by the auto session-generator (SOU-272) when a scoped group needs more
+ * seats than the largest configured room can hold — no room assignment could
+ * ever satisfy the seat-fit invariant {@link GroupOverCapacityError} enforces at
+ * commit, so the run is infeasible as configured. Kept distinct from
+ * {@link InfeasibleGeneratorConfigError}, whose reasons all advise reordering
+ * days/gaps: this one carries its own stable `group-exceeds-room-capacity` code
+ * so the renderer surfaces the right remediation ("add a larger room or shrink
+ * the group") via `t(\`errors.${code}\`)` instead of the gap advice. Surfacing it
+ * on the preview beats a mid-commit crash.
+ */
+export class GroupExceedsRoomCapacityError extends DomainError {
+  readonly code = 'group-exceeds-room-capacity';
+
+  constructor(
+    readonly groupCapacity: number,
+    readonly largestRoomCapacity: number,
+  ) {
+    super(
+      `A group needs ${groupCapacity} seats but the largest room holds only ${largestRoomCapacity}.`,
+    );
+  }
+}
