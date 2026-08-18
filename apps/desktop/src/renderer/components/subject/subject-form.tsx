@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { subjectInputSchema, SUBJECT_CODE_MAX, type SubjectInput } from '@centresoutien/domain';
 import { Form, FormControl, FormField, FormItem, FormLabel, Input } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
-import { withOptionalArabicName } from '../../lib/forms/optional-arabic-name';
 
 /** Blank defaults for the create flow. `code` is optional and starts empty. */
 export const EMPTY_SUBJECT_INPUT: SubjectInput = { name: { fr: '', ar: '' }, code: '' };
@@ -31,7 +30,7 @@ type SubjectFormProps = {
 export function SubjectForm({ formId, defaultValues, onSubmit, serverCodeError = null }: SubjectFormProps) {
   const { t } = useTranslation();
   const form = useForm<SubjectInput>({
-    resolver: withOptionalArabicName(zodResolver(subjectInputSchema)),
+    resolver: zodResolver(subjectInputSchema),
     defaultValues,
   });
 

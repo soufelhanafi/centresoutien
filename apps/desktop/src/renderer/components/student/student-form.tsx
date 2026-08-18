@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import type { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, Input, Textarea } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
-import { withOptionalArabicName } from '../../lib/forms/optional-arabic-name';
 import { NiveauSelectField } from '../niveau/niveau-select-field';
 import {
   studentNiveauFormSchema,
@@ -42,7 +41,7 @@ type StudentFormProps = {
 export function StudentForm({ formId, defaultValues, onSubmit }: StudentFormProps) {
   const { t } = useTranslation();
   const form = useForm<StudentFormInput, unknown, StudentNiveauFormValues>({
-    resolver: withOptionalArabicName(zodResolver(studentNiveauFormSchema)),
+    resolver: zodResolver(studentNiveauFormSchema),
     defaultValues,
   });
   const submit = form.handleSubmit(async (values) => {

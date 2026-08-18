@@ -15,7 +15,6 @@ import {
   SelectValue,
 } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
-import { withOptionalArabicName } from '../../lib/forms/optional-arabic-name';
 import { holidayInputSchema } from '@centresoutien/domain';
 import type { HolidayInput } from '../../lib/holidays/holiday-view';
 
@@ -46,7 +45,7 @@ type HolidayFormProps = {
 export function HolidayForm({ formId, defaultValues, onSubmit }: HolidayFormProps) {
   const { t } = useTranslation();
   const form = useForm<HolidayInput>({
-    resolver: withOptionalArabicName(zodResolver(holidayInputSchema)),
+    resolver: zodResolver(holidayInputSchema),
     defaultValues,
   });
   const submit = form.handleSubmit(async (values) => {

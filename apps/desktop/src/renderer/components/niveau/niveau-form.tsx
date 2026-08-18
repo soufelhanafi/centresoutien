@@ -17,7 +17,6 @@ import {
   SelectValue,
 } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
-import { withOptionalArabicName } from '../../lib/forms/optional-arabic-name';
 import { NIVEAU_CATEGORIES, NIVEAU_CODE_MAX, niveauInputSchema, type NiveauCategory } from '@centresoutien/domain';
 
 /** Pre-transform shape RHF holds (empty strings), vs the parsed output. */
@@ -55,7 +54,7 @@ export function niveauCategoryLabelKey(category: NiveauCategory): string {
 export function NiveauForm({ formId, defaultValues, onSubmit, serverCodeError = null }: NiveauFormProps) {
   const { t } = useTranslation();
   const form = useForm<NiveauFormInput, unknown, NiveauFormValues>({
-    resolver: withOptionalArabicName(zodResolver(niveauInputSchema)),
+    resolver: zodResolver(niveauInputSchema),
     defaultValues,
   });
 

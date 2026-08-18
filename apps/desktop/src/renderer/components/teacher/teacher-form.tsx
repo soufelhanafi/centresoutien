@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import type { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, Input } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
-import { withOptionalArabicName } from '../../lib/forms/optional-arabic-name';
 import { TeacherSubjectsField } from './teacher-subjects-field';
 import { NiveauMultiSelectField } from '../niveau/niveau-multi-select-field';
 import {
@@ -47,7 +46,7 @@ type TeacherFormProps = {
 export function TeacherForm({ formId, defaultValues, onSubmit }: TeacherFormProps) {
   const { t } = useTranslation();
   const form = useForm<TeacherFormInput, unknown, TeacherNiveauFormValues>({
-    resolver: withOptionalArabicName(zodResolver(teacherNiveauFormSchema)),
+    resolver: zodResolver(teacherNiveauFormSchema),
     defaultValues,
   });
   const submit = form.handleSubmit(async (values) => {

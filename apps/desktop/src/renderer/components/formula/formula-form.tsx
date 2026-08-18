@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { formulaInputSchema, FORMULA_NAME_MAX, type FormulaInput } from '@centresoutien/domain';
 import { Form, FormControl, FormField, FormItem, FormLabel, Input } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
-import { withOptionalArabicName } from '../../lib/forms/optional-arabic-name';
 import { useFeature } from '../../hooks/use-feature';
 import { centimesToMad, madToCentimes } from '../../lib/formulas/price-mad';
 import { FormulaSubjectsField } from './formula-subjects-field';
@@ -40,7 +39,7 @@ export function FormulaForm({ formId, defaultValues, onSubmit }: FormulaFormProp
   const { t } = useTranslation();
   const examPrepEnabled = useFeature('core.exam-prep');
   const form = useForm<FormulaFormInput>({
-    resolver: withOptionalArabicName(zodResolver(formulaInputSchema)),
+    resolver: zodResolver(formulaInputSchema),
     defaultValues,
   });
   const submit = form.handleSubmit(async (values) => {
