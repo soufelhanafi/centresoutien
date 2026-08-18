@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { checkResetRequestRateLimit } from "@/lib/auth-reset-rate-limit";
-import {
-  extractClientIp,
-  generateResetCode,
-  hashEmailForAudit,
-  hashIpForAudit,
-  persistResetCode,
-  resetRequestSchema,
-} from "@/lib/auth-reset";
+import { extractClientIp, hashEmailForAudit, hashIpForAudit } from "@/lib/auth-audit";
+import { generateResetCode, persistResetCode, resetRequestSchema } from "@/lib/auth-reset";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +20,21 @@ function audit(fields: { emailHash: string; outcome: string }): void {
       at: new Date().toISOString(),
     }),
   );
+}
+
+// Issues a code and emails it, persisting ONLY after a successful send so a
+// failed delivery cannot overwrite (destroy) a prior live code. Returns the
+// audit outcome; never throws — an internal failure must not change the caller's
+// generic response (no enumeration, no send-success signal).
+async function issueResetCode(email: string, accountId: string): Promise<"sent" | "send_failed"> {
+  try {
+    const code = generateResetCode();
+    await sendPasswordResetEmail({ to: email, code });
+    await persistResetCode({ email, accountId }, code);
+    return "sent";
+  } catch {
+    return "send_failed";
+  }
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -49,21 +58,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
   }
 
-  try {
-    // Send BEFORE persisting: a failed delivery must not overwrite a prior live
-    // code. The identity's existing code stays usable and the new one is dropped.
-    const code = generateResetCode();
-    await sendPasswordResetEmail({ to: email, code });
-    await persistResetCode({ email, accountId }, code);
-    audit({ emailHash, outcome: "sent" });
-  } catch {
-    // Never surface internal failures to the caller — a differing response
-    // would leak signal. Log a stable outcome only (no PII, no error message).
-    audit({ emailHash, outcome: "send_failed" });
-  }
-
   // `centerCode` is validated so malformed desktop calls are rejected; it is
   // not needed to issue the code and is intentionally never logged.
   void centerCode;
+  audit({ emailHash, outcome: await issueResetCode(email, accountId) });
   return NextResponse.json(GENERIC_OK, { status: 200 });
 }

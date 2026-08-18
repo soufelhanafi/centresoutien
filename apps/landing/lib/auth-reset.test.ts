@@ -1,10 +1,6 @@
 import { describe, it, expect } from "vitest";
-import {
-  extractClientIp,
-  generateResetCode,
-  persistResetCode,
-  verifyAndConsumeResetCode,
-} from "./auth-reset";
+import { extractClientIp } from "./auth-audit";
+import { generateResetCode, persistResetCode, verifyAndConsumeResetCode } from "./auth-reset";
 
 // No Upstash credentials in the test env, so the module falls back to its
 // in-memory code store — exactly the path these helpers must stay correct on.

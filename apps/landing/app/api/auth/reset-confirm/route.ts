@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkResetConfirmRateLimit } from "@/lib/auth-reset-rate-limit";
-import {
-  extractClientIp,
-  hashEmailForAudit,
-  hashIpForAudit,
-  resetConfirmSchema,
-  verifyAndConsumeResetCode,
-} from "@/lib/auth-reset";
+import { extractClientIp, hashEmailForAudit, hashIpForAudit } from "@/lib/auth-audit";
+import { resetConfirmSchema, verifyAndConsumeResetCode } from "@/lib/auth-reset";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -41,15 +41,22 @@ describe('SetOwnerEmail', () => {
     useCase = new SetOwnerEmail(users, fakeClock(NOW));
   });
 
-  it('sets a valid email, normalized (trim + lower-case), and bumps updatedAt/updatedBy', async () => {
+  it('normalizes (trim + lower-case) and persists a valid email', async () => {
     await users.save(owner());
 
     const result = await useCase.execute({ email: '  Directrice@Example.COM ' });
 
     expect(result.email).toBe('directrice@example.com');
+    expect((await users.findOwner())?.email).toBe('directrice@example.com' as Email);
+  });
+
+  it('bumps updatedAt/updatedBy when the email actually changes', async () => {
+    await users.save(owner());
+
+    const result = await useCase.execute({ email: 'directrice@example.com' });
+
     expect(result.updatedAt).toEqual(new Date(NOW));
     expect(result.updatedBy).toBe(OWNER_ID);
-    expect((await users.findOwner())?.email).toBe('directrice@example.com' as Email);
   });
 
   it('clears an existing email when given null', async () => {
