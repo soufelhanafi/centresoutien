@@ -47,6 +47,7 @@ function makeUser(over: Partial<User> = {}): User {
     setupCodeHash: null,
     setupCodeExpiresAt: null,
     setupCodeRedeemedAt: null,
+    email: null,
     ...over,
   };
 }
@@ -56,6 +57,23 @@ describe('SqliteUserRepository', () => {
     const user = makeUser();
     await repo.save(user);
     expect(await repo.findById(user.id)).toEqual(user);
+  });
+
+  it('round-trips the optional email column: null by default, and a set address', async () => {
+    const withoutEmail = makeUser();
+    await repo.save(withoutEmail);
+    expect((await repo.findById(withoutEmail.id))?.email).toBeNull();
+
+    const withEmail = makeUser({
+      id: 'usr_00000000000000000000000002' as UserId,
+      role: 'secretary',
+      username: 'amine',
+      email: 'amine@example.com' as User['email'],
+    });
+    await repo.save(withEmail);
+    const found = await repo.findById(withEmail.id);
+    expect(found?.email).toBe('amine@example.com');
+    expect(found).toEqual(withEmail);
   });
 
   it('round-trips an invited employee with a pending setup code', async () => {

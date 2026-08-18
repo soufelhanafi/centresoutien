@@ -7,6 +7,7 @@ import type {
   Role,
   CenterCode,
   DeviceId,
+  Email,
   ChangeLogWriter,
 } from '@centresoutien/domain';
 import { toEntityId, normalizeUsername, isRole } from '@centresoutien/domain';
@@ -28,6 +29,7 @@ export type UserRow = {
   setup_code_hash: string | null;
   setup_code_expires_at: number | null;
   setup_code_redeemed_at: string | null;
+  email: string | null;
 };
 
 function toRole(value: string): Role {
@@ -54,6 +56,7 @@ export function userRowToUser(row: UserRow): User {
     setupCodeHash: row.setup_code_hash,
     setupCodeExpiresAt: row.setup_code_expires_at,
     setupCodeRedeemedAt: row.setup_code_redeemed_at === null ? null : new Date(row.setup_code_redeemed_at),
+    email: row.email === null ? null : (row.email as Email),
   };
 }
 
@@ -61,11 +64,11 @@ const SAVE_SQL = `
   INSERT INTO users
     (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at,
      version, role, username, username_normalized, password_hash,
-     setup_code_hash, setup_code_expires_at, setup_code_redeemed_at)
+     setup_code_hash, setup_code_expires_at, setup_code_redeemed_at, email)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by, @deleted_at,
      @version, @role, @username, @username_normalized, @password_hash,
-     @setup_code_hash, @setup_code_expires_at, @setup_code_redeemed_at)
+     @setup_code_hash, @setup_code_expires_at, @setup_code_redeemed_at, @email)
   ON CONFLICT(id) DO UPDATE SET
     updated_at             = excluded.updated_at,
     updated_by             = excluded.updated_by,
@@ -77,7 +80,8 @@ const SAVE_SQL = `
     password_hash          = excluded.password_hash,
     setup_code_hash        = excluded.setup_code_hash,
     setup_code_expires_at  = excluded.setup_code_expires_at,
-    setup_code_redeemed_at = excluded.setup_code_redeemed_at
+    setup_code_redeemed_at = excluded.setup_code_redeemed_at,
+    email                  = excluded.email
 `;
 
 function toSaveParams(user: User) {
@@ -97,6 +101,7 @@ function toSaveParams(user: User) {
     setup_code_hash: user.setupCodeHash,
     setup_code_expires_at: user.setupCodeExpiresAt,
     setup_code_redeemed_at: user.setupCodeRedeemedAt ? user.setupCodeRedeemedAt.toISOString() : null,
+    email: user.email,
   };
 }
 

@@ -33,5 +33,18 @@
  * shadow-store the changes, project nothing, and silently advance its cursor —
  * permanent invisible loss of every synced availability row. The bump makes the
  * handshake reject that old app loudly ("mise à jour requise") on both sides.
+ *
+ * v4 (SOU-157): `users` gains a nullable `email` field. Unlike v2/v3 this is a
+ * new FIELD on an already-synced entity, but the loss mode is the same: a
+ * pre-SOU-157 app has the `users` mapper yet no `email` column (migration 0048),
+ * so on pull its old mapper drops the field and advances its cursor past the
+ * change. After that device later upgrades, migration 0048 initializes the
+ * column to NULL and the already-consumed feed entry is never replayed —
+ * permanently losing the synced address on that device. The bump forces the
+ * handshake to reject the old app ("mise à jour requise") so it can only pull
+ * the email-bearing change AFTER it has the column and mapper to keep it. No
+ * payload upcaster: a payload authored before the field simply projects the
+ * missing key as NULL (mapper `?? null`), so `CURRENT_CHANGE_LOG_PAYLOAD_VERSION`
+ * stays put.
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;

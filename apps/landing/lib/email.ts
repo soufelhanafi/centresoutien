@@ -1,3 +1,4 @@
+import { SendEmailCommand, SESClient } from "@aws-sdk/client-ses";
 import { Resend } from "resend";
 import type { FounderApplication } from "@/lib/validators";
 
@@ -58,6 +59,86 @@ export async function sendFounderNotification(
   });
   if (error) {
     // Deliberately opaque: Resend's message may echo recipient data.
+    throw new Error("email_send_failed");
+  }
+  return { sent: true };
+}
+
+function passwordResetBody(code: string): string {
+  // FR-only for v1 (SOU-157). Bilingual FR/AR is a follow-up once the desktop
+  // reset UI settles its copy.
+  return [
+    "Bonjour,",
+    "",
+    "Vous avez demandé la réinitialisation de votre mot de passe Centre Soutien.",
+    `Votre code de vérification est : ${code}`,
+    "",
+    "Ce code expire dans 20 minutes et ne peut être utilisé qu'une seule fois.",
+    "Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.",
+    "",
+    "L'équipe Centre Soutien",
+  ].join("\n");
+}
+
+type SesConfig = {
+  region: string;
+  from: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+};
+
+// Resolves SES credentials from the environment. Returns null when unconfigured
+// so the caller can skip sending in dev; throws in production where a missing
+// config is a deployment fault, not a testable no-op.
+function resolveSesConfig(): SesConfig | null {
+  const region = process.env.SES_REGION;
+  const from = process.env.SES_FROM;
+  const accessKeyId = process.env.SES_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.SES_SECRET_ACCESS_KEY;
+  if (!region || !from || !accessKeyId || !secretAccessKey) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("email_not_configured");
+    }
+    console.info("[reset] SES not configured — email skipped (dev)");
+    return null;
+  }
+  return { region, from, accessKeyId, secretAccessKey };
+}
+
+function passwordResetCommand(config: SesConfig, to: string, code: string): SendEmailCommand {
+  return new SendEmailCommand({
+    Source: config.from,
+    Destination: { ToAddresses: [to] },
+    Message: {
+      Subject: { Data: "Code de réinitialisation — Centre Soutien", Charset: "UTF-8" },
+      Body: { Text: { Data: passwordResetBody(code), Charset: "UTF-8" } },
+    },
+  });
+}
+
+/*
+ * Sends a single-use password-reset code via AWS SES (the SES key stays
+ * server-side — it can never live in the Electron bundle). Returns
+ * { sent: false } in development when SES is not configured (so the relay flow
+ * stays testable) and throws in production. Never logs the code or the
+ * recipient (PII / loi 09-08).
+ */
+export async function sendPasswordResetEmail(params: {
+  to: string;
+  code: string;
+}): Promise<{ sent: boolean }> {
+  const config = resolveSesConfig();
+  if (config === null) return { sent: false };
+
+  const client = new SESClient({
+    region: config.region,
+    credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
+  });
+
+  try {
+    await client.send(passwordResetCommand(config, params.to, params.code));
+  } catch {
+    // Deliberately opaque: the SES error may echo the recipient address.
     throw new Error("email_send_failed");
   }
   return { sent: true };

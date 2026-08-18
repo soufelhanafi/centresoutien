@@ -303,6 +303,7 @@ function userEntityToRow(entity: unknown): Record<string, unknown> {
     // Epoch millis (a number), not an ISO string — stored in an INTEGER column.
     setup_code_expires_at: user.setupCodeExpiresAt,
     setup_code_redeemed_at: toNullableIsoString(user.setupCodeRedeemedAt),
+    email: user.email ?? null,
   };
 }
 

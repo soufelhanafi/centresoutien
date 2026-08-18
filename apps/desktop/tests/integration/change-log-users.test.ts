@@ -53,6 +53,7 @@ function makeUser(over: Partial<User> = {}): User {
     setupCodeHash: null,
     setupCodeExpiresAt: null,
     setupCodeRedeemedAt: null,
+    email: null,
     ...over,
   };
 }
@@ -75,7 +76,9 @@ function copyChangeLog(source: DB, target: DB): void {
 
 describe('change_log — users reprojection (SOU-252)', () => {
   it('rebuilds the users table on another device via replay, owner + invited employee intact', async () => {
-    const owner = makeUser();
+    // Owner carries a non-null email so replay proves the optional address (SOU-157)
+    // survives the wire, not just the NULL default.
+    const owner = makeUser({ email: 'directrice@example.com' as User['email'] });
     // An invited employee: no password yet, a pending hashed setup code with an
     // expiry — the fields that must survive the wire for laptop B to redeem.
     const employee = makeUser({
@@ -104,8 +107,41 @@ describe('change_log — users reprojection (SOU-252)', () => {
 
       const rebuilt = target.prepare('SELECT * FROM users ORDER BY id').all();
       expect(rebuilt).toEqual(sourceRows);
+      expect((rebuilt[0] as { email: string | null }).email).toBe('directrice@example.com');
       // Replay upserts directly — it must not append new log rows.
       expect(logRows(target)).toHaveLength(logRows(db).length);
+    } finally {
+      target.close();
+      rmSync(targetDir, { recursive: true, force: true });
+    }
+  });
+
+  it('replays a legacy payload written before the email column existed as email = NULL (SOU-157)', async () => {
+    // A change_log row authored by an older build has an entity snapshot with no
+    // `email` key at all. Replay must land it as NULL, not crash — the mapper's
+    // `?? null` guards the undefined → NULL path the driver would otherwise coerce
+    // silently. Simulate by stripping `email` from a real payload's entity.
+    await repo.save(makeUser({ email: 'directrice@example.com' as User['email'] }));
+
+    const targetDir = mkdtempSync(join(tmpdir(), 'cs-changelog-users-legacy-'));
+    const target = openDatabase({ centreId: 'C2', key: KEY, dir: targetDir });
+    try {
+      runMigrations(target, REAL_MIGRATIONS);
+      const insert = target.prepare(
+        `INSERT INTO change_log
+           (entity_type, entity_id, revision, op, payload, device_id, created_at, center_code)
+         VALUES (@entity_type, @entity_id, @revision, @op, @payload, @device_id, @created_at, @center_code)`,
+      );
+      for (const row of logRows(db)) {
+        const payload = JSON.parse(row.payload as string) as { version: number; entity: Record<string, unknown> };
+        delete payload.entity.email;
+        insert.run({ ...row, payload: JSON.stringify(payload) });
+      }
+
+      replayChangeLog(target);
+
+      const rebuilt = target.prepare('SELECT email FROM users').all();
+      expect(rebuilt).toEqual([{ email: null }]);
     } finally {
       target.close();
       rmSync(targetDir, { recursive: true, force: true });

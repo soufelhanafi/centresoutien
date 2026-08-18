@@ -50,6 +50,7 @@ function makeOwner(over: Partial<User> = {}): User {
     setupCodeHash: null,
     setupCodeExpiresAt: null,
     setupCodeRedeemedAt: null,
+    email: null,
     ...over,
   };
 }

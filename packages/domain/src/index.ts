@@ -12,6 +12,8 @@ export type { CenterCode, DeviceId, UserId, EntityId } from './value-objects/ids
 export { ULID_REGEX, isUlid, hasIdPrefix, toEntityId } from './value-objects/ids';
 export type { PhoneNumber, PhoneRegion } from './value-objects/phone-number';
 export { normalizePhone, InvalidPhoneNumberError } from './value-objects/phone-number';
+export type { Email } from './value-objects/email';
+export { normalizeEmail, InvalidEmailError, EMAIL_MAX_LENGTH } from './value-objects/email';
 export type { TimeOfDay } from './value-objects/time-of-day';
 export { TIME_OF_DAY_REGEX, isTimeOfDay, toMinutes, fromMinutes } from './value-objects/time-of-day';
 export type { TimeWindow } from './value-objects/time-window';
@@ -1198,6 +1200,8 @@ export { CreateAdminAccount } from './use-cases/create-admin-account';
 export type { CreateAdminAccountInput } from './use-cases/create-admin-account';
 export { CreateUser } from './use-cases/create-user';
 export type { CreateUserCommand, CreateUserResult } from './use-cases/create-user';
+export { SetOwnerEmail } from './use-cases/set-owner-email';
+export type { SetOwnerEmailInput } from './use-cases/set-owner-email';
 export { RedeemSetupCode } from './use-cases/redeem-setup-code';
 export { VerifyUserPassword } from './use-cases/verify-user-password';
 export type { VerifyUserPasswordInput } from './use-cases/verify-user-password';
