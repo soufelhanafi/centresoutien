@@ -93,8 +93,8 @@ type SesConfig = {
 function resolveSesConfig(): SesConfig | null {
   const region = process.env.SES_REGION;
   const from = process.env.SES_FROM;
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+  const accessKeyId = process.env.SES_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.SES_SECRET_ACCESS_KEY;
   if (!region || !from || !accessKeyId || !secretAccessKey) {
     if (process.env.NODE_ENV === "production") {
       throw new Error("email_not_configured");
