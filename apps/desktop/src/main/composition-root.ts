@@ -1159,7 +1159,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // AdminAccount is now a compatibility view over the owner `users` row (SOU-252):
   // change-password / recovery-reset keep their port but share the one credential
   // store. Login, first-run, and invites go through userRepo directly.
-  const adminRepo = new SqliteAdminAccountRepository(db);
+  const adminRepo = new SqliteAdminAccountRepository(db, changeLog);
   const createAdminAccount = new CreateAdminAccount(userRepo, hasher, clock, ids, {
     centerCode: options.centerCode,
     deviceOrigin,
@@ -1191,7 +1191,7 @@ export function buildContainer(options: ContainerOptions): Container {
   );
   const deviceSessions = new DeviceSessionService(new SqliteDeviceSessionStore(db), clock, ids);
   const { resolveUpdatedBy, ...principalControls } = wireSessionPrincipal(deviceSessions, userRepo, DEV_USER);
-  const recoveryCodeResetUnitOfWork = new SqliteRecoveryCodeResetUnitOfWork(db);
+  const recoveryCodeResetUnitOfWork = new SqliteRecoveryCodeResetUnitOfWork(db, changeLog);
   const resetPasswordWithRecoveryCode = new ResetPasswordWithRecoveryCode(
     verifyRecoveryCode,
     adminRepo,

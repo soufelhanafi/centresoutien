@@ -26,7 +26,7 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'cs-admin-'));
   db = openDatabase({ centreId: 'C1', key: KEY, dir });
   runMigrations(db, REAL_MIGRATIONS);
-  repo = new SqliteAdminAccountRepository(db);
+  repo = new SqliteAdminAccountRepository(db, changeLogWriterForTest(db));
   users = new SqliteUserRepository(db, changeLogWriterForTest(db));
 });
 afterEach(() => {

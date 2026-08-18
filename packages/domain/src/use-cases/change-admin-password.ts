@@ -15,6 +15,13 @@ export type ChangeAdminPasswordInput = {
  * `currentPassword` through the injected {@link PasswordHasher} before
  * re-hashing `newPassword`; the plaintext never touches storage either way.
  * No "must differ from current" rule (KICKOFF: minimal scope).
+ *
+ * Replication is the DOMAIN's call (SOU-258): the owner's credential write
+ * replicates iff the owner already participates in the sync feed — a migrated
+ * owner (backfilled by migration 0044, device-local ULID, no sync presence)
+ * stays device-local, because pushing it would collide on
+ * `ux_users_username_live`. The adapter persists the row + conditional log in
+ * one transaction; it never re-derives this policy.
  */
 export class ChangeAdminPassword {
   constructor(
@@ -34,6 +41,7 @@ export class ChangeAdminPassword {
 
     account.passwordHash = await this.hasher.hash(newPassword);
     account.updatedAt = this.clock.now();
-    await this.accounts.save(account);
+    const replicate = await this.accounts.participatesInSync(account.id);
+    await this.accounts.save(account, { replicate });
   }
 }
