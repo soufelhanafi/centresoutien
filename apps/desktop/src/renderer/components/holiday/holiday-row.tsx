@@ -14,16 +14,13 @@ function formatRange(holiday: HolidayView, locale: string): string {
 /** One holiday row: bilingual name, kind, date range, lifecycle state, actions. */
 export function HolidayRow({ holiday, variant }: { holiday: HolidayView; variant: HolidayStatus }) {
   const { t, i18n } = useTranslation();
-  const primaryName = i18n.language === 'ar' ? holiday.name.ar : holiday.name.fr;
-  const secondaryName = i18n.language === 'ar' ? holiday.name.fr : holiday.name.ar;
-  const secondaryScript = i18n.language === 'ar' ? 'latin' : 'arabic';
 
   return (
     <DataTableRow>
       <DataTableCell>
         <div className="flex flex-col">
-          <span className="font-medium text-foreground">{primaryName}</span>
-          <BilingualText value={secondaryName} script={secondaryScript} className="text-sm text-muted-foreground" />
+          <span className="font-medium text-foreground">{holiday.name.fr}</span>
+          <BilingualText value={holiday.name.ar} script="arabic" className="text-sm text-muted-foreground" />
         </div>
       </DataTableCell>
       <DataTableCell>

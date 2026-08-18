@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron as electron, test, type ElectronApplication, type Page } from '@playwright/test';
+import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 
 /**
  * SOU-271 — Make all Arabic name fields optional across entities (FR-only data
@@ -154,18 +154,20 @@ export async function seedBlankArInvoice(win: Page, opts: { month: string; price
   }, opts);
 }
 
-/** Navigate to a top-level list page via the sidebar link. */
+/**
+ * Navigate to a top-level list page via the sidebar link. The click resolves once the link is
+ * activated; callers immediately assert on destination content, which Playwright auto-waits for —
+ * no arbitrary delay needed.
+ */
 export async function gotoNav(win: Page, navLabel: string): Promise<void> {
   await win.getByRole('link', { name: navLabel, exact: true }).click();
-  await win.waitForTimeout(400);
 }
 
 /** Open Settings and switch to the Holidays tab. */
 export async function gotoHolidays(win: Page, L: Str): Promise<void> {
   await win.getByRole('link', { name: L.nav.settings, exact: true }).click();
   await win.getByRole('tab', { name: L.holiday.tab }).click();
-  await win.getByRole('heading', { name: L.holiday.sectionTitle }).scrollIntoViewIfNeeded();
-  await win.waitForTimeout(300);
+  await expect(win.getByRole('heading', { name: L.holiday.sectionTitle })).toBeVisible();
 }
 
 /** True when the renderer error boundary is showing (page crashed on render). */

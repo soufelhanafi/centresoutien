@@ -339,9 +339,9 @@ test('invoice — generates for a blank-Arabic formula and renders (FR-only)', a
   // The student name cell is a link into the invoice detail.
   await row.getByRole('link').first().click();
 
-  // Detail view: no crash, no leaked nullish, formula's FR name present.
-  await win.waitForTimeout(400);
-  await assertClean(win);
+  // Detail view: the formula's FR name appearing is the readiness signal (auto-waited);
+  // then assert no crash / no leaked nullish.
   await expect(win.getByText(new RegExp(seeded.formulaNameFr)).first()).toBeVisible();
+  await assertClean(win);
   await win.screenshot({ path: shot('invoice-blank-ar-formula') });
 });

@@ -33,7 +33,10 @@ export type { NiveauInput };
 /** The editable fields when renaming / re-categorizing / toggling a niveau — the domain's own schema. */
 export type { NiveauUpdateInput };
 
-/** A level's name in the active locale (Arabic under `ar`, French otherwise). */
+/**
+ * A level's name in the active locale (Arabic under `ar`, French otherwise). The Arabic side may be
+ * empty since SOU-271, so a single-label display falls back to French to stay identifiable (display-only).
+ */
 export function localizedNiveauName(name: NiveauDto['name'], locale: string): string {
-  return locale === 'ar' ? name.ar : name.fr;
+  return (locale === 'ar' ? name.ar : name.fr) || name.fr;
 }
