@@ -211,6 +211,30 @@ describe('GetParentMonthlyStatement', () => {
     expect(view.aggregateStatus).toBe('partially-paid');
   });
 
+  it('an overpaying sibling neither masks another child’s debt nor inflates the receipt', async () => {
+    const overpaid = makeStudent('Amine Alaoui');
+    const owing = makeStudent('Zaid Alaoui');
+    await students.save(overpaid);
+    await students.save(owing);
+    const invOver = makeInvoice(overpaid.id);
+    await invoices.createDraft(invOver, [makeLine(invOver.id, 'regular', 30000)]);
+    invoices.setNetPaid(invOver.id, 40000); // overpayment: net exceeds the child's own total
+    const invOwing = makeInvoice(owing.id);
+    await invoices.createDraft(invOwing, [makeLine(invOwing.id, 'regular', 30000)]);
+    invoices.setNetPaid(invOwing.id, 0);
+
+    const view = await build().execute({ centerCode: CENTER, parentId: DAD, month: MONTH });
+
+    expect(view.grandTotalMad).toBe(60000);
+    // Received is clamped per child, so the overpayment credit does not count as
+    // payment toward the sibling's bill.
+    expect(view.totalReceivedMad).toBe(30000);
+    expect(view.outstandingMad).toBe(30000);
+    expect(view.aggregateStatus).toBe('partially-paid');
+    // The three printed money lines must reconcile: Total − Reçu = Solde.
+    expect(view.grandTotalMad - view.totalReceivedMad).toBe(view.outstandingMad);
+  });
+
   it('reads paid once every invoiced child is fully settled', async () => {
     const a = makeStudent('Amine Alaoui');
     const z = makeStudent('Zaid Alaoui');

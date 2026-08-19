@@ -33,6 +33,12 @@ function contributesMoney(invoiceStatus: InvoiceStatus | null): boolean {
  * when an overpayment on a sibling would otherwise push net past the grand total.
  * This is the one place that per-parent rule lives — the per-child status is still
  * derived by the shared `paymentStatusOf`.
+ *
+ * `totalReceivedMad` clamps each child's net to that child's own total: an
+ * overpayment credit on one child is not payment toward another's bill, so it must
+ * not inflate the consolidated receipt. This keeps the three printed lines
+ * consistent — `grandTotal − totalReceived === outstanding` always holds, since the
+ * per-child outstanding is itself clamped to `max(0, total − net)`.
  */
 export function aggregateParentStatement(
   children: readonly ParentStatementContribution[],
@@ -43,7 +49,7 @@ export function aggregateParentStatement(
   for (const child of children) {
     if (!contributesMoney(child.invoiceStatus)) continue;
     grandTotalMad += child.childTotalMad;
-    totalReceivedMad += child.childNetPaidMad;
+    totalReceivedMad += Math.min(child.childNetPaidMad, child.childTotalMad);
     outstandingMad += child.childOutstandingMad;
   }
   return {

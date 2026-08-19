@@ -1587,11 +1587,22 @@ export const ipcContract = {
   // injected in main, never sent from the renderer. Gated by `core.invoicing` +
   // `core.parents` in `GetParentMonthlyStatement`.
   'parentStatement.print': {
-    request: z.object({ parentId: z.string(), month: z.string(), locale: z.enum(['fr', 'ar']) }),
+    request: z.object({
+      parentId: z.string(),
+      // `YYYY-MM` only: the print handler interpolates `month` into the temp-file
+      // name, so the trust boundary — not the renderer's UX guard — must reject any
+      // path-shaped value before it reaches the filesystem.
+      month: z.string().regex(/^\d{4}-\d{2}$/),
+      locale: z.enum(['fr', 'ar']),
+    }),
     response: z.object({ ok: z.literal(true) }),
   },
   'parentStatement.export': {
-    request: z.object({ parentId: z.string(), month: z.string(), locale: z.enum(['fr', 'ar']) }),
+    request: z.object({
+      parentId: z.string(),
+      month: z.string().regex(/^\d{4}-\d{2}$/),
+      locale: z.enum(['fr', 'ar']),
+    }),
     response: z.object({ savedPath: z.string().nullable() }),
   },
   // Issue / cancel (SOU-143) — the two lifecycle transitions `IssueInvoice`/

@@ -24,7 +24,9 @@ export function InvoiceTable({
   month: string;
 }) {
   const { t } = useTranslation();
-  const showFactureGroupee = useFeature('core.invoicing') && useFeature('core.parents');
+  const hasInvoicing = useFeature('core.invoicing');
+  const hasParents = useFeature('core.parents');
+  const showFactureGroupee = hasInvoicing && hasParents;
 
   return (
     <div className="overflow-x-auto rounded-xl border border-border bg-card">
