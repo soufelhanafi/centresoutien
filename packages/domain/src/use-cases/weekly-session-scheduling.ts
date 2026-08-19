@@ -1,6 +1,8 @@
 import {
   detectSessionConflicts,
   type CompositeSessionCandidate,
+  type ConflictCheckContext,
+  type TeacherAvailabilityConflictContext,
 } from '../policies/composite-session-conflicts';
 import type { DayHours } from '../policies/session-conflict-policy';
 import type { ScheduledSessionRef } from '../errors/scheduling-errors';
@@ -40,27 +42,41 @@ export function toCompositeCandidate(fields: ScheduleCandidateFields): Composite
 }
 
 /**
- * Run the SOU-55 composite check (malformed → hours → room → teacher) and throw
- * the most-blocking conflict when the slot clashes; a free slot returns. The
- * caller pre-scopes `existing` (same center, that weekday, alive) and — on edit —
- * excludes the row being edited so a slot never clashes with itself.
+ * Run the SOU-55 composite check (malformed → hours → room → teacher →
+ * teacher-availability) and throw the most-blocking conflict when the slot
+ * clashes; a free slot returns. The caller pre-scopes `existing` (same center,
+ * that weekday, alive) and — on edit — excludes the row being edited so a slot
+ * never clashes with itself.
  *
  * When `overrideWindows` is supplied (SOU-165: an active center-hours override
  * covers the slot's concrete date), those windows replace the static `week` for
  * the hours check and an out-of-window slot throws
  * {@link SessionOutsideOverrideHoursError} (`code:'outside-windows'`) instead of
  * the static outside-hours error. Absent → the static hours check runs unchanged.
+ *
+ * When `availability` is supplied (SOU-283: the plan holds
+ * `planning.teacher-availability` and the candidate's teacher has a configured
+ * row or a covering absence), an out-of-window placement is gathered as a
+ * `warning`-severity conflict. Because warnings sort after every hard error, a
+ * co-occurring room/teacher/hours clash is thrown first (an error stays blocking)
+ * and the availability warning is thrown only when it is the sole conflict — at
+ * which point the caller's `allowScheduleConflict` force path can commit past it.
+ * A teacher with no configured row is never passed here, so unconfigured teachers
+ * stay unrestricted.
  */
 export function assertScheduleFree(
   fields: ScheduleCandidateFields,
   existing: readonly ScheduledSessionRef[],
   week: readonly DayHours[],
   overrideWindows?: readonly TimeWindow[],
+  availability?: TeacherAvailabilityConflictContext,
 ): void {
-  const context =
-    overrideWindows !== undefined
-      ? { existing, week, overrideWindows }
-      : { existing, week };
+  const context: ConflictCheckContext = {
+    existing,
+    week,
+    ...(overrideWindows !== undefined ? { overrideWindows } : {}),
+    ...(availability !== undefined ? { teacherAvailability: availability } : {}),
+  };
   const conflicts = detectSessionConflicts(toCompositeCandidate(fields), context);
   const first = conflicts[0];
   if (first) throw first.error;
