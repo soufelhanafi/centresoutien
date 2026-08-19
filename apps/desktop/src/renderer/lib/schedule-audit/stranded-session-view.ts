@@ -2,16 +2,21 @@
 export type BilingualText = { readonly fr: string; readonly ar: string };
 
 /**
- * Why a persisted session no longer sits inside a valid window (SOU-201).
+ * Why a persisted session no longer sits inside a valid window (SOU-201, SOU-283).
  * Mirrors the domain `SessionAuditReason`:
  * - `outside-center-hours` — the center's effective (override-aware) hours were
  *   narrowed so the session's fixed time now falls outside every open window.
  * - `on-holiday` — a holiday added after the session was scheduled now covers
  *   its civil date.
+ * - `outside-teacher-availability` — the teacher's declared availability was
+ *   changed after the session was scheduled so its slot no longer fits.
  *
- * Exactly one reason per row; `on-holiday` wins when both apply.
+ * Exactly one reason per row; `on-holiday` wins when several apply.
  */
-export type SessionAuditReason = 'outside-center-hours' | 'on-holiday';
+export type SessionAuditReason =
+  | 'outside-center-hours'
+  | 'on-holiday'
+  | 'outside-teacher-availability';
 
 /**
  * Presentation projection of one concrete dated session occurrence — the mirror
