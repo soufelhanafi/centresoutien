@@ -77,6 +77,13 @@ export type SessionInput = {
   readonly dayOfWeek: number;
   readonly start: string;
   readonly end: string;
+  /**
+   * SOU-283/SOU-183: when the admin acknowledges a forceable warning (teacher
+   * placed outside their availability, or a double-book), the retry sets this so
+   * the domain skips the schedule check and stamps the slot `conflictAccepted`.
+   * Absent on the first attempt.
+   */
+  readonly allowScheduleConflict?: boolean;
 };
 
 /** Bridges the validated form values to the numeric-weekday contract payload. */

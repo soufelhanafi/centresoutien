@@ -1881,19 +1881,22 @@ export const ipcContract = {
   // place outside any valid window — the drift a center-hours override or a new
   // holiday introduces after generation. Pure read, never mutates; cancelling a
   // stranded occurrence is the separate `session.cancel` per-occurrence
-  // soft-delete below. Each row carries one `reason`: `on-holiday` wins over
-  // `outside-center-hours`. `session` is the ENRICHED `sessionOccurrenceViewSchema`
-  // (room/teacher/subject/group names, level, kind + raw date/time) so the report
-  // shows names, not ids — the renderer never re-joins. centerCode is injected in
-  // main, never sent from the renderer. Gated by `settings.center-hours` (every
-  // plan) in the use case.
+  // soft-delete below. Each row carries one `reason`, in precedence order:
+  // `on-holiday` wins over `outside-center-hours`, which wins over
+  // `outside-teacher-availability` (SOU-283: the teacher is now scheduled outside
+  // their declared availability; only surfaces on plans holding
+  // `planning.teacher-availability`). `session` is the ENRICHED
+  // `sessionOccurrenceViewSchema` (room/teacher/subject/group names, level, kind +
+  // raw date/time) so the report shows names, not ids — the renderer never
+  // re-joins. centerCode is injected in main, never sent from the renderer. Gated
+  // by `settings.center-hours` (every plan) in the use case.
   'session.audit.outside-hours': {
     request: z.object({}),
     response: z.object({
       sessionsOutsideEffectiveHours: z.array(
         z.object({
           session: sessionOccurrenceViewSchema,
-          reason: z.enum(['outside-center-hours', 'on-holiday']),
+          reason: z.enum(['outside-center-hours', 'on-holiday', 'outside-teacher-availability']),
         }),
       ),
     }),
@@ -2000,12 +2003,17 @@ export const ipcContract = {
   // validity window and `active` default (unbounded / true). create/update echo
   // only the id — the grid refetches the enriched `session.week` after a mutation
   // (mirrors `holiday.create`); delete is a soft delete (cancel).
+  // `allowScheduleConflict` (SOU-283): when the renderer re-submits after a flagged
+  // clash, `true` forces the slot past the composite check and stamps
+  // `conflictAccepted`. Optional; absent/`false` runs the check and a clash throws
+  // its standard scheduling error — including the warning-severity
+  // `teacher-unavailable` an out-of-window teacher placement raises.
   'weeklySession.create': {
-    request: weeklyRecurringSessionInputSchema,
+    request: weeklyRecurringSessionInputSchema.extend({ allowScheduleConflict: z.boolean().optional() }),
     response: z.object({ id: z.string() }),
   },
   'weeklySession.update': {
-    request: weeklyRecurringSessionUpdateSchema,
+    request: weeklyRecurringSessionUpdateSchema.extend({ allowScheduleConflict: z.boolean().optional() }),
     response: z.object({ id: z.string() }),
   },
   'weeklySession.delete': {
@@ -2193,6 +2201,18 @@ export const ipcContract = {
   'teacherAvailabilityException.archive': {
     request: z.object({ id: z.string() }),
     response: z.object({ ok: z.literal(true) }),
+  },
+  // Re-check (SOU-283): after saving a teacher's weekly windows, list that
+  // teacher's already-scheduled sessions the NEW windows now place out of window —
+  // a non-blocking summary the availability screen shows so the admin can review
+  // the drift. Pure read; the save never blocks on it. `sessions` are the enriched
+  // `weeklySessionViewSchema` (same shape as `session.week`) so the popup renders
+  // names, not ids. A teacher with no configured row (unrestricted) returns `[]`.
+  // centerCode is injected in main, never sent. Gated by
+  // `planning.teacher-availability` in the use case.
+  'teacherAvailability.recheckSessions': {
+    request: z.object({ teacherId: z.string().min(1) }),
+    response: z.object({ sessions: z.array(weeklySessionViewSchema) }),
   },
   // Login (SOU-27). `auth.login` is the throttled entry point: it counts failed
   // attempts, enforces the 5-try / 15-minute lockout, and — when the "remember

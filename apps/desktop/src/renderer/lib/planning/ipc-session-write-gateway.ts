@@ -20,6 +20,10 @@ import type { SessionWriteGateway } from './session-write-gateway';
  * unknown/already-cancelled id raises `WeeklyRecurringSessionNotFoundError`
  * rather than silently succeeding, so the caller can surface it.
  */
+// SOU-283: `input` may carry `allowScheduleConflict` when the admin forced a
+// teacher-availability warning; the spread forwards it, and the
+// `weeklySession.create`/`update` channels accept it (the request contract carries
+// the optional flag and the handlers forward it to the use case).
 const WRITE_DEFAULTS = { active: true, validFrom: null, validTo: null } as const;
 
 class IpcSessionWriteGateway implements SessionWriteGateway {

@@ -15,13 +15,18 @@ import { SessionForm } from './session-form';
 import { SessionConflictAlert } from './session-conflict-alert';
 import type { SessionFormInput, SessionFormValues } from '../../lib/planning/session-form-schema';
 import type { SessionFormOptions } from '../../lib/planning/session-options';
-import type { SessionWriteErrorCode } from '../../lib/planning/session-write-error';
+import type { SessionWriteConflict } from '../../lib/planning/session-write-error';
 
 /** The submit-related props, bundled so the dialog stays under the prop ceiling. */
 type SessionSubmission = {
   pending: boolean;
-  errorCodes: readonly SessionWriteErrorCode[];
+  /** The one classified conflict the last write raised, or `null`. */
+  conflict: SessionWriteConflict | null;
+  /** True when the conflict is a forceable warning the admin may acknowledge. */
+  canForce: boolean;
   onSubmit: (values: SessionFormValues) => void | Promise<void>;
+  /** Re-runs the last slot with `allowScheduleConflict` set (warn-and-force). */
+  onForce: () => void;
 };
 
 type SessionFormDialogProps = {
@@ -64,7 +69,7 @@ export function SessionFormDialog({
         </DialogHeader>
 
         <ScrollArea className="min-h-0 flex-1" contentClassName="space-y-4 py-2">
-          <SessionConflictAlert codes={submission.errorCodes} />
+          <SessionConflictAlert conflicts={submission.conflict ? [submission.conflict] : []} />
           {options ? (
             <SessionForm
               formId={formId}
@@ -93,6 +98,16 @@ export function SessionFormDialog({
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               {t('planning.form.cancel')}
             </Button>
+            {submission.canForce ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={submission.onForce}
+                disabled={submission.pending || !options}
+              >
+                {t('planning.form.scheduleAnyway')}
+              </Button>
+            ) : null}
             <Button type="submit" form={formId} disabled={submission.pending || !options}>
               {submission.pending ? t('planning.form.saving') : submitLabel}
             </Button>

@@ -3,6 +3,8 @@ import type { CenterHoursRepository } from '../ports/center-hours-repository';
 import type { CenterHoursOverrideRepository } from '../ports/center-hours-override-repository';
 import type { GroupRepository } from '../ports/group-repository';
 import type { RoomRepository } from '../ports/room-repository';
+import type { TeacherAvailabilityRepository } from '../ports/teacher-availability-repository';
+import type { TeacherAvailabilityExceptionRepository } from '../ports/teacher-availability-exception-repository';
 import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
 import type { PlanPolicy } from '../plans/plan-policy';
@@ -28,6 +30,7 @@ import {
   type WeeklyRecurringSessionInput,
 } from '../schemas/weekly-recurring-session';
 import { assertScheduleFree, resolveWeek } from './weekly-session-scheduling';
+import { loadTeacherAvailabilityForSlot } from './teacher-availability-slot-check';
 
 export type CreateWeeklyRecurringSessionInput = WeeklyRecurringSessionInput & {
   centerCode: CenterCode;
@@ -72,7 +75,15 @@ export type CreateWeeklyRecurringSessionInput = WeeklyRecurringSessionInput & {
  * exactly as before — unless `allowScheduleConflict` is `true` (SOU-183), in which
  * case that single check is skipped and the row is stamped
  * `conflictAccepted = true` to record the intentional double-book. The seat-fit
- * gate and the group/room not-found checks are never skipped. The row is then
+ * gate and the group/room not-found checks are never skipped.
+ *
+ * When the plan holds `planning.teacher-availability` (SOU-283), the composite
+ * check also gathers a `warning`-severity `teacher-availability` conflict for a
+ * placement outside the teacher's declared windows (a whole-week-off row flags
+ * every slot; a teacher with no configured row stays unrestricted). It sorts
+ * after every hard error, so a genuine clash still throws first; a lone
+ * availability warning is thrown and the admin forces past it with the same
+ * `allowScheduleConflict`. The row is then
  * minted through
  * {@link createWeeklyRecurringSession}, which re-asserts `start < end` and
  * `validFrom <= validTo` — the entity factory is the single home of those
@@ -86,6 +97,8 @@ export class CreateWeeklyRecurringSession {
     private readonly rooms: RoomRepository,
     private readonly centerHours: CenterHoursRepository,
     private readonly overrides: CenterHoursOverrideRepository,
+    private readonly availability: TeacherAvailabilityRepository,
+    private readonly availabilityExceptions: TeacherAvailabilityExceptionRepository,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
     private readonly plan: PlanPolicy,
@@ -124,7 +137,23 @@ export class CreateWeeklyRecurringSession {
         dayOfWeek,
         await this.overrides.listOverlapping(input.centerCode, slotDate, slotDate),
       );
-      assertScheduleFree({ roomId, teacherId, dayOfWeek, start, end }, existing, week, overrideWindows);
+      const availability = await loadTeacherAvailabilityForSlot(
+        {
+          availability: this.availability,
+          availabilityExceptions: this.availabilityExceptions,
+          plan: this.plan,
+        },
+        input.centerCode,
+        teacherId,
+        slotDate,
+      );
+      assertScheduleFree(
+        { roomId, teacherId, dayOfWeek, start, end },
+        existing,
+        week,
+        overrideWindows,
+        availability,
+      );
     }
 
     const session = createWeeklyRecurringSession({

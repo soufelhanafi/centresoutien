@@ -809,6 +809,7 @@ export type {
   SessionConflict,
   CompositeSessionCandidate,
   ConflictCheckContext,
+  TeacherAvailabilityConflictContext,
 } from './policies/composite-session-conflicts';
 export { detectGeneratedScheduleConflicts } from './policies/generated-schedule-conflicts';
 export type {
@@ -1107,6 +1108,11 @@ export { UpdateWeeklyRecurringSession } from './use-cases/update-weekly-recurrin
 export type { UpdateWeeklyRecurringSessionInput } from './use-cases/update-weekly-recurring-session';
 export { CancelWeeklyRecurringSession } from './use-cases/cancel-weekly-recurring-session';
 export type { CancelWeeklyRecurringSessionInput } from './use-cases/cancel-weekly-recurring-session';
+export { FindSessionsOutsideTeacherAvailability } from './use-cases/find-sessions-outside-teacher-availability';
+export type {
+  FindSessionsOutsideTeacherAvailabilityInput,
+  FindSessionsOutsideTeacherAvailabilityResult,
+} from './use-cases/find-sessions-outside-teacher-availability';
 export { PreviewGeneratedSchedule } from './use-cases/preview-generated-schedule';
 export type { PreviewGeneratedScheduleInput } from './use-cases/preview-generated-schedule';
 export { CommitGeneratedSchedule } from './use-cases/commit-generated-schedule';

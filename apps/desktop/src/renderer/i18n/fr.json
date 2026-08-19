@@ -1204,6 +1204,12 @@
         "body": "Le chargement a échoué.",
         "retry": "Réessayer"
       },
+      "recheck": {
+        "title": "Séances désormais hors disponibilités",
+        "description": "{{count}} séance(s) de cet enseignant tombent maintenant en dehors de ses disponibilités. Vous pourrez les reprogrammer, les annuler ou les conserver plus tard.",
+        "unknownSubject": "Matière inconnue",
+        "dismiss": "J'ai compris"
+      },
       "exceptions": {
         "title": "Absences ponctuelles",
         "subtitle": "Congés, examens ou indisponibilités sur une période donnée.",
@@ -1501,7 +1507,8 @@
     },
     "reason": {
       "outsideHours": "Hors horaires",
-      "holiday": "Jour férié"
+      "holiday": "Jour férié",
+      "outsideTeacherAvailability": "Hors disponibilités de l'enseignant"
     },
     "cancel": {
       "trigger": "Annuler la séance",
@@ -1589,10 +1596,17 @@
       "cancel": "Annuler",
       "createSuccess": "Séance créée",
       "editSuccess": "Séance mise à jour",
-      "error": "L'enregistrement de la séance a échoué."
+      "error": "L'enregistrement de la séance a échoué.",
+      "scheduleAnyway": "Programmer quand même"
     },
     "conflict": {
-      "title": "Conflit de planning"
+      "title": "Conflit de planning",
+      "warningTitle": "Placement à confirmer",
+      "teacherAvailability": {
+        "generic": "L'enseignant n'est pas disponible sur ce créneau.",
+        "out-of-window": "Ce créneau est en dehors des disponibilités déclarées de l'enseignant.",
+        "exception": "L'enseignant est absent sur cette période."
+      }
     },
     "allSessions": {
       "noRoom": "Sans salle",

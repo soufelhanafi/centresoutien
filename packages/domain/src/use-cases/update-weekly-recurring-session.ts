@@ -3,6 +3,8 @@ import type { CenterHoursRepository } from '../ports/center-hours-repository';
 import type { CenterHoursOverrideRepository } from '../ports/center-hours-override-repository';
 import type { GroupRepository } from '../ports/group-repository';
 import type { RoomRepository } from '../ports/room-repository';
+import type { TeacherAvailabilityRepository } from '../ports/teacher-availability-repository';
+import type { TeacherAvailabilityExceptionRepository } from '../ports/teacher-availability-exception-repository';
 import type { Clock } from '../ports/clock';
 import type { PlanPolicy } from '../plans/plan-policy';
 import type { CenterCode, EntityId, UserId } from '../value-objects/ids';
@@ -14,6 +16,7 @@ import { applyWrite } from '../entities/write';
 import { assertGroupFitsRoom } from '../policies/group-seat-capacity';
 import { overrideWindowsOn } from '../policies/center-hours-override-policy';
 import { weekdayInWeekOf } from '../value-objects/date-range';
+import { loadTeacherAvailabilityForSlot } from './teacher-availability-slot-check';
 import { GroupNotFoundError } from '../errors/group-errors';
 import { RoomNotFoundError } from '../errors/room-errors';
 import {
@@ -34,6 +37,15 @@ export type UpdateWeeklyRecurringSessionInput = WeeklyRecurringSessionInput & {
   centerCode: CenterCode;
   id: WeeklyRecurringSessionId;
   updatedBy: UserId;
+  /**
+   * SOU-283: when `true`, commit the edited slot even if it clashes with the live
+   * schedule — the composite {@link assertScheduleFree} check is skipped and the
+   * row is stamped `conflictAccepted = true`, mirroring
+   * {@link CreateWeeklyRecurringSessionInput}. Absent/`false` runs the check and a
+   * clash throws its standard scheduling error (a warning-severity availability
+   * clash included). The seat-fit and validity-range guards run unconditionally.
+   */
+  allowScheduleConflict?: boolean;
 };
 
 /**
@@ -54,6 +66,13 @@ export type UpdateWeeklyRecurringSessionInput = WeeklyRecurringSessionInput & {
  * gets it from the entity factory; an in-place edit does not go through the
  * factory, so the guard is explicit).
  *
+ * SOU-283 brings this path to parity with create: `allowScheduleConflict` forces
+ * the edit past a flagged clash (the whole composite check is skipped and the row
+ * is stamped `conflictAccepted`), and — under `planning.teacher-availability` —
+ * the check gathers a warning-severity `teacher-availability` clash for a slot
+ * moved outside the teacher's declared windows, forceable the same way. The
+ * seat-fit and validity-range guards always run, forced or not.
+ *
  * Identity and provenance are preserved: `id`, `centerCode`, `deviceOrigin`,
  * `createdAt`, and `version` are never touched — `version` is the hub's to assign.
  * The write goes through {@link applyWrite}, which advances `updatedAt`/`updatedBy`
@@ -68,6 +87,8 @@ export class UpdateWeeklyRecurringSession {
     private readonly rooms: RoomRepository,
     private readonly centerHours: CenterHoursRepository,
     private readonly overrides: CenterHoursOverrideRepository,
+    private readonly availability: TeacherAvailabilityRepository,
+    private readonly availabilityExceptions: TeacherAvailabilityExceptionRepository,
     private readonly clock: Clock,
     private readonly plan: PlanPolicy,
   ) {}
@@ -107,21 +128,51 @@ export class UpdateWeeklyRecurringSession {
       assertGroupFitsRoom(group.id, group.capacity, room);
     }
 
-    const week = resolveWeek(await this.centerHours.listForCenter(input.centerCode));
-    const refs = (await this.sessions.listRefsForDay(input.centerCode, dayOfWeek)).filter(
-      (ref) => (ref.id as string) !== (input.id as string),
-    );
-    const slotDate = weekdayInWeekOf(this.clock.now().toISOString().slice(0, 10), dayOfWeek);
-    const overrideWindows = overrideWindowsOn(
-      slotDate,
-      dayOfWeek,
-      await this.overrides.listOverlapping(input.centerCode, slotDate, slotDate),
-    );
-    assertScheduleFree({ roomId, teacherId, dayOfWeek, start, end }, refs, week, overrideWindows);
+    const forced = input.allowScheduleConflict === true;
+    if (!forced) {
+      const week = resolveWeek(await this.centerHours.listForCenter(input.centerCode));
+      const refs = (await this.sessions.listRefsForDay(input.centerCode, dayOfWeek)).filter(
+        (ref) => (ref.id as string) !== (input.id as string),
+      );
+      const slotDate = weekdayInWeekOf(this.clock.now().toISOString().slice(0, 10), dayOfWeek);
+      const overrideWindows = overrideWindowsOn(
+        slotDate,
+        dayOfWeek,
+        await this.overrides.listOverlapping(input.centerCode, slotDate, slotDate),
+      );
+      const availability = await loadTeacherAvailabilityForSlot(
+        {
+          availability: this.availability,
+          availabilityExceptions: this.availabilityExceptions,
+          plan: this.plan,
+        },
+        input.centerCode,
+        teacherId,
+        slotDate,
+      );
+      assertScheduleFree(
+        { roomId, teacherId, dayOfWeek, start, end },
+        refs,
+        week,
+        overrideWindows,
+        availability,
+      );
+    }
 
     const { next, changedFields } = applyWrite(
       existing,
-      { roomId, teacherId, groupId, dayOfWeek, start, end, active: fields.active, validFrom, validTo },
+      {
+        roomId,
+        teacherId,
+        groupId,
+        dayOfWeek,
+        start,
+        end,
+        active: fields.active,
+        validFrom,
+        validTo,
+        conflictAccepted: forced,
+      },
       { clock: this.clock, updatedBy: input.updatedBy },
     );
     if (changedFields.length > 0) {

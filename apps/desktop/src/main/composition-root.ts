@@ -83,6 +83,7 @@ import {
   CreateWeeklyRecurringSession,
   UpdateWeeklyRecurringSession,
   CancelWeeklyRecurringSession,
+  FindSessionsOutsideTeacherAvailability,
   SessionGenerator,
   PreviewGeneratedSchedule,
   CommitGeneratedSchedule,
@@ -1093,6 +1094,8 @@ export function buildContainer(options: ContainerOptions): Container {
     holidayRepo,
     centerHoursRepo,
     centerHoursOverrideRepo,
+    teacherAvailabilityRepo,
+    teacherAvailabilityExceptionRepo,
     plan,
     clock,
   );
@@ -1114,6 +1117,8 @@ export function buildContainer(options: ContainerOptions): Container {
     roomRepo,
     centerHoursRepo,
     centerHoursOverrideRepo,
+    teacherAvailabilityRepo,
+    teacherAvailabilityExceptionRepo,
     clock,
     ids,
     plan,
@@ -1124,7 +1129,18 @@ export function buildContainer(options: ContainerOptions): Container {
     roomRepo,
     centerHoursRepo,
     centerHoursOverrideRepo,
+    teacherAvailabilityRepo,
+    teacherAvailabilityExceptionRepo,
     clock,
+    plan,
+  );
+  // Re-check (SOU-283): after a teacher's weekly availability is saved, list that
+  // teacher's already-scheduled sessions the new windows now strand — a
+  // non-blocking read the availability screen shows in a summary popup. Reads the
+  // enriched week off the same sessionRepo (WeeklySessionViewReadPort).
+  const findSessionsOutsideTeacherAvailability = new FindSessionsOutsideTeacherAvailability(
+    sessionRepo,
+    teacherAvailabilityRepo,
     plan,
   );
   const cancelWeeklySession = new CancelWeeklyRecurringSession(sessionRepo, clock, plan);
@@ -1452,6 +1468,7 @@ export function buildContainer(options: ContainerOptions): Container {
     createWeeklySession,
     updateWeeklySession,
     cancelWeeklySession,
+    findSessionsOutsideTeacherAvailability,
     previewGeneratedSchedule,
     commitGeneratedSchedule,
     saveCenterHours,

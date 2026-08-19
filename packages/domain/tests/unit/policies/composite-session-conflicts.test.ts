@@ -7,10 +7,13 @@ import type {
 import type { DayHours } from '../../../src/policies/session-conflict-policy';
 import type { ScheduledSessionRef } from '../../../src/errors/scheduling-errors';
 import { SessionOutsideOverrideHoursError } from '../../../src/errors/scheduling-errors';
+import { TeacherUnavailableError } from '../../../src/errors/teacher-availability-errors';
 import type { CenterCode, EntityId } from '../../../src/value-objects/ids';
 import type { RoomId } from '../../../src/entities/room';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import type { TimeWindow } from '../../../src/value-objects/time-window';
+import type { WeeklyTimeWindows } from '../../../src/entities/center-hours-override';
+import type { TeacherAvailabilityRules } from '../../../src/policies/teacher-availability-policy';
 
 const ROOM_A = 'rom_a' as RoomId;
 const ROOM_B = 'rom_b' as RoomId;
@@ -210,6 +213,86 @@ describe('detectSessionConflicts', () => {
       expect(result[0]?.kind === 'hours' && result[0].error).toBeInstanceOf(
         SessionOutsideOverrideHoursError,
       );
+    });
+  });
+
+  // SOU-283: a teacherAvailability context adds a warning-severity conflict for an
+  // out-of-window placement, gathered after every hard error. Absent context =
+  // unrestricted (an unconfigured teacher is never passed one).
+  describe('teacher availability (SOU-283)', () => {
+    const emptyWeek: WeeklyTimeWindows = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+    const mondayWindow: WeeklyTimeWindows = {
+      ...emptyWeek,
+      1: [{ open: '09:00' as TimeOfDay, close: '10:30' as TimeOfDay }],
+    };
+    const withAvailability = (
+      rules: TeacherAvailabilityRules,
+      existing: readonly ScheduledSessionRef[] = [],
+    ): ConflictCheckContext => ({
+      existing,
+      week,
+      teacherAvailability: { rules, materializationRange: null },
+    });
+
+    it('adds a warning for a placement outside the teacher window', () => {
+      const result = detectSessionConflicts(
+        candidate(), // 10:00–11:00 Monday, outside the 09:00–10:30 window
+        withAvailability({ weeklyWindows: mondayWindow, exceptions: [] }),
+      );
+      expect(result.map((c) => c.kind)).toEqual(['teacher-availability']);
+      expect(result[0]?.severity).toBe('warning');
+      expect(result[0]?.error).toBeInstanceOf(TeacherUnavailableError);
+    });
+
+    it('treats a whole-week-empty row as out-of-window for every placement', () => {
+      const result = detectSessionConflicts(
+        candidate(),
+        withAvailability({ weeklyWindows: emptyWeek, exceptions: [] }),
+      );
+      expect(result.map((c) => c.kind)).toEqual(['teacher-availability']);
+    });
+
+    it('adds no conflict for an in-window placement', () => {
+      const result = detectSessionConflicts(
+        candidate({ start: '09:00' as TimeOfDay, end: '10:00' as TimeOfDay }),
+        withAvailability({ weeklyWindows: mondayWindow, exceptions: [] }),
+      );
+      expect(result).toEqual([]);
+    });
+
+    it('never checks availability when the candidate has no teacher', () => {
+      const result = detectSessionConflicts(
+        candidate({ teacherId: undefined }),
+        withAvailability({ weeklyWindows: emptyWeek, exceptions: [] }),
+      );
+      expect(result).toEqual([]);
+    });
+
+    it('sorts the availability warning after a co-occurring hard error', () => {
+      const result = detectSessionConflicts(
+        candidate(), // out of the 09:00–10:30 window
+        withAvailability({ weeklyWindows: mondayWindow, exceptions: [] }, [
+          ref('r1', ROOM_A, undefined, '10:30', '11:30'), // room clash
+        ]),
+      );
+      expect(result.map((c) => c.kind)).toEqual(['room', 'teacher-availability']);
+      expect(result[0]?.severity).toBe('error');
+      expect(result[result.length - 1]?.severity).toBe('warning');
+    });
+
+    it('checks a one-off absence when a materialization range is supplied', () => {
+      // 2026-07-27 is a Monday (dayOfWeek 1), matching the candidate's day.
+      const result = detectSessionConflicts(candidate({ start: '09:00' as TimeOfDay, end: '10:00' as TimeOfDay }), {
+        existing: [],
+        week,
+        teacherAvailability: {
+          rules: { weeklyWindows: mondayWindow, exceptions: [{ start: '2026-07-27', end: '2026-07-27' }] },
+          materializationRange: { start: '2026-07-27', end: '2026-07-27' },
+        },
+      });
+      expect(result.map((c) => c.kind)).toEqual(['teacher-availability']);
+      expect(result[0]?.error).toBeInstanceOf(TeacherUnavailableError);
+      expect(result[0]?.kind === 'teacher-availability' && result[0].error.reason).toBe('exception');
     });
   });
 

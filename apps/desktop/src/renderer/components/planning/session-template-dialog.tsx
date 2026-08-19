@@ -1,21 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '@centresoutien/ui';
 import { useUpdateSession } from '../../hooks/planning/use-update-session';
 import { useCancelSession } from '../../hooks/planning/use-cancel-session';
+import { useForceableSessionWrite } from '../../hooks/planning/use-forceable-session-write';
 import { useSessionFormOptions } from '../../hooks/planning/use-session-form-options';
 import { SessionFormDialog } from './session-form-dialog';
 import { CancelSessionDialog } from './cancel-session-dialog';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 import { toFormInput } from '../../lib/planning/session-view-to-form';
-import {
-  toSessionInput,
-  type SessionFormValues,
-} from '../../lib/planning/session-form-schema';
-import {
-  mapSessionWriteError,
-  type SessionWriteErrorCode,
-} from '../../lib/planning/session-write-error';
 
 type SessionTemplateDialogProps = {
   /** The clicked session, or `null` when the dialog is closed. */
@@ -25,31 +18,29 @@ type SessionTemplateDialogProps = {
 
 /**
  * Edit-session flow opened from a grid block (SOU-131): edits the weekly slot,
- * surfaces scheduling conflicts inline, and offers a cancel (soft-delete) action
- * behind a confirmation. Owns the mutations; the dialog is presentational.
+ * surfaces scheduling conflicts inline — including the forceable
+ * teacher-availability warning the admin may acknowledge to schedule anyway
+ * (SOU-283) — and offers a cancel (soft-delete) action behind a confirmation.
+ * Owns the mutations; the dialog is presentational.
  */
 export function SessionTemplateDialog({ session, onOpenChange }: SessionTemplateDialogProps) {
   const { t } = useTranslation();
   const update = useUpdateSession(session?.id ?? '');
   const cancel = useCancelSession(session?.id ?? '');
   const options = useSessionFormOptions();
-  const [errorCodes, setErrorCodes] = useState<readonly SessionWriteErrorCode[]>([]);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const write = useForceableSessionWrite(update, {
+    successMessageKey: 'planning.form.editSuccess',
+    onSuccess: () => onOpenChange(false),
+  });
+
+  // The dialog stays mounted while the planner swaps which session it edits (and
+  // between edits, when `session` is null), so clear any stale conflict / cached
+  // force input when the edited session changes — otherwise a forced write could
+  // apply the previous session's values through the new session's mutation.
+  useEffect(() => write.reset(), [session?.id, write.reset]);
 
   if (session === null) return null;
-
-  const handleSubmit = async (values: SessionFormValues) => {
-    setErrorCodes([]);
-    try {
-      await update.mutateAsync(toSessionInput(values));
-      toast.success(t('planning.form.editSuccess'));
-      onOpenChange(false);
-    } catch (error) {
-      const code = mapSessionWriteError(error);
-      if (code) setErrorCodes([code]);
-      else toast.error(t('planning.form.error'));
-    }
-  };
 
   const handleCancelSession = async () => {
     try {
@@ -70,7 +61,13 @@ export function SessionTemplateDialog({ session, onOpenChange }: SessionTemplate
         onOpenChange={onOpenChange}
         defaultValues={toFormInput(session)}
         options={options.data}
-        submission={{ pending: update.isPending, errorCodes, onSubmit: handleSubmit }}
+        submission={{
+          pending: write.pending,
+          conflict: write.conflict,
+          canForce: write.canForce,
+          onSubmit: write.submit,
+          onForce: write.force,
+        }}
         onCancelSession={() => setConfirmingCancel(true)}
       />
       <CancelSessionDialog

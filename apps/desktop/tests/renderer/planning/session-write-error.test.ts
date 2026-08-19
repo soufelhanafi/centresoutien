@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { encodeDomainError } from '../../../src/shared/ipc/domain-error';
-import { mapSessionWriteError } from '../../../src/renderer/lib/planning/session-write-error';
+import {
+  classifySessionWriteError,
+  mapSessionWriteError,
+} from '../../../src/renderer/lib/planning/session-write-error';
 
 describe('mapSessionWriteError', () => {
   it.each([
@@ -28,5 +31,40 @@ describe('mapSessionWriteError', () => {
   it('returns null for an unrelated failure', () => {
     expect(mapSessionWriteError(new Error('boom'))).toBeNull();
     expect(mapSessionWriteError({ code: 'subject-in-use' })).toBeNull();
+  });
+});
+
+describe('classifySessionWriteError', () => {
+  it('classifies the bare teacher-unavailable code as a forceable warning with no reason', () => {
+    const encoded = encodeDomainError({ code: 'teacher-unavailable', message: 'boom' });
+    expect(classifySessionWriteError(new Error(encoded))).toEqual({
+      severity: 'warning',
+      kind: 'teacher-availability',
+      reason: null,
+    });
+  });
+
+  it.each([
+    ['teacher-unavailable-out-of-window', 'out-of-window'],
+    ['teacher-unavailable-exception', 'exception'],
+  ] as const)('carries the reason when the domain qualifies the code (%s)', (code, reason) => {
+    const encoded = encodeDomainError({ code, message: 'boom' });
+    expect(classifySessionWriteError(new Error(encoded))).toEqual({
+      severity: 'warning',
+      kind: 'teacher-availability',
+      reason,
+    });
+  });
+
+  it('classifies a hard scheduling clash as a blocking error', () => {
+    const encoded = encodeDomainError({ code: 'RoomConflictError', message: 'boom' });
+    expect(classifySessionWriteError(new Error(encoded))).toEqual({
+      severity: 'error',
+      code: 'room-conflict',
+    });
+  });
+
+  it('returns null for an unrelated failure', () => {
+    expect(classifySessionWriteError(new Error('boom'))).toBeNull();
   });
 });
