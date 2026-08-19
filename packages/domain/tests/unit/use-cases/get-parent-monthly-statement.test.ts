@@ -86,8 +86,8 @@ function makeInvoice(studentId: StudentId, status: InvoiceStatus = 'issued'): In
     studentId,
     month: MONTH,
     status,
-    issuedAt: status === 'issued' ? new Date('2026-08-01T10:00:00Z') : null,
-    cancelledAt: status === 'cancelled' ? new Date('2026-08-01T10:00:00Z') : null,
+    issuedAt: status === 'issued' ? clock.now() : null,
+    cancelledAt: status === 'cancelled' ? clock.now() : null,
   };
 }
 
