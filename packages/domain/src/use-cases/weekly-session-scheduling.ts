@@ -23,7 +23,10 @@ export { resolveWeek } from '../schemas/center-hours';
 
 /**
  * The domain fields a candidate slot commits (SOU-131). `teacherId` is nullable —
- * a null teacher never participates in the teacher-overlap check.
+ * a null teacher never participates in the teacher-overlap check. `validFrom` /
+ * `validTo` ride along (SOU-287) so the shared schedule validator can intersect
+ * the recurrence's validity window with the scheduling horizon before checking
+ * one-off absences — they are not part of the composite conflict candidate.
  */
 export type ScheduleCandidateFields = {
   roomId: RoomId;
@@ -31,6 +34,8 @@ export type ScheduleCandidateFields = {
   dayOfWeek: WeekdayIndex;
   start: TimeOfDay;
   end: TimeOfDay;
+  validFrom: string | null;
+  validTo: string | null;
 };
 
 /**
@@ -51,6 +56,8 @@ export function brandSlotFields(fields: WeeklyRecurringSessionInput): ParsedSlot
     dayOfWeek: fields.dayOfWeek as WeekdayIndex,
     start: fields.start as TimeOfDay,
     end: fields.end as TimeOfDay,
+    validFrom: fields.validFrom,
+    validTo: fields.validTo,
   };
 }
 
@@ -62,6 +69,8 @@ export function toScheduleCandidate(slot: ParsedSlotFields): ScheduleCandidateFi
     dayOfWeek: slot.dayOfWeek,
     start: slot.start,
     end: slot.end,
+    validFrom: slot.validFrom,
+    validTo: slot.validTo,
   };
 }
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   teacherUnavailability,
   weekdayOccursWithin,
+  recurrenceMaterializationRange,
   type TeacherAvailabilityRules,
 } from '../../../src/policies/teacher-availability-policy';
 import { TeacherUnavailableError } from '../../../src/errors/teacher-availability-errors';
@@ -52,6 +53,60 @@ describe('weekdayOccursWithin', () => {
     // clipped overlap (Wed 9th – Thu 10th) holds no Monday.
     const lateStart: DateRange = { start: '2026-09-09', end: '2026-12-31' };
     expect(weekdayOccursWithin(MON, lateStart, { start: '2026-09-01', end: '2026-09-10' })).toBe(false);
+  });
+});
+
+describe('recurrenceMaterializationRange', () => {
+  // Current week horizon: Sun 2026-07-26 .. Sat 2026-08-01.
+  const HORIZON: DateRange = { start: '2026-07-26', end: '2026-08-01' };
+
+  const cases = [
+    {
+      name: 'clips both validity bounds to the horizon',
+      validFrom: '2026-07-20',
+      validTo: '2026-07-28',
+      expected: { start: '2026-07-26', end: '2026-07-28' },
+    },
+    {
+      name: 'passes the horizon through when both bounds are unbounded',
+      validFrom: null,
+      validTo: null,
+      expected: HORIZON,
+    },
+    {
+      name: 'treats a null lower bound as unbounded in the past',
+      validFrom: null,
+      validTo: '2026-07-28',
+      expected: { start: '2026-07-26', end: '2026-07-28' },
+    },
+    {
+      name: 'treats a null upper bound as unbounded in the future',
+      validFrom: '2026-07-28',
+      validTo: null,
+      expected: { start: '2026-07-28', end: '2026-08-01' },
+    },
+    {
+      name: 'returns null when the recurrence starts after the horizon',
+      validFrom: '2026-09-01',
+      validTo: null,
+      expected: null,
+    },
+    {
+      name: 'returns null when the recurrence ended before the horizon',
+      validFrom: null,
+      validTo: '2026-07-20',
+      expected: null,
+    },
+    {
+      name: 'returns null when validity is entirely inverted with respect to the horizon',
+      validFrom: '2026-08-02',
+      validTo: '2026-08-10',
+      expected: null,
+    },
+  ] as const;
+
+  it.each(cases)('$name', ({ validFrom, validTo, expected }) => {
+    expect(recurrenceMaterializationRange(validFrom, validTo, HORIZON)).toEqual(expected);
   });
 });
 

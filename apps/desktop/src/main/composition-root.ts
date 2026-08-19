@@ -84,7 +84,6 @@ import {
   CreateWeeklyRecurringSession,
   UpdateWeeklyRecurringSession,
   CancelWeeklyRecurringSession,
-  FindSessionsOutsideTeacherAvailability,
   SessionGenerator,
   PreviewGeneratedSchedule,
   CommitGeneratedSchedule,
@@ -248,6 +247,7 @@ import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
 import { PdfLibScheduleRenderer } from '../data/pdf/pdf-lib-schedule-renderer';
 import { wireSessionPrincipal } from './session/session-principal-wiring';
+import { wireFindSessionsOutsideTeacherAvailability } from './teacher-availability-composition';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { HashWasmPasswordHasher } from './infra/hash-wasm-password-hasher';
@@ -1148,14 +1148,14 @@ export function buildContainer(options: ContainerOptions): Container {
     weeklySessionScheduleValidator,
     { clock, plan },
   );
-  // Re-check (SOU-283): after a teacher's weekly availability is saved, list that
-  // teacher's already-scheduled sessions the new windows now strand — a
-  // non-blocking read the availability screen shows in a summary popup. Reads the
-  // enriched week off the same sessionRepo (WeeklySessionViewReadPort).
-  const findSessionsOutsideTeacherAvailability = new FindSessionsOutsideTeacherAvailability(
+  // Re-check (SOU-283, SOU-287): the post-save availability drift read.
+  const findSessionsOutsideTeacherAvailability = wireFindSessionsOutsideTeacherAvailability(
     sessionRepo,
+    concreteSessionRepo,
     teacherAvailabilityRepo,
+    teacherAvailabilityExceptionRepo,
     plan,
+    clock,
   );
   const cancelWeeklySession = new CancelWeeklyRecurringSession(sessionRepo, clock, plan);
 

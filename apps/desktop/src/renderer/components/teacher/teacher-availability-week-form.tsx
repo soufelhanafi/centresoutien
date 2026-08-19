@@ -68,6 +68,7 @@ export function TeacherAvailabilityWeekForm({
         open={recheck.open}
         onOpenChange={(next) => (next ? undefined : recheck.dismiss())}
         sessions={recheck.sessions}
+        occurrences={recheck.occurrences}
       />
     </Form>
   );

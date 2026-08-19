@@ -8,13 +8,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@centresoutien/ui';
-import type { OutOfWindowSessionView } from '../../lib/teacher-availability/availability-recheck-gateway';
+import type {
+  OutOfWindowOccurrenceView,
+  OutOfWindowSessionView,
+} from '../../lib/teacher-availability/availability-recheck-gateway';
 import { TeacherAvailabilityRecheckList } from './teacher-availability-recheck-list';
 
 type TeacherAvailabilityRecheckDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sessions: readonly OutOfWindowSessionView[];
+  occurrences: readonly OutOfWindowOccurrenceView[];
 };
 
 /**
@@ -28,9 +32,10 @@ export function TeacherAvailabilityRecheckDialog({
   open,
   onOpenChange,
   sessions,
+  occurrences,
 }: TeacherAvailabilityRecheckDialogProps) {
   const { t } = useTranslation();
-  if (sessions.length === 0) return null;
+  if (sessions.length === 0 && occurrences.length === 0) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -38,10 +43,12 @@ export function TeacherAvailabilityRecheckDialog({
         <DialogHeader>
           <DialogTitle>{t('teachers.availability.recheck.title')}</DialogTitle>
           <DialogDescription>
-            {t('teachers.availability.recheck.description', { count: sessions.length })}
+            {t('teachers.availability.recheck.description', {
+              count: sessions.length + occurrences.length,
+            })}
           </DialogDescription>
         </DialogHeader>
-        <TeacherAvailabilityRecheckList sessions={sessions} />
+        <TeacherAvailabilityRecheckList sessions={sessions} occurrences={occurrences} />
         <DialogFooter>
           <Button type="button" onClick={() => onOpenChange(false)}>
             {t('teachers.availability.recheck.dismiss')}

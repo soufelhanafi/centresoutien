@@ -80,6 +80,15 @@ export const STR: Record<
       recheckTitle: string;
       recheckDismiss: string;
     };
+    exceptions: {
+      new: string;
+      form: {
+        title: string;
+        startDate: string;
+        endDate: string;
+        create: string;
+      };
+    };
     audit: {
       trigger: string;
       pageTitle: string;
@@ -117,6 +126,15 @@ export const STR: Record<
       recheckTitle: 'Séances désormais hors disponibilités',
       recheckDismiss: "J'ai compris",
     },
+    exceptions: {
+      new: 'Ajouter une absence',
+      form: {
+        title: 'Nouvelle absence',
+        startDate: 'Du',
+        endDate: 'Au',
+        create: 'Ajouter',
+      },
+    },
     audit: {
       trigger: 'Audit du planning',
       pageTitle: 'Audit du planning',
@@ -152,6 +170,15 @@ export const STR: Record<
       toggle: (dayName) => `تبديل توفر يوم ${dayName}`,
       recheckTitle: 'حصص أصبحت خارج أوقات التوفر',
       recheckDismiss: 'فهمت',
+    },
+    exceptions: {
+      new: 'إضافة غياب',
+      form: {
+        title: 'غياب جديد',
+        startDate: 'من تاريخ',
+        endDate: 'إلى تاريخ',
+        create: 'إضافة',
+      },
     },
     audit: {
       trigger: 'تدقيق الجدولة',

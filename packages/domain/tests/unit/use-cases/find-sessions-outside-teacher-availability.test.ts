@@ -9,8 +9,14 @@ import type {
   TeacherAvailability,
   TeacherAvailabilityId,
 } from '../../../src/entities/teacher-availability';
+import type {
+  TeacherAvailabilityException,
+  TeacherAvailabilityExceptionId,
+} from '../../../src/entities/teacher-availability-exception';
 import type { WeeklyTimeWindows } from '../../../src/entities/center-hours-override';
 import type { WeeklySessionView } from '../../../src/read-models/weekly-session-view';
+import type { SessionOccurrenceView } from '../../../src/read-models/session-occurrence-view';
+import type { SessionId } from '../../../src/entities/session';
 import type { WeeklyRecurringSessionId } from '../../../src/entities/weekly-recurring-session';
 import type { RoomId } from '../../../src/entities/room';
 import type { GroupId } from '../../../src/entities/group';
@@ -20,7 +26,9 @@ import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import type { TimeWindow } from '../../../src/value-objects/time-window';
 import type { WeekdayIndex } from '../../../src/value-objects/weekday';
 import { InMemoryWeeklySessionViewReadPort } from '../fakes/in-memory-weekly-session-view-read-port';
+import { InMemorySessionOccurrenceViewReadPort } from '../fakes/in-memory-session-occurrence-view-read-port';
 import { InMemoryTeacherAvailabilityRepository } from '../fakes/in-memory-teacher-availability-repository';
+import { InMemoryTeacherAvailabilityExceptionRepository } from '../fakes/in-memory-teacher-availability-exception-repository';
 import { fakeClock } from '../fakes/clock';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
@@ -58,6 +66,41 @@ function weekWindows(byDay: Partial<Record<WeekdayIndex, readonly TimeWindow[]>>
   return { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], ...byDay } as WeeklyTimeWindows;
 }
 
+function occurrenceView(over: Partial<SessionOccurrenceView> = {}): SessionOccurrenceView {
+  seq += 1;
+  return {
+    id: `ses_${String(seq).padStart(26, '0')}` as SessionId,
+    recurringSessionId: `wrs_${String(seq).padStart(26, '0')}` as WeeklyRecurringSessionId,
+    date: '2026-09-14',
+    start: '09:00' as TimeOfDay,
+    end: '10:30' as TimeOfDay,
+    roomId: ROOM,
+    roomName: 'Salle A',
+    teacherId: TEACHER as string as EntityId,
+    teacherName: { fr: 'Prof', ar: 'أستاذ' },
+    groupId: GROUP,
+    subjectId: SUBJECT,
+    subjectName: { fr: 'Maths', ar: 'رياضيات' },
+    level: '2e Bac',
+    kind: 'regular',
+    ...over,
+  };
+}
+
+function seededException(
+  dateRange: { start: string; end: string },
+  teacherId = TEACHER,
+): TeacherAvailabilityException {
+  seq += 1;
+  return {
+    id: `tae_${String(seq).padStart(26, '0')}` as TeacherAvailabilityExceptionId,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
+    teacherId,
+    dateRange,
+    label: null,
+  };
+}
+
 function seededAvailability(weeklyWindows: WeeklyTimeWindows, teacherId = TEACHER): TeacherAvailability {
   seq += 1;
   return {
@@ -70,14 +113,25 @@ function seededAvailability(weeklyWindows: WeeklyTimeWindows, teacherId = TEACHE
 
 describe('FindSessionsOutsideTeacherAvailability', () => {
   let sessions: InMemoryWeeklySessionViewReadPort;
+  let occurrences: InMemorySessionOccurrenceViewReadPort;
   let availability: InMemoryTeacherAvailabilityRepository;
+  let exceptions: InMemoryTeacherAvailabilityExceptionRepository;
   let useCase: FindSessionsOutsideTeacherAvailability;
 
   beforeEach(() => {
     seq = 0;
     sessions = new InMemoryWeeklySessionViewReadPort();
+    occurrences = new InMemorySessionOccurrenceViewReadPort();
     availability = new InMemoryTeacherAvailabilityRepository();
-    useCase = new FindSessionsOutsideTeacherAvailability(sessions, availability, new PlanPolicy(PLANS.pro));
+    exceptions = new InMemoryTeacherAvailabilityExceptionRepository();
+    useCase = new FindSessionsOutsideTeacherAvailability(
+      sessions,
+      occurrences,
+      availability,
+      exceptions,
+      new PlanPolicy(PLANS.pro),
+      fakeClock('2026-09-01T10:00:00Z'),
+    );
   });
 
   it('returns the teacher sessions now outside the saved weekly windows', async () => {
@@ -88,6 +142,7 @@ describe('FindSessionsOutsideTeacherAvailability', () => {
 
     const result = await useCase.execute({ centerCode: CENTER, teacherId: TEACHER });
     expect(result.sessions).toEqual([outOfWindow]);
+    expect(result.occurrences).toEqual([]);
   });
 
   it('flags every session for a whole-week-off row', async () => {
@@ -104,6 +159,7 @@ describe('FindSessionsOutsideTeacherAvailability', () => {
     sessions.seed(CENTER, [view({ start: '14:00' as TimeOfDay, end: '15:00' as TimeOfDay })]);
     const result = await useCase.execute({ centerCode: CENTER, teacherId: TEACHER });
     expect(result.sessions).toEqual([]);
+    expect(result.occurrences).toEqual([]);
   });
 
   it('ignores sessions belonging to a different teacher', async () => {
@@ -125,13 +181,48 @@ describe('FindSessionsOutsideTeacherAvailability', () => {
     expect(result.sessions).toEqual([]);
   });
 
+  it('reports a dated occurrence covered by a one-off absence, even with no weekly row', async () => {
+    const covered = occurrenceView({ date: '2026-09-14' });
+    const later = occurrenceView({ date: '2026-10-05' });
+    occurrences.seed(covered);
+    occurrences.seed(later);
+    await exceptions.save(seededException({ start: '2026-09-12', end: '2026-09-16' }));
+
+    const result = await useCase.execute({ centerCode: CENTER, teacherId: TEACHER });
+    expect(result.sessions).toEqual([]);
+    expect(result.occurrences).toEqual([covered]);
+  });
+
+  it('ignores dated occurrences of a different teacher or a past date', async () => {
+    const mine = occurrenceView({ date: '2026-09-14' });
+    const theirs = occurrenceView({
+      date: '2026-09-14',
+      teacherId: OTHER_TEACHER as string as EntityId,
+    });
+    const past = occurrenceView({ date: '2026-08-30' });
+    occurrences.seed(mine);
+    occurrences.seed(theirs);
+    occurrences.seed(past);
+    await exceptions.save(seededException({ start: '2026-09-01', end: '2026-09-30' }));
+
+    const result = await useCase.execute({ centerCode: CENTER, teacherId: TEACHER });
+    expect(result.occurrences).toEqual([mine]);
+  });
+
   it('throws PlanFeatureUnavailableError when the plan lacks planning.teacher-availability', async () => {
     const planWithout: Plan = {
       id: 'essentiel',
       features: new Set<FeatureFlag>(['core.calendar.week']),
       limits: PLANS.essentiel.limits,
     };
-    useCase = new FindSessionsOutsideTeacherAvailability(sessions, availability, new PlanPolicy(planWithout));
+    useCase = new FindSessionsOutsideTeacherAvailability(
+      sessions,
+      occurrences,
+      availability,
+      exceptions,
+      new PlanPolicy(planWithout),
+      fakeClock(),
+    );
     await expect(useCase.execute({ centerCode: CENTER, teacherId: TEACHER })).rejects.toBeInstanceOf(
       PlanFeatureUnavailableError,
     );
