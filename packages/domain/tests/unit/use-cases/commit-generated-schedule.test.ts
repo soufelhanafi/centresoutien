@@ -4,6 +4,7 @@ import {
   type CommitGeneratedScheduleInput,
   type CommitGroupProposal,
 } from '../../../src/use-cases/commit-generated-schedule';
+import { GeneratedScheduleSeatFitGuard } from '../../../src/services/generated-schedule-seat-fit-guard';
 import { CreateWeeklyRecurringSession } from '../../../src/use-cases/create-weekly-recurring-session';
 import { GenerateAndPersistSessions } from '../../../src/use-cases/generate-and-persist-sessions';
 import { GenerateSessions } from '../../../src/use-cases/generate-sessions';
@@ -121,7 +122,13 @@ describe('CommitGeneratedSchedule', () => {
       new GenerateSessions(clock, ids),
       policy,
     );
-    return new CommitGeneratedSchedule(groups, rooms, createWeeklySession, generateAndPersist, policy);
+    return new CommitGeneratedSchedule(
+      groups,
+      new GeneratedScheduleSeatFitGuard(groups, rooms),
+      createWeeklySession,
+      generateAndPersist,
+      policy,
+    );
   }
 
   function input(overrides: Partial<CommitGeneratedScheduleInput> = {}): CommitGeneratedScheduleInput {

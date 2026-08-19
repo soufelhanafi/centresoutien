@@ -257,35 +257,18 @@ describe('detectGeneratedScheduleConflicts', () => {
       ]);
     });
 
-    it('does not flag a block whose assigned room seats the group exactly', () => {
+    it.each([
+      { name: 'room seats the group exactly', seatFit: seatFit([[ROOM_A, 16]], [[G1, 16]]) },
+      { name: 'assigned room has unknown capacity', seatFit: seatFit([[ROOM_B, 12]], [[G1, 16]]) },
+      { name: 'group has unknown seat count', seatFit: seatFit([[ROOM_A, 12]], [[G2, 16]]) },
+      { name: 'no seat-fit context is supplied', seatFit: undefined },
+    ])('reports no capacity conflict when $name', ({ seatFit: context }) => {
       const result = detectGeneratedScheduleConflicts(
         [block(G1, ROOM_A, '09:00', '10:30')],
         [],
         centerHours,
         undefined,
-        seatFit([[ROOM_A, 16]], [[G1, 16]]),
-      );
-      expect(result).toEqual([]);
-    });
-
-    it('treats a room of unknown capacity as unbounded (never flags it)', () => {
-      const result = detectGeneratedScheduleConflicts(
-        [block(G1, ROOM_A, '09:00', '10:30')],
-        [],
-        centerHours,
-        undefined,
-        seatFit([[ROOM_B, 12]], [[G1, 16]]),
-      );
-      expect(result).toEqual([]);
-    });
-
-    it('imposes no capacity constraint on a group of unknown seat count', () => {
-      const result = detectGeneratedScheduleConflicts(
-        [block(G1, ROOM_A, '09:00', '10:30')],
-        [],
-        centerHours,
-        undefined,
-        seatFit([[ROOM_A, 12]], [[G2, 16]]),
+        context,
       );
       expect(result).toEqual([]);
     });
@@ -320,15 +303,6 @@ describe('detectGeneratedScheduleConflicts', () => {
           roomCapacity: 12,
         },
       ]);
-    });
-
-    it('reports no capacity conflict when no seat-fit context is supplied', () => {
-      const result = detectGeneratedScheduleConflicts(
-        [block(G1, ROOM_A, '09:00', '10:30')],
-        [],
-        centerHours,
-      );
-      expect(result).toEqual([]);
     });
   });
 });

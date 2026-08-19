@@ -1108,6 +1108,7 @@ export type { CancelWeeklyRecurringSessionInput } from './use-cases/cancel-weekl
 export { PreviewGeneratedSchedule } from './use-cases/preview-generated-schedule';
 export type { PreviewGeneratedScheduleInput } from './use-cases/preview-generated-schedule';
 export { CommitGeneratedSchedule } from './use-cases/commit-generated-schedule';
+export { GeneratedScheduleSeatFitGuard } from './services/generated-schedule-seat-fit-guard';
 export type {
   CommitGeneratedScheduleInput,
   CommitGeneratedScheduleResult,
