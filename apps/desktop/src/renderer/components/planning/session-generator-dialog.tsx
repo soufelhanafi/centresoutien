@@ -167,6 +167,7 @@ export function SessionGeneratorDialog({
               canCommit={commit.canCommit}
               isCommitting={commit.isCommitting}
               decisionRequired={!commit.decisions.allDecided}
+              capacityBlocked={commit.capacityBlocked}
             />
           )}
         </DialogFooter>

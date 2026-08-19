@@ -86,6 +86,7 @@ import {
   SessionGenerator,
   PreviewGeneratedSchedule,
   CommitGeneratedSchedule,
+  GeneratedScheduleSeatFitGuard,
   CreateAdminAccount,
   CreateUser,
   RedeemSetupCode,
@@ -1139,6 +1140,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // re-check as one booked by hand.
   const commitGeneratedSchedule = new CommitGeneratedSchedule(
     groupRepo,
+    new GeneratedScheduleSeatFitGuard(groupRepo, roomRepo),
     createWeeklySession,
     generateSessions,
     plan,

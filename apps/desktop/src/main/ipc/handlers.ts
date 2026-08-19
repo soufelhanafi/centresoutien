@@ -823,6 +823,18 @@ function toGeneratedScheduleConflictView(conflict: GeneratedScheduleConflict) {
           : { start: conflict.error.exception.start, end: conflict.error.exception.end },
     };
   }
+  if (conflict.kind === 'capacity') {
+    return {
+      kind: 'capacity' as const,
+      groupId: conflict.groupId,
+      roomId: conflict.roomId,
+      dayOfWeek: conflict.dayOfWeek,
+      start: conflict.start,
+      end: conflict.end,
+      groupCapacity: conflict.groupCapacity,
+      roomCapacity: conflict.roomCapacity,
+    };
+  }
   return {
     kind: 'room' as const,
     groupId: conflict.groupId,

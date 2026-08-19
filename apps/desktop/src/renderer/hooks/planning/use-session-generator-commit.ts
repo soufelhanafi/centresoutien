@@ -3,7 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { toast } from '@centresoutien/ui';
 import { useCommitSchedule } from './use-commit-schedule';
 import { useGeneratorDecisions } from './use-generator-decisions';
-import { buildCommitProposals, type BlockResolution } from '../../lib/planning/session-generator-view';
+import {
+  buildCommitProposals,
+  hasCapacityConflict,
+  type BlockResolution,
+} from '../../lib/planning/session-generator-view';
 import { mapGeneratorError } from '../../lib/planning/session-generator-error';
 import type {
   GeneratorBlockProposal,
@@ -34,11 +38,15 @@ export function useSessionGeneratorCommit(previewResult: GeneratorPreviewResult 
     };
     return buildCommitProposals(previewResult.proposals, resolveBlock);
   }, [previewResult, isConflicting, decisionFor]);
+  // A seat-overflow conflict (SOU-275) is non-forceable: it would throw at commit,
+  // so its mere presence disables commit outright — the admin must fix the room
+  // assignment and re-preview, no per-block override can let it through.
+  const capacityBlocked = hasCapacityConflict((previewResult ?? EMPTY_PREVIEW_RESULT).conflicts);
   // Enabled once every clash is decided — NOT gated on a non-empty batch: a run
   // whose every conflicting block was excluded resolves to zero proposals yet
   // must still be completable (SOU-183), so the final action closes the dialog
   // rather than dead-ending with a disabled button and no hint.
-  const canCommit = decisions.allDecided && !commit.isPending;
+  const canCommit = decisions.allDecided && !capacityBlocked && !commit.isPending;
 
   const runCommit = async (input: {
     range: GeneratorRange;
@@ -62,5 +70,12 @@ export function useSessionGeneratorCommit(previewResult: GeneratorPreviewResult 
     }
   };
 
-  return { decisions, canCommit, isCommitting: commit.isPending, runCommit, resetCommit: commit.reset };
+  return {
+    decisions,
+    canCommit,
+    capacityBlocked,
+    isCommitting: commit.isPending,
+    runCommit,
+    resetCommit: commit.reset,
+  };
 }

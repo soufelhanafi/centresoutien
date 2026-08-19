@@ -64,7 +64,41 @@ export type GeneratedScheduleConflict =
       readonly start: TimeOfDay;
       readonly end: TimeOfDay;
       readonly error: TeacherUnavailableError;
+    }
+  | {
+      /**
+       * SOU-275: a block whose assigned room cannot seat its group. Custom mode
+       * cannot fail fast on this the way auto mode does (the admin picked the
+       * weekdays, so the run never re-draws to a fitting room), so it is surfaced
+       * as a non-blocking preview warning — but unlike a schedule double-book it
+       * is a hard commit invariant, so {@link CommitGeneratedSchedule} refuses the
+       * whole batch rather than letting force override it. Self-contained
+       * (no `error` object): every field is a primitive that survives the IPC hop,
+       * attributing the offending block per-block (group id, assigned room id,
+       * seats the group needs, seats the room holds).
+       */
+      readonly kind: 'capacity';
+      readonly groupId: GroupId;
+      readonly dayOfWeek: WeekdayIndex;
+      readonly start: TimeOfDay;
+      readonly end: TimeOfDay;
+      readonly roomId: RoomId;
+      readonly groupCapacity: number;
+      readonly roomCapacity: number;
     };
+
+/**
+ * The seat capacities the detection pass reads to flag a {@link GeneratedScheduleConflict}
+ * of kind `capacity` (SOU-275). A room absent from `roomCapacity` is treated as
+ * unbounded (never flagged), and a group absent from `seatsByGroup` imposes no
+ * seat constraint — so an entirely absent context flags nothing, preserving the
+ * pre-SOU-275 seat-blind detection exactly. Structurally identical to the
+ * generator's `SeatFit`, which aliases this so the two never drift.
+ */
+export type GeneratorSeatCapacities = {
+  readonly roomCapacity: ReadonlyMap<RoomId, number>;
+  readonly seatsByGroup: ReadonlyMap<GroupId, number>;
+};
 
 /**
  * The availability inputs the detection pass reads when the SOU-259 feature is
@@ -101,6 +135,7 @@ export function detectGeneratedScheduleConflicts(
   existingSchedule: readonly ScheduledSessionRef[],
   centerHours: readonly DayHours[],
   availability?: GeneratorAvailabilityContext,
+  seatFit?: GeneratorSeatCapacities,
 ): readonly GeneratedScheduleConflict[] {
   const conflicts: GeneratedScheduleConflict[] = [];
 
@@ -109,6 +144,9 @@ export function detectGeneratedScheduleConflicts(
 
     const hours = SessionConflictPolicy.withinCenterHours(candidate.block, centerHours);
     if (hours) conflicts.push({ kind: 'hours', groupId: candidate.groupId, start, end, error: hours });
+
+    const capacity = capacityOverflow(candidate, seatFit);
+    if (capacity) conflicts.push(capacity);
 
     const siblings = candidates.filter((_, other) => other !== index).map(generatedCandidateToScheduledRef);
     const room = SessionConflictPolicy.roomConflict(
@@ -136,6 +174,34 @@ export function detectGeneratedScheduleConflicts(
   });
 
   return conflicts;
+}
+
+/**
+ * Flags a block whose assigned room cannot seat its group (SOU-275), or `null`
+ * when it fits (or when either capacity is unknown — an unknown room is treated
+ * as unbounded and an unknown group imposes no constraint, mirroring the
+ * generator's seat-fit draw). Reads the same `>=` seat-fit rule
+ * {@link assertGroupFitsRoom} enforces at commit so preview and commit never
+ * diverge on what "fits" means.
+ */
+function capacityOverflow(
+  candidate: GeneratedBlockCandidate,
+  seatFit: GeneratorSeatCapacities | undefined,
+): GeneratedScheduleConflict | null {
+  const groupCapacity = seatFit?.seatsByGroup.get(candidate.groupId);
+  if (seatFit === undefined || groupCapacity === undefined) return null;
+  const roomCapacity = seatFit.roomCapacity.get(candidate.roomId);
+  if (roomCapacity === undefined || roomCapacity >= groupCapacity) return null;
+  return {
+    kind: 'capacity',
+    groupId: candidate.groupId,
+    dayOfWeek: candidate.block.dayOfWeek,
+    start: candidate.block.start,
+    end: candidate.block.end,
+    roomId: candidate.roomId,
+    groupCapacity,
+    roomCapacity,
+  };
 }
 
 /**

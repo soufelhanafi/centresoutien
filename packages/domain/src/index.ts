@@ -284,6 +284,7 @@ export {
 } from './errors/scheduling-errors';
 export type { OutsideCenterHoursReason, ScheduledSessionRef } from './errors/scheduling-errors';
 export {
+  GeneratedScheduleCapacityConflictError,
   GroupExceedsRoomCapacityError,
   InfeasibleGeneratorConfigError,
   NoRoomsConfiguredError,
@@ -814,6 +815,7 @@ export type {
   GeneratedBlockCandidate,
   GeneratedScheduleConflict,
   GeneratorAvailabilityContext,
+  GeneratorSeatCapacities,
 } from './policies/generated-schedule-conflicts';
 export { teacherUnavailability, weekdayOccursWithin } from './policies/teacher-availability-policy';
 export type { TeacherAvailabilityRules } from './policies/teacher-availability-policy';
@@ -1108,6 +1110,7 @@ export type { CancelWeeklyRecurringSessionInput } from './use-cases/cancel-weekl
 export { PreviewGeneratedSchedule } from './use-cases/preview-generated-schedule';
 export type { PreviewGeneratedScheduleInput } from './use-cases/preview-generated-schedule';
 export { CommitGeneratedSchedule } from './use-cases/commit-generated-schedule';
+export { GeneratedScheduleSeatFitGuard } from './services/generated-schedule-seat-fit-guard';
 export type {
   CommitGeneratedScheduleInput,
   CommitGeneratedScheduleResult,

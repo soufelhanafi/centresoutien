@@ -1,5 +1,7 @@
 import { DomainError } from './plan-errors';
 import type { WeekdayIndex } from '../value-objects/weekday';
+import type { GroupId } from '../entities/group';
+import type { RoomId } from '../entities/room';
 
 /** Why the auto-generator cannot satisfy the requested weekly pattern. */
 export type InfeasibleGeneratorReason =
@@ -72,6 +74,34 @@ export class GroupExceedsRoomCapacityError extends DomainError {
   ) {
     super(
       `A group needs ${groupCapacity} seats but the largest room holds only ${largestRoomCapacity}.`,
+    );
+  }
+}
+
+/**
+ * Thrown by {@link CommitGeneratedSchedule} (SOU-275) when a confirmed preview
+ * still carries at least one capacity conflict — a block whose assigned room
+ * cannot seat its group. Unlike a schedule double-book (which the admin may
+ * force past), seat overflow is a hard commit invariant, so the whole batch is
+ * refused up front rather than partially committed and then crashing mid-run on
+ * {@link GroupOverCapacityError}: the admin assigns a larger room (or shrinks the
+ * group) and re-previews. Distinct from the auto-mode
+ * {@link GroupExceedsRoomCapacityError} because it names the *specific assigned*
+ * room, not the largest available one. Carries the stable
+ * `schedule-capacity-conflict` code for `t(\`errors.${code}\`)`; only the `code`
+ * survives the IPC hop, so the message stays i18n-agnostic.
+ */
+export class GeneratedScheduleCapacityConflictError extends DomainError {
+  readonly code = 'schedule-capacity-conflict';
+
+  constructor(
+    readonly groupId: GroupId,
+    readonly roomId: RoomId,
+    readonly groupCapacity: number,
+    readonly roomCapacity: number,
+  ) {
+    super(
+      `Group "${groupId}" needs ${groupCapacity} seats but assigned room "${roomId}" holds only ${roomCapacity}.`,
     );
   }
 }

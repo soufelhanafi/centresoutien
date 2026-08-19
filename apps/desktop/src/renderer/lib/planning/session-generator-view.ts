@@ -48,6 +48,16 @@ export function summarizeProposals(
   return { sessions, groups };
 }
 
+/**
+ * Whether the run surfaced any seat-overflow conflict (SOU-275): a group assigned
+ * a room too small to seat it. Seat overflow would throw `GroupOverCapacityError`
+ * at commit, so — unlike a forceable schedule double-book — its presence disables
+ * commit entirely. The admin must fix the room/config and re-preview.
+ */
+export function hasCapacityConflict(conflicts: readonly GeneratorConflict[]): boolean {
+  return conflicts.some((conflict) => conflict.kind === 'capacity');
+}
+
 /** Buckets the run's non-blocking conflicts by the group they belong to, for per-group display. */
 export function conflictsByGroup(
   conflicts: readonly GeneratorConflict[],
@@ -71,6 +81,9 @@ function blockMatchesAnyConflict(
   conflicts: readonly GeneratorConflict[],
 ): boolean {
   return conflicts.some((conflict) => {
+    // A capacity conflict (SOU-275) is never forceable, so it never marks a block
+    // as decidable (include/exclude): it blocks the whole commit instead.
+    if (conflict.kind === 'capacity') return false;
     if (conflict.dayOfWeek !== block.dayOfWeek) return false;
     if (conflict.kind === 'teacher' || conflict.kind === 'teacher-availability') {
       return (

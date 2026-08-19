@@ -1,7 +1,7 @@
 import type { GroupRepository } from '../ports/group-repository';
 import type { PlanPolicy } from '../plans/plan-policy';
-import type { CenterCode, DeviceId, EntityId, UserId } from '../value-objects/ids';
-import type { GroupId } from '../entities/group';
+import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
+import type { Group, GroupId } from '../entities/group';
 import type { RoomId } from '../entities/room';
 import type { GenerationBatchId } from '../entities/session';
 import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-session';
@@ -11,6 +11,7 @@ import {
   resolveGeneratorMaterializationRange,
   type SessionGeneratorRange,
 } from '../services/session-generator';
+import type { GeneratedScheduleSeatFitGuard } from '../services/generated-schedule-seat-fit-guard';
 import type { CreateWeeklyRecurringSession } from './create-weekly-recurring-session';
 import type { GenerateAndPersistSessions } from './generate-and-persist-sessions';
 import type { SkippedHolidayOccurrence } from './generate-sessions';
@@ -84,6 +85,11 @@ export type CommitGeneratedScheduleResult = {
  * given. Forcing only bypasses the schedule-conflict check; the seat-fit and
  * not-found hard checks inside `CreateWeeklyRecurringSession` always run.
  *
+ * **Capacity conflicts are non-forceable and reject the whole batch (SOU-275).**
+ * {@link GeneratedScheduleSeatFitGuard} runs before any block is committed and
+ * refuses the whole run if a room cannot seat its group — see that collaborator
+ * for the rule.
+ *
  * Blocks are committed **sequentially, not in parallel**: each
  * `CreateWeeklyRecurringSession` call reads the repository's live state, so an
  * earlier block in this same run is already visible to the room-conflict check
@@ -108,6 +114,7 @@ export type CommitGeneratedScheduleResult = {
 export class CommitGeneratedSchedule {
   constructor(
     private readonly groups: GroupRepository,
+    private readonly seatFitGuard: GeneratedScheduleSeatFitGuard,
     private readonly createWeeklySession: CreateWeeklyRecurringSession,
     private readonly generateAndPersist: GenerateAndPersistSessions,
     private readonly plan: PlanPolicy,
@@ -117,9 +124,11 @@ export class CommitGeneratedSchedule {
     this.plan.require(input.mode === 'auto' ? 'planning.random-auto' : 'planning.custom-grid');
     const { centerCode, deviceOrigin, updatedBy, proposals, range } = input;
 
+    await this.seatFitGuard.assertEveryBlockFits(centerCode, proposals);
+
     const templates: CommittedGeneratedTemplate[] = [];
     for (const proposal of proposals) {
-      const teacherId = await this.resolveTeacherId(centerCode, proposal.groupId);
+      const { teacherId } = await this.resolveGroup(centerCode, proposal.groupId);
       for (const scheduled of proposal.blocks) {
         const created = await this.createWeeklySession.execute({
           centerCode,
@@ -156,11 +165,11 @@ export class CommitGeneratedSchedule {
     return { templates };
   }
 
-  private async resolveTeacherId(centerCode: CenterCode, groupId: GroupId): Promise<EntityId | null> {
+  private async resolveGroup(centerCode: CenterCode, groupId: GroupId): Promise<Group> {
     const group = await this.groups.findById(groupId);
     if (group === null || group.centerCode !== centerCode) {
       throw new GroupNotFoundError(groupId);
     }
-    return group.teacherId;
+    return group;
   }
 }
