@@ -7,10 +7,9 @@ import { SessionConflictAlert } from './session-conflict-alert';
 import { CancelSessionDialog } from './cancel-session-dialog';
 import { useUpdateSession } from '../../hooks/planning/use-update-session';
 import { useCancelSession } from '../../hooks/planning/use-cancel-session';
+import { useForceableSessionWrite } from '../../hooks/planning/use-forceable-session-write';
 import { useSessionFormOptions } from '../../hooks/planning/use-session-form-options';
 import { toFormInput } from '../../lib/planning/session-view-to-form';
-import { toSessionInput, type SessionFormValues } from '../../lib/planning/session-form-schema';
-import { mapSessionWriteError, type SessionWriteErrorCode } from '../../lib/planning/session-write-error';
 import { localizedText } from '../../lib/planning/localized-text';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 
@@ -29,31 +28,21 @@ export function AllSessionsRow({ session }: { session: PlannerSessionView }) {
   const panelId = useId();
   const [expanded, setExpanded] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
-  const [errorCodes, setErrorCodes] = useState<readonly SessionWriteErrorCode[]>([]);
   const update = useUpdateSession(session.id);
   const cancel = useCancelSession(session.id);
   const options = useSessionFormOptions();
+  const write = useForceableSessionWrite(update, {
+    successMessageKey: 'planning.form.editSuccess',
+    onSuccess: () => setExpanded(false),
+  });
   const subject =
     session.subjectName === null ? t('planning.unknownSubject') : localizedText(session.subjectName, i18n.language);
 
   useEffect(() => {
     if (!expanded) {
-      setErrorCodes([]);
+      write.reset();
     }
-  }, [expanded]);
-
-  const handleSubmit = async (values: SessionFormValues) => {
-    setErrorCodes([]);
-    try {
-      await update.mutateAsync(toSessionInput(values));
-      toast.success(t('planning.form.editSuccess'));
-      setExpanded(false);
-    } catch (error) {
-      const code = mapSessionWriteError(error);
-      if (code) setErrorCodes([code]);
-      else toast.error(t('planning.form.error'));
-    }
-  };
+  }, [expanded, write.reset]);
 
   const handleCancelSession = async () => {
     try {
@@ -88,13 +77,13 @@ export function AllSessionsRow({ session }: { session: PlannerSessionView }) {
       <div id={panelId} hidden={!expanded} className="space-y-4 border-t border-border p-3">
         {expanded ? (
           <>
-            <SessionConflictAlert codes={errorCodes} />
+            <SessionConflictAlert conflicts={write.conflict ? [write.conflict] : []} />
             {options.data ? (
               <SessionForm
                 formId={formId}
                 defaultValues={toFormInput(session)}
                 options={options.data}
-                onSubmit={handleSubmit}
+                onSubmit={write.submit}
               />
             ) : (
               <div className="space-y-4" aria-busy="true">
@@ -107,9 +96,21 @@ export function AllSessionsRow({ session }: { session: PlannerSessionView }) {
               <Button type="button" variant="destructive" onClick={() => setConfirmingCancel(true)}>
                 {t('planning.cancelSession.trigger')}
               </Button>
-              <Button type="submit" form={formId} disabled={update.isPending || !options.data}>
-                {update.isPending ? t('planning.form.saving') : t('planning.form.save')}
-              </Button>
+              <div className="flex gap-2">
+                {write.canForce ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={write.force}
+                    disabled={write.pending || !options.data}
+                  >
+                    {t('planning.form.scheduleAnyway')}
+                  </Button>
+                ) : null}
+                <Button type="submit" form={formId} disabled={write.pending || !options.data}>
+                  {write.pending ? t('planning.form.saving') : t('planning.form.save')}
+                </Button>
+              </div>
             </div>
           </>
         ) : null}

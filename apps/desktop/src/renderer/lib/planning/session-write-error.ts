@@ -53,3 +53,60 @@ export function mapSessionWriteError(error: unknown): SessionWriteErrorCode | nu
   const code = resolveDomainErrorCode(error);
   return code !== null ? (DECODED_CODE_TO_RENDERER_CODE[code] ?? null) : null;
 }
+
+/**
+ * Why a teacher-availability warning fired (SOU-283), mirroring the domain
+ * `TeacherUnavailableReason`: `out-of-window` — the slot fits none of the
+ * teacher's weekly windows for that weekday (an empty day counts); `exception` —
+ * a one-off absence covers the slot. `null` when the reason did not survive the
+ * transport (the bare `teacher-unavailable` code), so the alert falls back to a
+ * reason-agnostic line.
+ */
+export type TeacherAvailabilityConflictReason = 'out-of-window' | 'exception';
+
+/**
+ * One classified weekly-session write rejection (SOU-283): a hard blocking
+ * `error` (room/teacher double-book, outside hours, malformed time …) or a
+ * forceable `warning` (the teacher is placed outside their declared availability).
+ * A warning mirrors the SOU-189 double-book force UX — the admin acknowledges it
+ * to push the write through with `allowScheduleConflict`.
+ */
+export type SessionWriteConflict =
+  | { readonly severity: 'error'; readonly code: SessionWriteErrorCode }
+  | {
+      readonly severity: 'warning';
+      readonly kind: 'teacher-availability';
+      readonly reason: TeacherAvailabilityConflictReason | null;
+    };
+
+/**
+ * The stable domain codes a teacher-availability rejection may carry. The base
+ * `teacher-unavailable` code (SOU-259) crosses IPC without its structured
+ * `reason` (only `code`/`message` survive the hop), so it maps to a `null` reason;
+ * the reason-qualified codes are accepted too in case the domain later encodes the
+ * reason into the code, so the alert can name when the teacher actually works.
+ */
+const TEACHER_AVAILABILITY_CODE_TO_REASON: Readonly<
+  Record<string, TeacherAvailabilityConflictReason | null>
+> = {
+  'teacher-unavailable': null,
+  'teacher-unavailable-out-of-window': 'out-of-window',
+  'teacher-unavailable-exception': 'exception',
+};
+
+/**
+ * Classifies a caught weekly-session write rejection (SOU-283): a forceable
+ * teacher-availability `warning`, a hard `error` the form surfaces inline, or
+ * `null` for an unrelated failure the caller toasts generically. One write raises
+ * one conflict.
+ */
+export function classifySessionWriteError(error: unknown): SessionWriteConflict | null {
+  const code = resolveDomainErrorCode(error);
+  if (code === null) return null;
+  const availabilityReason = TEACHER_AVAILABILITY_CODE_TO_REASON[code];
+  if (availabilityReason !== undefined) {
+    return { severity: 'warning', kind: 'teacher-availability', reason: availabilityReason };
+  }
+  const rendererCode = DECODED_CODE_TO_RENDERER_CODE[code];
+  return rendererCode ? { severity: 'error', code: rendererCode } : null;
+}
