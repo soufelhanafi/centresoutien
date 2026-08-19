@@ -1,6 +1,6 @@
 import type { PaymentReceiptPdfInput } from '@centresoutien/domain';
 import type { InvoicePdfWriter } from './invoice-pdf-writer';
-import { bilingualLabel } from './invoice-pdf-context';
+import { bilingualLabel } from './pdf-bilingual';
 import { formatMad } from './format-mad';
 import { formatMonthLabel } from './format-month';
 import { formatDateLabel } from './format-date';

@@ -4,7 +4,8 @@ import { toRtlVisualText } from './rtl-text';
 export const PAGE_MARGIN = 50;
 export const BRAND_TEAL: Color = rgb(0x0f / 255, 0x76 / 255, 0x6e / 255);
 export const MUTED_GRAY: Color = rgb(0.42, 0.45, 0.47);
-export const HAIRLINE_GRAY: Color = rgb(0.87, 0.89, 0.9);
+/** `#e2e2e2` — the one hairline tone the SOU-279 invoice uses (line-items header + totals). */
+export const HAIRLINE_GRAY: Color = rgb(0xe2 / 255, 0xe2 / 255, 0xe2 / 255);
 const BLACK: Color = rgb(0.1, 0.1, 0.1);
 
 export type PdfTextAlign = 'start' | 'end' | 'center';
@@ -40,11 +41,11 @@ export type InvoicePdfWriterOptions = {
  * as RTL on the page.
  */
 export class InvoicePdfWriter {
-  private readonly page: PDFPage;
+  protected readonly page: PDFPage;
   private readonly locale: 'fr' | 'ar';
-  private readonly regularFont: PDFFont;
-  private readonly boldFont: PDFFont;
-  private readonly pageWidth: number;
+  protected readonly regularFont: PDFFont;
+  protected readonly boldFont: PDFFont;
+  protected readonly pageWidth: number;
   y: number;
   /** Horizontal gap kept clear of the start margin (e.g. to clear a header logo). */
   startInset = 0;
@@ -58,15 +59,15 @@ export class InvoicePdfWriter {
     this.y = options.page.getHeight() - PAGE_MARGIN;
   }
 
-  private prepare(value: string): string {
+  protected prepare(value: string): string {
     return this.locale === 'ar' ? toRtlVisualText(value) : value;
   }
 
-  private font(bold: boolean): PDFFont {
+  protected font(bold: boolean): PDFFont {
     return bold ? this.boldFont : this.regularFont;
   }
 
-  private xFor(width: number, align: PdfTextAlign): number {
+  protected xFor(width: number, align: PdfTextAlign): number {
     if (align === 'center') return (this.pageWidth - width) / 2;
     const startIsLeft = this.locale === 'fr';
     if (align === 'start') {

@@ -1,72 +1,65 @@
-import type { PaymentStatus } from '@centresoutien/domain';
-
 /**
  * The invoice PDF is rendered entirely in the main/data process — it never goes
- * through the renderer's `react-i18next` pipeline, so its handful of fixed
- * labels are hardcoded here, once, in both languages. This is the one place in
- * the codebase where that is correct rather than a "no hardcoded strings"
- * violation: there is no i18n boundary crossing for a byte-generated PDF.
+ * through the renderer's `react-i18next` pipeline, so its fixed labels are
+ * hardcoded here, once. This is the one place in the codebase where that is
+ * correct rather than a "no hardcoded strings" violation: there is no i18n
+ * boundary crossing for a byte-generated PDF.
+ *
+ * FR-only (SOU-279): Arabic has been dropped from the invoice (SOU-271), so
+ * there is no AR counterpart and no RTL mirror here.
  */
 export type InvoicePdfLabels = {
   invoiceTitle: string;
   invoiceNumber: string;
-  issuedOn: string;
-  billedTo: string;
-  period: string;
+  issueDate: string;
   dueDate: string;
-  cancelledStatus: string;
+  billedTo: string;
+  parentOf: (student: string) => string;
   regularSection: string;
   examPrepSection: string;
   descriptionColumn: string;
   amountColumn: string;
   subtotal: string;
   total: string;
-  paid: string;
-  outstanding: string;
-  paymentStatus: Record<PaymentStatus, string>;
-  footer: string;
+  totalDue: string;
+  paymentReceived: string;
+  balanceDue: string;
+  paidBadge: string;
+  partialBadge: string;
+  draftBadge: string;
+  cancelledBadge: string;
+  bannerUnpaid: (total: string, dueDate: string) => string;
+  bannerPartial: (balance: string) => string;
+  bannerPaid: (total: string) => string;
+  bannerCancelled: string;
+  footerThanks: string;
+  pageLabel: (page: number, pageCount: number) => string;
 };
 
-const FR: InvoicePdfLabels = {
+export const invoicePdfLabels: InvoicePdfLabels = {
   invoiceTitle: 'Facture',
-  invoiceNumber: 'N° facture',
-  issuedOn: 'Émise le',
+  invoiceNumber: 'Numéro de facture',
+  issueDate: "Date d'émission",
+  dueDate: "Date d'échéance",
   billedTo: 'Facturé à',
-  period: 'Période',
-  dueDate: 'Échéance',
-  cancelledStatus: 'Annulée',
-  regularSection: 'Cours réguliers',
-  examPrepSection: "Préparation aux examens",
+  parentOf: (student) => `Parent de : ${student}`,
+  regularSection: 'Soutien régulier',
+  examPrepSection: 'Préparation aux examens',
   descriptionColumn: 'Description',
   amountColumn: 'Montant',
   subtotal: 'Sous-total',
   total: 'Total',
-  paid: 'Payé',
-  outstanding: 'Solde restant',
-  paymentStatus: { unpaid: 'Non payée', 'partially-paid': 'Partiellement payée', paid: 'Payée' },
-  footer: 'Merci de votre confiance.',
+  totalDue: 'Total à régler',
+  paymentReceived: 'Règlement reçu',
+  balanceDue: 'Solde à régler',
+  paidBadge: 'Payée',
+  partialBadge: 'Payée partiellement',
+  draftBadge: 'Brouillon',
+  cancelledBadge: 'Annulée',
+  bannerUnpaid: (total, dueDate) => `${total} à régler avant le ${dueDate}`,
+  bannerPartial: (balance) => `${balance} restant à régler`,
+  bannerPaid: (total) => `${total} réglés`,
+  bannerCancelled: 'Facture annulée',
+  footerThanks: 'Merci de votre confiance.',
+  pageLabel: (page, pageCount) => `Page ${page} / ${pageCount}`,
 };
-
-const AR: InvoicePdfLabels = {
-  invoiceTitle: 'فاتورة',
-  invoiceNumber: 'رقم الفاتورة',
-  issuedOn: 'أُصدرت في',
-  billedTo: 'مفوترة إلى',
-  period: 'الفترة',
-  dueDate: 'تاريخ الاستحقاق',
-  cancelledStatus: 'ملغاة',
-  regularSection: 'دروس عادية',
-  examPrepSection: 'تحضير الامتحانات',
-  descriptionColumn: 'البيان',
-  amountColumn: 'المبلغ',
-  subtotal: 'المجموع الفرعي',
-  total: 'المجموع',
-  paid: 'المدفوع',
-  outstanding: 'الرصيد المتبقي',
-  paymentStatus: { unpaid: 'غير مدفوعة', 'partially-paid': 'مدفوعة جزئيًا', paid: 'مدفوعة' },
-  footer: 'شكرًا لثقتكم.',
-};
-
-export function invoicePdfLabels(locale: 'fr' | 'ar'): InvoicePdfLabels {
-  return locale === 'ar' ? AR : FR;
-}
