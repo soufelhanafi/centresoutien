@@ -80,6 +80,7 @@ import {
   UndoGenerationBatch,
   AuditSessionsOutsideEffectiveHours,
   CancelSession,
+  WeeklySessionScheduleValidator,
   CreateWeeklyRecurringSession,
   UpdateWeeklyRecurringSession,
   CancelWeeklyRecurringSession,
@@ -1089,16 +1090,16 @@ export function buildContainer(options: ContainerOptions): Container {
   // reusing the same repos the generator and hours screens already own. It reads
   // enriched occurrences off the same concreteSessionRepo, which also serves the
   // SessionOccurrenceViewReadPort (one class, several ports). Never mutates.
-  const auditSessionsOutsideHours = new AuditSessionsOutsideEffectiveHours(
-    concreteSessionRepo,
-    holidayRepo,
-    centerHoursRepo,
-    centerHoursOverrideRepo,
-    teacherAvailabilityRepo,
-    teacherAvailabilityExceptionRepo,
+  const auditSessionsOutsideHours = new AuditSessionsOutsideEffectiveHours({
+    occurrences: concreteSessionRepo,
+    holidays: holidayRepo,
+    centerHours: centerHoursRepo,
+    overrides: centerHoursOverrideRepo,
+    availability: teacherAvailabilityRepo,
+    availabilityExceptions: teacherAvailabilityExceptionRepo,
     plan,
     clock,
-  );
+  });
 
   // Per-occurrence cancel (SOU-201): soft-deletes a single stranded dated session
   // by its own Session.id, leaving the recurring template and its other
@@ -1111,28 +1112,28 @@ export function buildContainer(options: ContainerOptions): Container {
   // `sessionRepo` that backs the planner read + the ArchiveRoom guard, reading the
   // center's configured week from `centerHoursRepo`. Cancel is a soft delete. All
   // three gate `core.calendar.week` in the domain.
+  const weeklySessionScheduleValidator = new WeeklySessionScheduleValidator({
+    sessions: sessionRepo,
+    centerHours: centerHoursRepo,
+    overrides: centerHoursOverrideRepo,
+    availability: teacherAvailabilityRepo,
+    availabilityExceptions: teacherAvailabilityExceptionRepo,
+    clock,
+    plan,
+  });
   const createWeeklySession = new CreateWeeklyRecurringSession(
     sessionRepo,
     groupRepo,
     roomRepo,
-    centerHoursRepo,
-    centerHoursOverrideRepo,
-    teacherAvailabilityRepo,
-    teacherAvailabilityExceptionRepo,
-    clock,
-    ids,
-    plan,
+    weeklySessionScheduleValidator,
+    { clock, ids, plan },
   );
   const updateWeeklySession = new UpdateWeeklyRecurringSession(
     sessionRepo,
     groupRepo,
     roomRepo,
-    centerHoursRepo,
-    centerHoursOverrideRepo,
-    teacherAvailabilityRepo,
-    teacherAvailabilityExceptionRepo,
-    clock,
-    plan,
+    weeklySessionScheduleValidator,
+    { clock, plan },
   );
   // Re-check (SOU-283): after a teacher's weekly availability is saved, list that
   // teacher's already-scheduled sessions the new windows now strand — a

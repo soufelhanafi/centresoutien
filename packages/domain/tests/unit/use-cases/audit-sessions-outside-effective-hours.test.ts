@@ -151,16 +151,16 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
     plan: Plan = PLANS.essentiel,
     clock = fakeClock('2026-01-01T00:00:00Z'),
   ): AuditSessionsOutsideEffectiveHours {
-    return new AuditSessionsOutsideEffectiveHours(
+    return new AuditSessionsOutsideEffectiveHours({
       occurrences,
       holidays,
       centerHours,
       overrides,
       availability,
       availabilityExceptions,
-      new PlanPolicy(plan),
+      plan: new PlanPolicy(plan),
       clock,
-    );
+    });
   }
 
   beforeEach(async () => {

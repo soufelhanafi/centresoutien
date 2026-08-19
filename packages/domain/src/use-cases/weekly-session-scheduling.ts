@@ -6,11 +6,18 @@ import {
 } from '../policies/composite-session-conflicts';
 import type { DayHours } from '../policies/session-conflict-policy';
 import type { ScheduledSessionRef } from '../errors/scheduling-errors';
+import type { GroupRepository } from '../ports/group-repository';
+import type { RoomRepository } from '../ports/room-repository';
 import type { RoomId } from '../entities/room';
-import type { EntityId } from '../value-objects/ids';
+import type { GroupId } from '../entities/group';
+import type { CenterCode, EntityId } from '../value-objects/ids';
 import type { TimeOfDay } from '../value-objects/time-of-day';
 import type { TimeWindow } from '../value-objects/time-window';
 import type { WeekdayIndex } from '../value-objects/weekday';
+import type { WeeklyRecurringSessionInput } from '../schemas/weekly-recurring-session';
+import { assertGroupFitsRoom } from '../policies/group-seat-capacity';
+import { GroupNotFoundError } from '../errors/group-errors';
+import { RoomNotFoundError } from '../errors/room-errors';
 
 export { resolveWeek } from '../schemas/center-hours';
 
@@ -25,6 +32,63 @@ export type ScheduleCandidateFields = {
   start: TimeOfDay;
   end: TimeOfDay;
 };
+
+/**
+ * A validated slot with its branded ids, shared by the create and edit paths so
+ * the (identical) casts off the parsed input live in one place. `groupId` is kept
+ * alongside the schedule candidate for the seat-fit binding check.
+ */
+export type ParsedSlotFields = ScheduleCandidateFields & {
+  groupId: GroupId | null;
+};
+
+/** Brand the shape-validated input fields to their domain id types. */
+export function brandSlotFields(fields: WeeklyRecurringSessionInput): ParsedSlotFields {
+  return {
+    roomId: fields.roomId as RoomId,
+    teacherId: fields.teacherId as EntityId | null,
+    groupId: fields.groupId as GroupId | null,
+    dayOfWeek: fields.dayOfWeek as WeekdayIndex,
+    start: fields.start as TimeOfDay,
+    end: fields.end as TimeOfDay,
+  };
+}
+
+/** Project a parsed slot to the schedule-conflict candidate, dropping `groupId`. */
+export function toScheduleCandidate(slot: ParsedSlotFields): ScheduleCandidateFields {
+  return {
+    roomId: slot.roomId,
+    teacherId: slot.teacherId,
+    dayOfWeek: slot.dayOfWeek,
+    start: slot.start,
+    end: slot.end,
+  };
+}
+
+/**
+ * The SOU-176 seat-fit gate shared by create and edit: when the slot binds a
+ * group, the group and room must resolve to live rows of the same center
+ * ({@link GroupNotFoundError} / {@link RoomNotFoundError}) and the group's capacity
+ * must fit the room ({@link assertGroupFitsRoom}). A slot with no group binds no
+ * room requirement and passes. Never skipped by the force path.
+ */
+export async function assertGroupBindingFitsRoom(
+  repos: { readonly groups: GroupRepository; readonly rooms: RoomRepository },
+  centerCode: CenterCode,
+  groupId: GroupId | null,
+  roomId: RoomId,
+): Promise<void> {
+  if (groupId === null) return;
+  const group = await repos.groups.findById(groupId);
+  if (group === null || group.centerCode !== centerCode) {
+    throw new GroupNotFoundError(groupId);
+  }
+  const room = await repos.rooms.findById(roomId);
+  if (room === null || room.centerCode !== centerCode) {
+    throw new RoomNotFoundError(roomId);
+  }
+  assertGroupFitsRoom(group.id, group.capacity, room);
+}
 
 /**
  * Project the candidate to the composite policy shape, omitting `teacherId`

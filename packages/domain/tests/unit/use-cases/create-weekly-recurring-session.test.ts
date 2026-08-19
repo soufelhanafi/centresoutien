@@ -3,6 +3,7 @@ import {
   CreateWeeklyRecurringSession,
   type CreateWeeklyRecurringSessionInput,
 } from '../../../src/use-cases/create-weekly-recurring-session';
+import { WeeklySessionScheduleValidator } from '../../../src/services/weekly-session-schedule-validator';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
@@ -188,6 +189,26 @@ describe('CreateWeeklyRecurringSession', () => {
   let availabilityExceptions: InMemoryTeacherAvailabilityExceptionRepository;
   let useCase: CreateWeeklyRecurringSession;
 
+  function buildUseCase(
+    clock: ReturnType<typeof fakeClock>,
+    plan: PlanPolicy,
+  ): CreateWeeklyRecurringSession {
+    const validator = new WeeklySessionScheduleValidator({
+      sessions,
+      centerHours: hours,
+      overrides,
+      availability,
+      availabilityExceptions,
+      clock,
+      plan,
+    });
+    return new CreateWeeklyRecurringSession(sessions, groups, rooms, validator, {
+      clock,
+      ids: fakeIds(),
+      plan,
+    });
+  }
+
   beforeEach(async () => {
     sessions = new InMemoryWeeklyRecurringSessionRepository();
     groups = new InMemoryGroupRepository();
@@ -198,18 +219,7 @@ describe('CreateWeeklyRecurringSession', () => {
     availabilityExceptions = new InMemoryTeacherAvailabilityExceptionRepository();
     await groups.save(makeGroup());
     await rooms.save(makeRoom());
-    useCase = new CreateWeeklyRecurringSession(
-      sessions,
-      groups,
-      rooms,
-      hours,
-      overrides,
-      availability,
-      availabilityExceptions,
-      fakeClock('2026-07-29T10:00:00Z'),
-      fakeIds(),
-      new PlanPolicy(PLANS.essentiel),
-    );
+    useCase = buildUseCase(fakeClock('2026-07-29T10:00:00Z'), new PlanPolicy(PLANS.essentiel));
   });
 
   describe('happy path', () => {
@@ -273,18 +283,7 @@ describe('CreateWeeklyRecurringSession', () => {
         features: new Set<FeatureFlag>(),
         limits: PLANS.essentiel.limits,
       };
-      useCase = new CreateWeeklyRecurringSession(
-        sessions,
-        groups,
-        rooms,
-        hours,
-        overrides,
-        availability,
-        availabilityExceptions,
-        fakeClock(),
-        fakeIds(),
-        new PlanPolicy(planWithout),
-      );
+      useCase = buildUseCase(fakeClock(), new PlanPolicy(planWithout));
       await expect(useCase.execute(validInput())).rejects.toBeInstanceOf(
         PlanFeatureUnavailableError,
       );
@@ -492,16 +491,8 @@ describe('CreateWeeklyRecurringSession', () => {
         features: new Set<FeatureFlag>(['core.calendar.week']),
         limits: PLANS.essentiel.limits,
       };
-      const gatedUseCase = new CreateWeeklyRecurringSession(
-        sessions,
-        groups,
-        rooms,
-        hours,
-        overrides,
-        availability,
-        availabilityExceptions,
+      const gatedUseCase = buildUseCase(
         fakeClock('2026-07-29T10:00:00Z'),
-        fakeIds(),
         new PlanPolicy(planWithout),
       );
       await availability.save(seededAvailability(weekWindows({})));
@@ -617,18 +608,7 @@ describe('CreateWeeklyRecurringSession', () => {
     const OTHER_WEEK = { start: '2026-09-06', end: '2026-09-12' };
 
     function useCaseOnMonday(): CreateWeeklyRecurringSession {
-      return new CreateWeeklyRecurringSession(
-        sessions,
-        groups,
-        rooms,
-        hours,
-        overrides,
-        availability,
-        availabilityExceptions,
-        fakeClock('2026-08-10T10:00:00Z'),
-        fakeIds(),
-        new PlanPolicy(PLANS.premium),
-      );
+      return buildUseCase(fakeClock('2026-08-10T10:00:00Z'), new PlanPolicy(PLANS.premium));
     }
 
     async function seedIftarOverride(): Promise<void> {
