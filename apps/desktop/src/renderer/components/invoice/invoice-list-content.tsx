@@ -11,11 +11,12 @@ type InvoiceListContentProps = {
   status: InvoiceListStatus;
   invoices: readonly InvoiceListItemView[];
   studentsById: ReadonlyMap<string, StudentView>;
+  month: string;
   onRetry: () => void;
 };
 
 /** Renders the correct state for the list: loading, error, empty, no-results, or table. */
-export function InvoiceListContent({ status, invoices, studentsById, onRetry }: InvoiceListContentProps) {
+export function InvoiceListContent({ status, invoices, studentsById, month, onRetry }: InvoiceListContentProps) {
   const { t } = useTranslation();
 
   if (status === 'loading') {
@@ -63,5 +64,5 @@ export function InvoiceListContent({ status, invoices, studentsById, onRetry }: 
     );
   }
 
-  return <InvoiceTable invoices={invoices} studentsById={studentsById} />;
+  return <InvoiceTable invoices={invoices} studentsById={studentsById} month={month} />;
 }

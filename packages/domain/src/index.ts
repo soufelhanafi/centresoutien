@@ -558,6 +558,12 @@ export type {
 export type { WeeklySessionView } from './read-models/weekly-session-view';
 export type { InvoiceListRow, InvoiceListFilters, InvoiceListPage } from './read-models/invoice-list-row';
 export { INVOICE_LIST_MAX_PAGE_SIZE } from './read-models/invoice-list-row';
+// Consolidated per-parent monthly statement (SOU-284) — a pure derived read model
+// over the per-student invoices; never persisted, no stored "parent invoice".
+export type {
+  ParentMonthlyStatementView,
+  ParentStatementChild,
+} from './read-models/parent-monthly-statement-view';
 export type { OverdueInvoiceLineView } from './read-models/overdue-invoice-view';
 export type { RecentPaymentView, RecentPaymentsFilters } from './read-models/recent-payment-view';
 export type { DayTakings } from './read-models/day-takings';
@@ -688,6 +694,14 @@ export type { InvoiceRepository } from './ports/invoice-repository';
 // same SQLite adapter that owns `invoices`, mirroring WeeklySessionViewReadPort.
 export type { OverdueInvoiceViewReadPort } from './ports/overdue-invoice-view-read-port';
 export type { InvoicePdfRenderer, InvoicePdfInput, InvoicePdfLine } from './ports/invoice-pdf-renderer';
+// Consolidated per-parent statement PDF (SOU-284) — distinct from the per-student
+// InvoicePdfRenderer, which stays untouched (SOU-279).
+export type {
+  ParentStatementPdfRenderer,
+  ParentStatementPdfInput,
+  ParentStatementPdfChild,
+  ParentStatementPdfLine,
+} from './ports/parent-statement-pdf-renderer';
 export type { PayslipPdfRenderer, PayslipPdfInput } from './ports/payslip-pdf-renderer';
 export type {
   PaymentReceiptPdfRenderer,
@@ -831,6 +845,11 @@ export {
   derivePaymentStatus,
 } from './policies/payment-status';
 export type { PaymentStatus } from './policies/payment-status';
+export { aggregateParentStatement } from './policies/parent-statement-aggregation';
+export type {
+  ParentStatementAggregate,
+  ParentStatementContribution,
+} from './policies/parent-statement-aggregation';
 export { detectProbableDoubleEntry, detectDuplicateReversals } from './policies/payment-duplicate';
 export type { DoubleEntryCandidate, ReversalCandidate } from './policies/payment-duplicate';
 export {
@@ -989,6 +1008,8 @@ export { GetDayTakings } from './use-cases/get-day-takings';
 export type { GetDayTakingsInput } from './use-cases/get-day-takings';
 export { ListInvoices } from './use-cases/list-invoices';
 export type { ListInvoicesInput, InvoiceListItem, ListInvoicesResult } from './use-cases/list-invoices';
+export { GetParentMonthlyStatement } from './use-cases/get-parent-monthly-statement';
+export type { GetParentMonthlyStatementInput } from './use-cases/get-parent-monthly-statement';
 export { ListOverdueInvoices } from './use-cases/list-overdue-invoices';
 export type {
   ListOverdueInvoicesInput,

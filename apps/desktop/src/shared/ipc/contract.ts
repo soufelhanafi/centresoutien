@@ -1577,6 +1577,34 @@ export const ipcContract = {
     request: z.object({ invoiceId: z.string(), locale: z.enum(['fr', 'ar']) }),
     response: z.object({ savedPath: z.string().nullable() }),
   },
+  // Consolidated per-parent monthly statement — the "Facture groupée" (SOU-284): a
+  // single PDF over ALL a guardian's live children this month, derived at read time
+  // from each child's own invoice (no stored parent invoice). Same pdf-lib layout
+  // family as the per-student invoice. `print` opens it in the OS's default PDF
+  // viewer; `export` lets the user pick a save location. `locale` picks the PDF's
+  // language independent of the app's active UI locale, mirroring
+  // `invoice.print`/`invoice.export` (rendered FR-only today). centerCode is
+  // injected in main, never sent from the renderer. Gated by `core.invoicing` +
+  // `core.parents` in `GetParentMonthlyStatement`.
+  'parentStatement.print': {
+    request: z.object({
+      parentId: z.string(),
+      // `YYYY-MM` only: the print handler interpolates `month` into the temp-file
+      // name, so the trust boundary — not the renderer's UX guard — must reject any
+      // path-shaped value before it reaches the filesystem.
+      month: z.string().regex(/^\d{4}-\d{2}$/),
+      locale: z.enum(['fr', 'ar']),
+    }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'parentStatement.export': {
+    request: z.object({
+      parentId: z.string(),
+      month: z.string().regex(/^\d{4}-\d{2}$/),
+      locale: z.enum(['fr', 'ar']),
+    }),
+    response: z.object({ savedPath: z.string().nullable() }),
+  },
   // Issue / cancel (SOU-143) — the two lifecycle transitions `IssueInvoice`/
   // `CancelInvoice` (domain, pre-dating SOU-69) already implement; this ticket
   // only wires them to IPC. `issue` moves draft -> issued; `cancel` moves

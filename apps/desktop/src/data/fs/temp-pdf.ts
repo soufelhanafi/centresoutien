@@ -4,7 +4,13 @@ import { join } from 'node:path';
 
 export const STALE_TEMP_PDF_AGE_MS = 5 * 60 * 1000;
 
-const TEMP_PDF_PREFIXES = ['planning-', 'facture-', 'bulletin-paie-', 'recu-paiement-'] as const;
+const TEMP_PDF_PREFIXES = [
+  'planning-',
+  'facture-',
+  'facture-groupee-',
+  'bulletin-paie-',
+  'recu-paiement-',
+] as const;
 
 export type TempPdfPrefix = (typeof TEMP_PDF_PREFIXES)[number];
 

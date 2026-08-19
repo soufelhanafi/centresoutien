@@ -2243,6 +2243,27 @@
       "title": "Aucun résultat",
       "body": "Aucune facture ne correspond à ces filtres."
     },
+    "factureGroupee": {
+      "columnHeader": "Facture groupée",
+      "menu": "Facture groupée",
+      "label": "Facture groupée",
+      "print": "Imprimer",
+      "export": "Exporter en PDF",
+      "printError": "L'impression de la facture groupée a échoué. Réessayez.",
+      "exportSuccess": "Facture groupée exportée avec succès.",
+      "exportError": "L'export de la facture groupée a échoué. Réessayez.",
+      "hint": {
+        "noMonth": "Choisissez d'abord un mois pour générer la facture groupée.",
+        "noGuardian": "Aucun responsable lié à cet élève."
+      },
+      "picker": {
+        "title": "Facture groupée",
+        "body": "Choisissez le responsable auquel adresser la facture groupée.",
+        "error": "Impossible de charger les responsables.",
+        "retry": "Réessayer",
+        "empty": "Aucun responsable trouvé pour cet élève."
+      }
+    },
     "detail": {
       "back": "Retour aux factures",
       "notFoundTitle": "Facture introuvable",
