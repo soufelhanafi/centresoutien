@@ -3,6 +3,7 @@ import {
   UpdateWeeklyRecurringSession,
   type UpdateWeeklyRecurringSessionInput,
 } from '../../../src/use-cases/update-weekly-recurring-session';
+import { WeeklySessionScheduleValidator } from '../../../src/services/weekly-session-schedule-validator';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
@@ -166,6 +167,25 @@ describe('UpdateWeeklyRecurringSession', () => {
   let clock: ReturnType<typeof fakeClock>;
   let useCase: UpdateWeeklyRecurringSession;
 
+  function buildUseCase(
+    forClock: ReturnType<typeof fakeClock>,
+    plan: PlanPolicy,
+  ): UpdateWeeklyRecurringSession {
+    const validator = new WeeklySessionScheduleValidator({
+      sessions,
+      centerHours: hours,
+      overrides,
+      availability,
+      availabilityExceptions,
+      clock: forClock,
+      plan,
+    });
+    return new UpdateWeeklyRecurringSession(sessions, groups, rooms, validator, {
+      clock: forClock,
+      plan,
+    });
+  }
+
   beforeEach(async () => {
     sessions = new InMemoryWeeklyRecurringSessionRepository();
     groups = new InMemoryGroupRepository();
@@ -177,17 +197,7 @@ describe('UpdateWeeklyRecurringSession', () => {
     await groups.save(makeGroup());
     await rooms.save(makeRoom());
     clock = fakeClock('2026-08-01T12:00:00Z');
-    useCase = new UpdateWeeklyRecurringSession(
-      sessions,
-      groups,
-      rooms,
-      hours,
-      overrides,
-      availability,
-      availabilityExceptions,
-      clock,
-      new PlanPolicy(PLANS.essentiel),
-    );
+    useCase = buildUseCase(clock, new PlanPolicy(PLANS.essentiel));
   });
 
   describe('happy path', () => {
@@ -307,17 +317,7 @@ describe('UpdateWeeklyRecurringSession', () => {
         features: new Set<FeatureFlag>(),
         limits: PLANS.essentiel.limits,
       };
-      useCase = new UpdateWeeklyRecurringSession(
-        sessions,
-        groups,
-        rooms,
-        hours,
-        overrides,
-        availability,
-        availabilityExceptions,
-        clock,
-        new PlanPolicy(planWithout),
-      );
+      useCase = buildUseCase(clock, new PlanPolicy(planWithout));
       await expect(useCase.execute(editInput(existing.id))).rejects.toBeInstanceOf(
         PlanFeatureUnavailableError,
       );
@@ -369,17 +369,7 @@ describe('UpdateWeeklyRecurringSession', () => {
     const IFTAR_WEEK = { start: '2026-08-09', end: '2026-08-15' };
 
     function useCaseOnMonday(): UpdateWeeklyRecurringSession {
-      return new UpdateWeeklyRecurringSession(
-        sessions,
-        groups,
-        rooms,
-        hours,
-        overrides,
-        availability,
-        availabilityExceptions,
-        fakeClock('2026-08-10T10:00:00Z'),
-        new PlanPolicy(PLANS.premium),
-      );
+      return buildUseCase(fakeClock('2026-08-10T10:00:00Z'), new PlanPolicy(PLANS.premium));
     }
 
     async function seedIftarOverride(): Promise<void> {

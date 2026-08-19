@@ -1118,15 +1118,24 @@ export { AuditSessionsOutsideEffectiveHours } from './use-cases/audit-sessions-o
 export type {
   AuditSessionsOutsideEffectiveHoursInput,
   AuditSessionsOutsideEffectiveHoursResult,
+  AuditSessionsDeps,
   SessionAuditReason,
   StrandedSession,
 } from './use-cases/audit-sessions-outside-effective-hours';
 export { CancelSession } from './use-cases/cancel-session';
 export type { CancelSessionInput } from './use-cases/cancel-session';
+export { WeeklySessionScheduleValidator } from './services/weekly-session-schedule-validator';
+export type { SchedulingDeps } from './services/weekly-session-schedule-validator';
 export { CreateWeeklyRecurringSession } from './use-cases/create-weekly-recurring-session';
-export type { CreateWeeklyRecurringSessionInput } from './use-cases/create-weekly-recurring-session';
+export type {
+  CreateWeeklyRecurringSessionInput,
+  CreateSessionDeps,
+} from './use-cases/create-weekly-recurring-session';
 export { UpdateWeeklyRecurringSession } from './use-cases/update-weekly-recurring-session';
-export type { UpdateWeeklyRecurringSessionInput } from './use-cases/update-weekly-recurring-session';
+export type {
+  UpdateWeeklyRecurringSessionInput,
+  UpdateSessionDeps,
+} from './use-cases/update-weekly-recurring-session';
 export { CancelWeeklyRecurringSession } from './use-cases/cancel-weekly-recurring-session';
 export type { CancelWeeklyRecurringSessionInput } from './use-cases/cancel-weekly-recurring-session';
 export { FindSessionsOutsideTeacherAvailability } from './use-cases/find-sessions-outside-teacher-availability';

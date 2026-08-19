@@ -7,10 +7,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  ScrollArea,
 } from '@centresoutien/ui';
 import type { OutOfWindowSessionView } from '../../lib/teacher-availability/availability-recheck-gateway';
-import { TeacherAvailabilityRecheckRow } from './teacher-availability-recheck-row';
+import { TeacherAvailabilityRecheckList } from './teacher-availability-recheck-list';
 
 type TeacherAvailabilityRecheckDialogProps = {
   open: boolean;
@@ -42,13 +41,7 @@ export function TeacherAvailabilityRecheckDialog({
             {t('teachers.availability.recheck.description', { count: sessions.length })}
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="max-h-[50vh]" contentClassName="pe-1">
-          <ul className="space-y-2">
-            {sessions.map((session) => (
-              <TeacherAvailabilityRecheckRow key={session.sessionId} session={session} />
-            ))}
-          </ul>
-        </ScrollArea>
+        <TeacherAvailabilityRecheckList sessions={sessions} />
         <DialogFooter>
           <Button type="button" onClick={() => onOpenChange(false)}>
             {t('teachers.availability.recheck.dismiss')}

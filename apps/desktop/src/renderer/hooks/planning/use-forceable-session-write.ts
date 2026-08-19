@@ -24,6 +24,35 @@ type ForceableSessionWriteOptions = {
   readonly onSuccess: () => void;
 };
 
+type SessionWriteHandlers = {
+  readonly successMessage: string;
+  readonly errorMessage: string;
+  readonly onSuccess: () => void;
+  readonly setConflict: (conflict: SessionWriteConflict | null) => void;
+};
+
+/**
+ * Runs one create/edit write and routes its outcome: a clean write clears the
+ * conflict, toasts success, and calls `onSuccess`; a classifiable clash surfaces as
+ * the inline conflict; anything else toasts the generic error.
+ */
+async function runSessionWrite(
+  input: SessionInput,
+  mutation: SessionWriteMutation,
+  handlers: SessionWriteHandlers,
+): Promise<void> {
+  try {
+    await mutation.mutateAsync(input);
+    handlers.setConflict(null);
+    toast.success(handlers.successMessage);
+    handlers.onSuccess();
+  } catch (error) {
+    const classified = classifySessionWriteError(error);
+    if (classified) handlers.setConflict(classified);
+    else toast.error(handlers.errorMessage);
+  }
+}
+
 /**
  * Drives the create/edit session write with the SOU-283 warn-and-force flow: a
  * clean write closes; a forceable teacher-availability `warning` surfaces inline
@@ -42,18 +71,13 @@ export function useForceableSessionWrite(
   const [conflict, setConflict] = useState<SessionWriteConflict | null>(null);
   const lastInput = useRef<SessionInput | null>(null);
 
-  const run = async (input: SessionInput) => {
-    try {
-      await mutation.mutateAsync(input);
-      setConflict(null);
-      toast.success(t(successMessageKey));
-      onSuccess();
-    } catch (error) {
-      const classified = classifySessionWriteError(error);
-      if (classified) setConflict(classified);
-      else toast.error(t('planning.form.error'));
-    }
-  };
+  const run = (input: SessionInput) =>
+    runSessionWrite(input, mutation, {
+      successMessage: t(successMessageKey),
+      errorMessage: t('planning.form.error'),
+      onSuccess,
+      setConflict,
+    });
 
   const submit = (values: SessionFormValues) => {
     const input = toSessionInput(values);
@@ -71,8 +95,6 @@ export function useForceableSessionWrite(
     setConflict(null);
     lastInput.current = null;
   }, []);
-
   const canForce = conflict !== null && conflict.severity === 'warning';
-
   return { conflict, pending: mutation.isPending, canForce, submit, force, reset };
 }
