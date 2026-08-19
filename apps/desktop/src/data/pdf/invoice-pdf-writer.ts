@@ -41,11 +41,11 @@ export type InvoicePdfWriterOptions = {
  * as RTL on the page.
  */
 export class InvoicePdfWriter {
-  protected readonly page: PDFPage;
+  protected page: PDFPage;
   private readonly locale: 'fr' | 'ar';
   protected readonly regularFont: PDFFont;
   protected readonly boldFont: PDFFont;
-  protected readonly pageWidth: number;
+  protected pageWidth: number;
   y: number;
   /** Horizontal gap kept clear of the start margin (e.g. to clear a header logo). */
   startInset = 0;
@@ -57,6 +57,22 @@ export class InvoicePdfWriter {
     this.boldFont = options.boldFont;
     this.pageWidth = options.page.getWidth();
     this.y = options.page.getHeight() - PAGE_MARGIN;
+  }
+
+  /** Switches the active page and returns the cursor to that page's top margin.
+   *  The generic primitive multi-page documents (e.g. the consolidated parent
+   *  statement) build page-breaking on; the base writer stays layout-agnostic. */
+  startPage(page: PDFPage): void {
+    this.page = page;
+    this.pageWidth = page.getWidth();
+    this.y = page.getHeight() - PAGE_MARGIN;
+    this.startInset = 0;
+  }
+
+  /** True when a block of `height` points fits above the bottom margin at the
+   *  current cursor — the space check that precedes a page break. */
+  hasRoomFor(height: number): boolean {
+    return this.y - height >= PAGE_MARGIN;
   }
 
   protected prepare(value: string): string {

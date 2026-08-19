@@ -1,20 +1,47 @@
 import { PDFDocument, StandardFonts, PageSizes, type PDFPage, type PDFFont } from 'pdf-lib';
 import type { ParentStatementPdfRenderer, ParentStatementPdfInput } from '@centresoutien/domain';
 import { patchedFontkit } from './patched-fontkit';
-import { PAGE_MARGIN } from './invoice-pdf-writer';
+import { PAGE_MARGIN, MUTED_GRAY } from './invoice-pdf-writer';
 import { InvoiceLayoutWriter } from './invoice-layout-writer';
-import { parentStatementPdfLabels } from './parent-statement-pdf-labels';
+import { parentStatementPdfLabels, type ParentStatementPdfLabels } from './parent-statement-pdf-labels';
 import {
   drawStatementHeader,
   drawStatementParties,
   drawChildBlock,
   drawGrandTotal,
-  drawStatementFooter,
+  drawLastPageThanks,
   type ParentStatementPdfContext,
 } from './parent-statement-pdf-sections';
 
 const LOGO_BOX = 48;
 const LOGO_GAP = 10;
+
+/**
+ * Points reserved before each child block. A child block is bounded — name (19) +
+ * invoice no. (14) + status pill (20) + two line-sections (each header + hairline
+ * rule + its rows + subtotal) + the child subtotal (24). A student holds at most
+ * one regular and one exam-prep subscription, so each section carries a single
+ * formula line; even the 2-3-row test fixtures top out near 290 pt. 300 covers
+ * that with headroom while staying under the ~318 pt ceiling above which a normal
+ * two-child family would spuriously spill onto a second page. Being conservative,
+ * it may push a borderline three-child family one block early — that never clips a
+ * grand total, it only adds a page.
+ */
+const CHILD_BLOCK_RESERVE = 300;
+
+/** Points reserved before the grand-total block so its rule + up to three rows
+ *  (the tallest, partial/paid, variant is ~91 pt) always land whole on one page,
+ *  never split and never clipped off the bottom. */
+const GRAND_TOTAL_RESERVE = 110;
+
+/** Bottom-margin offset for the centered `Page i / N` stamp on every page. */
+const PAGE_NUMBER_OFFSET = 18;
+const PAGE_NUMBER_SIZE = 8;
+
+function ensurePageSpace(pdfDoc: PDFDocument, writer: InvoiceLayoutWriter, needed: number): void {
+  if (writer.hasRoomFor(needed)) return;
+  writer.startPage(pdfDoc.addPage(PageSizes.A4));
+}
 
 /**
  * `pdf-lib`-based {@link ParentStatementPdfRenderer} — the flat typographic A4
@@ -40,7 +67,8 @@ export class PdfLibParentStatementRenderer implements ParentStatementPdfRenderer
     const logoBottomY = input.center.logoBytes
       ? await this.drawLogo(pdfDoc, page, input.center.logoBytes)
       : null;
-    this.drawStatement({ writer, labels: parentStatementPdfLabels }, input, logoBottomY);
+    this.drawStatement(pdfDoc, { writer, labels: parentStatementPdfLabels }, input, logoBottomY);
+    this.stampPageNumbers(pdfDoc, regularFont, parentStatementPdfLabels);
 
     return pdfDoc.save({ useObjectStreams: false });
   }
@@ -53,6 +81,7 @@ export class PdfLibParentStatementRenderer implements ParentStatementPdfRenderer
   }
 
   private drawStatement(
+    pdfDoc: PDFDocument,
     ctx: ParentStatementPdfContext,
     input: ParentStatementPdfInput,
     logoBottomY: number | null,
@@ -60,9 +89,30 @@ export class PdfLibParentStatementRenderer implements ParentStatementPdfRenderer
     drawStatementHeader(ctx, input);
     if (logoBottomY !== null) ctx.writer.y = Math.min(ctx.writer.y, logoBottomY - LOGO_GAP);
     drawStatementParties(ctx, input);
-    for (const child of input.children) drawChildBlock(ctx, child);
+    for (const child of input.children) {
+      ensurePageSpace(pdfDoc, ctx.writer, CHILD_BLOCK_RESERVE);
+      drawChildBlock(ctx, child);
+    }
+    ensurePageSpace(pdfDoc, ctx.writer, GRAND_TOTAL_RESERVE);
     drawGrandTotal(ctx, input);
-    drawStatementFooter(ctx);
+    drawLastPageThanks(ctx);
+  }
+
+  /** Stamps a centered `Page i / N` at the bottom margin of every page once the
+   *  final page count is known — the footer's page numbers reflect real totals. */
+  private stampPageNumbers(pdfDoc: PDFDocument, font: PDFFont, labels: ParentStatementPdfLabels): void {
+    const pages = pdfDoc.getPages();
+    pages.forEach((page, index) => {
+      const label = labels.pageLabel(index + 1, pages.length);
+      const width = font.widthOfTextAtSize(label, PAGE_NUMBER_SIZE);
+      page.drawText(label, {
+        x: (page.getWidth() - width) / 2,
+        y: PAGE_MARGIN - PAGE_NUMBER_OFFSET,
+        size: PAGE_NUMBER_SIZE,
+        font,
+        color: MUTED_GRAY,
+      });
+    });
   }
 
   /** Best-effort brandmark on the header's end edge; an unreadable/unsupported

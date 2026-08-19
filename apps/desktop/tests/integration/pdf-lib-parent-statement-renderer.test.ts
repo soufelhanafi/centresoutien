@@ -1,7 +1,35 @@
 import { describe, it, expect } from 'vitest';
-import { PDFDocument } from 'pdf-lib';
+import { inflateSync } from 'node:zlib';
+import { PDFDocument, PDFArray, PDFName, PDFRawStream } from 'pdf-lib';
 import type { ParentStatementPdfInput, ParentStatementPdfChild } from '@centresoutien/domain';
 import { PdfLibParentStatementRenderer } from '../../src/data/pdf/pdf-lib-parent-statement-renderer';
+
+/** Concatenates every `<hex> Tj` show-text operator in a content stream back into
+ *  readable latin1 — pdf-lib emits one Tj per `drawText`, so this recovers a page's
+ *  drawn copy for on-page presence assertions. */
+function decodeShowText(content: string): string {
+  let text = '';
+  const showText = /<([0-9A-Fa-f]+)>\s*Tj/g;
+  let match: RegExpExecArray | null;
+  while ((match = showText.exec(content)) !== null) {
+    text += Buffer.from(match[1]!, 'hex').toString('latin1');
+  }
+  return text;
+}
+
+function decodeStream(stream: PDFRawStream): string {
+  const raw = Buffer.from(stream.getContents());
+  const filter = stream.dict.get(PDFName.of('Filter'));
+  const bytes = filter !== undefined && filter.toString().includes('FlateDecode') ? inflateSync(raw) : raw;
+  return decodeShowText(bytes.toString('latin1'));
+}
+
+function extractPageText(doc: PDFDocument, pageIndex: number): string {
+  const contents = doc.getPage(pageIndex).node.Contents();
+  if (contents === undefined) return '';
+  const refs = contents instanceof PDFArray ? contents.asArray() : [contents];
+  return refs.map((ref) => decodeStream(doc.context.lookup(ref, PDFRawStream))).join('');
+}
 
 function child(over: Partial<ParentStatementPdfChild> = {}): ParentStatementPdfChild {
   return {
@@ -56,6 +84,19 @@ const unpaid = baseInput({
   totalReceivedMad: 0,
   outstandingMad: 115000,
   aggregateStatus: 'unpaid',
+});
+
+const largeFamily = baseInput({
+  children: Array.from({ length: 6 }, (_unused, index) =>
+    child({
+      childName: { fr: `Enfant ${index + 1} Alaoui`, ar: 'طفل' },
+      invoiceId: `inv_00000000000000000000000${(index + 1).toString().padStart(3, '0')}`,
+    }),
+  ),
+  grandTotalMad: 690000,
+  totalReceivedMad: 210000,
+  outstandingMad: 480000,
+  aggregateStatus: 'partially-paid',
 });
 
 async function renderPage(input: ParentStatementPdfInput) {
@@ -146,6 +187,26 @@ describe('PdfLibParentStatementRenderer', () => {
       }),
     );
     expect(doc.getPageCount()).toBe(1);
+  });
+
+  it('paginates a large family across multiple A4 pages', async () => {
+    const { doc } = await renderPage(largeFamily);
+    expect(doc.getPageCount()).toBeGreaterThan(1);
+  });
+
+  it('lands the full grand total on the last page — never split, never clipped', async () => {
+    const { doc } = await renderPage(largeFamily);
+    const lastPageText = extractPageText(doc, doc.getPageCount() - 1);
+    expect(lastPageText).toContain('Solde à régler');
+    expect(lastPageText).toContain('4.800,00 MAD');
+  });
+
+  it('numbers every page and keeps the thank-you line on the last page only', async () => {
+    const { doc } = await renderPage(largeFamily);
+    expect(extractPageText(doc, 1)).toContain('Page 2');
+    const lastPageText = extractPageText(doc, doc.getPageCount() - 1);
+    expect(lastPageText).toContain('Merci de votre confiance.');
+    expect(extractPageText(doc, 0)).not.toContain('Merci de votre confiance.');
   });
 
   it('never throws on unreadable logo bytes — the statement still renders', async () => {

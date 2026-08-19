@@ -158,9 +158,10 @@ export function drawGrandTotal(
   writer.totalsRow(labels.balanceDue, mad(input.outstandingMad), { size: 13, bold: true });
 }
 
-export function drawStatementFooter(ctx: ParentStatementPdfContext): void {
+/** The closing thank-you line — drawn once, flowing below the grand total on the
+ *  last page. Page numbers are stamped separately on every page by the renderer. */
+export function drawLastPageThanks(ctx: ParentStatementPdfContext): void {
   const { writer, labels } = ctx;
   writer.moveDown(24);
   writer.text(labels.footerThanks, { size: 9, color: MUTED_GRAY, align: 'center' });
-  writer.text(labels.pageLabel(1, 1), { size: 8, color: MUTED_GRAY, align: 'center' });
 }
