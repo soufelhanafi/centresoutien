@@ -236,13 +236,14 @@ test('Scenario 6 — Export writes a real PDF file, and a cancelled dialog does 
 });
 
 // ---------------------------------------------------------------------------
-// Scenario 7 — AR/RTL: the exported PDF for an Arabic-locale invoice is
-// bilingual-aware (Amiri font embedded). On-screen amounts use the app-wide
-// `Intl.NumberFormat` MAD rendering (`MAD` in French, `د.م.` in Arabic) — the
-// `DH` suffix is a print-only convention scoped to the PDF renderer, not the
-// on-screen UI, and out of scope for this ticket to change app-wide.
+// Scenario 7 — AR/RTL: the app UI still renders right-to-left and formats MAD
+// amounts with the Arabic `د.م.` suffix, but the exported invoice PDF is now
+// FR-only (SOU-279 / SOU-271) — it always uses the built-in Helvetica and never
+// embeds the Amiri font, even when the app runs in Arabic. On-screen amounts use
+// the app-wide `Intl.NumberFormat` MAD rendering (`MAD` in French, `د.م.` in
+// Arabic), which the FR-only PDF does not change.
 // ---------------------------------------------------------------------------
-test('Scenario 7 — AR locale renders RTL on screen and the exported PDF embeds the Amiri font', async () => {
+test('Scenario 7 — AR locale renders RTL on screen; the exported invoice PDF stays FR-only (Helvetica, never Amiri)', async () => {
   const L = STR[locale()];
   live = await boot(locale());
   const win = live.win;
@@ -268,9 +269,16 @@ test('Scenario 7 — AR locale renders RTL on screen and the exported PDF embeds
   await win.waitForTimeout(800);
 
   expect(isRealPdfFile(targetPath)).toBe(true);
-  if (locale() === 'ar') {
-    expect(pdfContainsAsciiText(targetPath, 'Amiri'), 'the AR PDF must embed the Amiri font for Arabic shaping').toBe(true);
-  }
+  // The invoice PDF is FR-only regardless of app locale: it embeds the built-in
+  // Helvetica and never the Amiri font (Arabic was dropped from the invoice).
+  expect(
+    pdfContainsAsciiText(targetPath, 'Helvetica'),
+    'the FR-only invoice PDF uses the built-in Helvetica font',
+  ).toBe(true);
+  expect(
+    pdfContainsAsciiText(targetPath, 'Amiri'),
+    'the invoice PDF is FR-only and must not embed Amiri',
+  ).toBe(false);
   await win.screenshot({ path: `test-results/invoices-export-rtl-${locale()}.png` });
 });
 
