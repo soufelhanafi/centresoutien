@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, PageSizes, type PDFPage } from 'pdf-lib';
+import { PDFDocument, StandardFonts, PageSizes, type PDFPage, type PDFFont } from 'pdf-lib';
 import type { InvoicePdfRenderer, InvoicePdfInput } from '@centresoutien/domain';
 import { patchedFontkit } from './patched-fontkit';
 import { PAGE_MARGIN } from './invoice-pdf-writer';
@@ -31,18 +31,30 @@ export class PdfLibInvoiceRenderer implements InvoicePdfRenderer {
     const pdfDoc = await PDFDocument.create();
     pdfDoc.registerFontkit(patchedFontkit);
     const page = pdfDoc.addPage(PageSizes.A4);
-    const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
+    const [regularFont, boldFont] = await this.embedFonts(pdfDoc);
     const writer = new InvoiceLayoutWriter({ page, locale: 'fr', regularFont, boldFont });
-    const ctx: PdfRenderContext = { writer, labels: invoicePdfLabels };
 
     const logoBottomY = input.center.logoBytes
       ? await this.drawLogo(pdfDoc, page, input.center.logoBytes)
       : null;
+    this.drawInvoice({ writer, labels: invoicePdfLabels }, input, logoBottomY);
 
+    // `useObjectStreams: false` keeps the PDF's internal structure inspectable by
+    // plain byte/text tools — a small trade worth making for a document handed to
+    // a parent or printed at a center.
+    return pdfDoc.save({ useObjectStreams: false });
+  }
+
+  private embedFonts(pdfDoc: PDFDocument): Promise<[PDFFont, PDFFont]> {
+    return Promise.all([
+      pdfDoc.embedFont(StandardFonts.Helvetica),
+      pdfDoc.embedFont(StandardFonts.HelveticaBold),
+    ]);
+  }
+
+  private drawInvoice(ctx: PdfRenderContext, input: InvoicePdfInput, logoBottomY: number | null): void {
     drawHeaderBlock(ctx, input);
-    if (logoBottomY !== null) writer.y = Math.min(writer.y, logoBottomY - LOGO_GAP);
+    if (logoBottomY !== null) ctx.writer.y = Math.min(ctx.writer.y, logoBottomY - LOGO_GAP);
     drawMetaGrid(ctx, input);
     drawParties(ctx, input);
     drawAmountBanner(ctx, input);
@@ -58,11 +70,6 @@ export class PdfLibInvoiceRenderer implements InvoicePdfRenderer {
     });
     drawTotals(ctx, input);
     drawFooter(ctx);
-
-    // `useObjectStreams: false` keeps the PDF's internal structure inspectable by
-    // plain byte/text tools — a small trade worth making for a document handed to
-    // a parent or printed at a center.
-    return pdfDoc.save({ useObjectStreams: false });
   }
 
   /** Best-effort brandmark on the header's end edge (top-right); an unreadable or
