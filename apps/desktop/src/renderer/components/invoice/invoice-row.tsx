@@ -5,14 +5,19 @@ import type { StudentView } from '../../lib/students/student-view';
 import type { InvoiceListItemView } from '../../lib/invoices/invoice-view';
 import { invoiceStatusLabelKey, invoiceStatusTone } from '../../lib/invoices/invoice-status-view';
 import { formatMonth, formatMoneyMad } from '../../lib/format';
+import { FactureGroupeeRowAction } from './facture-groupee-row-action';
 
-/** One invoice row: month, bilingual student name, total, status. */
+/** One invoice row: month, bilingual student name, total, status, Facture groupée. */
 export function InvoiceRow({
   invoice,
   student,
+  month,
+  showFactureGroupee,
 }: {
   invoice: InvoiceListItemView;
   student: StudentView | undefined;
+  month: string;
+  showFactureGroupee: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const tone = invoiceStatusTone(invoice);
@@ -42,6 +47,11 @@ export function InvoiceRow({
       <DataTableCell>
         <StatusBadge status={tone} label={t(invoiceStatusLabelKey(tone))} />
       </DataTableCell>
+      {showFactureGroupee && (
+        <DataTableCell className="text-end">
+          <FactureGroupeeRowAction student={student} month={month} />
+        </DataTableCell>
+      )}
     </DataTableRow>
   );
 }

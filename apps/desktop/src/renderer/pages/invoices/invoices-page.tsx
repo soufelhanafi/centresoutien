@@ -62,6 +62,7 @@ export function InvoicesPage() {
         status={status}
         invoices={invoices}
         studentsById={studentsById}
+        month={month}
         onRetry={() => void query.refetch()}
       />
     </section>
