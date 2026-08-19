@@ -116,6 +116,7 @@ import type {
   CreateWeeklyRecurringSession,
   UpdateWeeklyRecurringSession,
   CancelWeeklyRecurringSession,
+  FindSessionsOutsideTeacherAvailability,
   PreviewGeneratedSchedule,
   CommitGeneratedSchedule,
   SessionGeneratorConfig,
@@ -291,6 +292,10 @@ export type CancelSessionUseCase = Pick<CancelSession, 'execute'>;
 export type CreateWeeklyRecurringSessionUseCase = Pick<CreateWeeklyRecurringSession, 'execute'>;
 export type UpdateWeeklyRecurringSessionUseCase = Pick<UpdateWeeklyRecurringSession, 'execute'>;
 export type CancelWeeklyRecurringSessionUseCase = Pick<CancelWeeklyRecurringSession, 'execute'>;
+export type FindSessionsOutsideTeacherAvailabilityUseCase = Pick<
+  FindSessionsOutsideTeacherAvailability,
+  'execute'
+>;
 export type PreviewGeneratedScheduleUseCase = Pick<PreviewGeneratedSchedule, 'execute'>;
 export type CommitGeneratedScheduleUseCase = Pick<CommitGeneratedSchedule, 'execute'>;
 export type RecordSessionAttendanceUseCase = Pick<RecordSessionAttendance, 'execute'>;
@@ -991,6 +996,7 @@ export type HandlerDeps = BackupHandlerDeps &
   createWeeklySession: CreateWeeklyRecurringSessionUseCase;
   updateWeeklySession: UpdateWeeklyRecurringSessionUseCase;
   cancelWeeklySession: CancelWeeklyRecurringSessionUseCase;
+  findSessionsOutsideTeacherAvailability: FindSessionsOutsideTeacherAvailabilityUseCase;
   previewGeneratedSchedule: PreviewGeneratedScheduleUseCase;
   commitGeneratedSchedule: CommitGeneratedScheduleUseCase;
   saveCenterHours: SaveCenterHoursUseCase;
@@ -1744,20 +1750,25 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       return { records: records.map(toAttendanceRecordView) };
     },
     'weeklySession.create': async (request) => {
+      // `allowScheduleConflict` is spread only when present (exactOptionalPropertyTypes:
+      // the domain input's optional flag rejects an explicit `undefined`).
+      const { allowScheduleConflict, ...fields } = request;
       const session = await deps.createWeeklySession.execute({
-        ...request,
+        ...fields,
         ...deps.envelopeContext(),
+        ...(allowScheduleConflict !== undefined ? { allowScheduleConflict } : {}),
       });
       return { id: session.id };
     },
     'weeklySession.update': async (request) => {
-      const { id, ...fields } = request;
+      const { id, allowScheduleConflict, ...fields } = request;
       const { centerCode, updatedBy } = deps.envelopeContext();
       const session = await deps.updateWeeklySession.execute({
         ...fields,
         centerCode,
         id: id as WeeklyRecurringSessionId,
         updatedBy,
+        ...(allowScheduleConflict !== undefined ? { allowScheduleConflict } : {}),
       });
       return { id: session.id };
     },
@@ -1904,6 +1915,13 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
         if (!(error instanceof TeacherAvailabilityExceptionNotFoundError)) throw error;
       }
       return { ok: true };
+    },
+    'teacherAvailability.recheckSessions': async (request) => {
+      const { sessions } = await deps.findSessionsOutsideTeacherAvailability.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        teacherId: request.teacherId as TeacherId,
+      });
+      return { sessions: sessions.map(toWeeklySessionView) };
     },
     'admin.exists': async () => ({ exists: await deps.adminExists() }),
     'admin.create': async (request) => {
