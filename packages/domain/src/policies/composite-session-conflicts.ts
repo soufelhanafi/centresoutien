@@ -3,6 +3,7 @@ import {
   type DayHours,
   type RoomSessionCandidate,
 } from './session-conflict-policy';
+import { teacherUnavailability, type TeacherAvailabilityRules } from './teacher-availability-policy';
 import {
   SessionOutsideOverrideHoursError,
   type MalformedSessionTimeError,
@@ -11,13 +12,18 @@ import {
   type SessionOutsideCenterHoursError,
   type TeacherConflictError,
 } from '../errors/scheduling-errors';
+import type { TeacherUnavailableError } from '../errors/teacher-availability-errors';
 import type { TimeWindow } from '../value-objects/time-window';
+import type { DateRange } from '../value-objects/date-range';
 import type { EntityId } from '../value-objects/ids';
 
 /**
- * How much a conflict blocks scheduling. Everything today is a hard `error`;
- * `warning` is the seam holidays slot into later (SOU-30) — a session on a
- * holiday is discouraged, not forbidden — without reshaping this contract.
+ * How much a conflict blocks scheduling. A hard `error` (room/teacher double-book,
+ * outside opening hours) is the veto the scheduling use case throws by default; a
+ * `warning` (SOU-283: an out-of-window teacher-availability placement) is a soft
+ * signal the admin can force past with an acknowledgement flag, mirroring the
+ * SOU-189/SOU-183 double-book `allowScheduleConflict`. Ordering keeps every error
+ * ahead of every warning so `assertScheduleFree` throws the most-blocking one.
  */
 export type ConflictSeverity = 'error' | 'warning';
 
@@ -26,6 +32,10 @@ export type ConflictSeverity = 'error' | 'warning';
  * domain error so the renderer localizes it and lists the clashing refs. The
  * error is never thrown here — composite detection gathers, the scheduling use
  * case decides what to do with a non-empty list.
+ *
+ * The `teacher-availability` variant (SOU-283) is the only `warning`: an
+ * out-of-window placement against a teacher's declared availability. It is
+ * gathered last so a co-occurring hard error still wins the most-blocking slot.
  */
 export type SessionConflict =
   | { kind: 'malformed'; severity: 'error'; error: MalformedSessionTimeError }
@@ -35,11 +45,28 @@ export type SessionConflict =
       error: SessionOutsideCenterHoursError | SessionOutsideOverrideHoursError;
     }
   | { kind: 'room'; severity: 'error'; error: RoomConflictError }
-  | { kind: 'teacher'; severity: 'error'; error: TeacherConflictError };
+  | { kind: 'teacher'; severity: 'error'; error: TeacherConflictError }
+  | { kind: 'teacher-availability'; severity: 'warning'; error: TeacherUnavailableError };
 
 /** A candidate booking a room and, optionally, a teacher. */
 export type CompositeSessionCandidate = RoomSessionCandidate & {
   teacherId?: EntityId;
+};
+
+/**
+ * The teacher-availability inputs the composite check reads for the candidate's
+ * teacher when the SOU-259 feature is active (SOU-283). `rules` is that one
+ * teacher's declared weekly windows + one-off absences — a row that EXISTS but
+ * has all weekdays empty means whole-week-off (`weeklyWindows` non-null, every
+ * list empty) so every placement reads out-of-window, whereas a teacher with NO
+ * configured row is simply absent from the context and never checked (the caller
+ * passes `undefined`, preserving "absence of a row = unrestricted").
+ * `materializationRange` is the candidate's concrete occurrence date as an
+ * inclusive single-day range for the exception check (`null` skips exceptions).
+ */
+export type TeacherAvailabilityConflictContext = {
+  readonly rules: TeacherAvailabilityRules;
+  readonly materializationRange: DateRange | null;
 };
 
 /**
@@ -62,6 +89,15 @@ export type ConflictCheckContext = {
    * {@link SessionConflictPolicy.withinCenterHours} check runs unchanged.
    */
   overrideWindows?: readonly TimeWindow[];
+  /**
+   * The candidate teacher's availability inputs (SOU-283). Present only when the
+   * plan holds `planning.teacher-availability` **and** the teacher has a
+   * configured row (or a covering exception); its absence means the teacher is
+   * unrestricted, so the availability check is skipped. When present, a placement
+   * outside the teacher's windows or on an absence date is gathered as a
+   * `warning`-severity `teacher-availability` conflict.
+   */
+  teacherAvailability?: TeacherAvailabilityConflictContext;
 };
 
 /**
@@ -95,6 +131,19 @@ export function detectSessionConflicts(
   if (teacherId !== undefined) {
     const teacher = SessionConflictPolicy.teacherConflict({ ...candidate, teacherId }, context.existing);
     if (teacher) conflicts.push({ kind: 'teacher', severity: 'error', error: teacher });
+
+    const availability = context.teacherAvailability;
+    if (availability !== undefined) {
+      const unavailable = teacherUnavailability(
+        candidate,
+        teacherId,
+        availability.rules,
+        availability.materializationRange,
+      );
+      if (unavailable) {
+        conflicts.push({ kind: 'teacher-availability', severity: 'warning', error: unavailable });
+      }
+    }
   }
 
   return conflicts;
