@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '@centresoutien/ui';
 import { useUpdateSession } from '../../hooks/planning/use-update-session';
@@ -33,6 +33,12 @@ export function SessionTemplateDialog({ session, onOpenChange }: SessionTemplate
     successMessageKey: 'planning.form.editSuccess',
     onSuccess: () => onOpenChange(false),
   });
+
+  // The dialog stays mounted while the planner swaps which session it edits (and
+  // between edits, when `session` is null), so clear any stale conflict / cached
+  // force input when the edited session changes — otherwise a forced write could
+  // apply the previous session's values through the new session's mutation.
+  useEffect(() => write.reset(), [session?.id, write.reset]);
 
   if (session === null) return null;
 

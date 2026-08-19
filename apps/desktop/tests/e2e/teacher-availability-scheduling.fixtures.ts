@@ -291,10 +291,15 @@ export async function gotoPlanning(win: Page, L: (typeof STR)[Locale]): Promise<
   await win.getByRole('heading', { name: L.planningTitle }).waitFor();
 }
 
-/** Navigate to a teacher's availability tab: sidebar → Teachers → row link → "Disponibilités" tab. */
-export async function gotoTeacherAvailability(win: Page, L: (typeof STR)[Locale], teacherName: string): Promise<void> {
+/**
+ * Navigate to a teacher's availability tab: sidebar → Teachers → detail link →
+ * "Disponibilités" tab. The teacher row's detail link always renders the FR name
+ * (the AR name is a non-link subtitle beneath it), so `teacherLinkName` must be
+ * the FR name in both locales.
+ */
+export async function gotoTeacherAvailability(win: Page, L: (typeof STR)[Locale], teacherLinkName: string): Promise<void> {
   await win.getByRole('link', { name: L.navTeachers, exact: true }).click();
-  await win.getByRole('row', { name: teacherName }).getByRole('link', { name: teacherName }).first().click();
+  await win.getByRole('link', { name: teacherLinkName, exact: true }).first().click();
   await win.getByRole('tab', { name: L.availabilityTab }).click();
 }
 

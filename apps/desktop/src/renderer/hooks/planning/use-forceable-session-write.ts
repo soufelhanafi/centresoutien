@@ -67,7 +67,10 @@ export function useForceableSessionWrite(
     return run({ ...lastInput.current, allowScheduleConflict: true });
   };
 
-  const reset = useCallback(() => setConflict(null), []);
+  const reset = useCallback(() => {
+    setConflict(null);
+    lastInput.current = null;
+  }, []);
 
   const canForce = conflict !== null && conflict.severity === 'warning';
 

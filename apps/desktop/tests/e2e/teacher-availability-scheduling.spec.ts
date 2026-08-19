@@ -209,7 +209,9 @@ test('AC4 — narrowing availability that strands an existing session shows a no
   await saveAvailability(win, t.id, { ...emptyWeek(), 1: [{ open: '14:00', close: '18:00' }] });
   await createWeeklySession(win, { roomId: live.seeded.roomId, teacherId: t.id, dayOfWeek: 1, start: '15:00', end: '16:00' });
 
-  await gotoTeacherAvailability(win, L, teacherName(live.seeded, locale()));
+  // The teacher-list detail link always shows the FR name (AR name is a subtitle),
+  // so navigate by the FR name in both locales.
+  await gotoTeacherAvailability(win, L, live.seeded.teacher.nameFr);
 
   // Turn Monday OFF entirely → the 15:00–16:00 session is now out-of-window.
   const toggleLabel = L.availability.toggle(L.weekdays[1]);
