@@ -131,6 +131,7 @@ import {
   CreateInvoiceDraft,
   GenerateMonthlyInvoices,
   ListInvoices,
+  GetParentMonthlyStatement,
   ListOverdueInvoices,
   IssueInvoice,
   CancelInvoice,
@@ -240,6 +241,7 @@ import { SqliteBackupStore } from '../data/sqlite/repositories/backup-store';
 import { ExcelBackupAdapter } from '../data/excel/backup-excel-adapter';
 import { DialogPathRegistry } from './ipc/dialog-path-registry';
 import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
+import { PdfLibParentStatementRenderer } from '../data/pdf/pdf-lib-parent-statement-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
 import { PdfLibScheduleRenderer } from '../data/pdf/pdf-lib-schedule-renderer';
@@ -778,6 +780,17 @@ export function buildContainer(options: ContainerOptions): Container {
   // own already-derived totals).
   const listInvoices = new ListInvoices(invoiceRepo, plan);
   const invoicePdfRenderer = new PdfLibInvoiceRenderer();
+  // Consolidated per-parent statement — "Facture groupée" (SOU-284): a pure derived
+  // read model over each child's per-student invoice (no stored parent invoice),
+  // plus its own pdf-lib adapter reusing the SOU-279 invoice primitives. Resolves
+  // the guardian + children center-scoped; gated on core.invoicing + core.parents.
+  const getParentMonthlyStatement = new GetParentMonthlyStatement(
+    parentRepo,
+    studentRepo,
+    invoiceRepo,
+    plan,
+  );
+  const parentStatementPdfRenderer = new PdfLibParentStatementRenderer();
   // Issue / cancel (SOU-143): the two lifecycle transitions shipped unwired
   // alongside CreateInvoiceDraft in SOU-67 (KICKOFF, SOU-69) — thin IPC plumbing
   // only, no new domain logic.
@@ -1411,6 +1424,8 @@ export function buildContainer(options: ContainerOptions): Container {
     issueInvoice,
     cancelInvoice,
     invoicePdfRenderer,
+    getParentMonthlyStatement,
+    parentStatementPdfRenderer,
     enrollStudent,
     unenrollStudent,
     createTeacher,
