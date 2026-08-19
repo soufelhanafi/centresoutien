@@ -95,7 +95,8 @@ export class InvoiceLayoutWriter extends InvoicePdfWriter {
     this.y -= size + 6;
   }
 
-  /** A hairline spanning only the totals block. */
+  /** A hairline spanning only the totals block. The generous bottom gap keeps
+   *  the following total's ascenders clear of the hairline. */
   totalsRule(): void {
     this.y -= 4;
     this.page.drawLine({
@@ -104,7 +105,7 @@ export class InvoiceLayoutWriter extends InvoicePdfWriter {
       thickness: 0.5,
       color: HAIRLINE_GRAY,
     });
-    this.y -= 8;
+    this.y -= 14;
   }
 
   private get contentWidth(): number {

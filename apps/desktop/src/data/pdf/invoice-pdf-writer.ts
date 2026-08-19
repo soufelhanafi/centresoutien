@@ -136,9 +136,10 @@ export class InvoicePdfWriter {
     this.y -= boxHeight + 6;
   }
 
-  /** A light divider, e.g. under a table's column headers. */
+  /** A light divider, e.g. under a table's column headers. The generous bottom
+   *  gap keeps the next row's ascenders clear of the hairline. */
   rule(): void {
-    this.drawLine(0.5, HAIRLINE_GRAY, 2, 8);
+    this.drawLine(0.5, HAIRLINE_GRAY, 2, 14);
   }
 
   hr(): void {
