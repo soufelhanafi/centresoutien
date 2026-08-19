@@ -7,7 +7,7 @@ import i18n from '../../../src/renderer/i18n/config';
 
 const SESSION: OutOfWindowSessionView = {
   sessionId: 'wrs_1',
-  groupName: { fr: 'Maths — Bac', ar: 'رياضيات — باك' },
+  subjectName: { fr: 'Maths — Bac', ar: 'رياضيات — باك' },
   teacherName: { fr: 'Prof Karim', ar: 'الأستاذ كريم' },
   dayOfWeek: 1,
   start: '18:00',
@@ -15,7 +15,7 @@ const SESSION: OutOfWindowSessionView = {
 };
 
 describe('TeacherAvailabilityRecheckRow', () => {
-  it('shows the group, weekday, and time window in French', async () => {
+  it('shows the subject, weekday, and time window in French', async () => {
     await i18n.changeLanguage('fr');
     render(
       <ul>
@@ -26,14 +26,14 @@ describe('TeacherAvailabilityRecheckRow', () => {
     expect(screen.getByText(/Lundi/)).toBeInTheDocument();
   });
 
-  it('falls back to the unknown-group label when the name is null', async () => {
+  it('falls back to the unknown-subject label when the name is null', async () => {
     await i18n.changeLanguage('fr');
     render(
       <ul>
-        <TeacherAvailabilityRecheckRow session={{ ...SESSION, groupName: null }} />
+        <TeacherAvailabilityRecheckRow session={{ ...SESSION, subjectName: null }} />
       </ul>,
     );
-    expect(screen.getByText('Groupe inconnu')).toBeInTheDocument();
+    expect(screen.getByText('Matière inconnue')).toBeInTheDocument();
   });
 });
 

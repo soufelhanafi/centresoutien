@@ -1207,7 +1207,7 @@
       "recheck": {
         "title": "Séances désormais hors disponibilités",
         "description": "{{count}} séance(s) de cet enseignant tombent maintenant en dehors de ses disponibilités. Vous pourrez les reprogrammer, les annuler ou les conserver plus tard.",
-        "unknownGroup": "Groupe inconnu",
+        "unknownSubject": "Matière inconnue",
         "dismiss": "J'ai compris"
       },
       "exceptions": {
