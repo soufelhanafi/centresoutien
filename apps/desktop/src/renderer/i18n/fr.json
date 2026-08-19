@@ -2244,7 +2244,10 @@
       },
       "picker": {
         "title": "Facture groupée",
-        "body": "Choisissez le responsable auquel adresser la facture groupée."
+        "body": "Choisissez le responsable auquel adresser la facture groupée.",
+        "error": "Impossible de charger les responsables.",
+        "retry": "Réessayer",
+        "empty": "Aucun responsable trouvé pour cet élève."
       }
     },
     "detail": {

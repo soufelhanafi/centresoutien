@@ -1,5 +1,9 @@
 import { PDFDocument, StandardFonts, PageSizes, type PDFPage, type PDFFont } from 'pdf-lib';
-import type { ParentStatementPdfRenderer, ParentStatementPdfInput } from '@centresoutien/domain';
+import type {
+  ParentStatementPdfRenderer,
+  ParentStatementPdfInput,
+  ParentStatementPdfChild,
+} from '@centresoutien/domain';
 import { patchedFontkit } from './patched-fontkit';
 import { PAGE_MARGIN, MUTED_GRAY } from './invoice-pdf-writer';
 import { InvoiceLayoutWriter } from './invoice-layout-writer';
@@ -16,18 +20,31 @@ import {
 const LOGO_BOX = 48;
 const LOGO_GAP = 10;
 
-/**
- * Points reserved before each child block. A child block is bounded — name (19) +
- * invoice no. (14) + status pill (20) + two line-sections (each header + hairline
- * rule + its rows + subtotal) + the child subtotal (24). A student holds at most
- * one regular and one exam-prep subscription, so each section carries a single
- * formula line; even the 2-3-row test fixtures top out near 290 pt. 300 covers
- * that with headroom while staying under the ~318 pt ceiling above which a normal
- * two-child family would spuriously spill onto a second page. Being conservative,
- * it may push a borderline three-child family one block early — that never clips a
- * grand total, it only adds a page.
- */
-const CHILD_BLOCK_RESERVE = 300;
+// A child block's height is driven by its line count, and an invoice carries no
+// enforced maximum line count (the generate job emits one line per subscription,
+// but legacy per-group billing can produce several — SOU-68/§7), so the reserve is
+// derived from the child's actual lines rather than a fixed constant: a fixed
+// reserve would let a rare many-line child overflow its block. The fixed part
+// covers the name + invoice no. + status pill + child subtotal + inter-block gaps;
+// each present kind-section adds its title + hairline rule + subtotal, plus one row
+// per formula line. Residual: a single child taller than a whole content page
+// (~30+ lines, unreached by any real invoice) would still need inner-line
+// pagination — tracked with the per-student invoice pagination follow-up (SOU-285).
+const CHILD_HEADER_RESERVE = 100;
+const LINE_SECTION_RESERVE = 52;
+const LINE_ROW_RESERVE = 16;
+
+function kindSectionReserve(rowCount: number): number {
+  return rowCount > 0 ? LINE_SECTION_RESERVE + rowCount * LINE_ROW_RESERVE : 0;
+}
+
+function childBlockReserve(child: ParentStatementPdfChild): number {
+  return (
+    CHILD_HEADER_RESERVE +
+    kindSectionReserve(child.regularLines.length) +
+    kindSectionReserve(child.examPrepLines.length)
+  );
+}
 
 /** Points reserved before the grand-total block so its rule + up to three rows
  *  (the tallest, partial/paid, variant is ~91 pt) always land whole on one page,
@@ -90,7 +107,7 @@ export class PdfLibParentStatementRenderer implements ParentStatementPdfRenderer
     if (logoBottomY !== null) ctx.writer.y = Math.min(ctx.writer.y, logoBottomY - LOGO_GAP);
     drawStatementParties(ctx, input);
     for (const child of input.children) {
-      ensurePageSpace(pdfDoc, ctx.writer, CHILD_BLOCK_RESERVE);
+      ensurePageSpace(pdfDoc, ctx.writer, childBlockReserve(child));
       drawChildBlock(ctx, child);
     }
     ensurePageSpace(pdfDoc, ctx.writer, GRAND_TOTAL_RESERVE);

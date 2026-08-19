@@ -113,9 +113,9 @@ export function FactureGroupeeRowAction({
       {resolution.kind === 'multiple' && (
         <GuardianPickerDialog
           guardianIds={resolution.guardianIds}
-          open={pendingAction !== null}
-          onOpenChange={(open) => {
-            if (!open) setPendingAction(null);
+          isOpen={pendingAction !== null}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setPendingAction(null);
           }}
           onPick={handlePick}
         />
