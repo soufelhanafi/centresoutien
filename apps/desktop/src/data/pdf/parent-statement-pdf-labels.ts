@@ -1,14 +1,12 @@
-/**
- * Fixed FR labels for the consolidated per-parent statement PDF (SOU-284). Like
- * the per-student invoice's `invoice-pdf-labels.ts`, the statement is rendered
- * entirely in the main/data process and never crosses the renderer's i18n
- * pipeline, so its labels are hardcoded here once — the one place a byte-generated
- * PDF's fixed copy is not a "no hardcoded strings" violation. FR-only, matching
- * SOU-279 (Arabic dropped from the money documents, SOU-271).
- *
- * Only the statement-specific copy lives here; the shared line-item columns and
- * kind-section headings are reused from `invoicePdfLabels` by the section drawers.
- */
+// Fixed FR labels for the consolidated per-parent statement PDF (SOU-284). Like the
+// per-student invoice's `invoice-pdf-labels.ts`, the statement is rendered entirely
+// in the main/data process and never crosses the renderer's i18n pipeline, so its
+// labels are hardcoded here once — the one place a byte-generated PDF's fixed copy is
+// not a "no hardcoded strings" violation. FR-only, matching SOU-279 (Arabic dropped
+// from the money documents, SOU-271).
+//
+// Only the statement-specific copy lives here; the shared line-item columns and
+// kind-section headings are reused from `invoicePdfLabels` by the section drawers.
 export type ParentStatementPdfLabels = {
   title: string;
   billedTo: string;

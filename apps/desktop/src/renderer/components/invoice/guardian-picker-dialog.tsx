@@ -11,14 +11,12 @@ import {
 } from '@centresoutien/ui';
 import { useParents } from '../../hooks/parent/use-parents';
 
-/**
- * Guardian resolution UX for a student with more than one responsible (SOU-284):
- * lists the linked guardians by name + relation so the user picks who the
- * Facture groupée is addressed to. One click fires; the caller runs the pending
- * print/export against the chosen `parentId`. The parent list is fetched only
- * once the dialog is open (`enabled: isOpen`), and load failure / an empty
- * resolved set each show their own state instead of a blank body.
- */
+// Guardian resolution UX for a student with more than one responsible (SOU-284):
+// lists the linked guardians by name + relation so the user picks who the Facture
+// groupée is addressed to. One click fires; the caller runs the pending print/export
+// against the chosen `parentId`. The parent list is fetched only once the dialog is
+// open (`enabled: isOpen`), and load failure / an empty resolved set each show their
+// own state instead of a blank body.
 export function GuardianPickerDialog({
   guardianIds,
   isOpen,

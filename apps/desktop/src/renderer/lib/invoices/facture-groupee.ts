@@ -1,10 +1,8 @@
-/**
- * Presentation-only resolution for the "Facture groupée" action (SOU-284): given
- * a student's guardians and the invoices screen's active month, decides whether
- * the consolidated per-parent statement can be triggered, fired directly, or
- * needs the user to pick which responsible. No business logic — the domain is the
- * real gate; this only steers the UX.
- */
+// Presentation-only resolution for the "Facture groupée" action (SOU-284): given a
+// student's guardians and the invoices screen's active month, decides whether the
+// consolidated per-parent statement can be triggered, fired directly, or needs the
+// user to pick which responsible. No business logic — the domain is the real gate;
+// this only steers the UX.
 const CONCRETE_MONTH_PATTERN = /^\d{4}-\d{2}$/;
 
 export type FactureGroupeeBlockReason = 'no-month' | 'no-guardian';

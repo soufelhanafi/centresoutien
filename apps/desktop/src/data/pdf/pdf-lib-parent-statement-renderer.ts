@@ -60,19 +60,17 @@ function ensurePageSpace(pdfDoc: PDFDocument, writer: InvoiceLayoutWriter, neede
   writer.startPage(pdfDoc.addPage(PageSizes.A4));
 }
 
-/**
- * `pdf-lib`-based {@link ParentStatementPdfRenderer} — the flat typographic A4
- * "Facture groupée" (SOU-284): header `Facture` + responsible guardian, one block
- * per child, then one grand-total block. Reuses the SOU-279 invoice primitives
- * ({@link InvoiceLayoutWriter} + `drawLineSection` + `formatMad` + the outline
- * status palette) rather than duplicating them; the per-student
- * `InvoicePdfRenderer` is left untouched.
- *
- * Renders **French only** (Arabic dropped from the money documents, SOU-271): the
- * layout draws with pdf-lib's built-in Helvetica and ignores `input.locale`.
- * Content depends only on `input` — the sole run-to-run variance is pdf-lib's own
- * save-time `CreationDate` metadata.
- */
+// `pdf-lib`-based ParentStatementPdfRenderer — the flat typographic A4 "Facture
+// groupée" (SOU-284): header `Facture` + responsible guardian, one block per child,
+// then one grand-total block. Reuses the SOU-279 invoice primitives
+// (InvoiceLayoutWriter + `drawLineSection` + `formatMad` + the outline status
+// palette) rather than duplicating them; the per-student InvoicePdfRenderer is left
+// untouched.
+//
+// Renders French only (Arabic dropped from the money documents, SOU-271): the
+// layout draws with pdf-lib's built-in Helvetica and ignores `input.locale`.
+// Content depends only on `input` — the sole run-to-run variance is pdf-lib's own
+// save-time `CreationDate` metadata.
 export class PdfLibParentStatementRenderer implements ParentStatementPdfRenderer {
   async render(input: ParentStatementPdfInput): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.create();
@@ -99,24 +97,24 @@ export class PdfLibParentStatementRenderer implements ParentStatementPdfRenderer
 
   private drawStatement(
     pdfDoc: PDFDocument,
-    ctx: ParentStatementPdfContext,
+    context: ParentStatementPdfContext,
     input: ParentStatementPdfInput,
     logoBottomY: number | null,
   ): void {
-    drawStatementHeader(ctx, input);
-    if (logoBottomY !== null) ctx.writer.y = Math.min(ctx.writer.y, logoBottomY - LOGO_GAP);
-    drawStatementParties(ctx, input);
+    drawStatementHeader(context, input);
+    if (logoBottomY !== null) context.writer.y = Math.min(context.writer.y, logoBottomY - LOGO_GAP);
+    drawStatementParties(context, input);
     for (const child of input.children) {
-      ensurePageSpace(pdfDoc, ctx.writer, childBlockReserve(child));
-      drawChildBlock(ctx, child);
+      ensurePageSpace(pdfDoc, context.writer, childBlockReserve(child));
+      drawChildBlock(context, child);
     }
-    ensurePageSpace(pdfDoc, ctx.writer, GRAND_TOTAL_RESERVE);
-    drawGrandTotal(ctx, input);
-    drawLastPageThanks(ctx);
+    ensurePageSpace(pdfDoc, context.writer, GRAND_TOTAL_RESERVE);
+    drawGrandTotal(context, input);
+    drawLastPageThanks(context);
   }
 
-  /** Stamps a centered `Page i / N` at the bottom margin of every page once the
-   *  final page count is known — the footer's page numbers reflect real totals. */
+  // Stamps a centered `Page i / N` at the bottom margin of every page once the
+  // final page count is known — the footer's page numbers reflect real totals.
   private stampPageNumbers(pdfDoc: PDFDocument, font: PDFFont, labels: ParentStatementPdfLabels): void {
     const pages = pdfDoc.getPages();
     pages.forEach((page, index) => {
@@ -132,8 +130,8 @@ export class PdfLibParentStatementRenderer implements ParentStatementPdfRenderer
     });
   }
 
-  /** Best-effort brandmark on the header's end edge; an unreadable/unsupported
-   *  logo never blocks the PDF. Returns the drawn logo's bottom `y`, or `null`. */
+  // Best-effort brandmark on the header's end edge; an unreadable/unsupported logo
+  // never blocks the PDF. Returns the drawn logo's bottom `y`, or `null`.
   private async drawLogo(pdfDoc: PDFDocument, page: PDFPage, bytes: Uint8Array): Promise<number | null> {
     try {
       const image = await pdfDoc.embedPng(bytes).catch(() => pdfDoc.embedJpg(bytes));

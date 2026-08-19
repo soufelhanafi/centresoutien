@@ -17,7 +17,7 @@ const GREEN: PdfOutlineColors = { border: rgb(0.09, 0.5, 0.32), text: rgb(0.06, 
 const AMBER: PdfOutlineColors = { border: rgb(0.72, 0.5, 0.05), text: rgb(0.62, 0.42, 0.03) };
 const RED: PdfOutlineColors = { border: rgb(0.7, 0.2, 0.2), text: rgb(0.6, 0.15, 0.15) };
 
-/** Bundles the statement's cursor with its own labels — one parameter per drawer. */
+// Bundles the statement's cursor with its own labels — one parameter per drawer.
 export type ParentStatementPdfContext = {
   writer: InvoiceLayoutWriter;
   labels: ParentStatementPdfLabels;
@@ -27,17 +27,17 @@ function mad(amountMad: number): string {
   return formatMad(amountMad, 'fr', CURRENCY);
 }
 
-/** The reused line-section drawer keys off the shared invoice labels (identical
- *  column + kind-section copy), so child blocks get the same typography as an
- *  invoice's line items without copying the drawer. */
+// The reused line-section drawer keys off the shared invoice labels (identical
+// column + kind-section copy), so child blocks get the same typography as an
+// invoice's line items without copying the drawer.
 function lineSectionContext(writer: InvoiceLayoutWriter): PdfRenderContext {
   return { writer, labels: invoicePdfLabels };
 }
 
 type StatusBadge = { label: string; colors: PdfOutlineColors };
 
-function aggregateBadge(ctx: ParentStatementPdfContext, input: ParentStatementPdfInput): StatusBadge {
-  const { labels } = ctx;
+function aggregateBadge(context: ParentStatementPdfContext, input: ParentStatementPdfInput): StatusBadge {
+  const { labels } = context;
   switch (input.aggregateStatus) {
     case 'paid':
       return { label: labels.paidBadge, colors: GREEN };
@@ -49,10 +49,10 @@ function aggregateBadge(ctx: ParentStatementPdfContext, input: ParentStatementPd
 }
 
 function childBadge(
-  ctx: ParentStatementPdfContext,
+  context: ParentStatementPdfContext,
   child: ParentStatementPdfChild,
 ): StatusBadge | null {
-  const { labels } = ctx;
+  const { labels } = context;
   if (child.invoiceStatus === 'cancelled') return { label: labels.cancelledBadge, colors: RED };
   switch (child.paymentStatus) {
     case 'paid':
@@ -64,26 +64,26 @@ function childBadge(
   }
 }
 
-/** Top band: `Facture` title + aggregate status pill on the start edge (the logo
- *  is drawn on the end edge by the renderer). */
+// Top band: `Facture` title + aggregate status pill on the start edge (the logo
+// is drawn on the end edge by the renderer).
 export function drawStatementHeader(
-  ctx: ParentStatementPdfContext,
+  context: ParentStatementPdfContext,
   input: ParentStatementPdfInput,
 ): void {
-  const { writer, labels } = ctx;
+  const { writer, labels } = context;
   writer.text(labels.title, { size: 24, bold: true, color: BRAND_TEAL });
-  const badge = aggregateBadge(ctx, input);
+  const badge = aggregateBadge(context, input);
   writer.outlinedBadge(badge.label, badge.colors, { align: 'start' });
   writer.moveDown(10);
 }
 
-/** Center identity (start edge) opposite the responsible guardian (end edge),
- *  then the billed month. */
+// Center identity (start edge) opposite the responsible guardian (end edge),
+// then the billed month.
 export function drawStatementParties(
-  ctx: ParentStatementPdfContext,
+  context: ParentStatementPdfContext,
   input: ParentStatementPdfInput,
 ): void {
-  const { writer, labels } = ctx;
+  const { writer, labels } = context;
   writer.twoColumns(
     [
       { value: input.center.name, size: 12, bold: true, color: BRAND_TEAL },
@@ -99,14 +99,14 @@ export function drawStatementParties(
   writer.moveDown(12);
 }
 
-/** One child block: the child's name + its own invoice number and status pill,
- *  then the kind-grouped line items with subtotals and the child's own total. A
- *  child with no invoice renders « Aucune facture » in place of the line items. */
+// One child block: the child's name + its own invoice number and status pill,
+// then the kind-grouped line items with subtotals and the child's own total. A
+// child with no invoice renders « Aucune facture » in place of the line items.
 export function drawChildBlock(
-  ctx: ParentStatementPdfContext,
+  context: ParentStatementPdfContext,
   child: ParentStatementPdfChild,
 ): void {
-  const { writer, labels } = ctx;
+  const { writer, labels } = context;
   writer.moveDown(4);
   writer.text(child.childName.fr, { size: 13, bold: true });
 
@@ -117,17 +117,17 @@ export function drawChildBlock(
   }
 
   writer.text(labels.childInvoiceNumber(child.invoiceId), { size: 8, color: MUTED_GRAY });
-  const badge = childBadge(ctx, child);
+  const badge = childBadge(context, child);
   if (badge !== null) writer.outlinedBadge(badge.label, badge.colors, { align: 'start' });
   writer.moveDown(2);
 
-  const lineCtx = lineSectionContext(writer);
-  drawLineSection(lineCtx, {
+  const lineContext = lineSectionContext(writer);
+  drawLineSection(lineContext, {
     title: invoicePdfLabels.regularSection,
     lines: child.regularLines,
     subtotalMad: child.regularSubtotalMad,
   });
-  drawLineSection(lineCtx, {
+  drawLineSection(lineContext, {
     title: invoicePdfLabels.examPrepSection,
     lines: child.examPrepLines,
     subtotalMad: child.examPrepSubtotalMad,
@@ -136,14 +136,14 @@ export function drawChildBlock(
   writer.moveDown(8);
 }
 
-/** Right-aligned grand-total block whose tail changes by aggregate status: unpaid
- *  ends at `Total général à régler`; partial/paid unwind through `Règlement reçu`
- *  to `Solde à régler` — the sums across all the child blocks. */
+// Right-aligned grand-total block whose tail changes by aggregate status: unpaid
+// ends at `Total général à régler`; partial/paid unwind through `Règlement reçu`
+// to `Solde à régler` — the sums across all the child blocks.
 export function drawGrandTotal(
-  ctx: ParentStatementPdfContext,
+  context: ParentStatementPdfContext,
   input: ParentStatementPdfInput,
 ): void {
-  const { writer, labels } = ctx;
+  const { writer, labels } = context;
   writer.moveDown(4);
   writer.totalsRule();
 
@@ -158,10 +158,10 @@ export function drawGrandTotal(
   writer.totalsRow(labels.balanceDue, mad(input.outstandingMad), { size: 13, bold: true });
 }
 
-/** The closing thank-you line — drawn once, flowing below the grand total on the
- *  last page. Page numbers are stamped separately on every page by the renderer. */
-export function drawLastPageThanks(ctx: ParentStatementPdfContext): void {
-  const { writer, labels } = ctx;
+// The closing thank-you line — drawn once, flowing below the grand total on the
+// last page. Page numbers are stamped separately on every page by the renderer.
+export function drawLastPageThanks(context: ParentStatementPdfContext): void {
+  const { writer, labels } = context;
   writer.moveDown(24);
   writer.text(labels.footerThanks, { size: 9, color: MUTED_GRAY, align: 'center' });
 }

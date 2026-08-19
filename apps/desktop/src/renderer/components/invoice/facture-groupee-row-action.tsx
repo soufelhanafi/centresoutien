@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Users, Printer, Download } from 'lucide-react';
 import {
@@ -9,22 +8,15 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  toast,
 } from '@centresoutien/ui';
 import type { StudentView } from '../../lib/students/student-view';
-import { useParentStatementActions } from '../../hooks/parent/use-parent-statement-actions';
-import { resolveFactureGroupee } from '../../lib/invoices/facture-groupee';
+import { useFactureGroupeeRowAction } from '../../hooks/parent/use-facture-groupee-row-action';
 import { GuardianPickerDialog } from './guardian-picker-dialog';
 
-type PendingAction = 'print' | 'export';
-
-/**
- * Per-row "Facture groupée" trigger (SOU-284): resolves the row student's
- * guardians, then prints or exports a single consolidated PDF over all that
- * guardian's children for the screen's active `month`. One guardian fires
- * directly; several open the {@link GuardianPickerDialog}; none/no-month disable
- * the action with a hint. Data access stays behind the IPC gateway.
- */
+// Per-row "Facture groupée" trigger (SOU-284): prints or exports a single
+// consolidated PDF over all a guardian's children for the screen's active month.
+// All orchestration (guardian resolution, print/export, the picker) lives in
+// useFactureGroupeeRowAction; this component is render-only.
 export function FactureGroupeeRowAction({
   student,
   month,
@@ -32,46 +24,9 @@ export function FactureGroupeeRowAction({
   student: StudentView | undefined;
   month: string;
 }) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.language === 'ar' ? 'ar' : 'fr';
-  const { print, exportPdf } = useParentStatementActions();
-  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
-
-  const resolution = resolveFactureGroupee(student?.guardianIds ?? [], month);
-  const isPending = print.isPending || exportPdf.isPending;
-
-  const runPrint = async (parentId: string) => {
-    try {
-      await print.mutateAsync({ parentId, month, locale });
-    } catch {
-      toast.error(t('invoices.factureGroupee.printError'));
-    }
-  };
-
-  const runExport = async (parentId: string) => {
-    try {
-      const { savedPath } = await exportPdf.mutateAsync({ parentId, month, locale });
-      if (savedPath !== null) toast.success(t('invoices.factureGroupee.exportSuccess'));
-    } catch {
-      toast.error(t('invoices.factureGroupee.exportError'));
-    }
-  };
-
-  const fire = (action: PendingAction, parentId: string) => {
-    if (action === 'print') void runPrint(parentId);
-    else void runExport(parentId);
-  };
-
-  const trigger = (action: PendingAction) => {
-    if (resolution.kind === 'single') fire(action, resolution.parentId);
-    else if (resolution.kind === 'multiple') setPendingAction(action);
-  };
-
-  const handlePick = (parentId: string) => {
-    const action = pendingAction;
-    setPendingAction(null);
-    if (action !== null) fire(action, parentId);
-  };
+  const { t } = useTranslation();
+  const { resolution, isPending, pendingAction, trigger, pick, closePicker } =
+    useFactureGroupeeRowAction(student, month);
 
   return (
     <>
@@ -115,9 +70,9 @@ export function FactureGroupeeRowAction({
           guardianIds={resolution.guardianIds}
           isOpen={pendingAction !== null}
           onOpenChange={(isOpen) => {
-            if (!isOpen) setPendingAction(null);
+            if (!isOpen) closePicker();
           }}
-          onPick={handlePick}
+          onPick={pick}
         />
       )}
     </>

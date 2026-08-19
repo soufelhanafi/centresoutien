@@ -21,25 +21,23 @@ export type GetParentMonthlyStatementInput = {
   month: string; // 'YYYY-MM'
 };
 
-/**
- * The read model behind the consolidated **Facture groupée** (SOU-284): one
- * document over all a guardian's live children in this center — one block per
- * child (each carrying that child's own invoice number + derived status), then one
- * grand-total block whose status/total follow from the sums across children.
- *
- * A **pure derived read model** — no stored parent invoice, no persisted total. It
- * reuses the same seams the per-student flow uses (`invoiceTotalMad`,
- * `paymentStatusOf`, the `listInvoices` join's SQL-derived totals) rather than
- * re-deriving money anywhere. Each child's invoice is fetched targeted by
- * `(studentId, month)`; a guardian's child count is small and bounded, so this is
- * not the pathological per-row scan of an unbounded set — the whole-center-month
- * read would over-fetch to serve one parent.
- *
- * Gated by `core.invoicing` (+ `core.parents` for the guardian resolution). The
- * guardian is resolved center-scoped; an unknown or foreign-center id raises
- * {@link ParentNotFoundError}. Children are resolved via `listByGuardian`, which is
- * center-scoped in the repository read — never a cross-`centreId` leak.
- */
+// The read model behind the consolidated Facture groupée (SOU-284): one document
+// over all a guardian's live children in this center — one block per child (each
+// carrying that child's own invoice number + derived status), then one grand-total
+// block whose status/total follow from the sums across children.
+//
+// A pure derived read model — no stored parent invoice, no persisted total. It
+// reuses the same seams the per-student flow uses (`invoiceTotalMad`,
+// `paymentStatusOf`, the `listInvoices` join's SQL-derived totals) rather than
+// re-deriving money anywhere. Each child's invoice is fetched targeted by
+// `(studentId, month)`; a guardian's child count is small and bounded, so this is
+// not the pathological per-row scan of an unbounded set — the whole-center-month
+// read would over-fetch to serve one parent.
+//
+// Gated by `core.invoicing` (+ `core.parents` for the guardian resolution). The
+// guardian is resolved center-scoped; an unknown or foreign-center id raises
+// ParentNotFoundError. Children are resolved via `listByGuardian`, which is
+// center-scoped in the repository read — never a cross-`centreId` leak.
 export class GetParentMonthlyStatement {
   constructor(
     private readonly parents: ParentRepository,
