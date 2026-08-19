@@ -20,6 +20,11 @@ import type { SessionWriteGateway } from './session-write-gateway';
  * unknown/already-cancelled id raises `WeeklyRecurringSessionNotFoundError`
  * rather than silently succeeding, so the caller can surface it.
  */
+// SOU-283: `input` may carry `allowScheduleConflict` when the admin forced a
+// warning; the spread forwards it to the channel. The wire schema strips it until
+// the domain branch adds it to `weeklyRecurringSessionInputSchema`.
+// TODO(SOU-283): swap mock for real preload channel once domain merges — confirm
+// `weeklySession.create`/`update` accept `allowScheduleConflict` end to end.
 const WRITE_DEFAULTS = { active: true, validFrom: null, validTo: null } as const;
 
 class IpcSessionWriteGateway implements SessionWriteGateway {

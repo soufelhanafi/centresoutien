@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Clock, CalendarOff } from 'lucide-react';
+import { Clock, CalendarOff, UserX } from 'lucide-react';
 import { Badge, type BadgeProps } from '@centresoutien/ui';
 import type { SessionAuditReason } from '../../lib/schedule-audit/stranded-session-view';
 
@@ -13,9 +13,17 @@ type ReasonConfig = {
 const REASON_CONFIG: Record<SessionAuditReason, ReasonConfig> = {
   'outside-center-hours': { variant: 'warning', icon: Clock, labelKey: 'scheduleAudit.reason.outsideHours' },
   'on-holiday': { variant: 'info', icon: CalendarOff, labelKey: 'scheduleAudit.reason.holiday' },
+  'outside-teacher-availability': {
+    variant: 'warning',
+    icon: UserX,
+    labelKey: 'scheduleAudit.reason.outsideTeacherAvailability',
+  },
 };
 
-/** Why a session is stranded: outside the center's effective hours, or on a holiday. */
+/**
+ * Why a session is stranded: outside the center's effective hours, on a holiday,
+ * or outside the teacher's declared availability.
+ */
 export function AuditReasonBadge({ reason }: { reason: SessionAuditReason }) {
   const { t } = useTranslation();
   const { variant, icon: Icon, labelKey } = REASON_CONFIG[reason];
