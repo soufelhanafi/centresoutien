@@ -8,6 +8,7 @@ import {
   createMemoryHistory,
   Outlet,
 } from '@tanstack/react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PLANS } from '@centresoutien/domain';
 import { Sidebar } from '../../src/renderer/components/shell/sidebar';
 import { NAV_MODULES } from '../../src/renderer/app/nav-items';
@@ -34,7 +35,16 @@ function renderSidebar() {
     routeTree,
     history: createMemoryHistory({ initialEntries: ['/dashboard'] }),
   });
-  return render(<RouterProvider router={router} />);
+  // The Sidebar renders the center logo (SOU-278), which reads `center.get` /
+  // `center.logoBytes` through react-query — provide the client the app would.
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
 }
 
 describe('Sidebar — plan-gated navigation', () => {
