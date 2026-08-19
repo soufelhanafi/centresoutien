@@ -36,7 +36,11 @@ export function createParentStatementHandlers(
       );
       const bytes = await deps.parentStatementPdfRenderer.render(input);
       const tempPath = writeTempPdf(deps.tempDir, 'facture-groupee-', [request.parentId, request.month], bytes);
-      await shell.openPath(tempPath);
+      // `shell.openPath` resolves to '' on success and an error string on failure;
+      // surface the failure so the renderer's print-error toast fires instead of a
+      // silent "ok" with no viewer open.
+      const openError = await shell.openPath(tempPath);
+      if (openError !== '') throw new Error(`Failed to open the statement PDF: ${openError}`);
       return { ok: true };
     },
     'parentStatement.export': async (request) => {
