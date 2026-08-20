@@ -14,9 +14,11 @@ import type { FormulaView } from '../../lib/formulas/formula-view';
 import type { SubjectView } from '../../lib/subjects/subject-view';
 import { currentMonth, nextMonth } from '../../lib/subscriptions/subscription-month';
 import type { SubscriptionInput } from '../../lib/subscriptions/subscription-view';
+import type { SubscriptionCreateResult } from '../../lib/subscriptions/subscriptions-gateway';
 import type { WizardTarget } from '../../hooks/subscription/use-subscription-tab';
 import { useCreateSubscription } from '../../hooks/subscription/use-create-subscription';
 import { useReplaceSubscription } from '../../hooks/subscription/use-replace-subscription';
+import { useSubscriptionInvoiceToast } from '../../hooks/subscription/use-subscription-invoice-toast';
 import { mapSubscriptionWriteError } from '../../lib/subscriptions/subscription-write-error';
 import { SubscriptionCloseFields } from './subscription-close-fields';
 import { SubscriptionFormulaFields } from './subscription-formula-fields';
@@ -43,6 +45,7 @@ export function ChangeSubscriptionDialog({
   const { t } = useTranslation();
   const create = useCreateSubscription(studentId);
   const replace = useReplaceSubscription(studentId);
+  const showInvoiceOutcome = useSubscriptionInvoiceToast();
   const [formulaId, setFormulaId] = useState('');
   const [startMonth, setStartMonth] = useState(currentMonth);
 
@@ -79,17 +82,19 @@ export function ChangeSubscriptionDialog({
         toast.error(t(code ? `errors.${code}` : 'students.subscription.wizard.replaceError'));
         return;
       }
+      toast.success(t('students.subscription.wizard.success'));
     } else {
+      let result: SubscriptionCreateResult;
       try {
-        await create.mutateAsync(input);
+        result = await create.mutateAsync(input);
       } catch (error) {
         const code = mapSubscriptionWriteError(error);
         toast.error(t(code ? `errors.${code}` : 'students.subscription.wizard.createError'));
         return;
       }
+      showInvoiceOutcome(result);
     }
 
-    toast.success(t('students.subscription.wizard.success'));
     onClose();
   };
 

@@ -1,4 +1,4 @@
-import type { RecordPaymentFields } from '@centresoutien/domain';
+import type { RecordPaymentFields, UpdateDraftInvoiceLineAmountFields } from '@centresoutien/domain';
 import type {
   InvoiceListFilters,
   InvoiceListItemView,
@@ -10,6 +10,9 @@ import { ipcInvoicesGateway } from './ipc-invoices-gateway';
 
 /** A direct alias of the domain's own `recordPaymentSchema` shape (already shipped, SOU-93). */
 export type RecordPaymentInput = RecordPaymentFields;
+
+/** A direct alias of the domain's `updateDraftInvoiceLineAmountSchema` shape (SOU-289). */
+export type UpdateInvoiceLineAmountInput = UpdateDraftInvoiceLineAmountFields;
 
 /**
  * The seam the Invoice UI depends on (Dependency Inversion). Hooks call this
@@ -35,6 +38,12 @@ export interface InvoicesGateway {
    * cash-desk header shows rather than a UTC-sliced neighbour.
    */
   reversePayment(paymentId: string, paidOn: string): Promise<void>;
+  /**
+   * Overrides a draft line's amount (SOU-289; `amountMad` is strictly positive
+   * integer centimes). Draft invoices only — issued/cancelled lines are frozen.
+   * Returns the updated invoice (write-then-read-back) so totals refresh.
+   */
+  updateLineAmount(input: UpdateInvoiceLineAmountInput): Promise<InvoiceListItemView>;
   /** Moves a draft invoice to `issued`. Returns the updated invoice (write-then-read-back). */
   issue(invoiceId: string): Promise<InvoiceListItemView>;
   /** Moves a draft or issued invoice to `cancelled`. Returns the updated invoice. */

@@ -5,7 +5,11 @@ import type {
   OpenInvoicesQuery,
 } from './invoice-view';
 import type { InvoicePaymentSummaryView } from './payment-view';
-import type { InvoicesGateway, RecordPaymentInput } from './invoices-gateway';
+import type {
+  InvoicesGateway,
+  RecordPaymentInput,
+  UpdateInvoiceLineAmountInput,
+} from './invoices-gateway';
 
 /**
  * The real {@link InvoicesGateway}: maps each method onto its typed IPC channel
@@ -49,6 +53,15 @@ class IpcInvoicesGateway implements InvoicesGateway {
 
   async reversePayment(paymentId: string, paidOn: string): Promise<void> {
     await window.api.invoke('payment.void', { paymentId, paidOn });
+  }
+
+  async updateLineAmount(input: UpdateInvoiceLineAmountInput): Promise<InvoiceListItemView> {
+    await window.api.invoke('invoice.updateLineAmount', input);
+    const updated = await this.get(input.invoiceId);
+    if (updated === null) {
+      throw new Error(`invoice ${input.invoiceId} line was updated but could not be read back`);
+    }
+    return updated;
   }
 
   async issue(invoiceId: string): Promise<InvoiceListItemView> {

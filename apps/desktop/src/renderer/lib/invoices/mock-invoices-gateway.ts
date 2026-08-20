@@ -6,16 +6,21 @@ import type {
   OpenInvoicesQuery,
 } from './invoice-view';
 import type { InvoicePaymentSummaryView, PaymentView } from './payment-view';
-import type { InvoicesGateway, RecordPaymentInput } from './invoices-gateway';
+import type {
+  InvoicesGateway,
+  RecordPaymentInput,
+  UpdateInvoiceLineAmountInput,
+} from './invoices-gateway';
 import type { PaymentReversalErrorCode } from './payment-reversal-error';
+import type { InvoiceLineWriteErrorCode } from './invoice-line-write-error';
 import { INVOICE_SEED } from './mock-invoices-seed';
 
 /**
- * A rejection carrying the same stable `code` the real `payment.void` raises, so
- * the mock exercises the renderer's `resolveDomainErrorCode` → `errors.${code}`
+ * A rejection carrying the same stable `code` the real channels raise, so the
+ * mock exercises the renderer's `resolveDomainErrorCode` → `errors.${code}`
  * mapping exactly like production (it reads `error.code` on in-process paths).
  */
-function mockDomainError(code: PaymentReversalErrorCode): Error {
+function mockDomainError(code: PaymentReversalErrorCode | InvoiceLineWriteErrorCode): Error {
   return Object.assign(new Error(code), { code });
 }
 
@@ -136,6 +141,29 @@ export class MockInvoicesGateway implements InvoicesGateway {
       return;
     }
     throw mockDomainError('payment-not-found');
+  }
+
+  async updateLineAmount(input: UpdateInvoiceLineAmountInput): Promise<InvoiceListItemView> {
+    const current = this.invoices.get(input.invoiceId);
+    if (!current) throw mockDomainError('invoice-not-found');
+    if (current.status !== 'draft') throw mockDomainError('invoice-not-draft');
+    if (!current.lines.some((line) => line.id === input.lineId)) {
+      throw mockDomainError('invoice-line-not-found');
+    }
+
+    const lines = current.lines.map((line) =>
+      line.id === input.lineId ? { ...line, amountMad: input.amountMad } : line,
+    );
+    const totalMad = lines.reduce((sum, line) => sum + line.amountMad, 0);
+    const updated: InvoiceListItemView = {
+      ...current,
+      lines,
+      totalMad,
+      outstandingMad: Math.max(0, totalMad - current.netPaidMad),
+      paymentStatus: paymentStatusOf(totalMad, current.netPaidMad),
+    };
+    this.invoices.set(updated.id, updated);
+    return updated;
   }
 
   async issue(invoiceId: string): Promise<InvoiceListItemView> {
