@@ -57,7 +57,7 @@ export const teacherAvailabilityIpcContract = {
     response: z.object({ exception: teacherAvailabilityExceptionViewSchema }),
   },
   'teacherAvailabilityException.archive': {
-    request: z.object({ id: z.string() }),
+    request: z.object({ id: z.string().min(1) }),
     response: z.object({ ok: z.literal(true) }),
   },
   'teacherAvailability.recheckSessions': {

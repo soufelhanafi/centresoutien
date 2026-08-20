@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   availabilityRecheckGateway,
   type OutOfWindowOccurrenceView,
@@ -13,21 +13,25 @@ import {
  * rules strand, it opens the popup with it. The save itself is never blocked — a
  * re-check failure is swallowed so a transient read error never masks the
  * successful write. `dismiss` closes the popup; the admin decides what to do with
- * the listed sessions later.
+ * the listed sessions later. Rapid consecutive saves race their rechecks: only
+ * the newest in-flight check may apply, so a slower older response never
+ * overwrites the latest summary — and a newest-empty response clears and closes
+ * a now-stale popup.
  */
 export function useAvailabilityRecheck(teacherId: string) {
   const [sessions, setSessions] = useState<readonly OutOfWindowSessionView[]>([]);
   const [occurrences, setOccurrences] = useState<readonly OutOfWindowOccurrenceView[]>([]);
   const [open, setOpen] = useState(false);
+  const generation = useRef(0);
 
   const check = useCallback(async () => {
+    const requested = ++generation.current;
     try {
       const stranded = await availabilityRecheckGateway.listOutOfWindowSessions(teacherId);
-      if (stranded.sessions.length > 0 || stranded.occurrences.length > 0) {
-        setSessions(stranded.sessions);
-        setOccurrences(stranded.occurrences);
-        setOpen(true);
-      }
+      if (requested !== generation.current) return;
+      setSessions(stranded.sessions);
+      setOccurrences(stranded.occurrences);
+      setOpen(stranded.sessions.length > 0 || stranded.occurrences.length > 0);
     } catch {
       // A re-check read failure must never surface as a save failure (SOU-283).
     }

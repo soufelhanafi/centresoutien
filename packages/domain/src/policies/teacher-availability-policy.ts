@@ -31,11 +31,14 @@ export function recurrenceMaterializationRange(
   validTo: string | null,
   horizon: DateRange,
 ): DateRange | null {
-  const start = validFrom === null ? horizon.start : (validFrom > horizon.start ? validFrom : horizon.start);
-  const end = validTo === null ? horizon.end : (validTo < horizon.end ? validTo : horizon.end);
+  const start = validFrom === null ? horizon.start : laterOf(validFrom, horizon.start);
+  const end = validTo === null ? horizon.end : earlierOf(validTo, horizon.end);
   if (end < start) return null;
   return { start, end };
 }
+
+const laterOf = (a: string, b: string): string => (a > b ? a : b);
+const earlierOf = (a: string, b: string): string => (a < b ? a : b);
 
 // Does a one-off absence cover a specific civil date? The dated-occurrence form
 // of the exception check (SOU-287): an occurrence IS on one date, so no weekday
