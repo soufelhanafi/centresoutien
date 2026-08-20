@@ -48,6 +48,14 @@ describe('mapSubscriptionInvoiceOutcome', () => {
     });
   });
 
+  it('maps generation-failed to a visible warning (subscription saved, invoice not guaranteed)', () => {
+    expect(mapSubscriptionInvoiceOutcome('generation-failed', null)).toEqual({
+      tone: 'warning',
+      messageKey: `${PREFIX}.generationFailed`,
+      invoiceId: null,
+    });
+  });
+
   it('silences invoicing-unavailable (unreachable on shipped plans)', () => {
     expect(mapSubscriptionInvoiceOutcome('invoicing-unavailable', null)).toBeNull();
   });

@@ -36,6 +36,8 @@ export function mapSubscriptionInvoiceOutcome(
       return { tone: 'info', messageKey: `${KEY_PREFIX}.deferred`, invoiceId: null };
     case 'formula-unresolved':
       return { tone: 'warning', messageKey: `${KEY_PREFIX}.notGenerated`, invoiceId: null };
+    case 'generation-failed':
+      return { tone: 'warning', messageKey: `${KEY_PREFIX}.generationFailed`, invoiceId: null };
     case 'invoicing-unavailable':
       return null;
   }

@@ -1067,7 +1067,8 @@
           "alreadyBilled": "Abonnement enregistré. La facture de ce mois couvre déjà cette formule.",
           "issuedSkipped": "Abonnement enregistré, mais la facture de ce mois a déjà été émise : cette formule n'y figure pas. Ajustez la facturation manuellement.",
           "deferred": "Abonnement enregistré. La facture sera générée au début du mois choisi, avec la facturation mensuelle.",
-          "notGenerated": "Abonnement enregistré, mais la facture du mois n'a pas pu être générée. Vérifiez la formule, puis lancez la facturation du mois."
+          "notGenerated": "Abonnement enregistré, mais la facture du mois n'a pas pu être générée. Vérifiez la formule, puis lancez la facturation du mois.",
+          "generationFailed": "Abonnement enregistré, mais la facture du mois n'a pas pu être générée. Relancez la facturation du mois."
         }
       }
     },
