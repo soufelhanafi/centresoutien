@@ -42,8 +42,12 @@ export interface InvoiceRepository extends SoftDeletableRepository<InvoiceId, In
    * verify, inside the same transaction as the insert, that the header is live and
    * `status === 'draft'`, and reject with `InvoiceNotFoundError` /
    * `InvoiceNotDraftError` otherwise — an issued or cancelled invoice's lines are
-   * frozen. Line-level idempotency (skip a `(formulaId, kind)` already billed) is
-   * the calling use case's job, not this method's.
+   * frozen. Transactionally idempotent per logical line: the adapter must skip (not
+   * insert) any supplied line whose `(formulaId, kind)` already exists live on the
+   * invoice, checked inside that same transaction — so two interleaved generators
+   * that both computed the same missing line can never double-append it. The calling
+   * use case still pre-filters already-billed snapshots; this in-transaction skip is
+   * the race-proof backstop.
    */
   appendLinesToDraft(invoiceId: InvoiceId, lines: readonly InvoiceLine[]): Promise<void>;
 

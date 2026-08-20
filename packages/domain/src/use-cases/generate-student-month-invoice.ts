@@ -11,6 +11,7 @@ import {
   type InvoiceLineId,
 } from '../entities/invoice-line';
 import { createInvoiceDraftSchema, type InvoiceLineSnapshot } from '../schemas/invoice';
+import { DuplicateInvoiceError } from '../errors/invoice-errors';
 import type { StudentId } from '../entities/student';
 import type { FormulaId } from '../entities/formula';
 import type { GroupKind } from '../entities/group';
@@ -67,7 +68,11 @@ export type GenerateStudentMonthInvoiceResult = {
  * append vs no-op:
  *
  *  1. No live invoice for `(centerCode, studentId, month)` → delegate to
- *     `CreateInvoiceDraft` (whose own guard re-checks the key) → `created`.
+ *     `CreateInvoiceDraft` (whose own guard re-checks the key) → `created`. If that
+ *     guard throws {@link DuplicateInvoiceError} — a concurrent generator won the
+ *     race between our read and the delegate's — the invoice is re-fetched once and
+ *     handled through steps 2/3 exactly as if it had existed from the start. One
+ *     retry, no loop: the second fetch cannot lose the same race twice.
  *  2. Live **draft** → append one fresh-envelope line per snapshot whose
  *     `(formulaId, kind)` is not already billed on it; all present → `already-billed`,
  *     otherwise `line-appended`.
@@ -95,14 +100,33 @@ export class GenerateStudentMonthInvoice {
       fields.month,
     );
     if (existing === null) {
-      const { invoice } = await this.createInvoiceDraft.execute(input);
-      return { outcome: 'created', invoiceId: invoice.id };
+      try {
+        const { invoice } = await this.createInvoiceDraft.execute(input);
+        return { outcome: 'created', invoiceId: invoice.id };
+      } catch (error) {
+        if (!(error instanceof DuplicateInvoiceError)) throw error;
+        const racedInvoice = await this.invoices.findByStudentMonth(
+          input.centerCode,
+          fields.studentId as StudentId,
+          fields.month,
+        );
+        if (racedInvoice === null) throw error;
+        return this.convergeOnExisting(racedInvoice, fields.lines, input);
+      }
     }
+    return this.convergeOnExisting(existing, fields.lines, input);
+  }
+
+  private async convergeOnExisting(
+    existing: Invoice,
+    snapshots: readonly InvoiceLineSnapshot[],
+    input: GenerateStudentMonthInvoiceInput,
+  ): Promise<GenerateStudentMonthInvoiceResult> {
     if (existing.status !== 'draft') {
       return { outcome: 'issued-skipped', invoiceId: existing.id };
     }
 
-    const missing = await this.snapshotsNotYetBilled(existing.id, fields.lines);
+    const missing = await this.snapshotsNotYetBilled(existing.id, snapshots);
     if (missing.length === 0) {
       return { outcome: 'already-billed', invoiceId: existing.id };
     }

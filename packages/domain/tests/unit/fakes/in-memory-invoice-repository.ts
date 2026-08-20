@@ -42,7 +42,15 @@ export class InMemoryInvoiceRepository
 
   async appendLinesToDraft(invoiceId: InvoiceId, lines: readonly InvoiceLine[]): Promise<void> {
     this.assertLiveDraft(invoiceId);
+    const billedKeys = new Set(
+      this.lines
+        .filter((line) => line.invoiceId === invoiceId && line.deletedAt === null)
+        .map((line) => `${line.formulaId}::${line.kind}`),
+    );
     for (const line of lines) {
+      const key = `${line.formulaId}::${line.kind}`;
+      if (billedKeys.has(key)) continue;
+      billedKeys.add(key);
       this.lines.push(structuredClone(line));
     }
   }

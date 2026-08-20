@@ -42,12 +42,17 @@ export type CreateStudentSubscriptionInput = StudentSubscriptionInput & {
  *    subscription is still created; no invoice was generated.
  *  - `invoicing-unavailable` — the active plan lacks `core.invoicing` (defensive;
  *    every shipped plan has it). The subscription is still created.
+ *  - `generation-failed` — the generation unit threw after the subscription
+ *    persisted (repository failure, unexpected race). The subscription is still
+ *    created; no invoice is guaranteed. The caller surfaces it so the director can
+ *    re-run the month's billing.
  */
 export const SUBSCRIPTION_INVOICE_OUTCOMES = [
   ...STUDENT_MONTH_INVOICE_OUTCOMES,
   'deferred-future-month',
   'formula-unresolved',
   'invoicing-unavailable',
+  'generation-failed',
 ] as const;
 export type SubscriptionInvoiceOutcome = (typeof SUBSCRIPTION_INVOICE_OUTCOMES)[number];
 
@@ -91,7 +96,9 @@ export type CreateStudentSubscriptionResult = {
  * {@link GenerateStudentMonthInvoice} unit as the monthly batch — full formula
  * price, no proration; an existing draft gains a line instead of a second invoice;
  * an issued/cancelled invoice is left untouched. The hook never fails the
- * subscription: its outcome is reported in the result for the caller to surface.
+ * subscription: any error thrown by the generation unit after the subscription
+ * persisted is contained and reported as `generation-failed`; its outcome is
+ * reported in the result for the caller to surface.
  */
 export class CreateStudentSubscription {
   constructor(
@@ -166,21 +173,25 @@ export class CreateStudentSubscription {
       return { outcome: 'formula-unresolved', invoiceId: null };
     }
 
-    const result = await this.generateStudentMonthInvoice.execute({
-      studentId: subscription.studentId,
-      month: subscription.startMonth,
-      lines: [
-        {
-          formulaId: formula.id,
-          label: formula.name,
-          kind: subscription.kind,
-          amountMad: formula.priceMad,
-        },
-      ],
-      centerCode: input.centerCode,
-      deviceOrigin: input.deviceOrigin,
-      updatedBy: input.updatedBy,
-    });
-    return { outcome: result.outcome, invoiceId: result.invoiceId };
+    try {
+      const result = await this.generateStudentMonthInvoice.execute({
+        studentId: subscription.studentId,
+        month: subscription.startMonth,
+        lines: [
+          {
+            formulaId: formula.id,
+            label: formula.name,
+            kind: subscription.kind,
+            amountMad: formula.priceMad,
+          },
+        ],
+        centerCode: input.centerCode,
+        deviceOrigin: input.deviceOrigin,
+        updatedBy: input.updatedBy,
+      });
+      return { outcome: result.outcome, invoiceId: result.invoiceId };
+    } catch {
+      return { outcome: 'generation-failed', invoiceId: null };
+    }
   }
 }

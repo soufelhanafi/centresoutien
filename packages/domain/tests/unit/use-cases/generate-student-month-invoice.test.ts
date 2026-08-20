@@ -3,12 +3,13 @@ import {
   GenerateStudentMonthInvoice,
   type GenerateStudentMonthInvoiceInput,
 } from '../../../src/use-cases/generate-student-month-invoice';
-import { CreateInvoiceDraft } from '../../../src/use-cases/create-invoice-draft';
+import { CreateInvoiceDraft, type CreateInvoiceDraftInput } from '../../../src/use-cases/create-invoice-draft';
 import { IssueInvoice } from '../../../src/use-cases/issue-invoice';
 import { CancelInvoice } from '../../../src/use-cases/cancel-invoice';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
+import { DuplicateInvoiceError } from '../../../src/errors/invoice-errors';
 import type { InvoiceId } from '../../../src/entities/invoice';
 import type { StudentId } from '../../../src/entities/student';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
@@ -160,6 +161,74 @@ describe('GenerateStudentMonthInvoice', () => {
 
       expect(result).toEqual({ outcome: 'issued-skipped', invoiceId: first.invoiceId });
       expect(await invoices.listLines(first.invoiceId)).toHaveLength(1);
+    });
+  });
+
+  describe('DuplicateInvoiceError race (a concurrent generator created the month between read and create)', () => {
+    function buildWithDelegate(
+      delegate: Pick<CreateInvoiceDraft, 'execute'>,
+    ): GenerateStudentMonthInvoice {
+      const policy = new PlanPolicy(PLANS.essentiel);
+      return new GenerateStudentMonthInvoice(
+        invoices,
+        delegate,
+        fakeClock(CLOCK_ISO),
+        fakeIds(900),
+        policy,
+      );
+    }
+
+    // Simulates the single-process async interleaving: another generator creates the
+    // month's draft after this use case's null read, so the delegate's own guard fires.
+    function delegateLosingRaceTo(
+      concurrentInput: GenerateStudentMonthInvoiceInput,
+    ): Pick<CreateInvoiceDraft, 'execute'> {
+      const concurrentCreate = new CreateInvoiceDraft(
+        invoices,
+        fakeClock(CLOCK_ISO),
+        fakeIds(500),
+        new PlanPolicy(PLANS.essentiel),
+      );
+      return {
+        execute: async (input: CreateInvoiceDraftInput) => {
+          await concurrentCreate.execute(concurrentInput);
+          throw new DuplicateInvoiceError(STUDENT, input.month);
+        },
+      };
+    }
+
+    it('converges to already-billed when the raced draft already carries the requested line', async () => {
+      const useCase = buildWithDelegate(delegateLosingRaceTo(validInput({ lines: [mathLine()] })));
+
+      const result = await useCase.execute(validInput({ lines: [mathLine()] }));
+
+      expect(result.outcome).toBe('already-billed');
+      expect(invoices.all()).toHaveLength(1);
+      expect(await invoices.listLines(result.invoiceId)).toHaveLength(1);
+    });
+
+    it('converges to line-appended when the raced draft misses the requested line', async () => {
+      const useCase = buildWithDelegate(delegateLosingRaceTo(validInput({ lines: [bacLine()] })));
+
+      const result = await useCase.execute(validInput({ lines: [mathLine()] }));
+
+      expect(result.outcome).toBe('line-appended');
+      expect(invoices.all()).toHaveLength(1);
+      const lines = await invoices.listLines(result.invoiceId);
+      expect(lines).toHaveLength(2);
+      expect(lines.map((line) => line.kind).sort()).toEqual(['exam-prep', 'regular']);
+    });
+
+    it('rethrows when the re-fetch still resolves no live invoice (guard fired without a row)', async () => {
+      const phantomGuard: Pick<CreateInvoiceDraft, 'execute'> = {
+        execute: async (input: CreateInvoiceDraftInput) => {
+          throw new DuplicateInvoiceError(STUDENT, input.month);
+        },
+      };
+      await expect(buildWithDelegate(phantomGuard).execute(validInput())).rejects.toBeInstanceOf(
+        DuplicateInvoiceError,
+      );
+      expect(invoices.all()).toHaveLength(0);
     });
   });
 

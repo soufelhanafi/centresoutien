@@ -366,6 +366,29 @@ describe('CreateStudentSubscription', () => {
       expect(invoices.all()).toHaveLength(0);
     });
 
+    it('contains a generation failure: the subscription persists and the outcome is generation-failed', async () => {
+      const policy = new PlanPolicy(PLANS.essentiel);
+      const failingGeneration = {
+        execute: async () => {
+          throw new Error('repository unavailable');
+        },
+      };
+      const useCase = new CreateStudentSubscription(
+        subscriptions,
+        students,
+        formulas,
+        failingGeneration,
+        fakeClock(CLOCK_ISO),
+        ids,
+        policy,
+      );
+
+      const { subscription, invoice } = await useCase.execute(validInput({ startMonth: '2026-07' }));
+
+      expect(await subscriptions.findById(subscription.id)).not.toBeNull();
+      expect(invoice).toEqual({ outcome: 'generation-failed', invoiceId: null });
+    });
+
     it('reports invoicing-unavailable (subscription still created) when the plan lacks core.invoicing', async () => {
       const { subscription, invoice } = await build(planWithoutFeature('core.invoicing')).execute(
         validInput({ startMonth: '2026-07' }),
