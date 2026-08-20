@@ -1590,6 +1590,7 @@
       "group": "Groupe",
       "groupPlaceholder": "Choisir un groupe",
       "groupNone": "Sans groupe",
+      "teacherClearedHint": "Enseignant retiré : il n'enseigne pas la matière du groupe choisi.",
       "create": "Créer la séance",
       "save": "Enregistrer",
       "saving": "Enregistrement…",

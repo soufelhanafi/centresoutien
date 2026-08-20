@@ -12,6 +12,7 @@ import {
 } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
 import { localizedText } from '../../lib/planning/localized-text';
+import { useSessionPickerFiltering } from '../../hooks/planning/use-session-picker-filtering';
 import type { SessionFormControl } from '../../lib/planning/session-form-schema';
 import type { SessionFormOptions, SessionGroupOption } from '../../lib/planning/session-options';
 
@@ -32,6 +33,8 @@ export function SessionAssignmentFields({
   options: SessionFormOptions;
 }) {
   const { t, i18n } = useTranslation();
+  const { visibleTeachers, visibleGroups, teacherCleared, selectTeacher, selectGroup } =
+    useSessionPickerFiltering(control, options);
 
   const groupLabel = (group: SessionGroupOption): string => {
     const subject =
@@ -78,7 +81,9 @@ export function SessionAssignmentFields({
             <FormLabel>{t('planning.form.teacher')}</FormLabel>
             <Select
               value={field.value ?? NONE_VALUE}
-              onValueChange={(value) => field.onChange(value === NONE_VALUE ? null : value)}
+              onValueChange={(value) =>
+                selectTeacher(value === NONE_VALUE ? null : value, field.onChange)
+              }
             >
               <FormControl>
                 <SelectTrigger>
@@ -87,13 +92,18 @@ export function SessionAssignmentFields({
               </FormControl>
               <SelectContent>
                 <SelectItem value={NONE_VALUE}>{t('planning.form.teacherNone')}</SelectItem>
-                {options.teachers.map((teacher) => (
+                {visibleTeachers.map((teacher) => (
                   <SelectItem key={teacher.id} value={teacher.id}>
                     {localizedText(teacher.name, i18n.language)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {teacherCleared && (
+              <p role="status" aria-live="polite" className="text-sm text-muted-foreground">
+                {t('planning.form.teacherClearedHint')}
+              </p>
+            )}
             <FieldMessage />
           </FormItem>
         )}
@@ -107,7 +117,9 @@ export function SessionAssignmentFields({
             <FormLabel>{t('planning.form.group')}</FormLabel>
             <Select
               value={field.value ?? NONE_VALUE}
-              onValueChange={(value) => field.onChange(value === NONE_VALUE ? null : value)}
+              onValueChange={(value) =>
+                selectGroup(value === NONE_VALUE ? null : value, field.onChange)
+              }
             >
               <FormControl>
                 <SelectTrigger>
@@ -116,7 +128,7 @@ export function SessionAssignmentFields({
               </FormControl>
               <SelectContent>
                 <SelectItem value={NONE_VALUE}>{t('planning.form.groupNone')}</SelectItem>
-                {options.groups.map((group) => (
+                {visibleGroups.map((group) => (
                   <SelectItem key={group.id} value={group.id}>
                     {groupLabel(group)}
                   </SelectItem>

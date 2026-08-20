@@ -28,9 +28,14 @@ export function useSessionFormOptions(): {
     }
     return {
       rooms: rooms.data.map((room) => ({ id: room.id, name: room.name })),
-      teachers: teachers.data.map((teacher) => ({ id: teacher.id, name: teacher.name })),
+      teachers: teachers.data.map((teacher) => ({
+        id: teacher.id,
+        name: teacher.name,
+        subjectIds: teacher.subjectIds,
+      })),
       groups: groups.data.map((group) => ({
         id: group.id,
+        subjectId: group.subjectId,
         subjectName: group.subjectName,
         level: group.level,
         kind: group.kind,
