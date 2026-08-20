@@ -4,6 +4,7 @@ import type {
   ListInvoices,
   IssueInvoice,
   CancelInvoice,
+  UpdateDraftInvoiceLineAmount,
   InvoicePdfRenderer,
   InvoiceListItem,
   InvoiceLine,
@@ -21,13 +22,15 @@ import { writeTempPdf } from '../../data/fs/temp-pdf';
 export type ListInvoicesUseCase = Pick<ListInvoices, 'execute'>;
 export type IssueInvoiceUseCase = Pick<IssueInvoice, 'execute'>;
 export type CancelInvoiceUseCase = Pick<CancelInvoice, 'execute'>;
+export type UpdateDraftInvoiceLineAmountUseCase = Pick<UpdateDraftInvoiceLineAmount, 'execute'>;
 export type InvoicePdfRendererPort = Pick<InvoicePdfRenderer, 'render'>;
 
-/** Only the surface the invoice list/print/export/issue/cancel channels need. */
+/** Only the surface the invoice list/print/export/issue/cancel/line-edit channels need. */
 export type InvoiceHandlerDeps = PdfAssemblyDeps & {
   listInvoices: ListInvoicesUseCase;
   issueInvoice: IssueInvoiceUseCase;
   cancelInvoice: CancelInvoiceUseCase;
+  updateDraftInvoiceLineAmount: UpdateDraftInvoiceLineAmountUseCase;
   invoicePdfRenderer: InvoicePdfRendererPort;
   centerCode: () => CenterCode;
   updatedBy: () => UserId;
@@ -102,7 +105,12 @@ export function createInvoiceHandlers(
   deps: InvoiceHandlerDeps,
 ): Pick<
   IpcHandlers,
-  'invoice.list' | 'invoice.print' | 'invoice.export' | 'invoice.issue' | 'invoice.cancel'
+  | 'invoice.list'
+  | 'invoice.print'
+  | 'invoice.export'
+  | 'invoice.issue'
+  | 'invoice.cancel'
+  | 'invoice.updateLineAmount'
 > {
   return {
     'invoice.list': async (request) => {
@@ -156,6 +164,16 @@ export function createInvoiceHandlers(
         updatedBy: deps.updatedBy(),
       });
       return toInvoiceTransitionView(invoice);
+    },
+    'invoice.updateLineAmount': async (request) => {
+      const line = await deps.updateDraftInvoiceLineAmount.execute({
+        centerCode: deps.centerCode(),
+        invoiceId: request.invoiceId,
+        lineId: request.lineId,
+        amountMad: request.amountMad,
+        updatedBy: deps.updatedBy(),
+      });
+      return { line: toInvoiceLineView(line) };
     },
   };
 }

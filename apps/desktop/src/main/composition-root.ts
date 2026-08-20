@@ -130,10 +130,12 @@ import {
   ListTeacherPayrollRulesByTeacher,
   CreateInvoiceDraft,
   GenerateMonthlyInvoices,
+  GenerateStudentMonthInvoice,
   ListInvoices,
   ListOverdueInvoices,
   IssueInvoice,
   CancelInvoice,
+  UpdateDraftInvoiceLineAmount,
   MonthlyFeeAttributionService,
   ComputeMonthlyPayrolls,
   ConfirmTeacherPayout,
@@ -699,9 +701,24 @@ export function buildContainer(options: ContainerOptions): Container {
   const archiveSubject = new ArchiveSubject(subjectRepo, subjectReference, clock, plan);
 
   const subscriptionRepo = new SqliteStudentSubscriptionRepository(db);
+  // Invoice persistence + the shared per-student draft generation unit (SOU-289)
+  // are constructed before the subscription use case: enrollment generates the
+  // student's first invoice through the exact same path (and dedup key) as the
+  // monthly batch below.
+  const invoiceRepo = new SqliteInvoiceRepository(db);
+  const createInvoiceDraft = new CreateInvoiceDraft(invoiceRepo, clock, ids, plan);
+  const generateStudentMonthInvoice = new GenerateStudentMonthInvoice(
+    invoiceRepo,
+    createInvoiceDraft,
+    clock,
+    ids,
+    plan,
+  );
   const createStudentSubscription = new CreateStudentSubscription(
     subscriptionRepo,
     studentRepo,
+    formulaRepo,
+    generateStudentMonthInvoice,
     clock,
     ids,
     plan,
@@ -740,15 +757,14 @@ export function buildContainer(options: ContainerOptions): Container {
   const getGroupRoster = new GetGroupRoster(enrollmentRepo, studentRepo, plan);
   const listGroupsWithCounts = new ListGroupsWithCounts(listGroups, enrollmentRepo);
 
-  // Invoicing + the append-only payment ledger (SOU-93). The invoice repository (SOU-67)
-  // is constructed here for the first time — payment use cases read the invoice header +
-  // its immutable lines to size the balance. RecordPayment appends a `payment` (gating a
+  // The append-only payment ledger (SOU-93) — payment use cases read the invoice
+  // header + its lines (via `invoiceRepo`, constructed with the subscription block
+  // above) to size the balance. RecordPayment appends a `payment` (gating a
   // partial amount on `core.invoicing.partial-paid`); VoidPayment appends a `reversal`
   // (never a delete); GetInvoicePaymentSummary derives the status from the ledger.
   // Both writes go through the transactional ledger unit-of-work (SOU-233 / CS-AUD-002),
   // which re-checks the balance/reversal invariant inside the same transaction as the
   // append so a check-then-insert race cannot overshoot the balance or double-reverse.
-  const invoiceRepo = new SqliteInvoiceRepository(db);
   const paymentRepo = new SqlitePaymentRepository(db, changeLog);
   const paymentLedgerUnitOfWork = new SqlitePaymentLedgerUnitOfWork(db, changeLog);
   const recordPayment = new RecordPayment(paymentRepo, invoiceRepo, clock, ids, plan, paymentLedgerUnitOfWork);
@@ -761,14 +777,13 @@ export function buildContainer(options: ContainerOptions): Container {
   // The cash-desk header total (SOU-198): the day-takings aggregate, netted in SQL so it
   // is independent of the recent-feed row cap. Same SqlitePaymentRepository / read port.
   const getDayTakings = new GetDayTakings(paymentRepo, plan);
-  // The monthly generation job (SOU-68): first caller of CreateInvoiceDraft, which
-  // shipped unwired in SOU-67. Idempotent re-runs are CreateInvoiceDraft's own
-  // one-invoice-per-student-per-month guard, not a separate check here.
-  const createInvoiceDraft = new CreateInvoiceDraft(invoiceRepo, clock, ids, plan);
+  // The monthly generation job (SOU-68): delegates every student to the same
+  // GenerateStudentMonthInvoice unit as the enrollment hook (SOU-289), so batch
+  // re-runs and enrollment-first months converge on one invoice per student-month.
   const generateMonthlyInvoices = new GenerateMonthlyInvoices(
     subscriptionRepo,
     formulaRepo,
-    createInvoiceDraft,
+    generateStudentMonthInvoice,
     plan,
   );
   // Invoice list/detail/print/export (SOU-69): the read model (SOU-69 domain)
@@ -783,6 +798,8 @@ export function buildContainer(options: ContainerOptions): Container {
   // only, no new domain logic.
   const issueInvoice = new IssueInvoice(invoiceRepo, clock, plan);
   const cancelInvoice = new CancelInvoice(invoiceRepo, clock, plan);
+  // Draft-line amount override (SOU-289): draft-only; issued/cancelled lines stay frozen.
+  const updateDraftInvoiceLineAmount = new UpdateDraftInvoiceLineAmount(invoiceRepo, clock, plan);
   // Impayés (arrears) list (SOU-103): no new repository — `invoiceRepo` also
   // implements `OverdueInvoiceViewReadPort` (its join is anchored on `invoices`,
   // mirroring the WeeklySessionViewReadPort/WeeklyRecurringSessionRepository
@@ -1410,6 +1427,7 @@ export function buildContainer(options: ContainerOptions): Container {
     listOverdueInvoices,
     issueInvoice,
     cancelInvoice,
+    updateDraftInvoiceLineAmount,
     invoicePdfRenderer,
     enrollStudent,
     unenrollStudent,
