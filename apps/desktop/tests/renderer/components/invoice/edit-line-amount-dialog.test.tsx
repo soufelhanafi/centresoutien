@@ -102,20 +102,34 @@ describe('InvoiceLineTable edit affordance', () => {
 });
 
 describe('InvoiceLineGroup label locale ordering', () => {
-  it('leads with the French label in fr, Arabic as the muted secondary line', async () => {
+  function expectSameLabelCell(primary: HTMLElement, secondary: HTMLElement): void {
+    const cell = primary.closest('td');
+    expect(cell).not.toBeNull();
+    expect(secondary.closest('td')).toBe(cell);
+  }
+
+  function precedesInDom(first: HTMLElement, second: HTMLElement): boolean {
+    return (first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+  }
+
+  it('leads with the French label in fr, Arabic as the secondary line below it', async () => {
     await i18n.changeLanguage('fr');
     renderWithClient(<InvoiceLineTable invoice={invoiceWith('issued')} />);
 
-    expect(screen.getByText('Math seul')).not.toHaveClass('text-muted-foreground');
-    expect(screen.getByText('رياضيات فقط')).toHaveClass('text-muted-foreground');
+    const fr = screen.getByText('Math seul');
+    const ar = screen.getByText('رياضيات فقط');
+    expectSameLabelCell(fr, ar);
+    expect(precedesInDom(fr, ar)).toBe(true);
   });
 
-  it('leads with the Arabic label in ar, French as the muted secondary line', async () => {
+  it('leads with the Arabic label in ar, French as the secondary line below it', async () => {
     await i18n.changeLanguage('ar');
     renderWithClient(<InvoiceLineTable invoice={invoiceWith('issued')} />);
 
-    expect(screen.getByText('رياضيات فقط')).not.toHaveClass('text-muted-foreground');
-    expect(screen.getByText('Math seul')).toHaveClass('text-muted-foreground');
+    const fr = screen.getByText('Math seul');
+    const ar = screen.getByText('رياضيات فقط');
+    expectSameLabelCell(fr, ar);
+    expect(precedesInDom(ar, fr)).toBe(true);
     await i18n.changeLanguage('fr');
   });
 });
