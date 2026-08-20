@@ -92,6 +92,34 @@ describe('SessionForm — stale persisted teacher/group pair on load (AC3)', () 
     expect(screen.getAllByText('Sans enseignant').length).toBeGreaterThan(0);
     expect(screen.queryByText('Prof Maths')).not.toBeInTheDocument();
   });
+
+  it('still clears the teacher when the pair only reads incompatible after options load', async () => {
+    // Options arrive async (TanStack Query): at mount the teacher/group lists are
+    // empty, so the pair reads as "not yet known" and nothing is cleared. When the
+    // real lists resolve as incompatible the reconcile must still fire — the
+    // returned hint flag and the applied clear stay the same load-time decision.
+    const LOADING_OPTIONS: SessionFormOptions = {
+      rooms: INCOMPATIBLE_OPTIONS.rooms,
+      teachers: [],
+      groups: [],
+    };
+    const { rerender } = render(
+      <StrictMode>
+        <SessionForm formId="t" defaultValues={STALE_DEFAULTS} options={LOADING_OPTIONS} onSubmit={vi.fn()} />
+      </StrictMode>,
+    );
+    expect(screen.queryByRole('status')).toBeNull();
+
+    rerender(
+      <StrictMode>
+        <SessionForm formId="t" defaultValues={STALE_DEFAULTS} options={INCOMPATIBLE_OPTIONS} onSubmit={vi.fn()} />
+      </StrictMode>,
+    );
+
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent(HINT);
+    expect(screen.queryByText('Prof Maths')).not.toBeInTheDocument();
+  });
 });
 
 describe('SessionForm — Arabic (RTL)', () => {

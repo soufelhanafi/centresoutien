@@ -26,12 +26,15 @@ export function usePersistedPairReconciliation(
     defaultGroupId,
   );
 
-  // one-shot: a later options refetch must not re-clear the user's fresh choice.
+  // one-shot: fire only when the decision first turns true, so an async options
+  // load that resolves the pair as incompatible *after* mount still clears (the
+  // returned flag and the applied mutation stay the same decision), then lock so a
+  // later refetch can neither re-clear the user's fresh choice nor fake the hint.
   const clearedRef = useRef(false);
   useEffect(() => {
-    if (clearedRef.current) return;
+    if (clearedRef.current || !clearTeacher) return;
     clearedRef.current = true;
-    if (clearTeacher) setValue('teacherId', null, { shouldValidate: true });
+    setValue('teacherId', null, { shouldValidate: true });
   }, [clearTeacher, setValue]);
 
   return clearTeacher;

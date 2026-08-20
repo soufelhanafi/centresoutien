@@ -97,9 +97,13 @@ export type Launched = { app: ElectronApplication; win: Page };
 type Bridge = { invoke: (channel: string, req: unknown) => Promise<unknown> };
 
 export async function launch(locale: Locale, plan: PlanId, userDataDir: string): Promise<Launched> {
+  const env: Record<string, string> = { ...process.env, CS_LOCALE: locale, CS_PLAN: plan };
+  // A parent CS_E2E_OMIT_FEATURES would drop the planning flags and fail these
+  // assertions for non-product reasons; clear it (matches the other E2E suites).
+  delete env['CS_E2E_OMIT_FEATURES'];
   const app = await electron.launch({
     args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
-    env: { ...process.env, CS_LOCALE: locale, CS_PLAN: plan },
+    env,
   });
   const win = await app.firstWindow();
   await win.waitForLoadState('domcontentloaded');
