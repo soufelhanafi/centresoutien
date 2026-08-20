@@ -110,6 +110,7 @@ import {
   GetTeacherAvailability,
   SaveTeacherAvailabilityException,
   ArchiveTeacherAvailabilityException,
+  FindSessionsOutsideTeacherAvailability,
   AttemptLogin,
   LoginThrottlePolicy,
   DeviceSessionService,
@@ -247,7 +248,6 @@ import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
 import { PdfLibScheduleRenderer } from '../data/pdf/pdf-lib-schedule-renderer';
 import { wireSessionPrincipal } from './session/session-principal-wiring';
-import { wireFindSessionsOutsideTeacherAvailability } from './teacher-availability-composition';
 import { SystemClock } from './infra/system-clock';
 import { UlidIdGenerator } from './infra/ulid-id-generator';
 import { HashWasmPasswordHasher } from './infra/hash-wasm-password-hasher';
@@ -1149,13 +1149,12 @@ export function buildContainer(options: ContainerOptions): Container {
     { clock, plan },
   );
   // Re-check (SOU-283, SOU-287): the post-save availability drift read.
-  const findSessionsOutsideTeacherAvailability = wireFindSessionsOutsideTeacherAvailability(
+  const findSessionsOutsideTeacherAvailability = new FindSessionsOutsideTeacherAvailability(
     sessionRepo,
     concreteSessionRepo,
     teacherAvailabilityRepo,
     teacherAvailabilityExceptionRepo,
-    plan,
-    clock,
+    { plan, clock },
   );
   const cancelWeeklySession = new CancelWeeklyRecurringSession(sessionRepo, clock, plan);
 

@@ -129,8 +129,7 @@ describe('FindSessionsOutsideTeacherAvailability', () => {
       occurrences,
       availability,
       exceptions,
-      new PlanPolicy(PLANS.pro),
-      fakeClock('2026-09-01T10:00:00Z'),
+      { plan: new PlanPolicy(PLANS.pro), clock: fakeClock('2026-09-01T10:00:00Z') },
     );
   });
 
@@ -220,8 +219,7 @@ describe('FindSessionsOutsideTeacherAvailability', () => {
       occurrences,
       availability,
       exceptions,
-      new PlanPolicy(planWithout),
-      fakeClock(),
+      { plan: new PlanPolicy(planWithout), clock: fakeClock() },
     );
     await expect(useCase.execute({ centerCode: CENTER, teacherId: TEACHER })).rejects.toBeInstanceOf(
       PlanFeatureUnavailableError,

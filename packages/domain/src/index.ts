@@ -1140,6 +1140,7 @@ export { CancelWeeklyRecurringSession } from './use-cases/cancel-weekly-recurrin
 export type { CancelWeeklyRecurringSessionInput } from './use-cases/cancel-weekly-recurring-session';
 export { FindSessionsOutsideTeacherAvailability } from './use-cases/find-sessions-outside-teacher-availability';
 export type {
+  FindSessionsOutsideTeacherAvailabilityDeps,
   FindSessionsOutsideTeacherAvailabilityInput,
   FindSessionsOutsideTeacherAvailabilityResult,
 } from './use-cases/find-sessions-outside-teacher-availability';

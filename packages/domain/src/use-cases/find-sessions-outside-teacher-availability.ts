@@ -24,6 +24,11 @@ export type FindSessionsOutsideTeacherAvailabilityResult = {
   occurrences: readonly SessionOccurrenceView[];
 };
 
+export type FindSessionsOutsideTeacherAvailabilityDeps = {
+  plan: PlanPolicy;
+  clock: Clock;
+};
+
 // Read-only re-check (SOU-283, extended SOU-287): after a teacher's availability
 // is saved — weekly windows OR a one-off absence — report that teacher's
 // already-scheduled sessions the new rules now place outside availability, for a
@@ -38,14 +43,13 @@ export class FindSessionsOutsideTeacherAvailability {
     private readonly occurrences: SessionOccurrenceViewReadPort,
     private readonly availability: TeacherAvailabilityRepository,
     private readonly availabilityExceptions: TeacherAvailabilityExceptionRepository,
-    private readonly plan: PlanPolicy,
-    private readonly clock: Clock,
+    private readonly deps: FindSessionsOutsideTeacherAvailabilityDeps,
   ) {}
 
   async execute(
     input: FindSessionsOutsideTeacherAvailabilityInput,
   ): Promise<FindSessionsOutsideTeacherAvailabilityResult> {
-    this.plan.require('planning.teacher-availability');
+    this.deps.plan.require('planning.teacher-availability');
 
     const teacherId = toEntityId(input.teacherId);
     const [row, exceptions] = await Promise.all([
@@ -87,7 +91,7 @@ export class FindSessionsOutsideTeacherAvailability {
     absences: readonly DateRange[],
   ): Promise<readonly SessionOccurrenceView[]> {
     if (absences.length === 0) return [];
-    const today = this.clock.now().toISOString().slice(0, 10);
+    const today = this.deps.clock.now().toISOString().slice(0, 10);
     const occurrences = await this.occurrences.listActiveOccurrenceViews(centerCode, today);
     return occurrences.filter(
       (occurrence) =>
