@@ -236,6 +236,50 @@ test('AC4 — narrowing availability that strands an existing session shows a no
 });
 
 // ---------------------------------------------------------------------------
+// AC6 — exception-save re-check (SOU-287): adding a one-off absence that covers
+// an existing materialized occurrence surfaces it in the same non-blocking
+// summary popup the weekly editor uses.
+// ---------------------------------------------------------------------------
+test('AC6 — saving an absence that strands an existing occurrence shows a non-blocking summary popup', async () => {
+  const L = STR[locale()];
+  live = await boot(locale());
+  const win = live.win;
+  const t = live.seeded.teacher;
+
+  // A Mon 15:00–17:00 occurrence materialized on the next Monday.
+  await seedGeneratedSession(win, {
+    roomId: live.seeded.roomId,
+    teacherId: t.id,
+    dayOfWeek: 1,
+    start: '15:00',
+    end: '17:00',
+    from: MONDAYS.first,
+    to: MONDAYS.first,
+  });
+
+  await gotoTeacherAvailability(win, L, t.nameFr);
+
+  // Add an absence covering that Monday through the exceptions dialog.
+  await win.getByRole('button', { name: L.exceptions.new }).click();
+  const dialog = win.getByRole('dialog');
+  await dialog.waitFor();
+  await dialog.getByLabel(L.exceptions.form.startDate, { exact: false }).fill(MONDAYS.first);
+  await dialog.getByLabel(L.exceptions.form.endDate, { exact: false }).fill(MONDAYS.first);
+  await dialog.getByRole('button', { name: L.exceptions.form.create }).click();
+
+  // Non-blocking: the absence save succeeds AND the summary popup lists the
+  // stranded dated occurrence.
+  await expect(win.getByText(L.availability.recheckTitle)).toBeVisible();
+  await expect(win.getByText(locale() === 'ar' ? 'الرياضيات' : 'Mathématiques')).toBeVisible();
+
+  await win.getByRole('button', { name: L.availability.recheckDismiss }).click();
+  await expect(win.getByText(L.availability.recheckTitle)).toBeHidden();
+
+  expect(await pageCrashed(win)).toBe(false);
+  await win.screenshot({ path: `test-results/sou287-ac6-exception-recheck-${locale()}.png` });
+});
+
+// ---------------------------------------------------------------------------
 // AC5 — the schedule audit lists an out-of-window occurrence as a teacher
 // availability finding (session within center hours, only the teacher window
 // strands it).

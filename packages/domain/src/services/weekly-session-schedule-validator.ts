@@ -10,7 +10,8 @@ import type { WeekdayIndex } from '../value-objects/weekday';
 import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-session';
 import type { ScheduledSessionRef } from '../errors/scheduling-errors';
 import { overrideWindowsOn } from '../policies/center-hours-override-policy';
-import { weekdayInWeekOf } from '../value-objects/date-range';
+import { recurrenceMaterializationRange } from '../policies/teacher-availability-policy';
+import { weekSpanOf, weekdayInWeekOf } from '../value-objects/date-range';
 import { loadTeacherAvailabilityForSlot } from '../use-cases/teacher-availability-slot-check';
 import {
   assertScheduleFree,
@@ -53,11 +54,17 @@ export class WeeklySessionScheduleValidator {
   ): Promise<void> {
     const week = resolveWeek(await this.deps.centerHours.listForCenter(centerCode));
     const existing = await this.loadDayRefs(centerCode, fields.dayOfWeek, excludeId);
-    const slotDate = weekdayInWeekOf(this.deps.clock.now().toISOString().slice(0, 10), fields.dayOfWeek);
+    const today = this.deps.clock.now().toISOString().slice(0, 10);
+    const slotDate = weekdayInWeekOf(today, fields.dayOfWeek);
     const overrideWindows = overrideWindowsOn(
       slotDate,
       fields.dayOfWeek,
       await this.deps.overrides.listOverlapping(centerCode, slotDate, slotDate),
+    );
+    const materializationRange = recurrenceMaterializationRange(
+      fields.validFrom,
+      fields.validTo,
+      weekSpanOf(today),
     );
     const availability = await loadTeacherAvailabilityForSlot(
       {
@@ -67,7 +74,7 @@ export class WeeklySessionScheduleValidator {
       },
       centerCode,
       fields.teacherId,
-      slotDate,
+      materializationRange,
     );
     assertScheduleFree(fields, existing, week, overrideWindows, availability);
   }

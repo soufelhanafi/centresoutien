@@ -84,7 +84,6 @@ import {
   CreateWeeklyRecurringSession,
   UpdateWeeklyRecurringSession,
   CancelWeeklyRecurringSession,
-  FindSessionsOutsideTeacherAvailability,
   SessionGenerator,
   PreviewGeneratedSchedule,
   CommitGeneratedSchedule,
@@ -111,6 +110,7 @@ import {
   GetTeacherAvailability,
   SaveTeacherAvailabilityException,
   ArchiveTeacherAvailabilityException,
+  FindSessionsOutsideTeacherAvailability,
   AttemptLogin,
   LoginThrottlePolicy,
   DeviceSessionService,
@@ -1148,14 +1148,13 @@ export function buildContainer(options: ContainerOptions): Container {
     weeklySessionScheduleValidator,
     { clock, plan },
   );
-  // Re-check (SOU-283): after a teacher's weekly availability is saved, list that
-  // teacher's already-scheduled sessions the new windows now strand — a
-  // non-blocking read the availability screen shows in a summary popup. Reads the
-  // enriched week off the same sessionRepo (WeeklySessionViewReadPort).
+  // Re-check (SOU-283, SOU-287): the post-save availability drift read.
   const findSessionsOutsideTeacherAvailability = new FindSessionsOutsideTeacherAvailability(
     sessionRepo,
+    concreteSessionRepo,
     teacherAvailabilityRepo,
-    plan,
+    teacherAvailabilityExceptionRepo,
+    { plan, clock },
   );
   const cancelWeeklySession = new CancelWeeklyRecurringSession(sessionRepo, clock, plan);
 

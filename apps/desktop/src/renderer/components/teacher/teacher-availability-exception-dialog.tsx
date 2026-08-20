@@ -37,15 +37,19 @@ type ExceptionFormValues = z.infer<typeof formSchema>;
  * Create-absence flow for one teacher (SOU-259): a date range (vacation, exam
  * supervision…) with an optional label. Owns the save mutation, toasts the
  * result, and closes on success; the footer's submit targets the form by id.
+ * `onSaved` (SOU-287) fires after a successful save so the caller can run the
+ * non-blocking re-check that surfaces any occurrence the new absence strands.
  */
 export function TeacherAvailabilityExceptionDialog({
   teacherId,
   open,
   onOpenChange,
+  onSaved,
 }: {
   teacherId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSaved?: () => void;
 }) {
   const { t } = useTranslation();
   const formId = useId();
@@ -65,6 +69,7 @@ export function TeacherAvailabilityExceptionDialog({
       toast.success(t('teachers.availability.exceptions.form.success'));
       form.reset();
       onOpenChange(false);
+      onSaved?.();
     } catch {
       toast.error(t('teachers.availability.exceptions.form.error'));
     }

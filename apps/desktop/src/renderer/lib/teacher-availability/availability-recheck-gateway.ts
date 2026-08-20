@@ -23,18 +23,36 @@ export type OutOfWindowSessionView = {
   readonly end: string;
 };
 
-/**
- * The seam the post-save availability re-check depends on (Dependency Inversion):
- * given the teacher whose week was just saved, return the sessions that became
- * out-of-window. The hook calls this interface, never `window.api` directly, so
- * the concrete IPC adapter drops in one place with no change to the popup.
- *
- * Contract-first (SOU-283): the re-check is non-blocking — the save already
- * succeeded; this only surfaces the drift for the admin to review and decide
- * later. An empty result means nothing was stranded and the popup never opens.
- */
+// One dated occurrence a just-saved one-off absence now covers (SOU-287) — the
+// exception-save sibling of OutOfWindowSessionView. Carries the concrete civil
+// `date` (instead of a weekday) so the popup can show when the stranded
+// occurrence actually happens.
+export type OutOfWindowOccurrenceView = {
+  readonly sessionId: string;
+  readonly subjectName: BilingualText | null;
+  readonly teacherName: BilingualText | null;
+  // Materialized occurrence, strict `'YYYY-MM-DD'`.
+  readonly date: string;
+  // `'HH:mm'` wall-clock start/end, not timestamps.
+  readonly start: string;
+  readonly end: string;
+};
+
+// The two drift kinds one re-check reports (SOU-287).
+export type AvailabilityRecheckResult = {
+  readonly sessions: readonly OutOfWindowSessionView[];
+  readonly occurrences: readonly OutOfWindowOccurrenceView[];
+};
+
+// The seam the post-save availability re-check depends on (Dependency Inversion):
+// given the teacher whose availability (weekly windows OR an absence) was just
+// saved, return the sessions that became out-of-window / exception-covered. The
+// hook calls this interface, never `window.api` directly, so the concrete IPC
+// adapter drops in one place with no change to the popup. Contract-first
+// (SOU-283, SOU-287): the re-check is non-blocking — the save already succeeded;
+// this only surfaces the drift, and an empty result never opens the popup.
 export interface AvailabilityRecheckGateway {
-  listOutOfWindowSessions(teacherId: string): Promise<readonly OutOfWindowSessionView[]>;
+  listOutOfWindowSessions(teacherId: string): Promise<AvailabilityRecheckResult>;
 }
 
 /** The active gateway: the real IPC adapter over `teacherAvailability.recheckSessions`. */

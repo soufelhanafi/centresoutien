@@ -165,6 +165,13 @@ export function weekdayInWeekOf(reference: string, weekday: WeekdayIndex): strin
   return addDays(sundayStart, weekday);
 }
 
+// The Sunday-started week span (inclusive `[Sunday, Saturday]`) that contains
+// `reference` (SOU-287) — the manual planner's scheduling horizon.
+export function weekSpanOf(reference: string): DateRange {
+  const start = addDays(reference, -weekdayOf(reference));
+  return { start, end: addDays(start, 6) };
+}
+
 /**
  * Every civil date in `[start, end]`, inclusive, in chronological order; empty
  * when `end < start`. Steps one civil day at a time with month/year rollover —
