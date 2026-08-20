@@ -1,5 +1,7 @@
-import type { Page } from '@playwright/test';
-import type { Locale } from './student-subscription.fixtures';
+import { expect, type Page } from '@playwright/test';
+import type { STR as SUB_STR} from './student-subscription.fixtures';
+import { type Locale } from './student-subscription.fixtures';
+import { escapeRegExp } from './invoices.fixtures';
 
 /**
  * Black-box fixtures for SOU-289 — Generate the student's first invoice
@@ -20,6 +22,44 @@ import type { Locale } from './student-subscription.fixtures';
  */
 
 type Bridge = { invoke: (channel: string, req: unknown) => Promise<unknown> };
+
+/** The one student every SOU-289 scenario enrolls. */
+export const YASSINE = { nameFr: 'Yassine Alaoui', nameAr: 'ياسين العلوي', birthDate: '2010-05-14', level: '3AC' } as const;
+export const REGULAR_FORMULA = { nameFr: 'Maths seul', nameAr: 'الرياضيات فقط', priceMad: 200, kind: 'regular' } as const;
+export const EXAM_FORMULA = { nameFr: 'Préparation Bac Math', nameAr: 'تحضير باك رياضيات', priceMad: 800, kind: 'exam-prep' } as const;
+
+/**
+ * Subscribe via the enrollment tab's wizard. The regular card renders before
+ * the exam-prep card, and a card that already has an active subscription stops
+ * offering "Souscrire" — so `first()` always hits the regular card on a fresh
+ * student, and `last()` always hits the exam-prep card whether or not the
+ * regular card still offers the CTA.
+ */
+export async function subscribeViaWizard(
+  win: Page,
+  L: (typeof SUB_STR)[Locale],
+  opts: { formulaLabel: string; card: 'regular' | 'exam-prep'; startMonth?: string },
+): Promise<void> {
+  const subscribeButtons = win.getByRole('button', { name: L.active.subscribeCta });
+  await (opts.card === 'regular' ? subscribeButtons.first() : subscribeButtons.last()).click();
+  const dialog = win.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  const combobox = dialog.getByRole('combobox', { name: L.wizard.formulaLabel }).or(dialog.getByRole('combobox').first());
+  await expect(combobox).toBeEnabled({ timeout: 3000 });
+  // The formulas query re-render can close a freshly opened listbox; reopen
+  // until the wanted option is actually there before clicking it.
+  const option = win.getByRole('option', { name: escapeRegExp(opts.formulaLabel) });
+  for (let attempt = 0; attempt < 4 && !(await option.isVisible()); attempt += 1) {
+    await combobox.click();
+    await option.waitFor({ state: 'visible', timeout: 2000 }).catch(() => undefined);
+  }
+  await option.click();
+  if (opts.startMonth) {
+    await dialog.getByLabel(L.wizard.startMonthLabel, { exact: false }).fill(opts.startMonth);
+  }
+  await dialog.getByRole('button', { name: L.wizard.confirm }).click();
+  await expect(dialog).toBeHidden();
+}
 
 export const SOU289_STR: Record<
   Locale,
