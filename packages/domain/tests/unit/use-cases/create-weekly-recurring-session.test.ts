@@ -3,6 +3,7 @@ import {
   CreateWeeklyRecurringSession,
   type CreateWeeklyRecurringSessionInput,
 } from '../../../src/use-cases/create-weekly-recurring-session';
+import { WeeklySessionScheduleValidator } from '../../../src/services/weekly-session-schedule-validator';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
@@ -17,6 +18,7 @@ import {
   TeacherConflictError,
   InvalidSessionValidityRangeError,
 } from '../../../src/errors/scheduling-errors';
+import { TeacherUnavailableError } from '../../../src/errors/teacher-availability-errors';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type {
   WeeklyRecurringSession,
@@ -25,12 +27,21 @@ import type {
 import type { Group, GroupId } from '../../../src/entities/group';
 import type { Room, RoomId } from '../../../src/entities/room';
 import type { SubjectId } from '../../../src/entities/subject';
+import type { TeacherId } from '../../../src/entities/teacher';
 import type { CenterHours, CenterHoursId } from '../../../src/entities/center-hours';
 import type {
   CenterHoursOverride,
   CenterHoursOverrideId,
   WeeklyTimeWindows,
 } from '../../../src/entities/center-hours-override';
+import type {
+  TeacherAvailability,
+  TeacherAvailabilityId,
+} from '../../../src/entities/teacher-availability';
+import type {
+  TeacherAvailabilityException,
+  TeacherAvailabilityExceptionId,
+} from '../../../src/entities/teacher-availability-exception';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import type { TimeWindow } from '../../../src/value-objects/time-window';
@@ -40,6 +51,8 @@ import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-r
 import { InMemoryCenterHoursOverrideRepository } from '../fakes/in-memory-center-hours-override-repository';
 import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
 import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
+import { InMemoryTeacherAvailabilityRepository } from '../fakes/in-memory-teacher-availability-repository';
+import { InMemoryTeacherAvailabilityExceptionRepository } from '../fakes/in-memory-teacher-availability-exception-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 
@@ -145,13 +158,56 @@ function seededOverride(dateRange: { start: string; end: string }, hoursByWeekda
   };
 }
 
+function seededAvailability(weeklyWindows: WeeklyTimeWindows, teacherId = TEACHER): TeacherAvailability {
+  seq += 1;
+  return {
+    id: `tav_${String(seq).padStart(26, '0')}` as TeacherAvailabilityId,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
+    teacherId: teacherId as string as TeacherId,
+    weeklyWindows,
+  };
+}
+
+function seededException(dateRange: { start: string; end: string }, teacherId = TEACHER): TeacherAvailabilityException {
+  seq += 1;
+  return {
+    id: `tae_${String(seq).padStart(26, '0')}` as TeacherAvailabilityExceptionId,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
+    teacherId: teacherId as string as TeacherId,
+    dateRange,
+    label: null,
+  };
+}
+
 describe('CreateWeeklyRecurringSession', () => {
   let sessions: InMemoryWeeklyRecurringSessionRepository;
   let groups: InMemoryGroupRepository;
   let rooms: InMemoryRoomRepository;
   let hours: InMemoryCenterHoursRepository;
   let overrides: InMemoryCenterHoursOverrideRepository;
+  let availability: InMemoryTeacherAvailabilityRepository;
+  let availabilityExceptions: InMemoryTeacherAvailabilityExceptionRepository;
   let useCase: CreateWeeklyRecurringSession;
+
+  function buildUseCase(
+    clock: ReturnType<typeof fakeClock>,
+    plan: PlanPolicy,
+  ): CreateWeeklyRecurringSession {
+    const validator = new WeeklySessionScheduleValidator({
+      sessions,
+      centerHours: hours,
+      overrides,
+      availability,
+      availabilityExceptions,
+      clock,
+      plan,
+    });
+    return new CreateWeeklyRecurringSession(sessions, groups, rooms, validator, {
+      clock,
+      ids: fakeIds(),
+      plan,
+    });
+  }
 
   beforeEach(async () => {
     sessions = new InMemoryWeeklyRecurringSessionRepository();
@@ -159,18 +215,11 @@ describe('CreateWeeklyRecurringSession', () => {
     rooms = new InMemoryRoomRepository();
     hours = new InMemoryCenterHoursRepository();
     overrides = new InMemoryCenterHoursOverrideRepository();
+    availability = new InMemoryTeacherAvailabilityRepository();
+    availabilityExceptions = new InMemoryTeacherAvailabilityExceptionRepository();
     await groups.save(makeGroup());
     await rooms.save(makeRoom());
-    useCase = new CreateWeeklyRecurringSession(
-      sessions,
-      groups,
-      rooms,
-      hours,
-      overrides,
-      fakeClock('2026-07-29T10:00:00Z'),
-      fakeIds(),
-      new PlanPolicy(PLANS.essentiel),
-    );
+    useCase = buildUseCase(fakeClock('2026-07-29T10:00:00Z'), new PlanPolicy(PLANS.essentiel));
   });
 
   describe('happy path', () => {
@@ -234,16 +283,7 @@ describe('CreateWeeklyRecurringSession', () => {
         features: new Set<FeatureFlag>(),
         limits: PLANS.essentiel.limits,
       };
-      useCase = new CreateWeeklyRecurringSession(
-        sessions,
-        groups,
-        rooms,
-        hours,
-        overrides,
-        fakeClock(),
-        fakeIds(),
-        new PlanPolicy(planWithout),
-      );
+      useCase = buildUseCase(fakeClock(), new PlanPolicy(planWithout));
       await expect(useCase.execute(validInput())).rejects.toBeInstanceOf(
         PlanFeatureUnavailableError,
       );
@@ -384,6 +424,98 @@ describe('CreateWeeklyRecurringSession', () => {
     });
   });
 
+  // SOU-283: warn-and-force teacher availability. Clock is Wed 2026-07-29; the
+  // Monday of that week (weekdayInWeekOf, Sunday-start) is 2026-07-27, the concrete
+  // date the exception check runs against for a Monday slot. Essentiel holds
+  // planning.teacher-availability under the MVP tier collapse.
+  const AVAIL_MONDAY = 1 as WeekdayIndex;
+  describe('teacher availability (SOU-283)', () => {
+    it('rejects an out-of-window Monday slot with TeacherUnavailableError when a partial window is configured', async () => {
+      await availability.save(seededAvailability(weekWindows({ [AVAIL_MONDAY]: windows(['09:00', '12:00']) })));
+      const error = await useCase
+        .execute(validInput({ teacherId: TEACHER, dayOfWeek: AVAIL_MONDAY, start: '14:00' as TimeOfDay, end: '15:00' as TimeOfDay }))
+        .catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(TeacherUnavailableError);
+      expect((error as TeacherUnavailableError).reason).toBe('out-of-window');
+      expect(sessions.all()).toHaveLength(0);
+    });
+
+    it('accepts an in-window Monday slot when the teacher has a matching window', async () => {
+      await availability.save(seededAvailability(weekWindows({ [AVAIL_MONDAY]: windows(['09:00', '12:00']) })));
+      const session = await useCase.execute(
+        validInput({ teacherId: TEACHER, dayOfWeek: AVAIL_MONDAY, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay }),
+      );
+      expect(session.teacherId).toBe(TEACHER);
+      expect(session.conflictAccepted).toBe(false);
+    });
+
+    it('treats a whole-week-empty row as explicitly unavailable — every placement is out-of-window', async () => {
+      await availability.save(seededAvailability(weekWindows({})));
+      await expect(
+        useCase.execute(validInput({ teacherId: TEACHER, dayOfWeek: AVAIL_MONDAY })),
+      ).rejects.toBeInstanceOf(TeacherUnavailableError);
+      expect(sessions.all()).toHaveLength(0);
+    });
+
+    it('forces past a whole-week-off row with allowScheduleConflict, stamping conflictAccepted', async () => {
+      await availability.save(seededAvailability(weekWindows({})));
+      const session = await useCase.execute(
+        validInput({ teacherId: TEACHER, dayOfWeek: AVAIL_MONDAY, allowScheduleConflict: true }),
+      );
+      expect(session.conflictAccepted).toBe(true);
+      expect(sessions.all()).toHaveLength(1);
+    });
+
+    it('allows a teacher with NO configured row silently (absence of a row = unrestricted)', async () => {
+      const session = await useCase.execute(
+        validInput({ teacherId: TEACHER, dayOfWeek: AVAIL_MONDAY, start: '14:00' as TimeOfDay, end: '15:00' as TimeOfDay }),
+      );
+      expect(session.teacherId).toBe(TEACHER);
+      expect(session.conflictAccepted).toBe(false);
+    });
+
+    it('rejects a slot on a one-off absence date with TeacherUnavailableError (reason exception)', async () => {
+      await availability.save(seededAvailability(weekWindows({ [AVAIL_MONDAY]: windows(['09:00', '18:00']) })));
+      await availabilityExceptions.save(seededException({ start: '2026-07-27', end: '2026-07-27' }));
+      const error = await useCase
+        .execute(validInput({ teacherId: TEACHER, dayOfWeek: AVAIL_MONDAY, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay }))
+        .catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(TeacherUnavailableError);
+      expect((error as TeacherUnavailableError).reason).toBe('exception');
+      expect(sessions.all()).toHaveLength(0);
+    });
+
+    it('ignores availability when the plan lacks planning.teacher-availability', async () => {
+      const planWithout: Plan = {
+        id: 'essentiel',
+        features: new Set<FeatureFlag>(['core.calendar.week']),
+        limits: PLANS.essentiel.limits,
+      };
+      const gatedUseCase = buildUseCase(
+        fakeClock('2026-07-29T10:00:00Z'),
+        new PlanPolicy(planWithout),
+      );
+      await availability.save(seededAvailability(weekWindows({})));
+      const session = await gatedUseCase.execute(
+        validInput({ teacherId: TEACHER, dayOfWeek: AVAIL_MONDAY }),
+      );
+      expect(session.conflictAccepted).toBe(false);
+    });
+
+    it('throws a hard error ahead of the availability warning when both apply', async () => {
+      // Whole-week-off row (warning) AND a room double-book (error): the error wins.
+      await availability.save(seededAvailability(weekWindows({})));
+      await sessions.save(
+        seededSession({ roomId: ROOM, dayOfWeek: AVAIL_MONDAY, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay }),
+      );
+      await expect(
+        useCase.execute(
+          validInput({ teacherId: TEACHER, dayOfWeek: AVAIL_MONDAY, start: '10:00' as TimeOfDay, end: '11:00' as TimeOfDay }),
+        ),
+      ).rejects.toBeInstanceOf(RoomConflictError);
+    });
+  });
+
   describe('validation', () => {
     it('rejects a backwards time range with MalformedSessionTimeError', async () => {
       await expect(
@@ -476,16 +608,7 @@ describe('CreateWeeklyRecurringSession', () => {
     const OTHER_WEEK = { start: '2026-09-06', end: '2026-09-12' };
 
     function useCaseOnMonday(): CreateWeeklyRecurringSession {
-      return new CreateWeeklyRecurringSession(
-        sessions,
-        groups,
-        rooms,
-        hours,
-        overrides,
-        fakeClock('2026-08-10T10:00:00Z'),
-        fakeIds(),
-        new PlanPolicy(PLANS.premium),
-      );
+      return buildUseCase(fakeClock('2026-08-10T10:00:00Z'), new PlanPolicy(PLANS.premium));
     }
 
     async function seedIftarOverride(): Promise<void> {

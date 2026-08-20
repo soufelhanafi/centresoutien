@@ -4,6 +4,14 @@ import { dialogIpcContract } from './dialog-contract';
 import { externalIpcContract } from './external-contract';
 import { syncIpcContract } from './sync-contract';
 import type { syncConflictViewSchema, syncResultViewSchema } from './sync-contract';
+import { teacherAvailabilityIpcContract } from './teacher-availability-contract';
+import {
+  bilingualTextSchema,
+  hoursByWeekdayViewSchema,
+  sessionOccurrenceViewSchema,
+  timeWindowViewSchema,
+  weeklySessionViewSchema,
+} from './view-schemas';
 import {
   subjectInputSchema,
   subjectUpdateInputSchema,
@@ -48,8 +56,6 @@ import {
   SECURITY_QUESTION_KEYS,
   weeklyHoursSchema,
   centerHoursOverrideInputSchema,
-  teacherAvailabilityInputSchema,
-  teacherAvailabilityExceptionInputSchema,
   loginInputSchema,
   centerProfileSchema,
   CENTER_LOGO_PATH_MAX,
@@ -406,19 +412,9 @@ const holidayViewSchema = z.object({
 });
 
 // The presentation projection of a weekly recurring session across the IPC
-// boundary — the enriched planner read model (SOU-118), aligned field-for-field
-// with the domain `WeeklySessionView`. The sync envelope is stripped; there are no
-// Dates (times are wall-clock `'HH:mm'` strings). The join-derived fields degrade
-// to their neutral fallback rather than dropping the row:
-//   - roomName / teacherName: null when the room/teacher is unassigned, archived,
-//     or not-yet-synced. teacherName is bilingual so AR-RTL renders native Arabic.
-//   - groupId / subjectId / subjectName / level: null when the session has no group
-//     or the group is archived. subjectName is also null (while subjectId stays set)
-//     when the subject itself is archived — the grid can still colour by id.
-//   - kind: 'regular' fallback when there is no live group, so the badge/filter
-//     always has a value.
-// Single source of truth for the renderer's `WeeklySessionView` type.
-const bilingualTextSchema = z.object({ fr: z.string(), ar: z.string() });
+// boundary — the enriched planner read model (SOU-118). Split into
+// `view-schemas.ts`; single source of truth for the renderer's `WeeklySessionView`
+// type is imported from there.
 
 // The invoice lifecycle status (SOU-67: draft -> issued -> cancelled), shared by
 // the list/detail read model and the issue/cancel transition responses (SOU-143)
@@ -521,22 +517,6 @@ const agingSummaryEntryViewSchema = z.object({
   outstandingMad: z.number().int().nonnegative(),
 });
 
-const weeklySessionViewSchema = z.object({
-  id: z.string(),
-  dayOfWeek: z.number().int().min(0).max(6),
-  start: z.string(),
-  end: z.string(),
-  roomId: z.string(),
-  roomName: z.string().nullable(),
-  teacherId: z.string().nullable(),
-  teacherName: bilingualTextSchema.nullable(),
-  groupId: z.string().nullable(),
-  subjectId: z.string().nullable(),
-  subjectName: bilingualTextSchema.nullable(),
-  level: z.string().nullable(),
-  kind: z.enum(['regular', 'exam-prep']),
-});
-
 // The schedule PDF export's view scope (SOU-107): `full` prints every live
 // session; the other three narrow to one room/teacher/group and carry BOTH the
 // target id (so the main process can filter the already-fetched
@@ -573,29 +553,8 @@ const sessionViewSchema = z.object({
   end: z.string(),
 });
 
-// The enriched projection of a concrete dated occurrence (SOU-201) — the dated
-// sibling of `weeklySessionViewSchema`, mirroring the domain `SessionOccurrenceView`.
-// The audit report renders names, not raw ids, so this carries the room/teacher/
-// subject/group joins alongside the raw `date`/`start`/`end`. Join-derived fields
-// degrade to their neutral fallback (null names/subject/level; `kind` = 'regular'
-// with no live group) rather than dropping the occurrence. Envelope stripped;
-// times are wall-clock `'HH:mm'` strings, `date` a `YYYY-MM-DD` civil date.
-const sessionOccurrenceViewSchema = z.object({
-  id: z.string(),
-  recurringSessionId: z.string(),
-  date: z.string(),
-  start: z.string(),
-  end: z.string(),
-  roomId: z.string(),
-  roomName: z.string().nullable(),
-  teacherId: z.string().nullable(),
-  teacherName: bilingualTextSchema.nullable(),
-  groupId: z.string().nullable(),
-  subjectId: z.string().nullable(),
-  subjectName: bilingualTextSchema.nullable(),
-  level: z.string().nullable(),
-  kind: z.enum(['regular', 'exam-prep']),
-});
+// The enriched dated-occurrence projection (SOU-201) now lives in
+// `view-schemas.ts`; imported back here for the audit + recheck responses.
 
 // The auto-session-generator's request-side building blocks (SOU-161): the
 // preview channel accepts the domain's own `SessionGeneratorConfig` shape, and
@@ -1007,9 +966,8 @@ const formulaViewSchema = z.object({
 });
 
 // One opening window (SOU-165), 24h `'HH:mm'`. Several per weekday model an iftar
-// or mid-day break. Reused by the center-hours view, the override view, and the
-// generator's skipped-hours report.
-const timeWindowViewSchema = z.object({ open: z.string(), close: z.string() });
+// or mid-day break. Now defined in `view-schemas.ts` (imported back here for the
+// center-hours / override / skipped-hours views).
 
 // The display shape of one weekday's hours returned to the renderer: the
 // user-visible fields only, envelope stripped. `windows` is the day's ordered,
@@ -1021,18 +979,8 @@ const centerHoursViewSchema = z.object({
   windows: z.array(timeWindowViewSchema),
 });
 
-// The seven weekday window lists as a `0..6`-keyed record (the renderer aliases
-// `Record<0..6, TimeWindow[]>`); a weekday's empty list is a closed day. Reused by
-// the override view and the save request so both sides share one shape.
-const hoursByWeekdayViewSchema = z.object({
-  0: z.array(timeWindowViewSchema),
-  1: z.array(timeWindowViewSchema),
-  2: z.array(timeWindowViewSchema),
-  3: z.array(timeWindowViewSchema),
-  4: z.array(timeWindowViewSchema),
-  5: z.array(timeWindowViewSchema),
-  6: z.array(timeWindowViewSchema),
-});
+// The seven weekday window lists as a `0..6`-keyed record now lives in
+// `view-schemas.ts`; imported back here for the override view.
 
 // The display shape of a center-hours override across the IPC boundary (SOU-165):
 // envelope stripped, dates + the `0..6`-keyed weekday window record passed
@@ -1045,23 +993,7 @@ const centerHoursOverrideViewSchema = z.object({
   createdAt: z.string(),
 });
 
-// The display shape of a teacher's weekly availability (SOU-259): envelope
-// stripped, the `0..6`-keyed weekday window record passed through. `null` at
-// the channel level means nothing configured — the teacher is unrestricted.
-const teacherAvailabilityViewSchema = z.object({
-  id: z.string(),
-  teacherId: z.string(),
-  weeklyWindows: hoursByWeekdayViewSchema,
-});
-
-// One one-off teacher absence (SOU-259): inclusive civil-date range plus the
-// director's optional label. Envelope stripped.
-const teacherAvailabilityExceptionViewSchema = z.object({
-  id: z.string(),
-  teacherId: z.string(),
-  dateRange: z.object({ start: z.string(), end: z.string() }),
-  label: z.string().nullable(),
-});
+// The teacher-availability views now live in `teacher-availability-contract.ts`.
 
 // One date `session.generate` skipped because the template's fixed time no longer
 // fits an active override's windows (SOU-165). `windows` is that date's effective
@@ -1590,6 +1522,34 @@ export const ipcContract = {
     request: z.object({ invoiceId: z.string(), locale: z.enum(['fr', 'ar']) }),
     response: z.object({ savedPath: z.string().nullable() }),
   },
+  // Consolidated per-parent monthly statement — the "Facture groupée" (SOU-284): a
+  // single PDF over ALL a guardian's live children this month, derived at read time
+  // from each child's own invoice (no stored parent invoice). Same pdf-lib layout
+  // family as the per-student invoice. `print` opens it in the OS's default PDF
+  // viewer; `export` lets the user pick a save location. `locale` picks the PDF's
+  // language independent of the app's active UI locale, mirroring
+  // `invoice.print`/`invoice.export` (rendered FR-only today). centerCode is
+  // injected in main, never sent from the renderer. Gated by `core.invoicing` +
+  // `core.parents` in `GetParentMonthlyStatement`.
+  'parentStatement.print': {
+    request: z.object({
+      parentId: z.string(),
+      // `YYYY-MM` only: the print handler interpolates `month` into the temp-file
+      // name, so the trust boundary — not the renderer's UX guard — must reject any
+      // path-shaped value before it reaches the filesystem.
+      month: z.string().regex(/^\d{4}-\d{2}$/),
+      locale: z.enum(['fr', 'ar']),
+    }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'parentStatement.export': {
+    request: z.object({
+      parentId: z.string(),
+      month: z.string().regex(/^\d{4}-\d{2}$/),
+      locale: z.enum(['fr', 'ar']),
+    }),
+    response: z.object({ savedPath: z.string().nullable() }),
+  },
   // Issue / cancel (SOU-143) — the two lifecycle transitions `IssueInvoice`/
   // `CancelInvoice` (domain, pre-dating SOU-69) already implement; this ticket
   // only wires them to IPC. `issue` moves draft -> issued; `cancel` moves
@@ -1906,19 +1866,22 @@ export const ipcContract = {
   // place outside any valid window — the drift a center-hours override or a new
   // holiday introduces after generation. Pure read, never mutates; cancelling a
   // stranded occurrence is the separate `session.cancel` per-occurrence
-  // soft-delete below. Each row carries one `reason`: `on-holiday` wins over
-  // `outside-center-hours`. `session` is the ENRICHED `sessionOccurrenceViewSchema`
-  // (room/teacher/subject/group names, level, kind + raw date/time) so the report
-  // shows names, not ids — the renderer never re-joins. centerCode is injected in
-  // main, never sent from the renderer. Gated by `settings.center-hours` (every
-  // plan) in the use case.
+  // soft-delete below. Each row carries one `reason`, in precedence order:
+  // `on-holiday` wins over `outside-center-hours`, which wins over
+  // `outside-teacher-availability` (SOU-283: the teacher is now scheduled outside
+  // their declared availability; only surfaces on plans holding
+  // `planning.teacher-availability`). `session` is the ENRICHED
+  // `sessionOccurrenceViewSchema` (room/teacher/subject/group names, level, kind +
+  // raw date/time) so the report shows names, not ids — the renderer never
+  // re-joins. centerCode is injected in main, never sent from the renderer. Gated
+  // by `settings.center-hours` (every plan) in the use case.
   'session.audit.outside-hours': {
     request: z.object({}),
     response: z.object({
       sessionsOutsideEffectiveHours: z.array(
         z.object({
           session: sessionOccurrenceViewSchema,
-          reason: z.enum(['outside-center-hours', 'on-holiday']),
+          reason: z.enum(['outside-center-hours', 'on-holiday', 'outside-teacher-availability']),
         }),
       ),
     }),
@@ -2025,12 +1988,17 @@ export const ipcContract = {
   // validity window and `active` default (unbounded / true). create/update echo
   // only the id — the grid refetches the enriched `session.week` after a mutation
   // (mirrors `holiday.create`); delete is a soft delete (cancel).
+  // `allowScheduleConflict` (SOU-283): when the renderer re-submits after a flagged
+  // clash, `true` forces the slot past the composite check and stamps
+  // `conflictAccepted`. Optional; absent/`false` runs the check and a clash throws
+  // its standard scheduling error — including the warning-severity
+  // `teacher-unavailable` an out-of-window teacher placement raises.
   'weeklySession.create': {
-    request: weeklyRecurringSessionInputSchema,
+    request: weeklyRecurringSessionInputSchema.extend({ allowScheduleConflict: z.boolean().optional() }),
     response: z.object({ id: z.string() }),
   },
   'weeklySession.update': {
-    request: weeklyRecurringSessionUpdateSchema,
+    request: weeklyRecurringSessionUpdateSchema.extend({ allowScheduleConflict: z.boolean().optional() }),
     response: z.object({ id: z.string() }),
   },
   'weeklySession.delete': {
@@ -2187,35 +2155,6 @@ export const ipcContract = {
   // Soft-delete one override. Idempotent at the boundary (an unknown/already-
   // archived id still reports ok), mirroring `holiday.archive`.
   'centerHoursOverride.archive': {
-    request: z.object({ id: z.string() }),
-    response: z.object({ ok: z.literal(true) }),
-  },
-  // Teacher availability (SOU-259) — weekly windows + one-off absences, gated by
-  // `planning.teacher-availability` in the use cases; centerCode/device/user are
-  // injected in main, never sent. `get` reads one teacher's full picture in a
-  // single round trip (`availability: null` = unrestricted).
-  'teacherAvailability.get': {
-    request: z.object({ teacherId: z.string().min(1) }),
-    response: z.object({
-      availability: teacherAvailabilityViewSchema.nullable(),
-      exceptions: z.array(teacherAvailabilityExceptionViewSchema),
-    }),
-  },
-  // Upsert the weekly windows — the body is the domain's own schema (seven
-  // ordered non-overlapping weekday window lists), validated once here and
-  // reused by the form via zodResolver.
-  'teacherAvailability.save': {
-    request: teacherAvailabilityInputSchema,
-    response: z.object({ availability: teacherAvailabilityViewSchema }),
-  },
-  // Create (omit `id`) or edit (supply `id`) one absence.
-  'teacherAvailabilityException.save': {
-    request: teacherAvailabilityExceptionInputSchema.extend({ id: z.string().optional() }),
-    response: z.object({ exception: teacherAvailabilityExceptionViewSchema }),
-  },
-  // Soft-delete one absence. Idempotent at the boundary (an unknown/already-
-  // archived id still reports ok), mirroring `centerHoursOverride.archive`.
-  'teacherAvailabilityException.archive': {
     request: z.object({ id: z.string() }),
     response: z.object({ ok: z.literal(true) }),
   },
@@ -2398,6 +2337,7 @@ export const ipcContract = {
   ...dialogIpcContract,
   ...externalIpcContract,
   ...syncIpcContract,
+  ...teacherAvailabilityIpcContract,
 } as const;
 
 /** The Subject boundary DTO — the renderer's `SubjectView` is an alias of this. */

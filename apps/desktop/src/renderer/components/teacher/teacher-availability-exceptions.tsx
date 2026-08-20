@@ -14,7 +14,9 @@ import {
 } from '@centresoutien/ui';
 import { formatIsoDate } from '../../lib/center-hours-overrides/dates';
 import { useArchiveTeacherAvailabilityException } from '../../hooks/teacher-availability/use-archive-teacher-availability-exception';
+import { useAvailabilityRecheck } from '../../hooks/teacher-availability/use-availability-recheck';
 import { TeacherAvailabilityExceptionDialog } from './teacher-availability-exception-dialog';
+import { TeacherAvailabilityRecheckDialog } from './teacher-availability-recheck-dialog';
 import type { IpcResponse } from '../../../shared/ipc/contract';
 
 type ExceptionView = IpcResponse<'teacherAvailability.get'>['exceptions'][number];
@@ -22,7 +24,10 @@ type ExceptionView = IpcResponse<'teacherAvailability.get'>['exceptions'][number
 /**
  * The one-off absences of one teacher (SOU-259): a dated list under the weekly
  * editor with add and archive (soft-delete) actions. The list itself comes with
- * the tab's single availability query, so this section owns no read state.
+ * the tab's single availability query, so this section owns no read state. After
+ * an absence is added it runs the SOU-287 re-check: a new absence that strands an
+ * existing dated occurrence surfaces it in the same non-blocking summary popup
+ * the weekly editor uses.
  */
 export function TeacherAvailabilityExceptions({
   teacherId,
@@ -33,6 +38,7 @@ export function TeacherAvailabilityExceptions({
 }) {
   const { t } = useTranslation();
   const [createOpen, setCreateOpen] = useState(false);
+  const recheck = useAvailabilityRecheck(teacherId);
 
   return (
     <section aria-labelledby="teacher-availability-exceptions-title" className="flex flex-col gap-4">
@@ -72,6 +78,13 @@ export function TeacherAvailabilityExceptions({
         teacherId={teacherId}
         open={createOpen}
         onOpenChange={setCreateOpen}
+        onSaved={() => void recheck.check()}
+      />
+      <TeacherAvailabilityRecheckDialog
+        open={recheck.open}
+        onOpenChange={(next) => (next ? undefined : recheck.dismiss())}
+        sessions={recheck.sessions}
+        occurrences={recheck.occurrences}
       />
     </section>
   );

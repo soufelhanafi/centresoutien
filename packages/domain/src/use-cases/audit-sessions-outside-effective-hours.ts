@@ -3,32 +3,22 @@ import type { Clock } from '../ports/clock';
 import type { HolidayRepository } from '../ports/holiday-repository';
 import type { CenterHoursRepository } from '../ports/center-hours-repository';
 import type { CenterHoursOverrideRepository } from '../ports/center-hours-override-repository';
+import type { TeacherAvailabilityRepository } from '../ports/teacher-availability-repository';
+import type { TeacherAvailabilityExceptionRepository } from '../ports/teacher-availability-exception-repository';
 import type { PlanPolicy } from '../plans/plan-policy';
-import type { CenterCode } from '../value-objects/ids';
+import { toEntityId, type CenterCode, type EntityId } from '../value-objects/ids';
 import type { SessionOccurrenceView } from '../read-models/session-occurrence-view';
-import type { HolidayOccurrence } from '../policies/holiday-policy';
-import type { CenterHoursOverride } from '../entities/center-hours-override';
 import type { DayHours } from '../policies/session-conflict-policy';
+import type { TeacherAvailabilityRules } from '../policies/teacher-availability-policy';
 import type { WeekdayIndex } from '../value-objects/weekday';
-import { SessionConflictPolicy } from '../policies/session-conflict-policy';
-import { resolveEffectiveWindows } from '../policies/center-hours-override-policy';
-import { holidayOn } from '../policies/holiday-policy';
-import { weekdayOf } from '../value-objects/date-range';
+import { auditReasonFor, type SessionAuditReason } from '../policies/session-audit-reason';
 import { resolveWeek } from '../schemas/center-hours';
 
-/**
- * Why a materialized session no longer sits in any valid window. A stranded
- * occurrence carries exactly one reason: `on-holiday` wins when a holiday now
- * covers its date (the center is closed the whole day, so its opening windows
- * are moot), otherwise `outside-center-hours` when its fixed `[start, end]` no
- * longer fits the effective windows resolved for that date.
- */
-export type SessionAuditReason = 'outside-center-hours' | 'on-holiday';
+export type { SessionAuditReason } from '../policies/session-audit-reason';
 
 /**
  * One occurrence the audit flags: the enriched {@link SessionOccurrenceView}
- * (display-ready — room/teacher/subject/group names, level, kind, and the raw
- * date/time) paired with the reason it is now stranded.
+ * paired with the reason it is now stranded.
  */
 export type StrandedSession = {
   session: SessionOccurrenceView;
@@ -43,96 +33,96 @@ export type AuditSessionsOutsideEffectiveHoursInput = {
   centerCode: CenterCode;
 };
 
+/** The read ports + clock/plan the center-wide sweep reads; never mutates. */
+export type AuditSessionsDeps = {
+  readonly occurrences: SessionOccurrenceViewReadPort;
+  readonly holidays: HolidayRepository;
+  readonly centerHours: CenterHoursRepository;
+  readonly overrides: CenterHoursOverrideRepository;
+  readonly availability: TeacherAvailabilityRepository;
+  readonly availabilityExceptions: TeacherAvailabilityExceptionRepository;
+  readonly plan: PlanPolicy;
+  readonly clock: Clock;
+};
+
 /**
- * Read-only, center-wide sweep (SOU-201) that reports every live materialized
- * session the *current* effective center hours or holidays now place outside any
- * valid window — the drift that opens up when a center-hours override (SOU-165)
- * or a holiday (SOU-161) is added *after* the sessions were generated. It never
- * mutates or deletes: cancelling a stranded occurrence is `CancelSession`, the
- * separate per-occurrence soft-delete; this only surfaces the candidates.
+ * Read-only, center-wide sweep (SOU-201) reporting every live materialized session
+ * the *current* effective hours or holidays now place outside any valid window —
+ * the drift an override (SOU-165) or holiday (SOU-161) added after generation opens
+ * up. It never mutates; cancelling a stranded occurrence is `CancelSession`.
  *
- * It reads enriched occurrences through {@link SessionOccurrenceViewReadPort} so
- * each result already carries the display fields the report renders (room,
- * teacher, subject, group, level, kind) — the renderer never re-joins. That port
- * also excludes cancelled (soft-deleted) rows, so a just-cancelled occurrence
- * never reappears in the next audit.
- *
- * The verdict per occurrence reuses the same policy logic interactive scheduling
- * already trusts, never a parallel reimplementation:
- * - {@link holidayOn} decides the holiday case (fixed vs lunar recurrence math),
- * - {@link resolveEffectiveWindows} resolves the date's windows with override
- *   precedence over static hours (an override covering the date wins; otherwise
- *   the static weekday hours apply; `null` means no hours constraint for that
- *   date). The static week is first normalized through {@link resolveWeek} — the
- *   same shared fallback the generator uses — so a fresh center with no persisted
- *   `CenterHours` rows audits against the default 09:00–18:00 week rather than
- *   reading as unconstrained (which would false-clean out-of-default occurrences),
- *   and
- * - {@link SessionConflictPolicy.withinWindows} performs the pure fit test.
- *
- * Holiday takes precedence over hours so each stranded occurrence carries one
- * unambiguous reason, mirroring the generator's own order (it skips a holiday
- * date before ever hours-checking it). Scoped to one center; the reads never
- * cross a tenant boundary. Rides under `settings.center-hours` (every plan) — the
- * audit exists to explain the effect of a center-hours/holiday change, so it
- * shares that feature's gate rather than adding a new flag.
- *
- * The sweep is bounded to today-and-forward (UTC civil date from the injected
- * `Clock`): the report is a call to action on sessions that will still happen,
- * so a past occurrence — which may already carry recorded attendance — is never
- * surfaced or offered for cancellation. That floor is passed to the read port and
- * applied in SQL, so history is never materialized just to be discarded.
+ * Enriched occurrences come through {@link SessionOccurrenceViewReadPort} (already
+ * excluding cancelled rows). Each verdict delegates to {@link auditReasonFor},
+ * which reuses the same policies interactive scheduling trusts. Availability only
+ * contributes under `planning.teacher-availability`. Scoped to one center,
+ * today-and-forward (UTC civil date from the injected `Clock`), so history is never
+ * surfaced. Rides under `settings.center-hours` (every plan).
  */
 export class AuditSessionsOutsideEffectiveHours {
-  constructor(
-    private readonly occurrences: SessionOccurrenceViewReadPort,
-    private readonly holidays: HolidayRepository,
-    private readonly centerHours: CenterHoursRepository,
-    private readonly overrides: CenterHoursOverrideRepository,
-    private readonly plan: PlanPolicy,
-    private readonly clock: Clock,
-  ) {}
+  constructor(private readonly deps: AuditSessionsDeps) {}
 
   async execute(
     input: AuditSessionsOutsideEffectiveHoursInput,
   ): Promise<AuditSessionsOutsideEffectiveHoursResult> {
-    this.plan.require('settings.center-hours');
+    this.deps.plan.require('settings.center-hours');
 
-    const today = this.clock.now().toISOString().slice(0, 10);
+    const today = this.deps.clock.now().toISOString().slice(0, 10);
     const [sessions, holidays, week, overrides] = await Promise.all([
-      this.occurrences.listActiveOccurrenceViews(input.centerCode, today),
-      this.holidays.listActive(input.centerCode),
-      this.centerHours.listForCenter(input.centerCode),
-      this.overrides.listForCenter(input.centerCode),
+      this.deps.occurrences.listActiveOccurrenceViews(input.centerCode, today),
+      this.deps.holidays.listActive(input.centerCode),
+      this.deps.centerHours.listForCenter(input.centerCode),
+      this.deps.overrides.listForCenter(input.centerCode),
     ]);
 
     const staticDayByWeekday = new Map<WeekdayIndex, DayHours>(
       resolveWeek(week).map((day) => [day.dayOfWeek, day]),
     );
+    const availabilityByTeacher = await this.loadAvailability(input.centerCode, sessions, today);
 
     const sessionsOutsideEffectiveHours: StrandedSession[] = [];
     for (const session of sessions) {
-      const reason = this.reasonFor(session, holidays, overrides, staticDayByWeekday);
+      const reason = auditReasonFor(session, {
+        holidays,
+        overrides,
+        staticDayByWeekday,
+        availabilityByTeacher,
+      });
       if (reason !== null) sessionsOutsideEffectiveHours.push({ session, reason });
     }
     return { sessionsOutsideEffectiveHours };
   }
 
-  private reasonFor(
-    session: SessionOccurrenceView,
-    holidays: readonly HolidayOccurrence[],
-    overrides: readonly CenterHoursOverride[],
-    staticDayByWeekday: ReadonlyMap<WeekdayIndex, DayHours>,
-  ): SessionAuditReason | null {
-    if (holidayOn(session.date, holidays) !== null) return 'on-holiday';
-    const weekday = weekdayOf(session.date);
-    const staticDay = staticDayByWeekday.get(weekday) ?? null;
-    const windows = resolveEffectiveWindows(session.date, weekday, overrides, staticDay);
-    if (windows === null) return null;
-    const outside = SessionConflictPolicy.withinWindows(
-      { dayOfWeek: weekday, start: session.start, end: session.end },
-      windows,
-    );
-    return outside === null ? null : 'outside-center-hours';
+  /**
+   * The declared availability of every teacher staffing an audited occurrence,
+   * folded per teacher. Empty — every teacher unrestricted — when the plan lacks
+   * `planning.teacher-availability`; a teacher with no row is absent from the map.
+   */
+  private async loadAvailability(
+    centerCode: CenterCode,
+    sessions: readonly SessionOccurrenceView[],
+    today: string,
+  ): Promise<ReadonlyMap<EntityId, TeacherAvailabilityRules>> {
+    const rulesByTeacher = new Map<EntityId, TeacherAvailabilityRules>();
+    if (!this.deps.plan.has('planning.teacher-availability') || sessions.length === 0) {
+      return rulesByTeacher;
+    }
+
+    const lastDate = sessions.reduce((latest, session) => (session.date > latest ? session.date : latest), today);
+    const [rows, exceptionRows] = await Promise.all([
+      this.deps.availability.listForCenter(centerCode),
+      this.deps.availabilityExceptions.listOverlapping(centerCode, today, lastDate),
+    ]);
+    for (const row of rows) {
+      rulesByTeacher.set(toEntityId(row.teacherId), { weeklyWindows: row.weeklyWindows, exceptions: [] });
+    }
+    for (const exception of exceptionRows) {
+      const teacherId = toEntityId(exception.teacherId);
+      const rules = rulesByTeacher.get(teacherId) ?? { weeklyWindows: null, exceptions: [] };
+      rulesByTeacher.set(teacherId, {
+        weeklyWindows: rules.weeklyWindows,
+        exceptions: [...rules.exceptions, exception.dateRange],
+      });
+    }
+    return rulesByTeacher;
   }
 }

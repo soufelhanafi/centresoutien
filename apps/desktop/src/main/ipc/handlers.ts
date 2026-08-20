@@ -106,11 +106,9 @@ import type {
   Holiday,
   HolidayId,
   ListWeekSessions,
-  WeeklySessionView,
   GenerateAndPersistSessions,
   UndoGenerationBatch,
   AuditSessionsOutsideEffectiveHours,
-  SessionOccurrenceView,
   SessionId,
   CancelSession,
   CreateWeeklyRecurringSession,
@@ -144,13 +142,6 @@ import type {
   ArchiveCenterHoursOverride,
   CenterHoursOverride,
   CenterHoursOverrideId,
-  SaveTeacherAvailability,
-  GetTeacherAvailability,
-  SaveTeacherAvailabilityException,
-  ArchiveTeacherAvailabilityException,
-  TeacherAvailability,
-  TeacherAvailabilityException,
-  TeacherAvailabilityExceptionId,
   AttemptLogin,
   GenerateRecoveryCodes,
   VerifyRecoveryCode,
@@ -180,7 +171,6 @@ import {
   HolidayNotFoundError,
   CenterHoursOverrideNotFoundError,
   NiveauNotFoundError,
-  TeacherAvailabilityExceptionNotFoundError,
   NotAuthenticatedError,
   SECURITY_QUESTION_KEYS,
 } from '@centresoutien/domain';
@@ -192,6 +182,10 @@ import { createBackupExcelHandlers, type BackupExcelHandlerDeps } from './backup
 import { createDialogHandlers } from './dialog-handlers';
 import { createExternalHandlers } from './external-handlers';
 import { createInvoiceHandlers, type InvoiceHandlerDeps } from './invoice-handlers';
+import {
+  createParentStatementHandlers,
+  type ParentStatementHandlerDeps,
+} from './parent-statement-handlers';
 import {
   createOverdueInvoiceHandlers,
   type OverdueInvoiceHandlerDeps,
@@ -208,6 +202,11 @@ import {
   createAttendanceReportingHandlers,
   type AttendanceReportingHandlerDeps,
 } from './attendance-reporting-handlers';
+import {
+  createTeacherAvailabilityHandlers,
+  type TeacherAvailabilityHandlerDeps,
+} from './teacher-availability-handlers';
+import { toSessionOccurrenceView, toWeeklySessionView } from './session-mappers';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type GetLicenseStatusUseCase = Pick<GetLicenseStatus, 'execute'>;
@@ -306,13 +305,6 @@ export type SaveCenterHoursOverrideUseCase = Pick<SaveCenterHoursOverride, 'exec
 export type GetCenterHoursOverridesUseCase = Pick<GetCenterHoursOverrides, 'execute'>;
 export type GetActiveCenterHoursOverrideUseCase = Pick<GetActiveCenterHoursOverride, 'execute'>;
 export type ArchiveCenterHoursOverrideUseCase = Pick<ArchiveCenterHoursOverride, 'execute'>;
-export type SaveTeacherAvailabilityUseCase = Pick<SaveTeacherAvailability, 'execute'>;
-export type GetTeacherAvailabilityUseCase = Pick<GetTeacherAvailability, 'execute'>;
-export type SaveTeacherAvailabilityExceptionUseCase = Pick<SaveTeacherAvailabilityException, 'execute'>;
-export type ArchiveTeacherAvailabilityExceptionUseCase = Pick<
-  ArchiveTeacherAvailabilityException,
-  'execute'
->;
 export type AttemptLoginUseCase = Pick<AttemptLogin, 'execute'>;
 export type GenerateRecoveryCodesUseCase = Pick<GenerateRecoveryCodes, 'execute'>;
 export type VerifyRecoveryCodeUseCase = Pick<VerifyRecoveryCode, 'execute'>;
@@ -635,28 +627,6 @@ function toCenterHoursOverrideView(override: CenterHoursOverride) {
   };
 }
 
-/** Project an enriched weekly-session view to its boundary DTO: branded
- *  `TimeOfDay`/id values widened to plain strings for the wire; the join-derived
- *  fields (room/teacher names, subject, level, kind) pass through with their
- *  neutral-fallback nulls already resolved in the domain read model. */
-function toWeeklySessionView(session: WeeklySessionView) {
-  return {
-    id: session.id,
-    dayOfWeek: session.dayOfWeek,
-    start: session.start,
-    end: session.end,
-    roomId: session.roomId,
-    roomName: session.roomName,
-    teacherId: session.teacherId,
-    teacherName: session.teacherName === null ? null : { ...session.teacherName },
-    groupId: session.groupId,
-    subjectId: session.subjectId,
-    subjectName: session.subjectName === null ? null : { ...session.subjectName },
-    level: session.level,
-    kind: session.kind,
-  };
-}
-
 /** Project a concrete dated session to its boundary DTO: envelope stripped, the
  *  branded id / `TimeOfDay` values widened to plain strings for the wire. */
 function toSessionView(session: Session) {
@@ -669,28 +639,6 @@ function toSessionView(session: Session) {
     date: session.date,
     start: session.start,
     end: session.end,
-  };
-}
-
-/** Project an enriched dated occurrence to its boundary DTO (SOU-201): envelope
- *  already absent (read model), branded ids / times widened, bilingual names
- *  cloned so no domain object leaks by reference. */
-function toSessionOccurrenceView(view: SessionOccurrenceView) {
-  return {
-    id: view.id,
-    recurringSessionId: view.recurringSessionId,
-    date: view.date,
-    start: view.start,
-    end: view.end,
-    roomId: view.roomId,
-    roomName: view.roomName,
-    teacherId: view.teacherId,
-    teacherName: view.teacherName === null ? null : { ...view.teacherName },
-    groupId: view.groupId,
-    subjectId: view.subjectId,
-    subjectName: view.subjectName === null ? null : { ...view.subjectName },
-    level: view.level,
-    kind: view.kind,
   };
 }
 
@@ -721,36 +669,6 @@ function toSessionGeneratorConfig(
   return request.mode === 'auto'
     ? { ...base, mode: 'auto' }
     : { ...base, mode: 'custom', pickedWeekdays: request.pickedWeekdays as WeekdayIndex[] };
-}
-
-/** Project a TeacherAvailability to its boundary DTO: envelope stripped, the
- *  `0..6`-keyed weekday window record passed through (SOU-259). */
-function toTeacherAvailabilityView(availability: TeacherAvailability) {
-  const dayWindows = (dayOfWeek: WeekdayIndex) =>
-    availability.weeklyWindows[dayOfWeek].map((window) => ({ open: window.open, close: window.close }));
-  return {
-    id: availability.id,
-    teacherId: availability.teacherId,
-    weeklyWindows: {
-      0: dayWindows(0),
-      1: dayWindows(1),
-      2: dayWindows(2),
-      3: dayWindows(3),
-      4: dayWindows(4),
-      5: dayWindows(5),
-      6: dayWindows(6),
-    },
-  };
-}
-
-/** Project a TeacherAvailabilityException to its boundary DTO (SOU-259). */
-function toTeacherAvailabilityExceptionView(exception: TeacherAvailabilityException) {
-  return {
-    id: exception.id,
-    teacherId: exception.teacherId,
-    dateRange: { start: exception.dateRange.start, end: exception.dateRange.end },
-    label: exception.label,
-  };
 }
 
 /** Project one generator run's proposed group schedule to its boundary DTO:
@@ -893,6 +811,7 @@ function toWeekView(week: readonly CenterHours[]) {
 export type HandlerDeps = BackupHandlerDeps &
   BackupExcelHandlerDeps &
   InvoiceHandlerDeps &
+  ParentStatementHandlerDeps &
   OverdueInvoiceHandlerDeps &
   PayslipHandlerDeps &
   DashboardHandlerDeps &
@@ -902,7 +821,8 @@ export type HandlerDeps = BackupHandlerDeps &
   AttendanceReportingHandlerDeps &
   SyncHandlerDeps &
   CenterSwitchHandlerDeps &
-  UserHandlerDeps & {
+  UserHandlerDeps &
+  TeacherAvailabilityHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
   activePlanFeatures: () => readonly FeatureFlag[];
@@ -999,10 +919,6 @@ export type HandlerDeps = BackupHandlerDeps &
   getCenterHoursOverrides: GetCenterHoursOverridesUseCase;
   getActiveCenterHoursOverride: GetActiveCenterHoursOverrideUseCase;
   archiveCenterHoursOverride: ArchiveCenterHoursOverrideUseCase;
-  saveTeacherAvailability: SaveTeacherAvailabilityUseCase;
-  getTeacherAvailability: GetTeacherAvailabilityUseCase;
-  saveTeacherAvailabilityException: SaveTeacherAvailabilityExceptionUseCase;
-  archiveTeacherAvailabilityException: ArchiveTeacherAvailabilityExceptionUseCase;
   envelopeContext: () => EnvelopeContext;
   adminExists: AdminExists;
   adminUsername: () => Promise<string>;
@@ -1744,20 +1660,25 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       return { records: records.map(toAttendanceRecordView) };
     },
     'weeklySession.create': async (request) => {
+      // `allowScheduleConflict` is spread only when present (exactOptionalPropertyTypes:
+      // the domain input's optional flag rejects an explicit `undefined`).
+      const { allowScheduleConflict, ...fields } = request;
       const session = await deps.createWeeklySession.execute({
-        ...request,
+        ...fields,
         ...deps.envelopeContext(),
+        ...(allowScheduleConflict !== undefined ? { allowScheduleConflict } : {}),
       });
       return { id: session.id };
     },
     'weeklySession.update': async (request) => {
-      const { id, ...fields } = request;
+      const { id, allowScheduleConflict, ...fields } = request;
       const { centerCode, updatedBy } = deps.envelopeContext();
       const session = await deps.updateWeeklySession.execute({
         ...fields,
         centerCode,
         id: id as WeeklyRecurringSessionId,
         updatedBy,
+        ...(allowScheduleConflict !== undefined ? { allowScheduleConflict } : {}),
       });
       return { id: session.id };
     },
@@ -1859,49 +1780,6 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
         // report success instead of a generic error toast. The domain use case
         // still throws so other callers/tests stay strict. Mirrors holiday.archive.
         if (!(error instanceof CenterHoursOverrideNotFoundError)) throw error;
-      }
-      return { ok: true };
-    },
-    'teacherAvailability.get': async (request) => {
-      const view = await deps.getTeacherAvailability.execute({
-        centerCode: deps.envelopeContext().centerCode,
-        teacherId: request.teacherId as TeacherId,
-      });
-      return {
-        availability: view.availability === null ? null : toTeacherAvailabilityView(view.availability),
-        exceptions: view.exceptions.map(toTeacherAvailabilityExceptionView),
-      };
-    },
-    'teacherAvailability.save': async (request) => {
-      const availability = await deps.saveTeacherAvailability.execute({
-        ...deps.envelopeContext(),
-        teacherId: request.teacherId,
-        weeklyWindows: request.weeklyWindows,
-      });
-      return { availability: toTeacherAvailabilityView(availability) };
-    },
-    'teacherAvailabilityException.save': async (request) => {
-      const exception = await deps.saveTeacherAvailabilityException.execute({
-        ...deps.envelopeContext(),
-        ...(request.id !== undefined ? { id: request.id as TeacherAvailabilityExceptionId } : {}),
-        teacherId: request.teacherId,
-        dateRange: request.dateRange,
-        label: request.label,
-      });
-      return { exception: toTeacherAvailabilityExceptionView(exception) };
-    },
-    'teacherAvailabilityException.archive': async (request) => {
-      const { centerCode, updatedBy } = deps.envelopeContext();
-      try {
-        await deps.archiveTeacherAvailabilityException.execute({
-          centerCode,
-          exceptionId: request.id as TeacherAvailabilityExceptionId,
-          updatedBy,
-        });
-      } catch (error) {
-        // Idempotent at the boundary, mirroring centerHoursOverride.archive: an
-        // unknown or already-archived absence already holds the desired end-state.
-        if (!(error instanceof TeacherAvailabilityExceptionNotFoundError)) throw error;
       }
       return { ok: true };
     },
@@ -2023,6 +1901,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     ...createDialogHandlers(deps.dialogPaths),
     ...createExternalHandlers(),
     ...createInvoiceHandlers(deps),
+    ...createParentStatementHandlers(deps),
     ...createOverdueInvoiceHandlers(deps),
     ...createPayslipHandlers(deps),
     ...createDashboardHandlers(deps),
@@ -2033,6 +1912,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     ...createSyncHandlers(deps),
     ...createCenterSwitchHandlers(deps),
     ...createUserHandlers(deps),
+    ...createTeacherAvailabilityHandlers(deps),
   };
 
   // Dev-only plan switcher (SOU-98): `import.meta.env.DEV` is a build-time

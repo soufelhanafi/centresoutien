@@ -80,6 +80,7 @@ import {
   UndoGenerationBatch,
   AuditSessionsOutsideEffectiveHours,
   CancelSession,
+  WeeklySessionScheduleValidator,
   CreateWeeklyRecurringSession,
   UpdateWeeklyRecurringSession,
   CancelWeeklyRecurringSession,
@@ -109,6 +110,7 @@ import {
   GetTeacherAvailability,
   SaveTeacherAvailabilityException,
   ArchiveTeacherAvailabilityException,
+  FindSessionsOutsideTeacherAvailability,
   AttemptLogin,
   LoginThrottlePolicy,
   DeviceSessionService,
@@ -132,6 +134,7 @@ import {
   GenerateMonthlyInvoices,
   GenerateStudentMonthInvoice,
   ListInvoices,
+  GetParentMonthlyStatement,
   ListOverdueInvoices,
   IssueInvoice,
   CancelInvoice,
@@ -242,6 +245,7 @@ import { SqliteBackupStore } from '../data/sqlite/repositories/backup-store';
 import { ExcelBackupAdapter } from '../data/excel/backup-excel-adapter';
 import { DialogPathRegistry } from './ipc/dialog-path-registry';
 import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
+import { PdfLibParentStatementRenderer } from '../data/pdf/pdf-lib-parent-statement-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
 import { PdfLibScheduleRenderer } from '../data/pdf/pdf-lib-schedule-renderer';
@@ -793,6 +797,17 @@ export function buildContainer(options: ContainerOptions): Container {
   // own already-derived totals).
   const listInvoices = new ListInvoices(invoiceRepo, plan);
   const invoicePdfRenderer = new PdfLibInvoiceRenderer();
+  // Consolidated per-parent statement — "Facture groupée" (SOU-284): a pure derived
+  // read model over each child's per-student invoice (no stored parent invoice),
+  // plus its own pdf-lib adapter reusing the SOU-279 invoice primitives. Resolves
+  // the guardian + children center-scoped; gated on core.invoicing + core.parents.
+  const getParentMonthlyStatement = new GetParentMonthlyStatement(
+    parentRepo,
+    studentRepo,
+    invoiceRepo,
+    plan,
+  );
+  const parentStatementPdfRenderer = new PdfLibParentStatementRenderer();
   // Issue / cancel (SOU-143): the two lifecycle transitions shipped unwired
   // alongside CreateInvoiceDraft in SOU-67 (KICKOFF, SOU-69) — thin IPC plumbing
   // only, no new domain logic.
@@ -1105,14 +1120,16 @@ export function buildContainer(options: ContainerOptions): Container {
   // reusing the same repos the generator and hours screens already own. It reads
   // enriched occurrences off the same concreteSessionRepo, which also serves the
   // SessionOccurrenceViewReadPort (one class, several ports). Never mutates.
-  const auditSessionsOutsideHours = new AuditSessionsOutsideEffectiveHours(
-    concreteSessionRepo,
-    holidayRepo,
-    centerHoursRepo,
-    centerHoursOverrideRepo,
+  const auditSessionsOutsideHours = new AuditSessionsOutsideEffectiveHours({
+    occurrences: concreteSessionRepo,
+    holidays: holidayRepo,
+    centerHours: centerHoursRepo,
+    overrides: centerHoursOverrideRepo,
+    availability: teacherAvailabilityRepo,
+    availabilityExceptions: teacherAvailabilityExceptionRepo,
     plan,
     clock,
-  );
+  });
 
   // Per-occurrence cancel (SOU-201): soft-deletes a single stranded dated session
   // by its own Session.id, leaving the recurring template and its other
@@ -1125,24 +1142,36 @@ export function buildContainer(options: ContainerOptions): Container {
   // `sessionRepo` that backs the planner read + the ArchiveRoom guard, reading the
   // center's configured week from `centerHoursRepo`. Cancel is a soft delete. All
   // three gate `core.calendar.week` in the domain.
+  const weeklySessionScheduleValidator = new WeeklySessionScheduleValidator({
+    sessions: sessionRepo,
+    centerHours: centerHoursRepo,
+    overrides: centerHoursOverrideRepo,
+    availability: teacherAvailabilityRepo,
+    availabilityExceptions: teacherAvailabilityExceptionRepo,
+    clock,
+    plan,
+  });
   const createWeeklySession = new CreateWeeklyRecurringSession(
     sessionRepo,
     groupRepo,
     roomRepo,
-    centerHoursRepo,
-    centerHoursOverrideRepo,
-    clock,
-    ids,
-    plan,
+    weeklySessionScheduleValidator,
+    { clock, ids, plan },
   );
   const updateWeeklySession = new UpdateWeeklyRecurringSession(
     sessionRepo,
     groupRepo,
     roomRepo,
-    centerHoursRepo,
-    centerHoursOverrideRepo,
-    clock,
-    plan,
+    weeklySessionScheduleValidator,
+    { clock, plan },
+  );
+  // Re-check (SOU-283, SOU-287): the post-save availability drift read.
+  const findSessionsOutsideTeacherAvailability = new FindSessionsOutsideTeacherAvailability(
+    sessionRepo,
+    concreteSessionRepo,
+    teacherAvailabilityRepo,
+    teacherAvailabilityExceptionRepo,
+    { plan, clock },
   );
   const cancelWeeklySession = new CancelWeeklyRecurringSession(sessionRepo, clock, plan);
 
@@ -1429,6 +1458,8 @@ export function buildContainer(options: ContainerOptions): Container {
     cancelInvoice,
     updateDraftInvoiceLineAmount,
     invoicePdfRenderer,
+    getParentMonthlyStatement,
+    parentStatementPdfRenderer,
     enrollStudent,
     unenrollStudent,
     createTeacher,
@@ -1470,6 +1501,7 @@ export function buildContainer(options: ContainerOptions): Container {
     createWeeklySession,
     updateWeeklySession,
     cancelWeeklySession,
+    findSessionsOutsideTeacherAvailability,
     previewGeneratedSchedule,
     commitGeneratedSchedule,
     saveCenterHours,

@@ -18,6 +18,35 @@ export type TeacherAvailabilityRules = {
   readonly exceptions: readonly DateRange[];
 };
 
+// The concrete occurrence window a bounded weekly recurrence materializes over
+// within a scheduling horizon (SOU-287): intersect the recurrence's validity
+// bounds (`validFrom`/`validTo`, each `null` = unbounded on that side) with the
+// caller's horizon — the manual create/edit planner's current week. Returns
+// `null` when the intersection is empty, so the caller skips exception
+// enforcement rather than labelling a horizon date the recurrence never
+// materializes on (a one-off absence can then never warn about a phantom
+// occurrence). Pure civil-date comparisons; no `Date`.
+export function recurrenceMaterializationRange(
+  validFrom: string | null,
+  validTo: string | null,
+  horizon: DateRange,
+): DateRange | null {
+  const start = validFrom === null ? horizon.start : laterOf(validFrom, horizon.start);
+  const end = validTo === null ? horizon.end : earlierOf(validTo, horizon.end);
+  if (end < start) return null;
+  return { start, end };
+}
+
+const laterOf = (a: string, b: string): string => (a > b ? a : b);
+const earlierOf = (a: string, b: string): string => (a < b ? a : b);
+
+// Does a one-off absence cover a specific civil date? The dated-occurrence form
+// of the exception check (SOU-287): an occurrence IS on one date, so no weekday
+// alignment is needed — just the inclusive-range containment test.
+export function absenceCoversDate(date: string, absence: DateRange): boolean {
+  return absence.start <= date && date <= absence.end;
+}
+
 /**
  * Does at least one occurrence of `weekday` inside `range` fall within
  * `absence`? Pure integer date math (no `Date`): intersect the two inclusive

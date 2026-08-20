@@ -1,9 +1,11 @@
 /**
- * Formats an integer MAD-centimes amount for the invoice PDF: `DH` suffix in
- * French, `د.م.` in Arabic (SOU-69 done-when) — always with Western (Latin)
- * digits, matching how Moroccan invoices are actually written in Arabic.
+ * Formats an integer MAD-centimes amount for a PDF: `DH` suffix in French,
+ * `د.م.` in Arabic (SOU-69 done-when) — always with Western (Latin) digits,
+ * matching how Moroccan invoices are actually written in Arabic. Pass an
+ * explicit `currencySuffix` to override the locale default (the SOU-279 invoice
+ * uses the full `MAD` code, e.g. `2 520,00 MAD`); payslip/receipt keep `DH`.
  */
-export function formatMad(amountMad: number, locale: 'fr' | 'ar'): string {
+export function formatMad(amountMad: number, locale: 'fr' | 'ar', currencySuffix?: string): string {
   const amount = amountMad / 100;
   const numberLocale = locale === 'ar' ? 'ar-MA' : 'fr-MA';
   const formatted = new Intl.NumberFormat(numberLocale, {
@@ -11,5 +13,6 @@ export function formatMad(amountMad: number, locale: 'fr' | 'ar'): string {
     maximumFractionDigits: 2,
     numberingSystem: 'latn',
   }).format(amount);
-  return locale === 'ar' ? `${formatted} د.م.` : `${formatted} DH`;
+  const suffix = currencySuffix ?? (locale === 'ar' ? 'د.م.' : 'DH');
+  return `${formatted} ${suffix}`;
 }

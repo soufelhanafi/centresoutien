@@ -64,7 +64,14 @@ describe('SessionForm — Arabic (RTL)', () => {
 describe('SessionConflictAlert', () => {
   it('lists one localized line per error code in French', async () => {
     await i18n.changeLanguage('fr');
-    render(<SessionConflictAlert codes={['room-conflict', 'malformed-session-time']} />);
+    render(
+      <SessionConflictAlert
+        conflicts={[
+          { severity: 'error', code: 'room-conflict' },
+          { severity: 'error', code: 'malformed-session-time' },
+        ]}
+      />,
+    );
 
     expect(screen.getByRole('alert')).toHaveTextContent('Conflit de planning');
     expect(screen.getByText('La salle est déjà occupée sur ce créneau')).toBeInTheDocument();
@@ -75,12 +82,37 @@ describe('SessionConflictAlert', () => {
 
   it('localizes the lines in Arabic', async () => {
     await i18n.changeLanguage('ar');
-    render(<SessionConflictAlert codes={['teacher-conflict']} />);
+    render(<SessionConflictAlert conflicts={[{ severity: 'error', code: 'teacher-conflict' }]} />);
     expect(screen.getByText('لدى الأستاذ حصة بالفعل في هذا التوقيت')).toBeInTheDocument();
   });
 
+  it('renders the forceable teacher-availability warning with its reason line', async () => {
+    await i18n.changeLanguage('fr');
+    render(
+      <SessionConflictAlert
+        conflicts={[{ severity: 'warning', kind: 'teacher-availability', reason: 'out-of-window' }]}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('Placement à confirmer');
+    expect(
+      screen.getByText("Ce créneau est en dehors des disponibilités déclarées de l'enseignant."),
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to the generic line when the availability reason is unknown', async () => {
+    await i18n.changeLanguage('fr');
+    render(
+      <SessionConflictAlert
+        conflicts={[{ severity: 'warning', kind: 'teacher-availability', reason: null }]}
+      />,
+    );
+    expect(
+      screen.getByText("L'enseignant n'est pas disponible sur ce créneau."),
+    ).toBeInTheDocument();
+  });
+
   it('renders nothing without any conflict', () => {
-    const { container } = render(<SessionConflictAlert codes={[]} />);
+    const { container } = render(<SessionConflictAlert conflicts={[]} />);
     expect(container).toBeEmptyDOMElement();
   });
 });

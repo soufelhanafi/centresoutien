@@ -5,7 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { weeklyHoursSchema, WEEKDAYS, type WeekdayHoursInput } from '@centresoutien/domain';
 import { Button, Form, toast } from '@centresoutien/ui';
 import { useSaveTeacherAvailability } from '../../hooks/teacher-availability/use-save-teacher-availability';
+import { useAvailabilityRecheck } from '../../hooks/teacher-availability/use-availability-recheck';
 import { TeacherAvailabilityWeekdayRow } from './teacher-availability-weekday-row';
+import { TeacherAvailabilityRecheckDialog } from './teacher-availability-recheck-dialog';
 
 // The same seven-row week shape (and shared domain validation) as the
 // center-hours editor: a weekday with an empty window list is a day off.
@@ -28,6 +30,7 @@ export function TeacherAvailabilityWeekForm({
 }) {
   const { t } = useTranslation();
   const save = useSaveTeacherAvailability();
+  const recheck = useAvailabilityRecheck(teacherId);
   const form = useForm<TeacherAvailabilityFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { week: initialWeek },
@@ -43,6 +46,7 @@ export function TeacherAvailabilityWeekForm({
     try {
       await save.mutateAsync({ teacherId, weeklyWindows });
       toast.success(t('teachers.availability.saved'));
+      await recheck.check();
     } catch {
       toast.error(t('teachers.availability.saveError'));
     }
@@ -60,6 +64,12 @@ export function TeacherAvailabilityWeekForm({
           {save.isPending ? t('teachers.availability.saving') : t('teachers.availability.save')}
         </Button>
       </form>
+      <TeacherAvailabilityRecheckDialog
+        open={recheck.open}
+        onOpenChange={(next) => (next ? undefined : recheck.dismiss())}
+        sessions={recheck.sessions}
+        occurrences={recheck.occurrences}
+      />
     </Form>
   );
 }

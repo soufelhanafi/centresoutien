@@ -15,11 +15,14 @@ import type { TeacherAvailabilityExceptionId } from '../entities/teacher-availab
 export type TeacherUnavailableReason = 'out-of-window' | 'exception';
 
 /**
- * A teacher scheduled outside their declared availability (SOU-259). This error
- * is only ever **carried inside** a `GeneratedScheduleConflict` (kind
- * `teacher-availability`) — a non-blocking preview warning the admin can force
- * past, mirroring the SOU-189 teacher double-book — and is never thrown by a
- * use case. `windows` are the teacher's windows for the offending weekday
+ * A teacher scheduled outside their declared availability (SOU-259, SOU-283). It
+ * is carried inside both a `GeneratedScheduleConflict` and a composite
+ * `SessionConflict` of kind `teacher-availability` — a `warning`-severity signal,
+ * never a hard block. In the generator preview it stays a gathered warning; on the
+ * manual create/edit path (SOU-283) the scheduling use case now **throws** it when
+ * it is the sole conflict, so the admin sees the out-of-window placement and can
+ * force past it with `allowScheduleConflict`, exactly like a SOU-189 teacher
+ * double-book. `windows` are the teacher's windows for the offending weekday
  * (empty = whole day off) and `exception` the covering absence range, so the
  * renderer can localize a message naming when the teacher actually works.
  * `teacherId` is an `EntityId`, matching {@link TeacherConflictError}.

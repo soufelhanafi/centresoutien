@@ -6,6 +6,7 @@ import {
 } from '../../../src/use-cases/commit-generated-schedule';
 import { GeneratedScheduleSeatFitGuard } from '../../../src/services/generated-schedule-seat-fit-guard';
 import { CreateWeeklyRecurringSession } from '../../../src/use-cases/create-weekly-recurring-session';
+import { WeeklySessionScheduleValidator } from '../../../src/services/weekly-session-schedule-validator';
 import { GenerateAndPersistSessions } from '../../../src/use-cases/generate-and-persist-sessions';
 import { GenerateSessions } from '../../../src/use-cases/generate-sessions';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
@@ -28,6 +29,8 @@ import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-r
 import { InMemorySessionRepository } from '../fakes/in-memory-session-repository';
 import { InMemoryHolidayRepository } from '../fakes/in-memory-holiday-repository';
 import { InMemoryCenterHoursOverrideRepository } from '../fakes/in-memory-center-hours-override-repository';
+import { InMemoryTeacherAvailabilityRepository } from '../fakes/in-memory-teacher-availability-repository';
+import { InMemoryTeacherAvailabilityExceptionRepository } from '../fakes/in-memory-teacher-availability-exception-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 import { planWithoutFeature } from '../fakes/plans';
@@ -98,22 +101,36 @@ describe('CommitGeneratedSchedule', () => {
   let concreteSessions: InMemorySessionRepository;
   let holidays: InMemoryHolidayRepository;
   let centerHoursOverrides: InMemoryCenterHoursOverrideRepository;
+  let teacherAvailability: InMemoryTeacherAvailabilityRepository;
+  let teacherAvailabilityExceptions: InMemoryTeacherAvailabilityExceptionRepository;
   let useCase: CommitGeneratedSchedule;
+
+  function makeCreateWeeklySession(
+    clock: ReturnType<typeof fakeClock>,
+    ids: ReturnType<typeof fakeIds>,
+    policy: PlanPolicy,
+  ): CreateWeeklyRecurringSession {
+    const validator = new WeeklySessionScheduleValidator({
+      sessions: recurrences,
+      centerHours: centerHoursRepo,
+      overrides: centerHoursOverrides,
+      availability: teacherAvailability,
+      availabilityExceptions: teacherAvailabilityExceptions,
+      clock,
+      plan: policy,
+    });
+    return new CreateWeeklyRecurringSession(recurrences, groups, rooms, validator, {
+      clock,
+      ids,
+      plan: policy,
+    });
+  }
 
   function build(plan: Plan = PLANS.premium, seed = 1): CommitGeneratedSchedule {
     const clock = fakeClock('2026-08-01T00:00:00Z');
     const ids = fakeIds(seed);
     const policy = new PlanPolicy(plan);
-    const createWeeklySession = new CreateWeeklyRecurringSession(
-      recurrences,
-      groups,
-      rooms,
-      centerHoursRepo,
-      centerHoursOverrides,
-      clock,
-      ids,
-      policy,
-    );
+    const createWeeklySession = makeCreateWeeklySession(clock, ids, policy);
     const generateAndPersist = new GenerateAndPersistSessions(
       concreteSessions,
       recurrences,
@@ -153,6 +170,8 @@ describe('CommitGeneratedSchedule', () => {
     concreteSessions = new InMemorySessionRepository();
     holidays = new InMemoryHolidayRepository();
     centerHoursOverrides = new InMemoryCenterHoursOverrideRepository();
+    teacherAvailability = new InMemoryTeacherAvailabilityRepository();
+    teacherAvailabilityExceptions = new InMemoryTeacherAvailabilityExceptionRepository();
     useCase = build();
   });
 
@@ -264,12 +283,7 @@ describe('CommitGeneratedSchedule', () => {
     it('rejects a block that clashes with an already-committed session', async () => {
       const group = makeGroup();
       await groups.save(group);
-      const clashing = new CreateWeeklyRecurringSession(
-        recurrences,
-        groups,
-        rooms,
-        centerHoursRepo,
-        centerHoursOverrides,
+      const clashing = makeCreateWeeklySession(
         fakeClock('2026-07-01T00:00:00Z'),
         fakeIds(900),
         new PlanPolicy(PLANS.essentiel),
@@ -318,12 +332,7 @@ describe('CommitGeneratedSchedule', () => {
 
   describe('per-block force / exclude (SOU-183)', () => {
     async function seedClashingMondaySlot(): Promise<void> {
-      const clashing = new CreateWeeklyRecurringSession(
-        recurrences,
-        groups,
-        rooms,
-        centerHoursRepo,
-        centerHoursOverrides,
+      const clashing = makeCreateWeeklySession(
         fakeClock('2026-07-01T00:00:00Z'),
         fakeIds(900),
         new PlanPolicy(PLANS.essentiel),
