@@ -226,6 +226,56 @@ describe('SqliteInvoiceRepository', () => {
       ).rejects.toBeInstanceOf(InvoiceNotFoundError);
     });
 
+    it('skips a line whose live (formula_id, kind) is already on the invoice — a raced double append inserts once', async () => {
+      const invoice = makeInvoice();
+      const first = makeLine(invoice.id, { amountMad: 20000 });
+      await repo.createDraft(invoice, [first]);
+
+      // Same (formula_id, kind) computed as "missing" by two interleaved generators:
+      // the second append must be dropped in-transaction, never double-billed.
+      await repo.appendLinesToDraft(invoice.id, [
+        makeLine(invoice.id, { formulaId: first.formulaId, kind: first.kind, amountMad: 20000 }),
+      ]);
+
+      const lines = await repo.listLines(invoice.id);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]?.id).toBe(first.id);
+    });
+
+    it('deduplicates the same (formula_id, kind) within one supplied batch', async () => {
+      const invoice = makeInvoice();
+      await repo.createDraft(invoice, [makeLine(invoice.id)]);
+
+      await repo.appendLinesToDraft(invoice.id, [
+        makeLine(invoice.id, { kind: 'exam-prep', amountMad: 80000 }),
+        makeLine(invoice.id, { kind: 'exam-prep', amountMad: 80000 }),
+      ]);
+
+      expect(await repo.listLines(invoice.id)).toHaveLength(2);
+    });
+
+    it('only LIVE lines block the insert: a tombstoned (formula_id, kind) may be re-billed', async () => {
+      const invoice = makeInvoice();
+      const original = makeLine(invoice.id);
+      await repo.createDraft(invoice, [original]);
+      // A synced-in tombstone on the line (the port itself only cascades deletes
+      // from the header): the key must free up for a fresh append.
+      db.prepare('UPDATE invoice_lines SET deleted_at = ? WHERE id = ?').run(
+        '2026-08-02T00:00:00.000Z',
+        original.id,
+      );
+
+      const replacement = makeLine(invoice.id, {
+        formulaId: original.formulaId,
+        kind: original.kind,
+      });
+      await repo.appendLinesToDraft(invoice.id, [replacement]);
+
+      const lines = await repo.listLines(invoice.id);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]?.id).toBe(replacement.id);
+    });
+
     it('is atomic: an invalid line rolls back the whole append', async () => {
       const invoice = makeInvoice();
       await repo.createDraft(invoice, [makeLine(invoice.id)]);
@@ -233,7 +283,12 @@ describe('SqliteInvoiceRepository', () => {
       await expect(
         repo.appendLinesToDraft(invoice.id, [
           makeLine(invoice.id, { kind: 'exam-prep' }),
-          makeLine(invoice.id, { amountMad: -1 }), // violates CHECK (amount_mad >= 0)
+          // Fresh (formula_id, kind) so the idempotency skip lets it through to the
+          // INSERT, where it violates CHECK (amount_mad >= 0).
+          makeLine(invoice.id, {
+            formulaId: 'fml_00000000000000000000000010' as FormulaId,
+            amountMad: -1,
+          }),
         ]),
       ).rejects.toThrow();
       expect(await repo.listLines(invoice.id)).toHaveLength(1);

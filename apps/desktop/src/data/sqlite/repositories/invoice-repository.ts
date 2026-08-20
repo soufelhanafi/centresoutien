@@ -1,5 +1,7 @@
 import type { Database as DB } from 'better-sqlite3';
+import { z } from 'zod';
 import {
+  INVOICE_STATUSES,
   INVOICE_LIST_MAX_PAGE_SIZE,
   foldSearchText,
   InvoiceLineNotFoundError,
@@ -77,6 +79,14 @@ type OverdueInvoiceQueryRow = {
   total_mad: number;
   net_paid_mad: number;
 };
+
+/** Narrows the `assertLiveDraft` status probe without an `as` cast: the row is
+ *  `unknown` until zod proves it carries a legal lifecycle status. */
+const invoiceStatusRowSchema = z.object({ status: z.enum(INVOICE_STATUSES) });
+
+/** Narrows the live `(formula_id, kind)` probe behind `appendLinesToDraft`'s
+ *  in-transaction idempotency check. */
+const billedLineKeyRowSchema = z.object({ formula_id: z.string(), kind: z.string() });
 
 /** Parse the stored JSON guardian array back into branded ParentIds — mirrors
  *  `SqliteStudentRepository`'s own parser (not exported from there). */
@@ -230,15 +240,34 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
     insertAll(invoice, lines);
   }
 
+  // The in-transaction (formula_id, kind) skip is the port's idempotency backstop:
+  // two interleaved generators that both computed the same missing line serialize on
+  // this transaction, and the second one's duplicate is dropped, not double-billed.
   async appendLinesToDraft(invoiceId: InvoiceId, lines: readonly InvoiceLine[]): Promise<void> {
     const appendAll = this.db.transaction((rows: readonly InvoiceLine[]) => {
       this.assertLiveDraft(invoiceId);
+      const billedKeys = this.listLiveLineKeys(invoiceId);
       const insertLine = this.db.prepare(INSERT_LINE_SQL);
       for (const line of rows) {
+        const key = `${line.formulaId}::${line.kind}`;
+        if (billedKeys.has(key)) continue;
+        billedKeys.add(key);
         insertLine.run(lineToParams(line));
       }
     });
     appendAll(lines);
+  }
+
+  private listLiveLineKeys(invoiceId: InvoiceId): Set<string> {
+    const rows: unknown[] = this.db
+      .prepare('SELECT formula_id, kind FROM invoice_lines WHERE invoice_id = ? AND deleted_at IS NULL')
+      .all(invoiceId);
+    return new Set(
+      rows.map((row) => {
+        const { formula_id, kind } = billedLineKeyRowSchema.parse(row);
+        return `${formula_id}::${kind}`;
+      }),
+    );
   }
 
   async updateDraftLineAmount(line: InvoiceLine): Promise<void> {
@@ -265,14 +294,15 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
   }
 
   private assertLiveDraft(invoiceId: InvoiceId): void {
-    const row = this.db
+    const row: unknown = this.db
       .prepare('SELECT status FROM invoices WHERE id = ? AND deleted_at IS NULL')
-      .get(invoiceId) as { status: string } | undefined;
+      .get(invoiceId);
     if (row === undefined) {
       throw new InvoiceNotFoundError(invoiceId);
     }
-    if (row.status !== 'draft') {
-      throw new InvoiceNotDraftError(invoiceId, row.status as InvoiceStatus);
+    const { status } = invoiceStatusRowSchema.parse(row);
+    if (status !== 'draft') {
+      throw new InvoiceNotDraftError(invoiceId, status);
     }
   }
 
