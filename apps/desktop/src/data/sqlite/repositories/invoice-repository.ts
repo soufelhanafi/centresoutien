@@ -228,7 +228,7 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
     this.db.prepare(SAVE_INVOICE_SQL).run(invoiceToParams(invoice));
   }
 
-  /** Insert the draft header + all its lines in one transaction (write-once lines). */
+  /** Insert the draft header + all its lines in one transaction. */
   async createDraft(invoice: Invoice, lines: readonly InvoiceLine[]): Promise<void> {
     const insertAll = this.db.transaction((inv: Invoice, rows: readonly InvoiceLine[]) => {
       this.db.prepare(SAVE_INVOICE_SQL).run(invoiceToParams(inv));
