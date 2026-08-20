@@ -3,6 +3,9 @@ import {
   CreateStudentSubscription,
   type CreateStudentSubscriptionInput,
 } from '../../../src/use-cases/create-student-subscription';
+import { CreateInvoiceDraft } from '../../../src/use-cases/create-invoice-draft';
+import { GenerateStudentMonthInvoice } from '../../../src/use-cases/generate-student-month-invoice';
+import { IssueInvoice } from '../../../src/use-cases/issue-invoice';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
@@ -11,9 +14,13 @@ import { TooManyActiveSubscriptionsError } from '../../../src/errors/subscriptio
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import type { Student, StudentId } from '../../../src/entities/student';
+import type { Formula, FormulaId } from '../../../src/entities/formula';
+import type { SubjectId } from '../../../src/entities/subject';
 import type { IdGenerator } from '../../../src/ports/id-generator';
 import { InMemoryStudentSubscriptionRepository } from '../fakes/in-memory-student-subscription-repository';
 import { InMemoryStudentRepository } from '../fakes/in-memory-student-repository';
+import { InMemoryFormulaRepository } from '../fakes/in-memory-formula-repository';
+import { InMemoryInvoiceRepository } from '../fakes/in-memory-invoice-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 import { planWithoutFeature } from '../fakes/plans';
@@ -26,6 +33,8 @@ const STUDENT_ID = 'stu_00000000000000000000000001' as StudentId;
 const FORMULA_ID = 'fml_00000000000000000000000002';
 const SUBJECT_MATH = 'sub_00000000000000000000000003';
 const SUBJECT_PHYS = 'sub_00000000000000000000000004';
+// The use-case clock — the current UTC month every test runs in is 2026-07.
+const CLOCK_ISO = '2026-07-31T10:00:00Z';
 
 const envelopeClock = fakeClock('2026-01-01T00:00:00Z');
 
@@ -40,6 +49,20 @@ function makeStudent(overrides: Partial<Student> = {}): Student {
     school: null,
     notes: null,
     guardianIds: [],
+    ...overrides,
+  };
+}
+
+function makeFormula(overrides: Partial<Formula> = {}): Formula {
+  return {
+    id: FORMULA_ID as FormulaId,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
+    name: { fr: 'Math + Physique', ar: 'رياضيات وفيزياء' },
+    subjectIds: [SUBJECT_MATH as SubjectId, SUBJECT_PHYS as SubjectId],
+    priceMad: 35000,
+    kind: 'regular',
+    isImmutable: false,
+    active: true,
     ...overrides,
   };
 }
@@ -64,28 +87,44 @@ function validInput(
 describe('CreateStudentSubscription', () => {
   let subscriptions: InMemoryStudentSubscriptionRepository;
   let students: InMemoryStudentRepository;
+  let formulas: InMemoryFormulaRepository;
+  let invoices: InMemoryInvoiceRepository;
   let ids: IdGenerator;
 
   function build(plan: Plan): CreateStudentSubscription {
+    const policy = new PlanPolicy(plan);
+    const createInvoiceDraft = new CreateInvoiceDraft(invoices, fakeClock(CLOCK_ISO), ids, policy);
+    const generateStudentMonthInvoice = new GenerateStudentMonthInvoice(
+      invoices,
+      createInvoiceDraft,
+      fakeClock(CLOCK_ISO),
+      ids,
+      policy,
+    );
     return new CreateStudentSubscription(
       subscriptions,
       students,
-      fakeClock('2026-07-31T10:00:00Z'),
+      formulas,
+      generateStudentMonthInvoice,
+      fakeClock(CLOCK_ISO),
       ids,
-      new PlanPolicy(plan),
+      policy,
     );
   }
 
   beforeEach(async () => {
     subscriptions = new InMemoryStudentSubscriptionRepository();
     students = new InMemoryStudentRepository();
+    formulas = new InMemoryFormulaRepository();
+    invoices = new InMemoryInvoiceRepository();
     ids = fakeIds();
     await students.save(makeStudent());
+    await formulas.save(makeFormula());
   });
 
   describe('happy path', () => {
     it('creates a subscription with the sbs_ prefix, frozen snapshot, and a fresh envelope', async () => {
-      const subscription = await build(PLANS.essentiel).execute(
+      const { subscription } = await build(PLANS.essentiel).execute(
         validInput({ startMonth: '2026-09', endMonth: '2027-06' }),
       );
 
@@ -99,21 +138,21 @@ describe('CreateStudentSubscription', () => {
       expect(subscription.centerCode).toBe(CENTER);
       expect(subscription.deviceOrigin).toBe(DEVICE);
       expect(subscription.updatedBy).toBe(USER);
-      expect(subscription.createdAt).toEqual(new Date('2026-07-31T10:00:00Z'));
+      expect(subscription.createdAt).toEqual(new Date(CLOCK_ISO));
       expect(subscription.updatedAt).toEqual(subscription.createdAt);
       expect(subscription.deletedAt).toBeNull();
       expect(subscription.version).toBe(0);
     });
 
     it('defaults endMonth to null (open-ended / active) and persists so it can be read back', async () => {
-      const subscription = await build(PLANS.essentiel).execute(validInput());
+      const { subscription } = await build(PLANS.essentiel).execute(validInput());
       expect(subscription.endMonth).toBeNull();
       expect(await subscriptions.findById(subscription.id)).toEqual(subscription);
     });
 
     it('allows one active regular AND one active exam-prep subscription at once (different kinds)', async () => {
       await build(PLANS.pro).execute(validInput({ kind: 'regular' }));
-      const examPrep = await build(PLANS.pro).execute(
+      const { subscription: examPrep } = await build(PLANS.pro).execute(
         validInput({ kind: 'exam-prep', subjectIds: [SUBJECT_MATH] }),
       );
       expect(await subscriptions.findById(examPrep.id)).not.toBeNull();
@@ -124,10 +163,10 @@ describe('CreateStudentSubscription', () => {
   describe('close-and-reopen (non-overlapping same-kind)', () => {
     it('permits a new regular subscription starting after the prior one was closed', async () => {
       // First runs 2026-09..2026-12 (closed), reopen starts 2027-01 — no overlap.
-      const first = await build(PLANS.essentiel).execute(
+      const { subscription: first } = await build(PLANS.essentiel).execute(
         validInput({ startMonth: '2026-09', endMonth: '2026-12' }),
       );
-      const reopened = await build(PLANS.essentiel).execute(
+      const { subscription: reopened } = await build(PLANS.essentiel).execute(
         validInput({ startMonth: '2027-01', endMonth: null, formulaId: 'fml_00000000000000000000000099' }),
       );
       expect(reopened.id).not.toBe(first.id);
@@ -164,16 +203,18 @@ describe('CreateStudentSubscription', () => {
 
     it('does not count the other kind toward the overlap (regular does not block exam-prep)', async () => {
       await build(PLANS.pro).execute(validInput({ kind: 'regular', startMonth: '2026-09', endMonth: null }));
-      const examPrep = await build(PLANS.pro).execute(
+      const { subscription: examPrep } = await build(PLANS.pro).execute(
         validInput({ kind: 'exam-prep', startMonth: '2026-09', endMonth: null, subjectIds: [SUBJECT_MATH] }),
       );
       expect(await subscriptions.findById(examPrep.id)).not.toBeNull();
     });
 
     it('does not count a soft-deleted (tombstoned) subscription toward the overlap', async () => {
-      const first = await build(PLANS.essentiel).execute(validInput({ startMonth: '2026-09', endMonth: null }));
+      const { subscription: first } = await build(PLANS.essentiel).execute(
+        validInput({ startMonth: '2026-09', endMonth: null }),
+      );
       await subscriptions.softDelete(first.id, new Date('2026-08-01T00:00:00Z'), USER);
-      const second = await build(PLANS.essentiel).execute(
+      const { subscription: second } = await build(PLANS.essentiel).execute(
         validInput({ startMonth: '2026-09', endMonth: null }),
       );
       expect(second.id).not.toBe(first.id);
@@ -184,16 +225,154 @@ describe('CreateStudentSubscription', () => {
       // Seed a live-but-cancelled subscription directly: end_month before start_month,
       // the zero-month full cancellation CloseStudentSubscription permits. It covers no
       // month, so a fresh same-kind subscription in that window must be allowed.
-      const first = await build(PLANS.essentiel).execute(validInput({ startMonth: '2026-09', endMonth: null }));
+      const { subscription: first } = await build(PLANS.essentiel).execute(
+        validInput({ startMonth: '2026-09', endMonth: null }),
+      );
       const cancelled = await subscriptions.findById(first.id);
       await subscriptions.save({ ...cancelled!, endMonth: '2026-08', updatedAt: new Date('2026-08-15T00:00:00Z') });
 
-      const second = await build(PLANS.essentiel).execute(
+      const { subscription: second } = await build(PLANS.essentiel).execute(
         validInput({ startMonth: '2026-09', endMonth: null }),
       );
       expect(second.id).not.toBe(first.id);
       expect(await subscriptions.findById(second.id)).not.toBeNull();
       expect((await subscriptions.listLiveByStudent(STUDENT_ID)).length).toBe(2);
+    });
+  });
+
+  describe('first-invoice hook (SOU-289)', () => {
+    it('creates the startMonth draft at full formula price when startMonth is the current month', async () => {
+      const { invoice } = await build(PLANS.essentiel).execute(
+        validInput({ startMonth: '2026-07' }),
+      );
+
+      expect(invoice.outcome).toBe('created');
+      const created = await invoices.findByStudentMonth(CENTER, STUDENT_ID, '2026-07');
+      expect(created).not.toBeNull();
+      expect(invoice.invoiceId).toBe(created!.id);
+      expect(created!.status).toBe('draft');
+      const lines = await invoices.listLines(created!.id);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]?.formulaId).toBe(FORMULA_ID);
+      expect(lines[0]?.label).toEqual({ fr: 'Math + Physique', ar: 'رياضيات وفيزياء' });
+      expect(lines[0]?.kind).toBe('regular');
+      // Full formula price — never prorated for a mid-month start.
+      expect(lines[0]?.amountMad).toBe(35000);
+    });
+
+    it('creates the startMonth draft for a backdated startMonth', async () => {
+      const { invoice } = await build(PLANS.essentiel).execute(
+        validInput({ startMonth: '2026-05' }),
+      );
+      expect(invoice.outcome).toBe('created');
+      expect(await invoices.findByStudentMonth(CENTER, STUDENT_ID, '2026-05')).not.toBeNull();
+    });
+
+    it('defers a future startMonth to the monthly batch (nothing generated)', async () => {
+      const { invoice } = await build(PLANS.essentiel).execute(
+        validInput({ startMonth: '2026-08' }),
+      );
+      expect(invoice).toEqual({ outcome: 'deferred-future-month', invoiceId: null });
+      expect(invoices.all()).toHaveLength(0);
+    });
+
+    it('reports already-billed without a duplicate when the month already carries this formula line', async () => {
+      // The month's draft exists (e.g. the batch ran first, or a same-formula
+      // close-then-recreate in the same month after a tombstone).
+      const { invoice: first } = await build(PLANS.essentiel).execute(
+        validInput({ startMonth: '2026-07' }),
+      );
+      const [live] = await subscriptions.listLiveByStudent(STUDENT_ID);
+      await subscriptions.softDelete(live!.id, new Date('2026-07-31T11:00:00Z'), USER);
+
+      const { invoice: second } = await build(PLANS.essentiel).execute(
+        validInput({ startMonth: '2026-07' }),
+      );
+
+      expect(second.outcome).toBe('already-billed');
+      expect(second.invoiceId).toBe(first.invoiceId);
+      expect(invoices.all()).toHaveLength(1);
+      expect(await invoices.listLines(first.invoiceId!)).toHaveLength(1);
+    });
+
+    it('appends a second line to the same draft for a second same-month subscription — never a second invoice', async () => {
+      const examFormulaId = 'fml_00000000000000000000000077' as FormulaId;
+      await formulas.save(
+        makeFormula({
+          id: examFormulaId,
+          name: { fr: 'Préparation Bac', ar: 'تحضير الباك' },
+          subjectIds: [SUBJECT_MATH as SubjectId],
+          priceMad: 80000,
+          kind: 'exam-prep',
+        }),
+      );
+
+      const { invoice: first } = await build(PLANS.pro).execute(
+        validInput({ startMonth: '2026-07', kind: 'regular' }),
+      );
+      const { invoice: second } = await build(PLANS.pro).execute(
+        validInput({
+          startMonth: '2026-07',
+          kind: 'exam-prep',
+          formulaId: examFormulaId,
+          subjectIds: [SUBJECT_MATH],
+        }),
+      );
+
+      expect(second.outcome).toBe('line-appended');
+      expect(second.invoiceId).toBe(first.invoiceId);
+      expect(invoices.all()).toHaveLength(1);
+      const lines = await invoices.listLines(first.invoiceId!);
+      expect(lines).toHaveLength(2);
+      expect(lines.map((line) => line.kind).sort()).toEqual(['exam-prep', 'regular']);
+      expect(lines.map((line) => line.amountMad).sort((a, b) => a - b)).toEqual([35000, 80000]);
+    });
+
+    it('never touches an issued invoice: the subscription is created and the outcome is issued-skipped', async () => {
+      const { invoice: first } = await build(PLANS.essentiel).execute(
+        validInput({ startMonth: '2026-07', endMonth: '2026-07' }),
+      );
+      await new IssueInvoice(invoices, fakeClock(CLOCK_ISO), new PlanPolicy(PLANS.essentiel)).execute({
+        centerCode: CENTER,
+        invoiceId: first.invoiceId!,
+        updatedBy: USER,
+      });
+
+      const { subscription, invoice } = await build(PLANS.pro).execute(
+        validInput({ startMonth: '2026-07', endMonth: null, kind: 'exam-prep', subjectIds: [SUBJECT_MATH] }),
+      );
+
+      expect(await subscriptions.findById(subscription.id)).not.toBeNull();
+      expect(invoice).toEqual({ outcome: 'issued-skipped', invoiceId: first.invoiceId });
+      expect(await invoices.listLines(first.invoiceId!)).toHaveLength(1);
+    });
+
+    it('reports formula-unresolved (subscription still created) when the formulaId resolves to no live formula', async () => {
+      const { subscription, invoice } = await build(PLANS.essentiel).execute(
+        validInput({ startMonth: '2026-07', formulaId: 'fml_00000000000000000000000042' }),
+      );
+      expect(await subscriptions.findById(subscription.id)).not.toBeNull();
+      expect(invoice).toEqual({ outcome: 'formula-unresolved', invoiceId: null });
+      expect(invoices.all()).toHaveLength(0);
+    });
+
+    it('reports formula-unresolved for a foreign-center formula (no cross-tenant snapshot)', async () => {
+      const foreignId = 'fml_00000000000000000000000066' as FormulaId;
+      await formulas.save(makeFormula({ id: foreignId, centerCode: OTHER_CENTER }));
+      const { invoice } = await build(PLANS.essentiel).execute(
+        validInput({ startMonth: '2026-07', formulaId: foreignId }),
+      );
+      expect(invoice).toEqual({ outcome: 'formula-unresolved', invoiceId: null });
+      expect(invoices.all()).toHaveLength(0);
+    });
+
+    it('reports invoicing-unavailable (subscription still created) when the plan lacks core.invoicing', async () => {
+      const { subscription, invoice } = await build(planWithoutFeature('core.invoicing')).execute(
+        validInput({ startMonth: '2026-07' }),
+      );
+      expect(await subscriptions.findById(subscription.id)).not.toBeNull();
+      expect(invoice).toEqual({ outcome: 'invoicing-unavailable', invoiceId: null });
+      expect(invoices.all()).toHaveLength(0);
     });
   });
 
@@ -219,7 +398,7 @@ describe('CreateStudentSubscription', () => {
     });
 
     it('allows an exam-prep subscription on Pro (has core.exam-prep)', async () => {
-      const subscription = await build(PLANS.pro).execute(
+      const { subscription } = await build(PLANS.pro).execute(
         validInput({ kind: 'exam-prep', subjectIds: [SUBJECT_MATH] }),
       );
       expect(subscription.kind).toBe('exam-prep');
@@ -281,7 +460,7 @@ describe('CreateStudentSubscription', () => {
     });
 
     it('accepts a single-month subscription where endMonth equals startMonth', async () => {
-      const subscription = await build(PLANS.essentiel).execute(
+      const { subscription } = await build(PLANS.essentiel).execute(
         validInput({ startMonth: '2026-09', endMonth: '2026-09' }),
       );
       expect(subscription.startMonth).toBe('2026-09');

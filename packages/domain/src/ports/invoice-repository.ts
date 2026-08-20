@@ -17,20 +17,45 @@ import type { InvoiceListPage, InvoiceListFilters } from '../read-models/invoice
  * lines. An invoice is identified by its `(studentId, month)` relationship, so there
  * is no `findByNaturalKey`.
  *
- * ⚠️ There is deliberately **no line-update method**. A line's billed fields are
- * inserted exactly once with the draft (`createDraft`) and are read-only thereafter —
- * the structural guarantee behind "invoice + lines immutable after `issued`". The one
- * envelope-level exception is deletion: `softDelete` cascades the tombstone onto the
- * invoice's lines (so a line read in isolation is trustworthy for deletes). Cancelling
- * is a lifecycle state, not a delete — a cancelled invoice's lines stay live.
+ * ⚠️ Line writes are **draft-only** (doctrine relaxed by SOU-289, recorded on the
+ * issue: previously lines were write-once with the draft). While the invoice is
+ * `draft`, lines may be appended (`appendLinesToDraft` — enrollment mid-month) and a
+ * line's `amountMad` may be corrected (`updateDraftLineAmount` — director override).
+ * The moment the invoice leaves `draft` (issued or cancelled) the billed snapshot is
+ * frozen and no line method may touch it — that freeze is still the structural
+ * guarantee behind "invoice + lines immutable after `issued`". The one envelope-level
+ * exception is deletion: `softDelete` cascades the tombstone onto the invoice's lines
+ * (so a line read in isolation is trustworthy for deletes). Cancelling is a lifecycle
+ * state, not a delete — a cancelled invoice's lines stay live.
  */
 export interface InvoiceRepository extends SoftDeletableRepository<InvoiceId, Invoice> {
   /**
-   * Insert a `draft` invoice header **and** its lines in one transaction. Lines are
-   * write-once; this is the only method that creates them. The caller (the future
-   * generation use case) has already computed the frozen snapshots.
+   * Insert a `draft` invoice header **and** its lines in one transaction. The caller
+   * (the generation use cases) has already computed the billed snapshots.
    */
   createDraft(invoice: Invoice, lines: readonly InvoiceLine[]): Promise<void>;
+
+  /**
+   * Append fully-built lines to an **existing draft** in one transaction (SOU-289 —
+   * a mid-month enrollment lands on the month's already-generated invoice as an
+   * extra line, never as a second invoice). Draft-only contract: the adapter must
+   * verify, inside the same transaction as the insert, that the header is live and
+   * `status === 'draft'`, and reject with `InvoiceNotFoundError` /
+   * `InvoiceNotDraftError` otherwise — an issued or cancelled invoice's lines are
+   * frozen. Line-level idempotency (skip a `(formulaId, kind)` already billed) is
+   * the calling use case's job, not this method's.
+   */
+  appendLinesToDraft(invoiceId: InvoiceId, lines: readonly InvoiceLine[]): Promise<void>;
+
+  /**
+   * Persist a draft line's corrected `amountMad` (SOU-289 director override).
+   * Writes ONLY `amountMad` plus the envelope change-tracking fields
+   * (`updatedAt` / `updatedBy`) of the already-`applyWrite`-advanced `line`; every
+   * other billed field and `version` (hub-assigned) are never rewritten. Same
+   * draft-only contract as `appendLinesToDraft`, checked in-transaction; a missing
+   * or tombstoned line rejects with `InvoiceLineNotFoundError`.
+   */
+  updateDraftLineAmount(line: InvoiceLine): Promise<void>;
 
   /** The invoice's lines (for the total, the printed invoice, and kind-filtered KPIs). */
   listLines(invoiceId: InvoiceId): Promise<readonly InvoiceLine[]>;

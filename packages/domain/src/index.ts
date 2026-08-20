@@ -247,6 +247,8 @@ export {
   InvalidInvoiceTransitionError,
   InvoiceNotFoundError,
   InvoiceNotPayableError,
+  InvoiceNotDraftError,
+  InvoiceLineNotFoundError,
   DuplicateInvoiceError,
   InvalidInvoiceListQueryError,
 } from './errors/invoice-errors';
@@ -399,12 +401,14 @@ export {
   invoiceLineSnapshotSchema,
   createInvoiceDraftSchema,
   generateMonthlyInvoicesSchema,
+  updateDraftInvoiceLineAmountSchema,
   INVOICE_LINE_LABEL_MAX,
 } from './schemas/invoice';
 export type {
   InvoiceLineSnapshot,
   CreateInvoiceDraftFields,
   GenerateMonthlyInvoicesFields,
+  UpdateDraftInvoiceLineAmountFields,
 } from './schemas/invoice';
 export { recordPaymentSchema, voidPaymentSchema, paymentRef } from './schemas/payment';
 export type { RecordPaymentFields, VoidPaymentFields } from './schemas/payment';
@@ -997,8 +1001,16 @@ export type {
   AgingSummaryEntry,
   ListOverdueInvoicesResult,
 } from './use-cases/list-overdue-invoices';
-export { CreateStudentSubscription } from './use-cases/create-student-subscription';
-export type { CreateStudentSubscriptionInput } from './use-cases/create-student-subscription';
+export {
+  CreateStudentSubscription,
+  SUBSCRIPTION_INVOICE_OUTCOMES,
+} from './use-cases/create-student-subscription';
+export type {
+  CreateStudentSubscriptionInput,
+  CreateStudentSubscriptionResult,
+  SubscriptionInvoiceOutcome,
+  SubscriptionInvoiceResult,
+} from './use-cases/create-student-subscription';
 export { CloseStudentSubscription } from './use-cases/close-student-subscription';
 export type { CloseStudentSubscriptionInput } from './use-cases/close-student-subscription';
 export { ReplaceStudentSubscription } from './use-cases/replace-student-subscription';
@@ -1013,6 +1025,17 @@ export type {
   GenerateMonthlyInvoicesInput,
   GenerateMonthlyInvoicesResult,
 } from './use-cases/generate-monthly-invoices';
+export {
+  GenerateStudentMonthInvoice,
+  STUDENT_MONTH_INVOICE_OUTCOMES,
+} from './use-cases/generate-student-month-invoice';
+export type {
+  GenerateStudentMonthInvoiceInput,
+  GenerateStudentMonthInvoiceResult,
+  StudentMonthInvoiceOutcome,
+} from './use-cases/generate-student-month-invoice';
+export { UpdateDraftInvoiceLineAmount } from './use-cases/update-draft-invoice-line-amount';
+export type { UpdateDraftInvoiceLineAmountInput } from './use-cases/update-draft-invoice-line-amount';
 export { CreateTeacherPayrollRule } from './use-cases/create-teacher-payroll-rule';
 export type { CreateTeacherPayrollRuleInput } from './use-cases/create-teacher-payroll-rule';
 export { CloseTeacherPayrollRule } from './use-cases/close-teacher-payroll-rule';

@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { hasIdPrefix } from '../value-objects/ids';
 import { STUDENT_ID_PREFIX } from '../entities/student';
 import { FORMULA_ID_PREFIX } from '../entities/formula';
+import { INVOICE_ID_PREFIX } from '../entities/invoice';
+import { INVOICE_LINE_ID_PREFIX } from '../entities/invoice-line';
 import { GROUP_KINDS } from '../entities/group';
 import { MONTH_PATTERN } from './enrollment';
 
@@ -63,3 +65,29 @@ export const generateMonthlyInvoicesSchema = z.object({
   month: z.string().regex(MONTH_PATTERN, { message: 'invalid-month' }),
 });
 export type GenerateMonthlyInvoicesFields = z.infer<typeof generateMonthlyInvoicesSchema>;
+
+const invoiceRef = z
+  .string()
+  .refine((value) => hasIdPrefix(value, INVOICE_ID_PREFIX), { message: 'invalid-id' });
+
+const invoiceLineRef = z
+  .string()
+  .refine((value) => hasIdPrefix(value, INVOICE_LINE_ID_PREFIX), { message: 'invalid-id' });
+
+/**
+ * The director's draft-line amount edit (SOU-289). Strictly positive, unlike the
+ * generated snapshot's `nonnegative`: a 0-MAD line only ever arises from a
+ * 100 %-discount at generation time, never from a manual override.
+ */
+export const updateDraftInvoiceLineAmountSchema = z.object({
+  invoiceId: invoiceRef,
+  lineId: invoiceLineRef,
+  // Integer MAD centimes, like every money column.
+  amountMad: z
+    .number({ error: 'invalid-amount' })
+    .int({ message: 'invalid-amount' })
+    .positive({ message: 'invalid-amount' }),
+});
+export type UpdateDraftInvoiceLineAmountFields = z.infer<
+  typeof updateDraftInvoiceLineAmountSchema
+>;

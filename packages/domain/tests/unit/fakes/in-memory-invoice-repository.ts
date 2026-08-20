@@ -12,12 +12,18 @@ import type {
 import { INVOICE_LIST_MAX_PAGE_SIZE } from '../../../src/read-models/invoice-list-row';
 import { invoiceTotalMad } from '../../../src/policies/invoice-total';
 import { foldSearchText } from '../../../src/policies/search-text-folding';
+import {
+  InvoiceLineNotFoundError,
+  InvoiceNotDraftError,
+  InvoiceNotFoundError,
+} from '../../../src/errors/invoice-errors';
 
 /**
  * In-memory {@link InvoiceRepository} for unit tests. Inherits the soft-deletable
  * header surface (save / findById / softDelete / listChangedSince) and stores lines
  * in a parallel array, mirroring the SQLite adapter's two-table shape. Reads exclude
- * tombstones; there is no line-update path — `createDraft` is the only writer of lines.
+ * tombstones; line writes are draft-only (SOU-289), enforced here exactly like the
+ * SQLite adapter so unit tests exercise the same contract.
  */
 export class InMemoryInvoiceRepository
   extends InMemorySoftDeletableRepository<InvoiceId, Invoice>
@@ -31,6 +37,43 @@ export class InMemoryInvoiceRepository
     await this.save(invoice);
     for (const line of lines) {
       this.lines.push(structuredClone(line));
+    }
+  }
+
+  async appendLinesToDraft(invoiceId: InvoiceId, lines: readonly InvoiceLine[]): Promise<void> {
+    this.assertLiveDraft(invoiceId);
+    for (const line of lines) {
+      this.lines.push(structuredClone(line));
+    }
+  }
+
+  async updateDraftLineAmount(line: InvoiceLine): Promise<void> {
+    this.assertLiveDraft(line.invoiceId);
+    const index = this.lines.findIndex(
+      (stored) =>
+        stored.id === line.id && stored.invoiceId === line.invoiceId && stored.deletedAt === null,
+    );
+    const stored = index === -1 ? undefined : this.lines[index];
+    if (stored === undefined) {
+      throw new InvoiceLineNotFoundError(line.invoiceId, line.id);
+    }
+    this.lines[index] = {
+      ...stored,
+      amountMad: line.amountMad,
+      updatedAt: line.updatedAt,
+      updatedBy: line.updatedBy,
+    };
+  }
+
+  private assertLiveDraft(invoiceId: InvoiceId): void {
+    const invoice = this.all().find(
+      (candidate) => candidate.id === invoiceId && candidate.deletedAt === null,
+    );
+    if (invoice === undefined) {
+      throw new InvoiceNotFoundError(invoiceId);
+    }
+    if (invoice.status !== 'draft') {
+      throw new InvoiceNotDraftError(invoiceId, invoice.status);
     }
   }
 

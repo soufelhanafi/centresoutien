@@ -32,11 +32,14 @@ export type InvoiceLineId = Brand<string, 'InvoiceLineId'>;
  * (1 MAD = 100), matching the money-column convention; a future `Money` value object
  * handles display. Never negative (a 100 %-discount line is `0`).
  *
- * Immutable after the invoice is `issued`: the repository port exposes no line-update
- * method — a line's billed fields (`formulaId` / `label` / `kind` / `amountMad`) are
- * written once with the draft and never rewritten, so lines can never conflict at sync.
- * The one exception is the envelope tombstone: discarding an invoice cascades
- * `deletedAt` onto its lines, so a line read in isolation is trustworthy for *deletes*.
+ * Mutable only while the invoice is `draft` (doctrine relaxed by SOU-289): a draft
+ * may gain a line (mid-month enrollment) and a draft line's `amountMad` may be
+ * corrected by the director — both through draft-only repository methods. Once the
+ * invoice is `issued` (or `cancelled`) the billed fields (`formulaId` / `label` /
+ * `kind` / `amountMad`) are frozen forever, so issued lines can never conflict at sync.
+ * The one post-freeze exception is the envelope tombstone: discarding an invoice
+ * cascades `deletedAt` onto its lines, so a line read in isolation is trustworthy for
+ * *deletes*.
  * A `cancelled` invoice is different — it is a lifecycle state, not a delete, so its
  * lines stay live; any cross-invoice, kind-level line aggregate must therefore still
  * exclude lines whose header status is `cancelled`. Not people-like: no `naturalKey`.

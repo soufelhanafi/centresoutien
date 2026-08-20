@@ -1,10 +1,9 @@
 import type { StudentSubscriptionRepository } from '../ports/student-subscription-repository';
 import type { FormulaRepository } from '../ports/formula-repository';
-import type { CreateInvoiceDraft } from './create-invoice-draft';
+import type { GenerateStudentMonthInvoice } from './generate-student-month-invoice';
 import type { PlanPolicy } from '../plans/plan-policy';
 import { isSubscriptionActiveInMonth } from '../policies/student-subscription-policy';
 import { generateMonthlyInvoicesSchema } from '../schemas/invoice';
-import { DuplicateInvoiceError } from '../errors/invoice-errors';
 import type { StudentSubscription } from '../entities/student-subscription';
 import type { StudentId } from '../entities/student';
 import type { FormulaId, Formula } from '../entities/formula';
@@ -28,13 +27,18 @@ export type GenerateMonthlyInvoicesResult = {
  * The monthly invoice generation job (SOU-68): for every student with a live
  * `StudentSubscription` active in `month`, produce one draft invoice with one line
  * per active subscription (a student on both a regular and an exam-prep formula
- * gets two lines on the same invoice, exactly like `CreateInvoiceDraft`).
+ * gets two lines on the same invoice).
  *
  * **Idempotent by construction.** This does not re-derive "already generated" —
- * it delegates every student to `CreateInvoiceDraft`, which already owns the
- * one-invoice-per-student-per-month guard, and treats {@link DuplicateInvoiceError}
- * as an expected no-op (`skipped`) rather than a failure. Re-running the job for a
- * month that was already generated therefore produces zero new drafts.
+ * it delegates every student to {@link GenerateStudentMonthInvoice} (SOU-289), the
+ * same per-student unit the enrollment hook uses, so both paths share the exact
+ * same dedup key (`findByStudentMonth` + `CreateInvoiceDraft`'s guard). A
+ * `created` outcome counts as `created`; every other outcome — `already-billed`
+ * (a straight re-run), `line-appended` (an existing draft was topped up with a
+ * subscription line it was missing, e.g. one billed at enrollment before the
+ * batch), and `issued-skipped` (the month's invoice is already frozen) — counts
+ * as `skipped`, preserving the SOU-68 counters: re-running the job for a month
+ * that was already generated produces zero new drafts.
  *
  * **N+1 avoidance for the 500-student/<2s target.** `Formula.listAll` is fetched
  * once and indexed into a map; every line's `label`/`amountMad` snapshot is
@@ -51,7 +55,7 @@ export class GenerateMonthlyInvoices {
   constructor(
     private readonly subscriptions: StudentSubscriptionRepository,
     private readonly formulas: FormulaRepository,
-    private readonly createInvoiceDraft: Pick<CreateInvoiceDraft, 'execute'>,
+    private readonly generateStudentMonthInvoice: Pick<GenerateStudentMonthInvoice, 'execute'>,
     private readonly plan: PlanPolicy,
   ) {}
 
@@ -94,22 +98,18 @@ export class GenerateMonthlyInvoices {
         continue;
       }
 
-      try {
-        await this.createInvoiceDraft.execute({
-          studentId,
-          month,
-          lines,
-          centerCode: input.centerCode,
-          deviceOrigin: input.deviceOrigin,
-          updatedBy: input.updatedBy,
-        });
+      const { outcome } = await this.generateStudentMonthInvoice.execute({
+        studentId,
+        month,
+        lines,
+        centerCode: input.centerCode,
+        deviceOrigin: input.deviceOrigin,
+        updatedBy: input.updatedBy,
+      });
+      if (outcome === 'created') {
         created += 1;
-      } catch (error) {
-        if (error instanceof DuplicateInvoiceError) {
-          skipped += 1;
-          continue;
-        }
-        throw error;
+      } else {
+        skipped += 1;
       }
     }
 
