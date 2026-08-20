@@ -1,17 +1,15 @@
 import { useTranslation } from 'react-i18next';
-import { ReceiptText } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import type { StudentView } from '../../lib/students/student-view';
 import { StudentInfoTab } from './student-info-tab';
 import { GuardianLinks } from './guardian-links';
 import { SubscriptionTab } from './subscription-tab';
 import { StudentAttendanceTab } from './student-attendance-tab';
-import { ComingSoonTab } from './coming-soon-tab';
+import { StudentInvoicesTab } from './student-invoices-tab';
 
-/** The five-tab student detail surface. Info, Guardians, and Subscription are live; the rest are shells. */
+/** The five-tab student detail surface: info, guardians, subscriptions, invoices, attendance. */
 export function StudentDetailTabs({ student }: { student: StudentView }) {
   const { t } = useTranslation();
-  const iconClass = 'h-5 w-5';
 
   return (
     <Tabs defaultValue="info" className="mt-4">
@@ -33,11 +31,7 @@ export function StudentDetailTabs({ student }: { student: StudentView }) {
         <SubscriptionTab student={student} />
       </TabsContent>
       <TabsContent value="invoices">
-        <ComingSoonTab
-          icon={<ReceiptText className={iconClass} aria-hidden="true" />}
-          title={t('students.comingSoon.invoices.title')}
-          body={t('students.comingSoon.invoices.body')}
-        />
+        <StudentInvoicesTab student={student} />
       </TabsContent>
       <TabsContent value="attendance">
         <StudentAttendanceTab student={student} />

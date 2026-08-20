@@ -286,7 +286,7 @@
     "invalid-holiday-kind": "Type de jour férié invalide",
     "invalid-kind": "Type de groupe invalide",
     "invalid-month": "Mois invalide (AAAA-MM)",
-    "invalid-amount": "Montant invalide.",
+    "invalid-amount": "Montant invalide",
     "invalid-method": "Moyen de paiement invalide",
     "payment-exceeds-balance": "Ce montant dépasse le solde restant de la facture.",
     "invoice-not-payable": "Cette facture n'est pas encore émise (brouillon) ou a été annulée : elle ne peut pas recevoir de paiement.",
@@ -1071,14 +1071,10 @@
         }
       }
     },
-    "comingSoon": {
-      "invoices": {
-        "title": "Factures bientôt disponibles",
-        "body": "L'historique de facturation de l'élève apparaîtra ici."
-      },
-      "attendance": {
-        "title": "Présence bientôt disponible",
-        "body": "Le suivi de présence de l'élève apparaîtra ici."
+    "invoices": {
+      "empty": {
+        "title": "Aucune facture pour l'instant",
+        "body": "Les factures de l'élève apparaîtront ici dès la première facturation."
       }
     },
     "attendance": {

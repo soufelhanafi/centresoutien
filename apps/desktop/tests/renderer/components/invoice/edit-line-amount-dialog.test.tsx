@@ -79,7 +79,7 @@ describe('EditLineAmountDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
     expect(spy).not.toHaveBeenCalled();
-    expect(await screen.findByText('Montant invalide.')).toBeInTheDocument();
+    expect(await screen.findByText('Montant invalide')).toBeInTheDocument();
   });
 });
 
@@ -98,5 +98,24 @@ describe('InvoiceLineTable edit affordance', () => {
   it.each(['issued', 'cancelled'] as const)('shows no edit affordance on an %s invoice', (status) => {
     renderWithClient(<InvoiceLineTable invoice={invoiceWith(status)} />);
     expect(screen.queryByRole('button', { name: /Modifier le montant/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('InvoiceLineGroup label locale ordering', () => {
+  it('leads with the French label in fr, Arabic as the muted secondary line', async () => {
+    await i18n.changeLanguage('fr');
+    renderWithClient(<InvoiceLineTable invoice={invoiceWith('issued')} />);
+
+    expect(screen.getByText('Math seul')).not.toHaveClass('text-muted-foreground');
+    expect(screen.getByText('رياضيات فقط')).toHaveClass('text-muted-foreground');
+  });
+
+  it('leads with the Arabic label in ar, French as the muted secondary line', async () => {
+    await i18n.changeLanguage('ar');
+    renderWithClient(<InvoiceLineTable invoice={invoiceWith('issued')} />);
+
+    expect(screen.getByText('رياضيات فقط')).not.toHaveClass('text-muted-foreground');
+    expect(screen.getByText('Math seul')).toHaveClass('text-muted-foreground');
+    await i18n.changeLanguage('fr');
   });
 });

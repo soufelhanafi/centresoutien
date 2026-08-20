@@ -23,6 +23,8 @@ export function InvoiceLineGroup({
   const { t, i18n } = useTranslation();
   if (lines.length === 0) return null;
   const subtotalMad = lines.reduce((sum, line) => sum + line.amountMad, 0);
+  const primaryScript = i18n.language === 'ar' ? 'arabic' : 'latin';
+  const secondaryScript = primaryScript === 'arabic' ? 'latin' : 'arabic';
 
   return (
     <tbody>
@@ -38,8 +40,16 @@ export function InvoiceLineGroup({
       {lines.map((line) => (
         <tr key={line.id} className="border-t border-border/70">
           <td className="px-6 py-3.5">
-            <span className="text-sm text-foreground">{line.label.fr}</span>
-            <BilingualText value={line.label.ar} script="arabic" className="block text-xs text-muted-foreground" />
+            <BilingualText
+              value={localizedText(line.label, i18n.language)}
+              script={primaryScript}
+              className="text-sm text-foreground"
+            />
+            <BilingualText
+              value={i18n.language === 'ar' ? line.label.fr : line.label.ar}
+              script={secondaryScript}
+              className="block text-xs text-muted-foreground"
+            />
           </td>
           <td className="px-6 py-3.5 text-end align-top">
             <span className="inline-flex items-center gap-1">
