@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SessionForm } from '../../../src/renderer/components/planning/session-form';
@@ -8,8 +9,10 @@ import i18n from '../../../src/renderer/i18n/config';
 
 const OPTIONS: SessionFormOptions = {
   rooms: [{ id: 'rom_1', name: 'Salle A' }],
-  teachers: [{ id: 'tch_1', name: { fr: 'Prof Karim', ar: 'الأستاذ كريم' } }],
-  groups: [{ id: 'grp_1', subjectName: { fr: 'Maths', ar: 'رياضيات' }, level: 'Bac', kind: 'regular' }],
+  teachers: [{ id: 'tch_1', name: { fr: 'Prof Karim', ar: 'الأستاذ كريم' }, subjectIds: ['math'] }],
+  groups: [
+    { id: 'grp_1', subjectId: 'math', subjectName: { fr: 'Maths', ar: 'رياضيات' }, level: 'Bac', kind: 'regular' },
+  ],
 };
 
 afterEach(() => vi.restoreAllMocks());
@@ -43,6 +46,79 @@ describe('SessionForm — French', () => {
     for (const label of ['Jour', 'Début', 'Fin', 'Salle', 'Enseignant', 'Groupe']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
+  });
+});
+
+describe('SessionForm — stale persisted teacher/group pair on load (AC3)', () => {
+  const INCOMPATIBLE_OPTIONS: SessionFormOptions = {
+    rooms: [{ id: 'rom_1', name: 'Salle A' }],
+    teachers: [{ id: 'tch_math', name: { fr: 'Prof Maths', ar: 'أستاذ الرياضيات' }, subjectIds: ['math'] }],
+    groups: [
+      { id: 'grp_art', subjectId: 'art', subjectName: { fr: 'Arts', ar: 'فنون' }, level: 'Bac', kind: 'regular' },
+    ],
+  };
+  const STALE_DEFAULTS = {
+    ...EMPTY_SESSION_INPUT,
+    roomId: 'rom_1',
+    teacherId: 'tch_math',
+    groupId: 'grp_art',
+  };
+  const HINT = "Enseignant retiré : il n'enseigne pas la matière du groupe choisi.";
+
+  beforeEach(async () => {
+    await i18n.changeLanguage('fr');
+  });
+
+  it('resets the teacher to unassigned and announces the hint once via role="status"', async () => {
+    // Wrapped in StrictMode: the real app mounts under it (main.tsx), and the hint
+    // must survive its mount → unmount → remount rather than being lost with a
+    // one-shot effect's state.
+    render(
+      <StrictMode>
+        <SessionForm
+          formId="t"
+          defaultValues={STALE_DEFAULTS}
+          options={INCOMPATIBLE_OPTIONS}
+          onSubmit={vi.fn()}
+        />
+      </StrictMode>,
+    );
+
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent(HINT);
+    expect(screen.getAllByText(HINT)).toHaveLength(1);
+    // The now-incompatible teacher fell back to the "Sans enseignant" option and its
+    // name is gone from the form entirely.
+    expect(screen.getAllByText('Sans enseignant').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Prof Maths')).not.toBeInTheDocument();
+  });
+
+  it('still clears the teacher when the pair only reads incompatible after options load', async () => {
+    // Options arrive async (TanStack Query): at mount the teacher/group lists are
+    // empty, so the pair reads as "not yet known" and nothing is cleared. When the
+    // real lists resolve as incompatible the reconcile must still fire — the
+    // returned hint flag and the applied clear stay the same load-time decision.
+    const LOADING_OPTIONS: SessionFormOptions = {
+      rooms: INCOMPATIBLE_OPTIONS.rooms,
+      teachers: [],
+      groups: [],
+    };
+    const { rerender } = render(
+      <StrictMode>
+        <SessionForm formId="t" defaultValues={STALE_DEFAULTS} options={LOADING_OPTIONS} onSubmit={vi.fn()} />
+      </StrictMode>,
+    );
+    expect(screen.queryByRole('status')).toBeNull();
+
+    rerender(
+      <StrictMode>
+        <SessionForm formId="t" defaultValues={STALE_DEFAULTS} options={INCOMPATIBLE_OPTIONS} onSubmit={vi.fn()} />
+      </StrictMode>,
+    );
+
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent(HINT);
+    expect(screen.queryByText('Prof Maths')).not.toBeInTheDocument();
   });
 });
 
