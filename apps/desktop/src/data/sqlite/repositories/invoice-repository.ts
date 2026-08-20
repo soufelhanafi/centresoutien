@@ -1,5 +1,11 @@
 import type { Database as DB } from 'better-sqlite3';
-import { INVOICE_LIST_MAX_PAGE_SIZE, foldSearchText } from '@centresoutien/domain';
+import {
+  INVOICE_LIST_MAX_PAGE_SIZE,
+  foldSearchText,
+  InvoiceLineNotFoundError,
+  InvoiceNotDraftError,
+  InvoiceNotFoundError,
+} from '@centresoutien/domain';
 import type {
   Invoice,
   InvoiceId,
@@ -175,8 +181,9 @@ const SAVE_INVOICE_SQL = `
     cancelled_at = excluded.cancelled_at
 `;
 
-// Lines are write-once: a plain INSERT with no ON CONFLICT clause. Re-inserting a
-// line id fails loudly — the structural half of "lines immutable after issued".
+// A plain INSERT with no ON CONFLICT clause: re-inserting a line id fails loudly.
+// New lines are only ever born through the two draft writers (`createDraft`,
+// `appendLinesToDraft`), both of which verify the header is a live draft first.
 const INSERT_LINE_SQL = `
   INSERT INTO invoice_lines
     (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at,
@@ -190,9 +197,13 @@ const INSERT_LINE_SQL = `
  * SQLite adapter for {@link InvoiceRepository}. Pure translation between the port and
  * SQL — no business decisions. Every header/line read hides tombstones
  * (`deleted_at IS NULL`); only the sync feeds (`listChangedSince` /
- * `listLinesChangedSince`) see them. Soft-delete only — there is no hard `DELETE`. A
- * line's billed fields are never rewritten (the line INSERT has no upsert); the sole
- * line UPDATE is the tombstone that `softDelete` cascades from the header. Mirrors
+ * `listLinesChangedSince`) see them. Soft-delete only — there is no hard `DELETE`.
+ * Line writes are draft-only (SOU-289): `appendLinesToDraft` and
+ * `updateDraftLineAmount` both re-check, inside their own transaction, that the
+ * header is a live `draft` before touching a line — the port's contract, enforced
+ * structurally here as well (mirroring how the payment ledger unit-of-work re-checks
+ * its invariant in-transaction). Beyond those two, the only line UPDATE is the
+ * tombstone that `softDelete` cascades from the header. Mirrors
  * {@link SqliteEnrollmentRepository}.
  *
  * Also implements {@link OverdueInvoiceViewReadPort} (SOU-103) — the Impayés
@@ -217,6 +228,52 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
       }
     });
     insertAll(invoice, lines);
+  }
+
+  async appendLinesToDraft(invoiceId: InvoiceId, lines: readonly InvoiceLine[]): Promise<void> {
+    const appendAll = this.db.transaction((rows: readonly InvoiceLine[]) => {
+      this.assertLiveDraft(invoiceId);
+      const insertLine = this.db.prepare(INSERT_LINE_SQL);
+      for (const line of rows) {
+        insertLine.run(lineToParams(line));
+      }
+    });
+    appendAll(lines);
+  }
+
+  async updateDraftLineAmount(line: InvoiceLine): Promise<void> {
+    const update = this.db.transaction((next: InvoiceLine) => {
+      this.assertLiveDraft(next.invoiceId);
+      const result = this.db
+        .prepare(
+          `UPDATE invoice_lines
+              SET amount_mad = @amount_mad, updated_at = @updated_at, updated_by = @updated_by
+            WHERE id = @id AND invoice_id = @invoice_id AND deleted_at IS NULL`,
+        )
+        .run({
+          id: next.id,
+          invoice_id: next.invoiceId,
+          amount_mad: next.amountMad,
+          updated_at: next.updatedAt.toISOString(),
+          updated_by: next.updatedBy,
+        });
+      if (result.changes === 0) {
+        throw new InvoiceLineNotFoundError(next.invoiceId, next.id);
+      }
+    });
+    update(line);
+  }
+
+  private assertLiveDraft(invoiceId: InvoiceId): void {
+    const row = this.db
+      .prepare('SELECT status FROM invoices WHERE id = ? AND deleted_at IS NULL')
+      .get(invoiceId) as { status: string } | undefined;
+    if (row === undefined) {
+      throw new InvoiceNotFoundError(invoiceId);
+    }
+    if (row.status !== 'draft') {
+      throw new InvoiceNotDraftError(invoiceId, row.status as InvoiceStatus);
+    }
   }
 
   async findById(id: InvoiceId): Promise<Invoice | null> {
