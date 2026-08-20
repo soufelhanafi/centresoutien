@@ -187,15 +187,24 @@ test('S1b — the freshly drafted invoice is visible on the student detail (Fact
   await subscribeViaWizard(win, L, { formulaLabel: formulaName(locale(), REGULAR_FORMULA), card: 'regular' });
   await expect(win.getByText(SOU289_STR[locale()].toast.ready)).toBeVisible();
 
+  // Let the toast dismiss so its text can't satisfy (or occlude) the tab assertions.
+  await expect(win.getByText(SOU289_STR[locale()].toast.ready)).toBeHidden({ timeout: 15000 });
+
   await win.getByRole('tab', { name: L.detailTabs.invoices }).click();
   await win.waitForTimeout(400);
   await win.screenshot({ path: `test-results/sou289-s1b-student-invoices-tab-${locale()}.png` });
   const tabText = (await win.textContent('body')) ?? '';
   const placeholder = locale() === 'ar' ? 'الفواتير قريبًا' : 'Factures bientôt disponibles';
-  expect(tabText, 'the student detail Factures tab must list the invoice, not a coming-soon placeholder').not.toContain(placeholder);
+  expect(tabText, 'the coming-soon placeholder must be gone').not.toContain(placeholder);
+  expect(
+    tabText,
+    'with a freshly drafted invoice the tab must not show its empty state',
+  ).not.toContain(SOU289_STR[locale()].studentInvoicesEmptyTitle);
+  // The tab reuses the invoice list content: the month invoice's full 200 MAD
+  // total is the row's identifying, user-visible datum.
   await expect(
-    win.getByText(escapeRegExp(formulaName(locale(), REGULAR_FORMULA))).first(),
-    'the drafted invoice (or its formula line) must be visible on the student detail',
+    win.getByText(/200[.,]00/).first(),
+    "the drafted invoice must be visible on the student detail's Factures tab",
   ).toBeVisible();
 });
 

@@ -36,6 +36,8 @@ export const SOU289_STR: Record<
       /** The toast's open-the-invoice action. */
       view: string;
     };
+    /** The student detail "Factures" tab's own empty state (`students.invoices.empty`). */
+    studentInvoicesEmptyTitle: string;
     lineEdit: {
       /** Accessible name of the per-line edit affordance; `{{label}}` interpolated. */
       actionFor: (label: string) => string | RegExp;
@@ -57,6 +59,7 @@ export const SOU289_STR: Record<
       deferred: 'Abonnement enregistré. La facture sera générée au début du mois choisi, avec la facturation mensuelle.',
       view: 'Voir la facture',
     },
+    studentInvoicesEmptyTitle: "Aucune facture pour l'instant",
     lineEdit: {
       actionFor: (label: string) => `Modifier le montant de « ${label} »`,
       title: 'Modifier le montant',
@@ -64,7 +67,7 @@ export const SOU289_STR: Record<
       submit: 'Enregistrer',
       cancel: 'Annuler',
       success: 'Montant mis à jour.',
-      invalidAmount: 'Montant invalide.',
+      invalidAmount: 'Montant invalide',
     },
   },
   ar: {
@@ -75,6 +78,7 @@ export const SOU289_STR: Record<
       deferred: 'تم تسجيل الاشتراك. ستُنشأ الفاتورة في بداية الشهر المختار مع الفوترة الشهرية.',
       view: 'عرض الفاتورة',
     },
+    studentInvoicesEmptyTitle: 'لا فواتير بعد',
     lineEdit: {
       actionFor: (label: string) => `تعديل مبلغ «${label}»`,
       title: 'تعديل المبلغ',
@@ -82,7 +86,7 @@ export const SOU289_STR: Record<
       submit: 'حفظ',
       cancel: 'إلغاء',
       success: 'تم تحديث المبلغ.',
-      invalidAmount: 'مبلغ غير صالح.',
+      invalidAmount: 'مبلغ غير صالح',
     },
   },
 };
