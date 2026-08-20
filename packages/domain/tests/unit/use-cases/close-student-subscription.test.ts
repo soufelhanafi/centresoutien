@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CloseStudentSubscription } from '../../../src/use-cases/close-student-subscription';
 import { CreateStudentSubscription } from '../../../src/use-cases/create-student-subscription';
+import { CreateInvoiceDraft } from '../../../src/use-cases/create-invoice-draft';
+import { GenerateStudentMonthInvoice } from '../../../src/use-cases/generate-student-month-invoice';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
@@ -11,6 +13,8 @@ import type { Student, StudentId } from '../../../src/entities/student';
 import type { StudentSubscriptionId } from '../../../src/entities/student-subscription';
 import { InMemoryStudentSubscriptionRepository } from '../fakes/in-memory-student-subscription-repository';
 import { InMemoryStudentRepository } from '../fakes/in-memory-student-repository';
+import { InMemoryFormulaRepository } from '../fakes/in-memory-formula-repository';
+import { InMemoryInvoiceRepository } from '../fakes/in-memory-invoice-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 
@@ -43,7 +47,7 @@ describe('CloseStudentSubscription', () => {
   let create: CreateStudentSubscription;
 
   async function seedOpenSubscription(): Promise<StudentSubscriptionId> {
-    const created = await create.execute({
+    const { subscription } = await create.execute({
       studentId: STUDENT_ID,
       formulaId: 'fml_00000000000000000000000002',
       kind: 'regular',
@@ -54,7 +58,7 @@ describe('CloseStudentSubscription', () => {
       deviceOrigin: DEVICE,
       updatedBy: USER,
     });
-    return created.id;
+    return subscription.id;
   }
 
   function close(plan: Plan, at = '2026-12-15T10:00:00Z'): CloseStudentSubscription {
@@ -64,12 +68,24 @@ describe('CloseStudentSubscription', () => {
   beforeEach(async () => {
     subscriptions = new InMemoryStudentSubscriptionRepository();
     students = new InMemoryStudentRepository();
+    const seedClock = fakeClock('2026-07-31T10:00:00Z');
+    const seedIds = fakeIds();
+    const seedPolicy = new PlanPolicy(PLANS.essentiel);
+    const invoices = new InMemoryInvoiceRepository();
     create = new CreateStudentSubscription(
       subscriptions,
       students,
-      fakeClock('2026-07-31T10:00:00Z'),
-      fakeIds(),
-      new PlanPolicy(PLANS.essentiel),
+      new InMemoryFormulaRepository(),
+      new GenerateStudentMonthInvoice(
+        invoices,
+        new CreateInvoiceDraft(invoices, seedClock, seedIds, seedPolicy),
+        seedClock,
+        seedIds,
+        seedPolicy,
+      ),
+      seedClock,
+      seedIds,
+      seedPolicy,
     );
     await students.save(makeStudent());
   });

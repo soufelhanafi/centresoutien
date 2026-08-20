@@ -1,5 +1,13 @@
 import type { Database as DB } from 'better-sqlite3';
-import { INVOICE_LIST_MAX_PAGE_SIZE, foldSearchText } from '@centresoutien/domain';
+import { z } from 'zod';
+import {
+  INVOICE_STATUSES,
+  INVOICE_LIST_MAX_PAGE_SIZE,
+  foldSearchText,
+  InvoiceLineNotFoundError,
+  InvoiceNotDraftError,
+  InvoiceNotFoundError,
+} from '@centresoutien/domain';
 import type {
   Invoice,
   InvoiceId,
@@ -71,6 +79,14 @@ type OverdueInvoiceQueryRow = {
   total_mad: number;
   net_paid_mad: number;
 };
+
+/** Narrows the `assertLiveDraft` status probe without an `as` cast: the row is
+ *  `unknown` until zod proves it carries a legal lifecycle status. */
+const invoiceStatusRowSchema = z.object({ status: z.enum(INVOICE_STATUSES) });
+
+/** Narrows the live `(formula_id, kind)` probe behind `appendLinesToDraft`'s
+ *  in-transaction idempotency check. */
+const billedLineKeyRowSchema = z.object({ formula_id: z.string(), kind: z.string() });
 
 /** Parse the stored JSON guardian array back into branded ParentIds — mirrors
  *  `SqliteStudentRepository`'s own parser (not exported from there). */
@@ -175,8 +191,9 @@ const SAVE_INVOICE_SQL = `
     cancelled_at = excluded.cancelled_at
 `;
 
-// Lines are write-once: a plain INSERT with no ON CONFLICT clause. Re-inserting a
-// line id fails loudly — the structural half of "lines immutable after issued".
+// A plain INSERT with no ON CONFLICT clause: re-inserting a line id fails loudly.
+// New lines are only ever born through the two draft writers (`createDraft`,
+// `appendLinesToDraft`), both of which verify the header is a live draft first.
 const INSERT_LINE_SQL = `
   INSERT INTO invoice_lines
     (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at,
@@ -190,9 +207,13 @@ const INSERT_LINE_SQL = `
  * SQLite adapter for {@link InvoiceRepository}. Pure translation between the port and
  * SQL — no business decisions. Every header/line read hides tombstones
  * (`deleted_at IS NULL`); only the sync feeds (`listChangedSince` /
- * `listLinesChangedSince`) see them. Soft-delete only — there is no hard `DELETE`. A
- * line's billed fields are never rewritten (the line INSERT has no upsert); the sole
- * line UPDATE is the tombstone that `softDelete` cascades from the header. Mirrors
+ * `listLinesChangedSince`) see them. Soft-delete only — there is no hard `DELETE`.
+ * Line writes are draft-only (SOU-289): `appendLinesToDraft` and
+ * `updateDraftLineAmount` both re-check, inside their own transaction, that the
+ * header is a live `draft` before touching a line — the port's contract, enforced
+ * structurally here as well (mirroring how the payment ledger unit-of-work re-checks
+ * its invariant in-transaction). Beyond those two, the only line UPDATE is the
+ * tombstone that `softDelete` cascades from the header. Mirrors
  * {@link SqliteEnrollmentRepository}.
  *
  * Also implements {@link OverdueInvoiceViewReadPort} (SOU-103) — the Impayés
@@ -207,7 +228,7 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
     this.db.prepare(SAVE_INVOICE_SQL).run(invoiceToParams(invoice));
   }
 
-  /** Insert the draft header + all its lines in one transaction (write-once lines). */
+  /** Insert the draft header + all its lines in one transaction. */
   async createDraft(invoice: Invoice, lines: readonly InvoiceLine[]): Promise<void> {
     const insertAll = this.db.transaction((inv: Invoice, rows: readonly InvoiceLine[]) => {
       this.db.prepare(SAVE_INVOICE_SQL).run(invoiceToParams(inv));
@@ -217,6 +238,72 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
       }
     });
     insertAll(invoice, lines);
+  }
+
+  // The in-transaction (formula_id, kind) skip is the port's idempotency backstop:
+  // two interleaved generators that both computed the same missing line serialize on
+  // this transaction, and the second one's duplicate is dropped, not double-billed.
+  async appendLinesToDraft(invoiceId: InvoiceId, lines: readonly InvoiceLine[]): Promise<void> {
+    const appendAll = this.db.transaction((rows: readonly InvoiceLine[]) => {
+      this.assertLiveDraft(invoiceId);
+      const billedKeys = this.listLiveLineKeys(invoiceId);
+      const insertLine = this.db.prepare(INSERT_LINE_SQL);
+      for (const line of rows) {
+        const key = `${line.formulaId}::${line.kind}`;
+        if (billedKeys.has(key)) continue;
+        billedKeys.add(key);
+        insertLine.run(lineToParams(line));
+      }
+    });
+    appendAll(lines);
+  }
+
+  private listLiveLineKeys(invoiceId: InvoiceId): Set<string> {
+    const rows: unknown[] = this.db
+      .prepare('SELECT formula_id, kind FROM invoice_lines WHERE invoice_id = ? AND deleted_at IS NULL')
+      .all(invoiceId);
+    return new Set(
+      rows.map((row) => {
+        const { formula_id, kind } = billedLineKeyRowSchema.parse(row);
+        return `${formula_id}::${kind}`;
+      }),
+    );
+  }
+
+  async updateDraftLineAmount(line: InvoiceLine): Promise<void> {
+    const update = this.db.transaction((next: InvoiceLine) => {
+      this.assertLiveDraft(next.invoiceId);
+      const result = this.db
+        .prepare(
+          `UPDATE invoice_lines
+              SET amount_mad = @amount_mad, updated_at = @updated_at, updated_by = @updated_by
+            WHERE id = @id AND invoice_id = @invoice_id AND deleted_at IS NULL`,
+        )
+        .run({
+          id: next.id,
+          invoice_id: next.invoiceId,
+          amount_mad: next.amountMad,
+          updated_at: next.updatedAt.toISOString(),
+          updated_by: next.updatedBy,
+        });
+      if (result.changes === 0) {
+        throw new InvoiceLineNotFoundError(next.invoiceId, next.id);
+      }
+    });
+    update(line);
+  }
+
+  private assertLiveDraft(invoiceId: InvoiceId): void {
+    const row: unknown = this.db
+      .prepare('SELECT status FROM invoices WHERE id = ? AND deleted_at IS NULL')
+      .get(invoiceId);
+    if (row === undefined) {
+      throw new InvoiceNotFoundError(invoiceId);
+    }
+    const { status } = invoiceStatusRowSchema.parse(row);
+    if (status !== 'draft') {
+      throw new InvoiceNotDraftError(invoiceId, status);
+    }
   }
 
   async findById(id: InvoiceId): Promise<Invoice | null> {

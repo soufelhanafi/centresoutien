@@ -286,10 +286,13 @@
     "invalid-holiday-kind": "Type de jour férié invalide",
     "invalid-kind": "Type de groupe invalide",
     "invalid-month": "Mois invalide (AAAA-MM)",
-    "invalid-amount": "Montant invalide.",
+    "invalid-amount": "Montant invalide",
     "invalid-method": "Moyen de paiement invalide",
     "payment-exceeds-balance": "Ce montant dépasse le solde restant de la facture.",
     "invoice-not-payable": "Cette facture n'est pas encore émise (brouillon) ou a été annulée : elle ne peut pas recevoir de paiement.",
+    "invoice-not-draft": "Cette facture n'est plus un brouillon : ses montants ne peuvent plus être modifiés.",
+    "invoice-line-not-found": "Cette ligne de facture est introuvable.",
+    "invoice-not-found": "Cette facture est introuvable.",
     "payment-already-reversed": "Ce paiement a déjà été annulé.",
     "cannot-reverse-reversal": "Une annulation ne peut pas être annulée.",
     "payment-not-found": "Ce paiement est introuvable.",
@@ -1057,17 +1060,22 @@
         "confirming": "Enregistrement…",
         "success": "Abonnement mis à jour",
         "replaceError": "Le changement de formule a échoué. Réessayez.",
-        "createError": "La souscription a échoué. Réessayez."
+        "createError": "La souscription a échoué. Réessayez.",
+        "invoice": {
+          "view": "Voir la facture",
+          "ready": "Abonnement enregistré. La facture du mois est prête.",
+          "alreadyBilled": "Abonnement enregistré. La facture de ce mois couvre déjà cette formule.",
+          "issuedSkipped": "Abonnement enregistré, mais la facture de ce mois a déjà été émise : cette formule n'y figure pas. Ajustez la facturation manuellement.",
+          "deferred": "Abonnement enregistré. La facture sera générée au début du mois choisi, avec la facturation mensuelle.",
+          "notGenerated": "Abonnement enregistré, mais la facture du mois n'a pas pu être générée. Vérifiez la formule, puis lancez la facturation du mois.",
+          "generationFailed": "Abonnement enregistré, mais la facture du mois n'a pas pu être générée. Relancez la facturation du mois."
+        }
       }
     },
-    "comingSoon": {
-      "invoices": {
-        "title": "Factures bientôt disponibles",
-        "body": "L'historique de facturation de l'élève apparaîtra ici."
-      },
-      "attendance": {
-        "title": "Présence bientôt disponible",
-        "body": "Le suivi de présence de l'élève apparaîtra ici."
+    "invoices": {
+      "empty": {
+        "title": "Aucune facture pour l'instant",
+        "body": "Les factures de l'élève apparaîtront ici dès la première facturation."
       }
     },
     "attendance": {
@@ -2303,6 +2311,17 @@
       "lineAmount": "Montant",
       "subtotal": "Sous-total",
       "total": "Total",
+      "lineEdit": {
+        "action": "Modifier le montant de « {{label}} »",
+        "title": "Modifier le montant",
+        "description": "{{label}} — montant actuel : {{amount}}. Le nouveau montant remplace celui-ci sur cette facture brouillon.",
+        "amount": "Nouveau montant (MAD)",
+        "cancel": "Annuler",
+        "saving": "Enregistrement…",
+        "submit": "Enregistrer",
+        "success": "Montant mis à jour.",
+        "error": "La modification du montant a échoué. Réessayez."
+      },
       "payment": {
         "panelTitle": "Paiement",
         "total": "Total facturé",

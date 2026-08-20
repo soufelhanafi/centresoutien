@@ -4,6 +4,8 @@ import {
   type GenerateMonthlyInvoicesInput,
 } from '../../../src/use-cases/generate-monthly-invoices';
 import { CreateInvoiceDraft } from '../../../src/use-cases/create-invoice-draft';
+import { GenerateStudentMonthInvoice } from '../../../src/use-cases/generate-student-month-invoice';
+import { IssueInvoice } from '../../../src/use-cases/issue-invoice';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
@@ -75,13 +77,17 @@ describe('GenerateMonthlyInvoices', () => {
   let invoices: InMemoryInvoiceRepository;
 
   function build(plan: Plan): GenerateMonthlyInvoices {
-    const createInvoiceDraft = new CreateInvoiceDraft(
+    const policy = new PlanPolicy(plan);
+    const ids = fakeIds(1);
+    const createInvoiceDraft = new CreateInvoiceDraft(invoices, fakeClock(CLOCK_ISO), ids, policy);
+    const generateStudentMonthInvoice = new GenerateStudentMonthInvoice(
       invoices,
+      createInvoiceDraft,
       fakeClock(CLOCK_ISO),
-      fakeIds(1),
-      new PlanPolicy(plan),
+      ids,
+      policy,
     );
-    return new GenerateMonthlyInvoices(subscriptions, formulas, createInvoiceDraft, new PlanPolicy(plan));
+    return new GenerateMonthlyInvoices(subscriptions, formulas, generateStudentMonthInvoice, new PlanPolicy(plan));
   }
 
   function validInput(overrides: Partial<GenerateMonthlyInvoicesInput> = {}): GenerateMonthlyInvoicesInput {
@@ -215,6 +221,101 @@ describe('GenerateMonthlyInvoices', () => {
       expect(second).toEqual({ created: 0, skipped: 2, unresolved: 0 });
 
       expect(invoices.all().filter((i) => i.month === '2026-09')).toHaveLength(2);
+    });
+
+    it('skips a student whose invoice was already created by the enrollment hook (0 duplicates)', async () => {
+      // SOU-289: enrollment generated the month's draft first, through the same
+      // per-student unit. The batch must converge on that invoice, not duplicate it.
+      const formula = seedFormula(formulas);
+      const student = 'stu_00000000000000000000000001' as StudentId;
+      seedSubscription(subscriptions, { studentId: student, formulaId: formula.id, startMonth: '2026-09' });
+
+      const enrollmentDraft = new CreateInvoiceDraft(
+        invoices,
+        fakeClock(CLOCK_ISO),
+        fakeIds(500),
+        new PlanPolicy(PLANS.essentiel),
+      );
+      await enrollmentDraft.execute({
+        studentId: student,
+        month: '2026-09',
+        lines: [
+          { formulaId: formula.id, label: formula.name, kind: 'regular', amountMad: formula.priceMad },
+        ],
+        centerCode: CENTER,
+        deviceOrigin: DEVICE,
+        updatedBy: USER,
+      });
+
+      const result = await build(PLANS.essentiel).execute(validInput({ month: '2026-09' }));
+
+      expect(result).toEqual({ created: 0, skipped: 1, unresolved: 0 });
+      expect(invoices.all()).toHaveLength(1);
+      const invoice = await invoices.findByStudentMonth(CENTER, student, '2026-09');
+      expect(await invoices.listLines(invoice!.id)).toHaveLength(1);
+    });
+
+    it('tops up an existing draft with a subscription line it was missing (counted skipped, never a second invoice)', async () => {
+      const regularFormula = seedFormula(formulas, { kind: 'regular', priceMad: 20000 });
+      const examPrepFormula = seedFormula(formulas, {
+        name: { fr: 'Préparation Bac', ar: 'تحضير الباك' },
+        kind: 'exam-prep',
+        priceMad: 80000,
+      });
+      const student = 'stu_00000000000000000000000001' as StudentId;
+      seedSubscription(subscriptions, { studentId: student, formulaId: regularFormula.id, kind: 'regular' });
+      seedSubscription(subscriptions, { studentId: student, formulaId: examPrepFormula.id, kind: 'exam-prep' });
+
+      // The month's draft carries only the regular line (billed at enrollment).
+      const enrollmentDraft = new CreateInvoiceDraft(
+        invoices,
+        fakeClock(CLOCK_ISO),
+        fakeIds(500),
+        new PlanPolicy(PLANS.essentiel),
+      );
+      await enrollmentDraft.execute({
+        studentId: student,
+        month: '2026-09',
+        lines: [
+          {
+            formulaId: regularFormula.id,
+            label: regularFormula.name,
+            kind: 'regular',
+            amountMad: regularFormula.priceMad,
+          },
+        ],
+        centerCode: CENTER,
+        deviceOrigin: DEVICE,
+        updatedBy: USER,
+      });
+
+      const result = await build(PLANS.essentiel).execute(validInput({ month: '2026-09' }));
+
+      expect(result).toEqual({ created: 0, skipped: 1, unresolved: 0 });
+      expect(invoices.all()).toHaveLength(1);
+      const invoice = await invoices.findByStudentMonth(CENTER, student, '2026-09');
+      const lines = await invoices.listLines(invoice!.id);
+      expect(lines.map((line) => line.kind).sort()).toEqual(['exam-prep', 'regular']);
+    });
+
+    it('never touches an issued invoice on a re-run (counted skipped, lines frozen)', async () => {
+      const formula = seedFormula(formulas);
+      const student = 'stu_00000000000000000000000001' as StudentId;
+      seedSubscription(subscriptions, { studentId: student, formulaId: formula.id });
+
+      const job = build(PLANS.essentiel);
+      await job.execute(validInput());
+      const invoice = await invoices.findByStudentMonth(CENTER, student, '2026-09');
+      await new IssueInvoice(invoices, fakeClock(CLOCK_ISO), new PlanPolicy(PLANS.essentiel)).execute({
+        centerCode: CENTER,
+        invoiceId: invoice!.id,
+        updatedBy: USER,
+      });
+
+      const rerun = await job.execute(validInput());
+
+      expect(rerun).toEqual({ created: 0, skipped: 1, unresolved: 0 });
+      expect(await invoices.listLines(invoice!.id)).toHaveLength(1);
     });
 
     it('still creates a draft for a newly-eligible student while skipping the already-billed one', async () => {

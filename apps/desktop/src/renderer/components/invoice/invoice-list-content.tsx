@@ -11,12 +11,15 @@ type InvoiceListContentProps = {
   status: InvoiceListStatus;
   invoices: readonly InvoiceListItemView[];
   studentsById: ReadonlyMap<string, StudentView>;
-  month: string;
+  /** Month for the per-responsible Facture groupée action; each row falls back to its own invoice month (student Factures tab, SOU-289). */
+  month?: string | undefined;
   onRetry: () => void;
+  /** Overrides the center-wide empty-state copy (e.g. the student detail's Factures tab, SOU-289). */
+  empty?: { title: string; description: string } | undefined;
 };
 
 /** Renders the correct state for the list: loading, error, empty, no-results, or table. */
-export function InvoiceListContent({ status, invoices, studentsById, month, onRetry }: InvoiceListContentProps) {
+export function InvoiceListContent({ status, invoices, studentsById, month, onRetry, empty }: InvoiceListContentProps) {
   const { t } = useTranslation();
 
   if (status === 'loading') {
@@ -48,8 +51,8 @@ export function InvoiceListContent({ status, invoices, studentsById, month, onRe
     return (
       <EmptyState
         icon={<ReceiptText className="h-5 w-5" aria-hidden="true" />}
-        title={t('invoices.empty.title')}
-        description={t('invoices.empty.body')}
+        title={empty?.title ?? t('invoices.empty.title')}
+        description={empty?.description ?? t('invoices.empty.body')}
       />
     );
   }

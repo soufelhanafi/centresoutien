@@ -1,5 +1,5 @@
 import type { SubscriptionInput, SubscriptionView } from './subscription-view';
-import type { SubscriptionsGateway } from './subscriptions-gateway';
+import type { SubscriptionCreateResult, SubscriptionsGateway } from './subscriptions-gateway';
 
 /**
  * The real {@link SubscriptionsGateway}: maps each method onto its typed IPC
@@ -12,7 +12,7 @@ class IpcSubscriptionsGateway implements SubscriptionsGateway {
     return subscriptions;
   }
 
-  async create(input: SubscriptionInput): Promise<{ id: string }> {
+  async create(input: SubscriptionInput): Promise<SubscriptionCreateResult> {
     return window.api.invoke('subscription.create', input);
   }
 

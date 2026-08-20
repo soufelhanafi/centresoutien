@@ -21,7 +21,7 @@ export function InvoiceTable({
 }: {
   invoices: readonly InvoiceListItemView[];
   studentsById: ReadonlyMap<string, StudentView>;
-  month: string;
+  month?: string | undefined;
 }) {
   const { t } = useTranslation();
   const hasInvoicing = useFeature('core.invoicing');
@@ -50,7 +50,7 @@ export function InvoiceTable({
               key={invoice.id}
               invoice={invoice}
               student={studentsById.get(invoice.studentId)}
-              month={month}
+              month={month ?? invoice.month}
               showFactureGroupee={showFactureGroupee}
             />
           ))}

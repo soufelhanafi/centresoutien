@@ -26,6 +26,11 @@ import {
 } from '../../src/data/sqlite/migration-runner';
 import { SqliteInvoiceRepository } from '../../src/data/sqlite/repositories/invoice-repository';
 import { SqlitePaymentRepository } from '../../src/data/sqlite/repositories/payment-repository';
+import {
+  InvoiceLineNotFoundError,
+  InvoiceNotDraftError,
+  InvoiceNotFoundError,
+} from '@centresoutien/domain';
 
 const KEY = 'passphrase-under-test';
 const REAL_MIGRATIONS = join(import.meta.dirname, '../../src/data/sqlite/migrations');
@@ -168,6 +173,213 @@ describe('SqliteInvoiceRepository', () => {
       const other = makeInvoice({ id: 'inv_00000000000000000000000002' as InvoiceId });
       // Same line id reused — the plain INSERT (no upsert) must reject it.
       await expect(repo.createDraft(other, [{ ...line, invoiceId: other.id }])).rejects.toThrow();
+    });
+  });
+
+  describe('appendLinesToDraft (SOU-289, draft-only)', () => {
+    it('appends lines to a live draft; listLines reads the union back', async () => {
+      const invoice = makeInvoice();
+      await repo.createDraft(invoice, [makeLine(invoice.id, { amountMad: 20000 })]);
+
+      await repo.appendLinesToDraft(invoice.id, [
+        makeLine(invoice.id, { kind: 'exam-prep', amountMad: 80000 }),
+      ]);
+
+      const lines = await repo.listLines(invoice.id);
+      expect(lines).toHaveLength(2);
+      expect(lines.map((l) => l.amountMad).sort((a, b) => a - b)).toEqual([20000, 80000]);
+    });
+
+    it('rejects an issued invoice with InvoiceNotDraftError and inserts nothing', async () => {
+      const invoice = makeInvoice({ status: 'issued', issuedAt: new Date('2026-08-01T09:00:00Z') });
+      await repo.createDraft(invoice, [makeLine(invoice.id)]);
+
+      await expect(
+        repo.appendLinesToDraft(invoice.id, [makeLine(invoice.id, { kind: 'exam-prep' })]),
+      ).rejects.toBeInstanceOf(InvoiceNotDraftError);
+      expect(await repo.listLines(invoice.id)).toHaveLength(1);
+    });
+
+    it('rejects a cancelled invoice with InvoiceNotDraftError', async () => {
+      const invoice = makeInvoice({
+        status: 'cancelled',
+        cancelledAt: new Date('2026-08-01T09:00:00Z'),
+      });
+      await repo.createDraft(invoice, [makeLine(invoice.id)]);
+
+      await expect(
+        repo.appendLinesToDraft(invoice.id, [makeLine(invoice.id, { kind: 'exam-prep' })]),
+      ).rejects.toBeInstanceOf(InvoiceNotDraftError);
+    });
+
+    it('rejects an unknown or discarded invoice with InvoiceNotFoundError', async () => {
+      const unknown = 'inv_00000000000000000000000098' as InvoiceId;
+      await expect(repo.appendLinesToDraft(unknown, [makeLine(unknown)])).rejects.toBeInstanceOf(
+        InvoiceNotFoundError,
+      );
+
+      const discarded = makeInvoice();
+      await repo.createDraft(discarded, [makeLine(discarded.id)]);
+      await repo.softDelete(discarded.id, new Date('2026-08-02T00:00:00Z'), USER);
+      await expect(
+        repo.appendLinesToDraft(discarded.id, [makeLine(discarded.id)]),
+      ).rejects.toBeInstanceOf(InvoiceNotFoundError);
+    });
+
+    it('skips a line whose live (formula_id, kind) is already on the invoice — a raced double append inserts once', async () => {
+      const invoice = makeInvoice();
+      const first = makeLine(invoice.id, { amountMad: 20000 });
+      await repo.createDraft(invoice, [first]);
+
+      // Same (formula_id, kind) computed as "missing" by two interleaved generators:
+      // the second append must be dropped in-transaction, never double-billed.
+      await repo.appendLinesToDraft(invoice.id, [
+        makeLine(invoice.id, { formulaId: first.formulaId, kind: first.kind, amountMad: 20000 }),
+      ]);
+
+      const lines = await repo.listLines(invoice.id);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]?.id).toBe(first.id);
+    });
+
+    it('deduplicates the same (formula_id, kind) within one supplied batch', async () => {
+      const invoice = makeInvoice();
+      await repo.createDraft(invoice, [makeLine(invoice.id)]);
+
+      await repo.appendLinesToDraft(invoice.id, [
+        makeLine(invoice.id, { kind: 'exam-prep', amountMad: 80000 }),
+        makeLine(invoice.id, { kind: 'exam-prep', amountMad: 80000 }),
+      ]);
+
+      expect(await repo.listLines(invoice.id)).toHaveLength(2);
+    });
+
+    it('only LIVE lines block the insert: a tombstoned (formula_id, kind) may be re-billed', async () => {
+      const invoice = makeInvoice();
+      const original = makeLine(invoice.id);
+      await repo.createDraft(invoice, [original]);
+      // A synced-in tombstone on the line (the port itself only cascades deletes
+      // from the header): the key must free up for a fresh append.
+      db.prepare('UPDATE invoice_lines SET deleted_at = ? WHERE id = ?').run(
+        '2026-08-02T00:00:00.000Z',
+        original.id,
+      );
+
+      const replacement = makeLine(invoice.id, {
+        formulaId: original.formulaId,
+        kind: original.kind,
+      });
+      await repo.appendLinesToDraft(invoice.id, [replacement]);
+
+      const lines = await repo.listLines(invoice.id);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]?.id).toBe(replacement.id);
+    });
+
+    it('is atomic: an invalid line rolls back the whole append', async () => {
+      const invoice = makeInvoice();
+      await repo.createDraft(invoice, [makeLine(invoice.id)]);
+
+      await expect(
+        repo.appendLinesToDraft(invoice.id, [
+          makeLine(invoice.id, { kind: 'exam-prep' }),
+          // Fresh (formula_id, kind) so the idempotency skip lets it through to the
+          // INSERT, where it violates CHECK (amount_mad >= 0).
+          makeLine(invoice.id, {
+            formulaId: 'fml_00000000000000000000000010' as FormulaId,
+            amountMad: -1,
+          }),
+        ]),
+      ).rejects.toThrow();
+      expect(await repo.listLines(invoice.id)).toHaveLength(1);
+    });
+  });
+
+  describe('updateDraftLineAmount (SOU-289, draft-only)', () => {
+    it('rewrites amount_mad + updated_at/updated_by and nothing else', async () => {
+      const invoice = makeInvoice();
+      const line = makeLine(invoice.id, { amountMad: 20000 });
+      await repo.createDraft(invoice, [line]);
+
+      const editedAt = new Date('2026-08-02T09:00:00Z');
+      const editor = 'usr_00000000000000000000000002' as UserId;
+      await repo.updateDraftLineAmount({
+        ...line,
+        amountMad: 15000,
+        updatedAt: editedAt,
+        updatedBy: editor,
+      });
+
+      const [read] = await repo.listLines(invoice.id);
+      expect(read?.amountMad).toBe(15000);
+      expect(read?.updatedAt).toEqual(editedAt);
+      expect(read?.updatedBy).toBe(editor);
+      // Billed snapshot, identity, and the hub's version stay untouched.
+      expect(read?.formulaId).toBe(line.formulaId);
+      expect(read?.label).toEqual(line.label);
+      expect(read?.kind).toBe(line.kind);
+      expect(read?.createdAt).toEqual(line.createdAt);
+      expect(read?.version).toBe(line.version);
+      expect(read?.deletedAt).toBeNull();
+    });
+
+    it('surfaces the edited line in the line sync feed (updated_at moved)', async () => {
+      const invoice = makeInvoice();
+      const line = makeLine(invoice.id);
+      await repo.createDraft(invoice, [line]);
+
+      const editedAt = new Date('2026-08-02T09:00:00Z');
+      await repo.updateDraftLineAmount({ ...line, amountMad: 12345, updatedAt: editedAt, updatedBy: USER });
+
+      const changed = await repo.listLinesChangedSince(new Date('2026-08-01T00:00:00Z'));
+      expect(changed).toHaveLength(1);
+      expect(changed[0]?.amountMad).toBe(12345);
+    });
+
+    it('rejects a non-draft invoice with InvoiceNotDraftError and writes nothing', async () => {
+      const invoice = makeInvoice({ status: 'issued', issuedAt: new Date('2026-08-01T09:00:00Z') });
+      const line = makeLine(invoice.id, { amountMad: 20000 });
+      await repo.createDraft(invoice, [line]);
+
+      await expect(
+        repo.updateDraftLineAmount({ ...line, amountMad: 15000 }),
+      ).rejects.toBeInstanceOf(InvoiceNotDraftError);
+      expect((await repo.listLines(invoice.id))[0]?.amountMad).toBe(20000);
+    });
+
+    it('rejects an unknown invoice with InvoiceNotFoundError', async () => {
+      const unknown = 'inv_00000000000000000000000097' as InvoiceId;
+      await expect(repo.updateDraftLineAmount(makeLine(unknown))).rejects.toBeInstanceOf(
+        InvoiceNotFoundError,
+      );
+    });
+
+    it('rejects a line id with no live row on the invoice with InvoiceLineNotFoundError', async () => {
+      const invoice = makeInvoice();
+      await repo.createDraft(invoice, [makeLine(invoice.id)]);
+
+      const phantom = makeLine(invoice.id, {
+        id: 'invl_00000000000000000000000777' as InvoiceLineId,
+      });
+      await expect(repo.updateDraftLineAmount(phantom)).rejects.toBeInstanceOf(
+        InvoiceLineNotFoundError,
+      );
+    });
+
+    it("rejects another invoice's line (the invoice_id is part of the match)", async () => {
+      const invoiceA = makeInvoice();
+      const lineA = makeLine(invoiceA.id);
+      await repo.createDraft(invoiceA, [lineA]);
+      const invoiceB = makeInvoice({
+        id: 'inv_00000000000000000000000002' as InvoiceId,
+        studentId: STUDENT_B,
+      });
+      await repo.createDraft(invoiceB, [makeLine(invoiceB.id)]);
+
+      await expect(
+        repo.updateDraftLineAmount({ ...lineA, invoiceId: invoiceB.id }),
+      ).rejects.toBeInstanceOf(InvoiceLineNotFoundError);
+      expect((await repo.listLines(invoiceA.id))[0]?.amountMad).toBe(lineA.amountMad);
     });
   });
 

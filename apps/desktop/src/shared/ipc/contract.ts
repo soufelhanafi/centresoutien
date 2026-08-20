@@ -39,6 +39,8 @@ import {
   voidPaymentSchema,
   paymentRef,
   generateMonthlyInvoicesSchema,
+  updateDraftInvoiceLineAmountSchema,
+  SUBSCRIPTION_INVOICE_OUTCOMES,
   computeMonthlyPayrollsSchema,
   confirmMonthlyPayrollsSchema,
   payrollMonthQuerySchema,
@@ -1357,9 +1359,20 @@ export const ipcContract = {
   // injected in main, never sent from the renderer. Gated by `core.formulas` (every
   // plan) in the use cases; exam-prep additionally needs `core.exam-prep` (Pro+). All
   // reads strip the envelope to `subscriptionViewSchema`; status is derived, not stored.
+  //
+  // SOU-289: `create` also reports the first-invoice hook's outcome — when
+  // startMonth <= the current month the domain generates (or tops up) the student's
+  // draft invoice for startMonth through the same path as the monthly batch.
+  // `invoiceOutcome` is the domain's `SubscriptionInvoiceOutcome`; `invoiceId` is the
+  // created/resolved invoice, or null when nothing was generated
+  // (deferred-future-month / formula-unresolved / invoicing-unavailable).
   'subscription.create': {
     request: studentSubscriptionInputSchema,
-    response: z.object({ id: z.string() }),
+    response: z.object({
+      id: z.string(),
+      invoiceOutcome: z.enum(SUBSCRIPTION_INVOICE_OUTCOMES),
+      invoiceId: z.string().nullable(),
+    }),
   },
   'subscription.close': {
     request: z.object({ subscriptionId: z.string(), endMonth: closeStudentSubscriptionMonthSchema }),
@@ -1552,6 +1565,18 @@ export const ipcContract = {
   'invoice.cancel': {
     request: z.object({ invoiceId: z.string() }),
     response: invoiceTransitionResultSchema,
+  },
+  // Draft-line amount override (SOU-289). The director edits a draft line's
+  // amountMad to an arbitrary positive integer (centimes); the domain rejects a
+  // non-draft invoice (`invoice-not-draft`) — issued/cancelled lines are frozen —
+  // an unknown/foreign-center invoice (`invoice-not-found`), and an unknown line
+  // (`invoice-line-not-found`). Returns the updated line view; the renderer
+  // refreshes the detail via `invoice.list`, like issue/cancel. centerCode/
+  // updatedBy are injected in main, never sent from the renderer. Gated by
+  // `core.invoicing` (every plan) in the use case — no new feature flag.
+  'invoice.updateLineAmount': {
+    request: updateDraftInvoiceLineAmountSchema,
+    response: z.object({ line: invoiceLineViewSchema }),
   },
   // Impayés (arrears) list (SOU-103): every `issued` invoice that is both past its
   // implicit due date (its billing month's last day) and not fully paid, grouped by

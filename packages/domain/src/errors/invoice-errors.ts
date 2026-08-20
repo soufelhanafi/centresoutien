@@ -1,5 +1,6 @@
 import { DomainError } from './plan-errors';
 import type { InvoiceId, InvoiceStatus } from '../entities/invoice';
+import type { InvoiceLineId } from '../entities/invoice-line';
 import type { StudentId } from '../entities/student';
 
 /**
@@ -70,6 +71,43 @@ export class DuplicateInvoiceError extends DomainError {
     readonly month: string,
   ) {
     super(`Student "${studentId}" already has a live invoice for ${month}.`);
+  }
+}
+
+/**
+ * Thrown when a line-level write targets an invoice that is not in the `draft`
+ * lifecycle state (SOU-289). Lines are mutable/appendable only while the invoice is
+ * a draft; the moment it is `issued` the billed snapshot is frozen, and a
+ * `cancelled` invoice is deliberately closed history — neither may gain or change a
+ * line. Distinct from {@link InvoiceNotFoundError} (the invoice resolves; it is
+ * just past the editable state). The renderer resolves the stable
+ * `invoice-not-draft` code; the domain stays i18n-agnostic.
+ */
+export class InvoiceNotDraftError extends DomainError {
+  readonly code = 'invoice-not-draft';
+
+  constructor(
+    readonly invoiceId: InvoiceId,
+    readonly status: InvoiceStatus,
+  ) {
+    super(`Invoice "${invoiceId}" is "${status}", not "draft": its lines are frozen.`);
+  }
+}
+
+/**
+ * Thrown when a line-level operation names a line id with no live row on the given
+ * invoice — unknown, already tombstoned, or belonging to a different invoice. The
+ * renderer resolves the stable `invoice-line-not-found` code; the domain stays
+ * i18n-agnostic.
+ */
+export class InvoiceLineNotFoundError extends DomainError {
+  readonly code = 'invoice-line-not-found';
+
+  constructor(
+    readonly invoiceId: InvoiceId,
+    readonly lineId: InvoiceLineId,
+  ) {
+    super(`No live line "${lineId}" on invoice "${invoiceId}".`);
   }
 }
 

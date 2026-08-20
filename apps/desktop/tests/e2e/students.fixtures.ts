@@ -73,7 +73,6 @@ export const STR: Record<
       guardiansLink: string;
     };
     subscription: { empty: string; subscribeCta: string };
-    comingSoon: { invoices: string; attendance: string };
     errors: { required: string; invalidDate: string; tooLong: string };
   }
 > = {
@@ -117,10 +116,6 @@ export const STR: Record<
       guardiansLink: 'Lier un responsable',
     },
     subscription: { empty: 'Aucun abonnement actif.', subscribeCta: 'Souscrire' },
-    comingSoon: {
-      invoices: 'Factures bientôt disponibles',
-      attendance: 'Présence bientôt disponible',
-    },
     errors: { required: 'Ce champ est requis', invalidDate: 'Date invalide', tooLong: 'Texte trop long' },
   },
   ar: {
@@ -163,10 +158,6 @@ export const STR: Record<
       guardiansLink: 'ربط وليّ',
     },
     subscription: { empty: 'لا يوجد اشتراك نشط.', subscribeCta: 'الاشتراك' },
-    comingSoon: {
-      invoices: 'الفواتير قريبًا',
-      attendance: 'الحضور قريبًا',
-    },
     errors: { required: 'هذا الحقل مطلوب', invalidDate: 'تاريخ غير صالح', tooLong: 'النص طويل جدًا' },
   },
 };

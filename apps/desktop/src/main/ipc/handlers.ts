@@ -1322,11 +1322,11 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       return { roster: roster.map(toRosterEntryView) };
     },
     'subscription.create': async (request) => {
-      const subscription = await deps.createStudentSubscription.execute({
+      const { subscription, invoice } = await deps.createStudentSubscription.execute({
         ...request,
         ...deps.envelopeContext(),
       });
-      return { id: subscription.id };
+      return { id: subscription.id, invoiceOutcome: invoice.outcome, invoiceId: invoice.invoiceId };
     },
     'subscription.close': async (request) => {
       const { centerCode, updatedBy } = deps.envelopeContext();
