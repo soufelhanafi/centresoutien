@@ -1,4 +1,4 @@
-import type { SessionOccurrenceView, WeeklySessionView } from '@centresoutien/domain';
+import type { SessionOccurrenceView, StrandedSessionGroup, WeeklySessionView } from '@centresoutien/domain';
 
 // Shared session-view mappers, split out of `handlers.ts` so the teacher-
 // availability handlers can reuse them (session.week / session.audit / recheck).
@@ -34,6 +34,8 @@ export function toSessionOccurrenceView(view: SessionOccurrenceView) {
     end: view.end,
     roomId: view.roomId,
     roomName: view.roomName,
+    roomCapacity: view.roomCapacity,
+    roomArchived: view.roomArchived,
     teacherId: view.teacherId,
     teacherName: view.teacherName === null ? null : { ...view.teacherName },
     groupId: view.groupId,
@@ -41,5 +43,21 @@ export function toSessionOccurrenceView(view: SessionOccurrenceView) {
     subjectName: view.subjectName === null ? null : { ...view.subjectName },
     level: view.level,
     kind: view.kind,
+  };
+}
+
+/** Project a deduplicated audit group (SOU-296) to its boundary DTO. */
+export function toStrandedSessionGroup(group: StrandedSessionGroup) {
+  return {
+    key: group.key,
+    reason: group.reason,
+    weekday: group.weekday,
+    resourceKind: group.resourceKind,
+    resourceId: group.resourceId,
+    count: group.count,
+    occurrences: group.occurrences.map((item) => ({
+      session: toSessionOccurrenceView(item.session),
+      reasons: [...item.reasons],
+    })),
   };
 }

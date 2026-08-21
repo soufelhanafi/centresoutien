@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   AuditSessionsOutsideEffectiveHours,
   type SessionAuditReason,
+  type StrandedSession,
 } from '../../../src/use-cases/audit-sessions-outside-effective-hours';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
@@ -12,6 +13,7 @@ import type { WeeklyRecurringSessionId } from '../../../src/entities/weekly-recu
 import type { SessionOccurrenceView } from '../../../src/read-models/session-occurrence-view';
 import type { CenterHours, CenterHoursId } from '../../../src/entities/center-hours';
 import type { Holiday, HolidayId } from '../../../src/entities/holiday';
+import type { Enrollment, EnrollmentId } from '../../../src/entities/enrollment';
 import type {
   CenterHoursOverride,
   CenterHoursOverrideId,
@@ -21,6 +23,7 @@ import type { TimeWindow } from '../../../src/value-objects/time-window';
 import type { RoomId } from '../../../src/entities/room';
 import type { GroupId } from '../../../src/entities/group';
 import type { SubjectId } from '../../../src/entities/subject';
+import type { StudentId } from '../../../src/entities/student';
 import type { TeacherId } from '../../../src/entities/teacher';
 import type {
   TeacherAvailability,
@@ -39,6 +42,7 @@ import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-r
 import { InMemoryCenterHoursOverrideRepository } from '../fakes/in-memory-center-hours-override-repository';
 import { InMemoryTeacherAvailabilityRepository } from '../fakes/in-memory-teacher-availability-repository';
 import { InMemoryTeacherAvailabilityExceptionRepository } from '../fakes/in-memory-teacher-availability-exception-repository';
+import { InMemoryEnrollmentRepository } from '../fakes/in-memory-enrollment-repository';
 import { fakeClock } from '../fakes/clock';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
@@ -65,6 +69,8 @@ function occurrence(over: Partial<SessionOccurrenceView> & Pick<SessionOccurrenc
     end: '10:30' as TimeOfDay,
     roomId: ROOM,
     roomName: 'Salle 1',
+    roomCapacity: 20,
+    roomArchived: false,
     teacherId: null,
     teacherName: null,
     groupId: GROUP,
@@ -137,6 +143,33 @@ function seededException(date: string): TeacherAvailabilityException {
   };
 }
 
+let enrollmentSeq = 0;
+function makeEnrollment(groupId: GroupId): Enrollment {
+  enrollmentSeq += 1;
+  const suffix = String(enrollmentSeq).padStart(26, '0');
+  return {
+    id: `enr_${suffix}` as EnrollmentId,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, fakeClock()),
+    studentId: `stu_${suffix}` as StudentId,
+    groupId,
+    startMonth: '2026-01',
+    endMonth: null,
+  };
+}
+
+/** Flatten the grouped result back to per-occurrence rows for the flat assertions
+ *  (deduped by session id — a multi-reason occurrence appears in one bucket per
+ *  reason, but its `reasons` array is identical in every one). */
+function flat(groups: readonly { occurrences: readonly StrandedSession[] }[]): readonly StrandedSession[] {
+  const seen = new Map<string, StrandedSession>();
+  for (const group of groups) {
+    for (const item of group.occurrences) {
+      if (!seen.has(item.session.id)) seen.set(item.session.id, item);
+    }
+  }
+  return [...seen.values()];
+}
+
 describe('AuditSessionsOutsideEffectiveHours', () => {
   let occurrences: InMemorySessionOccurrenceViewReadPort;
   let holidays: InMemoryHolidayRepository;
@@ -144,15 +177,15 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
   let overrides: InMemoryCenterHoursOverrideRepository;
   let availability: InMemoryTeacherAvailabilityRepository;
   let availabilityExceptions: InMemoryTeacherAvailabilityExceptionRepository;
+  let enrollments: InMemoryEnrollmentRepository;
 
-  // Anchor "today" before every seeded occurrence (all in Jan 2026) so the
-  // today-forward floor keeps them; the dedicated floor suite overrides it.
   function build(
     plan: Plan = PLANS.essentiel,
     clock = fakeClock('2026-01-01T00:00:00Z'),
   ): AuditSessionsOutsideEffectiveHours {
     return new AuditSessionsOutsideEffectiveHours({
       occurrences,
+      enrollments,
       holidays,
       centerHours,
       overrides,
@@ -165,13 +198,14 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
 
   beforeEach(async () => {
     sessionSeq = 0;
+    enrollmentSeq = 0;
     occurrences = new InMemorySessionOccurrenceViewReadPort();
     holidays = new InMemoryHolidayRepository();
     centerHours = new InMemoryCenterHoursRepository();
     overrides = new InMemoryCenterHoursOverrideRepository();
     availability = new InMemoryTeacherAvailabilityRepository();
     availabilityExceptions = new InMemoryTeacherAvailabilityExceptionRepository();
-    // Baseline: the center opens Thursdays 09:00–12:00.
+    enrollments = new InMemoryEnrollmentRepository();
     await centerHours.save(thursdayHours('09:00', '12:00'));
   });
 
@@ -180,15 +214,13 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
       occurrences.seed(occurrence({ date: '2026-01-01', start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay }));
       occurrences.seed(occurrence({ date: '2026-01-08', start: '10:30' as TimeOfDay, end: '12:00' as TimeOfDay }));
       const result = await build().execute({ centerCode: CENTER });
-      expect(result.sessionsOutsideEffectiveHours).toEqual([]);
+      expect(result.groups).toEqual([]);
     });
 
     it('imposes no hours constraint on a weekday the center never configured', async () => {
-      // 2026-01-02 is a Friday (weekday 5); no Friday hours row and no override →
-      // resolveEffectiveWindows returns null, so the occurrence is never flagged.
       occurrences.seed(occurrence({ date: '2026-01-02', start: '13:00' as TimeOfDay, end: '14:00' as TimeOfDay }));
       const result = await build().execute({ centerCode: CENTER });
-      expect(result.sessionsOutsideEffectiveHours).toEqual([]);
+      expect(result.groups).toEqual([]);
     });
   });
 
@@ -204,11 +236,7 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
         name: 'an occurrence now sitting after static closing time',
         reason: 'outside-center-hours',
         seed: async () => {
-          const stranded = occurrence({
-            date: '2026-01-08',
-            start: '13:00' as TimeOfDay,
-            end: '14:00' as TimeOfDay,
-          });
+          const stranded = occurrence({ date: '2026-01-08', start: '13:00' as TimeOfDay, end: '14:00' as TimeOfDay });
           occurrences.seed(stranded);
           return stranded;
         },
@@ -239,10 +267,18 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
         seed: async () => {
           const stranded = occurrence({ date: '2026-01-22' });
           occurrences.seed(stranded);
-          // Override opens Thursdays 12:00–15:00; the 09:00 slot no longer fits.
           await overrides.save(
             thursdayOverride([{ open: '12:00' as TimeOfDay, close: '15:00' as TimeOfDay }]),
           );
+          return stranded;
+        },
+      },
+      {
+        name: 'an occurrence whose room was archived after generation',
+        reason: 'room-archived',
+        seed: async () => {
+          const stranded = occurrence({ date: '2026-01-08', roomArchived: true });
+          occurrences.seed(stranded);
           return stranded;
         },
       },
@@ -251,79 +287,108 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
     it.each(cases)('flags $name as $reason', async ({ seed, reason }) => {
       const stranded = await seed();
       const result = await build().execute({ centerCode: CENTER });
-      expect(result.sessionsOutsideEffectiveHours).toEqual([{ session: stranded, reason }]);
+      expect(flat(result.groups)).toEqual([{ session: stranded, reasons: [reason] }]);
+    });
+  });
+
+  describe('room over-capacity (soft warning)', () => {
+    it('flags an occurrence whose room seats fewer than the group live enrollment', async () => {
+      const stranded = occurrence({ date: '2026-01-08', roomCapacity: 5 });
+      occurrences.seed(stranded);
+      for (let i = 0; i < 8; i += 1) await enrollments.save(makeEnrollment(GROUP));
+      const result = await build().execute({ centerCode: CENTER });
+      expect(flat(result.groups)).toEqual([{ session: stranded, reasons: ['room-over-capacity'] }]);
+    });
+
+    it('does not flag a room that still seats the whole group', async () => {
+      const stranded = occurrence({ date: '2026-01-08', roomCapacity: 8 });
+      occurrences.seed(stranded);
+      for (let i = 0; i < 8; i += 1) await enrollments.save(makeEnrollment(GROUP));
+      const result = await build().execute({ centerCode: CENTER });
+      expect(result.groups).toEqual([]);
+    });
+  });
+
+  describe('double-book detection', () => {
+    it('flags two same-date, same-room overlapping occurrences as room-double-booked', async () => {
+      const first = occurrence({ date: '2026-01-08', start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
+      const second = occurrence({ date: '2026-01-08', start: '10:00' as TimeOfDay, end: '11:00' as TimeOfDay });
+      occurrences.seed(first);
+      occurrences.seed(second);
+      const result = await build().execute({ centerCode: CENTER });
+      const rows = flat(result.groups);
+      expect(rows).toHaveLength(2);
+      expect(rows.every((row) => row.reasons.includes('room-double-booked'))).toBe(true);
+    });
+
+    it('does not flag two occurrences of the same weekday on different dates', async () => {
+      occurrences.seed(occurrence({ date: '2026-01-08', start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay }));
+      occurrences.seed(occurrence({ date: '2026-01-15', start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay }));
+      const result = await build().execute({ centerCode: CENTER });
+      expect(result.groups).toEqual([]);
+    });
+  });
+
+  describe('grouping', () => {
+    it('collapses eight weekly over-capacity rows into one bucket with count 8', async () => {
+      // Eight consecutive Thursdays (weekday 4), all in the same room — one bucket.
+      const thursdays = ['2026-01-01', '2026-01-08', '2026-01-15', '2026-01-22', '2026-01-29', '2026-02-05', '2026-02-12', '2026-02-19'];
+      for (const date of thursdays) {
+        occurrences.seed(occurrence({ date, roomCapacity: 5 }));
+      }
+      for (let i = 0; i < 8; i += 1) await enrollments.save(makeEnrollment(GROUP));
+      const result = await build().execute({ centerCode: CENTER });
+      expect(result.groups).toHaveLength(1);
+      expect(result.groups[0]?.reason).toBe('room-over-capacity');
+      expect(result.groups[0]?.count).toBe(8);
     });
   });
 
   describe('isolation', () => {
     it('carries the enriched display fields (subject/room/level) on each stranded row', async () => {
-      const stranded = occurrence({
-        date: '2026-01-08',
-        start: '13:00' as TimeOfDay,
-        end: '14:00' as TimeOfDay,
-      });
+      const stranded = occurrence({ date: '2026-01-08', start: '13:00' as TimeOfDay, end: '14:00' as TimeOfDay });
       occurrences.seed(stranded);
 
-      const [row] = (await build().execute({ centerCode: CENTER })).sessionsOutsideEffectiveHours;
+      const [row] = flat((await build().execute({ centerCode: CENTER })).groups);
       expect(row?.session.subjectName).toEqual({ fr: 'Maths', ar: 'رياضيات' });
       expect(row?.session.roomName).toBe('Salle 1');
       expect(row?.session.level).toBe('2e Bac');
     });
 
     it('returns only the stranded occurrences, never the in-window ones alongside them', async () => {
-      const fits = occurrence({
-        date: '2026-01-01',
-        start: '09:00' as TimeOfDay,
-        end: '10:30' as TimeOfDay,
-      });
-      const stranded = occurrence({
-        date: '2026-01-08',
-        start: '13:00' as TimeOfDay,
-        end: '14:00' as TimeOfDay,
-      });
+      const fits = occurrence({ date: '2026-01-01', start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
+      const stranded = occurrence({ date: '2026-01-08', start: '13:00' as TimeOfDay, end: '14:00' as TimeOfDay });
       occurrences.seed(fits);
       occurrences.seed(stranded);
 
       const result = await build().execute({ centerCode: CENTER });
-      expect(result.sessionsOutsideEffectiveHours).toEqual([
-        { session: stranded, reason: 'outside-center-hours' },
+      expect(flat(result.groups)).toEqual([
+        { session: stranded, reasons: ['outside-center-hours'] },
       ]);
     });
 
     it('excludes an already soft-deleted (cancelled) occurrence even when it is out of hours', async () => {
-      const cancelled = occurrence({
-        date: '2026-01-29',
-        start: '13:00' as TimeOfDay,
-        end: '14:00' as TimeOfDay,
-      });
+      const cancelled = occurrence({ date: '2026-01-29', start: '13:00' as TimeOfDay, end: '14:00' as TimeOfDay });
       occurrences.seed(cancelled);
       occurrences.softDelete(cancelled.id);
 
       const result = await build().execute({ centerCode: CENTER });
-      expect(result.sessionsOutsideEffectiveHours).toEqual([]);
+      expect(result.groups).toEqual([]);
     });
 
-    it('prefers on-holiday over outside-center-hours when both apply to one occurrence', async () => {
-      const both = occurrence({
-        date: '2026-01-15',
-        start: '13:00' as TimeOfDay,
-        end: '14:00' as TimeOfDay,
-      });
+    it('reports both on-holiday and outside-center-hours when both apply (no precedence)', async () => {
+      const both = occurrence({ date: '2026-01-15', start: '13:00' as TimeOfDay, end: '14:00' as TimeOfDay });
       occurrences.seed(both);
       await holidays.save(holiday('2026-01-15'));
 
       const result = await build().execute({ centerCode: CENTER });
-      expect(result.sessionsOutsideEffectiveHours).toEqual([
-        { session: both, reason: 'on-holiday' },
+      expect(flat(result.groups)).toEqual([
+        { session: both, reasons: ['on-holiday', 'outside-center-hours'] },
       ]);
     });
   });
 
-  // SOU-283: out-of-window teacher-availability surfaces as an audit finding. All
-  // occurrences are Thursdays (weekday 4); the default 09:00–10:30 slot sits inside
-  // the baseline 09:00–12:00 center hours, so only availability can strand it.
   describe('teacher availability (SOU-283)', () => {
-    // A plan that audits (settings.center-hours) but does NOT sell availability.
     const noAvailabilityPlan: Plan = {
       id: 'essentiel',
       features: new Set<FeatureFlag>(['settings.center-hours']),
@@ -335,8 +400,8 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
       occurrences.seed(stranded);
       await availability.save(seededAvailability(weekWindows({})));
       const result = await build().execute({ centerCode: CENTER });
-      expect(result.sessionsOutsideEffectiveHours).toEqual([
-        { session: stranded, reason: 'outside-teacher-availability' },
+      expect(flat(result.groups)).toEqual([
+        { session: stranded, reasons: ['outside-teacher-availability'] },
       ]);
     });
 
@@ -347,8 +412,8 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
         seededAvailability(weekWindows({ 4: [{ open: '09:00' as TimeOfDay, close: '10:00' as TimeOfDay }] })),
       );
       const result = await build().execute({ centerCode: CENTER });
-      expect(result.sessionsOutsideEffectiveHours).toEqual([
-        { session: stranded, reason: 'outside-teacher-availability' },
+      expect(flat(result.groups)).toEqual([
+        { session: stranded, reasons: ['outside-teacher-availability'] },
       ]);
     });
 
@@ -360,8 +425,8 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
       );
       await availabilityExceptions.save(seededException('2026-01-08'));
       const result = await build().execute({ centerCode: CENTER });
-      expect(result.sessionsOutsideEffectiveHours).toEqual([
-        { session: stranded, reason: 'outside-teacher-availability' },
+      expect(flat(result.groups)).toEqual([
+        { session: stranded, reasons: ['outside-teacher-availability'] },
       ]);
     });
 
@@ -371,52 +436,37 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
         seededAvailability(weekWindows({ 4: [{ open: '09:00' as TimeOfDay, close: '12:00' as TimeOfDay }] })),
       );
       const result = await build().execute({ centerCode: CENTER });
-      expect(result.sessionsOutsideEffectiveHours).toEqual([]);
+      expect(result.groups).toEqual([]);
     });
 
     it('does not flag a teacher with no configured availability row (unrestricted)', async () => {
       occurrences.seed(occurrence({ date: '2026-01-08', teacherId: TEACHER }));
       const result = await build().execute({ centerCode: CENTER });
-      expect(result.sessionsOutsideEffectiveHours).toEqual([]);
+      expect(result.groups).toEqual([]);
     });
 
     it('never surfaces the availability reason when the plan lacks planning.teacher-availability', async () => {
       occurrences.seed(occurrence({ date: '2026-01-08', teacherId: TEACHER }));
       await availability.save(seededAvailability(weekWindows({})));
       const result = await build(noAvailabilityPlan).execute({ centerCode: CENTER });
-      expect(result.sessionsOutsideEffectiveHours).toEqual([]);
+      expect(result.groups).toEqual([]);
     });
 
-    it('prefers outside-center-hours over outside-teacher-availability when both apply', async () => {
-      const both = occurrence({
-        date: '2026-01-08',
-        teacherId: TEACHER,
-        start: '13:00' as TimeOfDay,
-        end: '14:00' as TimeOfDay,
-      });
+    it('reports both outside-center-hours and outside-teacher-availability when both apply', async () => {
+      const both = occurrence({ date: '2026-01-08', teacherId: TEACHER, start: '13:00' as TimeOfDay, end: '14:00' as TimeOfDay });
       occurrences.seed(both);
       await availability.save(seededAvailability(weekWindows({})));
       const result = await build().execute({ centerCode: CENTER });
-      expect(result.sessionsOutsideEffectiveHours).toEqual([
-        { session: both, reason: 'outside-center-hours' },
+      expect(flat(result.groups)).toEqual([
+        { session: both, reasons: ['outside-center-hours', 'outside-teacher-availability'] },
       ]);
     });
   });
 
   describe('today-forward floor', () => {
     it('excludes a past stranded occurrence but keeps a same-shape one dated today', async () => {
-      // Both are Thursdays with a 13:00 slot the center (open 09:00–12:00) no
-      // longer covers; only the past one is filtered by the date floor.
-      const past = occurrence({
-        date: '2025-12-25',
-        start: '13:00' as TimeOfDay,
-        end: '14:00' as TimeOfDay,
-      });
-      const todayStranded = occurrence({
-        date: '2026-01-01',
-        start: '13:00' as TimeOfDay,
-        end: '14:00' as TimeOfDay,
-      });
+      const past = occurrence({ date: '2025-12-25', start: '13:00' as TimeOfDay, end: '14:00' as TimeOfDay });
+      const todayStranded = occurrence({ date: '2026-01-01', start: '13:00' as TimeOfDay, end: '14:00' as TimeOfDay });
       occurrences.seed(past);
       occurrences.seed(todayStranded);
 
@@ -425,8 +475,8 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
         fakeClock('2026-01-01T08:00:00Z'),
       ).execute({ centerCode: CENTER });
 
-      expect(result.sessionsOutsideEffectiveHours).toEqual([
-        { session: todayStranded, reason: 'outside-center-hours' },
+      expect(flat(result.groups)).toEqual([
+        { session: todayStranded, reasons: ['outside-center-hours'] },
       ]);
     });
   });

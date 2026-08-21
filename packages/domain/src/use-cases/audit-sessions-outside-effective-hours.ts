@@ -1,4 +1,5 @@
 import type { SessionOccurrenceViewReadPort } from '../ports/session-occurrence-view-read-port';
+import type { EnrollmentRepository } from '../ports/enrollment-repository';
 import type { Clock } from '../ports/clock';
 import type { HolidayRepository } from '../ports/holiday-repository';
 import type { CenterHoursRepository } from '../ports/center-hours-repository';
@@ -11,22 +12,19 @@ import type { SessionOccurrenceView } from '../read-models/session-occurrence-vi
 import type { DayHours } from '../policies/session-conflict-policy';
 import type { TeacherAvailabilityRules } from '../policies/teacher-availability-policy';
 import type { WeekdayIndex } from '../value-objects/weekday';
-import { auditReasonFor, type SessionAuditReason } from '../policies/session-audit-reason';
+import type { GroupId } from '../entities/group';
+import { auditReasonsFor, type StrandedSession } from '../policies/session-audit-reason';
+import {
+  groupStrandedSessions,
+  type StrandedSessionGroup,
+} from '../policies/stranded-session-grouping';
 import { resolveWeek } from '../schemas/center-hours';
 
-export type { SessionAuditReason } from '../policies/session-audit-reason';
-
-/**
- * One occurrence the audit flags: the enriched {@link SessionOccurrenceView}
- * paired with the reason it is now stranded.
- */
-export type StrandedSession = {
-  session: SessionOccurrenceView;
-  reason: SessionAuditReason;
-};
+export type { SessionAuditReason, StrandedSession } from '../policies/session-audit-reason';
+export type { StrandedSessionGroup } from '../policies/stranded-session-grouping';
 
 export type AuditSessionsOutsideEffectiveHoursResult = {
-  sessionsOutsideEffectiveHours: StrandedSession[];
+  groups: readonly StrandedSessionGroup[];
 };
 
 export type AuditSessionsOutsideEffectiveHoursInput = {
@@ -36,6 +34,7 @@ export type AuditSessionsOutsideEffectiveHoursInput = {
 /** The read ports + clock/plan the center-wide sweep reads; never mutates. */
 export type AuditSessionsDeps = {
   readonly occurrences: SessionOccurrenceViewReadPort;
+  readonly enrollments: EnrollmentRepository;
   readonly holidays: HolidayRepository;
   readonly centerHours: CenterHoursRepository;
   readonly overrides: CenterHoursOverrideRepository;
@@ -46,17 +45,20 @@ export type AuditSessionsDeps = {
 };
 
 /**
- * Read-only, center-wide sweep (SOU-201) reporting every live materialized session
- * the *current* effective hours or holidays now place outside any valid window —
- * the drift an override (SOU-165) or holiday (SOU-161) added after generation opens
- * up. It never mutates; cancelling a stranded occurrence is `CancelSession`.
+ * Read-only, center-wide standing audit (SOU-201, extended SOU-296) reporting every
+ * live materialized session the *current* state now strands, across the full
+ * conflict taxonomy: hours, holidays, teacher availability, room/teacher
+ * double-books, archived rooms, and room over-capacity. It never mutates;
+ * cancelling a stranded occurrence is `CancelSession`.
  *
  * Enriched occurrences come through {@link SessionOccurrenceViewReadPort} (already
- * excluding cancelled rows). Each verdict delegates to {@link auditReasonFor},
- * which reuses the same policies interactive scheduling trusts. Availability only
- * contributes under `planning.teacher-availability`. Scoped to one center,
- * today-and-forward (UTC civil date from the injected `Clock`), so history is never
- * surfaced. Rides under `settings.center-hours` (every plan).
+ * excluding cancelled rows); each verdict delegates to {@link auditReasonsFor},
+ * which reuses the same policies interactive scheduling trusts. Results are
+ * deduplicated in the domain via {@link groupStrandedSessions} (SOU-262 two-pass
+ * split): recurring rows collapse by `(reason, weekday, resource)`, one-offs keep
+ * their date. Availability only contributes under `planning.teacher-availability`;
+ * the whole sweep rides under `settings.center-hours` (every plan). Scoped to one
+ * center, today-and-forward (UTC civil date from the injected `Clock`).
  */
 export class AuditSessionsOutsideEffectiveHours {
   constructor(private readonly deps: AuditSessionsDeps) {}
@@ -77,19 +79,38 @@ export class AuditSessionsOutsideEffectiveHours {
     const staticDayByWeekday = new Map<WeekdayIndex, DayHours>(
       resolveWeek(week).map((day) => [day.dayOfWeek, day]),
     );
-    const availabilityByTeacher = await this.loadAvailability(input.centerCode, sessions, today);
+    const [availabilityByTeacher, enrollmentByGroup] = await Promise.all([
+      this.loadAvailability(input.centerCode, sessions, today),
+      this.loadEnrollmentCounts(sessions),
+    ]);
 
-    const sessionsOutsideEffectiveHours: StrandedSession[] = [];
+    const stranded: StrandedSession[] = [];
     for (const session of sessions) {
-      const reason = auditReasonFor(session, {
+      const reasons = auditReasonsFor(session, {
         holidays,
         overrides,
         staticDayByWeekday,
         availabilityByTeacher,
+        liveSchedule: sessions,
+        enrollmentByGroup,
       });
-      if (reason !== null) sessionsOutsideEffectiveHours.push({ session, reason });
+      if (reasons.length > 0) stranded.push({ session, reasons });
     }
-    return { sessionsOutsideEffectiveHours };
+
+    return { groups: groupStrandedSessions(stranded) };
+  }
+
+  /** Live enrollment count per group the occurrences reference, one batch read
+   *  (SOU-127 pattern) — the room-over-capacity numerator. Groups absent from the
+   *  map default to 0 inside {@link auditReasonsFor}. */
+  private async loadEnrollmentCounts(
+    sessions: readonly SessionOccurrenceView[],
+  ): Promise<ReadonlyMap<GroupId, number>> {
+    const groupIds = [
+      ...new Set(sessions.map((session) => session.groupId).filter((id): id is GroupId => id !== null)),
+    ];
+    if (groupIds.length === 0) return new Map();
+    return this.deps.enrollments.countActiveByGroups(groupIds);
   }
 
   /**
