@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import { _electron as electron, expect, type ElectronApplication, type Page } from '@playwright/test';
 
 /**
  * Black-box fixtures for SOU-295 — the planner "réinitialiser le planning" danger
@@ -252,6 +252,14 @@ export async function performResetViaUi(
   L: (typeof STR)[Locale],
   cutoff: 'today' | 'tomorrow',
 ): Promise<string> {
+  // A prior reset's success toast may still be on screen when this helper runs a
+  // second time in one flow. Snapshot the toasts already present so we can wait
+  // for a genuinely NEW one rather than racing the stale toast (reading .first()
+  // or .last() is non-deterministic while both are visible). The two resets in a
+  // flow always report different counts, so a not-yet-seen text is the new toast.
+  const toasts = win.getByText(L.successPrefix, { exact: false });
+  const before = new Set(await toasts.allTextContents());
+
   await win.getByRole('button', { name: L.resetTrigger }).click();
   const dialog = win.getByRole('dialog');
   await dialog.getByRole('heading', { name: L.dialogTitle }).waitFor();
@@ -259,10 +267,12 @@ export async function performResetViaUi(
   await dialog.getByRole('textbox').fill(L.confirmWord);
   const confirm = dialog.getByRole('button', { name: L.confirmButton, exact: true });
   await confirm.click();
-  // A prior reset's toast may still be on screen (this helper is called twice in
-  // one flow); the newest toast is prepended, so read the first match rather than
-  // letting strict mode trip on the stacked pair.
-  const toast = win.getByText(L.successPrefix, { exact: false }).first();
-  await toast.waitFor();
-  return (await toast.textContent()) ?? '';
+
+  let fresh = '';
+  await expect(async () => {
+    const added = (await toasts.allTextContents()).find((text) => !before.has(text));
+    expect(added, 'a new reset success toast should appear').toBeTruthy();
+    fresh = added ?? '';
+  }).toPass();
+  return fresh;
 }
