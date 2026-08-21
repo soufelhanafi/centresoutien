@@ -259,7 +259,10 @@ export async function performResetViaUi(
   await dialog.getByRole('textbox').fill(L.confirmWord);
   const confirm = dialog.getByRole('button', { name: L.confirmButton, exact: true });
   await confirm.click();
-  const toast = win.getByText(L.successPrefix, { exact: false });
+  // A prior reset's toast may still be on screen (this helper is called twice in
+  // one flow); the newest toast is prepended, so read the first match rather than
+  // letting strict mode trip on the stacked pair.
+  const toast = win.getByText(L.successPrefix, { exact: false }).first();
   await toast.waitFor();
   return (await toast.textContent()) ?? '';
 }

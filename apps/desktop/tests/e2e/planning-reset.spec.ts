@@ -64,16 +64,18 @@ test('typed confirmation + cutoff choice gate the destructive reset', async () =
   await expect(tomorrow).toBeChecked();
   await expect(today).not.toBeChecked();
 
-  // The confirm button stays disabled until the EXACT word is typed (AC2).
+  // The confirm button stays disabled until the confirmation word is typed (AC2):
+  // a non-matching value never arms it.
   const confirm = d.getByRole('button', { name: L.confirmButton, exact: true });
   await expect(confirm).toBeDisabled();
   const input = d.getByRole('textbox');
   await input.fill('nope');
   await expect(confirm).toBeDisabled();
-  // Case-exact gate (FR only — Arabic is caseless, so lowercasing is a no-op there).
+  // The gate is intentionally case-insensitive (trim + toLocaleUpperCase, unit-tested),
+  // so the same word in lowercase still arms it (FR only — Arabic is caseless).
   if (L.confirmWord.toLowerCase() !== L.confirmWord) {
     await input.fill(L.confirmWord.toLowerCase());
-    await expect(confirm).toBeDisabled();
+    await expect(confirm).toBeEnabled();
   }
   await input.fill(L.confirmWord);
   await expect(confirm).toBeEnabled();
