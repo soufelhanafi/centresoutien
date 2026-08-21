@@ -76,6 +76,8 @@ function occurrenceView(over: Partial<SessionOccurrenceView> = {}): SessionOccur
     end: '10:30' as TimeOfDay,
     roomId: ROOM,
     roomName: 'Salle A',
+    roomCapacity: 20,
+    roomArchived: false,
     teacherId: TEACHER as string as EntityId,
     teacherName: { fr: 'Prof', ar: 'أستاذ' },
     groupId: GROUP,
