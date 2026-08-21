@@ -189,7 +189,13 @@ describe('composition root', () => {
       kinds: ['regular'],
     });
     expect(roster[0]?.groups).toEqual([
-      { groupId, subjectId, subjectName: { fr: 'Mathématiques', ar: 'الرياضيات' }, kind: 'regular' },
+      {
+        groupId,
+        subjectId,
+        subjectName: { fr: 'Mathématiques', ar: 'الرياضيات' },
+        level: '',
+        kind: 'regular',
+      },
     ]);
   });
 

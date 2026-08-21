@@ -247,6 +247,7 @@ import { ExcelBackupAdapter } from '../data/excel/backup-excel-adapter';
 import { DialogPathRegistry } from './ipc/dialog-path-registry';
 import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
 import { PdfLibParentStatementRenderer } from '../data/pdf/pdf-lib-parent-statement-renderer';
+import { PdfLibTeacherRosterRenderer } from '../data/pdf/pdf-lib-teacher-roster-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
 import { PdfLibScheduleRenderer } from '../data/pdf/pdf-lib-schedule-renderer';
@@ -809,6 +810,7 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
   const parentStatementPdfRenderer = new PdfLibParentStatementRenderer();
+  const teacherRosterPdfRenderer = new PdfLibTeacherRosterRenderer();
   // Issue / cancel (SOU-143): the two lifecycle transitions shipped unwired
   // alongside CreateInvoiceDraft in SOU-67 (KICKOFF, SOU-69) — thin IPC plumbing
   // only, no new domain logic.
@@ -1472,6 +1474,7 @@ export function buildContainer(options: ContainerOptions): Container {
     invoicePdfRenderer,
     getParentMonthlyStatement,
     parentStatementPdfRenderer,
+    teacherRosterPdfRenderer,
     enrollStudent,
     unenrollStudent,
     createTeacher,

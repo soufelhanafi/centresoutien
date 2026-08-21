@@ -10,6 +10,7 @@ const TEMP_PDF_PREFIXES = [
   'facture-groupee-',
   'bulletin-paie-',
   'recu-paiement-',
+  'eleves-',
 ] as const;
 
 export type TempPdfPrefix = (typeof TEMP_PDF_PREFIXES)[number];

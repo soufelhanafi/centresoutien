@@ -209,6 +209,7 @@ const teacherRosterEntrySchema = z.object({
       groupId: z.string(),
       subjectId: z.string(),
       subjectName: z.object({ fr: z.string(), ar: z.string() }),
+      level: z.string(),
       kind: z.enum(['regular', 'exam-prep']),
     }),
   ),
@@ -219,6 +220,25 @@ const teacherRosterEntrySchema = z.object({
   formulaLabel: z.string(),
   status: z.enum(['active', 'left']),
   leftMonth: z.string().nullable(),
+});
+
+// The teacher-roster PDF print/export request (SOU-299): the renderer sends the
+// rows it is currently displaying (already filtered) plus the active-filter
+// selection and the teacher name, so the printout is exactly the on-screen view.
+// FR label composition happens in main (the document is FR-only), so filters carry
+// FR data values (subject/group names), never localized UI strings.
+const teacherRosterPdfRequestSchema = z.object({
+  teacherId: z.string(),
+  teacherName: z.string(),
+  generatedOn: z.string(),
+  rows: z.array(teacherRosterEntrySchema),
+  filters: z.object({
+    subjectName: z.string().nullable(),
+    groupLabel: z.string().nullable(),
+    nameQuery: z.string(),
+    status: z.enum(['all', 'active', 'left']),
+  }),
+  locale: z.enum(['fr', 'ar']),
 });
 
 // The presentation projection of a StudentSubscription across the IPC boundary — the
@@ -1716,6 +1736,17 @@ export const ipcContract = {
   'teacher.roster': {
     request: z.object({ teacherId: z.string() }),
     response: z.object({ roster: z.array(teacherRosterEntrySchema) }),
+  },
+  // Print (open in the OS viewer) / export (save dialog) the filtered roster as a
+  // FR-only PDF (SOU-299), mirroring `parentStatement.print`/`.export`. centerCode
+  // is injected in main; the renderer sends the rows it displays.
+  'teacher.roster.print': {
+    request: teacherRosterPdfRequestSchema,
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'teacher.roster.export': {
+    request: teacherRosterPdfRequestSchema,
+    response: z.object({ savedPath: z.string().nullable() }),
   },
   // Teacher payroll rules (SOU-72), the Rule tab's CRUD surface — `CreateTeacherPayrollRule`
   // / `CloseTeacherPayrollRule` shipped in SOU-70/71, wired to IPC here for the first

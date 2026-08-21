@@ -184,6 +184,7 @@ import { createBackupExcelHandlers, type BackupExcelHandlerDeps } from './backup
 import { createDialogHandlers } from './dialog-handlers';
 import { createExternalHandlers } from './external-handlers';
 import { createInvoiceHandlers, type InvoiceHandlerDeps } from './invoice-handlers';
+import { createTeacherRosterHandlers, type TeacherRosterHandlerDeps } from './teacher-roster-handlers';
 import {
   createParentStatementHandlers,
   type ParentStatementHandlerDeps,
@@ -514,6 +515,7 @@ function toTeacherRosterEntryView(entry: TeacherRosterEntry) {
       groupId: group.groupId,
       subjectId: group.subjectId,
       subjectName: { fr: group.subjectName.fr, ar: group.subjectName.ar },
+      level: group.level,
       kind: group.kind,
     })),
     subjects: entry.subjects.map((subject) => ({
@@ -849,7 +851,8 @@ export type HandlerDeps = BackupHandlerDeps &
   SyncHandlerDeps &
   CenterSwitchHandlerDeps &
   UserHandlerDeps &
-  TeacherAvailabilityHandlerDeps & {
+  TeacherAvailabilityHandlerDeps &
+  TeacherRosterHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
   activePlanFeatures: () => readonly FeatureFlag[];
@@ -1937,6 +1940,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     ...createExternalHandlers(),
     ...createInvoiceHandlers(deps),
     ...createParentStatementHandlers(deps),
+    ...createTeacherRosterHandlers(deps),
     ...createOverdueInvoiceHandlers(deps),
     ...createPayslipHandlers(deps),
     ...createDashboardHandlers(deps),
