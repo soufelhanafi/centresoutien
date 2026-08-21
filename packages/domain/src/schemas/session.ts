@@ -55,3 +55,16 @@ export const undoGenerationBatchSchema = z.object({
 });
 
 export type UndoGenerationBatchRequest = z.infer<typeof undoGenerationBatchSchema>;
+
+/**
+ * Input schema for `ResetPlanning` (SOU-295) — the director-facing bulk clear of
+ * future sessions + templates. `cutoffDate` is the inclusive `YYYY-MM-DD` lower
+ * bound the renderer derives from the Clock (today for "include today", tomorrow
+ * for "from tomorrow"); the domain never reads a wall clock. `centerCode` and
+ * `updatedBy` are stamped by main, never sent by the renderer.
+ */
+export const resetPlanningSchema = z.object({
+  cutoffDate: calendarDate,
+});
+
+export type ResetPlanningRequest = z.infer<typeof resetPlanningSchema>;

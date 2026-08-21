@@ -108,6 +108,7 @@ import type {
   ListWeekSessions,
   GenerateAndPersistSessions,
   UndoGenerationBatch,
+  ResetPlanning,
   AuditSessionsOutsideEffectiveHours,
   SessionId,
   CancelSession,
@@ -285,6 +286,7 @@ export type RestoreHolidayUseCase = Pick<RestoreHoliday, 'execute'>;
 export type ListWeekSessionsUseCase = Pick<ListWeekSessions, 'execute'>;
 export type GenerateAndPersistSessionsUseCase = Pick<GenerateAndPersistSessions, 'execute'>;
 export type UndoGenerationBatchUseCase = Pick<UndoGenerationBatch, 'execute'>;
+export type ResetPlanningUseCase = Pick<ResetPlanning, 'execute'>;
 export type AuditSessionsOutsideHoursUseCase = Pick<AuditSessionsOutsideEffectiveHours, 'execute'>;
 export type CancelSessionUseCase = Pick<CancelSession, 'execute'>;
 export type CreateWeeklyRecurringSessionUseCase = Pick<CreateWeeklyRecurringSession, 'execute'>;
@@ -903,6 +905,7 @@ export type HandlerDeps = BackupHandlerDeps &
   listWeekSessions: ListWeekSessionsUseCase;
   generateSessions: GenerateAndPersistSessionsUseCase;
   undoGenerationBatch: UndoGenerationBatchUseCase;
+  resetPlanning: ResetPlanningUseCase;
   auditSessionsOutsideHours: AuditSessionsOutsideHoursUseCase;
   cancelSession: CancelSessionUseCase;
   recordSessionAttendance: RecordSessionAttendanceUseCase;
@@ -1622,6 +1625,18 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       return deps.undoGenerationBatch.execute({
         centerCode,
         generationBatchId: request.generationBatchId as GenerationBatchId,
+        updatedBy,
+      });
+    },
+    'planning.reset': async (request) => {
+      const { centerCode, updatedBy } = deps.envelopeContext();
+      // Danger-zone bulk clear (SOU-295): centerCode/updatedBy are injected in
+      // main, never sent by the renderer. `cutoffDate` is the inclusive lower
+      // bound the renderer derived from the Clock. Soft-deletes every future
+      // session + every recurring template of the center in one transaction.
+      return deps.resetPlanning.execute({
+        centerCode,
+        cutoffDate: request.cutoffDate,
         updatedBy,
       });
     },

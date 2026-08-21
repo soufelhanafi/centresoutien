@@ -385,10 +385,14 @@ export { groupInputSchema, GROUP_LEVEL_MAX, GROUP_CAPACITY_MIN } from './schemas
 export type { GroupInput } from './schemas/group';
 export { enrollmentInputSchema, MONTH_PATTERN } from './schemas/enrollment';
 export type { EnrollmentInput } from './schemas/enrollment';
-export { generateSessionsSchema, undoGenerationBatchSchema } from './schemas/session';
+export { generateSessionsSchema, undoGenerationBatchSchema, resetPlanningSchema } from './schemas/session';
 export { recordSessionAttendanceSchema } from './schemas/attendance';
 export type { RecordSessionAttendanceRequest } from './schemas/attendance';
-export type { GenerateSessionsRequest, UndoGenerationBatchRequest } from './schemas/session';
+export type {
+  GenerateSessionsRequest,
+  UndoGenerationBatchRequest,
+  ResetPlanningRequest,
+} from './schemas/session';
 export {
   weeklyRecurringSessionInputSchema,
   weeklyRecurringSessionUpdateSchema,
@@ -1137,6 +1141,12 @@ export type {
   UndoGenerationBatchInput,
   UndoGenerationBatchResult,
 } from './use-cases/undo-generation-batch';
+export { ResetPlanning } from './use-cases/reset-planning';
+export type { ResetPlanningInput, ResetPlanningResult } from './use-cases/reset-planning';
+export type {
+  ResetPlanningUnit,
+  ResetPlanningUnitOfWork,
+} from './ports/reset-planning-unit-of-work';
 export { AuditSessionsOutsideEffectiveHours } from './use-cases/audit-sessions-outside-effective-hours';
 export type {
   AuditSessionsOutsideEffectiveHoursInput,
