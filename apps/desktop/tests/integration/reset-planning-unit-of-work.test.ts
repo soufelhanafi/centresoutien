@@ -4,9 +4,12 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Database as DB } from 'better-sqlite3';
 import type {
+  AttendanceRecord,
+  AttendanceRecordId,
   ChangeLogWriter,
   Session,
   SessionId,
+  StudentId,
   WeeklyRecurringSession,
   WeeklyRecurringSessionId,
   CenterCode,
@@ -21,6 +24,7 @@ import type {
 import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteSessionRepository } from '../../src/data/sqlite/repositories/session-repository';
+import { SqliteAttendanceRepository } from '../../src/data/sqlite/repositories/attendance-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../../src/data/sqlite/repositories/weekly-recurring-session-repository';
 import { SqliteResetPlanningUnitOfWork } from '../../src/data/sqlite/repositories/reset-planning-unit-of-work';
 import { changeLogWriterForTest } from './helpers/change-log';
@@ -35,6 +39,7 @@ const DEVICE = 'dev_00000000000000000000000001' as DeviceId;
 const ROOM = 'rom_00000000000000000000000001' as RoomId;
 const TEACHER = 'tch_00000000000000000000000001' as EntityId;
 const GROUP = 'grp_00000000000000000000000001' as GroupId;
+const STUDENT = 'stu_00000000000000000000000001' as StudentId;
 const WRS = 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId;
 const AT = new Date('2026-08-01T10:00:00Z');
 const DELETED_AT = new Date('2026-08-15T09:00:00Z');
@@ -44,6 +49,7 @@ let dir: string;
 let db: DB;
 let sessionRepo: SqliteSessionRepository;
 let templateRepo: SqliteWeeklyRecurringSessionRepository;
+let attendanceRepo: SqliteAttendanceRepository;
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'cs-reset-'));
@@ -52,6 +58,7 @@ beforeEach(() => {
   const changeLog = changeLogWriterForTest(db);
   sessionRepo = new SqliteSessionRepository(db, changeLog);
   templateRepo = new SqliteWeeklyRecurringSessionRepository(db, changeLog);
+  attendanceRepo = new SqliteAttendanceRepository(db);
 });
 afterEach(() => {
   db.close();
@@ -108,6 +115,25 @@ function makeTemplate(over: Partial<WeeklyRecurringSession> = {}): WeeklyRecurri
   };
 }
 
+let attendanceSeq = 0;
+function makeAttendance(sessionId: SessionId): AttendanceRecord {
+  attendanceSeq += 1;
+  return {
+    id: `att_${String(attendanceSeq).padStart(26, '0')}` as AttendanceRecordId,
+    centerCode: CENTER,
+    deviceOrigin: DEVICE,
+    createdAt: AT,
+    updatedAt: AT,
+    updatedBy: USER,
+    deletedAt: null,
+    version: 0,
+    sessionId,
+    studentId: STUDENT,
+    status: 'present',
+    note: null,
+  };
+}
+
 function deleteLogCount(entityType: string): number {
   const { n } = db
     .prepare("SELECT COUNT(*) AS n FROM change_log WHERE entity_type = ? AND op = 'delete'")
@@ -134,6 +160,48 @@ describe('SqliteSessionRepository.listLiveFrom', () => {
       ['2026-08-15', '11:00'],
       ['2026-09-01', '09:00'],
     ]);
+  });
+
+  it('excludes a cutoff-day session that already has a live attendance record — but keeps it once that attendance is tombstoned', async () => {
+    const attendedToday = makeSession({ date: CUTOFF, start: '08:00' as TimeOfDay, end: '09:00' as TimeOfDay });
+    await sessionRepo.save(attendedToday);
+    const attendance = makeAttendance(attendedToday.id);
+    await attendanceRepo.save(attendance);
+    const unattendedFuture = makeSession({ recurringSessionId: 'wrs_00000000000000000000000002' as WeeklyRecurringSessionId, date: '2026-08-20' });
+    await sessionRepo.save(unattendedFuture);
+
+    const live = await sessionRepo.listLiveFrom(CENTER, CUTOFF);
+    expect(live.map((s) => s.id)).toEqual([unattendedFuture.id]);
+
+    await attendanceRepo.softDelete(attendance.id, DELETED_AT, USER);
+    const afterAttendanceRemoved = await sessionRepo.listLiveFrom(CENTER, CUTOFF);
+    expect(afterAttendanceRemoved.map((s) => s.id)).toEqual([attendedToday.id, unattendedFuture.id]);
+  });
+});
+
+describe('ResetPlanning selection preserves attended sessions (SOU-295)', () => {
+  it('tombstones the unattended future session but never the attended cutoff-day one, and its attendance survives', async () => {
+    const attendedToday = makeSession({ date: CUTOFF, start: '08:00' as TimeOfDay, end: '09:00' as TimeOfDay });
+    await sessionRepo.save(attendedToday);
+    const attendance = makeAttendance(attendedToday.id);
+    await attendanceRepo.save(attendance);
+    const unattendedFuture = makeSession({ recurringSessionId: 'wrs_00000000000000000000000002' as WeeklyRecurringSessionId, date: '2026-08-20' });
+    await sessionRepo.save(unattendedFuture);
+
+    const toClear = await sessionRepo.listLiveFrom(CENTER, CUTOFF);
+    const unitOfWork = new SqliteResetPlanningUnitOfWork(db, changeLogWriterForTest(db));
+    await unitOfWork.commit({
+      sessions: toClear,
+      templates: [],
+      deletedAt: DELETED_AT,
+      updatedBy: ADMIN,
+    });
+
+    expect(toClear.length).toBe(1);
+    expect(await sessionRepo.findById(unattendedFuture.id)).toBeNull();
+    expect(await sessionRepo.findById(attendedToday.id)).not.toBeNull();
+    const survivingAttendance = await attendanceRepo.listBySession(attendedToday.id);
+    expect(survivingAttendance.map((a) => a.id)).toEqual([attendance.id]);
   });
 });
 

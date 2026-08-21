@@ -58,6 +58,10 @@ export class InMemorySessionRepository
       .map((row) => structuredClone(row));
   }
 
+  // Models the port's date + tombstone filter only; the "unattended" half of the
+  // contract lives in the SQLite adapter (attendance is a separate table this fake
+  // does not hold). Domain unit tests seed no attendance, so every live session
+  // here is unattended by construction.
   async listLiveFrom(
     centerCode: CenterCode,
     cutoffDate: string,

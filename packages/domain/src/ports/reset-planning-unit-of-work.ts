@@ -15,8 +15,10 @@ import type { UserId } from '../value-objects/ids';
  * failure partway through rolls the WHOLE reset back: never a center left with
  * its future sessions cleared but its templates intact (which would let the
  * generator re-materialise the cleared planning), nor the reverse. Past/attended
- * sessions are never in `sessions` — the use case excludes `date < cutoffDate`
- * before building the unit, so payroll attribution inputs survive.
+ * sessions are never in `sessions` — {@link SessionRepository.listLiveFrom}
+ * excludes both `date < cutoffDate` and any occurrence that already carries a live
+ * attendance record before the unit is built, so payroll attribution inputs
+ * survive.
  *
  * Deliberately narrow (like {@link import('./merge-parents-unit-of-work').MergeParentsUnit}):
  * it receives the live rows plus the tombstone stamp and translates them to

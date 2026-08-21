@@ -32,12 +32,14 @@ export type ResetPlanningResult = {
  * (the generator skips tombstoned templates). Gated by `core.calendar.week` — the
  * same feature that gates the calendar the reset acts on.
  *
- * **Past/attended sessions are never touched.** The cutoff is an inclusive lower
- * bound, so only `date >= cutoffDate` occurrences are read (via
- * {@link SessionRepository.listLiveFrom}); already-occurred sessions stay live and
- * keep feeding {@link TeacherFeeAttributionPolicy} / payroll. Template removal is a
- * GLOBAL wipe (every live template of the center) — there is no per-group,
- * per-room, per-teacher, or date-range filter.
+ * **Past/attended sessions are never touched.** {@link SessionRepository.listLiveFrom}
+ * returns only live, UNATTENDED occurrences on or after the cutoff: past sessions
+ * (`date < cutoffDate`) are excluded, and so is any session that already has a
+ * recorded attendance — even one earlier on the cutoff day itself. Those stay live
+ * and keep feeding {@link TeacherFeeAttributionPolicy} / payroll (their attendance
+ * joins against `sessions.deleted_at IS NULL`, so tombstoning them would silently
+ * erase it from reports). Template removal is a GLOBAL wipe (every live template of
+ * the center) — there is no per-group, per-room, per-teacher, or date-range filter.
  *
  * **Soft delete only.** Both sets become `deletedAt` tombstones stamped with the
  * injected `Clock`'s UTC `now` and `updatedBy` (who ran the reset — needed for the

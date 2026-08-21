@@ -60,13 +60,27 @@ export interface SessionRepository extends SoftDeletableRepository<SessionId, Se
   ): Promise<readonly Session[]>;
 
   /**
-   * Live (non-tombstoned) occurrences of a center whose civil `date` is on or
+   * Live, **unattended** occurrences of a center whose civil `date` is on or
    * after `cutoffDate` — an open-ended, inclusive `YYYY-MM-DD` lower bound
    * compared lexicographically (= chronologically), ordered by `date` then
-   * `start`. The "everything from here forward" read {@link ResetPlanning}
-   * (SOU-295) uses to enumerate the future sessions to clear; past sessions
-   * (`date < cutoffDate`) are excluded so payroll attribution inputs are never
-   * returned. Scoped to one center; never crosses a tenant boundary.
+   * `start`. The "everything clearable from here forward" read
+   * {@link ResetPlanning} (SOU-295) uses to enumerate the future sessions to
+   * clear.
+   *
+   * Two exclusions keep already-happened work out of the reset selection:
+   * - **Past** occurrences (`date < cutoffDate`) are never returned.
+   * - **Attended** occurrences — any with an existing live
+   *   {@link AttendanceRecord} — are never returned, even on the cutoff day
+   *   itself. A session earlier today for which roll-call was recorded must
+   *   stay live: it feeds {@link TeacherFeeAttributionPolicy} / payroll and
+   *   its attendance is joined against `sessions.deleted_at IS NULL` in every
+   *   summary read, so tombstoning it would silently erase that attendance
+   *   from reports. Attended sessions are immutable inputs, not clearable
+   *   planning.
+   *
+   * Consequently the reset's `sessionsDeleted` count reflects only the
+   * unattended future occurrences actually tombstoned. Scoped to one center;
+   * never crosses a tenant boundary.
    */
   listLiveFrom(
     centerCode: CenterCode,
