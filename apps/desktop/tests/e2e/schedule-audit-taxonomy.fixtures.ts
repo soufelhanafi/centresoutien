@@ -14,6 +14,11 @@ import { nextMondayStrictlyAfter, isoLocalDate, type Locale } from './schedule-a
  * never from source.
  */
 
+// The preload bridge isn't in Playwright's DOM typings, so `window.api` is read
+// through a single narrow `unknown`-to-`Bridge` cast per evaluate — the same
+// seam the SOU-201 `schedule-audit.fixtures` harness uses, and the only unsafe
+// cast in this file. Results are likewise narrowed once per invoke, mirroring
+// the established black-box fixtures.
 type Bridge = { invoke: (channel: string, req: unknown) => Promise<unknown> };
 
 /** The new SOU-296 reason labels, in both locales — read off the LIVE audit modal. */
@@ -24,7 +29,6 @@ export const TAXONOMY_STR: Record<
     reasonRoomDoubleBooked: string;
     reasonRoomArchived: string;
     reasonRoomOverCapacity: string;
-    softWarning: string;
   }
 > = {
   fr: {
@@ -32,18 +36,22 @@ export const TAXONOMY_STR: Record<
     reasonRoomDoubleBooked: 'Salle déjà occupée',
     reasonRoomArchived: 'Salle archivée',
     reasonRoomOverCapacity: 'Salle en surcapacité',
-    softWarning: 'Avertissement',
   },
   ar: {
     reasonTeacherDoubleBooked: 'الأستاذ محجوز مسبقًا',
     reasonRoomDoubleBooked: 'القاعة محجوزة مسبقًا',
     reasonRoomArchived: 'القاعة مؤرشفة',
     reasonRoomOverCapacity: 'القاعة فوق طاقتها',
-    softWarning: 'تحذير',
   },
 };
 
-/** The next N Mondays strictly after the runtime clock, as `YYYY-MM-DD`. */
+/**
+ * The next N Mondays strictly after the runtime clock, as `YYYY-MM-DD`. Mirrors
+ * the SOU-201 harness's runtime-derived date convention (the `MONDAYS` export in
+ * `schedule-audit.dates.ts`): dates are intentionally derived from the injected
+ * runtime clock so a materialized window is always strictly in the future, never
+ * a hardcoded date that goes stale.
+ */
 export function futureMondays(count: number): { from: string; to: string; dates: string[] } {
   const first = nextMondayStrictlyAfter(new Date());
   const dates: string[] = [];

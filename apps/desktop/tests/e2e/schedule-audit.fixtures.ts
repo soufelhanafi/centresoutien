@@ -64,7 +64,7 @@ export const STR: Record<
     dialogBack: string;
     emptyTitle: string;
     emptySubtitle: string;
-    groupRepeats: (count: number) => string;
+    groupCount: (count: number) => string;
     groupShowDates: (count: number) => string;
     groupHideDates: string;
     dir: 'ltr' | 'rtl';
@@ -87,7 +87,7 @@ export const STR: Record<
     dialogBack: 'Retour',
     emptyTitle: 'Planning sans conflit',
     emptySubtitle: 'Toutes les séances planifiées tiennent dans les horaires, les salles et les disponibilités des enseignants.',
-    groupRepeats: (count) => `Se répète chaque semaine (×${count})`,
+    groupCount: (count) => `×${count}`,
     groupShowDates: (count) => `Voir les ${count} dates`,
     groupHideDates: 'Masquer les dates',
     dir: 'ltr',
@@ -107,7 +107,7 @@ export const STR: Record<
     dialogBack: 'رجوع',
     emptyTitle: 'جدول بلا تعارض',
     emptySubtitle: 'كل الحصص المجدولة مناسبة للساعات والقاعات وأوقات توفر الأساتذة.',
-    groupRepeats: (count) => `يتكرر كل أسبوع (×${count})`,
+    groupCount: (count) => `×${count}`,
     groupShowDates: (count) => `عرض التواريخ (${count})`,
     groupHideDates: 'إخفاء التواريخ',
     dir: 'rtl',

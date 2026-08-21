@@ -114,7 +114,7 @@ test('Scenario 2 — a both-affected occurrence carries both the holiday and out
 
   // The outside-hours group collapses both Mondays into ONE card with a ×2 pill
   // and a first–last date RANGE spanning both Mondays.
-  const outsideGroup = win.getByRole('dialog').locator('ul > li', { hasText: L.groupRepeats(2) });
+  const outsideGroup = win.getByRole('dialog').locator('ul > li', { hasText: L.groupCount(2) });
   await expect(outsideGroup).toHaveCount(1);
   await expect(outsideGroup.getByText(L.reasonOutsideHours)).toBeVisible();
   await expect(outsideGroup).toContainText(D.first);
@@ -124,7 +124,7 @@ test('Scenario 2 — a both-affected occurrence carries both the holiday and out
   const holidayRow = win.getByRole('dialog').locator('ul > li', { hasText: L.reasonHoliday });
   await expect(holidayRow).toHaveCount(1);
   await expect(holidayRow).toContainText(D.second);
-  await expect(holidayRow.getByText(L.groupRepeats(2))).toHaveCount(0);
+  await expect(holidayRow.getByText(L.groupCount(2))).toHaveCount(0);
 
   // Expand the collapsed outside-hours group; its second-Monday per-date entry
   // must carry BOTH the "Hors horaires" and "Jour férié" badges.
@@ -163,7 +163,7 @@ test('Scenario 3 — cancelling one stranded occurrence keeps the weekly templat
   // One structural problem, not two dated rows (SOU-262).
   await expect(auditRows(win)).toHaveCount(1);
   const groupCard = auditRows(win).first();
-  await expect(groupCard.getByText(L.groupRepeats(2))).toBeVisible();
+  await expect(groupCard.getByText(L.groupCount(2))).toBeVisible();
   await groupCard.getByRole('button', { name: L.groupShowDates(2) }).click();
 
   // Cancel the first Monday's occurrence from the expanded per-date list.
@@ -182,7 +182,7 @@ test('Scenario 3 — cancelling one stranded occurrence keeps the weekly templat
   await expect(rowForDate(win, D.first)).toHaveCount(0);
   await expect(rowForDate(win, D.second)).toBeVisible();
   await expect(auditRows(win)).toHaveCount(1);
-  await expect(win.getByRole('dialog').getByText(L.groupRepeats(2))).toHaveCount(0);
+  await expect(win.getByRole('dialog').getByText(L.groupCount(2))).toHaveCount(0);
 
   // The recurring weekly template is untouched (same id, same day/time).
   const weekAfter = await readWeek(win);
