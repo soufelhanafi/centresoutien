@@ -1505,7 +1505,7 @@
   },
   "scheduleAudit": {
     "title": "Audit du planning",
-    "subtitle": "Séances déjà planifiées qui tombent désormais hors des horaires ou un jour férié. Vérifiez puis annulez au cas par cas.",
+    "subtitle": "Séances déjà planifiées qui ne tiennent plus dans le planning : horaires, jours fériés, salles ou disponibilités des enseignants. Vérifiez puis corrigez au cas par cas.",
     "unknownSubject": "Matière inconnue",
     "group": {
       "repeats": "Se répète chaque semaine (×{{count}})",
@@ -1516,7 +1516,11 @@
     "reason": {
       "outsideHours": "Hors horaires",
       "holiday": "Jour férié",
-      "outsideTeacherAvailability": "Hors disponibilités de l'enseignant"
+      "teacherUnavailable": "Enseignant indisponible",
+      "teacherDoubleBooked": "Enseignant déjà occupé",
+      "roomDoubleBooked": "Salle déjà occupée",
+      "roomArchived": "Salle archivée",
+      "roomOverCapacity": "Salle en surcapacité"
     },
     "cancel": {
       "trigger": "Annuler la séance",
@@ -1528,8 +1532,8 @@
       "error": "L'annulation a échoué. La séance a peut-être déjà été annulée sur un autre poste. La liste a été actualisée."
     },
     "empty": {
-      "title": "Aucune séance hors horaires",
-      "body": "Toutes les séances planifiées tiennent dans les horaires du centre et évitent les jours fériés."
+      "title": "Planning sans conflit",
+      "body": "Toutes les séances planifiées tiennent dans les horaires, les salles et les disponibilités des enseignants."
     },
     "loadError": {
       "title": "Impossible de charger l'audit",

@@ -3,28 +3,38 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AuditReasonBadge } from '../../../src/renderer/components/schedule-audit/audit-reason-badge';
 import i18n from '../../../src/renderer/i18n/config';
 
-describe('AuditReasonBadge — outside-teacher-availability (SOU-283)', () => {
-  it('labels the reason in French', async () => {
-    await i18n.changeLanguage('fr');
-    render(<AuditReasonBadge reason="outside-teacher-availability" />);
-    expect(screen.getByText("Hors disponibilités de l'enseignant")).toBeInTheDocument();
-  });
-
-  it('labels the reason in Arabic', async () => {
-    await i18n.changeLanguage('ar');
-    render(<AuditReasonBadge reason="outside-teacher-availability" />);
-    expect(screen.getByText('خارج أوقات توفر الأستاذ')).toBeInTheDocument();
-  });
-});
-
-describe('AuditReasonBadge — existing reasons still render', () => {
+describe('AuditReasonBadge — French labels (SOU-296 full taxonomy)', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('fr');
   });
 
   it.each([
     ['outside-center-hours', 'Hors horaires'],
-    ['on-holiday', 'Jour férié'],
+    ['holiday/blackout', 'Jour férié'],
+    ['teacher-unavailable', 'Enseignant indisponible'],
+    ['teacher-double-booked', 'Enseignant déjà occupé'],
+    ['room-double-booked', 'Salle déjà occupée'],
+    ['room-archived', 'Salle archivée'],
+    ['room-over-capacity', 'Salle en surcapacité'],
+  ] as const)('labels %s', (reason, label) => {
+    render(<AuditReasonBadge reason={reason} />);
+    expect(screen.getByText(label)).toBeInTheDocument();
+  });
+});
+
+describe('AuditReasonBadge — Arabic labels (SOU-296 full taxonomy)', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('ar');
+  });
+
+  it.each([
+    ['outside-center-hours', 'خارج ساعات العمل'],
+    ['holiday/blackout', 'يوم عطلة'],
+    ['teacher-unavailable', 'الأستاذ غير متاح'],
+    ['teacher-double-booked', 'الأستاذ محجوز مسبقًا'],
+    ['room-double-booked', 'القاعة محجوزة مسبقًا'],
+    ['room-archived', 'القاعة مؤرشفة'],
+    ['room-over-capacity', 'القاعة فوق طاقتها'],
   ] as const)('labels %s', (reason, label) => {
     render(<AuditReasonBadge reason={reason} />);
     expect(screen.getByText(label)).toBeInTheDocument();
