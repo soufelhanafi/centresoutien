@@ -57,14 +57,26 @@ export type StrandedSessionView = {
 };
 
 /**
+ * Which resource a finding is anchored to — the renderer mirror of the domain
+ * `StrandedResourceKind`. Drives the collapsed card's identity label.
+ */
+export type StrandedResourceKind = 'room' | 'teacher' | 'center';
+
+/**
  * One domain-grouped structural audit problem (SOU-296): every stranded
  * occurrence sharing one reason, weekday, and primary resource, already
  * collapsed by the domain — the renderer never re-groups. `count` is the number
- * of occurrences actually stranded, and `key` is the domain's stable group key.
+ * of occurrences actually stranded, `key` the domain's stable group key, and
+ * `weekday` / `resourceKind` / `resourceId` identify the root cause (a teacher,
+ * a room, or the center) so the card renders that identity rather than the first
+ * occurrence's subject.
  */
 export type StrandedGroupView = {
   readonly key: string;
   readonly reason: SessionAuditReason;
+  readonly weekday: number;
+  readonly resourceKind: StrandedResourceKind;
+  readonly resourceId: string | null;
   readonly count: number;
   readonly occurrences: readonly StrandedSessionView[];
 };

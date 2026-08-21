@@ -22,7 +22,9 @@ export function CenterHoursStrandedWarning() {
   // On a loading/errored audit `data` is undefined and the warning stays hidden:
   // a transient IPC failure must not fabricate a scary count, and the same
   // stranded flag is always reachable from the Planning audit dialog regardless.
-  const count = query.data?.length ?? 0;
+  // `data` is deduplicated GROUPS (SOU-296), so the affected-session count is the
+  // sum of each group's occurrence count, never `data.length`.
+  const count = query.data?.reduce((sum, group) => sum + group.count, 0) ?? 0;
 
   if (!hasCenterHours || count === 0) {
     return null;

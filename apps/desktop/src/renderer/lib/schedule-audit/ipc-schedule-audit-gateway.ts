@@ -31,6 +31,9 @@ function toStrandedGroupView(dto: StrandedSessionGroupDto): StrandedGroupView {
   return {
     key: dto.key,
     reason: dto.reason,
+    weekday: dto.weekday,
+    resourceKind: dto.resourceKind,
+    resourceId: dto.resourceId,
     count: dto.count,
     occurrences: dto.occurrences.map(toStrandedSessionView),
   };

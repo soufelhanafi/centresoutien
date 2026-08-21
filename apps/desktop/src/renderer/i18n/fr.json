@@ -1508,7 +1508,7 @@
     "subtitle": "Séances déjà planifiées qui ne tiennent plus dans le planning : horaires, jours fériés, salles ou disponibilités des enseignants. Vérifiez puis corrigez au cas par cas.",
     "unknownSubject": "Matière inconnue",
     "group": {
-      "repeats": "Se répète chaque semaine (×{{count}})",
+      "count": "×{{count}}",
       "range": "Du {{from}} au {{to}}",
       "showDates": "Voir les {{count}} dates",
       "hideDates": "Masquer les dates"

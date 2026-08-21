@@ -5,7 +5,7 @@ import { formatDate } from '../../lib/format';
 import { formatTimeRange } from '../../lib/planning/time-range';
 import { localizedText } from '../../lib/planning/localized-text';
 import { useCancelStrandedSession } from '../../hooks/schedule-audit/use-cancel-stranded-session';
-import type { StrandedSessionView } from '../../lib/schedule-audit/stranded-session-view';
+import type { SessionAuditReason, StrandedSessionView } from '../../lib/schedule-audit/stranded-session-view';
 import { AuditReasonBadge } from './audit-reason-badge';
 import { CancelStrandedSessionDialog } from './cancel-stranded-session-dialog';
 
@@ -15,11 +15,23 @@ import { CancelStrandedSessionDialog } from './cancel-stranded-session-dialog';
  * teacher names (bilingual, active-locale). The cancel button soft-deletes ONLY
  * this dated occurrence (its `ses_…` id) behind a confirm dialog — the recurring
  * template and every other date stay untouched.
+ *
+ * When `reasonOverride` is set (the one-occurrence group case, SOU-296), only
+ * that single reason is badged — the occurrence's other reasons are shown by the
+ * sibling group cards it also belongs to, so a multi-reason singleton never
+ * renders the same full badge set twice.
  */
-export function StrandedSessionRow({ stranded }: { stranded: StrandedSessionView }) {
+export function StrandedSessionRow({
+  stranded,
+  reasonOverride,
+}: {
+  stranded: StrandedSessionView;
+  reasonOverride?: SessionAuditReason;
+}) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   const { session, reasons } = stranded;
+  const badges = reasonOverride !== undefined ? [reasonOverride] : reasons;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const cancelMutation = useCancelStrandedSession();
 
@@ -38,7 +50,7 @@ export function StrandedSessionRow({ stranded }: { stranded: StrandedSessionView
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
       <div className="flex min-w-0 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          {reasons.map((reason) => (
+          {badges.map((reason) => (
             <AuditReasonBadge key={reason} reason={reason} />
           ))}
           {session.kind === 'exam-prep' ? (

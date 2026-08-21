@@ -54,11 +54,14 @@ function strandedSession(index: number): StrandedSessionView {
   };
 }
 
-function strandedGroup(index: number): StrandedGroupView {
+function strandedGroup(index: number, count = 1): StrandedGroupView {
   return {
     key: `outside-center-hours|1|`,
     reason: 'outside-center-hours',
-    count: 1,
+    weekday: 1,
+    resourceKind: 'center',
+    resourceId: null,
+    count,
     occurrences: [strandedSession(index)],
   };
 }
@@ -109,6 +112,15 @@ describe('CenterHoursStrandedWarning — French', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent(
       "3 séances tombent désormais hors des horaires d'ouverture.",
+    );
+  });
+
+  it('sums occurrence counts across groups, not the group count', () => {
+    mockStranded.result = { data: [strandedGroup(0, 4)] };
+    render(<CenterHoursStrandedWarning />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "4 séances tombent désormais hors des horaires d'ouverture.",
     );
   });
 
