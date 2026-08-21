@@ -129,3 +129,8 @@ export function formatHoursMinutes(totalMinutes: number): string {
   const minutes = totalMinutes % 60;
   return `${hours}h${String(minutes).padStart(2, '0')}`;
 }
+
+/** Formats a whole count via `Intl.NumberFormat` (locale grouping) — never a raw `${n}` in copy. */
+export function formatInteger(value: number, locale: string): string {
+  return new Intl.NumberFormat(bcp47(locale), { maximumFractionDigits: 0 }).format(value);
+}

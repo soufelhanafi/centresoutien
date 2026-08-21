@@ -24,6 +24,7 @@ import { CreateSessionDialog } from '../../components/planning/create-session-di
 import { ScheduleExportDialog } from '../../components/planning/schedule-export-dialog';
 import { SessionGeneratorDialog } from '../../components/planning/session-generator-dialog';
 import { ScheduleAuditDialog } from '../../components/schedule-audit/schedule-audit-dialog';
+import { ResetPlanningDialog } from '../../components/planning/reset-planning-dialog';
 import type { PlannerSessionView } from '../../lib/planning/planner-view';
 import {
   applyFilters,
@@ -70,6 +71,7 @@ export function PlannerPage() {
   const { t, i18n } = useTranslation();
   const canGenerate = useFeature('planning.custom-grid') || useFeature('planning.random-auto');
   const canAudit = useFeature('settings.center-hours');
+  const canReset = useFeature('core.calendar.week');
   const query = useWeekSessions();
   // The teacher filter reads the live *active* roster (SOU-118 / SOU-37), so an
   // archived teacher drops from the picker even while their past sessions render.
@@ -141,6 +143,12 @@ export function PlannerPage() {
             <Plus className="h-4 w-4" aria-hidden="true" />
             {t('planning.form.new')}
           </Button>
+          {canReset ? (
+            <>
+              <span aria-hidden="true" className="mx-1 h-6 w-px self-center bg-border" />
+              <ResetPlanningDialog />
+            </>
+          ) : null}
         </div>
       </header>
 
