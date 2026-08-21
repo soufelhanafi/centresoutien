@@ -3,10 +3,11 @@ import { scheduleAuditGateway } from '../../lib/schedule-audit/schedule-audit-ga
 import { scheduleAuditKeys } from './keys';
 
 /**
- * Loads the sessions the center's effective (override-aware) hours or a holiday
- * now place outside every valid window (SOU-201). Data access goes through the
- * {@link scheduleAuditGateway} seam, not `window.api` directly, so the mock
- * adapter swaps for the real IPC one in a single place.
+ * Loads the deduplicated audit groups (SOU-296): every live occurrence the
+ * center's current effective state — hours, holidays, teacher availability, or
+ * room/teacher conflicts — now strands, collapsed by root cause. Data access
+ * goes through the {@link scheduleAuditGateway} seam, not `window.api` directly,
+ * so the mock adapter swaps for the real IPC one in a single place.
  *
  * `enabled` (default `true`) lets a feature-gated caller keep the query dormant:
  * the audit use case requires `settings.center-hours`, so firing it for a plan

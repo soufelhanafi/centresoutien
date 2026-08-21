@@ -11,7 +11,7 @@ describe('AuditReasonBadge — French labels (SOU-296 full taxonomy)', () => {
   it.each([
     ['outside-center-hours', 'Hors horaires'],
     ['on-holiday', 'Jour férié'],
-    ['outside-teacher-availability', 'Enseignant indisponible'],
+    ['outside-teacher-availability', "Hors disponibilités de l'enseignant"],
     ['teacher-double-booked', 'Enseignant déjà occupé'],
     ['room-double-booked', 'Salle déjà occupée'],
     ['room-archived', 'Salle archivée'],
@@ -30,7 +30,7 @@ describe('AuditReasonBadge — Arabic labels (SOU-296 full taxonomy)', () => {
   it.each([
     ['outside-center-hours', 'خارج ساعات العمل'],
     ['on-holiday', 'يوم عطلة'],
-    ['outside-teacher-availability', 'الأستاذ غير متاح'],
+    ['outside-teacher-availability', 'خارج أوقات توفر الأستاذ'],
     ['teacher-double-booked', 'الأستاذ محجوز مسبقًا'],
     ['room-double-booked', 'القاعة محجوزة مسبقًا'],
     ['room-archived', 'القاعة مؤرشفة'],
