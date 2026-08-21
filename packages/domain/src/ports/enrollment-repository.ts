@@ -22,6 +22,15 @@ export interface EnrollmentRepository
   extends SoftDeletableRepository<EnrollmentId, Enrollment> {
   /** Live enrollments in the group (for the group roster). */
   listActiveByGroup(groupId: GroupId): Promise<readonly Enrollment[]>;
+  /**
+   * The **tombstoned** (soft-deleted) enrollments in the group — the inverse of
+   * {@link listActiveByGroup}, returning only rows with `deletedAt` set. Backs the
+   * teacher-roster "left the group" marker (SOU-299): a student unenrolled from one
+   * of a teacher's groups still shows on that teacher's roster, tagged with the
+   * month they left (the tombstone's `deletedAt`). "Left" is exactly a soft delete —
+   * `endMonth` is unused lifecycle metadata and is not consulted here.
+   */
+  listInactiveByGroup(groupId: GroupId): Promise<readonly Enrollment[]>;
   /** Live enrollments the student holds (for the student detail sheet). */
   listActiveByStudent(studentId: StudentId): Promise<readonly Enrollment[]>;
   /** Live seat count in the group — the number the capacity guard checks against. */

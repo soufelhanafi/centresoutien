@@ -17,6 +17,10 @@ export class InMemoryEnrollmentRepository
     return this.all().filter((e) => e.deletedAt === null && e.groupId === groupId);
   }
 
+  async listInactiveByGroup(groupId: GroupId): Promise<readonly Enrollment[]> {
+    return this.all().filter((e) => e.deletedAt !== null && e.groupId === groupId);
+  }
+
   async listActiveByStudent(studentId: StudentId): Promise<readonly Enrollment[]> {
     return this.all().filter((e) => e.deletedAt === null && e.studentId === studentId);
   }

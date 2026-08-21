@@ -1098,6 +1098,13 @@ export { ListGroupsWithCounts } from './use-cases/list-groups-with-counts';
 export type { GroupWithCount } from './use-cases/list-groups-with-counts';
 export { GetGroupRoster } from './use-cases/get-group-roster';
 export type { GetGroupRosterInput, GroupRosterEntry } from './use-cases/get-group-roster';
+export { GetTeacherRoster } from './use-cases/get-teacher-roster';
+export type {
+  GetTeacherRosterInput,
+  TeacherRosterEntry,
+  TeacherRosterGroupRef,
+  TeacherRosterStatus,
+} from './use-cases/get-teacher-roster';
 export { RecordSessionAttendance } from './use-cases/record-session-attendance';
 export type { RecordSessionAttendanceInput } from './use-cases/record-session-attendance';
 export { GetStudentAttendanceReport } from './use-cases/get-student-attendance-report';
