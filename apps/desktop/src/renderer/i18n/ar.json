@@ -1575,7 +1575,7 @@
     "reason": {
       "outsideHours": "خارج ساعات العمل",
       "holiday": "يوم عطلة",
-      "teacherUnavailable": "الأستاذ غير متاح",
+      "outsideTeacherAvailability": "خارج أوقات توفر الأستاذ",
       "teacherDoubleBooked": "الأستاذ محجوز مسبقًا",
       "roomDoubleBooked": "القاعة محجوزة مسبقًا",
       "roomArchived": "القاعة مؤرشفة",

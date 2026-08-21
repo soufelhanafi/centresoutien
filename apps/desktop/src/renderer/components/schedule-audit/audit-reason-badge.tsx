@@ -19,7 +19,7 @@ const REASON_CONFIG: Record<SessionAuditReason, ReasonConfig> = {
   'outside-teacher-availability': {
     variant: 'warning',
     icon: UserX,
-    labelKey: 'scheduleAudit.reason.teacherUnavailable',
+    labelKey: 'scheduleAudit.reason.outsideTeacherAvailability',
   },
   'teacher-double-booked': {
     variant: 'destructive',

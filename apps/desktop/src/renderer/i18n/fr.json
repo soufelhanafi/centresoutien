@@ -1516,7 +1516,7 @@
     "reason": {
       "outsideHours": "Hors horaires",
       "holiday": "Jour férié",
-      "teacherUnavailable": "Enseignant indisponible",
+      "outsideTeacherAvailability": "Hors disponibilités de l'enseignant",
       "teacherDoubleBooked": "Enseignant déjà occupé",
       "roomDoubleBooked": "Salle déjà occupée",
       "roomArchived": "Salle archivée",
