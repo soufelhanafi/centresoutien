@@ -6,4 +6,5 @@ export const teacherKeys = {
   list: (status: TeacherStatus, search: string) =>
     ['teachers', 'list', status, search] as const,
   detail: (id: string) => ['teachers', 'detail', id] as const,
+  roster: (id: string) => ['teachers', 'roster', id] as const,
 };

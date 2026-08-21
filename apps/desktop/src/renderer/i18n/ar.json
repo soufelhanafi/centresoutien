@@ -1315,6 +1315,7 @@
       "tabs": {
         "info": "المعلومات",
         "subjects": "المواد",
+        "students": "التلاميذ",
         "groups": "المجموعات",
         "payroll": "الأجر",
         "availability": "أوقات التوفر"
@@ -1331,6 +1332,65 @@
         },
         "inactive": "(غير نشطة)",
         "unknown": "مادة غير معروفة"
+      },
+      "students": {
+        "title": "التلاميذ",
+        "count_zero": "لا تلاميذ",
+        "count_one": "تلميذ واحد",
+        "count_two": "تلميذان",
+        "count_few": "{{count}} تلاميذ",
+        "count_many": "{{count}} تلميذًا",
+        "count_other": "{{count}} تلميذ",
+        "empty": {
+          "title": "لا يوجد تلاميذ",
+          "body": "لا يوجد لدى هذا الأستاذ أي تلميذ مسجّل في مجموعاته بعد."
+        },
+        "noMatch": {
+          "title": "لا توجد نتائج",
+          "body": "لا يوجد تلميذ يطابق هذه المرشحات."
+        },
+        "loadError": {
+          "title": "تعذّر تحميل التلاميذ",
+          "body": "فشل تحميل القائمة.",
+          "retry": "إعادة المحاولة"
+        },
+        "filters": {
+          "searchLabel": "البحث عن تلميذ",
+          "searchPlaceholder": "ابحث عن تلميذ…",
+          "subjectLabel": "التصفية حسب المادة",
+          "allSubjects": "كل المواد",
+          "groupLabel": "التصفية حسب المجموعة",
+          "allGroups": "كل المجموعات",
+          "statusLabel": "التصفية حسب الحالة",
+          "statusActive": "المسجّلون",
+          "statusLeft": "المغادرون",
+          "statusAll": "الكل"
+        },
+        "table": {
+          "name": "التلميذ",
+          "subjects": "المادة (المواد)",
+          "formula": "الصيغة",
+          "kind": "النوع",
+          "status": "الحالة"
+        },
+        "kind": {
+          "regular": "عادي",
+          "examPrep": "امتحان"
+        },
+        "status": {
+          "active": "مسجَّل",
+          "left": "غادر",
+          "leftOn": "غادر — {{month}}"
+        },
+        "export": {
+          "button": "تصدير",
+          "print": "طباعة",
+          "exportPdf": "تصدير PDF",
+          "printSuccess": "تم إرسال القائمة إلى معاينة الطباعة.",
+          "printError": "فشلت طباعة القائمة.",
+          "exportSuccess": "تم تصدير القائمة إلى PDF.",
+          "exportError": "فشل تصدير القائمة."
+        }
       },
       "payroll": {
         "lockedBody": "حدّد كيف يُدفع أجر هذا الأستاذ كل شهر: مبلغ ثابت أو نسبة من الرسوم المسندة إليه.",
