@@ -45,7 +45,10 @@ export function useResetPlanningFlow(onComplete: () => void): ResetPlanningFlow 
     try {
       const result = await reset.mutateAsync(cutoffDate);
       toast.success(
-        t('planning.reset.success', { n: formatInteger(result.sessionsDeleted, i18n.language) }),
+        t('planning.reset.success', {
+          count: result.sessionsDeleted,
+          n: formatInteger(result.sessionsDeleted, i18n.language),
+        }),
       );
       onComplete();
     } catch {

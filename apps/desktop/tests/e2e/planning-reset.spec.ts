@@ -1,8 +1,15 @@
 import { test, expect } from '@playwright/test';
 import {
   STR,
+  WINDOW,
   launch,
   gotoPlanner,
+  seedTemplates,
+  generateOccurrences,
+  tryRegenerate,
+  readTemplateCount,
+  parseDeletedCount,
+  performResetViaUi,
   pageCrashed,
   type Launched,
   type Locale,
@@ -13,10 +20,11 @@ import {
  * only through the running packaged app + the public preload bridge. Runs under
  * both the `fr` (LTR) and `ar` (RTL) Playwright projects.
  *
- * The reset runs against the interim mock gateway until the domain agent's
- * `planning.reset` handler merges, so the assertions cover the UI contract — the
- * destructive trigger, the typed-confirmation gate, the cutoff choice, and the
- * success toast — not a persisted deletion count.
+ * The real `planning.reset` IPC is wired on this branch, so these specs assert
+ * PERSISTED outcomes — the future planning is globally wiped, the recurrence stops
+ * (templates tombstoned, `session.week` empties), past-dated occurrences survive
+ * (they feed payroll), regeneration never resurrects the wiped planning, and the
+ * success toast reports the REAL deleted count — not just UI copy.
  */
 
 const locale = () => test.info().project.name as Locale;
@@ -29,7 +37,7 @@ test.afterEach(async () => {
 
 const dialog = (win: Launched['win']) => win.getByRole('dialog');
 
-test('typed confirmation gates the destructive reset, then a success toast confirms it', async () => {
+test('typed confirmation + cutoff choice gate the destructive reset', async () => {
   const L = STR[locale()];
   live = await launch(locale());
   const win = live.win;
@@ -38,28 +46,108 @@ test('typed confirmation gates the destructive reset, then a success toast confi
   await expect(win.locator('html')).toHaveAttribute('dir', L.dir);
 
   await win.getByRole('button', { name: L.resetTrigger }).click();
-  await expect(dialog(win).getByRole('heading', { name: L.dialogTitle })).toBeVisible();
+  const d = dialog(win);
+  await expect(d.getByRole('heading', { name: L.dialogTitle })).toBeVisible();
 
-  // The confirm button is disabled until the exact word is typed.
-  const confirm = dialog(win).getByRole('button', { name: L.confirmButton, exact: true });
+  // The danger-zone warning is shown up front.
+  await expect(d.getByText(L.warning, { exact: false })).toBeVisible();
+
+  // Both cutoff options are offered and independently selectable (AC3), and the
+  // hint tells the director which date will be the deletion floor.
+  const today = d.getByRole('radio', { name: L.cutoffToday });
+  const tomorrow = d.getByRole('radio', { name: L.cutoffTomorrow });
+  await expect(d.getByText(L.cutoffLegend, { exact: false })).toBeVisible();
+  await today.click();
+  await expect(today).toBeChecked();
+  await expect(d.getByText(L.cutoffHintPrefix, { exact: false })).toBeVisible();
+  await tomorrow.click();
+  await expect(tomorrow).toBeChecked();
+  await expect(today).not.toBeChecked();
+
+  // The confirm button stays disabled until the EXACT word is typed (AC2).
+  const confirm = d.getByRole('button', { name: L.confirmButton, exact: true });
   await expect(confirm).toBeDisabled();
-
-  // Choosing a cutoff never arms the button on its own.
-  await dialog(win).getByRole('radio', { name: L.cutoffToday }).click();
-  await expect(confirm).toBeDisabled();
-
-  // A wrong word keeps it locked; the exact word arms it.
-  const input = dialog(win).getByRole('textbox');
+  const input = d.getByRole('textbox');
   await input.fill('nope');
   await expect(confirm).toBeDisabled();
+  // Case-exact gate (FR only — Arabic is caseless, so lowercasing is a no-op there).
+  if (L.confirmWord.toLowerCase() !== L.confirmWord) {
+    await input.fill(L.confirmWord.toLowerCase());
+    await expect(confirm).toBeDisabled();
+  }
   await input.fill(L.confirmWord);
   await expect(confirm).toBeEnabled();
 
-  await confirm.click();
-  await expect(win.getByText(L.successPrefix, { exact: false })).toBeVisible();
+  expect(await pageCrashed(win)).toBe(false);
+});
+
+test('reset globally wipes future planning, stops recurrence, and keeps past sessions', async () => {
+  const L = STR[locale()];
+  live = await launch(locale());
+  const win = live.win;
+
+  // Two templates on distinct weekdays (a real global center wide setup).
+  const { templates } = await seedTemplates(win, [
+    { dayOfWeek: 1, start: '15:00', end: '17:00' },
+    { dayOfWeek: 3, start: '15:00', end: '17:00' },
+  ]);
+  const [monday, wednesday] = templates;
+  expect(monday && wednesday).toBeTruthy();
+
+  // 3 FUTURE occurrences (2 Mondays + 1 Wednesday) and 1 PAST occurrence (Monday).
+  await generateOccurrences(win, [
+    { recurringSessionId: monday!.id, ...WINDOW.futureTwoWeeks },
+    { recurringSessionId: wednesday!.id, ...WINDOW.futureWeek },
+    { recurringSessionId: monday!.id, ...WINDOW.pastWeek },
+  ]);
+
+  await gotoPlanner(win, L);
+  expect(await readTemplateCount(win)).toBe(2);
+
+  const toastText = await performResetViaUi(win, L, 'today');
+
+  // Real deletion count: exactly the 3 FUTURE séances. A 4 would mean the past
+  // occurrence was wrongly wiped; a 0 would be the old mock gateway — both fail.
+  expect(parseDeletedCount(toastText)).toBe(3);
+
+  // Recurrence stopped: EVERY template tombstoned (global wipe, both weekdays).
+  expect(await readTemplateCount(win)).toBe(0);
+  await expect(win.getByText(L.emptyWeek, { exact: false })).toBeVisible();
+
+  // No working undo affordance exists (AC6 — undo is out of scope).
+  await expect(win.getByRole('button', { name: /annuler la réinitialisation|rétablir|undo|تراجع|استرجاع/i })).toHaveCount(0);
 
   expect(await pageCrashed(win)).toBe(false);
-  await win.screenshot({ path: `test-results/sou295-reset-${locale()}.png` });
+  await win.screenshot({ path: `test-results/sou295-reset-wiped-${locale()}.png` });
+});
+
+test('regeneration after a reset does not resurrect the wiped planning', async () => {
+  const L = STR[locale()];
+  live = await launch(locale());
+  const win = live.win;
+
+  const { templates } = await seedTemplates(win, [{ dayOfWeek: 1, start: '15:00', end: '17:00' }]);
+  const monday = templates[0];
+  expect(monday).toBeTruthy();
+  await generateOccurrences(win, [{ recurringSessionId: monday!.id, ...WINDOW.futureTwoWeeks }]);
+
+  await gotoPlanner(win, L);
+  expect(await readTemplateCount(win)).toBe(1);
+
+  expect(parseDeletedCount(await performResetViaUi(win, L, 'today'))).toBe(2);
+  expect(await readTemplateCount(win)).toBe(0);
+
+  // Try to re-materialize the SAME (now tombstoned) template. It must not bring
+  // the recurrence back...
+  await tryRegenerate(win, [{ recurringSessionId: monday!.id, ...WINDOW.futureTwoWeeks }]);
+  expect(await readTemplateCount(win)).toBe(0);
+
+  // ...and it must not resurrect the occurrences: a second reset finds nothing
+  // future left to delete (N === 0). Had the two occurrences reappeared, N would
+  // be 2.
+  expect(parseDeletedCount(await performResetViaUi(win, L, 'today'))).toBe(0);
+
+  expect(await pageCrashed(win)).toBe(false);
 });
 
 test('the danger zone is gated by core.calendar.week (no trigger when the flag is off)', async () => {

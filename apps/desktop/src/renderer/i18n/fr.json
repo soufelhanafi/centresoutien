@@ -1755,7 +1755,8 @@
       "confirm": "Réinitialiser le planning",
       "submitting": "Réinitialisation…",
       "cancel": "Annuler",
-      "success": "Planning réinitialisé — {{n}} séances supprimées",
+      "success_one": "Planning réinitialisé — {{n}} séance supprimée",
+      "success_other": "Planning réinitialisé — {{n}} séances supprimées",
       "error": "La réinitialisation du planning a échoué. Réessayez."
     }
   },

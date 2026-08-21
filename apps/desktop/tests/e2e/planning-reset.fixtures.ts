@@ -7,13 +7,18 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
 /**
  * Black-box fixtures for SOU-295 — the planner "réinitialiser le planning" danger
  * zone. Driven only through the running packaged app and the public preload
- * bridge. Every asserted string was mirrored from the shipped i18n bundle in both
- * locales, never re-derived in the test.
+ * bridge (`window.api.invoke`). No renderer / domain / data implementation is
+ * imported. Every asserted string was mirrored from the shipped i18n bundle
+ * (`i18n/fr.json` / `ar.json`) in both locales, never re-derived in the test.
  *
- * The reset runs against the interim mock gateway (the real `planning.reset` IPC
- * handler is built by the domain agent in parallel), so the flow — trigger, cutoff
- * choice, typed-confirmation gate, success toast — is fully exercisable; the toast
- * count is the mock's zero.
+ * The real `planning.reset` IPC handler is wired on this branch, so the specs
+ * assert PERSISTED outcomes, not just UI copy: reference data + weekly recurring
+ * templates + dated occurrences are seeded through the same public channels the
+ * app itself uses (`room.create`, `teacher.create`, `subject.create`,
+ * `group.create`, `weeklySession.create`, `session.generate`); the reset is
+ * driven through the UI; then the weekly read model (`session.week`) and the real
+ * success-toast deletion count prove the future planning was wiped, the recurrence
+ * stopped (templates tombstoned), and past-dated occurrences survived.
  */
 
 const dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -30,11 +35,15 @@ export const STR: Record<
     planningTitle: string;
     resetTrigger: string;
     dialogTitle: string;
+    cutoffLegend: string;
     cutoffToday: string;
     cutoffTomorrow: string;
+    cutoffHintPrefix: string;
+    warning: string;
     confirmWord: string;
     confirmButton: string;
     successPrefix: string;
+    emptyWeek: string;
     dir: 'ltr' | 'rtl';
   }
 > = {
@@ -43,11 +52,15 @@ export const STR: Record<
     planningTitle: 'Planning hebdomadaire',
     resetTrigger: 'Réinitialiser le planning',
     dialogTitle: 'Réinitialiser le planning ?',
+    cutoffLegend: 'À partir de quand effacer ?',
     cutoffToday: "Inclure aujourd'hui",
     cutoffTomorrow: 'À partir de demain',
+    cutoffHintPrefix: 'Les séances à partir du',
+    warning: 'Action irréversible',
     confirmWord: 'RÉINITIALISER',
     confirmButton: 'Réinitialiser le planning',
     successPrefix: 'Planning réinitialisé',
+    emptyWeek: 'Aucune séance planifiée cette semaine.',
     dir: 'ltr',
   },
   ar: {
@@ -55,11 +68,15 @@ export const STR: Record<
     planningTitle: 'الجدول الأسبوعي',
     resetTrigger: 'إعادة تعيين الجدول',
     dialogTitle: 'إعادة تعيين الجدول؟',
+    cutoffLegend: 'ابتداءً من متى يتم الحذف؟',
     cutoffToday: 'تضمين اليوم',
     cutoffTomorrow: 'ابتداءً من الغد',
+    cutoffHintPrefix: 'ستُحذف الحصص ابتداءً من',
+    warning: 'إجراء لا رجعة فيه',
     confirmWord: 'إعادة التعيين',
     confirmButton: 'إعادة تعيين الجدول',
     successPrefix: 'تمت إعادة تعيين الجدول',
+    emptyWeek: 'لا توجد حصص مبرمجة هذا الأسبوع.',
     dir: 'rtl',
   },
 };
@@ -106,4 +123,143 @@ export async function pageCrashed(win: Page): Promise<boolean> {
   return win.evaluate(() =>
     /Something went wrong|Show Error|Hide Error|Une erreur est survenue|حدث خطأ/i.test(document.body.innerText),
   );
+}
+
+/**
+ * Deterministic far-past / far-future windows, chosen so the reset's cutoff
+ * ("today", ~2026 by the injected Clock) always lands strictly between them —
+ * the assertion never depends on the exact wall clock. A 7-consecutive-day
+ * window contains each weekday exactly once (→ 1 occurrence of a given
+ * `dayOfWeek`); a 14-day window contains it exactly twice (→ 2 occurrences).
+ */
+export const WINDOW = {
+  pastWeek: { from: '2020-06-01', to: '2020-06-07' },
+  futureWeek: { from: '2030-06-03', to: '2030-06-09' },
+  futureTwoWeeks: { from: '2030-06-03', to: '2030-06-16' },
+} as const;
+
+export type SeededTemplate = { id: string; dayOfWeek: number };
+export type SeededPlanning = { templates: SeededTemplate[] };
+export type OccurrenceWindow = { recurringSessionId: string; from: string; to: string };
+
+/**
+ * Seed shared reference data (one room / teacher / subject / group) and N weekly
+ * recurring templates through the public write channels. All templates hang off
+ * the same room+teacher on distinct weekdays, so no room/teacher overlap is
+ * triggered at create time. Returns the template ids for later occurrence
+ * materialization.
+ */
+export async function seedTemplates(
+  win: Page,
+  templates: readonly { dayOfWeek: number; start: string; end: string }[],
+): Promise<SeededPlanning> {
+  return win.evaluate(async (specs) => {
+    const api = (window as unknown as { api: Bridge }).api;
+    const room = (await api.invoke('room.create', { name: 'Salle A', capacity: 20 })) as { id: string };
+    const teacher = (await api.invoke('teacher.create', {
+      name: { fr: 'Ahmed Benali', ar: 'أحمد بنعلي' },
+      phone: '+212600000001',
+      subjectIds: [],
+    })) as { id: string };
+    const subject = (await api.invoke('subject.create', {
+      name: { fr: 'Mathématiques', ar: 'الرياضيات' },
+      code: 'MATH',
+    })) as { id: string };
+    const group = (await api.invoke('group.create', {
+      subjectId: subject.id,
+      teacherId: teacher.id,
+      level: '2 Bac SM',
+      capacity: 15,
+      kind: 'regular',
+    })) as { id: string };
+
+    const out: { id: string; dayOfWeek: number }[] = [];
+    for (const s of specs) {
+      const wrs = (await api.invoke('weeklySession.create', {
+        roomId: room.id,
+        teacherId: teacher.id,
+        groupId: group.id,
+        dayOfWeek: s.dayOfWeek,
+        start: s.start,
+        end: s.end,
+      })) as { id: string };
+      out.push({ id: wrs.id, dayOfWeek: s.dayOfWeek });
+    }
+    return { templates: out };
+  }, templates);
+}
+
+/** Materialize dated occurrences of a template over [from,to] via the public generator channel. */
+export async function generateOccurrences(win: Page, windows: readonly OccurrenceWindow[]): Promise<void> {
+  await win.evaluate(async (ws) => {
+    const api = (window as unknown as { api: Bridge }).api;
+    for (const w of ws) {
+      await api.invoke('session.generate', { recurringSessionId: w.recurringSessionId, from: w.from, to: w.to });
+    }
+  }, windows);
+}
+
+/**
+ * Attempt to re-materialize a tombstoned template's occurrences. A reset should
+ * make this a no-op (the template is soft-deleted, so nothing regenerates); the
+ * call may resolve to nothing or reject — either way the caller asserts the
+ * end-state (no resurrection). Returns whether the call threw.
+ */
+export async function tryRegenerate(win: Page, windows: readonly OccurrenceWindow[]): Promise<boolean> {
+  return win.evaluate(async (ws) => {
+    const api = (window as unknown as { api: Bridge }).api;
+    try {
+      for (const w of ws) {
+        await api.invoke('session.generate', { recurringSessionId: w.recurringSessionId, from: w.from, to: w.to });
+      }
+      return false;
+    } catch {
+      return true;
+    }
+  }, windows);
+}
+
+/** Count of live (non-tombstoned) weekly recurring templates in the center's read model. */
+export async function readTemplateCount(win: Page): Promise<number> {
+  const res = (await win.evaluate(async () => {
+    const api = (window as unknown as { api: Bridge }).api;
+    return api.invoke('session.week', {});
+  })) as { sessions: unknown[] };
+  return res.sessions.length;
+}
+
+const AR_INDIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+
+/**
+ * Extract the deletion count from the success toast, locale-robustly: the AR
+ * project renders the number in Arabic-Indic digits, so normalize those to ASCII
+ * before parsing. Returns the integer N from "… {{n}} séances supprimées" /
+ * "… {{n}} حصة".
+ */
+export function parseDeletedCount(toastText: string): number {
+  const ascii = toastText.replace(/[٠-٩]/g, (d) => String(AR_INDIC_DIGITS.indexOf(d)));
+  const match = ascii.match(/\d+/);
+  return match ? Number(match[0]) : Number.NaN;
+}
+
+/**
+ * Drive the full destructive flow through the UI: open the danger-zone dialog,
+ * pick a cutoff, type the exact confirmation word, confirm, and return the
+ * success-toast text. Black-box — no direct `planning.reset` invoke.
+ */
+export async function performResetViaUi(
+  win: Page,
+  L: (typeof STR)[Locale],
+  cutoff: 'today' | 'tomorrow',
+): Promise<string> {
+  await win.getByRole('button', { name: L.resetTrigger }).click();
+  const dialog = win.getByRole('dialog');
+  await dialog.getByRole('heading', { name: L.dialogTitle }).waitFor();
+  await dialog.getByRole('radio', { name: cutoff === 'today' ? L.cutoffToday : L.cutoffTomorrow }).click();
+  await dialog.getByRole('textbox').fill(L.confirmWord);
+  const confirm = dialog.getByRole('button', { name: L.confirmButton, exact: true });
+  await confirm.click();
+  const toast = win.getByText(L.successPrefix, { exact: false });
+  await toast.waitFor();
+  return (await toast.textContent()) ?? '';
 }
