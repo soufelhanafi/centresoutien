@@ -48,6 +48,7 @@ import {
   ListGroups,
   ListGroupsWithCounts,
   GetGroupRoster,
+  GetTeacherRoster,
   UpdateGroup,
   ArchiveGroup,
   RestoreGroup,
@@ -837,6 +838,17 @@ export function buildContainer(options: ContainerOptions): Container {
   const updateTeacher = new UpdateTeacher(teacherRepo, clock, plan);
   const archiveTeacher = new ArchiveTeacher(teacherRepo, teacherReference, clock, plan);
   const restoreTeacher = new RestoreTeacher(teacherRepo, clock, plan);
+  // Teacher student roster (SOU-299): the read model behind the "Élèves" tab —
+  // teacher → group(s) → enrolled students, folded to one row per student.
+  const getTeacherRoster = new GetTeacherRoster(
+    teacherRepo,
+    groupRepo,
+    enrollmentRepo,
+    studentRepo,
+    subjectRepo,
+    subscriptionRepo,
+    plan,
+  );
 
   // Payroll rule persistence (SOU-71) + the Rule tab's IPC surface (SOU-72):
   // createTeacherPayrollRule enforces TooManyActivePayrollRulesError via
@@ -1469,6 +1481,7 @@ export function buildContainer(options: ContainerOptions): Container {
     updateTeacher,
     archiveTeacher,
     restoreTeacher,
+    getTeacherRoster,
     createTeacherPayrollRule,
     closeTeacherPayrollRule,
     replaceTeacherPayrollRule,

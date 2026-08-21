@@ -165,6 +165,27 @@ describe('SqliteEnrollmentRepository', () => {
     });
   });
 
+  describe('listInactiveByGroup (the teacher-roster "left the group" marker)', () => {
+    it('returns only tombstoned rows of the group, excluding live rows and other groups', async () => {
+      await repo.save(makeEnrollment({ studentId: STUDENT_B, groupId: GROUP_A }));
+      const leftA = makeEnrollment({ studentId: STUDENT_A, groupId: GROUP_A });
+      await repo.save(leftA);
+      await repo.softDelete(leftA.id, AT, USER);
+      const leftB = makeEnrollment({ studentId: STUDENT_A, groupId: GROUP_B });
+      await repo.save(leftB);
+      await repo.softDelete(leftB.id, AT, USER);
+
+      const goneFromA = await repo.listInactiveByGroup(GROUP_A);
+      expect(goneFromA.map((e) => e.studentId)).toEqual([STUDENT_A]);
+      expect(goneFromA[0]?.deletedAt).not.toBeNull();
+    });
+
+    it('returns an empty list when the group has no tombstoned rows', async () => {
+      await repo.save(makeEnrollment({ studentId: STUDENT_A, groupId: GROUP_A }));
+      expect(await repo.listInactiveByGroup(GROUP_A)).toEqual([]);
+    });
+  });
+
   describe('countActiveByGroup', () => {
     it('counts distinct live rows, ignoring tombstones and other groups', async () => {
       await repo.save(makeEnrollment({ studentId: STUDENT_A, groupId: GROUP_A }));

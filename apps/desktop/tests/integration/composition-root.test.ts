@@ -138,6 +138,61 @@ describe('composition root', () => {
     container.dispose();
   });
 
+  it('wires teacher.roster end-to-end: subject → formula → teacher → group → student → subscription → enrollment', async () => {
+    const container = build();
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+
+    const { id: subjectId } = await dispatch('subject.create', {
+      name: { fr: 'Mathématiques', ar: 'الرياضيات' },
+    });
+    const { id: teacherId } = await dispatch('teacher.create', {
+      name: { fr: 'Prof Karim', ar: 'الأستاذ كريم' },
+      phone: '0612345678',
+      subjectIds: [subjectId],
+    });
+    const { id: formulaId } = await dispatch('formula.create', {
+      name: { fr: 'Math seul', ar: 'الرياضيات فقط' },
+      subjectIds: [subjectId],
+      priceMad: 20000,
+      kind: 'regular',
+    });
+    const { id: groupId } = await dispatch('group.create', {
+      subjectId,
+      teacherId,
+      capacity: 20,
+      kind: 'regular',
+    });
+    const { id: studentId } = await dispatch('student.create', {
+      name: { fr: 'Amine Bennani', ar: 'أمين بناني' },
+      birthDate: '2010-05-01',
+      niveauId: null,
+    });
+    await dispatch('subscription.create', {
+      studentId,
+      formulaId,
+      kind: 'regular',
+      subjectIds: [subjectId],
+      startMonth: '2026-09',
+    });
+    await dispatch('enrollment.create', { studentId, groupId, startMonth: '2026-09' });
+
+    const { roster } = await dispatch('teacher.roster', { teacherId });
+    container.dispose();
+
+    expect(roster).toHaveLength(1);
+    expect(roster[0]).toMatchObject({
+      studentId,
+      name: { fr: 'Amine Bennani', ar: 'أمين بناني' },
+      status: 'active',
+      leftMonth: null,
+      formulaLabel: 'Mathématiques',
+      kinds: ['regular'],
+    });
+    expect(roster[0]?.groups).toEqual([
+      { groupId, subjectId, subjectName: { fr: 'Mathématiques', ar: 'الرياضيات' }, kind: 'regular' },
+    ]);
+  });
+
   it('wires centerHours.save + get end-to-end and persists the week across a restart', async () => {
     const first = build();
     const dispatch1 = createIpcDispatcher(createHandlers(first.handlerDeps));

@@ -144,6 +144,13 @@ export class SqliteEnrollmentRepository implements EnrollmentRepository {
     return rows.map(fromRow);
   }
 
+  async listInactiveByGroup(groupId: GroupId): Promise<readonly Enrollment[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM enrollments WHERE group_id = ? AND deleted_at IS NOT NULL ORDER BY id')
+      .all(groupId) as EnrollmentRow[];
+    return rows.map(fromRow);
+  }
+
   async listActiveByStudent(studentId: StudentId): Promise<readonly Enrollment[]> {
     const rows = this.db
       .prepare('SELECT * FROM enrollments WHERE student_id = ? AND deleted_at IS NULL ORDER BY id')
