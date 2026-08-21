@@ -78,6 +78,7 @@ import {
   GenerateSessions,
   GenerateAndPersistSessions,
   UndoGenerationBatch,
+  ResetPlanning,
   AuditSessionsOutsideEffectiveHours,
   CancelSession,
   WeeklySessionScheduleValidator,
@@ -231,6 +232,7 @@ import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-
 import { SqliteUserRepository } from '../data/sqlite/repositories/user-repository';
 import { SqliteRecoveryCodeRepository } from '../data/sqlite/repositories/recovery-code-repository';
 import { SqliteRecoveryCodeResetUnitOfWork } from '../data/sqlite/repositories/recovery-code-reset-unit-of-work';
+import { SqliteResetPlanningUnitOfWork } from '../data/sqlite/repositories/reset-planning-unit-of-work';
 import { SqliteSecurityQuestionRepository } from '../data/sqlite/repositories/security-question-repository';
 import { SqliteAuthAuditLogRepository } from '../data/sqlite/repositories/auth-audit-log-repository';
 import { SqliteLoginThrottleStore } from '../data/sqlite/repositories/login-throttle-store';
@@ -931,6 +933,19 @@ export function buildContainer(options: ContainerOptions): Container {
   // concrete session repository — no new adapter needed.
   const undoGenerationBatch = new UndoGenerationBatch(concreteSessionRepo, clock, plan);
 
+  // Director-facing danger-zone bulk clear (SOU-295): soft-deletes every future
+  // concrete session AND every recurring template of the center in ONE
+  // transaction via SqliteResetPlanningUnitOfWork, so future regeneration cannot
+  // re-materialise the wiped planning. Past/attended sessions are untouched (the
+  // use case reads only `date >= cutoffDate`). Gated by `core.calendar.week`.
+  const resetPlanning = new ResetPlanning(
+    concreteSessionRepo,
+    sessionRepo,
+    clock,
+    plan,
+    new SqliteResetPlanningUnitOfWork(db, changeLog),
+  );
+
   // Per-session roll-call (SOU-58). The roster itself comes from the existing
   // group-roster IPC (SOU-126/127) — this use case only records the outcome
   // against the concrete session and the SOU-57 attendance store.
@@ -1495,6 +1510,7 @@ export function buildContainer(options: ContainerOptions): Container {
     tempDir: options.tempDir,
     generateSessions,
     undoGenerationBatch,
+    resetPlanning,
     auditSessionsOutsideHours,
     cancelSession,
     recordSessionAttendance,

@@ -26,6 +26,7 @@ import {
   enrollmentInputSchema,
   generateSessionsSchema,
   undoGenerationBatchSchema,
+  resetPlanningSchema,
   recordSessionAttendanceSchema,
   weeklyRecurringSessionInputSchema,
   weeklyRecurringSessionUpdateSchema,
@@ -1860,6 +1861,18 @@ export const ipcContract = {
   'session.undoGenerationBatch': {
     request: undoGenerationBatchSchema,
     response: z.object({ cancelledCount: z.number().int(), skippedOccurredCount: z.number().int() }),
+  },
+  // Director-facing danger-zone bulk clear (SOU-295): soft-deletes every future
+  // concrete session (civil `date >= cutoffDate`, the inclusive lower bound the
+  // renderer derives from the Clock) AND every recurring template of the center
+  // in ONE transaction, so future regeneration cannot re-materialise the wiped
+  // planning. Past/attended sessions (`date < cutoffDate`) are untouched — they
+  // feed payroll attribution. centerCode/updatedBy are injected in main, never
+  // sent by the renderer. Gated by `core.calendar.week` in the use case. The
+  // toast reports `sessionsDeleted` as "N séances".
+  'planning.reset': {
+    request: resetPlanningSchema,
+    response: z.object({ sessionsDeleted: z.number().int(), templatesDeleted: z.number().int() }),
   },
   // Read-only audit (SOU-201): every live materialized session the CURRENT
   // effective center hours (override-aware, SOU-165) or holidays (SOU-161) now

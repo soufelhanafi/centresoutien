@@ -1738,6 +1738,26 @@
         "commitBlockedHint": "Décidez pour chaque créneau en conflit (inclure ou exclure) avant de générer.",
         "capacityBlockedHint": "Une salle est trop petite pour son groupe. Un dépassement de capacité ne peut pas être forcé : corrigez la salle ou la configuration, puis relancez l'aperçu."
       }
+    },
+    "reset": {
+      "trigger": "Réinitialiser le planning",
+      "title": "Réinitialiser le planning ?",
+      "description": "Cette action efface définitivement l'intégralité du planning à venir du centre — toutes les séances futures, tous groupes, salles et enseignants confondus — et arrête leur récurrence. Les séances passées et l'historique ne sont pas touchés.",
+      "warning": "Action irréversible : tout le planning futur du centre sera effacé et ne se répétera plus.",
+      "cutoff": {
+        "legend": "À partir de quand effacer ?",
+        "tomorrow": "À partir de demain",
+        "today": "Inclure aujourd'hui",
+        "hint": "Les séances à partir du {{date}} seront supprimées."
+      },
+      "confirmLabel": "Pour confirmer, tapez {{word}}",
+      "confirmWord": "RÉINITIALISER",
+      "confirm": "Réinitialiser le planning",
+      "submitting": "Réinitialisation…",
+      "cancel": "Annuler",
+      "success_one": "Planning réinitialisé — {{n}} séance supprimée",
+      "success_other": "Planning réinitialisé — {{n}} séances supprimées",
+      "error": "La réinitialisation du planning a échoué. Réessayez."
     }
   },
   "team": {

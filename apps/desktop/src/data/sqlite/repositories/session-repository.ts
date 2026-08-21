@@ -333,6 +333,30 @@ export class SqliteSessionRepository
     return rows.map(fromRow);
   }
 
+  // Reset-planning enumeration (SOU-295): live occurrences on/after the cutoff
+  // that carry NO live attendance record. The NOT EXISTS guard keeps an
+  // already-attended session (e.g. an earlier session today when the director
+  // includes today) out of the reset selection, so it is never tombstoned —
+  // its attendance stays visible to reports/payroll (see the port doc). Uses
+  // ix_attendance_records_session(session_id, deleted_at) for the subquery.
+  async listLiveFrom(
+    centerCode: CenterCode,
+    cutoffDate: string,
+  ): Promise<readonly Session[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM sessions
+          WHERE center_code = ? AND deleted_at IS NULL AND date >= ?
+            AND NOT EXISTS (
+              SELECT 1 FROM attendance_records a
+               WHERE a.session_id = sessions.id AND a.deleted_at IS NULL
+            )
+          ORDER BY date, start_time`,
+      )
+      .all(centerCode, cutoffDate) as SessionRow[];
+    return rows.map(fromRow);
+  }
+
   async listByGenerationBatch(
     centerCode: CenterCode,
     batchId: GenerationBatchId,
