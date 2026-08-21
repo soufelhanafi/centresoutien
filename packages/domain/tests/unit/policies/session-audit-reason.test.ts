@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { auditReasonsFor, type SessionAuditContext } from '../../../src/policies/session-audit-reason';
+import { buildResourceScheduleIndex } from '../../../src/policies/session-resource-conflict';
 import type { SessionOccurrenceView } from '../../../src/read-models/session-occurrence-view';
 import type { SessionId } from '../../../src/entities/session';
 import type { WeeklyRecurringSessionId } from '../../../src/entities/weekly-recurring-session';
@@ -61,15 +62,22 @@ function fixedHoliday(date: string): HolidayOccurrence {
   return { id: 'hol_00000000000000000000000001' as HolidayId, name: { fr: 'Férié', ar: 'عيد' }, kind: 'fixed', startDate: date, endDate: date };
 }
 
-function context(over: Partial<SessionAuditContext> = {}): SessionAuditContext {
+function context(
+  over: Partial<Omit<SessionAuditContext, 'roomScheduleIndex' | 'teacherScheduleIndex'>> & {
+    liveSchedule?: readonly SessionOccurrenceView[];
+  } = {},
+): SessionAuditContext {
+  const { liveSchedule = [], ...rest } = over;
+  const { byDateRoom, byDateTeacher } = buildResourceScheduleIndex(liveSchedule);
   return {
     holidays: [],
     overrides: [],
     staticDayByWeekday: new Map(),
     availabilityByTeacher: new Map(),
-    liveSchedule: [],
+    roomScheduleIndex: byDateRoom,
+    teacherScheduleIndex: byDateTeacher,
     enrollmentByGroup: new Map(),
-    ...over,
+    ...rest,
   };
 }
 

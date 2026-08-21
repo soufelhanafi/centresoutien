@@ -44,8 +44,10 @@ export type SessionAuditContext = {
   readonly overrides: readonly CenterHoursOverride[];
   readonly staticDayByWeekday: ReadonlyMap<WeekdayIndex, DayHours>;
   readonly availabilityByTeacher: ReadonlyMap<EntityId, TeacherAvailabilityRules>;
-  /** Every live occurrence (today-forward), for the date-aware double-book checks. */
-  readonly liveSchedule: readonly SessionOccurrenceView[];
+  /** Live occurrences indexed by `(date, room)`, for the room double-book check. */
+  readonly roomScheduleIndex: ReadonlyMap<string, readonly SessionOccurrenceView[]>;
+  /** Live occurrences indexed by `(date, teacher)`, for the teacher double-book check. */
+  readonly teacherScheduleIndex: ReadonlyMap<string, readonly SessionOccurrenceView[]>;
   /** Live enrollment count per group — the room-over-capacity numerator. */
   readonly enrollmentByGroup: ReadonlyMap<GroupId, number>;
 };
@@ -56,8 +58,9 @@ export type SessionAuditContext = {
  * Reuses the same primitives interactive scheduling trusts (never a parallel
  * reimplementation): {@link holidayOn}, the shared window-fit rule via
  * {@link resolveEffectiveWindows} + {@link SessionConflictPolicy.withinWindows},
- * {@link teacherUnavailability}, {@link strictlyOverlaps} for the two double-book
- * checks, and the same `>=` seat-fit rule `capacityOverflow` enforces.
+ * {@link teacherUnavailability}, the indexed date-aware double-book and
+ * seat-fit checks in {@link isOverCapacity}, and the `>=` seat-fit rule shared
+ * with the generator's `capacityOverflow`.
  */
 export function auditReasonsFor(
   session: SessionOccurrenceView,
@@ -77,8 +80,8 @@ export function auditReasonsFor(
 
   if (session.roomArchived) reasons.push('room-archived');
   if (isOverCapacity(session, context.enrollmentByGroup)) reasons.push('room-over-capacity');
-  if (isRoomDoubleBooked(session, context.liveSchedule)) reasons.push('room-double-booked');
-  if (session.teacherId !== null && isTeacherDoubleBooked(session, context.liveSchedule)) {
+  if (isRoomDoubleBooked(session, context.roomScheduleIndex)) reasons.push('room-double-booked');
+  if (isTeacherDoubleBooked(session, context.teacherScheduleIndex)) {
     reasons.push('teacher-double-booked');
   }
   return reasons;

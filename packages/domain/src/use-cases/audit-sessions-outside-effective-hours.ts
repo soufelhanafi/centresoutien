@@ -14,6 +14,7 @@ import type { TeacherAvailabilityRules } from '../policies/teacher-availability-
 import type { WeekdayIndex } from '../value-objects/weekday';
 import type { GroupId } from '../entities/group';
 import { auditReasonsFor, type StrandedSession } from '../policies/session-audit-reason';
+import { buildResourceScheduleIndex } from '../policies/session-resource-conflict';
 import {
   groupStrandedSessions,
   type StrandedSessionGroup,
@@ -83,6 +84,7 @@ export class AuditSessionsOutsideEffectiveHours {
       this.loadAvailability(input.centerCode, sessions, today),
       this.loadEnrollmentCounts(sessions),
     ]);
+    const { byDateRoom, byDateTeacher } = buildResourceScheduleIndex(sessions);
 
     const stranded: StrandedSession[] = [];
     for (const session of sessions) {
@@ -91,7 +93,8 @@ export class AuditSessionsOutsideEffectiveHours {
         overrides,
         staticDayByWeekday,
         availabilityByTeacher,
-        liveSchedule: sessions,
+        roomScheduleIndex: byDateRoom,
+        teacherScheduleIndex: byDateTeacher,
         enrollmentByGroup,
       });
       if (reasons.length > 0) stranded.push({ session, reasons });
