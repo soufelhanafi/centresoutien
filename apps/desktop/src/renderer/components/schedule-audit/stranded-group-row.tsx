@@ -5,7 +5,7 @@ import { Badge, Button, KindBadge } from '@centresoutien/ui';
 import { formatDate } from '../../lib/format';
 import { formatTimeRange } from '../../lib/planning/time-range';
 import { localizedText } from '../../lib/planning/localized-text';
-import type { StrandedGroup } from '../../lib/schedule-audit/group-stranded';
+import type { StrandedGroupView } from '../../lib/schedule-audit/stranded-session-view';
 import { AuditReasonBadge } from './audit-reason-badge';
 import { StrandedSessionRow } from './stranded-session-row';
 
@@ -17,7 +17,7 @@ import { StrandedSessionRow } from './stranded-session-row';
  * per-date rows (each keeping its own cancel action) behind an expand toggle.
  * A group of one is a genuinely dated case and renders as the plain row.
  */
-export function StrandedGroupRow({ group }: { group: StrandedGroup }) {
+export function StrandedGroupRow({ group }: { group: StrandedGroupView }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   const [expanded, setExpanded] = useState(false);
@@ -27,7 +27,7 @@ export function StrandedGroupRow({ group }: { group: StrandedGroup }) {
 
   const { session } = first;
   const last = group.occurrences[group.occurrences.length - 1]!.session;
-  const count = group.occurrences.length;
+  const count = group.count;
   const subject = session.subjectName
     ? localizedText(session.subjectName, locale)
     : t('scheduleAudit.unknownSubject');

@@ -19,7 +19,7 @@ import { CancelStrandedSessionDialog } from './cancel-stranded-session-dialog';
 export function StrandedSessionRow({ stranded }: { stranded: StrandedSessionView }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
-  const { session, reason } = stranded;
+  const { session, reasons } = stranded;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const cancelMutation = useCancelStrandedSession();
 
@@ -38,7 +38,9 @@ export function StrandedSessionRow({ stranded }: { stranded: StrandedSessionView
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
       <div className="flex min-w-0 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <AuditReasonBadge reason={reason} />
+          {reasons.map((reason) => (
+            <AuditReasonBadge key={reason} reason={reason} />
+          ))}
           {session.kind === 'exam-prep' ? (
             <KindBadge kind="exam-prep" label={t('planning.kind.examPrepShort')} />
           ) : null}

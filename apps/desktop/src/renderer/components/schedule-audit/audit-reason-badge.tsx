@@ -11,12 +11,16 @@ type ReasonConfig = {
 
 // Icons carry no direction, so they need no `rtl:` mirroring here. Variants follow
 // severity: hard conflicts (double-book) are destructive; soft signals (hours,
-// availability, over-capacity) are warning; a holiday/blackout is informational;
+// availability, over-capacity) are warning; a holiday is informational;
 // an archived room is neutral.
 const REASON_CONFIG: Record<SessionAuditReason, ReasonConfig> = {
   'outside-center-hours': { variant: 'warning', icon: Clock, labelKey: 'scheduleAudit.reason.outsideHours' },
-  'holiday/blackout': { variant: 'info', icon: CalendarOff, labelKey: 'scheduleAudit.reason.holiday' },
-  'teacher-unavailable': { variant: 'warning', icon: UserX, labelKey: 'scheduleAudit.reason.teacherUnavailable' },
+  'on-holiday': { variant: 'info', icon: CalendarOff, labelKey: 'scheduleAudit.reason.holiday' },
+  'outside-teacher-availability': {
+    variant: 'warning',
+    icon: UserX,
+    labelKey: 'scheduleAudit.reason.teacherUnavailable',
+  },
   'teacher-double-booked': {
     variant: 'destructive',
     icon: Users,
@@ -37,7 +41,7 @@ const REASON_CONFIG: Record<SessionAuditReason, ReasonConfig> = {
 
 /**
  * Why a session is stranded: the reason badge for one of the SOU-296 taxonomy
- * codes (outside hours, holiday/blackout, teacher unavailable / double-booked,
+ * codes (outside hours, on-holiday, teacher unavailable / double-booked,
  * room double-booked / archived / over capacity).
  */
 export function AuditReasonBadge({ reason }: { reason: SessionAuditReason }) {

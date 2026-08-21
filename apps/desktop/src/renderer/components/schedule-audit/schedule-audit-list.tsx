@@ -1,15 +1,15 @@
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, CircleCheck } from 'lucide-react';
 import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
-import type { StrandedGroup } from '../../lib/schedule-audit/group-stranded';
+import type { StrandedGroupView } from '../../lib/schedule-audit/stranded-session-view';
 import { StrandedGroupRow } from './stranded-group-row';
 
 export type ScheduleAuditStatus = 'loading' | 'error' | 'empty' | 'ready';
 
 type ScheduleAuditListProps = {
   status: ScheduleAuditStatus;
-  /** Pre-grouped by the dialog (SOU-262) so badge and list share one computation. */
-  groups: readonly StrandedGroup[];
+  /** Pre-grouped by the domain (SOU-296) so badge and list share one computation. */
+  groups: readonly StrandedGroupView[];
   onRetry: () => void;
 };
 

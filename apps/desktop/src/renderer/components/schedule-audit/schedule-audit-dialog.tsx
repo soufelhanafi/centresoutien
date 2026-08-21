@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock } from 'lucide-react';
 import {
@@ -13,7 +13,6 @@ import {
   ScrollArea,
 } from '@centresoutien/ui';
 import { useStrandedSessions } from '../../hooks/schedule-audit/use-stranded-sessions';
-import { groupStrandedSessions } from '../../lib/schedule-audit/group-stranded';
 import { ScheduleAuditList, type ScheduleAuditStatus } from './schedule-audit-list';
 
 /**
@@ -27,11 +26,9 @@ export function ScheduleAuditDialog() {
   const [open, setOpen] = useState(false);
   const query = useStrandedSessions();
 
-  const stranded = query.data;
-  // Grouped once here (SOU-262) and shared by the badge and the list — the
-  // badge counts structural problems, "3 things to fix", never "34 occurrences
-  // of one thing".
-  const groups = useMemo(() => groupStrandedSessions(stranded ?? []), [stranded]);
+  // The domain returns groups already collapsed (SOU-296), so no renderer-side
+  // grouping: the badge and list share this one array.
+  const groups = query.data ?? [];
   const status: ScheduleAuditStatus = query.isPending
     ? 'loading'
     : query.isError
