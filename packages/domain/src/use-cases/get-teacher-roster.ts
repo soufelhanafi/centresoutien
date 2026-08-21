@@ -16,11 +16,15 @@ export type GetTeacherRosterInput = { centerCode: CenterCode; teacherId: Teacher
 
 type BilingualName = { fr: string; ar: string };
 
-/** One of the teacher's groups the student sits in, named for display/filtering. */
+/** One of the teacher's groups the student sits in, named for display/filtering.
+ *  `level` is the group's free-text grade label — it disambiguates two groups of
+ *  the same subject in the group filter, where a group (which has no name of its
+ *  own) is shown as "subject — level". */
 export type TeacherRosterGroupRef = {
   groupId: GroupId;
   subjectId: SubjectId;
   subjectName: BilingualName;
+  level: string;
   kind: GroupKind;
 };
 
@@ -132,6 +136,7 @@ export class GetTeacherRoster {
         groupId: group.id,
         subjectId: group.subjectId,
         subjectName: subjectNames.get(group.subjectId) ?? { fr: '', ar: '' },
+        level: group.level,
         kind: group.kind,
       };
 

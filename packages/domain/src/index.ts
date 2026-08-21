@@ -708,6 +708,11 @@ export type {
 } from './ports/parent-statement-pdf-renderer';
 export type { PayslipPdfRenderer, PayslipPdfInput } from './ports/payslip-pdf-renderer';
 export type {
+  TeacherRosterPdfRenderer,
+  TeacherRosterPdfInput,
+  TeacherRosterPdfRow,
+} from './ports/teacher-roster-pdf-renderer';
+export type {
   PaymentReceiptPdfRenderer,
   PaymentReceiptPdfInput,
 } from './ports/payment-receipt-pdf-renderer';
