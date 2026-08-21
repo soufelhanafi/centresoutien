@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import { _electron as electron, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 
 /**
  * Black-box fixtures for SOU-201 — "Audit du planning", driven through the
@@ -66,6 +66,7 @@ export const STR: Record<
     emptySubtitle: string;
     groupRepeats: (count: number) => string;
     groupShowDates: (count: number) => string;
+    groupHideDates: string;
     dir: 'ltr' | 'rtl';
   }
 > = {
@@ -88,6 +89,7 @@ export const STR: Record<
     emptySubtitle: 'Toutes les séances planifiées tiennent dans les horaires, les salles et les disponibilités des enseignants.',
     groupRepeats: (count) => `Se répète chaque semaine (×${count})`,
     groupShowDates: (count) => `Voir les ${count} dates`,
+    groupHideDates: 'Masquer les dates',
     dir: 'ltr',
   },
   ar: {
@@ -107,6 +109,7 @@ export const STR: Record<
     emptySubtitle: 'كل الحصص المجدولة مناسبة للساعات والقاعات وأوقات توفر الأساتذة.',
     groupRepeats: (count) => `يتكرر كل أسبوع (×${count})`,
     groupShowDates: (count) => `عرض التواريخ (${count})`,
+    groupHideDates: 'إخفاء التواريخ',
     dir: 'rtl',
   },
 };
@@ -252,6 +255,12 @@ export function auditRows(win: Page) {
 /** The row whose visible text contains a given localized date label. */
 export function rowForDate(win: Page, dateLabel: string) {
   return win.getByRole('dialog').locator('ul > li', { hasText: dateLabel });
+}
+
+/** Expand a collapsed group card via its "Voir les N dates" toggle, waiting for the "Masquer les dates" state. */
+export async function expandGroup(group: Locator, L: (typeof STR)[Locale], count: number): Promise<void> {
+  await group.getByRole('button', { name: L.groupShowDates(count) }).click();
+  await group.getByRole('button', { name: L.groupHideDates }).waitFor();
 }
 
 /** The cancel-occurrence confirm dialog — scoped by its title, since it stacks over the audit modal. */
