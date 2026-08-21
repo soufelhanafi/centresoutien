@@ -63,6 +63,8 @@ export const sessionOccurrenceViewSchema = z.object({
   end: z.string(),
   roomId: z.string(),
   roomName: z.string().nullable(),
+  roomCapacity: z.number().nullable(),
+  roomArchived: z.boolean(),
   teacherId: z.string().nullable(),
   teacherName: bilingualTextSchema.nullable(),
   groupId: z.string().nullable(),
@@ -70,4 +72,37 @@ export const sessionOccurrenceViewSchema = z.object({
   subjectName: bilingualTextSchema.nullable(),
   level: z.string().nullable(),
   kind: z.enum(['regular', 'exam-prep']),
+});
+
+// The seven audit reason codes (SOU-296) — mirrors the domain `SessionAuditReason`.
+// Mapping to the issue's names: `teacher-unavailable` → `outside-teacher-availability`,
+// `holiday/blackout` → `on-holiday`.
+export const sessionAuditReasonSchema = z.enum([
+  'outside-center-hours',
+  'on-holiday',
+  'outside-teacher-availability',
+  'teacher-double-booked',
+  'room-double-booked',
+  'room-archived',
+  'room-over-capacity',
+]);
+
+// One stranded occurrence (SOU-296): the enriched occurrence plus every reason it
+// is now stranded — several at once (double-booked AND over-capacity) is allowed.
+export const strandedSessionSchema = z.object({
+  session: sessionOccurrenceViewSchema,
+  reasons: z.array(sessionAuditReasonSchema),
+});
+
+// One deduplicated audit group (SOU-262/296): every stranded occurrence sharing
+// `(reason, weekday, resource)` — `resourceId` names the teacher/room (null for
+// center-wide findings). `count` is the number of occurrences actually stranded.
+export const strandedSessionGroupSchema = z.object({
+  key: z.string(),
+  reason: sessionAuditReasonSchema,
+  weekday: z.number().int().min(0).max(6),
+  resourceKind: z.enum(['room', 'teacher', 'center']),
+  resourceId: z.string().nullable(),
+  count: z.number().int(),
+  occurrences: z.array(strandedSessionSchema),
 });
