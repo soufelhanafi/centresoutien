@@ -58,6 +58,19 @@ export class InMemorySessionRepository
       .map((row) => structuredClone(row));
   }
 
+  async listLiveFrom(
+    centerCode: CenterCode,
+    cutoffDate: string,
+  ): Promise<readonly Session[]> {
+    return [...this.rows.values()]
+      .filter(
+        (row) =>
+          row.deletedAt === null && row.centerCode === centerCode && row.date >= cutoffDate,
+      )
+      .sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start))
+      .map((row) => structuredClone(row));
+  }
+
   async listByGenerationBatch(
     centerCode: CenterCode,
     batchId: GenerationBatchId,

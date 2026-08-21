@@ -51,4 +51,12 @@ export interface WeeklyRecurringSessionRepository
    * group still fits the new capacity. Same center, tombstones excluded.
    */
   listActiveByRoomId(centerCode: CenterCode, roomId: RoomId): Promise<readonly WeeklyRecurringSession[]>;
+  /**
+   * Every active (non-tombstoned) recurring template of one center, ordered by
+   * weekday then start time. The global read {@link ResetPlanning} (SOU-295) uses
+   * to enumerate the templates to tombstone; unlike {@link listRefsForDay} it
+   * spans all weekdays and returns full entities, not conflict refs. Same center,
+   * tombstones excluded.
+   */
+  listActive(centerCode: CenterCode): Promise<readonly WeeklyRecurringSession[]>;
 }

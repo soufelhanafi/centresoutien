@@ -335,4 +335,16 @@ export class SqliteWeeklyRecurringSessionRepository
       .all(centerCode, roomId) as SessionRow[];
     return rows.map(fromRow);
   }
+
+  /** Every active template of the center (SOU-295 reset-planning global wipe). */
+  async listActive(centerCode: CenterCode): Promise<readonly WeeklyRecurringSession[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM weekly_recurring_sessions
+          WHERE center_code = ? AND deleted_at IS NULL
+          ORDER BY day_of_week, start_time`,
+      )
+      .all(centerCode) as SessionRow[];
+    return rows.map(fromRow);
+  }
 }

@@ -60,6 +60,20 @@ export interface SessionRepository extends SoftDeletableRepository<SessionId, Se
   ): Promise<readonly Session[]>;
 
   /**
+   * Live (non-tombstoned) occurrences of a center whose civil `date` is on or
+   * after `cutoffDate` — an open-ended, inclusive `YYYY-MM-DD` lower bound
+   * compared lexicographically (= chronologically), ordered by `date` then
+   * `start`. The "everything from here forward" read {@link ResetPlanning}
+   * (SOU-295) uses to enumerate the future sessions to clear; past sessions
+   * (`date < cutoffDate`) are excluded so payroll attribution inputs are never
+   * returned. Scoped to one center; never crosses a tenant boundary.
+   */
+  listLiveFrom(
+    centerCode: CenterCode,
+    cutoffDate: string,
+  ): Promise<readonly Session[]>;
+
+  /**
    * Live (non-tombstoned) occurrences stamped with `batchId` — the read
    * `UndoGenerationBatch` (SOU-160) uses to find every row one generator run
    * produced. Scoped to `centerCode` so a batch id can never resolve rows

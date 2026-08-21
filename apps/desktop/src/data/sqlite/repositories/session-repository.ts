@@ -333,6 +333,20 @@ export class SqliteSessionRepository
     return rows.map(fromRow);
   }
 
+  async listLiveFrom(
+    centerCode: CenterCode,
+    cutoffDate: string,
+  ): Promise<readonly Session[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM sessions
+          WHERE center_code = ? AND deleted_at IS NULL AND date >= ?
+          ORDER BY date, start_time`,
+      )
+      .all(centerCode, cutoffDate) as SessionRow[];
+    return rows.map(fromRow);
+  }
+
   async listByGenerationBatch(
     centerCode: CenterCode,
     batchId: GenerationBatchId,
