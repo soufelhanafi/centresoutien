@@ -6,7 +6,8 @@ import type { DayHours } from './session-conflict-policy';
 import type { TeacherAvailabilityRules } from './teacher-availability-policy';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import type { GroupId } from '../entities/group';
-import { SessionConflictPolicy, strictlyOverlaps } from './session-conflict-policy';
+import { SessionConflictPolicy } from './session-conflict-policy';
+import { isOverCapacity, isRoomDoubleBooked, isTeacherDoubleBooked } from './session-resource-conflict';
 import { resolveEffectiveWindows } from './center-hours-override-policy';
 import { holidayOn } from './holiday-policy';
 import { teacherUnavailability } from './teacher-availability-policy';
@@ -119,48 +120,4 @@ function teacherUnavailable(
   );
 }
 
-/** Soft warning (SOU-189 force mirror): the live room seats fewer than the
- *  group's current active enrollment. Archived rooms and unknown capacities are
- *  skipped — the former is already `room-archived`, the latter unverifiable. */
-function isOverCapacity(
-  session: SessionOccurrenceView,
-  enrollmentByGroup: ReadonlyMap<GroupId, number>,
-): boolean {
-  if (session.roomArchived || session.roomCapacity === null || session.groupId === null) return false;
-  const enrolled = enrollmentByGroup.get(session.groupId) ?? 0;
-  return enrolled > session.roomCapacity;
-}
 
-/** Date-aware room double-book: another live occurrence on the same civil date,
- *  same room, overlapping time. `roomConflict`/`teacherConflict` are keyed by
- *  `dayOfWeek` (weekly templates) and would collide two different dates of the
- *  same weekday, so the audit compares concrete `date`s and reuses only the shared
- *  {@link strictlyOverlaps} overlap rule. */
-function isRoomDoubleBooked(
-  session: SessionOccurrenceView,
-  liveSchedule: readonly SessionOccurrenceView[],
-): boolean {
-  return liveSchedule.some(
-    (other) =>
-      other.id !== session.id &&
-      other.date === session.date &&
-      other.roomId === session.roomId &&
-      strictlyOverlaps(session, other),
-  );
-}
-
-/** Date-aware teacher double-book: same civil date, same teacher, overlapping
- *  time. See {@link isRoomDoubleBooked} for why the date filter is required. */
-function isTeacherDoubleBooked(
-  session: SessionOccurrenceView,
-  liveSchedule: readonly SessionOccurrenceView[],
-): boolean {
-  return liveSchedule.some(
-    (other) =>
-      other.id !== session.id &&
-      other.teacherId !== null &&
-      other.teacherId === session.teacherId &&
-      other.date === session.date &&
-      strictlyOverlaps(session, other),
-  );
-}
