@@ -2663,10 +2663,6 @@
       "studentsEnrolled": "التلاميذ المسجّلون",
       "invoicesGenerated": "الفواتير الصادرة",
       "invoicesBilled": "إجمالي المفوتر: {{total}}",
-      "encaissements": {
-        "title": "المقبوضات",
-        "empty": "لا توجد مقبوضات في هذا اليوم."
-      },
       "loadError": "تعذّر تحميل حصيلة اليوم.",
       "retry": "إعادة المحاولة",
       "emptyTitle": "لا نشاط",

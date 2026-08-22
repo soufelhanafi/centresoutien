@@ -3,7 +3,6 @@ import { CalendarCheck } from 'lucide-react';
 import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
 import { DayCloseControls } from './day-close-controls';
 import { DayCloseFigures } from './day-close-figures';
-import { EncaissementsList } from './encaissements-list';
 import type { DayCloseReport, DayCloseSectionProps } from './day-close-section.types';
 
 function isZeroActivityDay(report: DayCloseReport): boolean {
@@ -77,12 +76,7 @@ export function DayCloseSection({ date, report, isLoading, isError, onRetry, act
         />
       )}
 
-      {report && !isLoading && !isError && !isEmptyDay && (
-        <div className="space-y-4">
-          <DayCloseFigures report={report} />
-          <EncaissementsList items={report.encaissements} />
-        </div>
-      )}
+      {report && !isLoading && !isError && !isEmptyDay && <DayCloseFigures report={report} />}
     </section>
   );
 }
