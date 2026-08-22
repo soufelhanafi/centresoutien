@@ -111,4 +111,69 @@ describe('migration 0049 weighted attribution columns', () => {
     expect(columnNames('formulas').filter((c) => c === 'subject_prices')).toHaveLength(1);
     expect(columnNames('invoices').filter((c) => c === 'subject_allocation')).toHaveLength(1);
   });
+
+  // Finding 5 (SOU-298): the immutability guard (0023/0025) predated subject_prices,
+  // so a deactivation write could have smuggled a subject_prices change onto a billed
+  // formula. 0049 recreates the guard with `NEW.subject_prices IS OLD.subject_prices`.
+  describe('immutability guard freezes subject_prices (Finding 5)', () => {
+    const FORMULA_ID = 'fml_00000000000000000000000001';
+    const PRICES_BEFORE = '[{"subjectId":"sub_00000000000000000000000001","priceMad":20000}]';
+    const PRICES_AFTER = '[{"subjectId":"sub_00000000000000000000000001","priceMad":19999}]';
+
+    function seedBilledFormula(): void {
+      applyMigrations(db, loadMigrations(REAL_MIGRATIONS));
+      db.prepare(
+        `INSERT INTO formulas
+           (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version,
+            name_fr, name_ar, subject_ids, price_mad, subject_prices, kind, is_immutable, active)
+         VALUES
+           (?, 'CS-CASA-001', 'dev_1', '2026-07-01T00:00:00Z', '2026-07-01T00:00:00Z', 'usr_1', NULL, 0,
+            'Math', 'رياضيات', '["sub_00000000000000000000000001"]', 20000, ?, 'regular', 0, 1)`,
+      ).run(FORMULA_ID, PRICES_BEFORE);
+      // Referencing the formula from an invoice line flips is_immutable to 1.
+      db.prepare(
+        `INSERT INTO invoice_lines
+           (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at, version,
+            invoice_id, formula_id, label_fr, label_ar, kind, amount_mad)
+         VALUES
+           ('invl_0000000000000000000000001', 'CS-CASA-001', 'dev_1', '2026-07-01T00:00:00Z',
+            '2026-07-01T00:00:00Z', 'usr_1', NULL, 0, 'inv_00000000000000000000000001', ?,
+            'Math', 'رياضيات', 'regular', 20000)`,
+      ).run(FORMULA_ID);
+      const row = db
+        .prepare('SELECT is_immutable FROM formulas WHERE id = ?')
+        .get(FORMULA_ID) as { is_immutable: number };
+      expect(row.is_immutable).toBe(1);
+    }
+
+    it('rejects a deactivation that also changes subject_prices', () => {
+      seedBilledFormula();
+
+      expect(() =>
+        db
+          .prepare('UPDATE formulas SET active = 0, subject_prices = ? WHERE id = ?')
+          .run(PRICES_AFTER, FORMULA_ID),
+      ).toThrow();
+
+      const row = db
+        .prepare('SELECT subject_prices, active FROM formulas WHERE id = ?')
+        .get(FORMULA_ID) as { subject_prices: string; active: number };
+      expect(row.subject_prices).toBe(PRICES_BEFORE);
+      expect(row.active).toBe(1);
+    });
+
+    it('still allows a pure deactivation (subject_prices unchanged)', () => {
+      seedBilledFormula();
+
+      expect(() =>
+        db.prepare('UPDATE formulas SET active = 0 WHERE id = ?').run(FORMULA_ID),
+      ).not.toThrow();
+
+      const row = db
+        .prepare('SELECT subject_prices, active FROM formulas WHERE id = ?')
+        .get(FORMULA_ID) as { subject_prices: string; active: number };
+      expect(row.subject_prices).toBe(PRICES_BEFORE);
+      expect(row.active).toBe(0);
+    });
+  });
 });
