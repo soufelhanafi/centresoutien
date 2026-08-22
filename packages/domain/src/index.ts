@@ -575,6 +575,7 @@ export type {
 export type { OverdueInvoiceLineView } from './read-models/overdue-invoice-view';
 export type { RecentPaymentView, RecentPaymentsFilters } from './read-models/recent-payment-view';
 export type { DayTakings } from './read-models/day-takings';
+export type { DayCloseReport, DayCloseEncaissement } from './read-models/day-close-report';
 export type {
   DashboardBasicSummary,
   MoneyDelta,
@@ -743,6 +744,18 @@ export type {
 // Recent-payments cash-desk feed (SOU-198) — cross-invoice read model served by the
 // same SQLite adapter that owns `payments`, mirroring OverdueInvoiceViewReadPort.
 export type { RecentPaymentsReadPort } from './ports/recent-payments-read-port';
+// Day-close activity counts (SOU-300) — non-money counts served by the SQLite
+// adapters that own subscriptions/enrollments/invoices; range-generic read.
+export type {
+  DayCloseActivityReadPort,
+  DayCloseActivityCounts,
+  DayCloseActivityRange,
+} from './ports/day-close-activity-read-port';
+// Day-close report PDF (SOU-300) — FR-only, distinct from the InvoicePdfRenderer.
+export type {
+  DayCloseReportPdfRenderer,
+  DayCloseReportPdfInput,
+} from './ports/day-close-report-pdf-renderer';
 // StudentSubscription repository (SOU-63) — port + SQLite adapter land together.
 export type { StudentSubscriptionRepository } from './ports/student-subscription-repository';
 // TeacherPayrollRule repository (SOU-70) — port declared here; SQLite adapter +
@@ -1019,6 +1032,8 @@ export {
 export type { ListRecentPaymentsInput } from './use-cases/list-recent-payments';
 export { GetDayTakings } from './use-cases/get-day-takings';
 export type { GetDayTakingsInput } from './use-cases/get-day-takings';
+export { GetDayCloseReport } from './use-cases/get-day-close-report';
+export type { GetDayCloseReportInput } from './use-cases/get-day-close-report';
 export { ListInvoices } from './use-cases/list-invoices';
 export type { ListInvoicesInput, InvoiceListItem, ListInvoicesResult } from './use-cases/list-invoices';
 export { GetParentMonthlyStatement } from './use-cases/get-parent-monthly-statement';
