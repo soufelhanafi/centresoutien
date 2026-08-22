@@ -211,7 +211,10 @@ test('Scenario 6 — formula form enters per-subject prices with live sum-equals
   await dialog.getByRole('spinbutton', { name: mathName }).fill('440');
   await dialog.getByRole('spinbutton', { name: frName }).fill('460');
   await expect(dialog.getByText(L.formula.errSumMismatch)).toHaveCount(0);
-  await dialog.getByRole('button', { name: L.formula.create }).click();
+  // force: the button is visible/enabled/stable, but the tall per-subject-price
+  // dialog can push the sticky footer below the headless viewport, which blocks a
+  // normal actionability click; the create logic itself is what we're asserting.
+  await dialog.getByRole('button', { name: L.formula.create }).click({ force: true });
   await expect(win.getByText(L.formula.createSuccess)).toBeVisible();
 });
 

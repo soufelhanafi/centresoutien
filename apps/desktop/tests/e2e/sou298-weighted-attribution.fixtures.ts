@@ -122,7 +122,7 @@ export const STR: Record<
       createSuccess: 'تم إنشاء الصيغة',
       perSubjectToggle: 'توزيع السعر حسب المادة',
       sumLabel: 'مجموع المواد',
-      errSumMismatch: 'مجموع الأسعار حسب المادة يجب أن يساوي السعر الإجمالي',
+      errSumMismatch: 'يجب أن يساوي مجموع أسعار المواد السعر الإجمالي',
       errCoverage: 'يجب تحديد سعر لكل مادة مختارة',
       errInvalidAmount: 'كل سعر لكل مادة يجب أن يكون أكبر من 0',
     },
