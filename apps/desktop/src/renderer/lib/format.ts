@@ -24,6 +24,21 @@ export function formatDate(value: string, locale: string): string {
   }).format(date);
 }
 
+/**
+ * Formats the clock time of an ISO datetime ("14:05") in the active locale.
+ * Used for the day-close encaissements list, where each row shows when the
+ * payment was taken. Falls back to the raw string if it can't be parsed.
+ */
+export function formatIsoTime(value: string, locale: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(bcp47(locale), {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(date);
+}
+
 /** Formats a `YYYY-MM` month for display ("septembre 2025"). Falls back to the raw string. */
 export function formatMonth(value: string, locale: string): string {
   const date = new Date(`${value}-01T00:00:00`);
