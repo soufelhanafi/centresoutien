@@ -1,0 +1,34 @@
+-- 0049_formula_subject_prices_and_invoice_allocation.sql
+-- What: two nullable JSON columns for weighted teacher-fee attribution (SOU-298):
+--         * formulas.subject_prices     — the per-subject slice of the bundle price
+--         * invoices.subject_allocation — an optional manual per-subject attribution
+--                                          override the director pins on one invoice
+-- Why:  SOU-298. Attribution used to split a collected line equally across a
+--       formula's N subjects; it now splits weighted by the formula's per-subject
+--       price map, with an optional per-invoice manual override. Both are one
+--       feature (weighted attribution), so they share this file.
+-- First ships in: v2.x (next release after 0048).
+--
+-- Additive-only, both nullable, NO backfill (migration-authoring §3): existing
+-- formulas keep subject_prices NULL and existing invoices keep subject_allocation
+-- NULL, which the domain reads as "no map" / "no override" and falls back to the
+-- original equal split — so replaying this on a laptop that's versions behind
+-- changes nothing about its data, and no envelope change-tracking column
+-- (updated_at / updated_by / version) is touched, so it produces ZERO phantom sync
+-- traffic. A device that already synced its formulas/invoices converges by itself.
+--
+-- Both columns are OPAQUE JSON text owned by the domain (formula-repository /
+-- invoice-repository serialize/parse them); SQLite never interprets them, so there
+-- is no new CHECK/index/trigger to add. No new sync MEANING for an existing field
+-- either — these are brand-new columns (migration-authoring §5). formulas already
+-- carries the immutable-once-billed UPDATE guard trigger (0023); ADD COLUMN is a
+-- schema change, not a row UPDATE, so that trigger is never involved here.
+--
+-- Not synced entity types today (formulas/invoices have no change-log projection
+-- mapper), so the domain SCHEMA_VERSION handshake is unchanged.
+--
+-- Logical undo:
+--   (columns are additive and nullable; leave in place — never DROP a shipped column)
+
+ALTER TABLE formulas ADD COLUMN subject_prices TEXT;      -- JSON [{subjectId,priceMad}], NULL = un-priced (equal split)
+ALTER TABLE invoices ADD COLUMN subject_allocation TEXT;  -- JSON [{subjectId,amountMad}], NULL = weighted default

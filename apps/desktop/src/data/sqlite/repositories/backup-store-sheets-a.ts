@@ -122,6 +122,8 @@ export const SHEET_SQL_A: Readonly<
       ['name_ar', 'name_ar'],
       ['subjectIds', 'subject_ids'],
       ['priceMad', 'price_mad'],
+      // Opaque JSON per-subject price map (SOU-298); round-trips as text.
+      ['subjectPrices', 'subject_prices'],
       ['kind', 'kind'],
       ['isImmutable', 'is_immutable'],
       ['active', 'active'],

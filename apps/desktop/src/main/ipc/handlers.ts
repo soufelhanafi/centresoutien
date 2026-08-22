@@ -449,6 +449,10 @@ function toFormulaView(formula: Formula) {
     name: { fr: formula.name.fr, ar: formula.name.ar },
     subjectIds: [...formula.subjectIds],
     priceMad: formula.priceMad,
+    subjectPrices:
+      formula.subjectPrices && formula.subjectPrices.length > 0
+        ? formula.subjectPrices.map((entry) => ({ subjectId: entry.subjectId, priceMad: entry.priceMad }))
+        : null,
     kind: formula.kind,
     isImmutable: formula.isImmutable,
     active: formula.active,
