@@ -6,7 +6,8 @@ import type { DayCloseActions, DayCloseDateSelection } from './day-close-section
 /**
  * The day-close controls: a business-day picker (capped at today, `dir="ltr"` so the
  * native date field keeps its layout in both locales) plus Exporter / Imprimer. The
- * PDF actions are disabled while there is nothing to report or a job is running.
+ * PDF actions are enabled once a report has loaded — including a zero-activity day,
+ * which is a valid closure document — and disabled only while loading or a job runs.
  */
 export function DayCloseControls({
   date,

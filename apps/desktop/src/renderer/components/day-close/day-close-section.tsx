@@ -47,7 +47,7 @@ export function DayCloseSection({ date, report, isLoading, isError, onRetry, act
             <p className="text-xs text-muted-foreground">{t('payments.dayClose.subtitle')}</p>
           </div>
         </div>
-        <DayCloseControls date={date} actions={actions} canProduce={hasReport && !isEmptyDay} />
+        <DayCloseControls date={date} actions={actions} canProduce={hasReport} />
       </header>
 
       {isLoading && (

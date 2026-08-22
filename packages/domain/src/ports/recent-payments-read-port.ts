@@ -20,8 +20,9 @@ export interface RecentPaymentsReadPort {
    * Every live payment/reversal row of `centerCode`, most recent `paidOn` first,
    * within the optional `filters.from`/`filters.to` day window and capped at
    * `filters.limit` rows. Center-scoped like every other read — it never crosses
-   * a `centreId` boundary. Both `payment` and `reversal` kinds are returned as-is;
-   * netting is the caller's concern.
+   * a `centreId` boundary. Both `payment` and `reversal` kinds are returned unless
+   * `filters.kind` narrows to one (the day-close encaissements read passes `'payment'`
+   * so reversals never consume the limit); netting is otherwise the caller's concern.
    */
   listRecentPayments(
     centerCode: CenterCode,

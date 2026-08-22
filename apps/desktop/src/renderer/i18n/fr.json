@@ -2582,7 +2582,7 @@
       "invoicesBilled": "Total facturé : {{total}}",
       "encaissements": {
         "title": "Encaissements",
-        "empty": "Aucun encaissement ce jour-là."
+        "empty": "Aucun règlement ce jour-là."
       },
       "loadError": "Le chargement de la clôture du jour a échoué.",
       "retry": "Réessayer",

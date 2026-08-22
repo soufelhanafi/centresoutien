@@ -58,7 +58,9 @@ export class GetDayCloseReport {
   }
 
   private dayPaymentsFilter(day: string): RecentPaymentsFilters {
-    return { from: day, to: day, limit: DAY_CLOSE_ENCAISSEMENTS_LIMIT };
+    // `kind: 'payment'` filters reversals out in SQL *before* the LIMIT, so the cap
+    // bounds real payments only — reversals can never displace an encaissement row.
+    return { from: day, to: day, kind: 'payment', limit: DAY_CLOSE_ENCAISSEMENTS_LIMIT };
   }
 }
 

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { invoicesGateway, type RecordPaymentInput } from '../../lib/invoices/invoices-gateway';
 import { dashboardKeys } from '../dashboard/keys';
+import { dayCloseKeys } from '../day-close/keys';
 import { paymentKeys } from '../payments/keys';
 import { invoiceKeys } from './keys';
 
@@ -11,6 +12,9 @@ import { invoiceKeys } from './keys';
  * dashboard "Argent" summaries (SOU-226) — those read their own `dashboardKeys`,
  * which neither the invoice nor the payment key prefixes cover, so recording a
  * payment left the billed/collected/unpaid figures stale until a manual reload.
+ * The day-close report (SOU-300) is mounted on the same `/payments` page under its
+ * own `dayCloseKeys`, so it is invalidated too — otherwise its totals/encaissements
+ * stay stale right after a payment is recorded.
  *
  * Invalidation runs `onSettled`, not just on success, mirroring the sibling
  * `useReversePayment`: a rejection can still mean the ledger already moved on
@@ -26,6 +30,7 @@ export function useRecordPayment() {
     onSettled: (invoice) => {
       queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
       queryClient.invalidateQueries({ queryKey: paymentKeys.all });
+      queryClient.invalidateQueries({ queryKey: dayCloseKeys.all });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.basic });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.advanced });
       if (invoice) {

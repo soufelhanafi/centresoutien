@@ -86,7 +86,11 @@ export function createDayCloseReportHandlers(
       });
       const bytes = await deps.dayCloseReportPdfRenderer.render(await buildDayClosePdfInput(deps, report));
       const tempPath = writeTempPdf(deps.tempDir, 'cloture-du-jour-', [request.day], bytes);
-      await shell.openPath(tempPath);
+      // `shell.openPath` resolves to '' on success and an error string on failure;
+      // surface the failure so the renderer's print-error toast fires instead of a
+      // silent "ok" with no viewer open.
+      const openError = await shell.openPath(tempPath);
+      if (openError !== '') throw new Error(`Failed to open the day-close PDF: ${openError}`);
       return { ok: true };
     },
     'dayCloseReport.export': async (request) => {

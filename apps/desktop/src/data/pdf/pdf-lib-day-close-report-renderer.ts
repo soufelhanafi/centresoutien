@@ -29,9 +29,11 @@ const LABELS = {
   methodCheque: 'Chèque',
   methodOther: 'Autre',
   encaissementsTitle: 'Encaissements',
+  time: 'Heure',
   student: 'Élève',
   amount: 'Montant',
   noEncaissements: 'Aucun encaissement',
+  moreEncaissements: 'autres encaissements non affichés',
 } as const;
 
 function mad(amountMad: number): string {
@@ -141,11 +143,26 @@ export class PdfLibDayCloseReportRenderer implements DayCloseReportPdfRenderer {
       writer.text(LABELS.noEncaissements, { size: 9, color: MUTED_GRAY });
       return;
     }
-    writer.row(LABELS.student, LABELS.amount, { size: 9, bold: true, color: MUTED_GRAY });
+    writer.row(`${LABELS.time}   ${LABELS.student}`, LABELS.amount, {
+      size: 9,
+      bold: true,
+      color: MUTED_GRAY,
+    });
     writer.rule();
+    let rendered = 0;
     for (const encaissement of report.encaissements) {
-      if (!writer.hasRoomFor(ENCAISSEMENT_ROW_HEIGHT)) break;
-      writer.row(encaissement.studentName, mad(encaissement.amountMad), { size: 10 });
+      // Reserve room for the truncation note so a full page still explains its omission.
+      if (!writer.hasRoomFor(ENCAISSEMENT_ROW_HEIGHT * 2)) break;
+      writer.row(
+        `${formatTimeLabel(encaissement.at)}   ${encaissement.studentName}`,
+        mad(encaissement.amountMad),
+        { size: 10 },
+      );
+      rendered += 1;
+    }
+    const omitted = report.encaissements.length - rendered;
+    if (omitted > 0) {
+      writer.text(`+ ${omitted} ${LABELS.moreEncaissements}`, { size: 9, color: MUTED_GRAY });
     }
   }
 
@@ -171,4 +188,13 @@ function formatDateTimeLabel(value: Date): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(value);
+}
+
+/** The encaissement's recording time as `HH:mm` (24h), FR locale. */
+function formatTimeLabel(isoDateTime: string): string {
+  return new Intl.DateTimeFormat('fr-MA', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(isoDateTime));
 }

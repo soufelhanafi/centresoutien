@@ -16,7 +16,7 @@ export function DayCloseTotalCollected({
 
   return (
     <div className="rounded-xl border border-border bg-accent/40 p-5">
-      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
         {t('payments.dayClose.totalCollected')}
       </p>
       <Numeric className="mt-1 block text-3xl font-semibold text-foreground">
@@ -29,7 +29,7 @@ export function DayCloseTotalCollected({
       >
         {PAYMENT_METHODS.map((method) => (
           <div key={method} className="rounded-lg border border-border bg-card p-3">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               {t(`invoices.detail.payment.methods.${method}`)}
             </p>
             <Numeric className="mt-1 block text-base font-semibold text-foreground">

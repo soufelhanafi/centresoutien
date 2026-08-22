@@ -20,8 +20,9 @@ export function DayCloseContainer() {
 
   const onExport = async () => {
     try {
-      await exportReport.mutateAsync(day);
-      toast.success(t('payments.dayClose.exportSuccess'));
+      const { savedPath } = await exportReport.mutateAsync(day);
+      // A null path means the user cancelled the save dialog — no file written, no toast.
+      if (savedPath) toast.success(t('payments.dayClose.exportSuccess'));
     } catch {
       toast.error(t('payments.dayClose.exportError'));
     }
