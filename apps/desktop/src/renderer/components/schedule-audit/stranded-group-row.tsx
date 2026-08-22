@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
 import { Badge, Button } from '@centresoutien/ui';
 import { formatDate } from '../../lib/format';
+import { formatTimeRange } from '../../lib/planning/time-range';
 import { localizedText } from '../../lib/planning/localized-text';
 import type { StrandedGroupView } from '../../lib/schedule-audit/stranded-session-view';
 import { AuditReasonBadge } from './audit-reason-badge';
@@ -11,16 +12,17 @@ import { StrandedSessionRow } from './stranded-session-row';
 /**
  * One structural audit problem (SOU-296): every stranded occurrence sharing one
  * reason, weekday, and primary resource, collapsed to a card that reads as "this
- * resource is broken" — reason badge, a neutral ×N count, the primary resource
- * (room / teacher) or weekday, and the first–last date span — with the per-date
- * rows (each keeping its own cancel action) behind an expand toggle.
+ * resource is broken" — reason badge, a neutral ×N count, and a detail line built
+ * only from fields genuinely common to every occurrence (shared subject/level,
+ * shared time slot, the primary room/teacher, the weekday, the first–last date
+ * span). The per-date rows (each keeping its own cancel action) sit behind an
+ * expand toggle.
  *
- * The card renders the group's *identity* (reason + resource), never the first
- * occurrence's subject/slot: a center-wide group can merge many different classes
- * on the same weekday, so showing one class as "the" group would mislabel it.
- * A group of one is a genuinely dated case and renders as the plain row, badged
- * with only its own reason so a multi-reason singleton is not duplicated across
- * its sibling groups.
+ * The card never borrows the first occurrence's subject/slot as if it were the
+ * group's identity: a center-wide group can merge many different classes on the
+ * same weekday, so any field that isn't shared by every occurrence is omitted
+ * rather than mislabelled. A group of one is a genuinely dated case and renders
+ * as the plain row with all its reasons.
  */
 export function StrandedGroupRow({ group }: { group: StrandedGroupView }) {
   const { t, i18n } = useTranslation();
@@ -29,12 +31,23 @@ export function StrandedGroupRow({ group }: { group: StrandedGroupView }) {
 
   const first = group.occurrences[0]!;
   if (group.count === 1) {
-    return <StrandedSessionRow stranded={first} reasonOverride={group.reason} />;
+    return <StrandedSessionRow stranded={first} />;
   }
 
+  const sessions = group.occurrences.map((item) => item.session);
   const { session } = first;
-  const last = group.occurrences[group.occurrences.length - 1]!.session;
+  const last = sessions[sessions.length - 1]!;
   const count = group.count;
+
+  const sharedSubject = sessions.every(
+    (item) => item.subjectId !== null && item.subjectId === session.subjectId,
+  );
+  const sharedSlot = sessions.every(
+    (item) => item.start === session.start && item.end === session.end,
+  );
+  const subject =
+    sharedSubject && session.subjectName ? localizedText(session.subjectName, locale) : null;
+  const level = sharedSubject ? session.level : null;
   const resourceLabel =
     group.resourceKind === 'room'
       ? session.roomName
@@ -51,6 +64,21 @@ export function StrandedGroupRow({ group }: { group: StrandedGroupView }) {
             <Badge variant="neutral">{t('scheduleAudit.group.count', { count })}</Badge>
           </div>
           <p className="truncate text-xs text-muted-foreground">
+            {subject ? (
+              <>
+                <span className="font-medium text-foreground">
+                  {subject}
+                  {level ? ` · ${level}` : ''}
+                </span>
+                <span aria-hidden="true"> · </span>
+              </>
+            ) : null}
+            {sharedSlot ? (
+              <>
+                <span>{formatTimeRange(session.start, session.end, locale)}</span>
+                <span aria-hidden="true"> · </span>
+              </>
+            ) : null}
             {resourceLabel ? (
               <>
                 <span>{resourceLabel}</span>

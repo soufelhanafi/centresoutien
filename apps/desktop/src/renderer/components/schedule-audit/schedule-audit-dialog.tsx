@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock } from 'lucide-react';
 import {
@@ -13,6 +13,7 @@ import {
   ScrollArea,
 } from '@centresoutien/ui';
 import { useStrandedSessions } from '../../hooks/schedule-audit/use-stranded-sessions';
+import { dedupeSingletonOccurrences } from '../../lib/schedule-audit/dedupe-singleton-occurrences';
 import { ScheduleAuditList, type ScheduleAuditStatus } from './schedule-audit-list';
 
 /**
@@ -27,8 +28,12 @@ export function ScheduleAuditDialog() {
   const query = useStrandedSessions();
 
   // The domain returns groups already collapsed (SOU-296), so no renderer-side
-  // grouping: the badge and list share this one array.
-  const groups = query.data ?? [];
+  // grouping — only a dedupe of a multi-reason occurrence that would otherwise
+  // render once per singleton reason group. The badge and list share this array.
+  const groups = useMemo(
+    () => dedupeSingletonOccurrences(query.data ?? []),
+    [query.data],
+  );
   const status: ScheduleAuditStatus = query.isPending
     ? 'loading'
     : query.isError
