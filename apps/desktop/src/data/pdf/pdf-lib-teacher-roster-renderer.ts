@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, PageSizes, rgb, type PDFPage, type PDFFont } from 'pdf-lib';
+import { PDFDocument, StandardFonts, PageSizes, rgb, type PDFPage, type PDFFont, type Color } from 'pdf-lib';
 import type {
   TeacherRosterPdfRenderer,
   TeacherRosterPdfInput,
@@ -19,11 +19,41 @@ const PAGE_NUMBER_SIZE = 8;
 
 type Column = { readonly key: keyof TeacherRosterPdfRow; readonly label: string; readonly x: number; readonly width: number };
 
-/** Trim `value` with a trailing ellipsis until it fits `maxWidth` at `size`
- *  (SOU-288 intent: over-long cell text never bleeds into the next column). */
+// The Unicode code points beyond Latin-1 that WinAnsi (CP1252) can still encode —
+// the punctuation/symbols pdf-lib's built-in Helvetica maps in the 0x80–0x9F slots.
+const WIN_ANSI_EXTRA = new Set(
+  [
+    0x20ac, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6, 0x2030, 0x0160, 0x2039, 0x0152,
+    0x017d, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x02dc, 0x2122, 0x0161, 0x203a,
+    0x0153, 0x017e, 0x0178,
+  ],
+);
+
+function isWinAnsiEncodable(codePoint: number): boolean {
+  return (
+    (codePoint >= 0x20 && codePoint <= 0x7e) ||
+    (codePoint >= 0xa0 && codePoint <= 0xff) ||
+    WIN_ANSI_EXTRA.has(codePoint)
+  );
+}
+
+/** Replace any character the built-in Helvetica (WinAnsi) cannot encode with `?`,
+ *  so a name in an unsupported script (e.g. Arabic text in a `name.fr` field) can
+ *  never make `pdf-lib` throw during measurement/drawing and abort the export. */
+function winAnsiSafe(value: string): string {
+  let out = '';
+  for (const char of value) {
+    out += isWinAnsiEncodable(char.codePointAt(0) ?? 0) ? char : '?';
+  }
+  return out;
+}
+
+/** Sanitize to WinAnsi, then trim with a trailing ellipsis until it fits `maxWidth`
+ *  at `size` (SOU-288 intent: over-long text never bleeds past its column/margin). */
 function truncateToWidth(value: string, font: PDFFont, size: number, maxWidth: number): string {
-  if (font.widthOfTextAtSize(value, size) <= maxWidth) return value;
-  let text = value;
+  const safe = winAnsiSafe(value);
+  if (font.widthOfTextAtSize(safe, size) <= maxWidth) return safe;
+  let text = safe;
   while (text.length > 1 && font.widthOfTextAtSize(`${text}…`, size) > maxWidth) {
     text = text.slice(0, -1);
   }
@@ -100,29 +130,34 @@ export class PdfLibTeacherRosterRenderer implements TeacherRosterPdfRenderer {
     input: TeacherRosterPdfInput,
   ): Promise<number> {
     let y = page.getHeight() - PAGE_MARGIN;
+    const maxWidth = page.getWidth() - PAGE_MARGIN * 2;
+    // Every header line is sanitized + fitted to the content width so a long center
+    // name, teacher name, or filter value never runs off the page edge.
+    const draw = (value: string, size: number, font: PDFFont, color: Color = INK): void => {
+      page.drawText(truncateToWidth(value, font, size, maxWidth), { x: PAGE_MARGIN, y, size, font, color });
+    };
+
     if (input.center.logoBytes) await this.drawLogo(pdfDoc, page, input.center.logoBytes);
 
-    page.drawText(input.center.name, { x: PAGE_MARGIN, y, size: 13, font: boldFont, color: BRAND_TEAL });
+    draw(input.center.name, 13, boldFont, BRAND_TEAL);
     y -= 16;
     for (const line of [input.center.address, input.center.phone, input.center.email].filter(Boolean)) {
-      page.drawText(line, { x: PAGE_MARGIN, y, size: 8, font: regularFont, color: MUTED_GRAY });
+      draw(line, 8, regularFont, MUTED_GRAY);
       y -= 11;
     }
 
     y -= 10;
-    page.drawText(`${teacherRosterPdfLabels.title} — ${input.teacherName}`, {
-      x: PAGE_MARGIN,
-      y,
-      size: 14,
-      font: boldFont,
-      color: INK,
-    });
+    draw(`${teacherRosterPdfLabels.title} — ${input.teacherName}`, 14, boldFont, INK);
     y -= 15;
-    const meta = `${teacherRosterPdfLabels.generatedOn(input.generatedOn)}   ·   ${teacherRosterPdfLabels.count(input.rows.length)}`;
-    page.drawText(meta, { x: PAGE_MARGIN, y, size: 9, font: regularFont, color: MUTED_GRAY });
+    draw(
+      `${teacherRosterPdfLabels.generatedOn(input.generatedOn)}   ·   ${teacherRosterPdfLabels.count(input.rows.length)}`,
+      9,
+      regularFont,
+      MUTED_GRAY,
+    );
     y -= 13;
     for (const line of input.filterSummary) {
-      page.drawText(line, { x: PAGE_MARGIN, y, size: 8, font: regularFont, color: MUTED_GRAY });
+      draw(line, 8, regularFont, MUTED_GRAY);
       y -= 11;
     }
     return y - 6;

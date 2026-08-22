@@ -138,6 +138,10 @@ describe('GetTeacherRoster', () => {
   let subscriptions: InMemoryStudentSubscriptionRepository;
   let useCase: GetTeacherRoster;
 
+  // The roster's "active this month" filter reads the clock; seeded subscriptions
+  // start 2026-09, so the use-case clock sits inside that range.
+  const rosterClock = fakeClock('2026-09-15T10:00:00Z');
+
   function build(plan: Plan = PLANS.essentiel): GetTeacherRoster {
     return new GetTeacherRoster(
       teachers,
@@ -146,6 +150,7 @@ describe('GetTeacherRoster', () => {
       students,
       subjects,
       subscriptions,
+      rosterClock,
       new PlanPolicy(plan),
     );
   }
@@ -268,6 +273,32 @@ describe('GetTeacherRoster', () => {
     expect(roster).toHaveLength(1);
     expect(roster[0]).toMatchObject({ status: 'active', leftMonth: null });
     expect(roster[0]?.groups.map((g) => g.groupId)).toEqual([groupB.id]);
+  });
+
+  it('composes the formula from only the subscription active this month, not a closed prior pack', async () => {
+    const mathGroup = makeGroup({ subjectId: MATH });
+    await groups.save(mathGroup);
+    const student = makeStudent();
+    await students.save(student);
+    // Old pack (Math + Physique) closed in the past; new pack (Math only) live now.
+    await subscriptions.save(
+      makeSubscription(student.id, [MATH, PHYSIQUE], { startMonth: '2026-06', endMonth: '2026-08' }),
+    );
+    await subscriptions.save(makeSubscription(student.id, [MATH], { startMonth: '2026-09' }));
+    await enrollments.save(makeEnrollment(student.id, mathGroup.id));
+
+    const roster = await useCase.execute({ centerCode: CENTER, teacherId: TEACHER });
+    expect(roster[0]?.formulaLabel).toEqual({ fr: 'Mathématiques', ar: 'الرياضيات' });
+  });
+
+  it('drops an enrollment whose own centerCode is foreign, even when student and group are local', async () => {
+    const mathGroup = makeGroup({ subjectId: MATH });
+    await groups.save(mathGroup);
+    const localStudent = makeStudent();
+    await students.save(localStudent);
+    await enrollments.save(makeEnrollment(localStudent.id, mathGroup.id, { centerCode: OTHER_CENTER }));
+
+    expect(await useCase.execute({ centerCode: CENTER, teacherId: TEACHER })).toEqual([]);
   });
 
   it('drops a foreign-center enrollment/student (defense in depth for the portable core)', async () => {

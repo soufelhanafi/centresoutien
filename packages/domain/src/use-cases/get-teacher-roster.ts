@@ -4,6 +4,8 @@ import type { StudentRepository } from '../ports/student-repository';
 import type { StudentSubscriptionRepository } from '../ports/student-subscription-repository';
 import type { SubjectRepository } from '../ports/subject-repository';
 import type { TeacherRepository } from '../ports/teacher-repository';
+import type { Clock } from '../ports/clock';
+import { isSubscriptionActiveInMonth } from '../policies/student-subscription-policy';
 import type { PlanPolicy } from '../plans/plan-policy';
 import type { CenterCode } from '../value-objects/ids';
 import type { Enrollment } from '../entities/enrollment';
@@ -93,6 +95,7 @@ export class GetTeacherRoster {
     private readonly students: StudentRepository,
     private readonly subjects: SubjectRepository,
     private readonly subscriptions: StudentSubscriptionRepository,
+    private readonly clock: Clock,
     private readonly plan: PlanPolicy,
   ) {}
 
@@ -108,12 +111,13 @@ export class GetTeacherRoster {
     );
     if (teacherGroups.length === 0) return [];
 
+    const currentMonth = this.clock.now().toISOString().slice(0, 7);
     const subjectNames = await this.buildSubjectIndex(input.centerCode);
-    const placements = await this.collectPlacements(teacherGroups, subjectNames);
+    const placements = await this.collectPlacements(teacherGroups, input.centerCode, subjectNames);
 
     const entries = await Promise.all(
       [...placements.values()].map((placement) =>
-        this.toEntry(placement, input.centerCode, subjectNames),
+        this.toEntry(placement, input.centerCode, currentMonth, subjectNames),
       ),
     );
 
@@ -129,6 +133,7 @@ export class GetTeacherRoster {
 
   private async collectPlacements(
     teacherGroups: readonly Group[],
+    centerCode: CenterCode,
     subjectNames: ReadonlyMap<SubjectId, BilingualName>,
   ): Promise<Map<StudentId, StudentPlacement>> {
     const placements = new Map<StudentId, StudentPlacement>();
@@ -142,12 +147,20 @@ export class GetTeacherRoster {
         kind: group.kind,
       };
 
-      const active = await this.enrollments.listActiveByGroup(group.id);
+      // `listActiveByGroup`/`listInactiveByGroup` scope by group id, not center;
+      // drop any foreign-center enrollment as defense in depth for the portable
+      // core, exactly as `GetGroupRoster` does (redundant under desktop's
+      // one-DB-per-center boundary, load-bearing on the shared-Postgres backend).
+      const active = (await this.enrollments.listActiveByGroup(group.id)).filter(
+        (enrollment) => enrollment.centerCode === centerCode,
+      );
       for (const enrollment of active) {
         addPlacement(placements, enrollment, ref, 'active', null);
       }
 
-      const inactive = await this.enrollments.listInactiveByGroup(group.id);
+      const inactive = (await this.enrollments.listInactiveByGroup(group.id)).filter(
+        (enrollment) => enrollment.centerCode === centerCode,
+      );
       for (const enrollment of inactive) {
         addPlacement(placements, enrollment, ref, 'left', monthOf(enrollment.deletedAt));
       }
@@ -159,6 +172,7 @@ export class GetTeacherRoster {
   private async toEntry(
     placement: StudentPlacement,
     centerCode: CenterCode,
+    currentMonth: string,
     subjectNames: ReadonlyMap<SubjectId, BilingualName>,
   ): Promise<TeacherRosterEntry | null> {
     const student = await this.students.findById(placement.studentId);
@@ -174,7 +188,7 @@ export class GetTeacherRoster {
       groups,
       subjects: distinctSubjects(groups),
       kinds: distinctKinds(groups),
-      formulaLabel: await this.composeFormulaLabel(placement.studentId, centerCode, subjectNames),
+      formulaLabel: await this.composeFormulaLabel(placement.studentId, centerCode, currentMonth, subjectNames),
       status: isActive ? 'active' : 'left',
       leftMonth: isActive ? null : placement.leftMonth,
     };
@@ -183,10 +197,17 @@ export class GetTeacherRoster {
   private async composeFormulaLabel(
     studentId: StudentId,
     centerCode: CenterCode,
+    currentMonth: string,
     subjectNames: ReadonlyMap<SubjectId, BilingualName>,
   ): Promise<BilingualName> {
+    // Only the subscription(s) active **this month** — `listLiveByStudent` returns
+    // non-tombstoned rows, which includes a subscription closed (`endMonth`) after a
+    // formula change; without the month filter a student who switched packs would
+    // show the union of their old and new subjects.
     const subscriptions = (await this.subscriptions.listLiveByStudent(studentId)).filter(
-      (subscription) => subscription.centerCode === centerCode,
+      (subscription) =>
+        subscription.centerCode === centerCode &&
+        isSubscriptionActiveInMonth(subscription, currentMonth),
     );
     const seen = new Set<SubjectId>();
     const parts: BilingualName[] = [];

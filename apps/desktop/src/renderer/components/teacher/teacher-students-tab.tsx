@@ -18,8 +18,14 @@ import { TeacherRosterFilters } from './teacher-roster-filters';
 import { TeacherRosterTable } from './teacher-roster-table';
 import { TeacherRosterExportMenu } from './teacher-roster-export-menu';
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+/** Today's local calendar date as `YYYY-MM-DD` — built from local components, not
+ *  `toISOString()` (which is UTC and would stamp the wrong day near local midnight). */
+function todayLocalIso(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /** Teacher → "Élèves" tab (SOU-299): the distinct students taught by this teacher,
@@ -37,7 +43,7 @@ export function TeacherStudentsTab({ teacher }: { teacher: TeacherView }) {
   const buildRequest = (): TeacherRosterPdfRequest => ({
     teacherId: teacher.id,
     teacherName: teacher.name.fr,
-    generatedOn: todayIso(),
+    generatedOn: todayLocalIso(),
     rows: [...filtered],
     filters: {
       subjectName: subjects.find((subject) => subject.id === filter.subjectId)?.labelFr ?? null,

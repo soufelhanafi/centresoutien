@@ -41,7 +41,9 @@ export function TeacherDetailTabs({ teacher }: { teacher: TeacherView }) {
         <TeacherSubjectsTab teacher={teacher} />
       </TabsContent>
       <TabsContent value="students">
-        <TeacherStudentsTab teacher={teacher} />
+        {/* Key by id so switching to another teacher resets the roster filters
+            (the route reuses this component across `teacherId` changes). */}
+        <TeacherStudentsTab key={teacher.id} teacher={teacher} />
       </TabsContent>
       <TabsContent value="groups">
         <ComingSoonTab

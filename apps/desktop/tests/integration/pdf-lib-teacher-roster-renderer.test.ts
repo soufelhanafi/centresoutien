@@ -82,6 +82,19 @@ describe('PdfLibTeacherRosterRenderer', () => {
     expect(extractPageText(doc, 0)).toContain('Aucun élève');
   });
 
+  it('does not crash on names outside the WinAnsi charset (sanitizes instead of throwing)', async () => {
+    const bytes = await renderer.render(
+      baseInput({
+        teacherName: 'الأستاذ كريم',
+        rows: [row({ name: 'أمين بناني', subjects: 'الرياضيات' })],
+      }),
+    );
+    const doc = await PDFDocument.load(bytes);
+    expect(doc.getPageCount()).toBe(1);
+    // The Arabic glyphs are replaced with '?'; the export still produced a valid PDF.
+    expect(extractPageText(doc, 0)).toContain('?');
+  });
+
   it('paginates a long roster and stamps a page number on every page', async () => {
     const rows = Array.from({ length: 60 }, (_, i) => row({ name: `Élève ${i + 1}` }));
     const bytes = await renderer.render(baseInput({ rows }));

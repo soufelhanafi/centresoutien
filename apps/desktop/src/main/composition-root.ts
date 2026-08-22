@@ -849,6 +849,7 @@ export function buildContainer(options: ContainerOptions): Container {
     studentRepo,
     subjectRepo,
     subscriptionRepo,
+    clock,
     plan,
   );
 

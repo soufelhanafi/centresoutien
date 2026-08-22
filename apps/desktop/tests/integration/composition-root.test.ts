@@ -172,7 +172,9 @@ describe('composition root', () => {
       formulaId,
       kind: 'regular',
       subjectIds: [subjectId],
-      startMonth: '2026-09',
+      // Open-ended from well in the past so it is active for the real clock's
+      // current month (the roster's formula label filters to the active sub).
+      startMonth: '2020-01',
     });
     await dispatch('enrollment.create', { studentId, groupId, startMonth: '2026-09' });
 

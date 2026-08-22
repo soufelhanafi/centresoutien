@@ -56,7 +56,7 @@ function rowsWith(win: Page, text: string) {
 
 async function openMultiRoster(win: Page, L: (typeof STR)[Locale]): Promise<void> {
   await gotoTeachers(win, L);
-  await openTeacherDetail(win, rgx(nameFor(locale(), TEACHERS.multi)));
+  await openTeacherDetail(win, rgx(nameFor(locale(), TEACHERS.multi)), L);
   await openStudentsTab(win, L);
   await expect(win.getByRole('heading', { name: L.students.title }).first()).toBeVisible();
 }
@@ -114,18 +114,16 @@ test('AC3 — name + group + subject + status filters compose (AND); subject fil
   await expect(win.getByText(driss).first()).toBeVisible();
   await expect(win.getByText(amine).first()).toBeVisible();
 
-  // AND with a name search → only Amine remains.
+  // AND with a name search → only Amine remains (assertions auto-wait on the
+  // re-rendered roster; no fixed delay).
   await win.getByRole('textbox', { name: L.students.searchLabel }).fill(amine);
-  await win.waitForTimeout(300);
   await expect(rowsWith(win, amine)).toHaveCount(1);
   await expect(win.getByText(chaimae)).toHaveCount(0);
   await expect(win.getByText(driss)).toHaveCount(0);
 
   // Clear the name; AND with the subject filter (Physique) → only Chaimae.
   await win.getByRole('textbox', { name: L.students.searchLabel }).fill('');
-  await win.waitForTimeout(200);
   await selectFilterValue(win, L.students.subjectLabel, nameFor(locale(), SUBJECTS.phys));
-  await win.waitForTimeout(200);
   await expect(win.getByText(chaimae).first()).toBeVisible();
   await expect(win.getByText(amine)).toHaveCount(0);
 
@@ -141,7 +139,7 @@ test('AC3 — subject filter is hidden for a single-subject teacher', async () =
   const L = STR[locale()];
   const win = live!.win;
   await gotoTeachers(win, L);
-  await openTeacherDetail(win, rgx(nameFor(locale(), TEACHERS.single)));
+  await openTeacherDetail(win, rgx(nameFor(locale(), TEACHERS.single)), L);
   await openStudentsTab(win, L);
 
   await expect(win.getByText(nameFor(locale(), STUDENTS.solo)).first()).toBeVisible();
@@ -160,7 +158,7 @@ test('AC4 — teacher with no students shows the empty state', async () => {
   const L = STR[locale()];
   const win = live!.win;
   await gotoTeachers(win, L);
-  await openTeacherDetail(win, rgx(nameFor(locale(), TEACHERS.empty)));
+  await openTeacherDetail(win, rgx(nameFor(locale(), TEACHERS.empty)), L);
   await openStudentsTab(win, L);
 
   await expect(win.getByText(L.students.emptyTitle).first()).toBeVisible();
@@ -203,19 +201,18 @@ test('AC6 — filtered roster exports to a real PDF and prints without error', a
   await stubOpenPath(live!.app);
   await openMultiRoster(win, L);
 
-  // Export → save dialog stubbed to a known path → a real %PDF is written.
+  // Export → save dialog stubbed to a known path → success toast + a real %PDF.
   const target = exportPath(freshExportDir(), `eleves-${locale()}.pdf`);
   await stubSaveDialog(live!.app, target);
   await win.getByRole('button', { name: L.students.exportButton }).click();
   await win.getByRole('menuitem', { name: L.students.exportPdf }).click();
-  await win.waitForTimeout(1200);
-  await expect(win.getByText(L.students.exportError)).toHaveCount(0);
-  expect(isRealPdfFile(target), `expected a %PDF at ${target}`).toBe(true);
+  await expect(win.getByText(L.students.exportSuccess)).toBeVisible();
+  await expect.poll(() => isRealPdfFile(target), { message: `expected a %PDF at ${target}` }).toBe(true);
 
-  // Print → OS viewer stubbed → resolves without the error toast.
+  // Print → OS viewer stubbed → resolves to the success toast (no error).
   await win.getByRole('button', { name: L.students.exportButton }).click();
   await win.getByRole('menuitem', { name: L.students.print }).click();
-  await win.waitForTimeout(900);
+  await expect(win.getByText(L.students.printSuccess)).toBeVisible();
   await expect(win.getByText(L.students.printError)).toHaveCount(0);
 
   await win.screenshot({ path: `test-results/sou299-export-${locale()}.png` });

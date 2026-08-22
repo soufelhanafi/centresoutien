@@ -74,6 +74,7 @@ export const STR: Record<
       exportPdf: string;
       exportSuccess: string;
       exportError: string;
+      printSuccess: string;
       printError: string;
     };
   }
@@ -104,6 +105,7 @@ export const STR: Record<
       exportPdf: 'Exporter en PDF',
       exportSuccess: 'Liste exportée en PDF.',
       exportError: "L'export de la liste a échoué.",
+      printSuccess: "Liste envoyée à l'aperçu d'impression.",
       printError: "L'impression de la liste a échoué.",
     },
   },
@@ -133,6 +135,7 @@ export const STR: Record<
       exportPdf: 'تصدير PDF',
       exportSuccess: 'تم تصدير القائمة إلى PDF.',
       exportError: 'فشل تصدير القائمة.',
+      printSuccess: 'تم إرسال القائمة إلى معاينة الطباعة.',
       printError: 'فشلت طباعة القائمة.',
     },
   },
@@ -314,7 +317,7 @@ export async function seedScenario(win: Page): Promise<Seeded> {
 
       return { multiId, singleId, emptyId };
     },
-    { SUBJECTS, TEACHERS, STUDENTS, SUB_START, ENROLL_MONTH, LEFT_END_MONTH },
+    { SUBJECTS, TEACHERS, STUDENTS, SUB_START, ENROLL_MONTH },
   );
 }
 
@@ -359,27 +362,25 @@ export function isRealPdfFile(path: string): boolean {
 
 export async function gotoTeachers(win: Page, L: (typeof STR)[Locale]): Promise<void> {
   await win.getByRole('link', { name: L.navTeachers, exact: true }).click();
-  await win.waitForTimeout(400);
 }
 
-/** Open a teacher's detail page from the list via its name link. */
-export async function openTeacherDetail(win: Page, name: RegExp): Promise<void> {
+/** Open a teacher's detail page from the list via its name link. Waits on the
+ *  detail surface (the tab list) rather than a fixed delay. */
+export async function openTeacherDetail(win: Page, name: RegExp, L: (typeof STR)[Locale]): Promise<void> {
   await win.getByRole('row', { name }).getByRole('link').first().click();
-  await win.waitForTimeout(400);
+  await win.getByRole('tab', { name: L.tabs.students }).waitFor({ state: 'visible' });
 }
 
 /** Click the "Élèves" tab on the open teacher-detail page. */
 export async function openStudentsTab(win: Page, L: (typeof STR)[Locale]): Promise<void> {
   await win.getByRole('tab', { name: L.tabs.students }).click();
-  await win.waitForTimeout(400);
 }
 
-/** Pick a value in a shadcn Select identified by its accessible (aria-label) name. */
+/** Pick a value in a shadcn Select identified by its accessible (aria-label) name.
+ *  Locators auto-wait for the trigger and the opened option — no fixed delays. */
 export async function selectFilterValue(win: Page, filterLabel: string, optionText: string): Promise<void> {
   await win.getByRole('combobox', { name: filterLabel }).click();
-  await win.waitForTimeout(150);
   await win.getByRole('option', { name: optionText, exact: false }).first().click();
-  await win.waitForTimeout(200);
 }
 
 export async function pageCrashed(win: Page): Promise<boolean> {
