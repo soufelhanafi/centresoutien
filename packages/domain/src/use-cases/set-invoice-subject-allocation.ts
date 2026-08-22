@@ -25,8 +25,11 @@ export type SetInvoiceSubjectAllocationInput = InvoiceAllocationInput & {
  * ledger, and it never changes the billed line amounts. It is applied to any live
  * invoice (a cancelled one simply never contributes to attribution). Cross-field
  * validation the pure schema cannot express — no duplicate subject, and not every
- * amount zero — raises {@link InvalidInvoiceAllocationError}. The target is
- * center-scoped: an unknown/discarded/foreign id raises {@link InvoiceNotFoundError}.
+ * amount zero — raises {@link InvalidInvoiceAllocationError}. The per-amount check
+ * (each `amountMad` a non-negative integer, the `invalid-amount` reason) is owned by
+ * `invoiceAllocationInputSchema` and rejected before this use case runs, so it never
+ * surfaces from here. The target is center-scoped: an unknown/discarded/foreign id
+ * raises {@link InvoiceNotFoundError}.
  */
 export class SetInvoiceSubjectAllocation {
   constructor(
