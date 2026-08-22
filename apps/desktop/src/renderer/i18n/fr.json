@@ -22,6 +22,7 @@
     "invoicing": "Facturation",
     "payments": "Paiements",
     "payroll": "Paie",
+    "multiCenterStats": "Statistiques par centre",
     "sync": "Synchronisation",
     "settings": "Paramètres"
   },
@@ -2692,6 +2693,59 @@
       "wrong-machine": "Cette licence est liée à un autre appareil.",
       "wrong-center": "Cette licence est liée à un autre centre.",
       "expired": "Cette licence a expiré."
+    }
+  },
+  "multiCenterStats": {
+    "title": "Statistiques par centre",
+    "subtitle": "Comparez les indicateurs clés de tous vos centres pour le mois en cours.",
+    "lock": {
+      "title": "Statistiques multi-centres"
+    },
+    "header": {
+      "centerCount": "{{available}} centre(s) disponible(s) sur {{total}}",
+      "syncCaveat": "Les chiffres reflètent la dernière réplique synchronisée de chaque centre sur cet ordinateur, et non des données cloud garanties à jour."
+    },
+    "columns": {
+      "center": "Centre",
+      "revenue": "Revenu (MAD)",
+      "students": "Élèves",
+      "unpaidRate": "Taux d’impayés",
+      "momGrowth": "Croissance mensuelle"
+    },
+    "totals": {
+      "revenue": "Revenu total",
+      "collected": "Encaissé",
+      "students": "Élèves",
+      "unpaidRate": "Taux d’impayés"
+    },
+    "row": {
+      "unavailable": "Données indisponibles"
+    },
+    "table": {
+      "noResults": "Aucun centre ne correspond à votre recherche."
+    },
+    "filter": {
+      "label": "Rechercher un centre",
+      "placeholder": "Rechercher un centre…"
+    },
+    "growth": {
+      "noBaseline": "Pas de mois précédent pour comparer"
+    },
+    "actions": {
+      "print": "Imprimer",
+      "export": "Exporter en PDF",
+      "printError": "Impossible d’ouvrir le PDF.",
+      "exportSuccess": "PDF exporté.",
+      "exportError": "Échec de l’export PDF."
+    },
+    "loadError": {
+      "title": "Impossible de charger les statistiques",
+      "body": "Une erreur est survenue lors de la lecture des centres.",
+      "retry": "Réessayer"
+    },
+    "empty": {
+      "title": "Aucun centre à comparer",
+      "body": "Aucun centre installé n’a pu être lu pour le moment."
     }
   },
   "sync": {

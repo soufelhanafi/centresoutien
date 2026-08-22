@@ -196,6 +196,10 @@ import {
 } from './overdue-invoice-handlers';
 import { createPayslipHandlers, type PayslipHandlerDeps } from './payslip-handlers';
 import { createDashboardHandlers, type DashboardHandlerDeps } from './dashboard-handlers';
+import {
+  createMultiCenterStatsHandlers,
+  type MultiCenterStatsHandlerDeps,
+} from './multi-center-stats-handlers';
 import { createPayrollHandlers, type PayrollHandlerDeps } from './payroll-handlers';
 import { createPaymentReceiptHandlers, type PaymentReceiptHandlerDeps } from './payment-receipt-handlers';
 import { createScheduleHandlers, type ScheduleHandlerDeps } from './schedule-handlers';
@@ -850,6 +854,7 @@ export type HandlerDeps = BackupHandlerDeps &
   OverdueInvoiceHandlerDeps &
   PayslipHandlerDeps &
   DashboardHandlerDeps &
+  MultiCenterStatsHandlerDeps &
   PayrollHandlerDeps &
   PaymentReceiptHandlerDeps &
   ScheduleHandlerDeps &
@@ -1958,6 +1963,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     ...createOverdueInvoiceHandlers(deps),
     ...createPayslipHandlers(deps),
     ...createDashboardHandlers(deps),
+    ...createMultiCenterStatsHandlers(deps),
     ...createPayrollHandlers(deps),
     ...createPaymentReceiptHandlers(deps),
     ...createScheduleHandlers(deps),
