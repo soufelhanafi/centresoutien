@@ -30,8 +30,8 @@ export function TeacherStudentsTab({ teacher }: { teacher: TeacherView }) {
   const [filter, setFilter] = useState<TeacherRosterFilter>(EMPTY_TEACHER_ROSTER_FILTER);
 
   const roster = useMemo(() => rosterQuery.data ?? [], [rosterQuery.data]);
-  const subjects = useMemo(() => teacherRosterSubjectFacets(roster), [roster]);
-  const groups = useMemo(() => teacherRosterGroupFacets(roster), [roster]);
+  const subjects = useMemo(() => teacherRosterSubjectFacets(roster, i18n.language), [roster, i18n.language]);
+  const groups = useMemo(() => teacherRosterGroupFacets(roster, i18n.language), [roster, i18n.language]);
   const filtered = useMemo(() => filterTeacherRoster(roster, filter), [roster, filter]);
 
   const buildRequest = (): TeacherRosterPdfRequest => ({
@@ -40,8 +40,8 @@ export function TeacherStudentsTab({ teacher }: { teacher: TeacherView }) {
     generatedOn: todayIso(),
     rows: [...filtered],
     filters: {
-      subjectName: subjects.find((subject) => subject.id === filter.subjectId)?.label ?? null,
-      groupLabel: groups.find((group) => group.id === filter.groupId)?.label ?? null,
+      subjectName: subjects.find((subject) => subject.id === filter.subjectId)?.labelFr ?? null,
+      groupLabel: groups.find((group) => group.id === filter.groupId)?.labelFr ?? null,
       nameQuery: filter.nameQuery,
       status: filter.status,
     },

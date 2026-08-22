@@ -1,35 +1,32 @@
 import { useTranslation } from 'react-i18next';
 import { Badge, DataTableCell, DataTableRow, KindBadge } from '@centresoutien/ui';
 import type { TeacherRosterEntryView } from '../../lib/teachers/teacher-roster-view';
+import { pickLocalizedName } from '../../lib/teachers/filter-teacher-roster';
 import { formatMonth } from '../../lib/format';
-
-function nameFor(entry: TeacherRosterEntryView, language: string): string {
-  const isArabic = language.startsWith('ar');
-  const preferred = isArabic ? entry.name.ar : entry.name.fr;
-  return preferred || entry.name.fr || entry.name.ar;
-}
 
 /** One roster row: student (name + niveau), subjects, formula, kind badges, status. */
 export function TeacherRosterRow({ entry }: { entry: TeacherRosterEntryView }) {
   const { t, i18n } = useTranslation();
-  const isArabic = i18n.language.startsWith('ar');
-  const subjects = entry.subjects.map((subject) => (isArabic ? subject.name.ar : subject.name.fr));
+  const none = t('teachers.info.none');
+  const subjects = entry.subjects.map((subject) => pickLocalizedName(subject.name, i18n.language));
 
   return (
     <DataTableRow>
       <DataTableCell>
-        <span className="font-medium text-foreground">{nameFor(entry, i18n.language)}</span>
+        <span className="font-medium text-foreground">
+          {pickLocalizedName(entry.name, i18n.language)}
+        </span>
         {entry.level ? (
           <span className="block text-xs text-muted-foreground">{entry.level}</span>
         ) : null}
       </DataTableCell>
       <DataTableCell>
         <span className="text-sm text-foreground">
-          {subjects.length > 0 ? subjects.join(' · ') : '—'}
+          {subjects.length > 0 ? subjects.join(' · ') : none}
         </span>
       </DataTableCell>
       <DataTableCell>
-        <span className="text-sm text-foreground">{entry.formulaLabel || '—'}</span>
+        <span className="text-sm text-foreground">{entry.formulaLabel || none}</span>
       </DataTableCell>
       <DataTableCell>
         <span className="flex flex-wrap gap-1">

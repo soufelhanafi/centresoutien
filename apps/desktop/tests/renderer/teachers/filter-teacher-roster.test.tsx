@@ -63,9 +63,14 @@ describe('filterTeacherRoster', () => {
 });
 
 describe('teacherRosterSubjectFacets / teacherRosterGroupFacets', () => {
-  it('returns distinct subjects sorted by FR name', () => {
-    const facets = teacherRosterSubjectFacets([entry({ subjects: [PHYS, MATH] }), entry({ subjects: [MATH] })]);
+  it('returns distinct subjects sorted by display name (FR UI)', () => {
+    const facets = teacherRosterSubjectFacets([entry({ subjects: [PHYS, MATH] }), entry({ subjects: [MATH] })], 'fr');
     expect(facets.map((f) => f.label)).toEqual(['Mathématiques', 'Physique']);
+  });
+
+  it('localizes the display label to Arabic while keeping labelFr French (for the PDF)', () => {
+    const facets = teacherRosterSubjectFacets([entry({ subjects: [MATH] })], 'ar');
+    expect(facets[0]).toMatchObject({ id: MATH.subjectId, label: 'الرياضيات', labelFr: 'Mathématiques' });
   });
 
   it('labels a group as "subject — level", distinctly per group id', () => {
@@ -73,10 +78,10 @@ describe('teacherRosterSubjectFacets / teacherRosterGroupFacets', () => {
       entry({ groups: [{ groupId: 'grp_1', subjectId: MATH.subjectId, subjectName: MATH.name, level: '2 Bac', kind: 'regular' }] }),
       entry({ groups: [{ groupId: 'grp_2', subjectId: MATH.subjectId, subjectName: MATH.name, level: '1 Bac', kind: 'regular' }] }),
     ];
-    const facets = teacherRosterGroupFacets(roster);
+    const facets = teacherRosterGroupFacets(roster, 'fr');
     expect(facets).toEqual([
-      { id: 'grp_2', label: 'Mathématiques — 1 Bac' },
-      { id: 'grp_1', label: 'Mathématiques — 2 Bac' },
+      { id: 'grp_2', label: 'Mathématiques — 1 Bac', labelFr: 'Mathématiques — 1 Bac' },
+      { id: 'grp_1', label: 'Mathématiques — 2 Bac', labelFr: 'Mathématiques — 2 Bac' },
     ]);
   });
 });

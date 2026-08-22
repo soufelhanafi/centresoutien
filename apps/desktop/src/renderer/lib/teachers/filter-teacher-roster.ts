@@ -1,7 +1,22 @@
 import type { TeacherRosterEntryView, TeacherRosterFilter } from './teacher-roster-view';
 
-/** One selectable option in the subject/group filters, labelled for display. */
-export type TeacherRosterFacet = { id: string; label: string };
+/**
+ * One selectable option in the subject/group filters. `label` is localized for the
+ * active UI language; `labelFr` is always the French label — the FR-only roster PDF
+ * (SOU-279 convention) needs a French filter summary regardless of the UI locale.
+ */
+export type TeacherRosterFacet = { id: string; label: string; labelFr: string };
+
+/** The bilingual name in the active language, falling back to the other script so a
+ *  record that carries only one never renders blank. */
+export function pickLocalizedName(name: { fr: string; ar: string }, language: string): string {
+  const preferred = language.startsWith('ar') ? name.ar : name.fr;
+  return preferred || name.fr || name.ar;
+}
+
+function groupLabel(subjectName: string, level: string): string {
+  return level ? `${subjectName} — ${level}` : subjectName;
+}
 
 function matchesName(entry: TeacherRosterEntryView, query: string): boolean {
   const needle = query.trim().toLowerCase();
@@ -30,36 +45,44 @@ export function filterTeacherRoster(
   });
 }
 
-/** The distinct subjects across the roster, sorted by FR name — the subject filter
- *  options. The subject filter is only shown when this yields more than one. */
+/** The distinct subjects across the roster — the subject filter options, labelled in
+ *  the active language (with an always-FR label for the PDF), sorted by display
+ *  label. The subject filter is only shown when this yields more than one. */
 export function teacherRosterSubjectFacets(
   roster: readonly TeacherRosterEntryView[],
+  language: string,
 ): readonly TeacherRosterFacet[] {
-  const byId = new Map<string, string>();
+  const byId = new Map<string, TeacherRosterFacet>();
   for (const entry of roster) {
     for (const subject of entry.subjects) {
-      if (!byId.has(subject.subjectId)) byId.set(subject.subjectId, subject.name.fr);
+      if (byId.has(subject.subjectId)) continue;
+      byId.set(subject.subjectId, {
+        id: subject.subjectId,
+        label: pickLocalizedName(subject.name, language),
+        labelFr: subject.name.fr || subject.name.ar,
+      });
     }
   }
-  return [...byId.entries()]
-    .map(([id, label]) => ({ id, label }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+  return [...byId.values()].sort((a, b) => a.label.localeCompare(b.label, language));
 }
 
-/** The distinct groups across the roster, labelled "subject — level" (a group has
- *  no name of its own), sorted by label — the group filter options. */
+/** The distinct groups across the roster, labelled "subject — level" (a group has no
+ *  name of its own), in the active language (with an always-FR label for the PDF),
+ *  sorted by display label — the group filter options. */
 export function teacherRosterGroupFacets(
   roster: readonly TeacherRosterEntryView[],
+  language: string,
 ): readonly TeacherRosterFacet[] {
-  const byId = new Map<string, string>();
+  const byId = new Map<string, TeacherRosterFacet>();
   for (const entry of roster) {
     for (const group of entry.groups) {
       if (byId.has(group.groupId)) continue;
-      const label = group.level ? `${group.subjectName.fr} — ${group.level}` : group.subjectName.fr;
-      byId.set(group.groupId, label);
+      byId.set(group.groupId, {
+        id: group.groupId,
+        label: groupLabel(pickLocalizedName(group.subjectName, language), group.level),
+        labelFr: groupLabel(group.subjectName.fr || group.subjectName.ar, group.level),
+      });
     }
   }
-  return [...byId.entries()]
-    .map(([id, label]) => ({ id, label }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+  return [...byId.values()].sort((a, b) => a.label.localeCompare(b.label, language));
 }
