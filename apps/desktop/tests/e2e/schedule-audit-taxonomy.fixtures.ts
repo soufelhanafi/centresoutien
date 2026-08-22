@@ -15,10 +15,12 @@ import { nextMondayStrictlyAfter, isoLocalDate, type Locale } from './schedule-a
  */
 
 // The preload bridge isn't in Playwright's DOM typings, so `window.api` is read
-// through a single narrow `unknown`-to-`Bridge` cast per evaluate — the same
-// seam the SOU-201 `schedule-audit.fixtures` harness uses, and the only unsafe
-// cast in this file. Results are likewise narrowed once per invoke, mirroring
-// the established black-box fixtures.
+// through a single narrow `unknown`-to-`Bridge` cast per evaluate. `invoke` is
+// typed `Promise<unknown>`, so each seeding call narrows its result to the
+// minimal `{ id }` shape it needs via the one `idOf` helper defined inside the
+// evaluate — the ONLY `unknown`→concrete cast in the file, deliberately not
+// validated against the app's zod schemas (test-only), mirroring the SOU-201
+// `schedule-audit.fixtures` harness.
 type Bridge = { invoke: (channel: string, req: unknown) => Promise<unknown> };
 
 /** The new SOU-296 reason labels, in both locales — read off the LIVE audit modal. */
@@ -75,64 +77,60 @@ export async function seedRoomDoubleBook(win: Page, weeks = 8): Promise<SeededDo
   return win.evaluate(
     async (range) => {
       const api = (window as unknown as { api: Bridge }).api;
-      const room = (await api.invoke('room.create', { name: 'Salle A', capacity: 20 })) as { id: string };
-      const t1 = (await api.invoke('teacher.create', {
+      const idOf = (result: unknown): string => (result as { id: string }).id;
+      const roomId = idOf(await api.invoke('room.create', { name: 'Salle A', capacity: 20 }));
+      const t1 = idOf(await api.invoke('teacher.create', {
         name: { fr: 'Prof Karim', ar: 'الأستاذ كريم' },
         phone: '+212600000011',
         subjectIds: [],
-      })) as { id: string };
-      const t2 = (await api.invoke('teacher.create', {
+      }));
+      const t2 = idOf(await api.invoke('teacher.create', {
         name: { fr: 'Prof Salma', ar: 'الأستاذة سلمى' },
         phone: '+212600000022',
         subjectIds: [],
-      })) as { id: string };
-      const s1 = (await api.invoke('subject.create', {
+      }));
+      const s1 = idOf(await api.invoke('subject.create', {
         name: { fr: 'Mathématiques', ar: 'الرياضيات' },
         code: 'MATH',
-      })) as { id: string };
-      const s2 = (await api.invoke('subject.create', {
+      }));
+      const s2 = idOf(await api.invoke('subject.create', {
         name: { fr: 'Physique', ar: 'الفيزياء' },
         code: 'PHYS',
-      })) as { id: string };
-      const g1 = (await api.invoke('group.create', {
-        subjectId: s1.id,
-        teacherId: t1.id,
+      }));
+      const g1 = idOf(await api.invoke('group.create', {
+        subjectId: s1,
+        teacherId: t1,
         level: '2 Bac SM',
         capacity: 15,
         kind: 'regular',
-      })) as { id: string };
-      const g2 = (await api.invoke('group.create', {
-        subjectId: s2.id,
-        teacherId: t2.id,
+      }));
+      const g2 = idOf(await api.invoke('group.create', {
+        subjectId: s2,
+        teacherId: t2,
         level: '1 Bac SM',
         capacity: 15,
         kind: 'regular',
-      })) as { id: string };
-      const w1 = (await api.invoke('weeklySession.create', {
-        roomId: room.id,
-        teacherId: t1.id,
-        groupId: g1.id,
+      }));
+      const w1 = idOf(await api.invoke('weeklySession.create', {
+        roomId,
+        teacherId: t1,
+        groupId: g1,
         dayOfWeek: 1,
         start: '15:00',
         end: '17:00',
-      })) as { id: string };
-      const w2 = (await api.invoke('weeklySession.create', {
-        roomId: room.id,
-        teacherId: t2.id,
-        groupId: g2.id,
+      }));
+      const w2 = idOf(await api.invoke('weeklySession.create', {
+        roomId,
+        teacherId: t2,
+        groupId: g2,
         dayOfWeek: 1,
         start: '15:00',
         end: '17:00',
         allowScheduleConflict: true,
-      })) as { id: string };
-      await api.invoke('session.generate', { recurringSessionId: w1.id, from: range.from, to: range.to });
-      await api.invoke('session.generate', { recurringSessionId: w2.id, from: range.from, to: range.to });
-      return {
-        roomId: room.id,
-        teacherIds: [t1.id, t2.id],
-        wrsIds: [w1.id, w2.id],
-        dates: range.dates,
-      };
+      }));
+      await api.invoke('session.generate', { recurringSessionId: w1, from: range.from, to: range.to });
+      await api.invoke('session.generate', { recurringSessionId: w2, from: range.from, to: range.to });
+      return { roomId, teacherIds: [t1, t2], wrsIds: [w1, w2], dates: range.dates };
     },
     { from, to, dates },
   );
@@ -150,55 +148,56 @@ export async function seedTeacherDoubleBook(win: Page, weeks = 8): Promise<Seede
   return win.evaluate(
     async (range) => {
       const api = (window as unknown as { api: Bridge }).api;
-      const roomA = (await api.invoke('room.create', { name: 'Salle A', capacity: 20 })) as { id: string };
-      const roomB = (await api.invoke('room.create', { name: 'Salle B', capacity: 20 })) as { id: string };
-      const teacher = (await api.invoke('teacher.create', {
+      const idOf = (result: unknown): string => (result as { id: string }).id;
+      const roomA = idOf(await api.invoke('room.create', { name: 'Salle A', capacity: 20 }));
+      const roomB = idOf(await api.invoke('room.create', { name: 'Salle B', capacity: 20 }));
+      const teacher = idOf(await api.invoke('teacher.create', {
         name: { fr: 'Prof Karim', ar: 'الأستاذ كريم' },
         phone: '+212600000011',
         subjectIds: [],
-      })) as { id: string };
-      const s1 = (await api.invoke('subject.create', {
+      }));
+      const s1 = idOf(await api.invoke('subject.create', {
         name: { fr: 'Mathématiques', ar: 'الرياضيات' },
         code: 'MATH',
-      })) as { id: string };
-      const s2 = (await api.invoke('subject.create', {
+      }));
+      const s2 = idOf(await api.invoke('subject.create', {
         name: { fr: 'Physique', ar: 'الفيزياء' },
         code: 'PHYS',
-      })) as { id: string };
-      const g1 = (await api.invoke('group.create', {
-        subjectId: s1.id,
-        teacherId: teacher.id,
+      }));
+      const g1 = idOf(await api.invoke('group.create', {
+        subjectId: s1,
+        teacherId: teacher,
         level: '2 Bac SM',
         capacity: 15,
         kind: 'regular',
-      })) as { id: string };
-      const g2 = (await api.invoke('group.create', {
-        subjectId: s2.id,
-        teacherId: teacher.id,
+      }));
+      const g2 = idOf(await api.invoke('group.create', {
+        subjectId: s2,
+        teacherId: teacher,
         level: '1 Bac SM',
         capacity: 15,
         kind: 'regular',
-      })) as { id: string };
-      const w1 = (await api.invoke('weeklySession.create', {
-        roomId: roomA.id,
-        teacherId: teacher.id,
-        groupId: g1.id,
+      }));
+      const w1 = idOf(await api.invoke('weeklySession.create', {
+        roomId: roomA,
+        teacherId: teacher,
+        groupId: g1,
         dayOfWeek: 1,
         start: '15:00',
         end: '17:00',
-      })) as { id: string };
-      const w2 = (await api.invoke('weeklySession.create', {
-        roomId: roomB.id,
-        teacherId: teacher.id,
-        groupId: g2.id,
+      }));
+      const w2 = idOf(await api.invoke('weeklySession.create', {
+        roomId: roomB,
+        teacherId: teacher,
+        groupId: g2,
         dayOfWeek: 1,
         start: '15:00',
         end: '17:00',
         allowScheduleConflict: true,
-      })) as { id: string };
-      await api.invoke('session.generate', { recurringSessionId: w1.id, from: range.from, to: range.to });
-      await api.invoke('session.generate', { recurringSessionId: w2.id, from: range.from, to: range.to });
-      return { teacherId: teacher.id, wrsIds: [w1.id, w2.id], dates: range.dates };
+      }));
+      await api.invoke('session.generate', { recurringSessionId: w1, from: range.from, to: range.to });
+      await api.invoke('session.generate', { recurringSessionId: w2, from: range.from, to: range.to });
+      return { teacherId: teacher, wrsIds: [w1, w2], dates: range.dates };
     },
     { from, to, dates },
   );
@@ -220,63 +219,64 @@ export async function seedOverCapacity(win: Page): Promise<SeededOverCapacity> {
   return win.evaluate(
     async (range) => {
       const api = (window as unknown as { api: Bridge }).api;
-      const room = (await api.invoke('room.create', { name: 'Salle A', capacity: 20 })) as { id: string };
-      const teacher = (await api.invoke('teacher.create', {
+      const idOf = (result: unknown): string => (result as { id: string }).id;
+      const roomId = idOf(await api.invoke('room.create', { name: 'Salle A', capacity: 20 }));
+      const teacherId = idOf(await api.invoke('teacher.create', {
         name: { fr: 'Prof Karim', ar: 'الأستاذ كريم' },
         phone: '+212600000011',
         subjectIds: [],
-      })) as { id: string };
-      const subject = (await api.invoke('subject.create', {
+      }));
+      const subjectId = idOf(await api.invoke('subject.create', {
         name: { fr: 'Mathématiques', ar: 'الرياضيات' },
         code: 'MATH',
-      })) as { id: string };
-      const group = (await api.invoke('group.create', {
-        subjectId: subject.id,
-        teacherId: teacher.id,
+      }));
+      const groupId = idOf(await api.invoke('group.create', {
+        subjectId,
+        teacherId,
         level: '2 Bac SM',
         capacity: 20,
         kind: 'regular',
-      })) as { id: string };
-      const wrs = (await api.invoke('weeklySession.create', {
-        roomId: room.id,
-        teacherId: teacher.id,
-        groupId: group.id,
+      }));
+      const wrs = idOf(await api.invoke('weeklySession.create', {
+        roomId,
+        teacherId,
+        groupId,
         dayOfWeek: 1,
         start: '15:00',
         end: '17:00',
-      })) as { id: string };
-      await api.invoke('session.generate', { recurringSessionId: wrs.id, from: range.from, to: range.to });
+      }));
+      await api.invoke('session.generate', { recurringSessionId: wrs, from: range.from, to: range.to });
 
       const enrolled = 8;
       for (let i = 1; i <= enrolled; i += 1) {
-        const student = (await api.invoke('student.create', {
+        const studentId = idOf(await api.invoke('student.create', {
           name: { fr: `Élève ${i}`, ar: `تلميذ ${i}` },
           birthDate: '2010-05-05',
           level: '2 Bac SM',
           school: null,
           notes: null,
           guardianIds: [],
-        })) as { id: string };
+        }));
         await api.invoke('subscription.create', {
-          studentId: student.id,
+          studentId,
           formulaId: `fml_01HW${String(i).padStart(22, '0')}`,
           kind: 'regular',
-          subjectIds: [subject.id],
+          subjectIds: [subjectId],
           startMonth: '2025-09',
           endMonth: null,
         });
         await api.invoke('enrollment.create', {
-          studentId: student.id,
-          groupId: group.id,
+          studentId,
+          groupId,
           startMonth: '2026-08',
           endMonth: null,
         });
       }
 
-      await api.invoke('weeklySession.delete', { id: wrs.id });
-      await api.invoke('room.update', { id: room.id, name: 'Salle A', capacity: 5 });
+      await api.invoke('weeklySession.delete', { id: wrs });
+      await api.invoke('room.update', { id: roomId, name: 'Salle A', capacity: 5 });
 
-      return { roomId: room.id, groupId: group.id, enrolled };
+      return { roomId, groupId, enrolled };
     },
     { from, to },
   );
@@ -295,35 +295,36 @@ export async function seedArchivedRoom(win: Page): Promise<SeededArchivedRoom> {
   return win.evaluate(
     async (range) => {
       const api = (window as unknown as { api: Bridge }).api;
-      const room = (await api.invoke('room.create', { name: 'Salle A', capacity: 20 })) as { id: string };
-      const teacher = (await api.invoke('teacher.create', {
+      const idOf = (result: unknown): string => (result as { id: string }).id;
+      const roomId = idOf(await api.invoke('room.create', { name: 'Salle A', capacity: 20 }));
+      const teacherId = idOf(await api.invoke('teacher.create', {
         name: { fr: 'Prof Karim', ar: 'الأستاذ كريم' },
         phone: '+212600000011',
         subjectIds: [],
-      })) as { id: string };
-      const subject = (await api.invoke('subject.create', {
+      }));
+      const subjectId = idOf(await api.invoke('subject.create', {
         name: { fr: 'Mathématiques', ar: 'الرياضيات' },
         code: 'MATH',
-      })) as { id: string };
-      const group = (await api.invoke('group.create', {
-        subjectId: subject.id,
-        teacherId: teacher.id,
+      }));
+      const groupId = idOf(await api.invoke('group.create', {
+        subjectId,
+        teacherId,
         level: '2 Bac SM',
         capacity: 15,
         kind: 'regular',
-      })) as { id: string };
-      const wrs = (await api.invoke('weeklySession.create', {
-        roomId: room.id,
-        teacherId: teacher.id,
-        groupId: group.id,
+      }));
+      const wrsId = idOf(await api.invoke('weeklySession.create', {
+        roomId,
+        teacherId,
+        groupId,
         dayOfWeek: 1,
         start: '15:00',
         end: '17:00',
-      })) as { id: string };
-      await api.invoke('session.generate', { recurringSessionId: wrs.id, from: range.from, to: range.to });
-      await api.invoke('weeklySession.delete', { id: wrs.id });
-      await api.invoke('room.archive', { id: room.id });
-      return { roomId: room.id, wrsId: wrs.id };
+      }));
+      await api.invoke('session.generate', { recurringSessionId: wrsId, from: range.from, to: range.to });
+      await api.invoke('weeklySession.delete', { id: wrsId });
+      await api.invoke('room.archive', { id: roomId });
+      return { roomId, wrsId };
     },
     { from, to },
   );
