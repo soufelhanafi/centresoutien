@@ -2,6 +2,7 @@ import { foldSearchText, paymentStatusOf } from '@centresoutien/domain';
 import type {
   InvoiceListFilters,
   InvoiceListItemView,
+  InvoiceSubjectAllocation,
   OpenInvoicesPage,
   OpenInvoicesQuery,
 } from './invoice-view';
@@ -13,6 +14,7 @@ import type {
 } from './invoices-gateway';
 import type { PaymentReversalErrorCode } from './payment-reversal-error';
 import type { InvoiceLineWriteErrorCode } from './invoice-line-write-error';
+import type { InvoiceAllocationWriteErrorCode } from './invoice-allocation-write-error';
 import { INVOICE_SEED } from './mock-invoices-seed';
 
 /**
@@ -20,7 +22,9 @@ import { INVOICE_SEED } from './mock-invoices-seed';
  * mock exercises the renderer's `resolveDomainErrorCode` → `errors.${code}`
  * mapping exactly like production (it reads `error.code` on in-process paths).
  */
-function mockDomainError(code: PaymentReversalErrorCode | InvoiceLineWriteErrorCode): Error {
+function mockDomainError(
+  code: PaymentReversalErrorCode | InvoiceLineWriteErrorCode | InvoiceAllocationWriteErrorCode,
+): Error {
   return Object.assign(new Error(code), { code });
 }
 
@@ -161,6 +165,33 @@ export class MockInvoicesGateway implements InvoicesGateway {
       totalMad,
       outstandingMad: Math.max(0, totalMad - current.netPaidMad),
       paymentStatus: paymentStatusOf(totalMad, current.netPaidMad),
+    };
+    this.invoices.set(updated.id, updated);
+    return updated;
+  }
+
+  async setAllocation(
+    invoiceId: string,
+    allocations: readonly InvoiceSubjectAllocation[] | null,
+  ): Promise<InvoiceListItemView> {
+    const current = this.invoices.get(invoiceId);
+    if (!current) throw mockDomainError('invoice-not-found');
+
+    if (allocations !== null) {
+      if (allocations.some((entry) => !Number.isInteger(entry.amountMad) || entry.amountMad < 0)) {
+        throw mockDomainError('invoice-allocation-invalid-amount');
+      }
+      if (new Set(allocations.map((entry) => entry.subjectId)).size !== allocations.length) {
+        throw mockDomainError('invoice-allocation-duplicate-subject');
+      }
+      if (allocations.length > 0 && allocations.every((entry) => entry.amountMad === 0)) {
+        throw mockDomainError('invoice-allocation-all-zero');
+      }
+    }
+
+    const updated: InvoiceListItemView = {
+      ...current,
+      subjectAllocation: allocations === null ? null : allocations.map((entry) => ({ ...entry })),
     };
     this.invoices.set(updated.id, updated);
     return updated;

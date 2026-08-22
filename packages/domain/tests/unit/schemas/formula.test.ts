@@ -68,6 +68,11 @@ describe('formulaInputSchema', () => {
       },
       { name: 'no subjects', input: validInput({ subjectIds: [] }), code: 'subjects-required' },
       {
+        name: 'a duplicated subject',
+        input: validInput({ subjectIds: [MATH, PHYS, MATH] }),
+        code: 'duplicate-subject',
+      },
+      {
         name: 'a subjectId with the wrong prefix',
         input: validInput({ subjectIds: ['fml_00000000000000000000000009'] }),
         code: 'invalid-id',

@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { FormulaInput } from '@centresoutien/domain';
+import type { FormulaWriteInput } from '../../lib/formulas/formula-view';
 import {
   Button,
   Dialog,
@@ -32,7 +32,7 @@ export function CreateFormulaDialog({
   const formId = useId();
   const create = useCreateFormula();
 
-  const handleSubmit = async (values: FormulaInput) => {
+  const handleSubmit = async (values: FormulaWriteInput) => {
     try {
       await create.mutateAsync(values);
       toast.success(t('formulas.form.createSuccess'));

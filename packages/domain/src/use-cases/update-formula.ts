@@ -4,9 +4,10 @@ import type { Clock } from '../ports/clock';
 import type { PlanPolicy } from '../plans/plan-policy';
 import { updateFormula as applyFormulaWrite } from '../policies/formula-policy';
 import { validateFormulaSubjects } from '../policies/validate-formula-subjects';
+import { assertValidFormulaSubjectPrices } from '../policies/formula-subject-prices';
 import { formulaInputSchema, type FormulaInput } from '../schemas/formula';
 import { FormulaNotFoundError } from '../errors/formula-errors';
-import type { Formula, FormulaId } from '../entities/formula';
+import type { Formula, FormulaId, FormulaSubjectPrice } from '../entities/formula';
 import type { SubjectId } from '../entities/subject';
 import type { CenterCode, UserId } from '../value-objects/ids';
 
@@ -60,11 +61,26 @@ export class UpdateFormula {
     }
 
     const subjectIds = fields.subjectIds as SubjectId[];
+    const patchSubjectPrices = fields.subjectPrices as readonly FormulaSubjectPrice[] | undefined;
     await validateFormulaSubjects(subjectIds, input.centerCode, this.subjects);
+
+    // Validate whatever map will actually be stored: the caller's when supplied,
+    // otherwise the existing one — so a price/subject change never leaves a stale
+    // map that no longer sums (SOU-298). Omitting `subjectPrices` keeps the prior
+    // map untouched; sending `[]` clears it back to the equal-split fallback.
+    const effectiveSubjectPrices =
+      patchSubjectPrices !== undefined ? patchSubjectPrices : existing.subjectPrices;
+    assertValidFormulaSubjectPrices(subjectIds, fields.priceMad, effectiveSubjectPrices);
 
     const { next, changedFields } = applyFormulaWrite(
       existing,
-      { name: fields.name, subjectIds, priceMad: fields.priceMad, kind: fields.kind },
+      {
+        name: fields.name,
+        subjectIds,
+        priceMad: fields.priceMad,
+        kind: fields.kind,
+        ...(patchSubjectPrices !== undefined && { subjectPrices: patchSubjectPrices }),
+      },
       { clock: this.clock, updatedBy: input.updatedBy },
     );
     if (changedFields.length > 0) {

@@ -327,6 +327,13 @@
     "formula-not-found": "لم يتم العثور على هذه الصيغة",
     "formula-subject-not-found": "لم يتم العثور على إحدى مواد هذه الصيغة",
     "formula-subject-inactive": "تم تعطيل إحدى مواد هذه الصيغة",
+    "formula-subject-prices-sum-mismatch": "يجب أن يساوي مجموع أسعار المواد السعر الإجمالي",
+    "formula-subject-prices-coverage-mismatch": "يجب تحديد سعر لكل مادة مختارة",
+    "formula-subject-prices-invalid-amount": "يجب أن يكون سعر كل مادة أكبر من 0",
+    "invoice-allocation-invalid-amount": "يجب أن يكون كل مبلغ في التوزيع موجبًا أو صفرًا",
+    "invoice-allocation-duplicate-subject": "تظهر إحدى المواد مرتين في التوزيع",
+    "invoice-allocation-all-zero": "لا يمكن أن يكون التوزيع صفرًا بالكامل",
+    "invoice-allocation-unknown-subject": "إحدى مواد التوزيع لا تنتمي إلى أي صيغة في هذه الفاتورة",
     "subjects-required": "اختر مادة واحدة على الأقل",
     "invalid-price": "يجب أن يكون السعر رقمًا صحيحًا موجبًا",
     "invalid-percent": "نسبة غير صالحة (بين 0 و100).",
@@ -921,7 +928,14 @@
       "cancel": "إلغاء",
       "createSuccess": "تم إنشاء الصيغة",
       "editSuccess": "تم حفظ التعديلات",
-      "error": "فشل الحفظ. حاول مرة أخرى."
+      "error": "فشل الحفظ. حاول مرة أخرى.",
+      "perSubjectPrices": {
+        "label": "توزيع السعر حسب المادة",
+        "hint": "اختياري: حدّد سعرًا لكل مادة. وإلا فسيُوزَّع السعر بالتساوي.",
+        "pickSubjects": "اختر المواد أولاً لتحديد سعر كل منها.",
+        "sum": "مجموع المواد",
+        "sumOfTotal": "{{sum}} من {{total}}"
+      }
     },
     "clone": {
       "success": "تم تكرار الصيغة — عدّل السعر أو المواد إذا لزم الأمر.",
@@ -2484,6 +2498,25 @@
         "submit": "حفظ",
         "success": "تم تحديث المبلغ.",
         "error": "فشل تعديل المبلغ. حاول مجددًا."
+      },
+      "allocation": {
+        "title": "التوزيع حسب المادة",
+        "description": "وزّع مبلغ الفاتورة على المواد، لأجل رواتب الأساتذة. افتراضيًا يكون التوزيع مرجّحًا تلقائيًا.",
+        "configure": "ضبط التوزيع",
+        "stateWeighted": "توزيع مرجّح (افتراضي)",
+        "stateManual": "توزيع يدوي ({{count}} مواد)",
+        "manualToggle": "توزيع يدوي",
+        "weightedHint": "عند التعطيل، يتبع التوزيع الترجيح التلقائي.",
+        "sum": "المجموع المُدخَل",
+        "sumOfTotal": "{{sum}} من {{total}}",
+        "sumMismatchHint": "قد يختلف المجموع عن إجمالي الفاتورة: المبالغ تُستعمل كأوزان.",
+        "empty": "لا توجد مواد للتوزيع في هذه الفاتورة.",
+        "loadError": "فشل تحميل المواد.",
+        "cancel": "إلغاء",
+        "save": "حفظ",
+        "saving": "جارٍ الحفظ…",
+        "success": "تم حفظ التوزيع.",
+        "error": "فشل حفظ التوزيع. حاول مجددًا."
       },
       "payment": {
         "panelTitle": "الدفع",

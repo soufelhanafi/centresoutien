@@ -6,8 +6,9 @@ import type { PlanPolicy } from '../plans/plan-policy';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import { newEnvelope } from '../entities/envelope';
 import { validateFormulaSubjects } from '../policies/validate-formula-subjects';
+import { assertValidFormulaSubjectPrices } from '../policies/formula-subject-prices';
 import { formulaInputSchema, type FormulaInput } from '../schemas/formula';
-import { FORMULA_ID_PREFIX, type Formula, type FormulaId } from '../entities/formula';
+import { FORMULA_ID_PREFIX, type Formula, type FormulaId, type FormulaSubjectPrice } from '../entities/formula';
 import type { SubjectId } from '../entities/subject';
 
 export type CreateFormulaInput = FormulaInput & {
@@ -47,7 +48,9 @@ export class CreateFormula {
     }
 
     const subjectIds = fields.subjectIds as SubjectId[];
+    const subjectPrices = fields.subjectPrices as readonly FormulaSubjectPrice[] | undefined;
     await validateFormulaSubjects(subjectIds, input.centerCode, this.subjects);
+    assertValidFormulaSubjectPrices(subjectIds, fields.priceMad, subjectPrices);
 
     const formula: Formula = {
       id: this.ids.next(FORMULA_ID_PREFIX) as FormulaId,
@@ -62,6 +65,7 @@ export class CreateFormula {
       name: fields.name,
       subjectIds,
       priceMad: fields.priceMad,
+      ...(subjectPrices !== undefined && { subjectPrices }),
       kind: fields.kind,
       isImmutable: false,
       active: true,

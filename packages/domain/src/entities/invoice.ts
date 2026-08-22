@@ -1,11 +1,21 @@
 import type { Brand } from '../value-objects/brand';
 import type { EntityEnvelope } from './envelope';
 import type { StudentId } from './student';
+import type { SubjectId } from './subject';
 
 /** ULID id prefix for invoices: `inv_01HW…`. */
 export const INVOICE_ID_PREFIX = 'inv';
 
 export type InvoiceId = Brand<string, 'InvoiceId'>;
+
+/**
+ * One subject's share in a manual per-invoice attribution override (SOU-298), in
+ * integer MAD centimes. See {@link Invoice.subjectAllocation}.
+ */
+export type InvoiceSubjectAllocation = {
+  readonly subjectId: SubjectId;
+  readonly amountMad: number; // integer MAD centimes, >= 0
+};
 
 /**
  * The stored **lifecycle** states of a monthly invoice (SOU-67). This is the state
@@ -49,4 +59,12 @@ export type Invoice = EntityEnvelope & {
   status: InvoiceStatus;
   issuedAt: Date | null; // set on draft → issued
   cancelledAt: Date | null; // set on → cancelled
+  // Optional manual per-subject attribution override (SOU-298). `null` (the
+  // default) means teacher-fee attribution uses the weighted split from the
+  // formula's price map (or the equal split when un-priced). A non-null map lets
+  // the director pin how this invoice's collected fees split across subjects — it
+  // is used as the per-subject weight vector, pro-rated the same way when only
+  // partially paid. It NEVER changes the billed total or the append-only Payment
+  // ledger: it is an attribution preference, not a money movement.
+  subjectAllocation: readonly InvoiceSubjectAllocation[] | null;
 };

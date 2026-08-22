@@ -12,6 +12,7 @@ import type {
   CenterCode,
   DeviceId,
   FormulaId,
+  SubjectId,
   PaymentId,
   Student,
   StudentId,
@@ -73,6 +74,7 @@ function makeInvoice(over: Partial<Invoice> = {}): Invoice {
     status: 'draft',
     issuedAt: null,
     cancelledAt: null,
+    subjectAllocation: null,
     ...over,
   };
 }
@@ -127,6 +129,22 @@ describe('SqliteInvoiceRepository', () => {
     });
     await repo.save(invoice);
     expect(await repo.findById(invoice.id)).toEqual(invoice);
+  });
+
+  it('round-trips a manual per-subject attribution allocation (SOU-298)', async () => {
+    const invoice = makeInvoice({
+      subjectAllocation: [
+        { subjectId: 'sub_00000000000000000000000001' as SubjectId, amountMad: 20000 },
+        { subjectId: 'sub_00000000000000000000000002' as SubjectId, amountMad: 15000 },
+      ],
+    });
+    await repo.save(invoice);
+    expect(await repo.findById(invoice.id)).toEqual(invoice);
+  });
+
+  it('round-trips a null allocation (weighted default)', async () => {
+    await repo.save(makeInvoice());
+    expect((await repo.findById(INVOICE_A))?.subjectAllocation).toBeNull();
   });
 
   it('round-trips null issuedAt / cancelledAt (a fresh draft)', async () => {

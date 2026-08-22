@@ -5,13 +5,16 @@ import type {
   IssueInvoice,
   CancelInvoice,
   UpdateDraftInvoiceLineAmount,
+  SetInvoiceSubjectAllocation,
   InvoicePdfRenderer,
   InvoiceListItem,
   InvoiceLine,
   Invoice,
+  InvoiceSubjectAllocation,
   CenterCode,
   StudentId,
   InvoiceId,
+  SubjectId,
   UserId,
 } from '@centresoutien/domain';
 import { InvoiceNotFoundError } from '@centresoutien/domain';
@@ -23,19 +26,26 @@ export type ListInvoicesUseCase = Pick<ListInvoices, 'execute'>;
 export type IssueInvoiceUseCase = Pick<IssueInvoice, 'execute'>;
 export type CancelInvoiceUseCase = Pick<CancelInvoice, 'execute'>;
 export type UpdateDraftInvoiceLineAmountUseCase = Pick<UpdateDraftInvoiceLineAmount, 'execute'>;
+export type SetInvoiceSubjectAllocationUseCase = Pick<SetInvoiceSubjectAllocation, 'execute'>;
 export type InvoicePdfRendererPort = Pick<InvoicePdfRenderer, 'render'>;
 
-/** Only the surface the invoice list/print/export/issue/cancel/line-edit channels need. */
+/** Only the surface the invoice list/print/export/issue/cancel/line-edit/allocation channels need. */
 export type InvoiceHandlerDeps = PdfAssemblyDeps & {
   listInvoices: ListInvoicesUseCase;
   issueInvoice: IssueInvoiceUseCase;
   cancelInvoice: CancelInvoiceUseCase;
   updateDraftInvoiceLineAmount: UpdateDraftInvoiceLineAmountUseCase;
+  setInvoiceSubjectAllocation: SetInvoiceSubjectAllocationUseCase;
   invoicePdfRenderer: InvoicePdfRendererPort;
   centerCode: () => CenterCode;
   updatedBy: () => UserId;
   tempDir: string;
 };
+
+function toSubjectAllocationView(allocation: readonly InvoiceSubjectAllocation[] | null) {
+  if (allocation === null) return null;
+  return allocation.map((entry) => ({ subjectId: entry.subjectId, amountMad: entry.amountMad }));
+}
 
 function toInvoiceLineView(line: InvoiceLine) {
   return {
@@ -62,6 +72,10 @@ function toInvoiceListItemView(item: InvoiceListItem) {
     netPaidMad: item.netPaidMad,
     outstandingMad: item.outstandingMad,
     paymentStatus: item.status,
+    // SOU-298: carry the manual per-subject attribution override back to the renderer
+    // so a set→list round-trip preserves it (else the UI reverts to the weighted
+    // default and can overwrite it on the next save). `null` when there is no override.
+    subjectAllocation: toSubjectAllocationView(item.invoice.subjectAllocation),
   };
 }
 
@@ -111,6 +125,7 @@ export function createInvoiceHandlers(
   | 'invoice.issue'
   | 'invoice.cancel'
   | 'invoice.updateLineAmount'
+  | 'invoice.setAllocation'
 > {
   return {
     'invoice.list': async (request) => {
@@ -174,6 +189,21 @@ export function createInvoiceHandlers(
         updatedBy: deps.updatedBy(),
       });
       return { line: toInvoiceLineView(line) };
+    },
+    'invoice.setAllocation': async (request) => {
+      const invoice = await deps.setInvoiceSubjectAllocation.execute({
+        centerCode: deps.centerCode(),
+        invoiceId: request.invoiceId as InvoiceId,
+        allocations:
+          request.allocations === null
+            ? null
+            : request.allocations.map((entry) => ({
+                subjectId: entry.subjectId as SubjectId,
+                amountMad: entry.amountMad,
+              })),
+        updatedBy: deps.updatedBy(),
+      });
+      return { subjectAllocation: toSubjectAllocationView(invoice.subjectAllocation) };
     },
   };
 }

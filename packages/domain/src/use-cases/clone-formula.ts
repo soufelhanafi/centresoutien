@@ -6,6 +6,7 @@ import type { PlanPolicy } from '../plans/plan-policy';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import { newEnvelope } from '../entities/envelope';
 import { validateFormulaSubjects } from '../policies/validate-formula-subjects';
+import { assertValidFormulaSubjectPrices } from '../policies/formula-subject-prices';
 import { FORMULA_ID_PREFIX, type Formula, type FormulaId } from '../entities/formula';
 import { FormulaNotFoundError } from '../errors/formula-errors';
 
@@ -58,6 +59,7 @@ export class CloneFormula {
     }
 
     await validateFormulaSubjects(source.subjectIds, input.centerCode, this.subjects);
+    assertValidFormulaSubjectPrices(source.subjectIds, source.priceMad, source.subjectPrices);
 
     const clone: Formula = {
       id: this.ids.next(FORMULA_ID_PREFIX) as FormulaId,
@@ -72,6 +74,7 @@ export class CloneFormula {
       name: { ...source.name },
       subjectIds: [...source.subjectIds],
       priceMad: source.priceMad,
+      ...(source.subjectPrices !== undefined && { subjectPrices: source.subjectPrices.map((entry) => ({ ...entry })) }),
       kind: source.kind,
       isImmutable: false,
       active: true,

@@ -1,14 +1,29 @@
 import type { Database as DB } from 'better-sqlite3';
+import { z } from 'zod';
+import { subjectPrice } from '@centresoutien/domain';
 import type {
   Formula,
   FormulaId,
   FormulaRepository,
+  FormulaSubjectPrice,
   GroupKind,
   SubjectId,
   CenterCode,
   DeviceId,
   UserId,
 } from '@centresoutien/domain';
+
+/** Validate persisted `subject_prices` JSON before trusting it — the repo parses to
+ *  `unknown` then narrows via the domain schema (mirrors `student-repository`), never
+ *  a blind `as` cast on `JSON.parse`. */
+const subjectPricesSchema = z.array(subjectPrice);
+
+function parseSubjectPrices(json: string): FormulaSubjectPrice[] {
+  const parsed: unknown = JSON.parse(json);
+  return subjectPricesSchema
+    .parse(parsed)
+    .map((entry) => ({ subjectId: entry.subjectId as SubjectId, priceMad: entry.priceMad }));
+}
 
 /** The `formulas` table row shape as SQLite returns it. */
 type FormulaRow = {
@@ -24,6 +39,7 @@ type FormulaRow = {
   name_ar: string;
   subject_ids: string;
   price_mad: number;
+  subject_prices: string | null;
   kind: string;
   is_immutable: number;
   active: number;
@@ -42,6 +58,11 @@ function fromRow(row: FormulaRow): Formula {
     name: { fr: row.name_fr, ar: row.name_ar },
     subjectIds: JSON.parse(row.subject_ids) as SubjectId[],
     priceMad: row.price_mad,
+    // NULL (legacy/un-priced) reads as an absent map — the domain falls back to the
+    // equal split. Present JSON is the per-subject price map (SOU-298).
+    ...(row.subject_prices !== null && {
+      subjectPrices: parseSubjectPrices(row.subject_prices),
+    }),
     kind: row.kind as GroupKind,
     isImmutable: row.is_immutable === 1,
     active: row.active === 1,
@@ -57,21 +78,22 @@ function fromRow(row: FormulaRow): Formula {
 const SAVE_SQL = `
   INSERT INTO formulas
     (id, center_code, device_origin, created_at, updated_at, updated_by,
-     deleted_at, version, name_fr, name_ar, subject_ids, price_mad, kind, active)
+     deleted_at, version, name_fr, name_ar, subject_ids, price_mad, subject_prices, kind, active)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
-     @deleted_at, @version, @name_fr, @name_ar, @subject_ids, @price_mad, @kind, @active)
+     @deleted_at, @version, @name_fr, @name_ar, @subject_ids, @price_mad, @subject_prices, @kind, @active)
   ON CONFLICT(id) DO UPDATE SET
-    updated_at  = excluded.updated_at,
-    updated_by  = excluded.updated_by,
-    deleted_at  = excluded.deleted_at,
-    version     = excluded.version,
-    name_fr     = excluded.name_fr,
-    name_ar     = excluded.name_ar,
-    subject_ids = excluded.subject_ids,
-    price_mad   = excluded.price_mad,
-    kind        = excluded.kind,
-    active      = excluded.active
+    updated_at     = excluded.updated_at,
+    updated_by     = excluded.updated_by,
+    deleted_at     = excluded.deleted_at,
+    version        = excluded.version,
+    name_fr        = excluded.name_fr,
+    name_ar        = excluded.name_ar,
+    subject_ids    = excluded.subject_ids,
+    price_mad      = excluded.price_mad,
+    subject_prices = excluded.subject_prices,
+    kind           = excluded.kind,
+    active         = excluded.active
 `;
 
 /**
@@ -97,6 +119,10 @@ export class SqliteFormulaRepository implements FormulaRepository {
       name_ar: formula.name.ar,
       subject_ids: JSON.stringify(formula.subjectIds),
       price_mad: formula.priceMad,
+      subject_prices:
+        formula.subjectPrices && formula.subjectPrices.length > 0
+          ? JSON.stringify(formula.subjectPrices)
+          : null,
       kind: formula.kind,
       active: formula.active ? 1 : 0,
     });

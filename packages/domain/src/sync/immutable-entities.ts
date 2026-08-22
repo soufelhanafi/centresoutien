@@ -19,7 +19,7 @@ export type ImmutableEntityType = (typeof IMMUTABLE_ENTITY_TYPES)[number];
  */
 export const IMMUTABLE_ENTITY_PROTECTED_FIELDS: Record<ImmutableEntityType, ReadonlySet<string>> = {
   invoices: new Set(['status', 'issuedAt', 'cancelledAt']),
-  formulas: new Set(['priceMad', 'subjectIds']),
+  formulas: new Set(['priceMad', 'subjectIds', 'subjectPrices']),
   teacher_payouts: new Set(['amountMad', 'baseAmountMad', 'percentSnapshot', 'ruleKind', 'status']),
 };
 

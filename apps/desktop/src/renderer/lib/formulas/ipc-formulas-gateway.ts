@@ -1,4 +1,4 @@
-import type { FormulaInput, FormulaScope, FormulaView } from './formula-view';
+import type { FormulaScope, FormulaView, FormulaWriteInput } from './formula-view';
 import type { FormulasGateway } from './formulas-gateway';
 
 /**
@@ -19,7 +19,7 @@ class IpcFormulasGateway implements FormulasGateway {
     return formula;
   }
 
-  async create(input: FormulaInput): Promise<FormulaView> {
+  async create(input: FormulaWriteInput): Promise<FormulaView> {
     const { id } = await window.api.invoke('formula.create', input);
     const created = await this.get(id);
     if (created === null) {
@@ -28,7 +28,7 @@ class IpcFormulasGateway implements FormulasGateway {
     return created;
   }
 
-  async update(id: string, input: FormulaInput): Promise<FormulaView> {
+  async update(id: string, input: FormulaWriteInput): Promise<FormulaView> {
     const { formula } = await window.api.invoke('formula.update', { ...input, id });
     return formula;
   }

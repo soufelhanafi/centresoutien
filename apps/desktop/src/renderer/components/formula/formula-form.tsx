@@ -1,16 +1,23 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
-import { formulaInputSchema, FORMULA_NAME_MAX, type FormulaInput } from '@centresoutien/domain';
+import { FORMULA_NAME_MAX } from '@centresoutien/domain';
 import { Form, FormControl, FormField, FormItem, FormLabel, Input } from '@centresoutien/ui';
 import { FieldMessage } from '../form/field-message';
 import { useFeature } from '../../hooks/use-feature';
 import { centimesToMad, madToCentimes } from '../../lib/formulas/price-mad';
+import {
+  formulaFormSchema,
+  toFormulaWriteInput,
+  type FormulaFormValues,
+} from '../../lib/formulas/formula-form-schema';
+import type { FormulaWriteInput } from '../../lib/formulas/formula-view';
 import { FormulaSubjectsField } from './formula-subjects-field';
+import { FormulaSubjectPricesField } from './formula-subject-prices-field';
 import { FormulaKindField } from './formula-kind-field';
 
-/** RHF input shape for the formula form — a direct alias of the domain's own schema. */
-export type FormulaFormInput = FormulaInput;
+/** RHF input shape for the formula form — the extended schema (adds the SOU-298 price map + toggle). */
+export type FormulaFormInput = FormulaFormValues;
 
 /** Blank defaults for the create flow. `priceMad` starts `NaN` so the price box renders empty. */
 export const EMPTY_FORMULA_INPUT: FormulaFormInput = {
@@ -18,13 +25,15 @@ export const EMPTY_FORMULA_INPUT: FormulaFormInput = {
   subjectIds: [],
   priceMad: Number.NaN,
   kind: 'regular',
+  usePerSubjectPricing: false,
+  subjectPrices: [],
 };
 
 type FormulaFormProps = {
   /** Lets the submit button live in the dialog footer, outside the `<form>`. */
   formId: string;
   defaultValues: FormulaFormInput;
-  onSubmit: (values: FormulaInput) => void | Promise<void>;
+  onSubmit: (values: FormulaWriteInput) => void | Promise<void>;
 };
 
 /**
@@ -39,11 +48,11 @@ export function FormulaForm({ formId, defaultValues, onSubmit }: FormulaFormProp
   const { t } = useTranslation();
   const examPrepEnabled = useFeature('core.exam-prep');
   const form = useForm<FormulaFormInput>({
-    resolver: zodResolver(formulaInputSchema),
+    resolver: zodResolver(formulaFormSchema),
     defaultValues,
   });
   const submit = form.handleSubmit(async (values) => {
-    await onSubmit(values);
+    await onSubmit(toFormulaWriteInput(values));
   });
 
   return (
@@ -115,6 +124,8 @@ export function FormulaForm({ formId, defaultValues, onSubmit }: FormulaFormProp
             </FormItem>
           )}
         />
+
+        <FormulaSubjectPricesField />
 
         {examPrepEnabled && <FormulaKindField control={form.control} />}
       </form>

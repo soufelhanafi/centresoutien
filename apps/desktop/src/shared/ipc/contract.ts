@@ -19,6 +19,7 @@ import {
   niveauInputSchema,
   niveauUpdateInputSchema,
   formulaInputSchema,
+  invoiceAllocationInputSchema,
   studentInputSchema,
   setStudentGuardiansInputSchema,
   parentInputSchema,
@@ -469,6 +470,15 @@ const holidayViewSchema = z.object({
 // so both sides of the boundary read it off one definition.
 const invoiceStatusSchema = z.enum(['draft', 'issued', 'cancelled']);
 
+// SOU-298 — one subject's amount in an invoice's manual attribution override.
+// The domain reads these as a WEIGHT VECTOR (they need not sum to the invoice
+// total); each amount is a non-negative integer (centimes). A whole `null`
+// allocation means "weighted default" (Option A).
+const invoiceSubjectAllocationSchema = z.object({
+  subjectId: z.string(),
+  amountMad: z.number().int().nonnegative(),
+});
+
 // One line of the invoice list/detail read model (SOU-69) — the frozen billed
 // snapshot (bilingual label, kind, amount), envelope stripped like every other
 // view. Mirrors `invoiceLineSnapshotSchema`'s shape but is a read DTO, not an
@@ -480,6 +490,13 @@ const invoiceLineViewSchema = z.object({
   kind: z.enum(['regular', 'exam-prep']),
   amountMad: z.number().int().nonnegative(),
 });
+
+// One subject's slice of a manual per-invoice attribution override (SOU-298),
+// amounts in integer MAD centimes. Single source of truth for the renderer's
+// `InvoiceSubjectAllocationView` type.
+const invoiceSubjectAllocationViewSchema = z.array(
+  z.object({ subjectId: z.string(), amountMad: z.number().int().nonnegative() }),
+);
 
 // The invoice list/detail read model across the IPC boundary (SOU-69): the
 // header (envelope stripped, dates serialized), its lines, and the same
@@ -504,6 +521,11 @@ const invoiceListItemViewSchema = z.object({
   netPaidMad: z.number().int(),
   outstandingMad: z.number().int().nonnegative(),
   paymentStatus: paymentStatusSchema,
+  // SOU-298: the director's manual per-subject attribution override, or null for
+  // the weighted default (Option A). Optional on the wire only so pre-existing
+  // renderer fixtures stay valid; the main-process projection always populates it
+  // (null default).
+  subjectAllocation: z.array(invoiceSubjectAllocationSchema).nullable().optional(),
 });
 
 // The result of an issue/cancel transition (SOU-143). The renderer does a
@@ -1003,11 +1025,26 @@ const niveauUsageViewSchema = z.object({
 // directly. No `archived` field: this ticket's CRUD UI has no soft-delete action,
 // only `active` (toggled one-way, off, via `formula.deactivate`). Single source of
 // truth for the renderer's `FormulaView` type.
+// SOU-298 — one subject's slice of a formula's bundle price (centimes, > 0),
+// the weighted-attribution price map. Absent/empty on a formula means "un-priced"
+// (the domain equal-splits at attribution time). The write side (`formula.create`
+// / `formula.update`) validates each `priceMad` strictly positive via the domain
+// `formulaInputSchema`; the read side (`formulaViewSchema`) echoes the stored map
+// or `null`.
+const formulaSubjectPriceViewSchema = z.object({
+  subjectId: z.string(),
+  priceMad: z.number().int(),
+});
+
 const formulaViewSchema = z.object({
   id: z.string(),
   name: z.object({ fr: z.string(), ar: z.string() }),
   subjectIds: z.array(z.string()),
   priceMad: z.number().int(),
+  // SOU-298: the per-subject price map, or null when the bundle is un-priced
+  // (equal-split). Optional on the wire only so pre-existing renderer fixtures
+  // stay valid; the main-process projection always populates it (null default).
+  subjectPrices: z.array(formulaSubjectPriceViewSchema).nullable().optional(),
   kind: z.enum(['regular', 'exam-prep']),
   isImmutable: z.boolean(),
   active: z.boolean(),
@@ -1375,6 +1412,8 @@ export const ipcContract = {
   // additionally needs `core.exam-prep` (Pro+). Reads strip the envelope to
   // `formulaViewSchema`.
   'formula.create': {
+    // SOU-298: `formulaInputSchema` carries the optional per-subject
+    // `subjectPrices` map in-place (domain), so no boundary extension is needed.
     request: formulaInputSchema,
     response: z.object({ id: z.string() }),
   },
@@ -1625,6 +1664,21 @@ export const ipcContract = {
   'invoice.updateLineAmount': {
     request: updateDraftInvoiceLineAmountSchema,
     response: z.object({ line: invoiceLineViewSchema }),
+  },
+  // Manual per-invoice teacher-fee attribution override (SOU-298). The director
+  // pins how one invoice's collected fees split across subjects, overriding the
+  // formula-price-weighted default (Option A); `allocations: null` clears it back
+  // to that weighted default. Amounts are integer MAD centimes read as *weights*
+  // (pro-rated when the invoice is only partially paid) — the domain does NOT
+  // require them to sum to the invoice total, so the renderer shows sum-vs-total
+  // only as a non-blocking hint. They never touch the append-only Payment ledger
+  // or the billed total. Rejects a non-integer/negative amount, a duplicate
+  // subject, or an all-zero map (`invoice-allocation-*`), and an unknown/
+  // foreign-center invoice (`invoice-not-found`). centerCode/updatedBy are
+  // injected in main, never sent from the renderer. Gated by `payroll.teacher`.
+  'invoice.setAllocation': {
+    request: invoiceAllocationInputSchema.extend({ invoiceId: z.string() }),
+    response: z.object({ subjectAllocation: invoiceSubjectAllocationViewSchema.nullable() }),
   },
   // Impayés (arrears) list (SOU-103): every `issued` invoice that is both past its
   // implicit due date (its billing month's last day) and not fully paid, grouped by
@@ -2444,6 +2498,11 @@ export type SubscriptionDto = z.infer<typeof subscriptionViewSchema>;
 
 /** The Formula boundary DTO — the renderer's `FormulaView` aliases this. */
 export type FormulaDto = z.infer<typeof formulaViewSchema>;
+
+// SOU-298 — the per-subject price map entry (write shape) and the manual
+// invoice allocation entry, the single boundary source for the renderer.
+export type FormulaSubjectPriceDto = z.infer<typeof formulaSubjectPriceViewSchema>;
+export type InvoiceSubjectAllocationDto = z.infer<typeof invoiceSubjectAllocationSchema>;
 
 /** The Payment boundary DTO — the renderer's `PaymentView` is an alias of this. */
 export type PaymentDto = z.infer<typeof paymentViewSchema>;
