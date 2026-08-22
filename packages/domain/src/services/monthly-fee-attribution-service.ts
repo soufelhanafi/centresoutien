@@ -8,6 +8,7 @@ import type { TeacherId } from '../entities/teacher';
 import type { StudentId } from '../entities/student';
 import type { SubjectId } from '../entities/subject';
 import type { Formula, FormulaId } from '../entities/formula';
+import type { Invoice } from '../entities/invoice';
 import {
   TeacherFeeAttributionPolicy,
   type StudentLineAttributionInput,
@@ -134,9 +135,11 @@ export class MonthlyFeeAttributionService {
         const formula = formulaById.get(line.formulaId);
         if (!formula) continue;
 
+        const weightBySubject = weightBySubjectForLine(formula, invoice.subjectAllocation);
         const subjectAssignments = await this.resolveSubjectAssignments(
           invoice.studentId,
           formula.subjectIds,
+          weightBySubject,
         );
         if (subjectAssignments.length === 0) continue;
 
@@ -149,6 +152,7 @@ export class MonthlyFeeAttributionService {
   private async resolveSubjectAssignments(
     studentId: StudentId,
     subjectIds: readonly SubjectId[],
+    weightBySubject: ReadonlyMap<SubjectId, number>,
   ): Promise<SubjectTeacherAssignment[]> {
     const liveEnrollments = await this.enrollments.listActiveByStudent(studentId);
     const enrolledGroups = await Promise.all(
@@ -157,15 +161,41 @@ export class MonthlyFeeAttributionService {
 
     const assignments: SubjectTeacherAssignment[] = [];
     for (const subjectId of subjectIds) {
+      const weightMad = weightBySubject.get(subjectId) ?? 0;
       const group = enrolledGroups.find((g) => g !== null && g.subjectId === subjectId);
       if (!group || group.teacherId === null) {
-        assignments.push({ subjectId, teacherId: null });
+        assignments.push({ subjectId, teacherId: null, weightMad });
         continue;
       }
       // Group.teacherId is still the generic EntityId (SOU-48 predates the Teacher
       // entity, see entities/group.ts) — narrow it now that TeacherId exists.
-      assignments.push({ subjectId, teacherId: group.teacherId as unknown as TeacherId });
+      assignments.push({ subjectId, teacherId: group.teacherId as unknown as TeacherId, weightMad });
     }
     return assignments;
   }
+}
+
+/**
+ * The per-subject weight vector for one line's weighted attribution (SOU-298): a
+ * manual per-invoice allocation wins when present, else the formula's own
+ * per-subject price map, else an empty map — which leaves every weight `0` and lets
+ * `splitLineAmount` fall back to the equal split, so an un-priced formula's payroll
+ * never changes. Amounts are used only as *weights*; the policy pro-rates them to
+ * the collected amount, so a manual allocation need not sum to the line total.
+ */
+function weightBySubjectForLine(
+  formula: Formula,
+  subjectAllocation: Invoice['subjectAllocation'] | undefined,
+): ReadonlyMap<SubjectId, number> {
+  const weights = new Map<SubjectId, number>();
+  if (subjectAllocation !== null && subjectAllocation !== undefined && subjectAllocation.length > 0) {
+    for (const entry of subjectAllocation) {
+      weights.set(entry.subjectId, entry.amountMad);
+    }
+    return weights;
+  }
+  for (const entry of formula.subjectPrices ?? []) {
+    weights.set(entry.subjectId, entry.priceMad);
+  }
+  return weights;
 }

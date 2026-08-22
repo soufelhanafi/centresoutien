@@ -1,4 +1,5 @@
 import type { InvoiceLine, InvoiceLineId } from '../entities/invoice-line';
+import { apportionByWeight } from './apportion';
 
 /**
  * Prorates an issued invoice's net-paid amount (centimes) across its lines,
@@ -22,18 +23,10 @@ export function collectedLineAmounts(
   }
 
   const effectiveNetMad = Math.max(0, Math.min(netPaidMad, totalMad));
-  const shares = lines.map((line) => {
-    const raw = (line.amountMad * effectiveNetMad) / totalMad;
-    const base = Math.floor(raw);
-    return { id: line.id, base, remainder: raw - base };
-  });
+  const shares = apportionByWeight(
+    effectiveNetMad,
+    lines.map((line) => line.amountMad),
+  );
 
-  let leftover = effectiveNetMad - shares.reduce((sum, share) => sum + share.base, 0);
-  for (const share of [...shares].sort((a, b) => b.remainder - a.remainder)) {
-    if (leftover <= 0) break;
-    share.base += 1;
-    leftover -= 1;
-  }
-
-  return new Map(shares.map((share) => [share.id, share.base]));
+  return new Map(lines.map((line, index) => [line.id, shares[index] ?? 0]));
 }

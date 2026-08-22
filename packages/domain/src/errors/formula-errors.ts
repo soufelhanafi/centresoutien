@@ -36,6 +36,40 @@ export class FormulaNotFoundError extends DomainError {
   }
 }
 
+/** Why a Formula's per-subject price map is rejected: its amounts don't sum to the
+ *  bundle price, its subjects don't match the Formula's `subjectIds`, or an amount
+ *  is not a positive integer. */
+export type InvalidFormulaSubjectPricesReason = 'sum-mismatch' | 'coverage-mismatch' | 'invalid-amount';
+
+/**
+ * Thrown when a Formula's `subjectPrices` map (SOU-298) is present but violates the
+ * construction invariant: the per-subject amounts must sum to the Formula's
+ * `priceMad` (`sum-mismatch`), must cover exactly the Formula's `subjectIds` with
+ * no missing/extra/duplicate subject (`coverage-mismatch`), and each amount must be
+ * a positive integer number of MAD centimes (`invalid-amount`). Enforced by
+ * `assertValidFormulaSubjectPrices` in `CreateFormula` / `UpdateFormula` /
+ * `CloneFormula` so a divergent split can never reach the weighted-attribution
+ * policy. The renderer resolves the stable `formula-subject-prices-sum-mismatch` /
+ * `formula-subject-prices-coverage-mismatch` / `formula-subject-prices-invalid-amount`
+ * code; the domain stays i18n-agnostic.
+ */
+export class InvalidFormulaSubjectPricesError extends DomainError {
+  readonly code:
+    | 'formula-subject-prices-sum-mismatch'
+    | 'formula-subject-prices-coverage-mismatch'
+    | 'formula-subject-prices-invalid-amount';
+
+  constructor(readonly reason: InvalidFormulaSubjectPricesReason) {
+    super(`Formula per-subject price map is invalid (${reason}).`);
+    this.code =
+      reason === 'sum-mismatch'
+        ? 'formula-subject-prices-sum-mismatch'
+        : reason === 'coverage-mismatch'
+          ? 'formula-subject-prices-coverage-mismatch'
+          : 'formula-subject-prices-invalid-amount';
+  }
+}
+
 /** Why a subject cannot back a formula: it has no live row, or it is deactivated. */
 export type FormulaSubjectUnavailableReason = 'not-found' | 'inactive';
 

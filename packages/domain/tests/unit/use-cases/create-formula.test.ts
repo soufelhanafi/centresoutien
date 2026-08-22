@@ -202,4 +202,43 @@ describe('CreateFormula', () => {
       expect(formulas.all()).toHaveLength(0);
     });
   });
+
+  describe('per-subject price map (SOU-298)', () => {
+    it('stores a valid map that sums to the price and covers the subjects', async () => {
+      const formula = await useCase.execute(
+        validInput({
+          priceMad: 35000,
+          subjectPrices: [
+            { subjectId: MATH, priceMad: 20000 },
+            { subjectId: PHYS, priceMad: 15000 },
+          ],
+        }),
+      );
+
+      expect(formula.subjectPrices).toEqual([
+        { subjectId: MATH, priceMad: 20000 },
+        { subjectId: PHYS, priceMad: 15000 },
+      ]);
+    });
+
+    it('rejects a map that does not sum to the bundle price', async () => {
+      await expect(
+        useCase.execute(
+          validInput({
+            priceMad: 35000,
+            subjectPrices: [
+              { subjectId: MATH, priceMad: 20000 },
+              { subjectId: PHYS, priceMad: 10000 },
+            ],
+          }),
+        ),
+      ).rejects.toThrowError(expect.objectContaining({ code: 'formula-subject-prices-sum-mismatch' }));
+      expect(formulas.all()).toHaveLength(0);
+    });
+
+    it('leaves subjectPrices absent when no map is supplied (equal-split fallback)', async () => {
+      const formula = await useCase.execute(validInput());
+      expect(formula.subjectPrices).toBeUndefined();
+    });
+  });
 });

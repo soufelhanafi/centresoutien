@@ -251,7 +251,9 @@ export {
   InvoiceLineNotFoundError,
   DuplicateInvoiceError,
   InvalidInvoiceListQueryError,
+  InvalidInvoiceAllocationError,
 } from './errors/invoice-errors';
+export type { InvalidInvoiceAllocationReason } from './errors/invoice-errors';
 export {
   PaymentNotFoundError,
   CannotReverseReversalError,
@@ -263,8 +265,17 @@ export {
   TooManyActiveSubscriptionsError,
   StudentSubscriptionNotFoundError,
 } from './errors/subscription-errors';
-export { FormulaImmutableError, FormulaNotFoundError, FormulaSubjectUnavailableError } from './errors/formula-errors';
-export type { FormulaSubjectUnavailableReason } from './errors/formula-errors';
+export {
+  FormulaImmutableError,
+  FormulaNotFoundError,
+  FormulaSubjectUnavailableError,
+  InvalidFormulaSubjectPricesError,
+} from './errors/formula-errors';
+export type {
+  FormulaSubjectUnavailableReason,
+  InvalidFormulaSubjectPricesReason,
+} from './errors/formula-errors';
+export { assertValidFormulaSubjectPrices } from './policies/formula-subject-prices';
 export {
   TooManyActivePayrollRulesError,
   TeacherPayrollRuleNotFoundError,
@@ -520,7 +531,7 @@ export type { Group, GroupId, GroupKind } from './entities/group';
 export { ENROLLMENT_ID_PREFIX } from './entities/enrollment';
 export type { Enrollment, EnrollmentId } from './entities/enrollment';
 export { INVOICE_ID_PREFIX, INVOICE_STATUSES } from './entities/invoice';
-export type { Invoice, InvoiceId, InvoiceStatus } from './entities/invoice';
+export type { Invoice, InvoiceId, InvoiceStatus, InvoiceSubjectAllocation } from './entities/invoice';
 export { INVOICE_LINE_ID_PREFIX } from './entities/invoice-line';
 export type { InvoiceLine, InvoiceLineId } from './entities/invoice-line';
 export { PAYMENT_ID_PREFIX, PAYMENT_KINDS, PAYMENT_METHODS } from './entities/payment';
@@ -528,7 +539,7 @@ export type { Payment, PaymentId, PaymentKind, PaymentMethod } from './entities/
 export { STUDENT_SUBSCRIPTION_ID_PREFIX } from './entities/student-subscription';
 export type { StudentSubscription, StudentSubscriptionId } from './entities/student-subscription';
 export { FORMULA_ID_PREFIX } from './entities/formula';
-export type { Formula, FormulaId } from './entities/formula';
+export type { Formula, FormulaId, FormulaSubjectPrice } from './entities/formula';
 export {
   TEACHER_PAYROLL_RULE_ID_PREFIX,
   TEACHER_PAYROLL_RULE_KINDS,
@@ -885,6 +896,7 @@ export type {
   TeacherSubjectAttributedAmount,
 } from './policies/teacher-fee-attribution-policy';
 export { collectedLineAmounts } from './policies/collected-fees';
+export { apportionByWeight } from './policies/apportion';
 export { SubjectRevenueAttributionPolicy } from './policies/subject-revenue-attribution-policy';
 export type { SubjectAttributedAmount } from './policies/subject-revenue-attribution-policy';
 export { updateFormula, deactivateFormula } from './policies/formula-policy';
@@ -997,6 +1009,10 @@ export { IssueInvoice } from './use-cases/issue-invoice';
 export type { IssueInvoiceInput } from './use-cases/issue-invoice';
 export { CancelInvoice } from './use-cases/cancel-invoice';
 export type { CancelInvoiceInput } from './use-cases/cancel-invoice';
+export { SetInvoiceSubjectAllocation } from './use-cases/set-invoice-subject-allocation';
+export type { SetInvoiceSubjectAllocationInput } from './use-cases/set-invoice-subject-allocation';
+export { invoiceAllocationInputSchema } from './schemas/invoice-allocation';
+export type { InvoiceAllocationInput } from './schemas/invoice-allocation';
 export { RecordPayment } from './use-cases/record-payment';
 export type { RecordPaymentInput, RecordPaymentResult } from './use-cases/record-payment';
 export { VoidPayment } from './use-cases/void-payment';

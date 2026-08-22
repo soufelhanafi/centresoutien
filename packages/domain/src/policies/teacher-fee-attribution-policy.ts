@@ -1,20 +1,28 @@
 import type { SubjectId } from '../entities/subject';
 import type { TeacherId } from '../entities/teacher';
 import type { StudentId } from '../entities/student';
+import { apportionByWeight } from './apportion';
 import { EmptyAttributionLineError, InvalidAttributionAmountError } from '../errors/payroll-errors';
 
 /**
  * One subject on a billed line, paired with the teacher who taught it to this
  * student that month — or `null` if no group/teacher is resolvable for that
  * subject yet (a center mid-way through staffing). A `null` entry still counts
- * toward the equal split's denominator (CLAUDE.md §6 step 2: split across the
- * formula's subjects, not across only its staffed ones) but is dropped before
- * summing into any teacher's total (SOU-74 M1) — its share goes unattributed,
- * never redistributed to a teacher who didn't teach it.
+ * toward the split's denominator (CLAUDE.md §6 step 2: split across the formula's
+ * subjects, not across only its staffed ones) but is dropped before summing into
+ * any teacher's total (SOU-74 M1) — its share goes unattributed, never
+ * redistributed to a teacher who didn't teach it.
+ *
+ * `weightMad` (SOU-298) is this subject's slice of the line for the **weighted**
+ * split — its amount from the Formula's per-subject price map, or an admin's manual
+ * per-invoice allocation. When every assignment on a line has a `0` or absent
+ * weight (an un-priced/legacy formula), the split degrades to the original equal
+ * one, so old payroll is untouched. Absent is treated as `0`.
  */
 export type SubjectTeacherAssignment = {
   readonly subjectId: SubjectId;
   readonly teacherId: TeacherId | null;
+  readonly weightMad?: number;
 };
 
 /**
@@ -70,29 +78,30 @@ export function assertValidAttributionLine(line: StudentLineAttributionInput): v
 }
 
 /**
- * Splits `amountMad` into `count` shares that are equal to the centime and sum
- * back to `amountMad` exactly — the largest-remainder method. Every share gets
- * `floor(amountMad / count)`; the leftover centimes (`amountMad % count`) go
- * one each to the first shares in assignment order, so the split is
- * deterministic for a given line. `count` is the full subject count on the
- * line — including subjects whose `teacherId` is `null` — so an unstaffed
- * subject still claims its share of the denominator; a teacher-keyed caller
- * drops that share rather than folding it into a staffed subject's cut
- * (SOU-74 M1) — a subject-keyed caller (SOU-100's revenue breakdown) keeps it,
- * since every subject on the line is real regardless of staffing.
+ * Splits `lineAmountMad` across the line's subjects, **weighted** by each
+ * assignment's `weightMad` (SOU-298), summing back to `lineAmountMad` exactly via
+ * the shared largest-remainder helper {@link apportionByWeight}. When no subject
+ * carries a positive weight — an un-priced/legacy formula — the helper falls back
+ * to the original equal split (`floor(amount / count)`, leftover to the first
+ * subjects in order), so payroll for formulas without a price map is byte-for-byte
+ * unchanged. `count` is the full subject count on the line — including subjects
+ * whose `teacherId` is `null` — so an unstaffed subject still claims its share of
+ * the denominator; a teacher-keyed caller drops that share rather than folding it
+ * into a staffed subject's cut (SOU-74 M1) — a subject-keyed caller (SOU-100's
+ * revenue breakdown) keeps it, since every subject on the line is real regardless
+ * of staffing.
  *
  * Exported (not just `attribute`'s private helper) so `SubjectRevenueAttributionPolicy`
  * reuses the exact same split instead of re-deriving the largest-remainder math.
  */
 export function splitLineAmount(line: StudentLineAttributionInput): readonly SubjectLineShare[] {
   assertValidAttributionLine(line);
-  const count = line.subjectAssignments.length;
-  const base = Math.floor(line.lineAmountMad / count);
-  const remainder = line.lineAmountMad - base * count;
+  const weights = line.subjectAssignments.map((assignment) => assignment.weightMad ?? 0);
+  const shares = apportionByWeight(line.lineAmountMad, weights);
   return line.subjectAssignments.map((assignment, index) => ({
     subjectId: assignment.subjectId,
     teacherId: assignment.teacherId,
-    shareMad: base + (index < remainder ? 1 : 0),
+    shareMad: shares[index] ?? 0,
   }));
 }
 
@@ -116,8 +125,9 @@ function staffedShares(
 }
 
 /**
- * Equal-split teacher fee attribution (CLAUDE.md §6). For each student's
- * collected invoice line, splits the amount equally across its N subjects,
+ * Weighted teacher fee attribution (CLAUDE.md §6, SOU-298). For each student's
+ * collected invoice line, splits the amount across its N subjects weighted by
+ * the formula's per-subject price map (equal split when the formula is un-priced),
  * then sums each subject's share into the teacher who taught it — across all
  * students and all lines — to produce every teacher's monthly attribution
  * base for `percentage-of-monthly-fees` payroll rules. A teacher who taught
