@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Clock, CalendarOff, UserX } from 'lucide-react';
+import { Archive, CalendarOff, Clock, DoorClosed, TriangleAlert, Users, UserX } from 'lucide-react';
 import { Badge, type BadgeProps } from '@centresoutien/ui';
 import type { SessionAuditReason } from '../../lib/schedule-audit/stranded-session-view';
 
@@ -9,7 +9,10 @@ type ReasonConfig = {
   readonly labelKey: string;
 };
 
-// Icons carry no direction, so they need no `rtl:` mirroring here.
+// Icons carry no direction, so they need no `rtl:` mirroring here. Variants follow
+// severity: hard conflicts (double-book) are destructive; soft signals (hours,
+// availability, over-capacity) are warning; a holiday is informational;
+// an archived room is neutral.
 const REASON_CONFIG: Record<SessionAuditReason, ReasonConfig> = {
   'outside-center-hours': { variant: 'warning', icon: Clock, labelKey: 'scheduleAudit.reason.outsideHours' },
   'on-holiday': { variant: 'info', icon: CalendarOff, labelKey: 'scheduleAudit.reason.holiday' },
@@ -18,11 +21,28 @@ const REASON_CONFIG: Record<SessionAuditReason, ReasonConfig> = {
     icon: UserX,
     labelKey: 'scheduleAudit.reason.outsideTeacherAvailability',
   },
+  'teacher-double-booked': {
+    variant: 'destructive',
+    icon: Users,
+    labelKey: 'scheduleAudit.reason.teacherDoubleBooked',
+  },
+  'room-double-booked': {
+    variant: 'destructive',
+    icon: DoorClosed,
+    labelKey: 'scheduleAudit.reason.roomDoubleBooked',
+  },
+  'room-archived': { variant: 'neutral', icon: Archive, labelKey: 'scheduleAudit.reason.roomArchived' },
+  'room-over-capacity': {
+    variant: 'warning',
+    icon: TriangleAlert,
+    labelKey: 'scheduleAudit.reason.roomOverCapacity',
+  },
 };
 
 /**
- * Why a session is stranded: outside the center's effective hours, on a holiday,
- * or outside the teacher's declared availability.
+ * Why a session is stranded: the reason badge for one of the SOU-296 taxonomy
+ * codes (outside hours, on-holiday, teacher unavailable / double-booked,
+ * room double-booked / archived / over capacity).
  */
 export function AuditReasonBadge({ reason }: { reason: SessionAuditReason }) {
   const { t } = useTranslation();

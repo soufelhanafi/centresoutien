@@ -14,6 +14,7 @@ import {
   launch,
   auditRows,
   rowForDate,
+  expandGroup,
   confirmDialog,
   pageCrashed,
   type Launched,
@@ -88,11 +89,13 @@ test('Scenario 1 — override strands an occurrence: "outside hours" row shows n
 // ---------------------------------------------------------------------------
 // Scenario 2 — a holiday added after generation flags the occurrence with an
 // "on holiday" badge; when an occurrence is BOTH outside hours AND on a holiday
-// the reason shown is the holiday (precedence). Both rows in one setup:
-//   first Monday  → outside hours only  → "Hors horaires"
-//   second Monday → outside hours + holiday → "Jour férié" (holiday wins)
+// it carries BOTH reasons (multi-reason, SOU-296). Domain grouping collapses
+// the outside-hours finding into ONE group spanning both Mondays (×2), while
+// the holiday finding is a separate single-date row for the second Monday:
+//   first Monday  → outside hours only            → collapsed "Hors horaires ×2"
+//   second Monday → outside hours + holiday        → "Jour férié" row + both badges
 // ---------------------------------------------------------------------------
-test('Scenario 2 — holiday badge appears, and a both-affected occurrence shows the holiday reason', async () => {
+test('Scenario 2 — a both-affected occurrence carries both the holiday and outside-hours reasons', async () => {
   const L = STR[locale()];
   const D = DATE[locale()];
   live = await launch(locale());
@@ -103,18 +106,36 @@ test('Scenario 2 — holiday badge appears, and a both-affected occurrence shows
   await addHoliday(win, MONDAYS.second); // the second Monday is now ALSO a holiday
   await gotoAudit(win, L);
 
+  await expect(win.locator('html')).toHaveAttribute('dir', L.dir);
+  await expect(win.getByRole('heading', { name: L.pageTitle })).toBeVisible();
+
+  // Two root-cause groups (not two dated rows): outside-hours (collapsed ×2) + holiday.
   await expect(auditRows(win)).toHaveCount(2);
 
-  const outsideRow = rowForDate(win, D.first);
-  await expect(outsideRow.getByText(L.reasonOutsideHours)).toBeVisible();
+  // The outside-hours group collapses both Mondays into ONE card with a ×2 pill
+  // and a first–last date RANGE spanning both Mondays.
+  const outsideGroup = win.getByRole('dialog').locator('ul > li', { hasText: L.groupCount(2) });
+  await expect(outsideGroup).toHaveCount(1);
+  await expect(outsideGroup.getByText(L.reasonOutsideHours)).toBeVisible();
+  await expect(outsideGroup).toContainText(D.first);
+  await expect(outsideGroup).toContainText(D.second);
 
-  const holidayRow = rowForDate(win, D.second);
-  await expect(holidayRow.getByText(L.reasonHoliday)).toBeVisible();
-  // Precedence: the both-affected row shows the holiday reason, NOT the hours reason.
-  await expect(holidayRow.getByText(L.reasonOutsideHours)).toHaveCount(0);
+  // A separate single-date "Jour férié" row exists for the second Monday.
+  const holidayRow = win.getByRole('dialog').locator('ul > li', { hasText: L.reasonHoliday });
+  await expect(holidayRow).toHaveCount(1);
+  await expect(holidayRow).toContainText(D.second);
+  await expect(holidayRow.getByText(L.groupCount(2))).toHaveCount(0);
+
+  // Expand the collapsed outside-hours group; its second-Monday per-date entry
+  // must carry BOTH the "Hors horaires" and "Jour férié" badges.
+  await expandGroup(outsideGroup, L, 2);
+  const secondMondayEntry = outsideGroup.locator('ul > li', { hasText: D.second });
+  await expect(secondMondayEntry).toHaveCount(1);
+  await expect(secondMondayEntry.getByText(L.reasonOutsideHours)).toBeVisible();
+  await expect(secondMondayEntry.getByText(L.reasonHoliday)).toBeVisible();
 
   expect(await pageCrashed(win)).toBe(false);
-  await win.screenshot({ path: `test-results/sou201-s2-holiday-precedence-${locale()}.png` });
+  await win.screenshot({ path: `test-results/sou201-s2-both-reasons-${locale()}.png` });
 });
 
 // ---------------------------------------------------------------------------
@@ -142,7 +163,7 @@ test('Scenario 3 — cancelling one stranded occurrence keeps the weekly templat
   // One structural problem, not two dated rows (SOU-262).
   await expect(auditRows(win)).toHaveCount(1);
   const groupCard = auditRows(win).first();
-  await expect(groupCard.getByText(L.groupRepeats(2))).toBeVisible();
+  await expect(groupCard.getByText(L.groupCount(2))).toBeVisible();
   await groupCard.getByRole('button', { name: L.groupShowDates(2) }).click();
 
   // Cancel the first Monday's occurrence from the expanded per-date list.
@@ -161,7 +182,7 @@ test('Scenario 3 — cancelling one stranded occurrence keeps the weekly templat
   await expect(rowForDate(win, D.first)).toHaveCount(0);
   await expect(rowForDate(win, D.second)).toBeVisible();
   await expect(auditRows(win)).toHaveCount(1);
-  await expect(win.getByRole('dialog').getByText(L.groupRepeats(2))).toHaveCount(0);
+  await expect(win.getByRole('dialog').getByText(L.groupCount(2))).toHaveCount(0);
 
   // The recurring weekly template is untouched (same id, same day/time).
   const weekAfter = await readWeek(win);

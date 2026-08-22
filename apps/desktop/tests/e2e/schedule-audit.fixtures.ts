@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import { _electron as electron, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 
 /**
  * Black-box fixtures for SOU-201 — "Audit du planning", driven through the
@@ -64,8 +64,9 @@ export const STR: Record<
     dialogBack: string;
     emptyTitle: string;
     emptySubtitle: string;
-    groupRepeats: (count: number) => string;
+    groupCount: (count: number) => string;
     groupShowDates: (count: number) => string;
+    groupHideDates: string;
     dir: 'ltr' | 'rtl';
   }
 > = {
@@ -75,7 +76,7 @@ export const STR: Record<
     auditTrigger: 'Audit du planning',
     pageTitle: 'Audit du planning',
     subtitle:
-      'Séances déjà planifiées qui tombent désormais hors des horaires ou un jour férié. Vérifiez puis annulez au cas par cas.',
+      'Séances déjà planifiées qui ne tiennent plus dans le planning : horaires, jours fériés, salles ou disponibilités des enseignants. Vérifiez puis corrigez au cas par cas.',
     reasonOutsideHours: 'Hors horaires',
     reasonHoliday: 'Jour férié',
     cancelRowBtn: 'Annuler la séance',
@@ -84,10 +85,11 @@ export const STR: Record<
       'Seule cette séance sera retirée du planning. La séance hebdomadaire et les autres dates ne changent pas.',
     dialogConfirm: 'Annuler la séance',
     dialogBack: 'Retour',
-    emptyTitle: 'Aucune séance hors horaires',
-    emptySubtitle: 'Toutes les séances planifiées tiennent dans les horaires du centre et évitent les jours fériés.',
-    groupRepeats: (count) => `Se répète chaque semaine (×${count})`,
+    emptyTitle: 'Planning sans conflit',
+    emptySubtitle: 'Toutes les séances planifiées tiennent dans les horaires, les salles et les disponibilités des enseignants.',
+    groupCount: (count) => `×${count}`,
     groupShowDates: (count) => `Voir les ${count} dates`,
+    groupHideDates: 'Masquer les dates',
     dir: 'ltr',
   },
   ar: {
@@ -95,7 +97,7 @@ export const STR: Record<
     planningTitle: 'الجدول الأسبوعي',
     auditTrigger: 'تدقيق الجدولة',
     pageTitle: 'تدقيق الجدولة',
-    subtitle: 'حصص مجدولة سابقًا صارت خارج ساعات العمل أو في يوم عطلة. راجعها ثم ألغِها واحدة تلو الأخرى.',
+    subtitle: 'حصص مجدولة سابقًا لم تعد مناسبة للجدول: الساعات، أيام العطل، القاعات أو توفر الأساتذة. راجعها ثم صحّحها واحدة تلو الأخرى.',
     reasonOutsideHours: 'خارج ساعات العمل',
     reasonHoliday: 'يوم عطلة',
     cancelRowBtn: 'إلغاء الحصة',
@@ -103,10 +105,11 @@ export const STR: Record<
     dialogBody: 'سيتم إلغاء هذه الحصة فقط. تبقى الحصة الأسبوعية والتواريخ الأخرى دون تغيير.',
     dialogConfirm: 'إلغاء الحصة',
     dialogBack: 'رجوع',
-    emptyTitle: 'لا توجد حصص خارج ساعات العمل',
-    emptySubtitle: 'كل الحصص المجدولة تقع ضمن ساعات عمل المركز وتتجنّب أيام العطل.',
-    groupRepeats: (count) => `يتكرر كل أسبوع (×${count})`,
+    emptyTitle: 'جدول بلا تعارض',
+    emptySubtitle: 'كل الحصص المجدولة مناسبة للساعات والقاعات وأوقات توفر الأساتذة.',
+    groupCount: (count) => `×${count}`,
     groupShowDates: (count) => `عرض التواريخ (${count})`,
+    groupHideDates: 'إخفاء التواريخ',
     dir: 'rtl',
   },
 };
@@ -252,6 +255,12 @@ export function auditRows(win: Page) {
 /** The row whose visible text contains a given localized date label. */
 export function rowForDate(win: Page, dateLabel: string) {
   return win.getByRole('dialog').locator('ul > li', { hasText: dateLabel });
+}
+
+/** Expand a collapsed group card via its "Voir les N dates" toggle, waiting for the "Masquer les dates" state. */
+export async function expandGroup(group: Locator, L: (typeof STR)[Locale], count: number): Promise<void> {
+  await group.getByRole('button', { name: L.groupShowDates(count) }).click();
+  await group.getByRole('button', { name: L.groupHideDates }).waitFor();
 }
 
 /** The cancel-occurrence confirm dialog — scoped by its title, since it stacks over the audit modal. */

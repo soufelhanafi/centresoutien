@@ -10,16 +10,20 @@ import { AuditReasonBadge } from './audit-reason-badge';
 import { CancelStrandedSessionDialog } from './cancel-stranded-session-dialog';
 
 /**
- * One stranded session in the audit report: its reason badge, group subject /
+ * One stranded session in the audit report: its reason badge(s), group subject /
  * level, the occurrence's Intl-formatted date and time window, and its room and
  * teacher names (bilingual, active-locale). The cancel button soft-deletes ONLY
  * this dated occurrence (its `ses_…` id) behind a confirm dialog — the recurring
  * template and every other date stay untouched.
+ *
+ * A multi-reason occurrence shows every reason it now carries; the parent list
+ * dedupes a singleton occurrence across its per-reason groups (SOU-296) so it is
+ * rendered once, never once per reason.
  */
 export function StrandedSessionRow({ stranded }: { stranded: StrandedSessionView }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
-  const { session, reason } = stranded;
+  const { session, reasons } = stranded;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const cancelMutation = useCancelStrandedSession();
 
@@ -38,7 +42,9 @@ export function StrandedSessionRow({ stranded }: { stranded: StrandedSessionView
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
       <div className="flex min-w-0 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <AuditReasonBadge reason={reason} />
+          {reasons.map((reason) => (
+            <AuditReasonBadge key={reason} reason={reason} />
+          ))}
           {session.kind === 'exam-prep' ? (
             <KindBadge kind="exam-prep" label={t('planning.kind.examPrepShort')} />
           ) : null}

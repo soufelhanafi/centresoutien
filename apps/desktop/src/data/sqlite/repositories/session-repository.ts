@@ -128,7 +128,9 @@ const UPSERT_MANY_SQL = `
  *  teacher, group, and the group's subject. Join columns are NULL when the
  *  related row is missing or archived (`deleted_at IS NULL` is part of each
  *  join), so the mapper degrades them to the {@link SessionOccurrenceView}
- *  neutral fallback. */
+ *  neutral fallback. The room is joined WITHOUT the tombstone filter so the
+ *  audit can distinguish an archived room (SOU-296) from a not-yet-synced one:
+ *  its name/capacity are CASE-gated to NULL, and `room_archived` is the flag. */
 type OccurrenceViewRow = {
   id: string;
   recurring_session_id: string;
@@ -137,6 +139,8 @@ type OccurrenceViewRow = {
   end_time: string;
   room_id: string;
   room_name: string | null;
+  room_capacity: number | null;
+  room_archived: number;
   teacher_id: string | null;
   teacher_name_fr: string | null;
   teacher_name_ar: string | null;
@@ -161,6 +165,8 @@ function fromOccurrenceViewRow(row: OccurrenceViewRow): SessionOccurrenceView {
     end: row.end_time as TimeOfDay,
     roomId: row.room_id as RoomId,
     roomName: row.room_name,
+    roomCapacity: row.room_capacity,
+    roomArchived: row.room_archived !== 0,
     teacherId: row.teacher_id === null ? null : (row.teacher_id as EntityId),
     teacherName:
       row.teacher_name_fr === null || row.teacher_name_ar === null
@@ -181,12 +187,15 @@ function fromOccurrenceViewRow(row: OccurrenceViewRow): SessionOccurrenceView {
  * Enriched active-occurrence read (SOU-201): every live dated session of the
  * center joined onto its room, teacher, group, and the group's subject. LEFT
  * JOINs so an occurrence with no live group/room/teacher is kept (degraded),
- * never dropped; each join filters `deleted_at IS NULL` so an archived relation
- * reads as absent. The session itself must be live (`ses.deleted_at IS NULL`) so
- * a cancelled occurrence never surfaces in the audit. Bounded to `ses.date >= ?`
- * (the caller's today-forward floor) so SQLite skips historical rows instead of
- * the use case discarding them after the join. Ordered by date then start time —
- * the port's contract, served here without a re-sort.
+ * never dropped; the teacher/group/subject joins filter `deleted_at IS NULL` so
+ * an archived relation reads as absent. The room is the exception (SOU-296): it
+ * is joined WITHOUT the tombstone filter, and its name/capacity are CASE-gated to
+ * NULL while `room_archived` flags the tombstone, so the audit can tell "archived"
+ * from "not yet synced". The session itself must be live (`ses.deleted_at IS
+ * NULL`) so a cancelled occurrence never surfaces in the audit. Bounded to
+ * `ses.date >= ?` (the caller's today-forward floor) so SQLite skips historical
+ * rows instead of the use case discarding them after the join. Ordered by date
+ * then start time — the port's contract, served here without a re-sort.
  */
 const LIST_ACTIVE_OCCURRENCE_VIEW_SQL = `
   SELECT
@@ -196,7 +205,9 @@ const LIST_ACTIVE_OCCURRENCE_VIEW_SQL = `
     ses.start_time           AS start_time,
     ses.end_time             AS end_time,
     ses.room_id              AS room_id,
-    r.name                   AS room_name,
+    CASE WHEN r.deleted_at IS NULL THEN r.name     ELSE NULL END AS room_name,
+    CASE WHEN r.deleted_at IS NULL THEN r.capacity ELSE NULL END AS room_capacity,
+    CASE WHEN r.deleted_at IS NOT NULL THEN 1 ELSE 0 END          AS room_archived,
     ses.teacher_id           AS teacher_id,
     t.name_fr                AS teacher_name_fr,
     t.name_ar                AS teacher_name_ar,
@@ -207,7 +218,7 @@ const LIST_ACTIVE_OCCURRENCE_VIEW_SQL = `
     g.level                  AS level,
     g.kind                   AS kind
   FROM sessions ses
-  LEFT JOIN rooms    r ON r.id = ses.room_id    AND r.deleted_at IS NULL
+  LEFT JOIN rooms    r ON r.id = ses.room_id
   LEFT JOIN teachers t ON t.id = ses.teacher_id AND t.deleted_at IS NULL
   LEFT JOIN groups   g ON g.id = ses.group_id   AND g.deleted_at IS NULL
   LEFT JOIN subjects s ON s.id = g.subject_id   AND s.deleted_at IS NULL

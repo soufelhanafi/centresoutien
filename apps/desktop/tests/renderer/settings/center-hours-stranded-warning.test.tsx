@@ -3,14 +3,14 @@ import { render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PLANS } from '@centresoutien/domain';
 import type { UseQueryResult } from '@tanstack/react-query';
-import type { StrandedSessionView } from '../../../src/renderer/lib/schedule-audit/stranded-session-view';
+import type { StrandedGroupView, StrandedSessionView } from '../../../src/renderer/lib/schedule-audit/stranded-session-view';
 import { CenterHoursStrandedWarning } from '../../../src/renderer/components/settings/center-hours-stranded-warning';
 import { usePlanStore } from '../../../src/renderer/stores/plan-store';
 import { planningModule } from '../../../src/renderer/app/nav-items';
 import i18n from '../../../src/renderer/i18n/config';
 import { planWithout } from '../fakes/plan';
 
-type StrandedResult = Pick<UseQueryResult<readonly StrandedSessionView[]>, 'data'>;
+type StrandedResult = Pick<UseQueryResult<readonly StrandedGroupView[]>, 'data'>;
 
 const mockStranded = vi.hoisted(() => ({
   result: { data: [] } as StrandedResult,
@@ -40,6 +40,8 @@ function strandedSession(index: number): StrandedSessionView {
       end: '19:00',
       roomId: `room_${index}`,
       roomName: null,
+      roomCapacity: null,
+      roomArchived: false,
       teacherId: null,
       teacherName: null,
       groupId: null,
@@ -48,12 +50,24 @@ function strandedSession(index: number): StrandedSessionView {
       level: null,
       kind: 'regular',
     },
-    reason: 'outside-center-hours',
+    reasons: ['outside-center-hours'],
   };
 }
 
-function strandedList(count: number): readonly StrandedSessionView[] {
-  return Array.from({ length: count }, (_, index) => strandedSession(index));
+function strandedGroup(index: number, count = 1): StrandedGroupView {
+  return {
+    key: `outside-center-hours|1|`,
+    reason: 'outside-center-hours',
+    weekday: 1,
+    resourceKind: 'center',
+    resourceId: null,
+    count,
+    occurrences: [strandedSession(index)],
+  };
+}
+
+function strandedList(count: number): readonly StrandedGroupView[] {
+  return Array.from({ length: count }, (_, index) => strandedGroup(index));
 }
 
 beforeEach(() => {
@@ -98,6 +112,15 @@ describe('CenterHoursStrandedWarning — French', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent(
       "3 séances tombent désormais hors des horaires d'ouverture.",
+    );
+  });
+
+  it('sums occurrence counts across groups, not the group count', () => {
+    mockStranded.result = { data: [strandedGroup(0, 4)] };
+    render(<CenterHoursStrandedWarning />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "4 séances tombent désormais hors des horaires d'ouverture.",
     );
   });
 

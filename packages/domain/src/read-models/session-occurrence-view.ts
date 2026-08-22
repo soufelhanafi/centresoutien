@@ -26,11 +26,17 @@ import type { WeeklyRecurringSessionId } from '../entities/weekly-recurring-sess
  * - `roomName` is `null` if the room is archived/not-yet-synced; `teacherName` is
  *   `null` when the teacher is unassigned, archived, or not-yet-synced.
  * - `kind` falls back to `'regular'` when there is no live group.
+ * - `roomCapacity` is `null` when the room is archived or not-yet-synced (its
+ *   capacity is only meaningful for a live room); `roomArchived` is the room's
+ *   tombstone state, so the audit can distinguish "archived" from "not synced".
  *
  * It also carries the raw placement — `date`, `start`, `end` — so the audit can
  * run its pure hours/holiday checks on the same object it returns, without a
  * second read of the underlying entity. `recurringSessionId` lets the report link
- * back to the template the occurrence came from.
+ * back to the template the occurrence came from. The two room columns (SOU-296)
+ * back the room-archived and room-over-capacity findings without a second room
+ * read; the group's live enrollment count is resolved separately (batch read,
+ * see `AuditSessionsOutsideEffectiveHours`), not carried here.
  */
 export type SessionOccurrenceView = {
   readonly id: SessionId;
@@ -40,6 +46,8 @@ export type SessionOccurrenceView = {
   readonly end: TimeOfDay;
   readonly roomId: RoomId;
   readonly roomName: string | null;
+  readonly roomCapacity: number | null;
+  readonly roomArchived: boolean;
   readonly teacherId: EntityId | null;
   readonly teacherName: { fr: string; ar: string } | null;
   readonly groupId: GroupId | null;

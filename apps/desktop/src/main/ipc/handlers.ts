@@ -207,7 +207,7 @@ import {
   createTeacherAvailabilityHandlers,
   type TeacherAvailabilityHandlerDeps,
 } from './teacher-availability-handlers';
-import { toSessionOccurrenceView, toWeeklySessionView } from './session-mappers';
+import { toStrandedSessionGroup, toWeeklySessionView } from './session-mappers';
 
 /** Only the surface each handler needs — a stub satisfies it in tests. */
 export type GetLicenseStatusUseCase = Pick<GetLicenseStatus, 'execute'>;
@@ -1641,15 +1641,10 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       });
     },
     'session.audit.outside-hours': async () => {
-      const { sessionsOutsideEffectiveHours } = await deps.auditSessionsOutsideHours.execute({
+      const { groups } = await deps.auditSessionsOutsideHours.execute({
         centerCode: deps.envelopeContext().centerCode,
       });
-      return {
-        sessionsOutsideEffectiveHours: sessionsOutsideEffectiveHours.map((stranded) => ({
-          session: toSessionOccurrenceView(stranded.session),
-          reason: stranded.reason,
-        })),
-      };
+      return { groups: groups.map(toStrandedSessionGroup) };
     },
     'session.cancel': async (request) => {
       const { centerCode, updatedBy } = deps.envelopeContext();

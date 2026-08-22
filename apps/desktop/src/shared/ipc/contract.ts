@@ -8,10 +8,11 @@ import { teacherAvailabilityIpcContract } from './teacher-availability-contract'
 import {
   bilingualTextSchema,
   hoursByWeekdayViewSchema,
-  sessionOccurrenceViewSchema,
+  strandedSessionGroupSchema,
   timeWindowViewSchema,
   weeklySessionViewSchema,
 } from './view-schemas';
+import type { sessionOccurrenceViewSchema } from './view-schemas';
 import {
   subjectInputSchema,
   subjectUpdateInputSchema,
@@ -1874,29 +1875,21 @@ export const ipcContract = {
     request: resetPlanningSchema,
     response: z.object({ sessionsDeleted: z.number().int(), templatesDeleted: z.number().int() }),
   },
-  // Read-only audit (SOU-201): every live materialized session the CURRENT
-  // effective center hours (override-aware, SOU-165) or holidays (SOU-161) now
-  // place outside any valid window — the drift a center-hours override or a new
-  // holiday introduces after generation. Pure read, never mutates; cancelling a
-  // stranded occurrence is the separate `session.cancel` per-occurrence
-  // soft-delete below. Each row carries one `reason`, in precedence order:
-  // `on-holiday` wins over `outside-center-hours`, which wins over
-  // `outside-teacher-availability` (SOU-283: the teacher is now scheduled outside
-  // their declared availability; only surfaces on plans holding
-  // `planning.teacher-availability`). `session` is the ENRICHED
-  // `sessionOccurrenceViewSchema` (room/teacher/subject/group names, level, kind +
-  // raw date/time) so the report shows names, not ids — the renderer never
-  // re-joins. centerCode is injected in main, never sent from the renderer. Gated
-  // by `settings.center-hours` (every plan) in the use case.
+  // Read-only standing audit (SOU-201, SOU-296): every live materialized session
+  // the CURRENT effective state now strands, across the full conflict taxonomy
+  // (hours, holidays, teacher availability, room/teacher double-books, archived
+  // rooms, room over-capacity). Pure read, never mutates; cancelling a stranded
+  // occurrence is the separate `session.cancel` per-occurrence soft-delete below.
+  // Results are deduplicated in the domain: each `group` carries one reason, its
+  // weekday, the primary resource (teacher/room id, or null for center-wide), the
+  // stranded `count`, and the dated `occurrences` (each with its full `reasons`,
+  // so a multi-reason occurrence appears in one group per reason). `session` is
+  // the ENRICHED `sessionOccurrenceViewSchema`. centerCode is injected in main,
+  // never sent from the renderer. Gated by `settings.center-hours` (every plan).
   'session.audit.outside-hours': {
     request: z.object({}),
     response: z.object({
-      sessionsOutsideEffectiveHours: z.array(
-        z.object({
-          session: sessionOccurrenceViewSchema,
-          reason: z.enum(['outside-center-hours', 'on-holiday', 'outside-teacher-availability']),
-        }),
-      ),
+      groups: z.array(strandedSessionGroupSchema),
     }),
   },
   // Per-occurrence cancel (SOU-201): soft-deletes ONE concrete dated session by
@@ -2435,10 +2428,9 @@ export type SessionDto = z.infer<typeof sessionViewSchema>;
  *  kind + raw date/time). */
 export type SessionOccurrenceDto = z.infer<typeof sessionOccurrenceViewSchema>;
 
-/** One stranded-session row from the out-of-effective-hours audit (SOU-201): the
- *  enriched, display-ready occurrence plus the reason it is now outside any valid
- *  window. */
-export type StrandedSessionDto = IpcResponse<'session.audit.outside-hours'>['sessionsOutsideEffectiveHours'][number];
+/** One deduplicated audit group from the standing audit (SOU-296): a reason, its
+ *  weekday and primary resource, plus the stranded occurrences. */
+export type StrandedSessionGroupDto = IpcResponse<'session.audit.outside-hours'>['groups'][number];
 
 /** The AttendanceRecord boundary DTO — the renderer's `AttendanceRecordView` aliases this. */
 export type AttendanceRecordDto = z.infer<typeof attendanceRecordViewSchema>;

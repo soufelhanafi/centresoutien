@@ -1137,6 +1137,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // SessionOccurrenceViewReadPort (one class, several ports). Never mutates.
   const auditSessionsOutsideHours = new AuditSessionsOutsideEffectiveHours({
     occurrences: concreteSessionRepo,
+    enrollments: enrollmentRepo,
     holidays: holidayRepo,
     centerHours: centerHoursRepo,
     overrides: centerHoursOverrideRepo,
