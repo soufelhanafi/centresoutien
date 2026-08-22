@@ -55,10 +55,12 @@ export type TeacherRosterEntry = {
   kinds: readonly GroupKind[];
   /**
    * The student's subscribed pack, composed from their live subscriptions'
-   * subjects — e.g. "Math + FR + AR" (CLAUDE.md §7). Empty when the student holds
-   * no live subscription (common for a `left` student).
+   * subjects — e.g. "Math + FR + AR" (CLAUDE.md §7). Bilingual so the on-screen
+   * "Formule" column renders in the active language while the FR-only PDF uses
+   * `.fr`. Both scripts are empty when the student holds no live subscription
+   * (common for a `left` student).
    */
-  formulaLabel: string;
+  formulaLabel: BilingualName;
   status: TeacherRosterStatus;
   /** `YYYY-MM` the student left, when `status === 'left'`; null while active. */
   leftMonth: string | null;
@@ -182,18 +184,24 @@ export class GetTeacherRoster {
     studentId: StudentId,
     centerCode: CenterCode,
     subjectNames: ReadonlyMap<SubjectId, BilingualName>,
-  ): Promise<string> {
+  ): Promise<BilingualName> {
     const subscriptions = (await this.subscriptions.listLiveByStudent(studentId)).filter(
       (subscription) => subscription.centerCode === centerCode,
     );
-    const names: string[] = [];
+    const seen = new Set<SubjectId>();
+    const parts: BilingualName[] = [];
     for (const subscription of subscriptions) {
       for (const subjectId of subscription.subjectIds) {
-        const name = subjectNames.get(subjectId)?.fr;
-        if (name && !names.includes(name)) names.push(name);
+        if (seen.has(subjectId)) continue;
+        seen.add(subjectId);
+        const name = subjectNames.get(subjectId);
+        if (name) parts.push(name);
       }
     }
-    return names.join(' + ');
+    return {
+      fr: parts.map((part) => part.fr).join(' + '),
+      ar: parts.map((part) => part.ar).join(' + '),
+    };
   }
 }
 

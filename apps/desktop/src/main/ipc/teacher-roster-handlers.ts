@@ -28,7 +28,10 @@ export function createTeacherRosterHandlers(
     'teacher.roster.print': async (request) => {
       const input = await buildTeacherRosterPdfInput(deps, request);
       const bytes = await deps.teacherRosterPdfRenderer.render(input);
-      const tempPath = writeTempPdf(deps.tempDir, 'eleves-', [request.teacherId], bytes);
+      // The teacher id is renderer-supplied; strip anything that isn't a safe
+      // file-name char so it can never escape the temp dir (defense in depth).
+      const safeId = request.teacherId.replace(/[^A-Za-z0-9_-]/g, '');
+      const tempPath = writeTempPdf(deps.tempDir, 'eleves-', [safeId], bytes);
       const openError = await shell.openPath(tempPath);
       if (openError !== '') throw new Error(`Failed to open the roster PDF: ${openError}`);
       return { ok: true };

@@ -217,7 +217,7 @@ const teacherRosterEntrySchema = z.object({
     z.object({ subjectId: z.string(), name: z.object({ fr: z.string(), ar: z.string() }) }),
   ),
   kinds: z.array(z.enum(['regular', 'exam-prep'])),
-  formulaLabel: z.string(),
+  formulaLabel: z.object({ fr: z.string(), ar: z.string() }),
   status: z.enum(['active', 'left']),
   leftMonth: z.string().nullable(),
 });

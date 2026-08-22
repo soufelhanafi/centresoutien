@@ -26,7 +26,9 @@ export function TeacherRosterRow({ entry }: { entry: TeacherRosterEntryView }) {
         </span>
       </DataTableCell>
       <DataTableCell>
-        <span className="text-sm text-foreground">{entry.formulaLabel || none}</span>
+        <span className="text-sm text-foreground">
+          {pickLocalizedName(entry.formulaLabel, i18n.language) || none}
+        </span>
       </DataTableCell>
       <DataTableCell>
         <span className="flex flex-wrap gap-1">

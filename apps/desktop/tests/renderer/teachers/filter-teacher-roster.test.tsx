@@ -17,7 +17,7 @@ function entry(over: Partial<TeacherRosterEntryView> = {}): TeacherRosterEntryVi
     groups: [{ groupId: 'grp_1', subjectId: MATH.subjectId, subjectName: MATH.name, level: '2 Bac', kind: 'regular' }],
     subjects: [MATH],
     kinds: ['regular'],
-    formulaLabel: 'Mathématiques',
+    formulaLabel: { fr: 'Mathématiques', ar: 'الرياضيات' },
     status: 'active',
     leftMonth: null,
     ...over,

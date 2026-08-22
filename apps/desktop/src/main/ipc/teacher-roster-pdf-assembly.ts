@@ -33,7 +33,7 @@ function toPdfRow(row: TeacherRosterRowDto): TeacherRosterPdfRow {
     name: row.name.fr,
     level: row.level || '—',
     subjects: row.subjects.map((subject) => subject.name.fr).join(', ') || '—',
-    formula: row.formulaLabel || '—',
+    formula: row.formulaLabel.fr || '—',
     kind: toKindLabel(row.kinds) || '—',
     status: toStatusLabel(row),
   };

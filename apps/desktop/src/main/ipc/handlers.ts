@@ -523,7 +523,7 @@ function toTeacherRosterEntryView(entry: TeacherRosterEntry) {
       name: { fr: subject.name.fr, ar: subject.name.ar },
     })),
     kinds: [...entry.kinds],
-    formulaLabel: entry.formulaLabel,
+    formulaLabel: { fr: entry.formulaLabel.fr, ar: entry.formulaLabel.ar },
     status: entry.status,
     leftMonth: entry.leftMonth,
   };

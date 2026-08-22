@@ -182,7 +182,7 @@ describe('GetTeacherRoster', () => {
       level: '1ère Bac',
       status: 'active',
       leftMonth: null,
-      formulaLabel: 'Mathématiques',
+      formulaLabel: { fr: 'Mathématiques', ar: 'الرياضيات' },
       kinds: ['regular'],
     });
     expect(zinebRow?.groups).toHaveLength(1);
@@ -206,7 +206,10 @@ describe('GetTeacherRoster', () => {
     expect(roster[0]?.groups).toHaveLength(2);
     expect(roster[0]?.subjects.map((s) => s.subjectId).sort()).toEqual([MATH, PHYSIQUE].sort());
     expect([...(roster[0]?.kinds ?? [])].sort()).toEqual(['exam-prep', 'regular']);
-    expect(roster[0]?.formulaLabel).toBe('Mathématiques + Physique');
+    expect(roster[0]?.formulaLabel).toEqual({
+      fr: 'Mathématiques + Physique',
+      ar: 'الرياضيات + الفيزياء',
+    });
   });
 
   it('returns an empty roster for a teacher with no groups', async () => {

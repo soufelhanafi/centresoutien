@@ -185,7 +185,7 @@ describe('composition root', () => {
       name: { fr: 'Amine Bennani', ar: 'أمين بناني' },
       status: 'active',
       leftMonth: null,
-      formulaLabel: 'Mathématiques',
+      formulaLabel: { fr: 'Mathématiques', ar: 'الرياضيات' },
       kinds: ['regular'],
     });
     expect(roster[0]?.groups).toEqual([
