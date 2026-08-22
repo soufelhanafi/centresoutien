@@ -38,7 +38,7 @@ const subjectRef = z
 // positive-integer centimes for a real subject id; the cross-field invariant
 // (amounts sum to `priceMad`, subjects match `subjectIds`) lives in
 // `assertValidFormulaSubjectPrices` so it can raise a specific domain error.
-const subjectPrice = z.object({
+export const subjectPrice = z.object({
   subjectId: subjectRef,
   priceMad: z
     .number({ error: 'invalid-subject-price' })
@@ -48,8 +48,14 @@ const subjectPrice = z.object({
 
 export const formulaInputSchema = z.object({
   name: z.object({ fr: frName, ar: arName }),
-  // A priced bundle covers at least one subject.
-  subjectIds: z.array(subjectRef).min(1, { message: 'subjects-required' }),
+  // A priced bundle covers at least one subject, and never the same subject twice
+  // (SOU-298): a duplicate id would double-count that subject in weighted
+  // teacher-fee attribution and let a per-subject price map silently disagree with
+  // `subjectIds`.
+  subjectIds: z
+    .array(subjectRef)
+    .min(1, { message: 'subjects-required' })
+    .refine((ids) => new Set(ids).size === ids.length, { message: 'duplicate-subject' }),
   // Integer MAD centimes, matching InvoiceLine.amountMad; a formula must have a
   // real price (it is, by definition, what a student pays for).
   priceMad: z
