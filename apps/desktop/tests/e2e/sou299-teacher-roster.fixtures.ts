@@ -160,7 +160,9 @@ export const STUDENTS = {
   dup: { fr: 'Amine Double', ar: 'أمين مزدوج' },
   exam: { fr: 'Bilal Examen', ar: 'بلال امتحان' },
   phys: { fr: 'Chaimae Physique', ar: 'شيماء فيزياء' },
-  left: { fr: 'Driss Parti', ar: 'إدريس مغادر' },
+  // Neutral surname on purpose: the AR "left" badge word (غادر) must not be a
+  // substring of this name, or the AC5 status assertion matches the name too.
+  left: { fr: 'Driss Kabbaj', ar: 'إدريس القباج' },
   solo: { fr: 'Sara Solo', ar: 'سارة منفردة' },
 } as const;
 
