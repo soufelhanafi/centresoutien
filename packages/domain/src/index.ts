@@ -432,7 +432,7 @@ export {
   closeStudentSubscriptionMonthSchema,
 } from './schemas/student-subscription';
 export type { StudentSubscriptionInput } from './schemas/student-subscription';
-export { formulaInputSchema, FORMULA_NAME_MAX } from './schemas/formula';
+export { formulaInputSchema, subjectPrice, FORMULA_NAME_MAX } from './schemas/formula';
 export type { FormulaInput } from './schemas/formula';
 export {
   teacherPayrollRuleInputSchema,
@@ -1011,7 +1011,10 @@ export { CancelInvoice } from './use-cases/cancel-invoice';
 export type { CancelInvoiceInput } from './use-cases/cancel-invoice';
 export { SetInvoiceSubjectAllocation } from './use-cases/set-invoice-subject-allocation';
 export type { SetInvoiceSubjectAllocationInput } from './use-cases/set-invoice-subject-allocation';
-export { invoiceAllocationInputSchema } from './schemas/invoice-allocation';
+export {
+  invoiceAllocationInputSchema,
+  invoiceSubjectAllocationSchema,
+} from './schemas/invoice-allocation';
 export type { InvoiceAllocationInput } from './schemas/invoice-allocation';
 export { RecordPayment } from './use-cases/record-payment';
 export type { RecordPaymentInput, RecordPaymentResult } from './use-cases/record-payment';

@@ -1,4 +1,6 @@
 import type { Database as DB } from 'better-sqlite3';
+import { z } from 'zod';
+import { subjectPrice } from '@centresoutien/domain';
 import type {
   Formula,
   FormulaId,
@@ -10,6 +12,18 @@ import type {
   DeviceId,
   UserId,
 } from '@centresoutien/domain';
+
+/** Validate persisted `subject_prices` JSON before trusting it — the repo parses to
+ *  `unknown` then narrows via the domain schema (mirrors `student-repository`), never
+ *  a blind `as` cast on `JSON.parse`. */
+const subjectPricesSchema = z.array(subjectPrice);
+
+function parseSubjectPrices(json: string): FormulaSubjectPrice[] {
+  const parsed: unknown = JSON.parse(json);
+  return subjectPricesSchema
+    .parse(parsed)
+    .map((entry) => ({ subjectId: entry.subjectId as SubjectId, priceMad: entry.priceMad }));
+}
 
 /** The `formulas` table row shape as SQLite returns it. */
 type FormulaRow = {
@@ -47,7 +61,7 @@ function fromRow(row: FormulaRow): Formula {
     // NULL (legacy/un-priced) reads as an absent map — the domain falls back to the
     // equal split. Present JSON is the per-subject price map (SOU-298).
     ...(row.subject_prices !== null && {
-      subjectPrices: JSON.parse(row.subject_prices) as FormulaSubjectPrice[],
+      subjectPrices: parseSubjectPrices(row.subject_prices),
     }),
     kind: row.kind as GroupKind,
     isImmutable: row.is_immutable === 1,

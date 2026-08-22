@@ -4,6 +4,7 @@ import {
   INVOICE_STATUSES,
   INVOICE_LIST_MAX_PAGE_SIZE,
   foldSearchText,
+  invoiceSubjectAllocationSchema,
   InvoiceLineNotFoundError,
   InvoiceNotDraftError,
   InvoiceNotFoundError,
@@ -25,6 +26,7 @@ import type {
   GroupId,
   GroupKind,
   StudentId,
+  SubjectId,
   ParentId,
   UserId,
   OverdueInvoiceViewReadPort,
@@ -116,10 +118,20 @@ function invoiceFromRow(row: InvoiceRow): Invoice {
     cancelledAt: row.cancelled_at === null ? null : new Date(row.cancelled_at),
     // NULL = no manual override; attribution uses the weighted/formula split (SOU-298).
     subjectAllocation:
-      row.subject_allocation === null
-        ? null
-        : (JSON.parse(row.subject_allocation) as InvoiceSubjectAllocation[]),
+      row.subject_allocation === null ? null : parseSubjectAllocation(row.subject_allocation),
   };
+}
+
+/** Validate persisted `subject_allocation` JSON before trusting it — parse to
+ *  `unknown` then narrow via the domain schema (mirrors `student-repository`), never a
+ *  blind `as` cast on `JSON.parse`. */
+const subjectAllocationSchema = z.array(invoiceSubjectAllocationSchema);
+
+function parseSubjectAllocation(json: string): InvoiceSubjectAllocation[] {
+  const parsed: unknown = JSON.parse(json);
+  return subjectAllocationSchema
+    .parse(parsed)
+    .map((entry) => ({ subjectId: entry.subjectId as SubjectId, amountMad: entry.amountMad }));
 }
 
 function lineFromRow(row: InvoiceLineRow): InvoiceLine {

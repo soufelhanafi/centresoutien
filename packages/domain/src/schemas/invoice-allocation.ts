@@ -13,7 +13,7 @@ import { SUBJECT_ID_PREFIX } from '../entities/subject';
  * Setting `allocations: null` clears any existing override back to the weighted
  * default. Messages are stable error codes; the domain stays i18n-agnostic.
  */
-const subjectAllocation = z.object({
+export const invoiceSubjectAllocationSchema = z.object({
   subjectId: z
     .string()
     .refine((value) => hasIdPrefix(value, SUBJECT_ID_PREFIX), { message: 'invalid-id' }),
@@ -24,7 +24,10 @@ const subjectAllocation = z.object({
 });
 
 export const invoiceAllocationInputSchema = z.object({
-  allocations: z.array(subjectAllocation).min(1, { message: 'allocations-required' }).nullable(),
+  allocations: z
+    .array(invoiceSubjectAllocationSchema)
+    .min(1, { message: 'allocations-required' })
+    .nullable(),
 });
 
 export type InvoiceAllocationInput = z.infer<typeof invoiceAllocationInputSchema>;
