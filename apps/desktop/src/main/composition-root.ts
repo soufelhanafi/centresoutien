@@ -61,6 +61,7 @@ import {
   GetInvoicePaymentSummary,
   ListRecentPayments,
   GetDayTakings,
+  GetDayCloseReport,
   EnrollStudent,
   UnenrollStudent,
   CreateTeacher,
@@ -213,6 +214,7 @@ import { SqliteStudentSubscriptionReference } from '../data/sqlite/repositories/
 import { SqliteEnrollmentRepository } from '../data/sqlite/repositories/enrollment-repository';
 import { SqliteInvoiceRepository } from '../data/sqlite/repositories/invoice-repository';
 import { SqlitePaymentRepository } from '../data/sqlite/repositories/payment-repository';
+import { SqliteDayCloseActivityRepository } from '../data/sqlite/repositories/day-close-activity-repository';
 import { SqlitePaymentLedgerUnitOfWork } from '../data/sqlite/repositories/payment-ledger-unit-of-work';
 import {
   ensurePaymentReversalUniqueIndex,
@@ -248,6 +250,7 @@ import { SqliteBackupStore } from '../data/sqlite/repositories/backup-store';
 import { ExcelBackupAdapter } from '../data/excel/backup-excel-adapter';
 import { DialogPathRegistry } from './ipc/dialog-path-registry';
 import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
+import { PdfLibDayCloseReportRenderer } from '../data/pdf/pdf-lib-day-close-report-renderer';
 import { PdfLibParentStatementRenderer } from '../data/pdf/pdf-lib-parent-statement-renderer';
 import { PdfLibTeacherRosterRenderer } from '../data/pdf/pdf-lib-teacher-roster-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
@@ -801,6 +804,13 @@ export function buildContainer(options: ContainerOptions): Container {
   // own already-derived totals).
   const listInvoices = new ListInvoices(invoiceRepo, plan);
   const invoicePdfRenderer = new PdfLibInvoiceRenderer();
+  // End-of-day "Clôture du jour" report (SOU-300): a pure read composing the cash-desk
+  // day takings + recent payments with the new activity read (subscriptions/enrollments/
+  // invoices by UTC envelope day), plus its own FR-only pdf-lib adapter reusing the
+  // SOU-279 invoice primitives. No schema change, no new entity; gated on core.invoicing.
+  const dayCloseActivityRepo = new SqliteDayCloseActivityRepository(db);
+  const getDayCloseReport = new GetDayCloseReport(paymentRepo, dayCloseActivityRepo, plan);
+  const dayCloseReportPdfRenderer = new PdfLibDayCloseReportRenderer();
   // Consolidated per-parent statement — "Facture groupée" (SOU-284): a pure derived
   // read model over each child's per-student invoice (no stored parent invoice),
   // plus its own pdf-lib adapter reusing the SOU-279 invoice primitives. Resolves
@@ -1489,6 +1499,8 @@ export function buildContainer(options: ContainerOptions): Container {
     cancelInvoice,
     updateDraftInvoiceLineAmount,
     invoicePdfRenderer,
+    getDayCloseReport,
+    dayCloseReportPdfRenderer,
     getParentMonthlyStatement,
     parentStatementPdfRenderer,
     teacherRosterPdfRenderer,
