@@ -149,6 +149,20 @@ describe('SqlitePaymentRepository.listRecentPayments (RecentPaymentsReadPort)', 
     expect(rows.map((r) => r.kind).sort()).toEqual(['payment', 'reversal']);
   });
 
+  it('filters to payment-kind rows when kind is set, before the limit (SOU-300)', async () => {
+    await invoiceRepo.createDraft(makeInvoice(INVOICE_A), []);
+    const payment = makePayment({ invoiceId: INVOICE_A, paidOn: '2026-08-10' });
+    await paymentRepo.append(payment);
+    await paymentRepo.append(
+      makePayment({ invoiceId: INVOICE_A, kind: 'reversal', reversesPaymentId: payment.id, paidOn: '2026-08-10' }),
+    );
+
+    const rows = await paymentRepo.listRecentPayments(CENTER, { kind: 'payment', limit: 50 });
+
+    expect(rows).toHaveLength(1);
+    expect(rows.every((r) => r.kind === 'payment')).toBe(true);
+  });
+
   it('applies the inclusive from/to day window', async () => {
     await invoiceRepo.createDraft(makeInvoice(INVOICE_A), []);
     await paymentRepo.append(makePayment({ paidOn: '2026-07-31' }));

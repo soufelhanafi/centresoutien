@@ -55,6 +55,7 @@ type RecentPaymentQueryRow = {
   amount_mad: number;
   method: string;
   paid_on: string;
+  created_at: string;
   student_id: string | null;
   student_name_fr: string | null;
   student_name_ar: string | null;
@@ -68,6 +69,7 @@ function recentPaymentFromRow(row: RecentPaymentQueryRow): RecentPaymentView {
     amountMad: row.amount_mad,
     method: row.method as PaymentMethod,
     paidOn: row.paid_on,
+    createdAt: new Date(row.created_at),
     studentId: row.student_id === null ? null : (row.student_id as StudentId),
     studentName:
       row.student_name_fr === null || row.student_name_ar === null
@@ -159,11 +161,16 @@ export class SqlitePaymentRepository implements PaymentRepository, RecentPayment
       conditions.push('p.method = @method');
       params['method'] = filters.method;
     }
+    if (filters.kind !== undefined) {
+      conditions.push('p.kind = @kind');
+      params['kind'] = filters.kind;
+    }
 
     const rows = this.db
       .prepare(
         `SELECT p.id AS id, p.invoice_id AS invoice_id, p.kind AS kind,
                 p.amount_mad AS amount_mad, p.method AS method, p.paid_on AS paid_on,
+                p.created_at AS created_at,
                 i.student_id AS student_id,
                 s.name_fr AS student_name_fr, s.name_ar AS student_name_ar
          FROM payments p

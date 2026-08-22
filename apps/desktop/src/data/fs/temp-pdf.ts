@@ -11,6 +11,7 @@ const TEMP_PDF_PREFIXES = [
   'bulletin-paie-',
   'recu-paiement-',
   'eleves-',
+  'cloture-du-jour-',
   'stats-centres-',
 ] as const;
 

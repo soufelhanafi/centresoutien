@@ -185,6 +185,10 @@ import { createBackupExcelHandlers, type BackupExcelHandlerDeps } from './backup
 import { createDialogHandlers } from './dialog-handlers';
 import { createExternalHandlers } from './external-handlers';
 import { createInvoiceHandlers, type InvoiceHandlerDeps } from './invoice-handlers';
+import {
+  createDayCloseReportHandlers,
+  type DayCloseReportHandlerDeps,
+} from './day-close-report-handlers';
 import { createTeacherRosterHandlers, type TeacherRosterHandlerDeps } from './teacher-roster-handlers';
 import {
   createParentStatementHandlers,
@@ -850,6 +854,7 @@ function toWeekView(week: readonly CenterHours[]) {
 export type HandlerDeps = BackupHandlerDeps &
   BackupExcelHandlerDeps &
   InvoiceHandlerDeps &
+  DayCloseReportHandlerDeps &
   ParentStatementHandlerDeps &
   OverdueInvoiceHandlerDeps &
   PayslipHandlerDeps &
@@ -1958,6 +1963,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     ...createDialogHandlers(deps.dialogPaths),
     ...createExternalHandlers(),
     ...createInvoiceHandlers(deps),
+    ...createDayCloseReportHandlers(deps),
     ...createParentStatementHandlers(deps),
     ...createTeacherRosterHandlers(deps),
     ...createOverdueInvoiceHandlers(deps),
