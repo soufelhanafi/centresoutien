@@ -7,6 +7,7 @@ import type { syncConflictViewSchema, syncResultViewSchema } from './sync-contra
 import { teacherAvailabilityIpcContract } from './teacher-availability-contract';
 import {
   bilingualTextSchema,
+  dayCloseReportViewSchema,
   hoursByWeekdayViewSchema,
   strandedSessionGroupSchema,
   timeWindowViewSchema,
@@ -1570,6 +1571,28 @@ export const ipcContract = {
     request: z.object({ invoiceId: z.string(), locale: z.enum(['fr', 'ar']) }),
     response: z.object({ savedPath: z.string().nullable() }),
   },
+  // End-of-day "Clôture du jour" report (SOU-300) — a read-only summary the director
+  // generates for any business day: new subscriptions (split regular/exam-prep),
+  // enrollments, issued invoices (count + total billed), cash collected (split by
+  // method), and the day's encaissements list. `get` returns the report view; `print`
+  // renders the FR-only pdf-lib document and opens it in the OS's default PDF viewer;
+  // `export` lets the user pick a save location and returns the chosen path (null when
+  // cancelled). FR-only — no `locale`, unlike `invoice.print`/`invoice.export`.
+  // Composes the cash-desk day takings + recent payments + the day-close activity read;
+  // no schema change, no new entity. centerCode is injected in main, never sent from the
+  // renderer. Gated by `core.invoicing` (every plan), same as `payment.takings`.
+  'dayCloseReport.get': {
+    request: z.object({ day: dayString }),
+    response: dayCloseReportViewSchema,
+  },
+  'dayCloseReport.print': {
+    request: z.object({ day: dayString }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'dayCloseReport.export': {
+    request: z.object({ day: dayString }),
+    response: z.object({ savedPath: z.string().nullable() }),
+  },
   // Consolidated per-parent monthly statement — the "Facture groupée" (SOU-284): a
   // single PDF over ALL a guardian's live children this month, derived at read time
   // from each child's own invoice (no stored parent invoice). Same pdf-lib layout
@@ -2456,6 +2479,9 @@ export type RecentPaymentDto = z.infer<typeof recentPaymentViewSchema>;
 
 /** The cash-desk day-takings header DTO — the renderer's `DayTakingsView` aliases this. */
 export type DayTakingsDto = z.infer<typeof dayTakingsSchema>;
+
+/** The end-of-day report DTO — the renderer's `DayCloseReport` aliases this. */
+export type DayCloseReportDto = z.infer<typeof dayCloseReportViewSchema>;
 
 /** The invoice list/detail DTO — the renderer's `InvoiceListItemView` aliases this. */
 export type InvoiceListItemDto = z.infer<typeof invoiceListItemViewSchema>;
