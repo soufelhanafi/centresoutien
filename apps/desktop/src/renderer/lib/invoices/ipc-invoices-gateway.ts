@@ -1,6 +1,7 @@
 import type {
   InvoiceListFilters,
   InvoiceListItemView,
+  InvoiceSubjectAllocation,
   OpenInvoicesPage,
   OpenInvoicesQuery,
 } from './invoice-view';
@@ -60,6 +61,21 @@ class IpcInvoicesGateway implements InvoicesGateway {
     const updated = await this.get(input.invoiceId);
     if (updated === null) {
       throw new Error(`invoice ${input.invoiceId} line was updated but could not be read back`);
+    }
+    return updated;
+  }
+
+  async setAllocation(
+    invoiceId: string,
+    allocations: readonly InvoiceSubjectAllocation[] | null,
+  ): Promise<InvoiceListItemView> {
+    await window.api.invoke('invoice.setAllocation', {
+      invoiceId,
+      allocations: allocations === null ? null : allocations.map((entry) => ({ ...entry })),
+    });
+    const updated = await this.get(invoiceId);
+    if (updated === null) {
+      throw new Error(`invoice ${invoiceId} allocation was set but could not be read back`);
     }
     return updated;
   }

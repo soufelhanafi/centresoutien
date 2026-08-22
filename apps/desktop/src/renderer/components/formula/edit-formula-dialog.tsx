@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { FormulaInput } from '@centresoutien/domain';
+import type { FormulaWriteInput } from '../../lib/formulas/formula-view';
 import {
   Button,
   Dialog,
@@ -37,7 +37,7 @@ export function EditFormulaDialog({
   const formId = useId();
   const update = useUpdateFormula(formula.id);
 
-  const handleSubmit = async (values: FormulaInput) => {
+  const handleSubmit = async (values: FormulaWriteInput) => {
     try {
       await update.mutateAsync(values);
       toast.success(t('formulas.form.editSuccess'));
@@ -62,6 +62,11 @@ export function EditFormulaDialog({
             subjectIds: [...formula.subjectIds],
             priceMad: formula.priceMad,
             kind: formula.kind,
+            usePerSubjectPricing:
+              formula.subjectPrices !== null &&
+              formula.subjectPrices !== undefined &&
+              formula.subjectPrices.length > 0,
+            subjectPrices: (formula.subjectPrices ?? []).map((price) => ({ ...price })),
           }}
           onSubmit={handleSubmit}
         />

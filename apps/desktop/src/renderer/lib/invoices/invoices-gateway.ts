@@ -2,6 +2,7 @@ import type { RecordPaymentFields, UpdateDraftInvoiceLineAmountFields } from '@c
 import type {
   InvoiceListFilters,
   InvoiceListItemView,
+  InvoiceSubjectAllocation,
   OpenInvoicesPage,
   OpenInvoicesQuery,
 } from './invoice-view';
@@ -44,6 +45,17 @@ export interface InvoicesGateway {
    * Returns the updated invoice (write-then-read-back) so totals refresh.
    */
   updateLineAmount(input: UpdateInvoiceLineAmountInput): Promise<InvoiceListItemView>;
+  /**
+   * Sets or clears the invoice's manual per-subject attribution override (SOU-298).
+   * `allocations` set to a subject→amount vector pins the director's manual split;
+   * `null` clears it back to the weighted default (Option A). The domain reads the
+   * amounts as weights — no sum-to-total constraint. Returns the updated invoice
+   * (write-then-read-back) so the detail refreshes.
+   */
+  setAllocation(
+    invoiceId: string,
+    allocations: readonly InvoiceSubjectAllocation[] | null,
+  ): Promise<InvoiceListItemView>;
   /** Moves a draft invoice to `issued`. Returns the updated invoice (write-then-read-back). */
   issue(invoiceId: string): Promise<InvoiceListItemView>;
   /** Moves a draft or issued invoice to `cancelled`. Returns the updated invoice. */

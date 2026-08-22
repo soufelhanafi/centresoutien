@@ -1,4 +1,4 @@
-import type { FormulaInput, FormulaScope, FormulaView } from './formula-view';
+import type { FormulaScope, FormulaView, FormulaWriteInput } from './formula-view';
 import { ipcFormulasGateway } from './ipc-formulas-gateway';
 
 /**
@@ -13,8 +13,8 @@ import { ipcFormulasGateway } from './ipc-formulas-gateway';
 export interface FormulasGateway {
   list(scope: FormulaScope): Promise<readonly FormulaView[]>;
   get(id: string): Promise<FormulaView | null>;
-  create(input: FormulaInput): Promise<FormulaView>;
-  update(id: string, input: FormulaInput): Promise<FormulaView>;
+  create(input: FormulaWriteInput): Promise<FormulaView>;
+  update(id: string, input: FormulaWriteInput): Promise<FormulaView>;
   clone(id: string): Promise<FormulaView>;
   deactivate(id: string): Promise<FormulaView>;
 }
