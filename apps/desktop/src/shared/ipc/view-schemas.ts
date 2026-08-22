@@ -74,6 +74,42 @@ export const sessionOccurrenceViewSchema = z.object({
   kind: z.enum(['regular', 'exam-prep']),
 });
 
+// The director's end-of-day "Clôture du jour" report (SOU-300) across the IPC
+// boundary — a read-only summary of one business day, FR-only. `newSubscriptions`
+// splits new StudentSubscriptions by formula kind; `studentsEnrolled` counts new
+// enrollments; `invoicesGenerated` is the issued-invoice count + total billed (MAD
+// centimes); `totalCollectedMad`/`collectedByMethod` mirror the cash-desk day
+// takings (all four method keys always present); `encaissements` is the day's
+// collected `payment`-kind rows (reversals excluded). Single source of truth for
+// the renderer's `DayCloseReport` type. Mirrors the domain `DayCloseReport`.
+export const dayCloseReportViewSchema = z.object({
+  day: z.string(),
+  newSubscriptions: z.object({
+    regular: z.number().int().nonnegative(),
+    examPrep: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative(),
+  }),
+  studentsEnrolled: z.number().int().nonnegative(),
+  invoicesGenerated: z.object({
+    count: z.number().int().nonnegative(),
+    totalBilledMad: z.number().int(),
+  }),
+  totalCollectedMad: z.number().int(),
+  collectedByMethod: z.object({
+    cash: z.number().int(),
+    cheque: z.number().int(),
+    transfer: z.number().int(),
+    other: z.number().int(),
+  }),
+  encaissements: z.array(
+    z.object({
+      studentName: z.string(),
+      amountMad: z.number().int(),
+      at: z.string(),
+    }),
+  ),
+});
+
 // The seven audit reason codes (SOU-296) — mirrors the domain `SessionAuditReason`.
 // Mapping to the issue's names: `teacher-unavailable` → `outside-teacher-availability`,
 // `holiday/blackout` → `on-holiday`.

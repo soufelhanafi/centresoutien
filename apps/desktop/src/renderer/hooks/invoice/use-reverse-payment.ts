@@ -3,14 +3,16 @@ import { invoicesGateway } from '../../lib/invoices/invoices-gateway';
 import { todayIso } from '../../lib/payments/today';
 import { arrearsKeys } from '../arrears/keys';
 import { dashboardKeys } from '../dashboard/keys';
+import { dayCloseKeys } from '../day-close/keys';
 import { paymentKeys } from '../payments/keys';
 import { invoiceKeys } from './keys';
 
 /**
  * Reverses a recorded payment via an append-only counter-entry (SOU-237). A
  * reversal changes the invoice's net paid / outstanding / derived status, the
- * cross-invoice cash-desk feed, the arrears list, and dashboard money KPIs — so
- * it invalidates all four families. Invalidating `invoiceKeys.all` (`['invoices']`)
+ * cross-invoice cash-desk feed, the arrears list, dashboard money KPIs, and the
+ * day-close report (SOU-300) mounted on the same `/payments` page — so it invalidates
+ * all of those families. Invalidating `invoiceKeys.all` (`['invoices']`)
  * prefix-covers the list, detail, open, and this invoice's payment-summary query.
  *
  * Invalidation runs `onSettled`, not just on success: a `payment-already-reversed`
@@ -30,6 +32,7 @@ export function useReversePayment() {
       queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
       queryClient.invalidateQueries({ queryKey: paymentKeys.all });
       queryClient.invalidateQueries({ queryKey: arrearsKeys.all });
+      queryClient.invalidateQueries({ queryKey: dayCloseKeys.all });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.basic });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.advanced });
     },

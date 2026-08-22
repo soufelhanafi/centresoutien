@@ -24,6 +24,11 @@ import type { StudentId } from '../entities/student';
  * `paidOn` is the day-granular business date (`'YYYY-MM-DD'`) the money moved —
  * a human date, not a timestamp; the feed's ordering is a display concern, never
  * a sync decision (that stays `version`-driven).
+ *
+ * `createdAt` is the envelope UTC instant the row was actually recorded — the real
+ * clock time of the transaction, distinct from the day-granular `paidOn`. Callers
+ * that need the time of day (e.g. the day-close encaissements list) read it here;
+ * it is still information for humans, never a merge input.
  */
 export type RecentPaymentView = {
   readonly id: PaymentId;
@@ -32,6 +37,7 @@ export type RecentPaymentView = {
   readonly amountMad: number; // integer centimes, always >= 0 (reversals subtract in the feed)
   readonly method: PaymentMethod;
   readonly paidOn: string; // 'YYYY-MM-DD', the business date the money moved
+  readonly createdAt: Date; // envelope UTC instant the row was recorded
   readonly studentId: StudentId | null;
   readonly studentName: { fr: string; ar: string } | null;
 };
@@ -41,13 +47,17 @@ export type RecentPaymentView = {
  * recent-payments feed. `from`/`to` are inclusive `'YYYY-MM-DD'` bounds on `paidOn`
  * (a single day = `from === to`); either may be omitted for an open-ended bound.
  * `method` narrows the feed to a single {@link PaymentMethod} (cash/cheque/transfer/
- * other) when set, and is omitted for the unfiltered "all methods" feed. `limit` is
- * already clamped to a sane maximum by {@link ListRecentPayments} before it reaches
- * the port, so the adapter can trust it as a bounded `LIMIT`.
+ * other) when set, and is omitted for the unfiltered "all methods" feed. `kind` narrows
+ * to a single ledger {@link PaymentKind} — the day-close encaissements read passes
+ * `'payment'` so reversals never consume the `limit` slots ahead of real payments; the
+ * cash-desk feed omits it to show both kinds. `limit` is already clamped to a sane
+ * maximum by {@link ListRecentPayments} before it reaches the port, so the adapter can
+ * trust it as a bounded `LIMIT` — applied *after* the `kind`/`method` filters in SQL.
  */
 export type RecentPaymentsFilters = {
   readonly from?: string; // inclusive 'YYYY-MM-DD' lower bound on paidOn
   readonly to?: string; // inclusive 'YYYY-MM-DD' upper bound on paidOn
   readonly method?: PaymentMethod; // single-method filter; omit for all methods
+  readonly kind?: PaymentKind; // single-kind filter (e.g. 'payment'); omit for both kinds
   readonly limit: number; // hard cap, already clamped by the use case
 };
