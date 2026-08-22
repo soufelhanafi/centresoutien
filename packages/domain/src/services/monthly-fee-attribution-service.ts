@@ -8,7 +8,8 @@ import type { TeacherId } from '../entities/teacher';
 import type { StudentId } from '../entities/student';
 import type { SubjectId } from '../entities/subject';
 import type { Formula, FormulaId } from '../entities/formula';
-import type { Invoice } from '../entities/invoice';
+import type { Invoice, InvoiceSubjectAllocation } from '../entities/invoice';
+import type { InvoiceLineId } from '../entities/invoice-line';
 import {
   TeacherFeeAttributionPolicy,
   type StudentLineAttributionInput,
@@ -128,6 +129,17 @@ export class MonthlyFeeAttributionService {
       const netPaidMad = await this.payments.sumForInvoice(invoice.id);
       const collectedByLine = collectedLineAmounts(lines, netPaidMad);
 
+      const manualAllocation = invoice.subjectAllocation;
+      if (manualAllocation !== null && manualAllocation !== undefined && manualAllocation.length > 0) {
+        const invoiceWideLine = await this.buildManualAllocationLine(
+          invoice,
+          manualAllocation,
+          collectedByLine,
+        );
+        if (invoiceWideLine !== null) inputLines.push(invoiceWideLine);
+        continue;
+      }
+
       for (const line of lines) {
         const collectedMad = collectedByLine.get(line.id) ?? 0;
         if (collectedMad <= 0) continue;
@@ -135,7 +147,7 @@ export class MonthlyFeeAttributionService {
         const formula = formulaById.get(line.formulaId);
         if (!formula) continue;
 
-        const weightBySubject = weightBySubjectForLine(formula, invoice.subjectAllocation);
+        const weightBySubject = weightBySubjectForFormula(formula);
         const subjectAssignments = await this.resolveSubjectAssignments(
           invoice.studentId,
           formula.subjectIds,
@@ -147,6 +159,34 @@ export class MonthlyFeeAttributionService {
       }
     }
     return inputLines;
+  }
+
+  /**
+   * A manual per-invoice `subjectAllocation` is an INVOICE-WIDE split (SOU-298), not a
+   * per-line one: the director's weight vector apportions the invoice's TOTAL collected
+   * amount across its subjects, then each subject resolves to its teacher via the (one)
+   * student's live enrollment. Applying the vector per line — restricted to that line's
+   * formula subjects — would produce the wrong aggregate on a multi-line invoice, since
+   * a subject absent from a line would forfeit its intended share of that line.
+   */
+  private async buildManualAllocationLine(
+    invoice: Invoice,
+    allocation: readonly InvoiceSubjectAllocation[],
+    collectedByLine: ReadonlyMap<InvoiceLineId, number>,
+  ): Promise<StudentLineAttributionInput | null> {
+    const totalCollectedMad = [...collectedByLine.values()].reduce((sum, amount) => sum + amount, 0);
+    if (totalCollectedMad <= 0) return null;
+
+    const subjectIds = allocation.map((entry) => entry.subjectId);
+    const weightBySubject = new Map(allocation.map((entry) => [entry.subjectId, entry.amountMad]));
+    const subjectAssignments = await this.resolveSubjectAssignments(
+      invoice.studentId,
+      subjectIds,
+      weightBySubject,
+    );
+    if (subjectAssignments.length === 0) return null;
+
+    return { studentId: invoice.studentId, lineAmountMad: totalCollectedMad, subjectAssignments };
   }
 
   private async resolveSubjectAssignments(
@@ -176,24 +216,16 @@ export class MonthlyFeeAttributionService {
 }
 
 /**
- * The per-subject weight vector for one line's weighted attribution (SOU-298): a
- * manual per-invoice allocation wins when present, else the formula's own
- * per-subject price map, else an empty map — which leaves every weight `0` and lets
- * `splitLineAmount` fall back to the equal split, so an un-priced formula's payroll
- * never changes. Amounts are used only as *weights*; the policy pro-rates them to
- * the collected amount, so a manual allocation need not sum to the line total.
+ * The per-subject weight vector for one line's weighted attribution when there is no
+ * manual per-invoice override (SOU-298): the formula's own per-subject price map, else
+ * an empty map — which leaves every weight `0` and lets `splitLineAmount` fall back to
+ * the equal split, so an un-priced formula's payroll never changes. Amounts are used
+ * only as *weights*; the policy pro-rates them to the collected amount. A manual
+ * `subjectAllocation` bypasses this entirely — it is applied invoice-wide by
+ * {@link MonthlyFeeAttributionService.buildManualAllocationLine}, not per line.
  */
-function weightBySubjectForLine(
-  formula: Formula,
-  subjectAllocation: Invoice['subjectAllocation'] | undefined,
-): ReadonlyMap<SubjectId, number> {
+function weightBySubjectForFormula(formula: Formula): ReadonlyMap<SubjectId, number> {
   const weights = new Map<SubjectId, number>();
-  if (subjectAllocation !== null && subjectAllocation !== undefined && subjectAllocation.length > 0) {
-    for (const entry of subjectAllocation) {
-      weights.set(entry.subjectId, entry.amountMad);
-    }
-    return weights;
-  }
   for (const entry of formula.subjectPrices ?? []) {
     weights.set(entry.subjectId, entry.priceMad);
   }

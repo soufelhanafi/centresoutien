@@ -27,8 +27,10 @@ const MONTH = '2026-08';
 
 const MATH = 'sub_00000000000000000000000001' as SubjectId;
 const FR = 'sub_00000000000000000000000002' as SubjectId;
+const PHYSICS = 'sub_00000000000000000000000003' as SubjectId;
 const TEACHER_MATH = 'tch_00000000000000000000000001' as TeacherId;
 const TEACHER_FR = 'tch_00000000000000000000000002' as TeacherId;
+const TEACHER_PHYSICS = 'tch_00000000000000000000000003' as TeacherId;
 const STUDENT = 'stu_00000000000000000000000001' as StudentId;
 
 const ids = fakeIds(1);
@@ -182,6 +184,112 @@ describe('MonthlyFeeAttributionService — weighted attribution (SOU-298)', () =
     // 45000 * 44000/90000 = 22000; 45000 * 46000/90000 = 23000; sum 45000.
     expect(result.get(TEACHER_MATH)).toBe(22000);
     expect(result.get(TEACHER_FR)).toBe(23000);
+  });
+
+  function seedGroupWithEnrollment(subjectId: SubjectId, teacherId: TeacherId): void {
+    const group: Group = {
+      id: ids.next('grp') as GroupId,
+      ...envelope(),
+      subjectId,
+      level: 'college',
+      capacity: 20,
+      kind: 'regular',
+      active: true,
+      teacherId: teacherId as unknown as EntityId,
+    };
+    void groups.save(group);
+    const enrollment: Enrollment = {
+      id: ids.next('enr') as EnrollmentId,
+      ...envelope(),
+      studentId: STUDENT,
+      groupId: group.id,
+      startMonth: '2026-01',
+      endMonth: null,
+    };
+    void enrollments.save(enrollment);
+  }
+
+  function seedFormulaFor(
+    name: string,
+    subjectIds: readonly SubjectId[],
+    priceMad: number,
+  ): Formula {
+    const formula: Formula = {
+      id: ids.next('fml') as FormulaId,
+      ...envelope(),
+      name: { fr: name, ar: '' },
+      subjectIds,
+      priceMad,
+      kind: 'regular',
+      isImmutable: false,
+      active: true,
+    };
+    void formulas.save(formula);
+    return formula;
+  }
+
+  // A manual per-invoice allocation is INVOICE-WIDE: it splits the invoice's total
+  // collected amount across its subjects, NOT each line independently. On a two-line
+  // invoice (Math+Français line 90000, Physique line 10000) a director weighting
+  // Math=10 / Français=10 / Physique=80 intends 10000 / 10000 / 80000 of the 100000
+  // collected — not the per-line 45000 / 45000 / 10000 the old per-line code produced.
+  it('applies a manual allocation invoice-wide across multiple lines (Finding 4)', async () => {
+    seedGroupWithEnrollment(MATH, TEACHER_MATH);
+    seedGroupWithEnrollment(FR, TEACHER_FR);
+    seedGroupWithEnrollment(PHYSICS, TEACHER_PHYSICS);
+
+    const mathFrFormula = seedFormulaFor('Math + Français', [MATH, FR], 90000);
+    const physicsFormula = seedFormulaFor('Physique', [PHYSICS], 10000);
+
+    const invoice: Invoice = {
+      id: ids.next('inv') as InvoiceId,
+      ...envelope(),
+      studentId: STUDENT,
+      month: MONTH,
+      status: 'issued',
+      issuedAt: clock().now(),
+      cancelledAt: null,
+      subjectAllocation: [
+        { subjectId: MATH, amountMad: 10 },
+        { subjectId: FR, amountMad: 10 },
+        { subjectId: PHYSICS, amountMad: 80 },
+      ],
+    };
+    const lineA: InvoiceLine = {
+      id: ids.next('invl') as InvoiceLineId,
+      ...envelope(),
+      invoiceId: invoice.id,
+      formulaId: mathFrFormula.id,
+      label: { fr: 'Math + Français', ar: '' },
+      kind: 'regular',
+      amountMad: 90000,
+    };
+    const lineB: InvoiceLine = {
+      id: ids.next('invl') as InvoiceLineId,
+      ...envelope(),
+      invoiceId: invoice.id,
+      formulaId: physicsFormula.id,
+      label: { fr: 'Physique', ar: '' },
+      kind: 'regular',
+      amountMad: 10000,
+    };
+    await invoices.createDraft(invoice, [lineA, lineB]);
+    await payments.append({
+      id: ids.next('pmt') as PaymentId,
+      ...envelope(),
+      invoiceId: invoice.id,
+      kind: 'payment',
+      amountMad: 100000,
+      method: 'cash',
+      paidOn: '2026-08-05',
+      reversesPaymentId: null,
+    });
+
+    const result = await service.attributedAmountsByTeacher(CENTER, MONTH);
+
+    expect(result.get(TEACHER_MATH)).toBe(10000);
+    expect(result.get(TEACHER_FR)).toBe(10000);
+    expect(result.get(TEACHER_PHYSICS)).toBe(80000);
   });
 
   it('uses a manual per-invoice allocation over the formula price map', async () => {
