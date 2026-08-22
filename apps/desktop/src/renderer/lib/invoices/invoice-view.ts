@@ -1,6 +1,15 @@
 import type { GroupKind, InvoiceStatus, PaymentStatus } from '@centresoutien/domain';
+import type { InvoiceSubjectAllocationDto } from '../../../shared/ipc/contract';
 
 export type { InvoiceStatus, PaymentStatus };
+
+/**
+ * One subject's amount in an invoice's manual attribution override (SOU-298) —
+ * a direct alias of the boundary DTO, so the renderer shape can never drift from
+ * what `invoice.setAllocation` accepts and returns. The domain reads these as a
+ * weight vector; they need not sum to the invoice total.
+ */
+export type InvoiceSubjectAllocation = InvoiceSubjectAllocationDto;
 
 /** One frozen billing line, mirroring the domain's `InvoiceLine` snapshot fields. */
 export type InvoiceLineView = {
@@ -36,6 +45,12 @@ export type InvoiceListItemView = {
   readonly netPaidMad: number;
   readonly outstandingMad: number;
   readonly paymentStatus: PaymentStatus;
+  /**
+   * The director's manual per-subject attribution override (SOU-298), or `null`
+   * for the weighted default (Option A). `undefined` on pre-existing fixtures
+   * that predate the field; both absent forms mean "weighted".
+   */
+  readonly subjectAllocation?: readonly InvoiceSubjectAllocation[] | null | undefined;
 };
 
 /** Structural + derived filters for the list screen. An empty object lists everything. */

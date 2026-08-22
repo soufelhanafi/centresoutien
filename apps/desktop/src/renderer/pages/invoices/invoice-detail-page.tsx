@@ -7,6 +7,7 @@ import { useStudent } from '../../hooks/student/use-student';
 import { InvoiceDetailHeader } from '../../components/invoice/invoice-detail-header';
 import { InvoiceLineTable } from '../../components/invoice/invoice-line-table';
 import { InvoicePaymentPanel } from '../../components/invoice/invoice-payment-panel';
+import { InvoiceAllocationCard } from '../../components/invoice/invoice-allocation-card';
 import { PaymentHistoryList } from '../../components/invoice/payment-history-list';
 
 /** Invoice detail: header actions, kind-grouped line breakdown, payment panel. */
@@ -74,8 +75,9 @@ export function InvoiceDetailPage() {
           <InvoiceLineTable invoice={invoice} />
           <PaymentHistoryList invoiceId={invoice.id} />
         </div>
-        <div className="shrink-0 md:w-72">
+        <div className="flex shrink-0 flex-col gap-4 md:w-72">
           <InvoicePaymentPanel invoice={invoice} />
+          <InvoiceAllocationCard invoice={invoice} />
         </div>
       </div>
     </section>
