@@ -20,7 +20,7 @@ export function DayCloseContainer() {
 
   const onExport = async () => {
     try {
-      await exportReport.mutateAsync({ day });
+      await exportReport.mutateAsync(day);
       toast.success(t('payments.dayClose.exportSuccess'));
     } catch {
       toast.error(t('payments.dayClose.exportError'));
@@ -29,7 +29,7 @@ export function DayCloseContainer() {
 
   const onPrint = async () => {
     try {
-      await printReport.mutateAsync({ day });
+      await printReport.mutateAsync(day);
     } catch {
       toast.error(t('payments.dayClose.printError'));
     }
