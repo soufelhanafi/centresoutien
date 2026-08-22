@@ -23,7 +23,7 @@ export function GrowthIndicator({ percent, locale }: { percent: number | null; l
   const isUp = percent > 0;
   const isDown = percent < 0;
   const Icon = isUp ? TrendingUp : isDown ? TrendingDown : Minus;
-  const tone = isUp ? 'text-emerald-600 dark:text-emerald-400' : isDown ? 'text-destructive' : 'text-muted-foreground';
+  const tone = isUp ? 'text-success' : isDown ? 'text-destructive' : 'text-muted-foreground';
 
   return (
     <span className={cn('inline-flex items-center gap-1 font-medium tabular-nums', tone)}>

@@ -42,6 +42,21 @@ export function openDatabaseAt(file: string, key: string): DB {
   return db;
 }
 
+/**
+ * Open an existing encrypted database strictly read-only: it must already exist
+ * (`fileMustExist: true`) and no write ever occurs. Only `PRAGMA key` is applied —
+ * no `journal_mode`, no `foreign_keys`, no UDFs — so inspecting a foreign center's
+ * file for the cross-center stats roll-up (SOU-106) never creates, mutates, or
+ * WAL-touches it. A missing/corrupt/bad-key file throws, which the caller degrades
+ * to an `unavailable` row.
+ */
+export function openDatabaseReadonlyAt(file: string, key: string): DB {
+  const db = new Database(file, { readonly: true, fileMustExist: true });
+  // PRAGMA does not support bound parameters; escape single quotes in the key.
+  db.pragma(`key = '${key.replace(/'/g, "''")}'`);
+  return db;
+}
+
 /** Open (or create) the encrypted database for a given center. */
 export function openDatabase({ centreId, key, dir }: OpenOptions): DB {
   return openDatabaseAt(join(dir, centreDbFileName(centreId)), key);

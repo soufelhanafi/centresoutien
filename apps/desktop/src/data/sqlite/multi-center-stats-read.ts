@@ -5,7 +5,7 @@ import type {
   MultiCenterStatsReadPort,
   MultiCenterStatsRawRow,
 } from '@centresoutien/domain';
-import { centreDbFileName, openDatabaseAt } from './db';
+import { centreDbFileName, openDatabaseReadonlyAt } from './db';
 import { scanInstalledCentreIds, type CenterKeyProvider } from './center-directory';
 import { NET_PAID_BY_INVOICE_SQL } from './repositories/payment-sql';
 
@@ -27,10 +27,11 @@ const MONTHLY_MONEY_SQL = `
     ${NET_PAID_BY_INVOICE_SQL}
   ) pt ON pt.invoice_id = i.id
   WHERE i.deleted_at IS NULL AND i.status = 'issued' AND i.month = @month
+    AND i.center_code = @centerCode
 `;
 
 const ACTIVE_STUDENT_COUNT_SQL =
-  'SELECT COUNT(*) AS n FROM students WHERE deleted_at IS NULL';
+  'SELECT COUNT(*) AS n FROM students WHERE deleted_at IS NULL AND center_code = @centerCode';
 
 const CENTER_PROFILE_SQL =
   "SELECT center_code AS centerCode, name FROM center WHERE deleted_at IS NULL LIMIT 1";
@@ -72,14 +73,14 @@ export class SqliteMultiCenterStatsRead implements MultiCenterStatsReadPort {
   private readCenter(centreId: string, month: string, previous: string): MultiCenterStatsRawRow {
     let db: DB | null = null;
     try {
-      db = openDatabaseAt(join(this.dir, centreDbFileName(centreId)), this.keyFor(centreId));
+      db = openDatabaseReadonlyAt(join(this.dir, centreDbFileName(centreId)), this.keyFor(centreId));
       const profile = db.prepare(CENTER_PROFILE_SQL).get() as
         | { centerCode: string; name: string }
         | undefined;
-      const current = db.prepare(MONTHLY_MONEY_SQL).get({ month }) as MoneyRow;
-      const prior = db.prepare(MONTHLY_MONEY_SQL).get({ month: previous }) as MoneyRow;
-      const students = db.prepare(ACTIVE_STUDENT_COUNT_SQL).get() as { n: number };
       const centerCode = profile?.centerCode ?? centreId;
+      const current = db.prepare(MONTHLY_MONEY_SQL).get({ month, centerCode }) as MoneyRow;
+      const prior = db.prepare(MONTHLY_MONEY_SQL).get({ month: previous, centerCode }) as MoneyRow;
+      const students = db.prepare(ACTIVE_STUDENT_COUNT_SQL).get({ centerCode }) as { n: number };
       const name = profile?.name.trim() ?? '';
       return {
         centreId,

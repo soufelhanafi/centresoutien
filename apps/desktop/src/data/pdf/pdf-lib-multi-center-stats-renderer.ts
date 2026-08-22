@@ -11,6 +11,11 @@ import { formatMad } from './format-mad';
 import { formatPercent } from './format-percent';
 import { multiCenterStatsPdfLabels, type MultiCenterStatsPdfLabels } from './multi-center-stats-pdf-labels';
 
+/** Height of a full center block: title (18) + 5 rows (5×16) + rule (16). */
+const CENTER_BLOCK_HEIGHT = 18 + 5 * 16 + 16;
+/** Height of an unavailable center block: title (18) + notice (15) + rule (16). */
+const UNAVAILABLE_BLOCK_HEIGHT = 18 + 15 + 16;
+
 /**
  * `pdf-lib`-based {@link MultiCenterStatsPdfRenderer} (SOU-106) — the per-center
  * stats owner report. Reuses the invoice/payslip PDF adapter's font + layout
@@ -30,7 +35,11 @@ export class PdfLibMultiCenterStatsRenderer implements MultiCenterStatsPdfRender
 
     this.drawHeader(writer, labels, input);
     this.drawTotals(writer, labels, input);
-    for (const row of input.rows) this.drawCenter(writer, labels, input.locale, row);
+    for (const row of input.rows) {
+      const blockHeight = row.unavailable ? UNAVAILABLE_BLOCK_HEIGHT : CENTER_BLOCK_HEIGHT;
+      if (!writer.hasRoomFor(blockHeight)) writer.startPage(pdfDoc.addPage(PageSizes.A4));
+      this.drawCenter(writer, labels, input.locale, row);
+    }
 
     return pdfDoc.save({ useObjectStreams: false });
   }
@@ -69,7 +78,6 @@ export class PdfLibMultiCenterStatsRenderer implements MultiCenterStatsPdfRender
     locale: 'fr' | 'ar',
     row: MultiCenterStatsPdfRow,
   ): void {
-    if (!writer.hasRoomFor(90)) return;
     writer.text(`${row.displayName} · ${row.centerCode}`, { size: 12, bold: true });
     if (row.unavailable) {
       writer.text(labels.unavailable, { size: 9, color: MUTED_GRAY });

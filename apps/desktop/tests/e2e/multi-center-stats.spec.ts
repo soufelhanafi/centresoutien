@@ -259,8 +259,11 @@ test('Scenario 5 — Premium: an unavailable center DB degrades to a flagged row
   await win.screenshot({ path: `test-results/mcstats-unavailable-${locale()}.png` });
 
   // The unavailable center is flagged, not dropped, and the readable ones render.
+  // With C's profile unreadable, the adapter falls back to its centreId for the
+  // display name — the lost "Centre Nour" can never render — so we assert the
+  // fallback text + the "unavailable" marker, not the display name.
   await expect(win.getByText(L.unavailable).first()).toBeVisible();
-  await expect(win.getByText(CENTER_C.displayName).first()).toBeVisible();
+  await expect(win.getByText(CENTER_C.centreId).first()).toBeVisible();
   await expect(win.getByText(CENTER_A.displayName).first()).toBeVisible();
   await expect(win.getByText(CENTER_B.displayName).first()).toBeVisible();
 
