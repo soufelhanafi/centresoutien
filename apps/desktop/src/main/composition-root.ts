@@ -140,6 +140,7 @@ import {
   IssueInvoice,
   CancelInvoice,
   UpdateDraftInvoiceLineAmount,
+  SetInvoiceSubjectAllocation,
   MonthlyFeeAttributionService,
   ComputeMonthlyPayrolls,
   ConfirmTeacherPayout,
@@ -817,6 +818,9 @@ export function buildContainer(options: ContainerOptions): Container {
   const cancelInvoice = new CancelInvoice(invoiceRepo, clock, plan);
   // Draft-line amount override (SOU-289): draft-only; issued/cancelled lines stay frozen.
   const updateDraftInvoiceLineAmount = new UpdateDraftInvoiceLineAmount(invoiceRepo, clock, plan);
+  // Manual per-invoice attribution override (SOU-298): pins/clears the per-subject
+  // weight vector weighted attribution uses; gated by `payroll.teacher`.
+  const setInvoiceSubjectAllocation = new SetInvoiceSubjectAllocation(invoiceRepo, clock, plan);
   // Impayés (arrears) list (SOU-103): no new repository — `invoiceRepo` also
   // implements `OverdueInvoiceViewReadPort` (its join is anchored on `invoices`,
   // mirroring the WeeklySessionViewReadPort/WeeklyRecurringSessionRepository
@@ -1472,6 +1476,7 @@ export function buildContainer(options: ContainerOptions): Container {
     issueInvoice,
     cancelInvoice,
     updateDraftInvoiceLineAmount,
+    setInvoiceSubjectAllocation,
     invoicePdfRenderer,
     getParentMonthlyStatement,
     parentStatementPdfRenderer,

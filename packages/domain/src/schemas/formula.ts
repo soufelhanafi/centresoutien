@@ -34,6 +34,18 @@ const subjectRef = z
   .string()
   .refine((value) => hasIdPrefix(value, SUBJECT_ID_PREFIX), { message: 'invalid-id' });
 
+// One subject's slice of the bundle price (SOU-298). Structural checks only —
+// positive-integer centimes for a real subject id; the cross-field invariant
+// (amounts sum to `priceMad`, subjects match `subjectIds`) lives in
+// `assertValidFormulaSubjectPrices` so it can raise a specific domain error.
+const subjectPrice = z.object({
+  subjectId: subjectRef,
+  priceMad: z
+    .number({ error: 'invalid-subject-price' })
+    .int({ message: 'invalid-subject-price' })
+    .positive({ message: 'invalid-subject-price' }),
+});
+
 export const formulaInputSchema = z.object({
   name: z.object({ fr: frName, ar: arName }),
   // A priced bundle covers at least one subject.
@@ -44,6 +56,10 @@ export const formulaInputSchema = z.object({
     .number({ error: 'invalid-price' })
     .int({ message: 'invalid-price' })
     .positive({ message: 'invalid-price' }),
+  // Optional per-subject breakdown for weighted attribution (SOU-298). Omit it
+  // (or send `[]`) for the equal-split fallback; when present it must sum to
+  // `priceMad` and cover exactly `subjectIds` (enforced in the use case).
+  subjectPrices: z.array(subjectPrice).optional(),
   kind: z.enum(GROUP_KINDS, { error: 'invalid-kind' }),
 });
 

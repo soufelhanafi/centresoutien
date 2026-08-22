@@ -9,7 +9,9 @@ import type { Formula } from '../entities/formula';
  * narrowed here since a Formula's `id` is `readonly` and `isImmutable` is a
  * data-layer field the domain never assigns directly, see {@link Formula}).
  */
-export type FormulaPatch = Partial<Pick<Formula, 'name' | 'subjectIds' | 'priceMad' | 'kind' | 'active'>>;
+export type FormulaPatch = Partial<
+  Pick<Formula, 'name' | 'subjectIds' | 'priceMad' | 'subjectPrices' | 'kind' | 'active'>
+>;
 
 /**
  * Applies `patch` to `prev`, enforcing the immutable-once-referenced barrier

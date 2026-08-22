@@ -96,6 +96,7 @@ export class CreateInvoiceDraft {
       status: 'draft',
       issuedAt: null,
       cancelledAt: null,
+      subjectAllocation: null,
     };
 
     const lines: InvoiceLine[] = fields.lines.map((snapshot) => ({

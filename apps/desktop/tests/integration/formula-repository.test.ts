@@ -97,6 +97,25 @@ describe('SqliteFormulaRepository', () => {
     expect(await repo.findById(formula.id)).toEqual(formula);
   });
 
+  it('round-trips a per-subject price map (SOU-298)', async () => {
+    const formula = makeFormula({
+      priceMad: 35000,
+      subjectPrices: [
+        { subjectId: MATH, priceMad: 20000 },
+        { subjectId: PHYS, priceMad: 15000 },
+      ],
+    });
+    await repo.save(formula);
+    expect(await repo.findById(formula.id)).toEqual(formula);
+  });
+
+  it('reads a formula with no price map as an absent map (legacy/equal-split fallback)', async () => {
+    const formula = makeFormula();
+    await repo.save(formula);
+    const found = await repo.findById(formula.id);
+    expect(found?.subjectPrices).toBeUndefined();
+  });
+
   it('findById returns null for an unknown id', async () => {
     expect(await repo.findById('fml_00000000000000000000000099' as FormulaId)).toBeNull();
   });

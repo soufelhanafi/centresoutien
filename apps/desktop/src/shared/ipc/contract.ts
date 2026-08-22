@@ -18,6 +18,7 @@ import {
   niveauInputSchema,
   niveauUpdateInputSchema,
   formulaInputSchema,
+  invoiceAllocationInputSchema,
   studentInputSchema,
   setStudentGuardiansInputSchema,
   parentInputSchema,
@@ -433,6 +434,13 @@ const invoiceLineViewSchema = z.object({
   kind: z.enum(['regular', 'exam-prep']),
   amountMad: z.number().int().nonnegative(),
 });
+
+// One subject's slice of a manual per-invoice attribution override (SOU-298),
+// amounts in integer MAD centimes. Single source of truth for the renderer's
+// `InvoiceSubjectAllocationView` type.
+const invoiceSubjectAllocationViewSchema = z.array(
+  z.object({ subjectId: z.string(), amountMad: z.number().int().nonnegative() }),
+);
 
 // The invoice list/detail read model across the IPC boundary (SOU-69): the
 // header (envelope stripped, dates serialized), its lines, and the same
@@ -961,6 +969,11 @@ const formulaViewSchema = z.object({
   name: z.object({ fr: z.string(), ar: z.string() }),
   subjectIds: z.array(z.string()),
   priceMad: z.number().int(),
+  // The per-subject price map (SOU-298), or null when the formula is un-priced and
+  // attribution falls back to the equal split. Amounts are integer MAD centimes.
+  subjectPrices: z
+    .array(z.object({ subjectId: z.string(), priceMad: z.number().int() }))
+    .nullable(),
   kind: z.enum(['regular', 'exam-prep']),
   isImmutable: z.boolean(),
   active: z.boolean(),
@@ -1578,6 +1591,19 @@ export const ipcContract = {
   'invoice.updateLineAmount': {
     request: updateDraftInvoiceLineAmountSchema,
     response: z.object({ line: invoiceLineViewSchema }),
+  },
+  // Manual per-invoice teacher-fee attribution override (SOU-298). The director
+  // pins how one invoice's collected fees split across subjects, overriding the
+  // formula-price-weighted default; `allocations: null` clears it back to the
+  // weighted default. Amounts are integer MAD centimes used as *weights* (pro-rated
+  // when the invoice is only partially paid) — they never touch the append-only
+  // Payment ledger or the billed total. The domain rejects a non-integer/negative
+  // amount, a duplicate subject, or an all-zero map (`invoice-allocation-*`), and an
+  // unknown/foreign-center invoice (`invoice-not-found`). centerCode/updatedBy are
+  // injected in main, never sent from the renderer. Gated by `payroll.teacher`.
+  'invoice.setAllocation': {
+    request: invoiceAllocationInputSchema.extend({ invoiceId: z.string() }),
+    response: z.object({ subjectAllocation: invoiceSubjectAllocationViewSchema.nullable() }),
   },
   // Impayés (arrears) list (SOU-103): every `issued` invoice that is both past its
   // implicit due date (its billing month's last day) and not fully paid, grouped by

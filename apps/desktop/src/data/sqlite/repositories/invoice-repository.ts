@@ -18,6 +18,7 @@ import type {
   InvoiceListRow,
   InvoiceListFilters,
   InvoiceListPage,
+  InvoiceSubjectAllocation,
   CenterCode,
   DeviceId,
   FormulaId,
@@ -46,6 +47,7 @@ type InvoiceRow = {
   status: string;
   issued_at: string | null;
   cancelled_at: string | null;
+  subject_allocation: string | null;
 };
 
 /** The `invoice_lines` table row shape as SQLite returns it. */
@@ -112,6 +114,11 @@ function invoiceFromRow(row: InvoiceRow): Invoice {
     status: row.status as InvoiceStatus,
     issuedAt: row.issued_at === null ? null : new Date(row.issued_at),
     cancelledAt: row.cancelled_at === null ? null : new Date(row.cancelled_at),
+    // NULL = no manual override; attribution uses the weighted/formula split (SOU-298).
+    subjectAllocation:
+      row.subject_allocation === null
+        ? null
+        : (JSON.parse(row.subject_allocation) as InvoiceSubjectAllocation[]),
   };
 }
 
@@ -148,6 +155,10 @@ function invoiceToParams(invoice: Invoice) {
     status: invoice.status,
     issued_at: invoice.issuedAt ? invoice.issuedAt.toISOString() : null,
     cancelled_at: invoice.cancelledAt ? invoice.cancelledAt.toISOString() : null,
+    subject_allocation:
+      invoice.subjectAllocation && invoice.subjectAllocation.length > 0
+        ? JSON.stringify(invoice.subjectAllocation)
+        : null,
   };
 }
 
@@ -177,18 +188,19 @@ function lineToParams(line: InvoiceLine) {
 const SAVE_INVOICE_SQL = `
   INSERT INTO invoices
     (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at,
-     version, student_id, month, status, issued_at, cancelled_at)
+     version, student_id, month, status, issued_at, cancelled_at, subject_allocation)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by, @deleted_at,
-     @version, @student_id, @month, @status, @issued_at, @cancelled_at)
+     @version, @student_id, @month, @status, @issued_at, @cancelled_at, @subject_allocation)
   ON CONFLICT(id) DO UPDATE SET
-    updated_at   = excluded.updated_at,
-    updated_by   = excluded.updated_by,
-    deleted_at   = excluded.deleted_at,
-    version      = excluded.version,
-    status       = excluded.status,
-    issued_at    = excluded.issued_at,
-    cancelled_at = excluded.cancelled_at
+    updated_at         = excluded.updated_at,
+    updated_by         = excluded.updated_by,
+    deleted_at         = excluded.deleted_at,
+    version            = excluded.version,
+    status             = excluded.status,
+    issued_at          = excluded.issued_at,
+    cancelled_at       = excluded.cancelled_at,
+    subject_allocation = excluded.subject_allocation
 `;
 
 // A plain INSERT with no ON CONFLICT clause: re-inserting a line id fails loudly.

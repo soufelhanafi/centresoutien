@@ -111,6 +111,38 @@ export class InvoiceLineNotFoundError extends DomainError {
   }
 }
 
+/** Why a manual per-invoice attribution allocation is rejected: an amount is not a
+ *  non-negative integer, a subject appears twice, or every amount is zero. */
+export type InvalidInvoiceAllocationReason = 'invalid-amount' | 'duplicate-subject' | 'all-zero';
+
+/**
+ * Thrown when a manual per-invoice attribution override (SOU-298) is malformed:
+ * an amount is not a non-negative integer number of MAD centimes (`invalid-amount`),
+ * the same subject is listed twice (`duplicate-subject`), or every amount is zero so
+ * the override carries no split at all (`all-zero`). Unlike the Formula price map,
+ * the allocation is NOT required to sum to any total — it is a weight vector for
+ * attribution, pro-rated when the invoice is only partially paid — so no
+ * sum-invariant is enforced here. The renderer resolves the stable
+ * `invoice-allocation-invalid-amount` / `invoice-allocation-duplicate-subject` /
+ * `invoice-allocation-all-zero` code; the domain stays i18n-agnostic.
+ */
+export class InvalidInvoiceAllocationError extends DomainError {
+  readonly code:
+    | 'invoice-allocation-invalid-amount'
+    | 'invoice-allocation-duplicate-subject'
+    | 'invoice-allocation-all-zero';
+
+  constructor(readonly reason: InvalidInvoiceAllocationReason) {
+    super(`Manual invoice attribution allocation is invalid (${reason}).`);
+    this.code =
+      reason === 'invalid-amount'
+        ? 'invoice-allocation-invalid-amount'
+        : reason === 'duplicate-subject'
+          ? 'invoice-allocation-duplicate-subject'
+          : 'invoice-allocation-all-zero';
+  }
+}
+
 /**
  * Thrown when `ListInvoices` is asked to combine `pageSize` (keyset pagination,
  * applied in SQL before the LIMIT) with `paymentStatus` (the tri-state derived

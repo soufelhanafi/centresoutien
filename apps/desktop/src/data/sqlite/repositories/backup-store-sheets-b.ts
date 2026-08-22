@@ -95,6 +95,8 @@ export const SHEET_SQL_B: Readonly<
       ['status', 'status'],
       ['issuedAt', 'issued_at'],
       ['cancelledAt', 'cancelled_at'],
+      // Opaque JSON manual per-subject attribution override (SOU-298); round-trips as text.
+      ['subjectAllocation', 'subject_allocation'],
     ],
   },
   'invoice-lines': {
