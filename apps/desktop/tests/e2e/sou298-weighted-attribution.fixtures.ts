@@ -349,18 +349,29 @@ export async function setAllocation(
 
 export type PaymentSummary = { total: number; netPaid: number; outstanding: number; status: string; ledger: unknown[] };
 
-/** Read an invoice's derived payment summary + append-only ledger through the public bridge. */
+/**
+ * Read an invoice's derived payment summary + append-only ledger through the
+ * public bridge. The `payment.summary` channel returns the money fields with the
+ * `Mad` suffix (`totalMad`/`netPaidMad`/`outstandingMad`) and the ledger under
+ * `payments`; this maps them onto the suffix-free shape the specs assert on.
+ */
 export async function paymentSummary(win: Page, invoiceId: string): Promise<PaymentSummary> {
   return win.evaluate(async (id) => {
     const api = (window as unknown as { api: Bridge }).api;
     const res = (await api.invoke('payment.summary', { invoiceId: id })) as {
-      total: number;
-      netPaid: number;
-      outstanding: number;
+      totalMad: number;
+      netPaidMad: number;
+      outstandingMad: number;
       status: string;
-      ledger: unknown[];
+      payments: unknown[];
     };
-    return { total: res.total, netPaid: res.netPaid, outstanding: res.outstanding, status: res.status, ledger: res.ledger };
+    return {
+      total: res.totalMad,
+      netPaid: res.netPaidMad,
+      outstanding: res.outstandingMad,
+      status: res.status,
+      ledger: res.payments,
+    };
   }, invoiceId);
 }
 

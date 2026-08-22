@@ -46,7 +46,7 @@ describe('FormulaSubjectPricesField', () => {
 
   afterEach(() => vi.restoreAllMocks());
 
-  it('omits subjectPrices when the per-subject toggle stays off (equal-split)', async () => {
+  it('sends an empty subjectPrices map when the per-subject toggle stays off (clears to equal-split)', async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();
     renderForm(onSubmit);
@@ -55,7 +55,9 @@ describe('FormulaSubjectPricesField', () => {
     await user.click(screen.getByRole('button', { name: 'submit' }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    expect(onSubmit.mock.calls[0][0]).not.toHaveProperty('subjectPrices');
+    // An explicit [] (not an omission) so UpdateFormula clears any existing map
+    // back to the equal-split default rather than keeping a stale one (SOU-298).
+    expect(onSubmit.mock.calls[0][0].subjectPrices).toEqual([]);
   });
 
   it('blocks submit and shows an error when the per-subject prices do not sum to the total', async () => {

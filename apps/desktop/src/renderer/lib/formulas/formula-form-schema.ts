@@ -38,11 +38,13 @@ export type FormulaFormValues = z.infer<typeof formulaFormSchema>;
 
 /**
  * Projects the form values onto the write payload the `formula.create` /
- * `formula.update` channels accept: drops the UI-only toggle, and includes
- * `subjectPrices` only when the director opted into per-subject pricing —
- * otherwise the map is omitted (equal-split), per the SOU-298 contract.
+ * `formula.update` channels accept: drops the UI-only toggle, and sends the
+ * per-subject `subjectPrices` map when the director opted in. When the toggle is
+ * off it sends an explicit empty map — NOT an omission: `UpdateFormula` reads an
+ * omitted map as "keep the existing one", so on an already-priced formula only an
+ * explicit `[]` actually clears it back to the equal-split default (SOU-298).
  */
 export function toFormulaWriteInput(values: FormulaFormValues): FormulaWriteInput {
   const { usePerSubjectPricing, subjectPrices, ...base } = values;
-  return usePerSubjectPricing ? { ...base, subjectPrices } : base;
+  return { ...base, subjectPrices: usePerSubjectPricing ? subjectPrices : [] };
 }
