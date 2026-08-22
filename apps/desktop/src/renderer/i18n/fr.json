@@ -2567,6 +2567,31 @@
     "tabsLabel": "Sections de la caisse",
     "retry": "Réessayer",
     "unknownStudent": "Élève inconnu",
+    "dayClose": {
+      "title": "Clôture du jour",
+      "subtitle": "Choisissez une journée pour consulter son bilan et l'exporter.",
+      "dayLabel": "Journée",
+      "export": "Exporter",
+      "print": "Imprimer",
+      "totalCollected": "Total encaissé",
+      "byMethodLabel": "Total encaissé par mode de paiement",
+      "newSubscriptions": "Nouvelles souscriptions",
+      "newSubscriptionsSplit": "Régulier {{regular}} · PE {{examPrep}}",
+      "studentsEnrolled": "Élèves inscrits",
+      "invoicesGenerated": "Factures générées",
+      "invoicesBilled": "Total facturé : {{total}}",
+      "encaissements": {
+        "title": "Encaissements",
+        "empty": "Aucun encaissement ce jour-là."
+      },
+      "loadError": "Le chargement du bilan du jour a échoué.",
+      "retry": "Réessayer",
+      "emptyTitle": "Aucune activité",
+      "emptyBody": "Aucune activité enregistrée pour cette journée.",
+      "exportSuccess": "Le bilan du jour a été exporté.",
+      "exportError": "L'export du bilan du jour a échoué.",
+      "printError": "L'impression du bilan du jour a échoué."
+    },
     "takings": {
       "title": "Recette du jour",
       "count_one": "{{count}} paiement",

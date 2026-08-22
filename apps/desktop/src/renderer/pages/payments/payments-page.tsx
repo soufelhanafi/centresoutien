@@ -8,6 +8,7 @@ import {
   type RecentPaymentsFilterState,
 } from '../../components/payments/recent-payments-filters';
 import { ArrearsPanel } from '../../components/arrears/arrears-panel';
+import { DayCloseContainer } from '../../components/day-close/day-close-container';
 
 const RECORD_TAB = 'record';
 const FEED_TAB = 'feed';
@@ -38,6 +39,8 @@ export function PaymentsPage() {
         </h1>
         <p className="text-sm text-muted-foreground">{t('payments.subtitle')}</p>
       </header>
+
+      <DayCloseContainer />
 
       <Tabs defaultValue={RECORD_TAB} className="flex flex-col gap-4">
         <TabsList aria-label={t('payments.tabsLabel')} className="w-full max-w-xl print:hidden">
