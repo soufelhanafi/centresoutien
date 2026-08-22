@@ -17,10 +17,10 @@ const ENCAISSEMENT_ROW_HEIGHT = 16;
 const LABELS = {
   title: 'Clôture du jour',
   generatedAt: 'Généré le',
-  newSubscriptions: 'Nouvelles inscriptions',
+  newSubscriptions: 'Nouvelles souscriptions',
   regular: 'Régulier',
   examPrep: 'Préparation examen',
-  studentsEnrolled: 'Inscriptions aux groupes',
+  studentsEnrolled: 'Élèves inscrits',
   invoicesGenerated: 'Factures générées',
   totalBilled: 'Total facturé',
   totalCollected: 'Total encaissé',

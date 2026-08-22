@@ -24,6 +24,11 @@ import type { StudentId } from '../entities/student';
  * `paidOn` is the day-granular business date (`'YYYY-MM-DD'`) the money moved —
  * a human date, not a timestamp; the feed's ordering is a display concern, never
  * a sync decision (that stays `version`-driven).
+ *
+ * `createdAt` is the envelope UTC instant the row was actually recorded — the real
+ * clock time of the transaction, distinct from the day-granular `paidOn`. Callers
+ * that need the time of day (e.g. the day-close encaissements list) read it here;
+ * it is still information for humans, never a merge input.
  */
 export type RecentPaymentView = {
   readonly id: PaymentId;
@@ -32,6 +37,7 @@ export type RecentPaymentView = {
   readonly amountMad: number; // integer centimes, always >= 0 (reversals subtract in the feed)
   readonly method: PaymentMethod;
   readonly paidOn: string; // 'YYYY-MM-DD', the business date the money moved
+  readonly createdAt: Date; // envelope UTC instant the row was recorded
   readonly studentId: StudentId | null;
   readonly studentName: { fr: string; ar: string } | null;
 };

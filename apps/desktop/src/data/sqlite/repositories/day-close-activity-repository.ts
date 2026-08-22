@@ -16,7 +16,8 @@ import type {
  * Every count is center-scoped and tombstone-hiding (`deleted_at IS NULL`), and
  * sliced by the **UTC envelope day** — `substr(created_at, 1, 10)` for
  * subscriptions/enrollments, `substr(issued_at, 1, 10)` for invoices — within the
- * inclusive `[range.from, range.to]` window. Invoice totals reuse the same
+ * inclusive `[range.from, range.to]` window. Enrollments count **distinct students**
+ * (a student joining two groups the same day counts once). Invoice totals reuse the same
  * `SUM(amount_mad)` line derivation the invoice list already uses; no money math is
  * re-invented here.
  */
@@ -64,7 +65,7 @@ export class SqliteDayCloseActivityRepository implements DayCloseActivityReadPor
   private countStudentsEnrolled(centerCode: CenterCode, range: DayCloseActivityRange): number {
     const row = this.db
       .prepare(
-        `SELECT COUNT(*) AS n
+        `SELECT COUNT(DISTINCT student_id) AS n
          FROM enrollments
          WHERE center_code = @center_code
            AND deleted_at IS NULL

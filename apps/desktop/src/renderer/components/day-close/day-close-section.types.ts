@@ -1,13 +1,6 @@
-// contract mirror — replaced by the domain type on integration (SOU-300 backend owns `DayCloseReport`).
-export type DayCloseReport = {
-  day: string;
-  newSubscriptions: { regular: number; examPrep: number; total: number };
-  studentsEnrolled: number;
-  invoicesGenerated: { count: number; totalBilledMad: number };
-  totalCollectedMad: number;
-  collectedByMethod: { cash: number; cheque: number; transfer: number; other: number };
-  encaissements: ReadonlyArray<{ studentName: string; amountMad: number; at: string }>;
-};
+import type { DayCloseReport } from '../../lib/day-close/day-close-report';
+
+export type { DayCloseReport };
 
 /** Export/print controls, grouped to keep the section's prop count under the ceiling. */
 export type DayCloseActions = {

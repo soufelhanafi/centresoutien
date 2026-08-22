@@ -2584,13 +2584,13 @@
         "title": "Encaissements",
         "empty": "Aucun encaissement ce jour-là."
       },
-      "loadError": "Le chargement du bilan du jour a échoué.",
+      "loadError": "Le chargement de la clôture du jour a échoué.",
       "retry": "Réessayer",
       "emptyTitle": "Aucune activité",
       "emptyBody": "Aucune activité enregistrée pour cette journée.",
-      "exportSuccess": "Le bilan du jour a été exporté.",
-      "exportError": "L'export du bilan du jour a échoué.",
-      "printError": "L'impression du bilan du jour a échoué."
+      "exportSuccess": "La clôture du jour a été exportée.",
+      "exportError": "L'export de la clôture du jour a échoué.",
+      "printError": "L'impression de la clôture du jour a échoué."
     },
     "takings": {
       "title": "Recette du jour",

@@ -12,7 +12,8 @@ import type { DayTakings } from './day-takings';
  *
  * `newSubscriptions` counts {@link StudentSubscription} rows created that day,
  * split by `Formula.kind` (`regular` vs `exam-prep`); `total` is their sum.
- * `studentsEnrolled` counts {@link Enrollment} rows created that day. Both count
+ * `studentsEnrolled` counts the **distinct students** who gained an
+ * {@link Enrollment} that day (a student joining two groups counts once). Both count
  * by their **UTC envelope day** (`createdAt` sliced to `YYYY-MM-DD`), unlike the
  * money figures which follow the local-business-day (`paidOn`) boundary — see
  * {@link DayCloseActivityReadPort}.

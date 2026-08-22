@@ -55,7 +55,12 @@ function insertSubscription(over: SubOver = {}): void {
   });
 }
 
-type EnrOver = { center?: CenterCode; createdAt?: string; deletedAt?: string | null };
+type EnrOver = {
+  center?: CenterCode;
+  createdAt?: string;
+  deletedAt?: string | null;
+  student?: string;
+};
 function insertEnrollment(over: EnrOver = {}): void {
   db.prepare(
     `INSERT INTO enrollments
@@ -68,7 +73,7 @@ function insertEnrollment(over: EnrOver = {}): void {
     center: over.center ?? CENTER,
     createdAt: `${over.createdAt ?? DAY}T09:00:00.000Z`,
     deletedAt: over.deletedAt ?? null,
-    student: id('stu'),
+    student: over.student ?? id('stu'),
     group: id('grp'),
   });
 }
@@ -133,6 +138,16 @@ describe('SqliteDayCloseActivityRepository', () => {
     insertEnrollment();
     insertEnrollment();
     insertEnrollment({ createdAt: '2026-08-11' }); // other day
+
+    const counts = await repo.getDayCloseActivity(CENTER, { from: DAY, to: DAY });
+
+    expect(counts.studentsEnrolled).toBe(2);
+  });
+
+  it('counts distinct students — one student in two groups the same day counts once', async () => {
+    insertEnrollment({ student: 'stu_shared' });
+    insertEnrollment({ student: 'stu_shared' });
+    insertEnrollment(); // a different student
 
     const counts = await repo.getDayCloseActivity(CENTER, { from: DAY, to: DAY });
 

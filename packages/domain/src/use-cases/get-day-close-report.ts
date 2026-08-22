@@ -73,6 +73,6 @@ function toEncaissement(row: RecentPaymentView): DayCloseEncaissement {
   return {
     studentName: row.studentName?.fr ?? '',
     amountMad: row.amountMad,
-    at: `${row.paidOn}T00:00:00.000Z`,
+    at: row.createdAt.toISOString(),
   };
 }

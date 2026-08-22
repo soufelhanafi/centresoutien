@@ -34,6 +34,7 @@ type LedgerRow = {
   method: PaymentMethod;
   amountMad: number;
   paidOn: string;
+  createdAt: Date;
   studentName: { fr: string; ar: string } | null;
 };
 
@@ -67,6 +68,7 @@ class FakePaymentsPort implements RecentPaymentsReadPort {
           amountMad: row.amountMad,
           method: row.method,
           paidOn: row.paidOn,
+          createdAt: row.createdAt,
           studentId: `stu_${String(seq).padStart(26, '0')}` as StudentId,
           studentName: row.studentName,
         };
@@ -124,6 +126,7 @@ function payment(over: Partial<LedgerRow> = {}): LedgerRow {
     method: 'cash',
     amountMad: 20000,
     paidOn: DAY,
+    createdAt: new Date(`${DAY}T14:30:00.000Z`),
     studentName: { fr: 'Yassine Alaoui', ar: 'ياسين العلوي' },
     ...over,
   };
@@ -179,7 +182,7 @@ describe('GetDayCloseReport', () => {
     const report = await useCase.execute({ centerCode: CENTER, day: DAY });
 
     expect(report.encaissements).toEqual([
-      { studentName: 'Salma Bennani', amountMad: 30000, at: `${DAY}T00:00:00.000Z` },
+      { studentName: 'Salma Bennani', amountMad: 30000, at: `${DAY}T14:30:00.000Z` },
     ]);
   });
 
