@@ -712,6 +712,11 @@ export type {
 } from './ports/parent-statement-pdf-renderer';
 export type { PayslipPdfRenderer, PayslipPdfInput } from './ports/payslip-pdf-renderer';
 export type {
+  TeacherRosterPdfRenderer,
+  TeacherRosterPdfInput,
+  TeacherRosterPdfRow,
+} from './ports/teacher-roster-pdf-renderer';
+export type {
   PaymentReceiptPdfRenderer,
   PaymentReceiptPdfInput,
 } from './ports/payment-receipt-pdf-renderer';
@@ -1102,6 +1107,13 @@ export { ListGroupsWithCounts } from './use-cases/list-groups-with-counts';
 export type { GroupWithCount } from './use-cases/list-groups-with-counts';
 export { GetGroupRoster } from './use-cases/get-group-roster';
 export type { GetGroupRosterInput, GroupRosterEntry } from './use-cases/get-group-roster';
+export { GetTeacherRoster } from './use-cases/get-teacher-roster';
+export type {
+  GetTeacherRosterInput,
+  TeacherRosterEntry,
+  TeacherRosterGroupRef,
+  TeacherRosterStatus,
+} from './use-cases/get-teacher-roster';
 export { RecordSessionAttendance } from './use-cases/record-session-attendance';
 export type { RecordSessionAttendanceInput } from './use-cases/record-session-attendance';
 export { GetStudentAttendanceReport } from './use-cases/get-student-attendance-report';

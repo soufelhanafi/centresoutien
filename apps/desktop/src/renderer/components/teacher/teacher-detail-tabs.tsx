@@ -5,6 +5,7 @@ import type { TeacherView } from '../../lib/teachers/teacher-view';
 import { useFeature } from '../../hooks/use-feature';
 import { TeacherInfoTab } from './teacher-info-tab';
 import { TeacherSubjectsTab } from './teacher-subjects-tab';
+import { TeacherStudentsTab } from './teacher-students-tab';
 import { TeacherAvailabilityTab } from './teacher-availability-tab';
 import { ComingSoonTab } from './coming-soon-tab';
 import { TeacherPayrollRuleTab } from '../teacher-payroll-rule/teacher-payroll-rule-tab';
@@ -25,6 +26,7 @@ export function TeacherDetailTabs({ teacher }: { teacher: TeacherView }) {
       <TabsList className="flex-wrap">
         <TabsTrigger value="info">{t('teachers.detail.tabs.info')}</TabsTrigger>
         <TabsTrigger value="subjects">{t('teachers.detail.tabs.subjects')}</TabsTrigger>
+        <TabsTrigger value="students">{t('teachers.detail.tabs.students')}</TabsTrigger>
         <TabsTrigger value="groups">{t('teachers.detail.tabs.groups')}</TabsTrigger>
         <TabsTrigger value="payroll">{t('teachers.detail.tabs.payroll')}</TabsTrigger>
         {availabilityEnabled ? (
@@ -37,6 +39,11 @@ export function TeacherDetailTabs({ teacher }: { teacher: TeacherView }) {
       </TabsContent>
       <TabsContent value="subjects">
         <TeacherSubjectsTab teacher={teacher} />
+      </TabsContent>
+      <TabsContent value="students">
+        {/* Key by id so switching to another teacher resets the roster filters
+            (the route reuses this component across `teacherId` changes). */}
+        <TeacherStudentsTab key={teacher.id} teacher={teacher} />
       </TabsContent>
       <TabsContent value="groups">
         <ComingSoonTab

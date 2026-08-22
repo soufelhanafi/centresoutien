@@ -197,6 +197,52 @@ const groupRosterEntrySchema = z.object({
   startMonth: z.string(),
 });
 
+// One row of a teacher's student roster across the IPC boundary (SOU-299): one
+// distinct student, with the teacher's groups they sit in (or last sat in), the
+// distinct subjects + kinds those groups span, the subscribed pack label, and an
+// active/left standing. Envelope-free — a read-model row. Single source of truth
+// for the renderer's `TeacherRosterEntryView` type.
+const teacherRosterEntrySchema = z.object({
+  studentId: z.string(),
+  name: z.object({ fr: z.string(), ar: z.string() }),
+  level: z.string(),
+  groups: z.array(
+    z.object({
+      groupId: z.string(),
+      subjectId: z.string(),
+      subjectName: z.object({ fr: z.string(), ar: z.string() }),
+      level: z.string(),
+      kind: z.enum(['regular', 'exam-prep']),
+    }),
+  ),
+  subjects: z.array(
+    z.object({ subjectId: z.string(), name: z.object({ fr: z.string(), ar: z.string() }) }),
+  ),
+  kinds: z.array(z.enum(['regular', 'exam-prep'])),
+  formulaLabel: z.object({ fr: z.string(), ar: z.string() }),
+  status: z.enum(['active', 'left']),
+  leftMonth: z.string().nullable(),
+});
+
+// The teacher-roster PDF print/export request (SOU-299): the renderer sends the
+// rows it is currently displaying (already filtered) plus the active-filter
+// selection and the teacher name, so the printout is exactly the on-screen view.
+// FR label composition happens in main (the document is FR-only), so filters carry
+// FR data values (subject/group names), never localized UI strings.
+const teacherRosterPdfRequestSchema = z.object({
+  teacherId: z.string(),
+  teacherName: z.string(),
+  generatedOn: z.string(),
+  rows: z.array(teacherRosterEntrySchema),
+  filters: z.object({
+    subjectName: z.string().nullable(),
+    groupLabel: z.string().nullable(),
+    nameQuery: z.string(),
+    status: z.enum(['all', 'active', 'left']),
+  }),
+  locale: z.enum(['fr', 'ar']),
+});
+
 // The presentation projection of a StudentSubscription across the IPC boundary — the
 // sync envelope (version, deviceOrigin, updatedBy…) is stripped and Dates serialized,
 // exactly like `groupViewSchema`. There is NO stored status: the renderer derives
@@ -1684,6 +1730,26 @@ export const ipcContract = {
     request: z.object({ id: z.string() }),
     response: z.object({ teacher: teacherViewSchema }),
   },
+  // Teacher student roster (SOU-299), backing the teacher-detail "Élèves" tab: the
+  // distinct students taught by this teacher, traversed teacher → group(s) →
+  // enrolled students. centerCode is injected in main, never sent from the renderer.
+  // Gated by `core.teachers` in the use case. Filtering (subject/group/name/status)
+  // is applied client-side over the full roster.
+  'teacher.roster': {
+    request: z.object({ teacherId: z.string() }),
+    response: z.object({ roster: z.array(teacherRosterEntrySchema) }),
+  },
+  // Print (open in the OS viewer) / export (save dialog) the filtered roster as a
+  // FR-only PDF (SOU-299), mirroring `parentStatement.print`/`.export`. centerCode
+  // is injected in main; the renderer sends the rows it displays.
+  'teacher.roster.print': {
+    request: teacherRosterPdfRequestSchema,
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'teacher.roster.export': {
+    request: teacherRosterPdfRequestSchema,
+    response: z.object({ savedPath: z.string().nullable() }),
+  },
   // Teacher payroll rules (SOU-72), the Rule tab's CRUD surface — `CreateTeacherPayrollRule`
   // / `CloseTeacherPayrollRule` shipped in SOU-70/71, wired to IPC here for the first
   // time. `create` takes the domain's own discriminated `teacherPayrollRuleInputSchema`
@@ -2369,6 +2435,9 @@ export type GroupWithCountDto = z.infer<typeof groupWithCountViewSchema>;
 
 /** One roster row across the boundary — the renderer's `GroupRosterEntryView` aliases this. */
 export type GroupRosterEntryDto = z.infer<typeof groupRosterEntrySchema>;
+
+/** One teacher-roster row across the boundary — the renderer's `TeacherRosterEntryView` aliases this. */
+export type TeacherRosterEntryDto = z.infer<typeof teacherRosterEntrySchema>;
 
 /** The StudentSubscription boundary DTO — the renderer's `SubscriptionView` aliases this. */
 export type SubscriptionDto = z.infer<typeof subscriptionViewSchema>;

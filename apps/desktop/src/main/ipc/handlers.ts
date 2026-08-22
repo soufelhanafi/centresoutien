@@ -57,8 +57,10 @@ import type {
   ListGroups,
   ListGroupsWithCounts,
   GetGroupRoster,
+  GetTeacherRoster,
   GroupWithCount,
   GroupRosterEntry,
+  TeacherRosterEntry,
   UpdateGroup,
   ArchiveGroup,
   RestoreGroup,
@@ -183,6 +185,7 @@ import { createBackupExcelHandlers, type BackupExcelHandlerDeps } from './backup
 import { createDialogHandlers } from './dialog-handlers';
 import { createExternalHandlers } from './external-handlers';
 import { createInvoiceHandlers, type InvoiceHandlerDeps } from './invoice-handlers';
+import { createTeacherRosterHandlers, type TeacherRosterHandlerDeps } from './teacher-roster-handlers';
 import {
   createParentStatementHandlers,
   type ParentStatementHandlerDeps,
@@ -251,6 +254,7 @@ export type CreateGroupUseCase = Pick<CreateGroup, 'execute'>;
 export type ListGroupsUseCase = Pick<ListGroups, 'execute'>;
 export type ListGroupsWithCountsUseCase = Pick<ListGroupsWithCounts, 'execute'>;
 export type GetGroupRosterUseCase = Pick<GetGroupRoster, 'execute'>;
+export type GetTeacherRosterUseCase = Pick<GetTeacherRoster, 'execute'>;
 export type UpdateGroupUseCase = Pick<UpdateGroup, 'execute'>;
 export type ArchiveGroupUseCase = Pick<ArchiveGroup, 'execute'>;
 export type RestoreGroupUseCase = Pick<RestoreGroup, 'execute'>;
@@ -499,6 +503,31 @@ function toRosterEntryView(entry: GroupRosterEntry) {
     name: { fr: entry.name.fr, ar: entry.name.ar },
     level: entry.level,
     startMonth: entry.startMonth,
+  };
+}
+
+/** Project a teacher-roster entry to its boundary DTO: envelope-free already,
+ *  branded ids widened to plain strings for the wire. */
+function toTeacherRosterEntryView(entry: TeacherRosterEntry) {
+  return {
+    studentId: entry.studentId,
+    name: { fr: entry.name.fr, ar: entry.name.ar },
+    level: entry.level,
+    groups: entry.groups.map((group) => ({
+      groupId: group.groupId,
+      subjectId: group.subjectId,
+      subjectName: { fr: group.subjectName.fr, ar: group.subjectName.ar },
+      level: group.level,
+      kind: group.kind,
+    })),
+    subjects: entry.subjects.map((subject) => ({
+      subjectId: subject.subjectId,
+      name: { fr: subject.name.fr, ar: subject.name.ar },
+    })),
+    kinds: [...entry.kinds],
+    formulaLabel: { fr: entry.formulaLabel.fr, ar: entry.formulaLabel.ar },
+    status: entry.status,
+    leftMonth: entry.leftMonth,
   };
 }
 
@@ -824,7 +853,8 @@ export type HandlerDeps = BackupHandlerDeps &
   SyncHandlerDeps &
   CenterSwitchHandlerDeps &
   UserHandlerDeps &
-  TeacherAvailabilityHandlerDeps & {
+  TeacherAvailabilityHandlerDeps &
+  TeacherRosterHandlerDeps & {
   appVersion: () => string;
   activePlanId: () => PlanId;
   activePlanFeatures: () => readonly FeatureFlag[];
@@ -892,6 +922,7 @@ export type HandlerDeps = BackupHandlerDeps &
   updateTeacher: UpdateTeacherUseCase;
   archiveTeacher: ArchiveTeacherUseCase;
   restoreTeacher: RestoreTeacherUseCase;
+  getTeacherRoster: GetTeacherRosterUseCase;
   createTeacherPayrollRule: CreateTeacherPayrollRuleUseCase;
   closeTeacherPayrollRule: CloseTeacherPayrollRuleUseCase;
   replaceTeacherPayrollRule: ReplaceTeacherPayrollRuleUseCase;
@@ -1323,6 +1354,13 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
         groupId: request.groupId as GroupId,
       });
       return { roster: roster.map(toRosterEntryView) };
+    },
+    'teacher.roster': async (request) => {
+      const roster = await deps.getTeacherRoster.execute({
+        centerCode: deps.envelopeContext().centerCode,
+        teacherId: request.teacherId as TeacherId,
+      });
+      return { roster: roster.map(toTeacherRosterEntryView) };
     },
     'subscription.create': async (request) => {
       const { subscription, invoice } = await deps.createStudentSubscription.execute({
@@ -1912,6 +1950,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     ...createExternalHandlers(),
     ...createInvoiceHandlers(deps),
     ...createParentStatementHandlers(deps),
+    ...createTeacherRosterHandlers(deps),
     ...createOverdueInvoiceHandlers(deps),
     ...createPayslipHandlers(deps),
     ...createDashboardHandlers(deps),

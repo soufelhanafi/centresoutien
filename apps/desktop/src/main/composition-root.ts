@@ -48,6 +48,7 @@ import {
   ListGroups,
   ListGroupsWithCounts,
   GetGroupRoster,
+  GetTeacherRoster,
   UpdateGroup,
   ArchiveGroup,
   RestoreGroup,
@@ -248,6 +249,7 @@ import { ExcelBackupAdapter } from '../data/excel/backup-excel-adapter';
 import { DialogPathRegistry } from './ipc/dialog-path-registry';
 import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
 import { PdfLibParentStatementRenderer } from '../data/pdf/pdf-lib-parent-statement-renderer';
+import { PdfLibTeacherRosterRenderer } from '../data/pdf/pdf-lib-teacher-roster-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
 import { PdfLibScheduleRenderer } from '../data/pdf/pdf-lib-schedule-renderer';
@@ -810,6 +812,7 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
   const parentStatementPdfRenderer = new PdfLibParentStatementRenderer();
+  const teacherRosterPdfRenderer = new PdfLibTeacherRosterRenderer();
   // Issue / cancel (SOU-143): the two lifecycle transitions shipped unwired
   // alongside CreateInvoiceDraft in SOU-67 (KICKOFF, SOU-69) — thin IPC plumbing
   // only, no new domain logic.
@@ -839,6 +842,18 @@ export function buildContainer(options: ContainerOptions): Container {
   const updateTeacher = new UpdateTeacher(teacherRepo, clock, plan);
   const archiveTeacher = new ArchiveTeacher(teacherRepo, teacherReference, clock, plan);
   const restoreTeacher = new RestoreTeacher(teacherRepo, clock, plan);
+  // Teacher student roster (SOU-299): the read model behind the "Élèves" tab —
+  // teacher → group(s) → enrolled students, folded to one row per student.
+  const getTeacherRoster = new GetTeacherRoster(
+    teacherRepo,
+    groupRepo,
+    enrollmentRepo,
+    studentRepo,
+    subjectRepo,
+    subscriptionRepo,
+    clock,
+    plan,
+  );
 
   // Payroll rule persistence (SOU-71) + the Rule tab's IPC surface (SOU-72):
   // createTeacherPayrollRule enforces TooManyActivePayrollRulesError via
@@ -1476,6 +1491,7 @@ export function buildContainer(options: ContainerOptions): Container {
     invoicePdfRenderer,
     getParentMonthlyStatement,
     parentStatementPdfRenderer,
+    teacherRosterPdfRenderer,
     enrollStudent,
     unenrollStudent,
     createTeacher,
@@ -1485,6 +1501,7 @@ export function buildContainer(options: ContainerOptions): Container {
     updateTeacher,
     archiveTeacher,
     restoreTeacher,
+    getTeacherRoster,
     createTeacherPayrollRule,
     closeTeacherPayrollRule,
     replaceTeacherPayrollRule,
