@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { FormulaInput } from '../../lib/formulas/formula-view';
+import type { FormulaWriteInput } from '../../lib/formulas/formula-view';
 import { formulasGateway } from '../../lib/formulas/formulas-gateway';
 import { formulaKeys } from './keys';
 
@@ -11,7 +11,7 @@ import { formulaKeys } from './keys';
 export function useCreateFormula() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: FormulaInput) => formulasGateway.create(input),
+    mutationFn: (input: FormulaWriteInput) => formulasGateway.create(input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: formulaKeys.all }),
   });
 }

@@ -1,5 +1,5 @@
 import type { FormulaInput } from '@centresoutien/domain';
-import type { FormulaDto } from '../../../shared/ipc/contract';
+import type { FormulaDto, FormulaSubjectPriceDto, IpcRequest } from '../../../shared/ipc/contract';
 
 /**
  * Presentation projection of a `Formula` as it crosses the IPC boundary (SOU-62)
@@ -31,3 +31,19 @@ export type FormulaStatus = 'active' | 'inactive';
 
 /** The editable fields when creating or editing a formula — the domain's own schema. */
 export type { FormulaInput };
+
+/**
+ * One subject's slice of a formula's bundle price (SOU-298) — centimes, `> 0`.
+ * A direct alias of the boundary DTO (`formulaSubjectPriceInputSchema`), so the
+ * renderer shape can never drift from what the `formula.create`/`formula.update`
+ * channels accept. Never redefined here — imported from the shared contract.
+ */
+export type FormulaSubjectPrice = FormulaSubjectPriceDto;
+
+/**
+ * The write payload the formula create/update channels accept (SOU-298): the
+ * domain's `FormulaInput` fields plus the optional per-subject `subjectPrices`
+ * map. A direct alias of the `formula.create` request DTO — the single boundary
+ * source of truth, exactly like {@link FormulaView} mirrors the read DTO.
+ */
+export type FormulaWriteInput = IpcRequest<'formula.create'>;

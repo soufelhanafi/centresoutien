@@ -14,13 +14,22 @@ export type FormulaWriteErrorCode =
   | 'formula-immutable'
   | 'formula-not-found'
   | 'formula-subject-not-found'
-  | 'formula-subject-inactive';
+  | 'formula-subject-inactive'
+  // SOU-298 — the per-subject price map's server-side rejections
+  // (`InvalidFormulaSubjectPricesError`), mirrored so a rejected save reads like
+  // the live client validation.
+  | 'formula-subject-prices-sum-mismatch'
+  | 'formula-subject-prices-coverage-mismatch'
+  | 'formula-subject-prices-invalid-amount';
 
 const CODES = new Set<string>([
   'formula-immutable',
   'formula-not-found',
   'formula-subject-not-found',
   'formula-subject-inactive',
+  'formula-subject-prices-sum-mismatch',
+  'formula-subject-prices-coverage-mismatch',
+  'formula-subject-prices-invalid-amount',
 ] satisfies FormulaWriteErrorCode[]);
 
 /**

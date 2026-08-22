@@ -319,6 +319,12 @@
     "formula-not-found": "Cette formule est introuvable",
     "formula-subject-not-found": "Une matière de cette formule est introuvable",
     "formula-subject-inactive": "Une matière de cette formule a été désactivée",
+    "formula-subject-prices-sum-mismatch": "La somme des prix par matière doit être égale au prix total",
+    "formula-subject-prices-coverage-mismatch": "Chaque matière sélectionnée doit avoir un prix",
+    "formula-subject-prices-invalid-amount": "Chaque prix par matière doit être supérieur à 0",
+    "invoice-allocation-invalid-amount": "Chaque montant de répartition doit être positif ou nul",
+    "invoice-allocation-duplicate-subject": "Une matière apparaît deux fois dans la répartition",
+    "invoice-allocation-all-zero": "La répartition ne peut pas être entièrement nulle",
     "subjects-required": "Sélectionnez au moins une matière",
     "invalid-price": "Le prix doit être un nombre entier positif",
     "invalid-percent": "Pourcentage invalide (entre 0 et 100).",
@@ -887,7 +893,14 @@
       "cancel": "Annuler",
       "createSuccess": "Formule créée",
       "editSuccess": "Modifications enregistrées",
-      "error": "L'enregistrement a échoué. Réessayez."
+      "error": "L'enregistrement a échoué. Réessayez.",
+      "perSubjectPrices": {
+        "label": "Répartir le prix par matière",
+        "hint": "Facultatif : fixez un prix par matière. À défaut, le prix est réparti à parts égales.",
+        "pickSubjects": "Sélectionnez d'abord des matières pour en fixer le prix.",
+        "sum": "Somme des matières",
+        "sumOfTotal": "{{sum}} sur {{total}}"
+      }
     },
     "clone": {
       "success": "Formule dupliquée — modifiez le prix ou les matières si besoin.",
@@ -2341,6 +2354,25 @@
         "submit": "Enregistrer",
         "success": "Montant mis à jour.",
         "error": "La modification du montant a échoué. Réessayez."
+      },
+      "allocation": {
+        "title": "Répartition par matière",
+        "description": "Répartissez le montant de la facture entre les matières, pour la paie des enseignants. Par défaut, la répartition est pondérée automatiquement.",
+        "configure": "Configurer la répartition",
+        "stateWeighted": "Répartition pondérée (par défaut)",
+        "stateManual": "Répartition manuelle ({{count}} matières)",
+        "manualToggle": "Répartition manuelle",
+        "weightedHint": "Désactivée, la répartition suit la pondération automatique.",
+        "sum": "Somme saisie",
+        "sumOfTotal": "{{sum}} sur {{total}}",
+        "sumMismatchHint": "La somme peut différer du total facturé : les montants servent de pondération.",
+        "empty": "Aucune matière à répartir pour cette facture.",
+        "loadError": "Le chargement des matières a échoué.",
+        "cancel": "Annuler",
+        "save": "Enregistrer",
+        "saving": "Enregistrement…",
+        "success": "Répartition enregistrée.",
+        "error": "L'enregistrement de la répartition a échoué. Réessayez."
       },
       "payment": {
         "panelTitle": "Paiement",
