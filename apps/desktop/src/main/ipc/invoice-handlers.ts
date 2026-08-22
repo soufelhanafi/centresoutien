@@ -72,6 +72,10 @@ function toInvoiceListItemView(item: InvoiceListItem) {
     netPaidMad: item.netPaidMad,
     outstandingMad: item.outstandingMad,
     paymentStatus: item.status,
+    // SOU-298: carry the manual per-subject attribution override back to the renderer
+    // so a set→list round-trip preserves it (else the UI reverts to the weighted
+    // default and can overwrite it on the next save). `null` when there is no override.
+    subjectAllocation: toSubjectAllocationView(item.invoice.subjectAllocation),
   };
 }
 
