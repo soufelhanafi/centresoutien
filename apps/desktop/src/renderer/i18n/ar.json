@@ -333,6 +333,7 @@
     "invoice-allocation-invalid-amount": "يجب أن يكون كل مبلغ في التوزيع موجبًا أو صفرًا",
     "invoice-allocation-duplicate-subject": "تظهر إحدى المواد مرتين في التوزيع",
     "invoice-allocation-all-zero": "لا يمكن أن يكون التوزيع صفرًا بالكامل",
+    "invoice-allocation-unknown-subject": "إحدى مواد التوزيع لا تنتمي إلى أي صيغة في هذه الفاتورة",
     "subjects-required": "اختر مادة واحدة على الأقل",
     "invalid-price": "يجب أن يكون السعر رقمًا صحيحًا موجبًا",
     "invalid-percent": "نسبة غير صالحة (بين 0 و100).",

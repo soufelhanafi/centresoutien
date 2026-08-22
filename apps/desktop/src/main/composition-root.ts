@@ -820,7 +820,12 @@ export function buildContainer(options: ContainerOptions): Container {
   const updateDraftInvoiceLineAmount = new UpdateDraftInvoiceLineAmount(invoiceRepo, clock, plan);
   // Manual per-invoice attribution override (SOU-298): pins/clears the per-subject
   // weight vector weighted attribution uses; gated by `payroll.teacher`.
-  const setInvoiceSubjectAllocation = new SetInvoiceSubjectAllocation(invoiceRepo, clock, plan);
+  const setInvoiceSubjectAllocation = new SetInvoiceSubjectAllocation(
+    invoiceRepo,
+    formulaRepo,
+    clock,
+    plan,
+  );
   // Impayés (arrears) list (SOU-103): no new repository — `invoiceRepo` also
   // implements `OverdueInvoiceViewReadPort` (its join is anchored on `invoices`,
   // mirroring the WeeklySessionViewReadPort/WeeklyRecurringSessionRepository

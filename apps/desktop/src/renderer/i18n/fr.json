@@ -325,6 +325,7 @@
     "invoice-allocation-invalid-amount": "Chaque montant de répartition doit être positif ou nul",
     "invoice-allocation-duplicate-subject": "Une matière apparaît deux fois dans la répartition",
     "invoice-allocation-all-zero": "La répartition ne peut pas être entièrement nulle",
+    "invoice-allocation-unknown-subject": "Une matière de la répartition n'appartient à aucune formule de cette facture",
     "subjects-required": "Sélectionnez au moins une matière",
     "invalid-price": "Le prix doit être un nombre entier positif",
     "invalid-percent": "Pourcentage invalide (entre 0 et 100).",
