@@ -752,6 +752,13 @@ export type {
   RecoveryCodeResetUnitOfWork,
   RecoveryCodeResetUnit,
 } from './ports/recovery-code-reset-unit-of-work';
+// Email-verified reset atomic commit seam (SOU-273) — password write, audit rows,
+// and device-session clear commit as one all-or-nothing unit (no code to consume;
+// the mailbox proof is verified by the relay in the main process before this seam).
+export type {
+  EmailPasswordResetUnitOfWork,
+  EmailPasswordResetUnit,
+} from './ports/email-password-reset-unit-of-work';
 // Recent-payments cash-desk feed (SOU-198) — cross-invoice read model served by the
 // same SQLite adapter that owns `payments`, mirroring OverdueInvoiceViewReadPort.
 export type { RecentPaymentsReadPort } from './ports/recent-payments-read-port';
@@ -1338,6 +1345,15 @@ export { VerifyRecoveryCode } from './use-cases/verify-recovery-code';
 export type { VerifyRecoveryCodeInput, VerifyRecoveryCodeResult } from './use-cases/verify-recovery-code';
 export { ResetPasswordWithRecoveryCode } from './use-cases/reset-password-with-recovery-code';
 export type { ResetPasswordWithRecoveryCodeInput, ResetPasswordWithRecoveryCodeResult } from './use-cases/reset-password-with-recovery-code';
+export { ResetPasswordAfterEmailVerification } from './use-cases/reset-password-after-email-verification';
+export type {
+  ResetPasswordAfterEmailVerificationInput,
+  ResetPasswordAfterEmailVerificationResult,
+} from './use-cases/reset-password-after-email-verification';
+export {
+  resetPasswordAfterEmailVerificationSchema,
+} from './schemas/email-reset';
+export type { ResetPasswordAfterEmailVerificationSchemaInput } from './schemas/email-reset';
 export { SetSecurityQuestions } from './use-cases/set-security-questions';
 export { VerifySecurityAnswers } from './use-cases/verify-security-answers';
 export type { VerifySecurityAnswersResult } from './use-cases/verify-security-answers';
