@@ -12,6 +12,7 @@ const TEMP_PDF_PREFIXES = [
   'recu-paiement-',
   'eleves-',
   'cloture-du-jour-',
+  'stats-centres-',
 ] as const;
 
 export type TempPdfPrefix = (typeof TEMP_PDF_PREFIXES)[number];
