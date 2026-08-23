@@ -607,6 +607,11 @@ export type {
 } from './read-models/dashboard-advanced-summary';
 export { DASHBOARD_TREND_WINDOW_MONTHS } from './read-models/dashboard-advanced-summary';
 export type {
+  MultiCenterStatsRow,
+  MultiCenterStatsTotals,
+  MultiCenterStatsView,
+} from './read-models/multi-center-stats-view';
+export type {
   StudentAttendanceRow,
   AttendanceAbsenceSummary,
   AttendanceStatusCounts,
@@ -1170,6 +1175,22 @@ export { GetDashboardBasicSummary } from './use-cases/get-dashboard-basic-summar
 export type { GetDashboardBasicSummaryInput } from './use-cases/get-dashboard-basic-summary';
 export { GetDashboardAdvancedSummary } from './use-cases/get-dashboard-advanced-summary';
 export type { GetDashboardAdvancedSummaryInput } from './use-cases/get-dashboard-advanced-summary';
+export { GetMultiCenterStats } from './use-cases/get-multi-center-stats';
+export type {
+  MultiCenterStatsReadPort,
+  MultiCenterStatsRawRow,
+} from './ports/multi-center-stats-read-port';
+export type {
+  MultiCenterStatsPdfRenderer,
+  MultiCenterStatsPdfInput,
+  MultiCenterStatsPdfRow,
+  MultiCenterStatsPdfTotals,
+} from './ports/multi-center-stats-pdf-renderer';
+export {
+  buildMultiCenterStatsView,
+  deriveUnpaidRate,
+  deriveMomGrowthPercent,
+} from './services/multi-center-stats';
 export { GenerateSessions } from './use-cases/generate-sessions';
 export type {
   GenerateSessionsInput,

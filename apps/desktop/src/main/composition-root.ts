@@ -154,6 +154,7 @@ import {
   RecordSessionAttendance,
   GetDashboardBasicSummary,
   GetDashboardAdvancedSummary,
+  GetMultiCenterStats,
   DashboardBasicMetricsBuilder,
   GetStudentAttendanceReport,
   GetGroupAttendanceSheet,
@@ -193,7 +194,8 @@ import { VENDOR_LICENSE_PUBLIC_KEY_PEM } from '../data/license/vendor-public-key
 import { SyncEngine, DuplicateMatcher, ResolveConflict } from '@centresoutien/domain';
 import { SqliteCenterTrialStore } from '../data/license/sqlite-center-trial-store';
 import { openDatabase } from '../data/sqlite/db';
-import type { CenterSummary } from '../data/sqlite/center-directory';
+import type { CenterSummary, CenterKeyProvider } from '../data/sqlite/center-directory';
+import { SqliteMultiCenterStatsRead } from '../data/sqlite/multi-center-stats-read';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { SqliteHubStore } from '../data/sqlite/hub/hub-store';
 import { HubServer } from './hub-server/hub-server';
@@ -253,6 +255,7 @@ import { DialogPathRegistry } from './ipc/dialog-path-registry';
 import { PdfLibInvoiceRenderer } from '../data/pdf/pdf-lib-invoice-renderer';
 import { PdfLibDayCloseReportRenderer } from '../data/pdf/pdf-lib-day-close-report-renderer';
 import { PdfLibParentStatementRenderer } from '../data/pdf/pdf-lib-parent-statement-renderer';
+import { PdfLibMultiCenterStatsRenderer } from '../data/pdf/pdf-lib-multi-center-stats-renderer';
 import { PdfLibTeacherRosterRenderer } from '../data/pdf/pdf-lib-teacher-roster-renderer';
 import { PdfLibPayslipRenderer } from '../data/pdf/pdf-lib-payslip-renderer';
 import { PdfLibPaymentReceiptRenderer } from '../data/pdf/pdf-lib-payment-receipt-renderer';
@@ -342,6 +345,20 @@ export type ContainerOptions = {
   centerSwitch?: {
     switchTo: (centreId: string) => Promise<void>;
     listCenters: () => Promise<readonly CenterSummary[]>;
+  };
+  /**
+   * Per-center stats aggregation (SOU-106, Premium `org.multi-center`). The app
+   * shell owns the per-center key derivation + the demo-center exclusion (both need
+   * the keychain and the userData dir), so it passes them in as it does for
+   * `centerSwitch`; the composition root wires them into the read-only aggregation
+   * adapter. Absent → the adapter falls back to `options.key`, so it can only read
+   * the currently-open center's own file (other centers, encrypted under different
+   * keys, degrade to `unavailable` rows) — the correct single-center behavior for
+   * integration tests and installs with no shell wiring.
+   */
+  multiCenterStats?: {
+    keyFor: CenterKeyProvider;
+    excludeCentreIds: readonly string[];
   };
 };
 
@@ -1098,6 +1115,22 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
+  // Per-center stats (SOU-106): a REAL read-only local aggregation across the
+  // operator's installed centers — a deliberate, documented override of §5ter's
+  // desktop "no merged views" rule for this Premium feature. The adapter opens each
+  // `centre-*.db` read-only, one at a time, reads that center's own dashboard-shaped
+  // money + student figures, and closes it (never a cross-DB write, never two open
+  // at once). The `org.multi-center` gate is enforced in the use case, before any DB
+  // is touched. `keyFor` falls back to this center's own key when the shell wires no
+  // multi-center config, so a single-center install reads only its own file.
+  const multiCenterStatsRead = new SqliteMultiCenterStatsRead(
+    options.dir,
+    options.multiCenterStats?.keyFor ?? (() => options.key),
+    options.multiCenterStats?.excludeCentreIds ?? [],
+  );
+  const getMultiCenterStats = new GetMultiCenterStats(plan, multiCenterStatsRead, clock);
+  const multiCenterStatsPdfRenderer = new PdfLibMultiCenterStatsRenderer();
+
   // Attendance reporting reads (SOU-108) — per-student history + absence summary
   // and printable per-group attendance sheet, both read-model reads over the
   // existing attendanceRepo (no new repository, no new adapter). Gated by
@@ -1543,6 +1576,8 @@ export function buildContainer(options: ContainerOptions): Container {
     restoreHoliday,
     getDashboardBasicSummary,
     getDashboardAdvancedSummary,
+    getMultiCenterStats,
+    multiCenterStatsPdfRenderer,
     getStudentAttendanceReport,
     getGroupAttendanceSheet,
     listWeekSessions,

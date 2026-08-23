@@ -936,6 +936,39 @@ const dashboardAdvancedSummarySchema = z.object({
   ),
 });
 
+// The per-center stats table across the IPC boundary (SOU-106), gated by
+// `org.multi-center` (Premium) in the domain use case — a locked plan rejects with
+// `PlanFeatureUnavailableError`, mapped by the shared dispatcher. A cross-aggregate
+// read model (no envelope to strip). Money is MAD centimes recognized to the billed
+// month; `unpaidRate` is `[0,1]` or null (nothing billed); `momGrowthPercent` is a
+// percent or null (no prior baseline); an `unavailable` center is a zeroed, flagged
+// row, never dropped. Single source of truth for the renderer's
+// `MultiCenterStatsView` type.
+const multiCenterStatsRowSchema = z.object({
+  centreId: z.string(),
+  centerCode: z.string(),
+  displayName: z.string(),
+  revenueMad: z.number().int(),
+  collectedMad: z.number().int(),
+  studentCount: z.number().int().nonnegative(),
+  unpaidRate: z.number().nullable(),
+  momGrowthPercent: z.number().nullable(),
+  unavailable: z.boolean(),
+});
+
+const multiCenterStatsViewSchema = z.object({
+  month: z.string(),
+  rows: z.array(multiCenterStatsRowSchema),
+  totals: z.object({
+    centerCount: z.number().int().nonnegative(),
+    availableCenterCount: z.number().int().nonnegative(),
+    revenueMad: z.number().int(),
+    collectedMad: z.number().int(),
+    studentCount: z.number().int().nonnegative(),
+    unpaidRate: z.number().nullable(),
+  }),
+});
+
 // The presentation projection of a Subject across the IPC boundary (SOU-124) — the
 // sync envelope (version, deviceOrigin, updatedBy…, and the Date timestamps) is
 // stripped, leaving only the fields name-resolution and the pickers need. `code` is
@@ -2126,6 +2159,26 @@ export const ipcContract = {
     request: z.object({}),
     response: z.object({ summary: dashboardAdvancedSummarySchema }),
   },
+  // Per-center stats table (SOU-106) — a REAL read-only local aggregation across
+  // the operator's installed centers, a deliberate, documented override of §5ter's
+  // "no merged desktop views" rule for this Premium feature. Gated by
+  // `org.multi-center` in `GetMultiCenterStats` (throws `PlanFeatureUnavailableError`
+  // on a non-Premium plan). The reporting month is derived in main from the Clock,
+  // never sent from the renderer. `print`/`export` render the same aggregation to an
+  // FR/AR PDF — `print` opens it in the OS viewer, `export` lets the user pick a
+  // save location — mirroring `parentStatement.print`/`.export`.
+  'multiCenterStats.get': {
+    request: z.object({}),
+    response: z.object({ view: multiCenterStatsViewSchema }),
+  },
+  'multiCenterStats.print': {
+    request: z.object({ locale: z.enum(['fr', 'ar']) }),
+    response: z.object({ ok: z.literal(true) }),
+  },
+  'multiCenterStats.export': {
+    request: z.object({ locale: z.enum(['fr', 'ar']) }),
+    response: z.object({ savedPath: z.string().nullable() }),
+  },
   // Weekly recurring session write channels (SOU-131 — populate the planner grid).
   // The requests are the domain's own input schemas (`wrs_`/`rom_`/`tch_`/`grp_`
   // prefixes, `HH:mm` times, `YYYY-MM-DD` validity bounds), validated once and
@@ -2594,6 +2647,11 @@ export type DashboardBasicSummaryDto = z.infer<typeof dashboardBasicSummarySchem
 
 /** The Avancé dashboard summary DTO — the renderer's `DashboardAdvancedSummaryView` aliases this. */
 export type DashboardAdvancedSummaryDto = z.infer<typeof dashboardAdvancedSummarySchema>;
+
+/** The per-center stats view DTO (SOU-106) — the renderer's `MultiCenterStatsView` aliases this. */
+export type MultiCenterStatsViewDto = z.infer<typeof multiCenterStatsViewSchema>;
+/** One per-center stats row DTO — the renderer's `MultiCenterStatsRowView` aliases this. */
+export type MultiCenterStatsRowDto = z.infer<typeof multiCenterStatsRowSchema>;
 
 /** A sync conflict boundary DTO — the renderer's `SyncConflictView` aliases this. */
 export type SyncConflictDto = z.infer<typeof syncConflictViewSchema>;

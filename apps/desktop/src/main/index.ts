@@ -222,6 +222,13 @@ app.whenReady().then(async () => {
         appVersion: () => app.getVersion(),
         scheduleRestart,
         centerSwitch,
+        // Per-center stats (SOU-106): the same per-center key derivation + demo
+        // exclusion the switcher's directory uses, so the read-only aggregation
+        // opens exactly the centers the switcher lists.
+        multiCenterStats: {
+          keyFor: (id: string) => centerDbKey(dir, id).key,
+          excludeCentreIds: [LEGACY_DEMO_CENTRE_ID],
+        },
         ...(hubServer ? { hubServer } : hubClient ? { hubClient } : {}),
       });
     };

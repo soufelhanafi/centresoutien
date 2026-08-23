@@ -12,6 +12,7 @@ import {
   ReceiptText,
   Wallet,
   HandCoins,
+  BarChart3,
   RefreshCw,
   Settings,
   type LucideIcon,
@@ -53,6 +54,7 @@ export const planningModule = { id: 'planning', path: '/planning', icon: Calenda
 export const invoicingModule = { id: 'invoicing', path: '/invoicing', icon: ReceiptText } as const satisfies NavModule;
 export const paymentsModule = { id: 'payments', path: '/payments', icon: Wallet } as const satisfies NavModule;
 export const payrollModule = { id: 'payroll', path: '/payroll', icon: HandCoins, feature: 'payroll.teacher', requiredTier: 'pro' } as const satisfies NavModule;
+export const multiCenterStatsModule = { id: 'multiCenterStats', path: '/multi-center-stats', icon: BarChart3, feature: 'org.multi-center', requiredTier: 'premium' } as const satisfies NavModule;
 export const syncModule = { id: 'sync', path: '/sync', icon: RefreshCw, feature: 'sync.multi-device' } as const satisfies NavModule;
 export const settingsModule = { id: 'settings', path: '/settings', icon: Settings } as const satisfies NavModule;
 
@@ -71,6 +73,7 @@ export const NAV_MODULES: readonly NavModule[] = [
   invoicingModule,
   paymentsModule,
   payrollModule,
+  multiCenterStatsModule,
   syncModule,
   settingsModule,
 ];

@@ -27,6 +27,7 @@ import { InvoicesPage } from '../pages/invoices/invoices-page';
 import { InvoiceDetailPage } from '../pages/invoices/invoice-detail-page';
 import { PaymentsPage } from '../pages/payments/payments-page';
 import { PayrollPage } from '../pages/payroll/payroll-page';
+import { MultiCenterStatsPage } from '../pages/multi-center-stats/multi-center-stats-page';
 import { SyncPage } from '../pages/sync/sync-page';
 import {
   DEFAULT_ROUTE,
@@ -43,6 +44,7 @@ import {
   invoicingModule,
   paymentsModule,
   payrollModule,
+  multiCenterStatsModule,
   syncModule,
   settingsModule,
 } from './nav-items';
@@ -143,6 +145,11 @@ const payrollRoute = createRoute({
   path: payrollModule.path,
   component: PayrollPage,
 });
+const multiCenterStatsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: multiCenterStatsModule.path,
+  component: MultiCenterStatsPage,
+});
 const syncRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: syncModule.path,
@@ -182,6 +189,7 @@ const routeTree = rootRoute.addChildren([
   invoiceDetailRoute,
   paymentsRoute,
   payrollRoute,
+  multiCenterStatsRoute,
   syncRoute,
   settingsRoute,
 ]);

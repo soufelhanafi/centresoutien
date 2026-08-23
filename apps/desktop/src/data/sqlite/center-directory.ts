@@ -24,6 +24,26 @@ export type CenterKeyProvider = (centreId: string) => string;
 const CENTRE_DB_FILE = /^centre-(.+)\.db$/;
 
 /**
+ * The installed `centreId`s on this machine — every `centre-*.db` in `dir` minus
+ * the explicit `excludeCentreIds`. The one fs-scan the center switcher (SOU-96)
+ * and the multi-center stats aggregation (SOU-106) share, so a DB the switcher
+ * lists is exactly a DB the stats read enumerates.
+ */
+export function scanInstalledCentreIds(
+  dir: string,
+  excludeCentreIds: readonly string[] = [],
+): string[] {
+  const ids: string[] = [];
+  for (const file of readdirSync(dir)) {
+    const centreId = CENTRE_DB_FILE.exec(file)?.[1];
+    if (centreId === undefined) continue;
+    if (excludeCentreIds.includes(centreId)) continue;
+    ids.push(centreId);
+  }
+  return ids;
+}
+
+/**
  * Discovers the centers installed on this machine by scanning the userData dir
  * for `centre-*.db` files (SOU-96). The center list has no domain entity — there
  * is no Membership/Organization store on desktop — so this is a data-layer fs +
@@ -44,10 +64,7 @@ export class FsCenterDirectory {
 
   list(activeCentreId: string): CenterSummary[] {
     const summaries: CenterSummary[] = [];
-    for (const file of readdirSync(this.dir)) {
-      const centreId = CENTRE_DB_FILE.exec(file)?.[1];
-      if (centreId === undefined) continue;
-      if (this.excludeCentreIds.includes(centreId)) continue;
+    for (const centreId of scanInstalledCentreIds(this.dir, this.excludeCentreIds)) {
       const profile = this.peek(centreId);
       const centerCode = profile?.centerCode ?? centreId;
       summaries.push({
