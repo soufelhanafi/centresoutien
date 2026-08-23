@@ -98,6 +98,10 @@ export function createEmailResetHandlers(
           return { outcome: 'rate-limited' };
         case 'unreachable':
           return { outcome: 'unreachable' };
+        default: {
+          const exhaustive: never = outcome;
+          throw new Error(`unexpected email-reset request outcome: ${String(exhaustive)}`);
+        }
       }
     },
 
@@ -127,6 +131,10 @@ export function createEmailResetHandlers(
           return { outcome: 'rate-limited' };
         case 'unreachable':
           return { outcome: 'unreachable' };
+        default: {
+          const exhaustive: never = outcome;
+          throw new Error(`unexpected email-reset confirm outcome: ${String(exhaustive)}`);
+        }
       }
     },
   };

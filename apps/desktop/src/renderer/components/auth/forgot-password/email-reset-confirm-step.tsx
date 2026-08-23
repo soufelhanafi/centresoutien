@@ -78,6 +78,8 @@ export function EmailResetConfirmStep({ onSuccess }: { onSuccess: () => void }) 
                   autoComplete="one-time-code"
                   maxLength={6}
                   placeholder="000000"
+                  dir="ltr"
+                  className="text-center"
                   {...field}
                 />
               </FormControl>

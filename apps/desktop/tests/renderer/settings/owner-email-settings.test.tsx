@@ -89,7 +89,7 @@ describe('Owner email settings — French', () => {
   it('surfaces the domain invalid-email rejection inline on the field', async () => {
     window.api.invoke = mockInvoke({
       'account.ownerEmail.set': () => {
-        const encoded = encodeDomainError({ code: 'InvalidEmailError', message: 'boom' });
+        const encoded = encodeDomainError({ code: 'invalid-email', message: 'boom' });
         throw new Error(`Error invoking remote method 'account.ownerEmail.set': Error: ${encoded}`);
       },
     });

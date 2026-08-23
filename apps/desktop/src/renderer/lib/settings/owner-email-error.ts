@@ -3,14 +3,15 @@ import { resolveDomainErrorCode } from '../ipc/resolve-domain-error-code';
 /**
  * The single error `account.ownerEmail.set` can raise (SOU-273): the domain
  * Email VO's `InvalidEmailError`, thrown for a syntactically invalid address.
- * It carries no explicit domain `.code`, so the dispatcher falls back to the
- * class name — same pattern as `mapChangePasswordError`. The renderer routes it
- * to the email field as the `invalid-email` code (`errors.invalid-email`).
+ * It carries the stable domain `.code` `'invalid-email'`, which the dispatcher
+ * transports across the IPC boundary in preference to the class name. The
+ * renderer routes it to the email field as the `invalid-email` code
+ * (`errors.invalid-email`).
  */
 export type OwnerEmailErrorCode = 'invalid-email';
 
 const DECODED_CODE_TO_RENDERER_CODE: Readonly<Record<string, OwnerEmailErrorCode>> = {
-  InvalidEmailError: 'invalid-email',
+  'invalid-email': 'invalid-email',
 };
 
 /**

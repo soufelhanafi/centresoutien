@@ -109,6 +109,7 @@ export function OwnerEmailSettings() {
                         type="email"
                         autoComplete="email"
                         placeholder={t('settings.ownerEmail.placeholder')}
+                        dir="ltr"
                         {...field}
                       />
                     </FormControl>
