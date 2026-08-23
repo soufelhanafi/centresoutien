@@ -12,6 +12,6 @@
  * `ContainerOptions.license` instead.
  */
 export const VENDOR_LICENSE_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEATYe5usQkXXDK9YuldxzGI4kR0CcM4ezmCt70gi1slc4=
+MCowBQYDK2VwAyEAzVQN05+IkgoFWOMf2h1zEX4veIdiyrp8/QEOXHLfdEs=
 -----END PUBLIC KEY-----
 `;
