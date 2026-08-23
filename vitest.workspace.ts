@@ -19,7 +19,11 @@ export default defineWorkspace([
     // license trust-anchor seam gates on (SOU-172). Under vitest it defaults to
     // `false` — matching a normal dev/release build — so the seam's env-override
     // branch stays compiled out; integration tests inject via `options.license`.
-    define: { __CS_E2E__: 'false' },
+    // `__RELAY_BASE_URL__` (SOU-273) is the electron-vite build-time constant for
+    // the password-reset relay origin; under vitest it resolves to the production
+    // default, matching a normal build (tests exercise the relay through an
+    // injected fake, never this literal).
+    define: { __CS_E2E__: 'false', __RELAY_BASE_URL__: '"https://centresoutien.com"' },
     // Resolve `electron` to a no-op stub so a main-process module under test never
     // loads the real package — importing it in plain Node can trigger an Electron
     // binary download via `@electron/get`, a CDN dependency that flaked the CI
