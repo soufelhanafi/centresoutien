@@ -186,9 +186,13 @@ test('Scenario 3 — Premium: the name filter narrows the table to the matching 
   await expect(filter).toBeVisible();
   await filter.fill('Annexe');
 
-  await expect(win.getByText(CENTER_B.displayName).first()).toBeVisible();
-  await expect(win.getByText(CENTER_A.displayName)).toHaveCount(0);
-  await expect(win.getByText(CENTER_C.displayName)).toHaveCount(0);
+  // Scope to the comparison table: center A is the active center, so its name
+  // also renders in the app-shell switcher — a window-wide count would never
+  // reach 0 for it even when it is filtered out of the table.
+  const table = win.getByRole('table');
+  await expect(table.getByText(CENTER_B.displayName).first()).toBeVisible();
+  await expect(table.getByText(CENTER_A.displayName)).toHaveCount(0);
+  await expect(table.getByText(CENTER_C.displayName)).toHaveCount(0);
 
   // A non-matching query surfaces the empty-results message (not a crash / blank).
   await filter.fill('ZZZ-NO-SUCH-CENTER');
