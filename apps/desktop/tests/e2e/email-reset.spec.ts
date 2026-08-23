@@ -7,7 +7,7 @@ import {
   VALID_ADMIN,
   freshUserDataDir,
   launchLoggedInWithRelay,
-  setOwnerEmailViaUi,
+  setOwnerEmail,
   logoutViaUi,
   loginViaUi,
   type Launched,
@@ -50,8 +50,8 @@ test('owner sets a recovery email, then resets the password by email and logs in
 
   await expect(win.locator('html')).toHaveAttribute('dir', DIRECTION[loc]);
 
-  // 1) Set the owner recovery email through Settings.
-  await setOwnerEmailViaUi(win, loc, OWNER_EMAIL);
+  // 1) Seed the owner recovery email (via the bridge — no Settings UI hosts it).
+  await setOwnerEmail(win, OWNER_EMAIL);
 
   // 2) Log out and open the email reset path from the login screen.
   await logoutViaUi(win, loc);
@@ -95,7 +95,7 @@ test('the old password no longer works after an email reset', async () => {
   live = await launchLoggedInWithRelay(freshUserDataDir(), loc, mock.url);
   const win = live.win;
 
-  await setOwnerEmailViaUi(win, loc, OWNER_EMAIL);
+  await setOwnerEmail(win, OWNER_EMAIL);
   await logoutViaUi(win, loc);
 
   await win.getByRole('button', { name: L.forgotLink }).click();
