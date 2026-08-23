@@ -30,6 +30,19 @@ export function hashEmailForAudit(email: string): string {
     .slice(0, 16);
 }
 
+// Full-length, one-way hash of an email used as the suppression-list key
+// (SOU-274). Deterministic from the normalized address so the SNS consumer that
+// writes it and the send path that reads it resolve to the same key; salted with
+// the same secret as the audit hash so a store dump is not a plaintext address
+// list. Full digest (not the 16-char audit prefix) to keep the keyspace collision
+// -free across an unbounded set of bounced/complained addresses.
+export function hashEmailForSuppression(email: string): string {
+  const salt = auditSalt("AUDIT_HASH_SALT", "centresoutien-audit-dev-only");
+  return createHash("sha256")
+    .update(`${salt}:${normalizeEmail(email)}`)
+    .digest("hex");
+}
+
 // One-way, truncated hash of a client IP for rate-limit keys and audit logs.
 export function hashIpForAudit(ip: string): string {
   const salt = auditSalt("IP_HASH_SALT", "centresoutien-ip-dev-only");

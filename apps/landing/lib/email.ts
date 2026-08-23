@@ -2,6 +2,7 @@ import { SendEmailCommand, SESClient } from "@aws-sdk/client-ses";
 import { Resend } from "resend";
 import type { FounderApplication } from "@/lib/validators";
 import type { ResetLocale } from "@/lib/auth-reset";
+import { isEmailSuppressed } from "@/lib/suppression-store";
 
 type SubmissionMeta = {
   submittedAt: string;
@@ -158,6 +159,12 @@ export async function sendPasswordResetEmail(params: {
   code: string;
   locale: ResetLocale;
 }): Promise<{ sent: boolean }> {
+  // A suppressed recipient (prior hard bounce / complaint, SOU-274) is a silent
+  // no-op: no send, and the same generic `{ sent: false }` the caller already
+  // gets when SES is unconfigured — so the outcome never signals to a caller (or,
+  // upstream, an enumerating attacker) that this particular address is suppressed.
+  if (await isEmailSuppressed(params.to)) return { sent: false };
+
   const config = resolveSesConfig();
   if (config === null) return { sent: false };
 
