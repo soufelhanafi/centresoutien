@@ -13,6 +13,10 @@ export type Email = Brand<string, 'Email'>;
 
 /** Thrown when a raw email string is not a syntactically valid address. */
 export class InvalidEmailError extends DomainError {
+  // Stable machine code the IPC boundary carries so the renderer localizes via
+  // `t('errors.invalid-email')` instead of surfacing the class name (SOU-273).
+  readonly code = 'invalid-email';
+
   constructor(readonly raw: string) {
     super(`"${raw}" is not a valid email address.`);
   }

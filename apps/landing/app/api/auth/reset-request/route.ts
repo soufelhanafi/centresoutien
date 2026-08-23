@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { checkResetRequestRateLimit } from "@/lib/auth-reset-rate-limit";
 import { extractClientIp, hashEmailForAudit, hashIpForAudit } from "@/lib/auth-audit";
-import { generateResetCode, persistResetCode, resetRequestSchema } from "@/lib/auth-reset";
+import {
+  generateResetCode,
+  persistResetCode,
+  resetRequestSchema,
+  type ResetLocale,
+} from "@/lib/auth-reset";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,10 +31,14 @@ function audit(fields: { emailHash: string; outcome: string }): void {
 // failed delivery cannot overwrite (destroy) a prior live code. Returns the
 // audit outcome; never throws — an internal failure must not change the caller's
 // generic response (no enumeration, no send-success signal).
-async function issueResetCode(email: string, accountId: string): Promise<"sent" | "send_failed"> {
+async function issueResetCode(
+  email: string,
+  accountId: string,
+  locale: ResetLocale,
+): Promise<"sent" | "send_failed"> {
   try {
     const code = generateResetCode();
-    await sendPasswordResetEmail({ to: email, code });
+    await sendPasswordResetEmail({ to: email, code, locale });
     await persistResetCode({ email, accountId }, code);
     return "sent";
   } catch {
@@ -49,7 +58,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, error: "invalid_request" }, { status: 400 });
   }
-  const { email, accountId, centerCode } = parsed.data;
+  const { email, accountId, centerCode, locale } = parsed.data;
   const emailHash = hashEmailForAudit(email);
   const ipHash = hashIpForAudit(extractClientIp(request.headers));
 
@@ -61,6 +70,6 @@ export async function POST(request: Request): Promise<NextResponse> {
   // `centerCode` is validated so malformed desktop calls are rejected; it is
   // not needed to issue the code and is intentionally never logged.
   void centerCode;
-  audit({ emailHash, outcome: await issueResetCode(email, accountId) });
+  audit({ emailHash, outcome: await issueResetCode(email, accountId, locale) });
   return NextResponse.json(GENERIC_OK, { status: 200 });
 }

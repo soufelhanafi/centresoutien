@@ -55,6 +55,7 @@ import {
   changeAdminPasswordSchema,
   recoveryCodeSchema,
   resetPasswordWithRecoveryCodeSchema,
+  resetPasswordAfterEmailVerificationSchema,
   setSecurityQuestionsSchema,
   verifySecurityAnswersSchema,
   SECURITY_QUESTION_KEYS,
@@ -2448,6 +2449,51 @@ export const ipcContract = {
         outcome: z.literal('locked-out'),
         lockedUntilMs: z.number().int().nonnegative(),
       }),
+    ]),
+  },
+  // Owner contact email (SOU-273) — the optional address the online password-reset
+  // relay mails to. Owner-only, enforced in main (not renderer visibility). `set`
+  // accepts a raw address (the domain Email VO normalizes + validates it, throwing
+  // a code the renderer localizes) or `null`/blank to clear; both echo the stored
+  // value back so the settings field re-renders from the canonical form.
+  'account.ownerEmail.get': {
+    request: z.object({}),
+    response: z.object({ email: z.string().nullable() }),
+  },
+  'account.ownerEmail.set': {
+    request: z.object({ email: z.string().max(254).nullable() }),
+    response: z.object({ email: z.string().nullable() }),
+  },
+  // Email password reset (SOU-273) — the online reset path completing what SOU-155
+  // started. Both channels are intentionally unauthenticated (the owner is locked
+  // out). `request` asks the relay to email a locale-aware code to the owner's
+  // stored address (`no-email` when none is on file, `unreachable` when offline —
+  // the UI then points to the recovery-code path). `confirm` verifies the code via
+  // the relay and, only on success, resets the LOCAL password (session invalidated);
+  // the relay call + local reset both run in main so the renderer never holds a
+  // standalone reset capability. `invalid-or-expired` is the relay's single generic
+  // failure (wrong/expired/unknown/used code), never distinguished.
+  'auth.emailReset.request': {
+    request: z.object({ locale: z.enum(['fr', 'ar']) }),
+    response: z.discriminatedUnion('outcome', [
+      z.object({ outcome: z.literal('sent') }),
+      z.object({ outcome: z.literal('no-email') }),
+      z.object({ outcome: z.literal('rate-limited') }),
+      z.object({ outcome: z.literal('unreachable') }),
+    ]),
+  },
+  'auth.emailReset.confirm': {
+    request: z.object({
+      code: z.string().trim().regex(/^\d{6}$/),
+      // The email-reset use case's own schema, shared with the renderer form, so
+      // the boundary, client, and domain validate the password identically (Qodo #2).
+      password: resetPasswordAfterEmailVerificationSchema.shape.newPassword,
+    }),
+    response: z.discriminatedUnion('outcome', [
+      z.object({ outcome: z.literal('success') }),
+      z.object({ outcome: z.literal('invalid-or-expired') }),
+      z.object({ outcome: z.literal('rate-limited') }),
+      z.object({ outcome: z.literal('unreachable') }),
     ]),
   },
   // Center profile (SOU-28). `center.get` returns the single row (or null before

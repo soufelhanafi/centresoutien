@@ -20,6 +20,13 @@ export default defineConfig(({ mode }) => {
       plugins: [externalizeDepsPlugin()],
       define: {
         __CS_E2E__: JSON.stringify(isE2E),
+        // The password-reset relay's origin (SOU-273), baked in at build time so
+        // the shipped binary carries no hardcoded literal in source: overridable
+        // via the RELAY_BASE_URL env at build, defaulting to production. The E2E
+        // build additionally reads a runtime CS_RELAY_URL to point at a mock.
+        __RELAY_BASE_URL__: JSON.stringify(
+          process.env['RELAY_BASE_URL'] ?? 'https://centresoutien.com',
+        ),
       },
       // The E2E build adds a second, window-less main entry: the standalone bare
       // hub the multi-laptop sync spec (SOU-82) runs as its own process. It is

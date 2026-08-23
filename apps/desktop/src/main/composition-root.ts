@@ -99,6 +99,8 @@ import {
   GenerateRecoveryCodes,
   VerifyRecoveryCode,
   ResetPasswordWithRecoveryCode,
+  ResetPasswordAfterEmailVerification,
+  SetOwnerEmail,
   SetSecurityQuestions,
   VerifySecurityAnswers,
   RequestPasswordResetViaSecurityQuestions,
@@ -238,6 +240,8 @@ import { SqliteAdminAccountRepository } from '../data/sqlite/repositories/admin-
 import { SqliteUserRepository } from '../data/sqlite/repositories/user-repository';
 import { SqliteRecoveryCodeRepository } from '../data/sqlite/repositories/recovery-code-repository';
 import { SqliteRecoveryCodeResetUnitOfWork } from '../data/sqlite/repositories/recovery-code-reset-unit-of-work';
+import { SqliteEmailPasswordResetUnitOfWork } from '../data/sqlite/repositories/email-password-reset-unit-of-work';
+import { HttpEmailResetRelay } from '../data/relay/http-email-reset-relay';
 import { SqliteResetPlanningUnitOfWork } from '../data/sqlite/repositories/reset-planning-unit-of-work';
 import { SqliteSecurityQuestionRepository } from '../data/sqlite/repositories/security-question-repository';
 import { SqliteAuthAuditLogRepository } from '../data/sqlite/repositories/auth-audit-log-repository';
@@ -1356,6 +1360,35 @@ export function buildContainer(options: ContainerOptions): Container {
     ids,
   );
 
+  // Owner-email settings + the online email password-reset flow (SOU-273). The
+  // relay only proves control of the owner's mailbox; the local password reset is
+  // the recovery-code tail minus code consumption, committed atomically.
+  const setOwnerEmail = new SetOwnerEmail(userRepo, clock);
+  const emailPasswordResetUnitOfWork = new SqliteEmailPasswordResetUnitOfWork(db, changeLog);
+  const resetPasswordAfterEmailVerification = new ResetPasswordAfterEmailVerification(
+    adminRepo,
+    emailPasswordResetUnitOfWork,
+    hasher,
+    clock,
+    ids,
+  );
+  // The relay origin is a build-time constant (production by default); the E2E
+  // build alone reads a runtime CS_RELAY_URL to point at a mock, mirroring the
+  // license-path seam so a release binary never reads the env.
+  const relayBaseUrl =
+    __CS_E2E__ && process.env['CS_RELAY_URL'] ? process.env['CS_RELAY_URL'] : __RELAY_BASE_URL__;
+  const emailResetRelay = new HttpEmailResetRelay({ baseUrl: relayBaseUrl });
+  const ownerResetIdentity = async () => {
+    const owner = await userRepo.findOwner();
+    if (owner === null) return null;
+    return {
+      username: owner.username,
+      accountId: owner.id,
+      centerCode: owner.centerCode,
+      email: owner.email ?? null,
+    };
+  };
+
   // Locale preference (SOU-31): a plain userData-file adapter, not a domain
   // port — see LocalePreferenceStore's doc for why. `options.dir` is the same
   // userData directory the center DB files and the logo store live under.
@@ -1628,6 +1661,10 @@ export function buildContainer(options: ContainerOptions): Container {
     verifySecurityAnswers,
     requestPasswordResetViaSecurityQuestions,
     securityQuestionsExist: () => securityQuestionRepo.exists(),
+    setOwnerEmail,
+    resetPasswordAfterEmailVerification,
+    ownerResetIdentity,
+    emailResetRelay,
     getCenterProfile,
     saveCenterProfile,
     storeCenterLogo,

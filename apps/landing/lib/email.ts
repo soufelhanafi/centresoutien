@@ -1,6 +1,7 @@
 import { SendEmailCommand, SESClient } from "@aws-sdk/client-ses";
 import { Resend } from "resend";
 import type { FounderApplication } from "@/lib/validators";
+import type { ResetLocale } from "@/lib/auth-reset";
 
 type SubmissionMeta = {
   submittedAt: string;
@@ -64,9 +65,15 @@ export async function sendFounderNotification(
   return { sent: true };
 }
 
-function passwordResetBody(code: string): string {
-  // FR-only for v1 (SOU-157). Bilingual FR/AR is a follow-up once the desktop
-  // reset UI settles its copy.
+// Bilingual FR/AR reset copy (SOU-273). The desktop sends the owner's UI locale
+// so the code arrives in the language they are reading; an unknown/absent locale
+// resolves to French upstream (resetLocaleSchema default).
+const PASSWORD_RESET_SUBJECT: Record<ResetLocale, string> = {
+  fr: "Code de réinitialisation — Centre Soutien",
+  ar: "رمز إعادة تعيين كلمة المرور — Centre Soutien",
+};
+
+function passwordResetBodyFr(code: string): string {
   return [
     "Bonjour,",
     "",
@@ -78,6 +85,24 @@ function passwordResetBody(code: string): string {
     "",
     "L'équipe Centre Soutien",
   ].join("\n");
+}
+
+function passwordResetBodyAr(code: string): string {
+  return [
+    "مرحباً،",
+    "",
+    "لقد طلبت إعادة تعيين كلمة المرور الخاصة بحسابك في Centre Soutien.",
+    `رمز التحقق الخاص بك هو: ${code}`,
+    "",
+    "تنتهي صلاحية هذا الرمز خلال 20 دقيقة ولا يمكن استخدامه إلا مرة واحدة.",
+    "إذا لم تكن أنت من قدّم هذا الطلب، فتجاهل هذه الرسالة.",
+    "",
+    "فريق Centre Soutien",
+  ].join("\n");
+}
+
+function passwordResetBody(code: string, locale: ResetLocale): string {
+  return locale === "ar" ? passwordResetBodyAr(code) : passwordResetBodyFr(code);
 }
 
 type SesConfig = {
@@ -105,13 +130,18 @@ function resolveSesConfig(): SesConfig | null {
   return { region, from, accessKeyId, secretAccessKey };
 }
 
-function passwordResetCommand(config: SesConfig, to: string, code: string): SendEmailCommand {
+function passwordResetCommand(
+  config: SesConfig,
+  to: string,
+  code: string,
+  locale: ResetLocale,
+): SendEmailCommand {
   return new SendEmailCommand({
     Source: config.from,
     Destination: { ToAddresses: [to] },
     Message: {
-      Subject: { Data: "Code de réinitialisation — Centre Soutien", Charset: "UTF-8" },
-      Body: { Text: { Data: passwordResetBody(code), Charset: "UTF-8" } },
+      Subject: { Data: PASSWORD_RESET_SUBJECT[locale], Charset: "UTF-8" },
+      Body: { Text: { Data: passwordResetBody(code, locale), Charset: "UTF-8" } },
     },
   });
 }
@@ -126,6 +156,7 @@ function passwordResetCommand(config: SesConfig, to: string, code: string): Send
 export async function sendPasswordResetEmail(params: {
   to: string;
   code: string;
+  locale: ResetLocale;
 }): Promise<{ sent: boolean }> {
   const config = resolveSesConfig();
   if (config === null) return { sent: false };
@@ -136,7 +167,7 @@ export async function sendPasswordResetEmail(params: {
   });
 
   try {
-    await client.send(passwordResetCommand(config, params.to, params.code));
+    await client.send(passwordResetCommand(config, params.to, params.code, params.locale));
   } catch {
     // Deliberately opaque: the SES error may echo the recipient address.
     throw new Error("email_send_failed");

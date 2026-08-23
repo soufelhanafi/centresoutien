@@ -210,6 +210,7 @@ import { createScheduleHandlers, type ScheduleHandlerDeps } from './schedule-han
 import { createSyncHandlers, type SyncHandlerDeps } from './sync-handlers';
 import { createCenterSwitchHandlers, type CenterSwitchHandlerDeps } from './center-switch-handlers';
 import { createUserHandlers, type UserHandlerDeps } from './user-handlers';
+import { createEmailResetHandlers, type EmailResetHandlerDeps } from './email-reset-handlers';
 import {
   createAttendanceReportingHandlers,
   type AttendanceReportingHandlerDeps,
@@ -867,6 +868,7 @@ export type HandlerDeps = BackupHandlerDeps &
   SyncHandlerDeps &
   CenterSwitchHandlerDeps &
   UserHandlerDeps &
+  EmailResetHandlerDeps &
   TeacherAvailabilityHandlerDeps &
   TeacherRosterHandlerDeps & {
   appVersion: () => string;
@@ -1977,6 +1979,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     ...createSyncHandlers(deps),
     ...createCenterSwitchHandlers(deps),
     ...createUserHandlers(deps),
+    ...createEmailResetHandlers(deps),
     ...createTeacherAvailabilityHandlers(deps),
   };
 

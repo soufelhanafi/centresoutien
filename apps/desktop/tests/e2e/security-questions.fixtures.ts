@@ -1,4 +1,4 @@
-import { _electron as electron, expect, type Page } from '@playwright/test';
+import { _electron as electron, expect, type Locator, type Page } from '@playwright/test';
 import { MAIN_ENTRY, VALID_ADMIN, freshUserDataDir, type Launched, type Locale } from './wizard.fixtures';
 
 /**
@@ -151,10 +151,19 @@ export async function fillDefaultSecurityAnswers(win: Page, loc: Locale): Promis
   }
 }
 
+/** The security-questions setup form, scoped by its first answer field so its
+ * "save" button never collides with another same-labeled submit on the same tab
+ * (e.g. the SOU-273 owner-email card, which also renders an "Enregistrer" / "حفظ"). */
+export function securityQuestionsForm(win: Page, loc: Locale): Locator {
+  return win
+    .locator('form')
+    .filter({ has: win.getByLabel(SECQ[loc].answerLabel(1), { exact: true }) });
+}
+
 /** Submit the security-questions setup form and wait for the success message. */
 export async function saveSecurityQuestions(win: Page, loc: Locale): Promise<void> {
   const L = SECQ[loc];
-  await win.getByRole('button', { name: L.submit }).click();
+  await securityQuestionsForm(win, loc).getByRole('button', { name: L.submit }).click();
   await win.getByText(L.success).waitFor({ state: 'visible' });
 }
 

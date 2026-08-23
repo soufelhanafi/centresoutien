@@ -7,6 +7,7 @@ import {
   gotoSecurityQuestionsTab,
   fillDefaultSecurityAnswers,
   saveSecurityQuestions,
+  securityQuestionsForm,
   bridgeResetWithSecurityQuestions,
   securityQuestionsExist,
   CORRECT_ANSWERS,
@@ -165,7 +166,9 @@ test('S4 — the security-questions setup form renders correctly in the active l
     await expect(win.getByLabel(L.answerLabel(position), { exact: true })).toBeVisible();
   }
 
-  await expect(win.getByRole('button', { name: L.submit })).toBeVisible();
+  await expect(
+    securityQuestionsForm(win, loc).getByRole('button', { name: L.submit }),
+  ).toBeVisible();
 
   await win.screenshot({ path: `test-results/security-questions-form-${loc}.png`, fullPage: true });
 });
