@@ -309,6 +309,39 @@ describe('composition root', () => {
     second.dispose();
   });
 
+  it('forces re-login when the remembered session has no user id (legacy pre-SOU-265, SOU-307)', async () => {
+    const first = build();
+    const d1 = createIpcDispatcher(createHandlers(first.handlerDeps));
+    await d1('admin.create', { username: 'directrice', password: PASS });
+    await d1('auth.login', { username: 'directrice', password: PASS, rememberDevice: true });
+    // A device remembered before SOU-265 keeps a live session_id but no user_id —
+    // the identity is unknown, so the gate must not treat it as authenticated.
+    first.db.prepare('UPDATE device_sessions SET user_id = NULL WHERE id = 1').run();
+    first.dispose();
+
+    const second = build();
+    const d2 = createIpcDispatcher(createHandlers(second.handlerDeps));
+    expect(await d2('auth.session', {})).toEqual({ authenticated: false });
+    second.dispose();
+  });
+
+  it('forces re-login when the remembered session points at a removed user (SOU-307)', async () => {
+    const first = build();
+    const d1 = createIpcDispatcher(createHandlers(first.handlerDeps));
+    await d1('admin.create', { username: 'directrice', password: PASS });
+    await d1('auth.login', { username: 'directrice', password: PASS, rememberDevice: true });
+    // The owner is removed after the session was minted; the remembered user id
+    // no longer resolves to a live user, so the gate must force a re-login.
+    first.db.prepare('UPDATE users SET deleted_at = ? WHERE id = (SELECT user_id FROM device_sessions WHERE id = 1)')
+      .run(new Date('2026-08-23T00:00:00Z').toISOString());
+    first.dispose();
+
+    const second = build();
+    const d2 = createIpcDispatcher(createHandlers(second.handlerDeps));
+    expect(await d2('auth.session', {})).toEqual({ authenticated: false });
+    second.dispose();
+  });
+
   it('locks the console on the sixth wrong try and blocks a correct password (SOU-27)', async () => {
     const container = build();
     const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));

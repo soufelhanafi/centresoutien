@@ -948,6 +948,9 @@ describe('createIpcDispatcher', () => {
 
   it('runs auth.session and auth.logout', async () => {
     remembered = true;
+    // A remembered session authenticates only when it resolves to a principal
+    // (SOU-307); the remember-me reopen path recovers it from the stored user id.
+    principal = { userId: 'usr_00000000000000000000000001' as UserId, role: 'owner' };
     await expect(dispatch('auth.session', {})).resolves.toEqual({ authenticated: true });
     await expect(dispatch('auth.logout', {})).resolves.toEqual({ ok: true });
     await expect(dispatch('auth.session', {})).resolves.toEqual({ authenticated: false });

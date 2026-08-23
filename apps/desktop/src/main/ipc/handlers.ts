@@ -1875,12 +1875,16 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       }
     },
     'auth.session': async () => {
-      // Only reports whether the device is remembered. It must NOT re-resolve the
-      // principal (SOU-265): a non-remembered login established the principal in
-      // memory with no persisted session, so re-reading the session here would
-      // wrongly wipe it. The remember-me reopen path re-resolves once, at the
-      // startup seed in the composition root — the single re-resolution site.
-      return { authenticated: await deps.deviceSessions.isAuthenticated() };
+      // A remembered device is authenticated only when a trusted principal can
+      // still be established. The `isAuthenticated` short-circuit preserves the
+      // SOU-27 semantics (a non-remembered login has no persisted session and must
+      // re-login after restart) and — crucially — avoids re-resolving the
+      // principal, which would wipe a non-remembered in-memory principal. A legacy
+      // session (pre-SOU-265, no user_id) or one pointing at a removed user
+      // resolves to null, so the gate forces a re-login that stamps user_id
+      // (SOU-307).
+      if (!(await deps.deviceSessions.isAuthenticated())) return { authenticated: false };
+      return { authenticated: (await deps.resolvePrincipal()) !== null };
     },
     'auth.logout': async () => {
       await deps.deviceSessions.forget();
