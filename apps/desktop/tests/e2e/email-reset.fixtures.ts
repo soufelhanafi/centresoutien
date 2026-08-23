@@ -125,20 +125,18 @@ export async function launchLoggedInWithRelay(
   return { app, win };
 }
 
-/** Settings → security tab → set the owner recovery email through the real UI. */
-export async function setOwnerEmailViaUi(win: Page, loc: Locale, email: string): Promise<void> {
-  const L = RESET[loc];
-  const navLink = win.getByRole('link', { name: L.settingsNav });
-  if (await navLink.count()) await navLink.click();
-  await win.getByRole('tab', { name: L.securityTab }).click();
-  await win.getByText(L.ownerEmailTitle, { exact: true }).first().waitFor({ state: 'visible' });
-
-  // The tab hosts two "save" forms (owner email + security questions); scope the
-  // submit to the form that owns the email input so the correct one is clicked.
-  const emailForm = win.locator('form').filter({ has: win.getByLabel(L.ownerEmailLabel, { exact: true }) });
-  await win.getByLabel(L.ownerEmailLabel, { exact: true }).fill(email);
-  await emailForm.getByRole('button', { name: L.ownerEmailSave }).click();
-  await win.getByText(L.ownerEmailSuccess).waitFor({ state: 'visible' });
+/**
+ * Seed the owner's recovery email through the public preload bridge. The Settings
+ * field that used to host it was removed (the reset now uses the account's own
+ * email); the owner-email IPC remains, so this is set the same black-box way as
+ * `admin.create` / `auth.login` above — no removed UI to drive.
+ */
+export async function setOwnerEmail(win: Page, email: string): Promise<void> {
+  await win.evaluate(async (addr) => {
+    const api = (window as unknown as { api: { invoke: (c: string, r: unknown) => Promise<unknown> } })
+      .api;
+    await api.invoke('account.ownerEmail.set', { email: addr });
+  }, email);
 }
 
 /** Log out through the app-shell button, returning to the login screen. */
