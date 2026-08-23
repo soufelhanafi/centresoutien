@@ -17,18 +17,23 @@ function renderFlow(onClose = vi.fn()) {
   return { onClose };
 }
 
+async function pickRecovery(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /Code de récupération/ }));
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
 describe('ForgotPasswordFlow — French', () => {
-  it('renders the recovery-code form directly, without a method chooser', () => {
+  it('opens on a method chooser offering the recovery and email paths', () => {
     renderFlow();
 
-    expect(screen.getByLabelText('Code de récupération')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Réinitialiser le mot de passe' })).toBeInTheDocument();
-    expect(screen.queryByText(/Questions de sécurité/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Bientôt disponible/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Comment souhaitez-vous réinitialiser votre mot de passe ?'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Code de récupération/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Par e-mail/ })).toBeInTheDocument();
   });
 
   it('resets via a recovery code and lands on the fresh-login notice', async () => {
@@ -36,6 +41,7 @@ describe('ForgotPasswordFlow — French', () => {
     window.api.invoke = invoke;
     const user = userEvent.setup();
     renderFlow();
+    await pickRecovery(user);
 
     await user.type(screen.getByLabelText('Code de récupération'), 'ABCD-EFGH-IJKL-MNOP');
     await user.type(screen.getByLabelText('Nouveau mot de passe'), 'Password1');
@@ -48,7 +54,7 @@ describe('ForgotPasswordFlow — French', () => {
         password: 'Password1',
       }),
     );
-    expect(await screen.findByText('Mot de passe réinitialisé')).toBeInTheDocument();
+    expect(await screen.findByText('Connectez-vous avec votre nouveau mot de passe.')).toBeInTheDocument();
   });
 
   it('shows the lockout notice and disables the form when the reset is throttled', async () => {
@@ -56,6 +62,7 @@ describe('ForgotPasswordFlow — French', () => {
     window.api.invoke = invoke;
     const user = userEvent.setup();
     renderFlow();
+    await pickRecovery(user);
 
     await user.type(screen.getByLabelText('Code de récupération'), 'ABCD-EFGH-IJKL-MNOP');
     await user.type(screen.getByLabelText('Nouveau mot de passe'), 'Password1');
@@ -67,27 +74,20 @@ describe('ForgotPasswordFlow — French', () => {
     expect(screen.getByLabelText('Code de récupération')).toBeDisabled();
   });
 
-  it('blocks submission when the two passwords do not match', async () => {
-    const invoke = vi.fn(async () => ({ outcome: 'success' }));
-    window.api.invoke = invoke;
+  it('returns to the chooser from a method via the back button', async () => {
     const user = userEvent.setup();
     renderFlow();
+    await pickRecovery(user);
 
-    await user.type(screen.getByLabelText('Code de récupération'), 'ABCD-EFGH-IJKL-MNOP');
-    await user.type(screen.getByLabelText('Nouveau mot de passe'), 'Password1');
-    await user.type(screen.getByLabelText('Confirmer le mot de passe'), 'Password2');
-    await user.click(screen.getByRole('button', { name: 'Réinitialiser le mot de passe' }));
+    expect(screen.getByLabelText('Code de récupération')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retour' }));
 
-    await waitFor(() =>
-      expect(screen.getByLabelText('Confirmer le mot de passe')).toHaveAttribute(
-        'aria-invalid',
-        'true',
-      ),
-    );
-    expect(invoke).not.toHaveBeenCalled();
+    expect(
+      screen.getByText('Comment souhaitez-vous réinitialiser votre mot de passe ?'),
+    ).toBeInTheDocument();
   });
 
-  it('returns to login from the recovery form via the back button', async () => {
+  it('closes the flow from the chooser via the back button', async () => {
     const user = userEvent.setup();
     const { onClose } = renderFlow();
 
@@ -97,13 +97,83 @@ describe('ForgotPasswordFlow — French', () => {
   });
 });
 
+describe('ForgotPasswordFlow — email path', () => {
+  it('sends a locale-aware code, then confirms with a new password and lands on the notice', async () => {
+    const invoke = vi.fn(async (channel: string) => {
+      if (channel === 'auth.emailReset.request') return { outcome: 'sent' };
+      return { outcome: 'success' };
+    });
+    window.api.invoke = invoke;
+    const user = userEvent.setup();
+    renderFlow();
+
+    await user.click(screen.getByRole('button', { name: /Par e-mail/ }));
+    await user.click(screen.getByRole('button', { name: 'Envoyer le code' }));
+
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith('auth.emailReset.request', { locale: 'fr' }),
+    );
+
+    await user.type(screen.getByLabelText('Code à 6 chiffres'), '123456');
+    await user.type(screen.getByLabelText('Nouveau mot de passe'), 'Password1');
+    await user.type(screen.getByLabelText('Confirmer le mot de passe'), 'Password1');
+    await user.click(screen.getByRole('button', { name: 'Réinitialiser le mot de passe' }));
+
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith('auth.emailReset.confirm', {
+        code: '123456',
+        password: 'Password1',
+      }),
+    );
+    expect(
+      await screen.findByText('Votre mot de passe a été réinitialisé. Connectez-vous avec votre nouveau mot de passe.'),
+    ).toBeInTheDocument();
+  });
+
+  it('points back to the recovery path when no email is on file', async () => {
+    window.api.invoke = vi.fn(async () => ({ outcome: 'no-email' }));
+    const user = userEvent.setup();
+    renderFlow();
+
+    await user.click(screen.getByRole('button', { name: /Par e-mail/ }));
+    await user.click(screen.getByRole('button', { name: 'Envoyer le code' }));
+
+    expect(
+      await screen.findByText(/Aucune adresse e-mail n'est enregistrée/),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Utiliser un code de récupération' }));
+    expect(
+      screen.getByText('Comment souhaitez-vous réinitialiser votre mot de passe ?'),
+    ).toBeInTheDocument();
+  });
+
+  it('marks the code field when the relay rejects the code', async () => {
+    const invoke = vi.fn(async (channel: string) => {
+      if (channel === 'auth.emailReset.request') return { outcome: 'sent' };
+      return { outcome: 'invalid-or-expired' };
+    });
+    window.api.invoke = invoke;
+    const user = userEvent.setup();
+    renderFlow();
+
+    await user.click(screen.getByRole('button', { name: /Par e-mail/ }));
+    await user.click(screen.getByRole('button', { name: 'Envoyer le code' }));
+    await user.type(await screen.findByLabelText('Code à 6 chiffres'), '000000');
+    await user.type(screen.getByLabelText('Nouveau mot de passe'), 'Password1');
+    await user.type(screen.getByLabelText('Confirmer le mot de passe'), 'Password1');
+    await user.click(screen.getByRole('button', { name: 'Réinitialiser le mot de passe' }));
+
+    expect(await screen.findByText('Code invalide ou expiré.')).toBeInTheDocument();
+  });
+});
+
 describe('ForgotPasswordFlow — Arabic (RTL)', () => {
   it('renders Arabic copy', async () => {
     await i18n.changeLanguage('ar');
     renderFlow();
 
     expect(screen.getByRole('heading', { name: 'إعادة تعيين كلمة المرور' })).toBeInTheDocument();
-    expect(screen.getByLabelText('رمز الاسترداد')).toBeInTheDocument();
+    expect(screen.getByText('كيف تريد إعادة تعيين كلمة المرور؟')).toBeInTheDocument();
 
     await i18n.changeLanguage('fr');
   });

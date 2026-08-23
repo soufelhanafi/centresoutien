@@ -3,11 +3,18 @@ import { CheckCircle2 } from 'lucide-react';
 import { Button } from '@centresoutien/ui';
 
 /**
- * The terminal state of a recovery-code reset (SOU-156): the password was
- * changed and the admin must sign in afresh. The only action is returning to the
- * login screen — a fresh sign-in, never a silent re-entry into the app.
+ * The terminal state of a password reset (SOU-156 recovery path, SOU-273 email
+ * path): the password was changed and the admin must sign in afresh. The only
+ * action is returning to the login screen — a fresh sign-in, never a silent
+ * re-entry into the app. The copy varies by which method succeeded.
  */
-export function ResetOutcomeNotice({ onBackToLogin }: { onBackToLogin: () => void }) {
+export function ResetOutcomeNotice({
+  onBackToLogin,
+  variant = 'recovery',
+}: {
+  onBackToLogin: () => void;
+  variant?: 'recovery' | 'email';
+}) {
   const { t } = useTranslation();
 
   return (
@@ -16,9 +23,9 @@ export function ResetOutcomeNotice({ onBackToLogin }: { onBackToLogin: () => voi
         <CheckCircle2 className="h-10 w-10 text-primary" aria-hidden />
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold text-foreground">
-            {t('auth.forgot.success.recovery.title')}
+            {t(`auth.forgot.success.${variant}.title`)}
           </h2>
-          <p className="text-sm text-muted-foreground">{t('auth.forgot.success.recovery.body')}</p>
+          <p className="text-sm text-muted-foreground">{t(`auth.forgot.success.${variant}.body`)}</p>
         </div>
       </div>
       <Button type="button" className="w-full" onClick={onBackToLogin}>

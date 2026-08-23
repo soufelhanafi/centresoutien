@@ -1938,6 +1938,21 @@
       "success": "Mot de passe mis à jour",
       "error": "La mise à jour a échoué. Réessayez."
     },
+    "ownerEmail": {
+      "title": "E-mail de récupération",
+      "subtitle": "L'adresse à laquelle envoyer un code de réinitialisation du mot de passe. Facultative.",
+      "label": "Adresse e-mail",
+      "placeholder": "vous@exemple.com",
+      "hint": "Laissez le champ vide pour supprimer l'adresse enregistrée.",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "success": "Adresse e-mail enregistrée",
+      "cleared": "Adresse e-mail supprimée",
+      "error": "L'enregistrement a échoué. Réessayez.",
+      "loadErrorTitle": "Impossible de charger l'adresse e-mail",
+      "loadErrorBody": "Le chargement a échoué.",
+      "retry": "Réessayer"
+    },
     "securityQuestions": {
       "title": "Questions de sécurité",
       "subtitle": "Dernier recours pour réinitialiser le mot de passe sans code de récupération ni connexion internet.",
@@ -2240,6 +2255,17 @@
       "back": "Retour",
       "backToLogin": "Retour à la connexion",
       "error": "L'opération a échoué. Vérifiez votre connexion et réessayez.",
+      "method": {
+        "title": "Comment souhaitez-vous réinitialiser votre mot de passe ?",
+        "recovery": {
+          "title": "Code de récupération",
+          "description": "Utilisez l'un des codes que vous avez enregistrés. Fonctionne sans connexion internet."
+        },
+        "email": {
+          "title": "Par e-mail",
+          "description": "Recevez un code à 6 chiffres sur l'adresse e-mail enregistrée. Nécessite une connexion internet."
+        }
+      },
       "recovery": {
         "codeLabel": "Code de récupération",
         "newPassword": "Nouveau mot de passe",
@@ -2247,10 +2273,30 @@
         "submit": "Réinitialiser le mot de passe",
         "submitting": "Réinitialisation…"
       },
+      "email": {
+        "explainer": "Nous enverrons un code à 6 chiffres à l'adresse e-mail enregistrée pour ce compte.",
+        "sendCode": "Envoyer le code",
+        "sending": "Envoi…",
+        "confirmExplainer": "Saisissez le code reçu par e-mail, puis choisissez un nouveau mot de passe.",
+        "codeLabel": "Code à 6 chiffres",
+        "newPassword": "Nouveau mot de passe",
+        "confirmPassword": "Confirmer le mot de passe",
+        "submit": "Réinitialiser le mot de passe",
+        "submitting": "Réinitialisation…",
+        "invalidCode": "Code invalide ou expiré.",
+        "noEmail": "Aucune adresse e-mail n'est enregistrée pour ce compte. Utilisez plutôt un code de récupération.",
+        "unreachable": "Pas de connexion internet. Utilisez plutôt un code de récupération.",
+        "rateLimited": "Trop de tentatives. Réessayez plus tard.",
+        "useRecovery": "Utiliser un code de récupération"
+      },
       "success": {
         "recovery": {
           "title": "Mot de passe réinitialisé",
           "body": "Connectez-vous avec votre nouveau mot de passe."
+        },
+        "email": {
+          "title": "Mot de passe réinitialisé",
+          "body": "Votre mot de passe a été réinitialisé. Connectez-vous avec votre nouveau mot de passe."
         }
       }
     }
