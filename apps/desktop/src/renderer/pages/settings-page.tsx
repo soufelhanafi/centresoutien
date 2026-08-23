@@ -7,7 +7,6 @@ import { CenterHoursOverrides } from '../components/center-hours-overrides/cente
 import { HolidaysSettings } from '../components/holiday/holidays-settings';
 import { TeamSettings } from '../components/settings/team/team-settings';
 import { PasswordSettings } from '../components/settings/password-settings';
-import { OwnerEmailSettings } from '../components/settings/owner-email-settings';
 import { SecurityQuestionsSettings } from '../components/settings/security-questions-settings';
 import { LanguageSettings } from '../components/settings/language-settings';
 import { AppearanceSettings } from '../components/settings/appearance-settings';
@@ -61,8 +60,7 @@ export function SettingsPage() {
         <TabsContent value="password">
           <PasswordSettings />
         </TabsContent>
-        <TabsContent value="security" className="flex flex-col gap-8">
-          <OwnerEmailSettings />
+        <TabsContent value="security">
           <SecurityQuestionsSettings />
         </TabsContent>
         <TabsContent value="language">
