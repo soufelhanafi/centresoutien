@@ -2279,6 +2279,7 @@
         "sending": "Envoi…",
         "confirmExplainer": "Saisissez le code reçu par e-mail, puis choisissez un nouveau mot de passe.",
         "codeLabel": "Code à 6 chiffres",
+        "codePlaceholder": "000000",
         "newPassword": "Nouveau mot de passe",
         "confirmPassword": "Confirmer le mot de passe",
         "submit": "Réinitialiser le mot de passe",

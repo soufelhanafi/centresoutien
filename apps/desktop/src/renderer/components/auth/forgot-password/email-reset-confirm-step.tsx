@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
-import { resetPasswordWithRecoveryCodeSchema } from '@centresoutien/domain';
+import { resetPasswordAfterEmailVerificationSchema } from '@centresoutien/domain';
 import {
   Button,
   Form,
@@ -19,7 +19,9 @@ import { useConfirmEmailReset } from '../../../hooks/auth/use-confirm-email-rese
 const emailConfirmSchema = z
   .object({
     code: z.string().regex(/^\d{6}$/, { message: 'invalid-code' }),
-    password: resetPasswordWithRecoveryCodeSchema.shape.newPassword,
+    // Same schema the email-reset use case validates against server-side, so the
+    // client and server never drift on password strength (Qodo #2).
+    password: resetPasswordAfterEmailVerificationSchema.shape.newPassword,
     confirmPassword: z.string(),
   })
   .refine((values) => values.password === values.confirmPassword, {
@@ -77,7 +79,7 @@ export function EmailResetConfirmStep({ onSuccess }: { onSuccess: () => void }) 
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   maxLength={6}
-                  placeholder="000000"
+                  placeholder={t('auth.forgot.email.codePlaceholder')}
                   dir="ltr"
                   className="text-center"
                   {...field}

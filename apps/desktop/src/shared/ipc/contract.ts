@@ -55,6 +55,7 @@ import {
   changeAdminPasswordSchema,
   recoveryCodeSchema,
   resetPasswordWithRecoveryCodeSchema,
+  resetPasswordAfterEmailVerificationSchema,
   setSecurityQuestionsSchema,
   verifySecurityAnswersSchema,
   SECURITY_QUESTION_KEYS,
@@ -2431,7 +2432,9 @@ export const ipcContract = {
   'auth.emailReset.confirm': {
     request: z.object({
       code: z.string().trim().regex(/^\d{6}$/),
-      password: resetPasswordWithRecoveryCodeSchema.shape.newPassword,
+      // The email-reset use case's own schema, shared with the renderer form, so
+      // the boundary, client, and domain validate the password identically (Qodo #2).
+      password: resetPasswordAfterEmailVerificationSchema.shape.newPassword,
     }),
     response: z.discriminatedUnion('outcome', [
       z.object({ outcome: z.literal('success') }),
