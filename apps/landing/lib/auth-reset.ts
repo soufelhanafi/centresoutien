@@ -12,11 +12,18 @@ const KEY_PREFIX = "pwreset";
 // locking valid owners out of the advertised reset flow.
 const EMAIL_MAX_LENGTH = 254;
 
+// The desktop UI locale, carried so the emailed code lands in the language the
+// owner is reading (SOU-273). Optional + defaulted to French so an older desktop
+// build that omits it still gets a valid — French — email rather than a rejection.
+export const resetLocaleSchema = z.enum(["fr", "ar"]).default("fr");
+export type ResetLocale = z.infer<typeof resetLocaleSchema>;
+
 // Body of `POST /api/auth/reset-request`.
 export const resetRequestSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(EMAIL_MAX_LENGTH),
   accountId: z.string().trim().min(1).max(128),
   centerCode: z.string().trim().min(1).max(64),
+  locale: resetLocaleSchema,
 });
 export type ResetRequest = z.infer<typeof resetRequestSchema>;
 

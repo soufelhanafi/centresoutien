@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { extractClientIp } from "./auth-audit";
-import { generateResetCode, persistResetCode, verifyAndConsumeResetCode } from "./auth-reset";
+import {
+  generateResetCode,
+  persistResetCode,
+  resetRequestSchema,
+  verifyAndConsumeResetCode,
+} from "./auth-reset";
 
 // No Upstash credentials in the test env, so the module falls back to its
 // in-memory code store — exactly the path these helpers must stay correct on.
@@ -37,6 +42,23 @@ describe("extractClientIp", () => {
 
   it("returns 'unknown' when no client-ip header is present", () => {
     expect(extractClientIp(new Headers())).toBe("unknown");
+  });
+});
+
+describe("resetRequestSchema locale (SOU-273)", () => {
+  const base = { email: "owner@example.com", accountId: "acc-1", centerCode: "CS-CASA-001" };
+
+  it("defaults an omitted locale to French (older desktop builds)", () => {
+    const parsed = resetRequestSchema.parse(base);
+    expect(parsed.locale).toBe("fr");
+  });
+
+  it("accepts an explicit Arabic locale", () => {
+    expect(resetRequestSchema.parse({ ...base, locale: "ar" }).locale).toBe("ar");
+  });
+
+  it("rejects an unsupported locale", () => {
+    expect(resetRequestSchema.safeParse({ ...base, locale: "en" }).success).toBe(false);
   });
 });
 
