@@ -86,7 +86,7 @@ function MethodButton({
       type="button"
       variant="outline"
       onClick={onClick}
-      className="flex h-auto items-start gap-3 p-4 text-start"
+      className="flex h-auto w-full items-start justify-start gap-3 whitespace-normal p-4 text-start"
     >
       <span className="mt-0.5 text-primary">{icon}</span>
       <span className="flex flex-col gap-1">
