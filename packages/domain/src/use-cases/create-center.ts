@@ -34,7 +34,15 @@ export class CreateCenter {
     this.plan.require('org.multi-center');
     const profile = centerProfileSchema.parse(input.profile);
     const { centreId, centerCode } = await this.provisioner.provision({ profile });
-    await this.switcher.switchTo(centreId);
+    // The new center DB is durable on disk before the switch. If the hot-swap into
+    // it fails, roll the provision back so a failed add never leaves an orphan
+    // center selectable in the switcher — creation is all-or-nothing.
+    try {
+      await this.switcher.switchTo(centreId);
+    } catch (error) {
+      await this.provisioner.discard(centreId);
+      throw error;
+    }
     return { ok: true, centreId, centerCode };
   }
 }

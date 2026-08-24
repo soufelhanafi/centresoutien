@@ -1351,11 +1351,21 @@ export function buildContainer(options: ContainerOptions): Container {
         hasActiveLicense: () =>
           resolveActivePlan(verifyLicenseCached(), clock.now(), licenseBinding).status === 'active',
         seedPlan: activePlanId,
-        currentOwner: () => userRepo.findOwner(),
+        // Owner-only authorization (Qodo #8): the new center is owned by the
+        // AUTHENTICATED caller, resolved from the live session principal — never an
+        // arbitrary `findOwner()` row. A caller who is not the center's owner (a
+        // secretary, or an unauthenticated invoke that resolves to the bootstrap
+        // placeholder) yields null, and provisioning fails closed. This is the
+        // honest-user gate that stops a lower-privileged user minting a center.
+        currentOwner: async () => {
+          const caller = await userRepo.findById(resolveUpdatedBy());
+          return caller !== null && caller.role === 'owner' ? caller : null;
+        },
       })
     : {
         provision: () =>
           Promise.reject(new CenterProvisioningError('center provisioning is not available')),
+        discard: () => Promise.resolve(),
       };
   const createCenter = new CreateCenter(plan, centerProvisioningPort, centerSwitchPort);
   const recoveryCodeResetUnitOfWork = new SqliteRecoveryCodeResetUnitOfWork(db, changeLog);

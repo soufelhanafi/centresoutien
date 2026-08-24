@@ -3,20 +3,28 @@ import { CreateCenter, type CreateCenterInput } from '../../../src/use-cases/cre
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
-import { CenterProvisioningError } from '../../../src/errors/center-errors';
+import { CenterProvisioningError, CenterSwitchError } from '../../../src/errors/center-errors';
 import type { CenterProvisioningPort } from '../../../src/ports/center-provisioning-port';
 import type { CenterSwitchPort } from '../../../src/ports/center-switch-port';
 import type { CenterCode } from '../../../src/value-objects/ids';
 
-type RecordingProvisioner = CenterProvisioningPort & { readonly provisioned: string[] };
+type RecordingProvisioner = CenterProvisioningPort & {
+  readonly provisioned: string[];
+  readonly discarded: string[];
+};
 
 function recordingProvisioner(centreId = 'ctr_new'): RecordingProvisioner {
   const provisioned: string[] = [];
+  const discarded: string[] = [];
   return {
     provisioned,
+    discarded,
     provision: async ({ profile }) => {
       provisioned.push(profile.name);
       return { centreId, centerCode: `CS-${centreId}` as CenterCode };
+    },
+    discard: async (id) => {
+      discarded.push(id);
     },
   };
 }
@@ -78,11 +86,29 @@ describe('CreateCenter', () => {
     const switcher = recordingSwitcher();
     const useCase = new CreateCenter(
       new PlanPolicy(PLANS.premium),
-      { provision: async () => { throw new CenterProvisioningError('disk full'); } },
+      {
+        provision: async () => {
+          throw new CenterProvisioningError('disk full');
+        },
+        discard: async () => {},
+      },
       switcher,
     );
 
     await expect(useCase.execute(validInput())).rejects.toBeInstanceOf(CenterProvisioningError);
     expect(switcher.switched).toEqual([]);
+  });
+
+  it('discards the provisioned center when the switch fails, so no orphan remains', async () => {
+    const provisioner = recordingProvisioner('ctr_annex');
+    const useCase = new CreateCenter(new PlanPolicy(PLANS.premium), provisioner, {
+      switchTo: async () => {
+        throw new CenterSwitchError('target could not be opened');
+      },
+    });
+
+    await expect(useCase.execute(validInput())).rejects.toBeInstanceOf(CenterSwitchError);
+    expect(provisioner.provisioned).toEqual(['Centre Annexe']);
+    expect(provisioner.discarded).toEqual(['ctr_annex']);
   });
 });

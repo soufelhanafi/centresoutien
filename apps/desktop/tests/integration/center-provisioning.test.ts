@@ -127,6 +127,22 @@ describe('SqliteCenterProvisioning', () => {
     }
   });
 
+  it('publishes the final file atomically, leaving no .provisioning temp behind', async () => {
+    const result = await makeProvisioner(dir).provision({ profile: profile() });
+
+    expect(existsSync(join(dir, centreDbFileName(result.centreId)))).toBe(true);
+    expect(existsSync(join(dir, `${centreDbFileName(result.centreId)}.provisioning`))).toBe(false);
+  });
+
+  it('discard() removes a provisioned center so a failed switch leaves no orphan', async () => {
+    const provisioner = makeProvisioner(dir);
+    const result = await provisioner.provision({ profile: profile() });
+    expect(existsSync(join(dir, centreDbFileName(result.centreId)))).toBe(true);
+
+    await provisioner.discard(result.centreId);
+    expect(existsSync(join(dir, centreDbFileName(result.centreId)))).toBe(false);
+  });
+
   it('seeds the director as the new center owner with a remembered device session', async () => {
     const result = await makeProvisioner(dir).provision({ profile: profile() });
 
@@ -218,7 +234,10 @@ describe('SqliteCenterProvisioning', () => {
     await expect(broken.provision({ profile: profile() })).rejects.toBeInstanceOf(
       CenterProvisioningError,
     );
-    // The bare ULID of the first generated id — the file the failed provision opened.
-    expect(existsSync(join(dir, centreDbFileName('00000000000000000000000001')))).toBe(false);
+    // The bare ULID of the first generated id — neither the final name nor the
+    // temp working file may survive a failed provision.
+    const failedFile = centreDbFileName('00000000000000000000000001');
+    expect(existsSync(join(dir, failedFile))).toBe(false);
+    expect(existsSync(join(dir, `${failedFile}.provisioning`))).toBe(false);
   });
 });

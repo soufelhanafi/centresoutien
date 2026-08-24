@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Database as DB } from 'better-sqlite3';
 import {
@@ -22,7 +22,7 @@ import {
   type User,
   type UserId,
 } from '@centresoutien/domain';
-import { centreDbFileName, openDatabase } from './db';
+import { centreDbFileName, openDatabaseAt } from './db';
 import { applyMigrations, type Migration } from './migration-runner';
 import { readOrCreateDeviceOrigin } from './device-origin';
 import { SqliteCenterSetupUnitOfWork } from './repositories/center-setup-unit-of-work';
@@ -62,44 +62,60 @@ export type CenterProvisioningDeps = {
  * director lands straight in the shell, not the first-run wizard or login screen.
  *
  * It never touches the currently-open center (it opens its own transient handle
- * and closes it), and on any failure it removes the partial DB file so a failed
- * provision is always "nothing created". Switching into the new center is the
- * caller's job (`CreateCenter` → `CenterSwitchPort`).
+ * and closes it). Provisioning happens against a temporary file that is only
+ * renamed to its final `centre-{id}.db` name once the DB is fully migrated,
+ * seeded, and closed — so the center switcher's filename scan never sees a
+ * half-initialized center, and any failure leaves nothing discoverable behind.
+ * Switching into the new center is the caller's job (`CreateCenter` →
+ * `CenterSwitchPort`), which calls {@link discard} to roll the provision back if
+ * that switch fails.
  */
 export class SqliteCenterProvisioning implements CenterProvisioningPort {
   constructor(private readonly deps: CenterProvisioningDeps) {}
 
   async provision({ profile }: ProvisionCenterInput): Promise<ProvisionCenterResult> {
     // Resolve the director before creating anything: a new center must have an
-    // owner, and the only legitimate owner is the signed-in director of the center
-    // this flow ran from. No owner ⇒ nothing is created.
+    // owner, and the only legitimate owner is the authenticated director of the
+    // center this flow ran from (enforced in the composition root). No owner ⇒
+    // nothing is created — the honest-user gate for the owner-only add-center flow.
     const director = await this.deps.currentOwner();
     if (director === null) {
-      throw new CenterProvisioningError('no signed-in director to own the new center');
+      throw new CenterProvisioningError('the signed-in user is not authorized to add a center');
     }
 
     const centreId = this.allocateCentreId();
     const centerCode = deriveCenterCode(centreId);
-    const file = join(this.deps.dir, centreDbFileName(centreId));
-    if (existsSync(file)) {
-      throw new CenterProvisioningError(`a center database already exists at ${file}`);
+    const finalFile = join(this.deps.dir, centreDbFileName(centreId));
+    // The temp name deliberately does NOT match the switcher's `centre-*.db` scan,
+    // so a concurrent list/switch can never open a center mid-provision.
+    const tempFile = `${finalFile}.provisioning`;
+    if (existsSync(finalFile)) {
+      throw new CenterProvisioningError(`a center database already exists at ${finalFile}`);
     }
 
     let db: DB | null = null;
     try {
-      db = openDatabase({ centreId, key: this.deps.keyFor(centreId), dir: this.deps.dir });
+      removeCenterFiles(tempFile); // clear any leftover temp from an earlier crash
+      db = openDatabaseAt(tempFile, this.deps.keyFor(centreId));
       applyMigrations(db, [...this.deps.migrations]);
       await this.seed(db, profile, centerCode, director);
+      db.pragma('wal_checkpoint(TRUNCATE)'); // fold the WAL in so the rename is complete
       db.close();
       db = null;
+      renameSync(tempFile, finalFile); // atomic publish: the center appears fully ready
+      removeCenterFiles(tempFile); // drop the now-stale temp -wal/-shm sidecars
       return { centreId, centerCode };
     } catch (error) {
       db?.close();
-      this.removePartial(file);
+      removeCenterFiles(tempFile);
       throw error instanceof CenterProvisioningError
         ? error
         : new CenterProvisioningError(reasonFrom(error));
     }
+  }
+
+  async discard(centreId: string): Promise<void> {
+    removeCenterFiles(join(this.deps.dir, centreDbFileName(centreId)));
   }
 
   private async seed(
@@ -178,14 +194,20 @@ export class SqliteCenterProvisioning implements CenterProvisioningPort {
     return separator >= 0 ? generated.slice(separator + 1) : generated;
   }
 
-  private removePartial(file: string): void {
-    for (const suffix of ['', '-wal', '-shm']) {
-      try {
-        rmSync(`${file}${suffix}`, { force: true });
-      } catch {
-        // Best effort: a leftover sidecar is harmless (the center row never
-        // committed, so the directory scan won't list it as a real center).
-      }
+}
+
+/**
+ * Removes a SQLCipher DB file and its WAL/SHM sidecars, best-effort. A leftover
+ * temp/discarded file is harmless once it no longer carries the discoverable
+ * `centre-{id}.db` name, so a failed unlink is swallowed rather than masking the
+ * original error the caller is already surfacing.
+ */
+function removeCenterFiles(file: string): void {
+  for (const suffix of ['', '-wal', '-shm']) {
+    try {
+      rmSync(`${file}${suffix}`, { force: true });
+    } catch {
+      // Best effort — see the doc above.
     }
   }
 }

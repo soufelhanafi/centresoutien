@@ -38,4 +38,13 @@ export type ProvisionCenterResult = {
  */
 export interface CenterProvisioningPort {
   provision(input: ProvisionCenterInput): Promise<ProvisionCenterResult>;
+
+  /**
+   * Removes a center that was provisioned but never entered — the rollback
+   * {@link CreateCenter} runs when the post-provision switch fails, so a failed
+   * add leaves no orphan center discoverable by the switcher. Idempotent and
+   * best-effort: a `centreId` with nothing on disk is a no-op, and it never throws
+   * (the caller is already unwinding a failure and must surface the original one).
+   */
+  discard(centreId: string): Promise<void>;
 }
