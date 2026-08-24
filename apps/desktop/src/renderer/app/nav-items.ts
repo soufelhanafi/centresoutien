@@ -29,6 +29,12 @@ import type { PlanTier } from '@centresoutien/ui';
  * plan-feature-gate). `requiredTier` is display-only: it labels the upgrade
  * badge on a locked entry and never drives the gating decision.
  *
+ * `hideWhenLocked` removes the entry from the nav entirely when its feature is
+ * missing, instead of the default locked (disabled + upgrade-badge) affordance.
+ * Reserved for features that carry no meaning on a lower plan — a single-center
+ * Pro user has no "per-center stats" (SOU-309), so that entry must not appear as
+ * a dead lock.
+ *
  * Each module is a named `as const` value so its `path` stays a string literal —
  * that keeps the router's route tree and every `<Link to>` fully type-checked.
  */
@@ -39,6 +45,7 @@ export type NavModule = {
   readonly icon: LucideIcon;
   readonly feature?: FeatureFlag;
   readonly requiredTier?: PlanTier;
+  readonly hideWhenLocked?: boolean;
 };
 
 export const dashboardModule = { id: 'dashboard', path: '/dashboard', icon: LayoutDashboard } as const satisfies NavModule;
@@ -54,7 +61,14 @@ export const planningModule = { id: 'planning', path: '/planning', icon: Calenda
 export const invoicingModule = { id: 'invoicing', path: '/invoicing', icon: ReceiptText } as const satisfies NavModule;
 export const paymentsModule = { id: 'payments', path: '/payments', icon: Wallet } as const satisfies NavModule;
 export const payrollModule = { id: 'payroll', path: '/payroll', icon: HandCoins, feature: 'payroll.teacher', requiredTier: 'pro' } as const satisfies NavModule;
-export const multiCenterStatsModule = { id: 'multiCenterStats', path: '/multi-center-stats', icon: BarChart3, feature: 'org.multi-center', requiredTier: 'premium' } as const satisfies NavModule;
+export const multiCenterStatsModule = {
+  id: 'multiCenterStats',
+  path: '/multi-center-stats',
+  icon: BarChart3,
+  feature: 'org.multi-center',
+  requiredTier: 'premium',
+  hideWhenLocked: true,
+} as const satisfies NavModule;
 export const syncModule = { id: 'sync', path: '/sync', icon: RefreshCw, feature: 'sync.multi-device' } as const satisfies NavModule;
 export const settingsModule = { id: 'settings', path: '/settings', icon: Settings } as const satisfies NavModule;
 

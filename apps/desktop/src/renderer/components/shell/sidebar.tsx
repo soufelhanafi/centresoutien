@@ -45,9 +45,7 @@ export function Sidebar() {
       <ScrollArea className="min-h-0 flex-1" contentClassName="p-2">
         <ul className="flex flex-col gap-1">
           {NAV_MODULES.map((module) => (
-            <li key={module.id}>
-              <NavItem module={module} collapsed={collapsed} />
-            </li>
+            <NavItem key={module.id} module={module} collapsed={collapsed} />
           ))}
         </ul>
       </ScrollArea>
