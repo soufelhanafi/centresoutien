@@ -10,6 +10,7 @@ import type {
 } from '../../lib/payroll/teacher-payout-view';
 import { groupBreakdownByTeacher } from '../../lib/payroll/attribution-grouping';
 import { formatMoneyMad } from '../../lib/format';
+import { PayrollProjectionBreakdownRow } from './payroll-projection-breakdown-row';
 
 const COLUMNS = ['2fr', '1.2fr', '1fr', '1fr'] as const;
 
@@ -20,11 +21,8 @@ type PayrollProjectionSectionProps = {
   subjectsById: ReadonlyMap<string, SubjectView>;
 };
 
-/**
- * The in-progress payroll projection (SOU-316): a read-only, clearly-provisional
- * "mois en cours" view over the open month, showing each teacher's collected-to-date
- * figure and projected month-end figure, expandable to the projected subject basis.
- */
+// The in-progress payroll projection (SOU-316): a read-only, provisional
+// "mois en cours" view over the open month.
 export function PayrollProjectionSection({
   projections,
   projectedBreakdown,
@@ -78,7 +76,6 @@ export function PayrollProjectionSection({
               {projections.map((projection) => {
                 const teacher = teachersById.get(projection.teacherId);
                 const expanded = expandedTeacherIds.has(projection.teacherId);
-                const entries = breakdownByTeacher.get(projection.teacherId) ?? [];
                 return (
                   <Fragment key={projection.teacherId}>
                     <DataTableRow>
@@ -120,35 +117,11 @@ export function PayrollProjectionSection({
                       </DataTableCell>
                     </DataTableRow>
                     {expanded && (
-                      <tr className="border-b border-border bg-muted/40 last:border-b-0">
-                        <td colSpan={COLUMNS.length} className="px-4 py-3">
-                          <p className="mb-2 text-xs font-semibold text-foreground">{t('payroll.projection.basis')}</p>
-                          {entries.length === 0 ? (
-                            <p className="text-xs text-muted-foreground">{t('payroll.breakdown.empty')}</p>
-                          ) : (
-                            <ul className="space-y-1.5">
-                              {entries.map((entry) => {
-                                const subject = subjectsById.get(entry.subjectId);
-                                return (
-                                  <li key={entry.subjectId} className="flex items-center justify-between text-sm">
-                                    <span className="flex items-center gap-2">
-                                      <span className="text-foreground">{subject?.name.fr ?? t('payroll.unknownSubject')}</span>
-                                      {subject && (
-                                        <BilingualText
-                                          value={subject.name.ar}
-                                          script="arabic"
-                                          className="text-xs text-muted-foreground"
-                                        />
-                                      )}
-                                    </span>
-                                    <Numeric>{formatMoneyMad(entry.amountMad, i18n.language)}</Numeric>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          )}
-                        </td>
-                      </tr>
+                      <PayrollProjectionBreakdownRow
+                        columnsCount={COLUMNS.length}
+                        entries={breakdownByTeacher.get(projection.teacherId) ?? []}
+                        subjectsById={subjectsById}
+                      />
                     )}
                   </Fragment>
                 );

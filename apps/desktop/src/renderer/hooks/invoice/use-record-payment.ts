@@ -3,6 +3,7 @@ import { invoicesGateway, type RecordPaymentInput } from '../../lib/invoices/inv
 import { dashboardKeys } from '../dashboard/keys';
 import { dayCloseKeys } from '../day-close/keys';
 import { paymentKeys } from '../payments/keys';
+import { payrollKeys } from '../payroll/keys';
 import { invoiceKeys } from './keys';
 
 /**
@@ -33,6 +34,7 @@ export function useRecordPayment() {
       queryClient.invalidateQueries({ queryKey: dayCloseKeys.all });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.basic });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.advanced });
+      queryClient.invalidateQueries({ queryKey: payrollKeys.projectionAll });
       if (invoice) {
         queryClient.setQueryData(invoiceKeys.detail(invoice.id), invoice);
       }

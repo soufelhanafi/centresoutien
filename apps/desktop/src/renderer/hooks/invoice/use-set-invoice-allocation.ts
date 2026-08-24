@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { invoicesGateway } from '../../lib/invoices/invoices-gateway';
 import type { InvoiceSubjectAllocation } from '../../lib/invoices/invoice-view';
+import { payrollKeys } from '../payroll/keys';
 import { invoiceKeys } from './keys';
 
 type SetInvoiceAllocationInput = {
@@ -21,6 +22,7 @@ export function useSetInvoiceAllocation() {
       invoicesGateway.setAllocation(invoiceId, allocations),
     onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+      queryClient.invalidateQueries({ queryKey: payrollKeys.projectionAll });
       queryClient.setQueryData(invoiceKeys.detail(invoice.id), invoice);
     },
   });

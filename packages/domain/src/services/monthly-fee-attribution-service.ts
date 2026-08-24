@@ -6,14 +6,12 @@ import { TeacherFeeAttributionPolicy } from '../policies/teacher-fee-attribution
 import { SubjectRevenueAttributionPolicy } from '../policies/subject-revenue-attribution-policy';
 import type { AttributionLineAssembler } from './attribution-line-assembler';
 
-/**
- * Attributes a center+month's fees to teachers (and subjects), on top of the
- * line assembly in {@link AttributionLineAssembler}. The assembly (which
- * invoices count, and how each line's amount resolves to teachers) lives in the
- * assembler; this service applies the pure split policy to those lines. Only
- * the `issued`+collected ledger is read by the collected views; the projected
- * view (SOU-316) reads the full-amount ledger instead.
- */
+// Attributes a center+month's fees to teachers (and subjects), on top of the
+// line assembly in AttributionLineAssembler. The assembly (which invoices
+// count, and how each line's amount resolves to teachers) lives in the
+// assembler; this service applies the pure split policy to those lines. Only
+// the issued+collected ledger is read by the collected views; the projected
+// view (SOU-316) reads the full-amount ledger instead.
 export class MonthlyFeeAttributionService {
   constructor(private readonly lines: AttributionLineAssembler) {}
 
@@ -28,7 +26,7 @@ export class MonthlyFeeAttributionService {
     return new Map(attributed.map((entry) => [entry.teacherId, entry.attributedAmountMad]));
   }
 
-  /** Same collected-fee lines as {@link attributedAmountsByTeacher}, grouped by subject (SOU-100). */
+  // Same collected-fee lines, grouped by subject (SOU-100).
   async attributedAmountsBySubject(
     centerCode: CenterCode,
     month: string,
@@ -40,7 +38,7 @@ export class MonthlyFeeAttributionService {
     return new Map(attributed.map((entry) => [entry.subjectId, entry.attributedAmountMad]));
   }
 
-  /** Same attribution base as {@link attributedAmountsByTeacher}, broken out by subject (SOU-76 drill-down). */
+  // Same base as attributedAmountsByTeacher, broken out by subject (SOU-76 drill-down).
   async attributedAmountsByTeacherAndSubject(
     centerCode: CenterCode,
     month: string,
@@ -51,12 +49,10 @@ export class MonthlyFeeAttributionService {
     return this.attributeByTeacherAndSubject(inputLines);
   }
 
-  /**
-   * The projected (expected, not-yet-collected) counterpart of
-   * {@link attributedAmountsByTeacherAndSubject} — the in-progress payroll
-   * projection's subject basis (SOU-316). Reads every non-cancelled invoice at
-   * its full line amount, then resolves teachers exactly as the collected path.
-   */
+  // The projected (expected, not-yet-collected) counterpart of
+  // attributedAmountsByTeacherAndSubject — the in-progress payroll projection's
+  // subject basis (SOU-316). Reads every non-cancelled invoice at its full line
+  // amount, then resolves teachers exactly as the collected path.
   async projectedAttributedAmountsByTeacherAndSubject(
     centerCode: CenterCode,
     month: string,

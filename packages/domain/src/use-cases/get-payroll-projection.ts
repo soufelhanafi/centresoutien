@@ -24,19 +24,10 @@ export type GetPayrollProjectionResult = {
   readonly projectedBreakdown: readonly TeacherProjectedAttribution[];
 };
 
-/**
- * The in-progress / projected payroll read (SOU-316): for every active teacher
- * with a live `TeacherPayrollRule` covering `month`, computes the two figures
- * the Paie page shows for an open month — **encaissé à ce jour** (the collected
- * attribution × percent) and **projeté fin de mois** (the expected, full-amount
- * attribution × percent) — without writing anything. The amount math lives in
- * {@link projectPayoutAmounts}; this use case only orchestrates the reads.
- *
- * Read-only by design: the finalized `TeacherPayout` for a closed month still
- * comes from `ComputeMonthlyPayrolls` (SOU-74). Gated by `payroll.teacher`
- * (Pro+). Attribution is computed lazily — a center whose live rules are all
- * `fixed-monthly` never scans the ledger.
- */
+// In-progress / projected payroll read (SOU-316). Read-only: the finalized
+// TeacherPayout for a closed month still comes from ComputeMonthlyPayrolls
+// (SOU-74). Gated by payroll.teacher (Pro+). Attribution is computed lazily —
+// an all-fixed-monthly center never scans the ledger.
 export class GetPayrollProjection {
   constructor(
     private readonly teachers: TeacherRepository,

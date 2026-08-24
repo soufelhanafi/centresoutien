@@ -13,18 +13,16 @@ import type { InvoiceLine, InvoiceLineId } from '../entities/invoice-line';
 import type { StudentLineAttributionInput, SubjectTeacherAssignment } from '../policies/teacher-fee-attribution-policy';
 import { collectedLineAmounts } from '../policies/collected-fees';
 
-/**
- * Assembles a center+month's invoice lines into `TeacherFeeAttributionPolicy`
- * inputs (CLAUDE.md §6 steps 1–4) — the wiring between the raw
- * invoicing/enrollment ledger and the pure attribution policies. Extracted from
- * `MonthlyFeeAttributionService` so the two ledgers (collected vs projected)
- * share one assembly path and neither service outgrows its ceiling.
- *
- * A line's subject resolves to a teacher through the student's **live**
- * `Enrollment` in a group teaching that subject (step 3) — never attendance or
- * session data. A subject with no resolvable teacher still gets an entry with
- * `teacherId: null` so the split denominator is never narrowed (SOU-74 M1).
- */
+// Assembles a center+month's invoice lines into TeacherFeeAttributionPolicy
+// inputs (CLAUDE.md §6 steps 1–4) — the wiring between the raw
+// invoicing/enrollment ledger and the pure attribution policies. Extracted from
+// MonthlyFeeAttributionService so the collected and projected ledgers share one
+// assembly path and neither service outgrows its ceiling.
+//
+// A line's subject resolves to a teacher through the student's live Enrollment
+// in a group teaching that subject (step 3) — never attendance or session data.
+// A subject with no resolvable teacher still gets an entry with teacherId null
+// so the split denominator is never narrowed (SOU-74 M1).
 export class AttributionLineAssembler {
   constructor(
     private readonly invoices: InvoiceRepository,

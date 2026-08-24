@@ -45,30 +45,16 @@ function percentageRule(percent: number): TeacherPayrollRule {
 }
 
 describe('projectPayoutAmounts', () => {
-  it('projects the flat amount for both figures, no percent snapshot', () => {
-    expect(projectPayoutAmounts(fixedRule(500000), 0, 0)).toEqual({
-      ruleKind: 'fixed-monthly',
-      encaisseMad: 500000,
-      projeteMad: 500000,
-      percentSnapshot: null,
-    });
-  });
-
-  it('applies the percent to the collected and projected bases independently', () => {
-    expect(projectPayoutAmounts(percentageRule(30), 40000, 100000)).toEqual({
-      ruleKind: 'percentage-of-monthly-fees',
-      encaisseMad: 12000,
-      projeteMad: 30000,
-      percentSnapshot: 30,
-    });
-  });
-
-  it('rounds each figure to whole centimes', () => {
-    expect(projectPayoutAmounts(percentageRule(33), 10001, 20002)).toEqual({
-      ruleKind: 'percentage-of-monthly-fees',
-      encaisseMad: 3300, // 10001 * 33 / 100 = 3300.33 → 3300
-      projeteMad: 6601, // 20002 * 33 / 100 = 6600.66 → 6601
-      percentSnapshot: 33,
+  it.each([
+    ['fixed-monthly flat amount', fixedRule(500000), 0, 0, 500000, 500000, null],
+    ['percentage over both bases', percentageRule(30), 40000, 100000, 12000, 30000, 30],
+    ['percentage rounds to whole centimes', percentageRule(33), 10001, 20002, 3300, 6601, 33],
+  ])('%s', (_label, rule, collectedBaseMad, projectedBaseMad, expectedEncaisse, expectedProjete, expectedPercent) => {
+    expect(projectPayoutAmounts(rule, collectedBaseMad, projectedBaseMad)).toEqual({
+      ruleKind: rule.kind,
+      encaisseMad: expectedEncaisse,
+      projeteMad: expectedProjete,
+      percentSnapshot: expectedPercent,
     });
   });
 });

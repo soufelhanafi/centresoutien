@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { invoicesGateway, type UpdateInvoiceLineAmountInput } from '../../lib/invoices/invoices-gateway';
 import { dashboardKeys } from '../dashboard/keys';
+import { payrollKeys } from '../payroll/keys';
 import { invoiceKeys } from './keys';
 
 /**
@@ -17,6 +18,7 @@ export function useUpdateInvoiceLineAmount() {
       queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.basic });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.advanced });
+      queryClient.invalidateQueries({ queryKey: payrollKeys.projectionAll });
       queryClient.setQueryData(invoiceKeys.detail(invoice.id), invoice);
     },
   });
