@@ -11,7 +11,7 @@ import { GroupFill } from '../group/group-fill';
  *  identified by its subject and level. */
 export function TeacherGroupsRow({ group }: { group: GroupRow }) {
   const { t, i18n } = useTranslation();
-  const levelLabel = useNiveauLabel(group.niveauId ?? null, group.level);
+  const levelLabel = useNiveauLabel(group.niveauId, group.level);
 
   return (
     <DataTableRow>

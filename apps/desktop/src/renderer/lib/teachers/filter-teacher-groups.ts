@@ -43,6 +43,9 @@ export function selectTeacherGroups(
 function matchesQuery(group: GroupRow, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (needle === '') return true;
+  // Script-scoped: a Latin query is matched against the French subject name and the
+  // (Latin) level; an Arabic query against the Arabic subject name only. Levels are
+  // stored as Latin labels (e.g. "2 Bac"), so an Arabic query never matches on level.
   return (
     group.subjectName.fr.toLowerCase().includes(needle) ||
     group.subjectName.ar.includes(query.trim()) ||
