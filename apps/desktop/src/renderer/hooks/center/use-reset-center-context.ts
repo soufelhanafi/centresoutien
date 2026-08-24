@@ -5,14 +5,15 @@ import { loadActivePlan } from '../use-plan-hydration';
 import { usePlanStore } from '../../stores/plan-store';
 import { useDashboardViewStore } from '../../stores/dashboard-view-store';
 import { useCommandPaletteStore } from '../../stores/command-palette-store';
+import { resetQueryCache } from '../../lib/query-client';
 
 /**
  * The renderer-side tenant reset run after the open center changes — whether the
  * operator switched centers (SOU-96) or added one and landed in it (SOU-310). It
- * drops every client cache so no data bleeds between tenants: `queryClient.clear()`
- * wipes all TanStack caches, the device-scoped UI stores reset, the per-center plan
- * is re-read, and the app lands on the new center's dashboard. The DB swap itself
- * happens in main; this only owns the reset.
+ * refetches the still-mounted queries in place and purges the previous center's
+ * cached rows (`resetQueryCache`), resets the device-scoped UI stores, re-reads
+ * the per-center plan, and lands on the new center's dashboard. The DB swap
+ * itself happens in main; this only owns the reset.
  */
 export function useResetCenterContext(): () => Promise<void> {
   const queryClient = useQueryClient();
@@ -22,7 +23,7 @@ export function useResetCenterContext(): () => Promise<void> {
   const setCommandPaletteOpen = useCommandPaletteStore((state) => state.setOpen);
 
   return async () => {
-    queryClient.clear();
+    await resetQueryCache(queryClient);
     resetDashboardView();
     setCommandPaletteOpen(false);
     await loadActivePlan(setPlan);

@@ -10,3 +10,18 @@ export const queryClient = new QueryClient({
     mutations: { retry: false },
   },
 });
+
+/**
+ * Resets the query cache when the open center changes (SOU-314). Query keys are
+ * not scoped by center — main injects `centerCode` — so without this the cache
+ * keeps the previous center's rows under the same keys. `invalidateQueries`
+ * refetches every currently-mounted query in place, so a screen the operator is
+ * already looking at (the dashboard) shows the new center's figures with no
+ * manual reload; `removeQueries({ type: 'inactive' })` then purges the previous
+ * center's cached rows for tenant isolation.
+ */
+export async function resetQueryCache(client: QueryClient): Promise<void> {
+  await client.cancelQueries();
+  await client.invalidateQueries();
+  client.removeQueries({ type: 'inactive' });
+}
