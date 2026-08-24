@@ -19,3 +19,19 @@ export function openEncryptedDatabase(file: string, key: string): DB {
   db.pragma('foreign_keys = ON');
   return db;
 }
+
+/**
+ * Read-only, existing-file-only sibling of {@link openEncryptedDatabase}: it must
+ * already exist (`fileMustExist: true`) and only `PRAGMA key` is applied — no WAL,
+ * no `foreign_keys`. This is the probe the SOU-302 recovery CLI verifies a
+ * recovered key with: a writable open would silently CREATE a new empty encrypted
+ * DB for a mistyped `--db` path (whose `sqlite_master` count then "succeeds",
+ * falsely reporting recovery) and would WAL-mutate a file that should only be
+ * read. Mirrors `openDatabaseReadonlyAt` in db.ts. The cipher-critical `PRAGMA
+ * key` escaping stays byte-identical to the writable path.
+ */
+export function openEncryptedDatabaseReadonly(file: string, key: string): DB {
+  const db = new Database(file, { readonly: true, fileMustExist: true });
+  db.pragma(`key = '${key.replace(/'/g, "''")}'`);
+  return db;
+}

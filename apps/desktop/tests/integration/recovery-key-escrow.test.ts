@@ -112,9 +112,9 @@ describe('RecoveryKeyEscrowWriter', () => {
 // key is present (this worktree); CI without it skips rather than fails.
 type CliResult = { status: number; stdout: string; stderr: string };
 
-function runCli(cliArgs: readonly string[], env: NodeJS.ProcessEnv): CliResult {
+function runScript(script: string, scriptArgs: readonly string[], env: NodeJS.ProcessEnv): CliResult {
   try {
-    const stdout = execFileSync('node', ['scripts/recover-db-key.mjs', ...cliArgs], {
+    const stdout = execFileSync('node', [`scripts/${script}`, ...scriptArgs], {
       cwd: APP_DIR,
       encoding: 'utf8',
       env,
@@ -124,6 +124,10 @@ function runCli(cliArgs: readonly string[], env: NodeJS.ProcessEnv): CliResult {
     const failure = error as { status?: number; stdout?: string; stderr?: string };
     return { status: failure.status ?? 1, stdout: failure.stdout ?? '', stderr: failure.stderr ?? '' };
   }
+}
+
+function runCli(cliArgs: readonly string[], env: NodeJS.ProcessEnv): CliResult {
+  return runScript('recover-db-key.mjs', cliArgs, env);
 }
 
 describe('offline recovery CLI (production key path)', () => {
@@ -196,5 +200,51 @@ describe('offline recovery CLI (production key path)', () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('did not open');
+  });
+
+  // Fix 1 (SOU-302 review): the verify probe opens read-only + fileMustExist, so
+  // a mistyped/missing --db must fail loudly and never create a stray encrypted DB.
+  it.skipIf(!hasProductPrivateKey)('fails and creates no file when --db does not exist', () => {
+    const dbPath = join(dir, 'centre-CS-CASA-001.db');
+    const missingDbPath = join(dir, 'typo-does-not-exist.db');
+    const seeded = openDatabaseAt(dbPath, DB_KEY);
+    seeded.prepare('CREATE TABLE marker (v TEXT)').run();
+    seeded.close();
+    const blobPath = sealSiblingFor(dbPath, DB_KEY);
+
+    const result = runCli(['--blob', blobPath, '--db', missingDbPath], {
+      ...process.env,
+      CS_RECOVERY_PRIVATE_KEY: productPrivateKey(),
+    });
+
+    expect(result.status).not.toBe(0);
+    expect(existsSync(missingDbPath)).toBe(false);
+  });
+
+  // Fix 4 (SOU-302 review): db:rekey must re-seal the recovery sibling toward the
+  // NEW key, so offline recovery opens the rekeyed DB afterwards.
+  it.skipIf(!hasProductPrivateKey)('recovers a DB rekeyed after its recovery blob was sealed', () => {
+    const newKey = '112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00';
+    const dbPath = join(dir, 'centre-CS-CASA-001.db');
+    const seeded = openDatabaseAt(dbPath, DB_KEY);
+    seeded.prepare('CREATE TABLE marker (v TEXT)').run();
+    seeded.close();
+    const blobPath = sealSiblingFor(dbPath, DB_KEY);
+
+    const rekey = runScript('rekey-db.mjs', [dbPath], {
+      ...process.env,
+      CS_REKEY_OLD_KEY: DB_KEY,
+      CS_REKEY_NEW_KEY: newKey,
+    });
+    expect(rekey.status).toBe(0);
+
+    const result = runCli(['--blob', blobPath, '--db', dbPath, '--print-key'], {
+      ...process.env,
+      CS_RECOVERY_PRIVATE_KEY: productPrivateKey(),
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('schema object(s) readable');
+    expect(result.stdout).toContain(`db key: ${newKey}`);
   });
 });

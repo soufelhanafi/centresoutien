@@ -55,7 +55,7 @@ if (!process.features.typescript) {
   process.exit(result.status ?? 1);
 }
 
-const { openEncryptedDatabase } = await import('../src/data/sqlite/db-open.ts');
+const { openEncryptedDatabaseReadonly } = await import('../src/data/sqlite/db-open.ts');
 const { recoveryPublicKey } = await import('../src/main/recovery-public-key.ts');
 
 function parseArgs(argv) {
@@ -114,7 +114,7 @@ try {
 
 let db;
 try {
-  db = openEncryptedDatabase(args.db, dbKey);
+  db = openEncryptedDatabaseReadonly(args.db, dbKey);
   const { count } = db.prepare('SELECT count(*) AS count FROM sqlite_master').get();
   console.log(`recovered DB key opens ${args.db} — ${count} schema object(s) readable.`);
   if (args.printKey) console.log(`db key: ${dbKey}`);
