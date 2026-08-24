@@ -146,11 +146,13 @@ import {
   UpdateDraftInvoiceLineAmount,
   SetInvoiceSubjectAllocation,
   MonthlyFeeAttributionService,
+  AttributionLineAssembler,
   ComputeMonthlyPayrolls,
   ConfirmTeacherPayout,
   ConfirmMonthlyPayrolls,
   ListTeacherPayouts,
   GetTeacherAttributionBreakdown,
+  GetPayrollProjection,
   GeneratePayslipPdf,
   GeneratePaymentReceiptPdf,
   RecordSessionAttendance,
@@ -937,11 +939,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // generateMonthlyInvoices, never auto-paid.
   const payoutRepo = new SqliteTeacherPayoutRepository(db);
   const monthlyFeeAttribution = new MonthlyFeeAttributionService(
-    invoiceRepo,
-    paymentRepo,
-    formulaRepo,
-    enrollmentRepo,
-    groupRepo,
+    new AttributionLineAssembler(invoiceRepo, paymentRepo, formulaRepo, enrollmentRepo, groupRepo),
   );
   const computeMonthlyPayrolls = new ComputeMonthlyPayrolls(
     teacherRepo,
@@ -965,6 +963,15 @@ export function buildContainer(options: ContainerOptions): Container {
   const confirmMonthlyPayrolls = new ConfirmMonthlyPayrolls(payoutRepo, clock, plan);
   const listTeacherPayouts = new ListTeacherPayouts(payoutRepo, plan);
   const getTeacherAttributionBreakdown = new GetTeacherAttributionBreakdown(monthlyFeeAttribution, plan);
+  // In-progress payroll projection (SOU-316): read-only, reuses the same
+  // attribution service + rule/teacher repos the compute job does, so the
+  // projected figure and the finalized payout share one attribution math.
+  const getPayrollProjection = new GetPayrollProjection(
+    teacherRepo,
+    payrollRuleRepo,
+    monthlyFeeAttribution,
+    plan,
+  );
 
   const holidayRepo = new SqliteHolidayRepository(db);
   const createHoliday = new CreateHoliday(holidayRepo, clock, ids, plan);
@@ -1641,6 +1648,7 @@ export function buildContainer(options: ContainerOptions): Container {
     confirmMonthlyPayrolls,
     listTeacherPayouts,
     getTeacherAttributionBreakdown,
+    getPayrollProjection,
     currentUserId: () => resolveUpdatedBy(),
     generatePayslipPdf,
     generatePaymentReceiptPdf,

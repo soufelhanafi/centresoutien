@@ -1,5 +1,5 @@
 import { encodeDomainError } from '../../../shared/ipc/domain-error';
-import type { ConfirmMonthlyResult, PayrollGateway } from './payroll-gateway';
+import type { ConfirmMonthlyResult, PayrollGateway, PayrollProjectionResult } from './payroll-gateway';
 import type { TeacherAttributionBreakdownEntryView, TeacherPayoutView } from './teacher-payout-view';
 import { ATTRIBUTION_BREAKDOWN_SEED, TEACHER_PAYOUT_SEED } from './mock-payroll-seed';
 
@@ -60,6 +60,21 @@ export class MockPayrollGateway implements PayrollGateway {
       [...this.payouts.values()].filter((payout) => payout.month === month).map((payout) => payout.teacherId),
     );
     return this.breakdown.filter((entry) => teacherIdsInMonth.has(entry.teacherId));
+  }
+
+  async getProjection(month: string): Promise<PayrollProjectionResult> {
+    const payoutsInMonth = [...this.payouts.values()].filter((payout) => payout.month === month);
+    const teacherIdsInMonth = new Set(payoutsInMonth.map((payout) => payout.teacherId));
+    return {
+      projections: payoutsInMonth.map((payout) => ({
+        teacherId: payout.teacherId,
+        ruleKind: payout.ruleKind,
+        encaisseMad: payout.amountMad,
+        projeteMad: payout.amountMad,
+        percentSnapshot: payout.percentSnapshot,
+      })),
+      projectedBreakdown: this.breakdown.filter((entry) => teacherIdsInMonth.has(entry.teacherId)),
+    };
   }
 }
 

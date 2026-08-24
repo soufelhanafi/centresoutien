@@ -437,6 +437,28 @@ const teacherAttributionBreakdownEntrySchema = z.object({
   amountMad: z.number().int(),
 });
 
+// One teacher's in-progress payout figure for an open month (SOU-316) — the
+// read-only projection row the Paie page shows for the current month, before
+// `payroll.computeMonthly` finalizes it. `encaisseMad` is collected-to-date;
+// `projeteMad` is the projected month-end figure; `percentSnapshot` is `null`
+// for `fixed-monthly` (where both figures equal the flat amount).
+const teacherPayrollProjectionSchema = z.object({
+  teacherId: z.string(),
+  ruleKind: z.enum(TEACHER_PAYROLL_RULE_KINDS),
+  encaisseMad: z.number().int(),
+  projeteMad: z.number().int(),
+  percentSnapshot: z.number().nullable(),
+});
+
+// One subject's projected (expected) attribution for one teacher (SOU-316) —
+// the projection section's basis drill-down, same flat-row shape as
+// `teacherAttributionBreakdownEntrySchema` but over the projected ledger.
+const teacherProjectedAttributionSchema = z.object({
+  teacherId: z.string(),
+  subjectId: z.string(),
+  amountMad: z.number().int(),
+});
+
 // One date `session.generate` skipped for falling on a holiday (SOU-161),
 // alongside the matched holiday's id + bilingual name — mirrors the payload
 // `SessionOnHolidayError` already carries, so the renderer can reuse the same
@@ -1957,6 +1979,20 @@ export const ipcContract = {
     request: payrollMonthQuerySchema,
     response: z.object({ breakdown: z.array(teacherAttributionBreakdownEntrySchema) }),
   },
+  // The in-progress / projected payroll read for an open month (SOU-316): the
+  // per-teacher `encaissé à ce jour` / `projeté fin de mois` figures plus the
+  // projected subject breakdown (the basis behind each projection). Read-only —
+  // no `TeacherPayout` is written; the finalized figure for a closed month still
+  // comes from `payroll.computeMonthly` (SOU-74). centerCode is injected in main,
+  // never sent from the renderer. Gated by `payroll.teacher` in
+  // `GetPayrollProjection`.
+  'payroll.projection': {
+    request: payrollMonthQuerySchema,
+    response: z.object({
+      projections: z.array(teacherPayrollProjectionSchema),
+      projectedBreakdown: z.array(teacherProjectedAttributionSchema),
+    }),
+  },
   // Holidays (SOU-30). `list` selects the live holidays or the archive via `scope`;
   // `create` and `update` take the domain's own `holidayInputSchema` (bilingual
   // name, kind fixed|lunar, calendar-date range with end >= start), validated once
@@ -2679,6 +2715,12 @@ export type TeacherPayoutDto = z.infer<typeof teacherPayoutViewSchema>;
 
 /** One flat attribution-breakdown row — the renderer's `TeacherAttributionBreakdownEntryView` aliases this. */
 export type TeacherAttributionBreakdownEntryDto = z.infer<typeof teacherAttributionBreakdownEntrySchema>;
+
+/** One in-progress payroll projection row — the renderer's `TeacherPayrollProjectionView` aliases this. */
+export type TeacherPayrollProjectionDto = z.infer<typeof teacherPayrollProjectionSchema>;
+
+/** One projected subject-attribution row — the renderer's `TeacherProjectedAttributionView` aliases this. */
+export type TeacherProjectedAttributionDto = z.infer<typeof teacherProjectedAttributionSchema>;
 
 /** The Holiday boundary DTO — the renderer's `HolidayView` is an alias of this. */
 export type HolidayDto = z.infer<typeof holidayViewSchema>;

@@ -3,4 +3,5 @@ export const payrollKeys = {
   all: ['payroll'] as const,
   payouts: (month: string) => ['payroll', 'payouts', month] as const,
   breakdown: (month: string) => ['payroll', 'breakdown', month] as const,
+  projection: (month: string) => ['payroll', 'projection', month] as const,
 };
