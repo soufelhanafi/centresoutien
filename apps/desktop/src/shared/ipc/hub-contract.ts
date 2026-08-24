@@ -46,4 +46,16 @@ export const hubIpcContract = {
     request: z.object({}),
     response: z.object({ centers: z.array(discoveredHubSchema) }),
   },
+  'hub.joinCenter': {
+    request: z.object({
+      baseUrl: z.string().min(1),
+      token: z.string().min(1),
+      centerCode: z.string().min(1),
+    }),
+    response: z.object({
+      ok: z.literal(true),
+      centreId: z.string(),
+      centerCode: z.string(),
+    }),
+  },
 } as const;

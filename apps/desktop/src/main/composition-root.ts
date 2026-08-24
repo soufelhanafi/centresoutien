@@ -165,7 +165,9 @@ import {
   SwitchCenter,
   CenterSwitchError,
   CreateCenter,
+  JoinCenter,
   CenterProvisioningError,
+  CenterJoinError,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -205,6 +207,7 @@ import { SqliteMultiCenterStatsRead } from '../data/sqlite/multi-center-stats-re
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { readOrCreateDeviceOrigin } from '../data/sqlite/device-origin';
 import { SqliteCenterProvisioning } from '../data/sqlite/center-provisioning';
+import { SqliteCenterJoinProvisioning } from '../data/sqlite/center-join-provisioning';
 import { SqliteHubStore } from '../data/sqlite/hub/hub-store';
 import { HubServer } from './hub-server/hub-server';
 import { HttpSyncHubClient } from '../data/sync/http-sync-hub-client';
@@ -382,6 +385,17 @@ export type ContainerOptions = {
    */
   provisioning?: {
     keyFor: CenterKeyProvider;
+  };
+  /** Join-an-existing-center provisioning (SOU-318). Provided by `index.ts`: the
+   *  per-center key derivation and the hub-client config writer the cold-bootstrap
+   *  persists on success. Absent → `hub.joinCenter` rejects with `CenterJoinError`
+   *  (after the plan gate). */
+  joining?: {
+    keyFor: CenterKeyProvider;
+    clientConfig: {
+      write(centreId: string, config: { baseUrl: string; token: string }): void;
+      clear(centreId: string): void;
+    };
   };
   /** LAN hub hosting + discovery (SOU-318). Provided by `index.ts`, which owns the
    *  persisted config store (bound here to THIS center's id) and the single
@@ -1410,6 +1424,28 @@ export function buildContainer(options: ContainerOptions): Container {
         discard: () => Promise.resolve(),
       };
   const createCenter = new CreateCenter(plan, centerProvisioningPort, centerSwitchPort);
+
+  // Join-an-existing-center flow (SOU-318). `JoinCenter` gates `sync.multi-device`
+  // then cold-bootstraps a local replica from the hub feed before switching in.
+  const joinCenter = new JoinCenter(
+    plan,
+    options.joining
+      ? new SqliteCenterJoinProvisioning({
+          dir: options.dir,
+          keyFor: options.joining.keyFor,
+          migrations: toMigrations(migrationFiles),
+          clock,
+          ids,
+          plan,
+          clientConfig: options.joining.clientConfig,
+          systemUserId: DEV_USER,
+        })
+      : {
+          provisionFromHub: () => Promise.reject(new CenterJoinError('joining is not available')),
+          discard: () => Promise.resolve(),
+        },
+    centerSwitchPort,
+  );
   const recoveryCodeResetUnitOfWork = new SqliteRecoveryCodeResetUnitOfWork(db, changeLog);
   const resetPasswordWithRecoveryCode = new ResetPasswordWithRecoveryCode(
     verifyRecoveryCode,
@@ -1840,6 +1876,7 @@ export function buildContainer(options: ContainerOptions): Container {
     hubHosting: hubHostingService,
     hubDiscoverer: options.hubHosting?.discoverer ?? null,
     requestHubRestart: options.scheduleRestart,
+    joinCenter,
   };
 
   return {

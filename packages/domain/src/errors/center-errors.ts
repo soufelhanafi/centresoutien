@@ -37,3 +37,22 @@ export class CenterProvisioningError extends DomainError {
     super(`Center provisioning failed: ${reason}`);
   }
 }
+
+/**
+ * Joining an existing center from a hub (SOU-318) could not complete: the hub was
+ * unreachable, the pairing token was rejected, the feed reconstructed no matching
+ * center, or the local replica could not be created. Carries a stable
+ * `center-join-failed` code the renderer maps to a localized message.
+ *
+ * Like provisioning, a failed join leaves nothing behind — the adapter removes any
+ * half-written DB + client config — so this always means "nothing was created",
+ * never "a broken center now exists". NOT the plan gate: joining requires
+ * `sync.multi-device`, which surfaces as a `PlanFeatureUnavailableError` from
+ * `JoinCenter` before the hub is ever contacted.
+ */
+export class CenterJoinError extends DomainError {
+  readonly code = 'center-join-failed';
+  constructor(readonly reason: string) {
+    super(`Center join failed: ${reason}`);
+  }
+}

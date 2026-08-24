@@ -47,6 +47,13 @@ const discoverer = (centers: readonly DiscoveredHub[]): HubDiscovererPort => ({
   discover: () => Promise.resolve(centers),
 });
 
+/** A join stub that fails the test if a handler unexpectedly triggers a join. */
+const noJoin = {
+  execute: () => {
+    throw new Error('joinCenter.execute should not have been called');
+  },
+};
+
 describe('createHubHandlers', () => {
   it('hub.hostingStatus gates on sync.multi-device and reports status', async () => {
     const plan = fakePlan();
@@ -55,6 +62,7 @@ describe('createHubHandlers', () => {
       hubHosting: hostingService(),
       hubDiscoverer: null,
       requestHubRestart: () => {},
+      joinCenter: noJoin,
     });
 
     expect(await handlers['hub.hostingStatus']({})).toEqual({ hosting: false });
@@ -68,6 +76,7 @@ describe('createHubHandlers', () => {
       hubHosting: hostingService(),
       hubDiscoverer: null,
       requestHubRestart: restart,
+      joinCenter: noJoin,
     });
 
     const status = await handlers['hub.enableHosting']({});
@@ -85,6 +94,7 @@ describe('createHubHandlers', () => {
       hubHosting: service,
       hubDiscoverer: null,
       requestHubRestart: restart,
+      joinCenter: noJoin,
     });
 
     expect(await handlers['hub.disableHosting']({})).toEqual({ ok: true });
@@ -98,6 +108,7 @@ describe('createHubHandlers', () => {
       hubHosting: null,
       hubDiscoverer: discoverer([DISCOVERED]),
       requestHubRestart: () => {},
+      joinCenter: noJoin,
     });
 
     expect(await handlers['hub.discoverCenters']({})).toEqual({ centers: [DISCOVERED] });
@@ -109,6 +120,7 @@ describe('createHubHandlers', () => {
       hubHosting: null,
       hubDiscoverer: null,
       requestHubRestart: () => {},
+      joinCenter: noJoin,
     });
     expect(await handlers['hub.discoverCenters']({})).toEqual({ centers: [] });
   });
@@ -120,9 +132,35 @@ describe('createHubHandlers', () => {
       hubHosting: hostingService(),
       hubDiscoverer: null,
       requestHubRestart: restart,
+      joinCenter: noJoin,
     });
 
     expect(() => handlers['hub.enableHosting']({})).toThrow('unavailable');
     expect(restart).not.toHaveBeenCalled();
+  });
+
+  it('hub.joinCenter forwards the discovered target + token to the use case', async () => {
+    const calls: unknown[] = [];
+    const handlers = createHubHandlers({
+      plan: fakePlan().gate,
+      hubHosting: null,
+      hubDiscoverer: null,
+      requestHubRestart: () => {},
+      joinCenter: {
+        execute: (input) => {
+          calls.push(input);
+          return Promise.resolve({ ok: true as const, centreId: 'ctr_joined', centerCode: input.centerCode });
+        },
+      },
+    });
+
+    const result = await handlers['hub.joinCenter']({
+      baseUrl: 'http://192.168.1.5:4747',
+      token: 'PAIR-CODE',
+      centerCode: 'CS-CASA-001',
+    });
+
+    expect(result).toEqual({ ok: true, centreId: 'ctr_joined', centerCode: 'CS-CASA-001' });
+    expect(calls).toEqual([{ baseUrl: 'http://192.168.1.5:4747', token: 'PAIR-CODE', centerCode: 'CS-CASA-001' }]);
   });
 });

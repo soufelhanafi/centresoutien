@@ -1412,7 +1412,7 @@ export type { DeactivateFormulaInput } from './use-cases/deactivate-formula';
 export { SwitchCenter } from './use-cases/switch-center';
 export type { SwitchCenterInput, SwitchCenterResult } from './use-cases/switch-center';
 export type { CenterSwitchPort } from './ports/center-switch-port';
-export { CenterSwitchError, CenterProvisioningError } from './errors/center-errors';
+export { CenterSwitchError, CenterProvisioningError, CenterJoinError } from './errors/center-errors';
 // Add-a-center flow (SOU-310)
 export { CreateCenter } from './use-cases/create-center';
 export type { CreateCenterInput, CreateCenterResult } from './use-cases/create-center';
@@ -1425,3 +1425,13 @@ export type {
   ProvisionCenterInput,
   ProvisionCenterResult,
 } from './ports/center-provisioning-port';
+// Join-an-existing-center flow (SOU-318)
+export { JoinCenter } from './use-cases/join-center';
+export type { JoinCenterInput, JoinCenterResult } from './use-cases/join-center';
+export { joinCenterSchema } from './schemas/join-center';
+export type { JoinCenterFormInput } from './schemas/join-center';
+export type {
+  CenterJoinProvisioningPort,
+  JoinCenterFromHubInput,
+  JoinCenterFromHubResult,
+} from './ports/center-join-provisioning-port';

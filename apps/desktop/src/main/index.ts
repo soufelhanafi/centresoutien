@@ -269,6 +269,17 @@ app.whenReady().then(async () => {
         provisioning: {
           keyFor: (id: string) => centerDbKey(dir, id).key,
         },
+        // Join-an-existing-center provisioning (SOU-318): the cold-bootstrap
+        // derives each new center's key the same way, and persists which hub the
+        // joined center follows so it keeps syncing on boot.
+        joining: {
+          keyFor: (id: string) => centerDbKey(dir, id).key,
+          clientConfig: {
+            write: (id: string, config: { baseUrl: string; token: string }) =>
+              hubClientConfigStore.write(id, config),
+            clear: (id: string) => hubClientConfigStore.clear(id),
+          },
+        },
         // LAN hub hosting + discovery (SOU-318): config accessors bound to THIS
         // center's id, plus the shared mDNS adapter when the socket opened.
         hubHosting: {

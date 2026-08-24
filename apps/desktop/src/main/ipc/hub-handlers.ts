@@ -1,4 +1,4 @@
-import type { PlanPolicy } from '@centresoutien/domain';
+import type { JoinCenter, PlanPolicy } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import type { HubHostingService } from '../hub-discovery/hub-hosting';
 import type { HubDiscovererPort } from '../hub-discovery/hub-service';
@@ -20,6 +20,9 @@ export type HubHandlerDeps = {
   /** Restarts the app so a just-changed hosting config takes effect — the embedded
    *  hub + its mDNS advertisement come up from config on boot. */
   requestHubRestart: () => void;
+  /** Cold-bootstraps a local replica of a discovered center and switches into it.
+   *  Structural (`Pick`) like the sync handlers' engine, so it fakes cleanly. */
+  joinCenter: Pick<JoinCenter, 'execute'>;
 };
 
 /**
@@ -31,7 +34,7 @@ export type HubHandlerDeps = {
  */
 export function createHubHandlers(deps: HubHandlerDeps): Pick<
   IpcHandlers,
-  'hub.hostingStatus' | 'hub.enableHosting' | 'hub.disableHosting' | 'hub.discoverCenters'
+  'hub.hostingStatus' | 'hub.enableHosting' | 'hub.disableHosting' | 'hub.discoverCenters' | 'hub.joinCenter'
 > {
   return {
     'hub.hostingStatus': () => {
@@ -56,5 +59,14 @@ export function createHubHandlers(deps: HubHandlerDeps): Pick<
       const centers = deps.hubDiscoverer === null ? [] : await deps.hubDiscoverer.discover(DISCOVERY_WINDOW_MS);
       return { centers: [...centers] };
     },
+    // The use case owns the `sync.multi-device` gate + the cold-bootstrap + the
+    // switch-in (and its rollback); the handler only forwards the discovered
+    // target + the human-entered token.
+    'hub.joinCenter': (request) =>
+      deps.joinCenter.execute({
+        baseUrl: request.baseUrl,
+        token: request.token,
+        centerCode: request.centerCode,
+      }),
   };
 }
