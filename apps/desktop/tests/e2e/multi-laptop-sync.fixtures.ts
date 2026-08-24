@@ -149,6 +149,41 @@ export async function launchDevice(locale: Locale, hubPort: number, tag: string)
   return { app, win, userDataDir };
 }
 
+/**
+ * Save the center profile row through the bridge (SOU-318). The multi-laptop
+ * harness seeds only an admin; the join test also needs a CENTER row on the host
+ * so it (and its ownership rows) sync to the hub for a joiner to cold-bootstrap.
+ */
+export async function saveCenterProfile(win: Page, name: string): Promise<void> {
+  await win.evaluate(async (centerName) => {
+    const api = (window as unknown as { api: Bridge }).api;
+    await api.invoke('center.save', { name: centerName, address: '', phone: '', email: '', logoPath: null });
+  }, name);
+}
+
+/**
+ * Launch a FRESH device with NO hub env and NO pre-seeded admin (SOU-318), so it
+ * boots into the real first-run wizard — the surface the "join an existing center"
+ * branch is driven through. It inherits the e2e synthetic license, so the wizard
+ * shows (not the activation lock) exactly like a licensed second laptop.
+ */
+export async function launchJoiner(locale: Locale, tag: string): Promise<Device> {
+  const userDataDir = freshDir(tag);
+  const app = await electron.launch({
+    args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
+    env: {
+      ...process.env,
+      CS_LOCALE: locale,
+      CS_PLAN: 'premium',
+      // Deliberately no CS_SYNC_HUB_URL/TOKEN and no CS_CENTRE: a clean first run,
+      // so the join branch (not an env-wired client) creates the local replica.
+    },
+  });
+  const win = await app.firstWindow();
+  await win.waitForLoadState('domcontentloaded');
+  return { app, win, userDataDir };
+}
+
 /** Create a subject through the bridge (same path the create dialog uses). Returns its id. */
 export async function createSubject(win: Page, nameFr: string, nameAr: string): Promise<string> {
   return win.evaluate(async (name) => {
