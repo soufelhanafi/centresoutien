@@ -36,6 +36,12 @@ export const BACKUP_SHEETS_B: readonly BackupSheetSpec[] = [
       createRequiredColumn('groupId', 'string'),
       createRequiredColumn('startMonth', 'string'),
       createRequiredColumn('endMonth', 'string-or-null'),
+      // SOU-301 former-teacher snapshot. Optional on import so a backup taken
+      // before this field existed still restores — the absent column is skipped
+      // on write and the DB leaves `unenrolled_under_teacher_id` NULL (migration
+      // 0051 adds it nullable, no default), which the teacher roster reads as the
+      // pre-SOU-301 current-teacher fallback.
+      { name: 'unenrolledUnderTeacherId', type: 'string-or-null', optional: true },
     ],
   },
   {
