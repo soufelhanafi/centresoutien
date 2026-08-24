@@ -322,6 +322,10 @@ describe('composition root', () => {
     const second = build();
     const d2 = createIpcDispatcher(createHandlers(second.handlerDeps));
     expect(await d2('auth.session', {})).toEqual({ authenticated: false });
+    // Sensitive admin channels must not stay reachable through an identity-less
+    // session either (SOU-307 consistency: principal must resolve, not just a
+    // remembered device).
+    await expect(d2('admin.recovery.generate', {})).rejects.toThrow(/not-authenticated/);
     second.dispose();
   });
 

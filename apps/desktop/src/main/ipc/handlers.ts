@@ -1884,7 +1884,15 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       // resolves to null, so the gate forces a re-login that stamps user_id
       // (SOU-307).
       if (!(await deps.deviceSessions.isAuthenticated())) return { authenticated: false };
-      return { authenticated: (await deps.resolvePrincipal()) !== null };
+      try {
+        return { authenticated: (await deps.resolvePrincipal()) !== null };
+      } catch (error) {
+        // Fail closed to the login screen, not the error screen: a transient
+        // read failure during principal resolution must not hard-block startup.
+        // The user can still re-authenticate once the DB recovers.
+        console.error('[auth] failed to resolve session principal', error);
+        return { authenticated: false };
+      }
     },
     'auth.logout': async () => {
       await deps.deviceSessions.forget();
@@ -1892,7 +1900,10 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       return { ok: true };
     },
     'admin.recovery.generate': async () => {
-      if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
+      // Match `auth.session`'s SOU-307 rule: a remembered session is not enough —
+      // a trusted principal must still resolve (a legacy pre-SOU-265 session or
+      // one pointing at a removed user cannot mint recovery codes).
+      if ((await deps.resolvePrincipal()) === null) throw new NotAuthenticatedError();
       const username = await deps.adminUsername();
       const codes = await deps.generateRecoveryCodes.execute(username);
       return { codes: [...codes] };
@@ -1924,7 +1935,8 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     'admin.securityQuestions.bank': async () => ({ keys: [...SECURITY_QUESTION_KEYS] }),
     'admin.securityQuestions.exists': async () => ({ exists: await deps.securityQuestionsExist() }),
     'admin.securityQuestions.set': async (request) => {
-      if (!(await deps.deviceSessions.isAuthenticated())) throw new NotAuthenticatedError();
+      // Match `auth.session`'s SOU-307 rule (see admin.recovery.generate above).
+      if ((await deps.resolvePrincipal()) === null) throw new NotAuthenticatedError();
       const username = await deps.adminUsername();
       await deps.setSecurityQuestions.execute(username, request);
       return { ok: true };

@@ -227,7 +227,11 @@ const stubDeviceSessions: DeviceSessions = {
 // established principal (rejected as unauthenticated); a role drives the director
 // gate on user.create / user.list.
 let principal: { userId: UserId; role: Role } | null = null;
-const stubResolvePrincipal = async () => principal;
+let resolveThrows = false;
+const stubResolvePrincipal = async () => {
+  if (resolveThrows) throw new Error('sqlite busy');
+  return principal;
+};
 // Login establishes the principal in memory directly from the verified identity
 // (SOU-265) — independent of any persisted session — so the stub mirrors that.
 const stubSetPrincipal = (next: { userId: UserId; role: Role }) => {
@@ -954,6 +958,15 @@ describe('createIpcDispatcher', () => {
     await expect(dispatch('auth.session', {})).resolves.toEqual({ authenticated: true });
     await expect(dispatch('auth.logout', {})).resolves.toEqual({ ok: true });
     await expect(dispatch('auth.session', {})).resolves.toEqual({ authenticated: false });
+  });
+
+  it('auth.session fails closed to unauthenticated when principal resolution throws (SOU-307)', async () => {
+    remembered = true;
+    resolveThrows = true;
+    // A transient read failure must not block startup behind the error screen —
+    // it degrades to the login screen instead.
+    await expect(dispatch('auth.session', {})).resolves.toEqual({ authenticated: false });
+    resolveThrows = false;
   });
 
   it('returns null from center.get before any profile is saved', async () => {
