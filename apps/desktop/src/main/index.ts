@@ -26,9 +26,11 @@ import {
   resolveCenterKey,
   SafeStorageSecretVault,
 } from './key-store';
+import { randomBytes } from 'node:crypto';
 import { sweepStaleTempPdfs } from '../data/fs/temp-pdf';
 import { LEGACY_DEMO_CENTRE_ID, resolveInitialCentreId } from './initial-centre-id';
-import { HubHostConfigStore } from './infra/hub-host-config-store';
+import { HubHostConfigStore, resolveLanBindHost } from './infra/hub-host-config-store';
+import { BonjourHubMdns } from './hub-discovery/mdns-adapters';
 
 // The packaged renderer entry loaded from disk. Shared by the window's
 // `loadFile` and the trusted-origin resolution so the `file:` trust is pinned to
@@ -68,6 +70,7 @@ let runtime: MainRuntime | null = null;
 let host: CenterHost | null = null;
 let mainWindow: BrowserWindow | null = null;
 let disposeAutoUpdater: (() => void) | null = null;
+let hubMdns: BonjourHubMdns | null = null;
 
 /**
  * Embedded LAN hub (SOU-90): designated-laptop opt-in until the sync setup
@@ -189,6 +192,14 @@ app.whenReady().then(async () => {
     const hubHostConfigStore = new HubHostConfigStore(dir);
     const resolveHubConfig = (centreId: string): { port: number; token: string; bindHost: string } | null =>
       resolveHubConfigFromEnv() ?? hubHostConfigStore.read(centreId);
+    // One Bonjour instance for the whole process (one multicast socket), shared as
+    // advertiser + discoverer. Opening the socket can fail in a sandbox / on a
+    // locked-down network — hosting config still works without it, so fail soft.
+    try {
+      hubMdns = new BonjourHubMdns();
+    } catch (error) {
+      console.warn('[hub] mDNS unavailable — hub advertise/discover disabled', error);
+    }
     const realCentreId = resolveInitialCentreId(process.env['CS_CENTRE']);
     const realCenterCode = (process.env['CS_CENTER_CODE'] ?? 'CS-DEV-001') as CenterCode;
 
@@ -249,6 +260,18 @@ app.whenReady().then(async () => {
         // provisioner reuses the switcher's per-center key derivation.
         provisioning: {
           keyFor: (id: string) => centerDbKey(dir, id).key,
+        },
+        // LAN hub hosting + discovery (SOU-318): config accessors bound to THIS
+        // center's id, plus the shared mDNS adapter when the socket opened.
+        hubHosting: {
+          config: {
+            read: () => hubHostConfigStore.read(centreId),
+            write: (config) => hubHostConfigStore.write(centreId, config),
+            clear: () => hubHostConfigStore.clear(centreId),
+          },
+          resolveBindHost: resolveLanBindHost,
+          randomBytes: (size: number) => randomBytes(size),
+          ...(hubMdns ? { advertiser: hubMdns, discoverer: hubMdns } : {}),
         },
         ...(hubServer ? { hubServer } : hubClient ? { hubClient } : {}),
       });
@@ -333,6 +356,8 @@ app.on('will-quit', () => {
   host = null;
   disposeAutoUpdater?.();
   disposeAutoUpdater = null;
+  hubMdns?.destroy();
+  hubMdns = null;
 });
 
 app.on('window-all-closed', () => {

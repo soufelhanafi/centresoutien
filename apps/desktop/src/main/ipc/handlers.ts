@@ -208,6 +208,7 @@ import { createPayrollHandlers, type PayrollHandlerDeps } from './payroll-handle
 import { createPaymentReceiptHandlers, type PaymentReceiptHandlerDeps } from './payment-receipt-handlers';
 import { createScheduleHandlers, type ScheduleHandlerDeps } from './schedule-handlers';
 import { createSyncHandlers, type SyncHandlerDeps } from './sync-handlers';
+import { createHubHandlers, type HubHandlerDeps } from './hub-handlers';
 import { createCenterSwitchHandlers, type CenterSwitchHandlerDeps } from './center-switch-handlers';
 import { createUserHandlers, type UserHandlerDeps } from './user-handlers';
 import { createEmailResetHandlers, type EmailResetHandlerDeps } from './email-reset-handlers';
@@ -866,6 +867,7 @@ export type HandlerDeps = BackupHandlerDeps &
   ScheduleHandlerDeps &
   AttendanceReportingHandlerDeps &
   SyncHandlerDeps &
+  HubHandlerDeps &
   CenterSwitchHandlerDeps &
   UserHandlerDeps &
   EmailResetHandlerDeps &
@@ -1993,6 +1995,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
     ...createScheduleHandlers(deps),
     ...createAttendanceReportingHandlers(deps),
     ...createSyncHandlers(deps),
+    ...createHubHandlers(deps),
     ...createCenterSwitchHandlers(deps),
     ...createUserHandlers(deps),
     ...createEmailResetHandlers(deps),

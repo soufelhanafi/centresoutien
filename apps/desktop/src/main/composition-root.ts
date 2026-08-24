@@ -208,6 +208,8 @@ import { SqliteCenterProvisioning } from '../data/sqlite/center-provisioning';
 import { SqliteHubStore } from '../data/sqlite/hub/hub-store';
 import { HubServer } from './hub-server/hub-server';
 import { HttpSyncHubClient } from '../data/sync/http-sync-hub-client';
+import { HubHostingService, type HubHostingConfigAccess } from './hub-discovery/hub-hosting';
+import type { HubAdvertisement, HubAdvertiserPort, HubDiscovererPort } from './hub-discovery/hub-service';
 import { ChangeLogOutbox } from '../data/sqlite/change-log/change-log-outbox';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
 import { SqliteNiveauRepository } from '../data/sqlite/repositories/niveau-repository';
@@ -380,6 +382,19 @@ export type ContainerOptions = {
    */
   provisioning?: {
     keyFor: CenterKeyProvider;
+  };
+  /** LAN hub hosting + discovery (SOU-318). Provided by `index.ts`, which owns the
+   *  persisted config store (bound here to THIS center's id) and the single
+   *  Bonjour instance shared as advertiser + discoverer. Absent in tests and in
+   *  wirings that do not support hosting. */
+  hubHosting?: {
+    config: HubHostingConfigAccess;
+    resolveBindHost: () => string | null;
+    randomBytes: (size: number) => Uint8Array;
+    /** Absent when the mDNS socket could not be opened (sandboxed / CI) — hosting
+     *  config still works, the LAN just gets no advertisement / discovery. */
+    advertiser?: HubAdvertiserPort;
+    discoverer?: HubDiscovererPort;
   };
 };
 
@@ -1560,6 +1575,37 @@ export function buildContainer(options: ContainerOptions): Container {
       });
   }
 
+  // Hosting designation service (SOU-318): turns the open center's hub role on/off
+  // as a config write; null in wirings without a hosting config (tests).
+  const hubHostingService = options.hubHosting
+    ? new HubHostingService({
+        config: options.hubHosting.config,
+        resolveBindHost: options.hubHosting.resolveBindHost,
+        randomBytes: options.hubHosting.randomBytes,
+      })
+    : null;
+
+  // mDNS advertisement (SOU-318): once the hub is listening, publish the center on
+  // the LAN so a second laptop can discover it — identity only in the TXT record,
+  // never the pairing token. Withdrawn on dispose (center switch / quit).
+  let hubAdvertisement: HubAdvertisement | null = null;
+  if (hubConfig && options.hubHosting?.advertiser && hubListening) {
+    const advertiser = options.hubHosting.advertiser;
+    void hubListening
+      .then(async () => {
+        const profile = await getCenterProfile.execute();
+        const name = profile?.name ?? options.centerCode;
+        hubAdvertisement = advertiser.advertise({
+          name,
+          port: hubConfig.port,
+          txt: { centreId: options.centreId, centerCode: options.centerCode, name },
+        });
+      })
+      .catch((error: unknown) => {
+        console.error('[hub] mDNS advertise failed', error);
+      });
+  }
+
   const attemptLogin = new AttemptLogin(
     verifyUserPassword,
     new SqliteLoginThrottleStore(db),
@@ -1791,6 +1837,9 @@ export function buildContainer(options: ContainerOptions): Container {
     listBlockedConflicts: () => localSyncRepository.listBlocked(),
     localSyncRepository,
     deviceId: () => deviceOrigin,
+    hubHosting: hubHostingService,
+    hubDiscoverer: options.hubHosting?.discoverer ?? null,
+    requestHubRestart: options.scheduleRestart,
   };
 
   return {
@@ -1807,6 +1856,9 @@ export function buildContainer(options: ContainerOptions): Container {
     // closed only AFTER the listener has stopped, so an in-flight request can
     // never hit a half-closed canonical store.
     dispose: () => {
+      // Withdraw the LAN advertisement first so no laptop discovers a hub that is
+      // about to stop (SOU-318).
+      hubAdvertisement?.stop();
       if (hubServerInstance && hubStore) {
         void hubServerInstance.stop().finally(() => hubStore?.close());
       } else if (hubStore) {
