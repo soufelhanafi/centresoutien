@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -79,6 +79,17 @@ describe('SqliteBackupAdapter.remove', () => {
 
   it('is idempotent for an already-missing file', async () => {
     await expect(adapter.remove(join(destDir, 'never-existed.db'))).resolves.toBeUndefined();
+  });
+
+  it('removes the SOU-302 .recovery sibling alongside the backup', async () => {
+    const file = await adapter.create({ destDir, centerCode: CENTER });
+    const siblingPath = `${file.path.slice(0, -'.db'.length)}.recovery`;
+    writeFileSync(siblingPath, Buffer.from('sealed-blob'));
+
+    await adapter.remove(file.path);
+
+    expect(existsSync(file.path)).toBe(false);
+    expect(existsSync(siblingPath)).toBe(false);
   });
 });
 

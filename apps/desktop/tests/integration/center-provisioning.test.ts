@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -137,10 +137,16 @@ describe('SqliteCenterProvisioning', () => {
   it('discard() removes a provisioned center so a failed switch leaves no orphan', async () => {
     const provisioner = makeProvisioner(dir);
     const result = await provisioner.provision({ profile: profile() });
-    expect(existsSync(join(dir, centreDbFileName(result.centreId)))).toBe(true);
+    const dbFile = join(dir, centreDbFileName(result.centreId));
+    // The SOU-302 escrow sibling may already sit next to the center; discard must
+    // sweep it too so a failed switch leaves no stale sealed-key blob.
+    const recoverySibling = `${dbFile.slice(0, -'.db'.length)}.recovery`;
+    writeFileSync(recoverySibling, Buffer.from('sealed-blob'));
+    expect(existsSync(dbFile)).toBe(true);
 
     await provisioner.discard(result.centreId);
-    expect(existsSync(join(dir, centreDbFileName(result.centreId)))).toBe(false);
+    expect(existsSync(dbFile)).toBe(false);
+    expect(existsSync(recoverySibling)).toBe(false);
   });
 
   it('seeds the director as the new center owner with a remembered device session', async () => {

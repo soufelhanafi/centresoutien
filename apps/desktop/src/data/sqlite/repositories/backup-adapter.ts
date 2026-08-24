@@ -6,6 +6,7 @@ import type { IdGenerator, BackupPort, BackupFileInfo, BackupVerification, Cente
 import { hasIdPrefix } from '@centresoutien/domain';
 import { backupDatabase } from '../migration-runner';
 import { openDatabaseAt } from '../db';
+import { recoveryBlobPathFor } from '../recovery-blob-path';
 
 /** Filenames this adapter creates and recognizes for a center: `backup-<centerCode>_<ULID>.db`. */
 function backupPrefixFor(centerCode: CenterCode): string {
@@ -67,6 +68,13 @@ export class SqliteBackupAdapter implements BackupPort {
   }
 
   async remove(path: string): Promise<void> {
+    this.unlinkIfPresent(path);
+    // Take the SOU-302 recovery sibling with the backup — otherwise retention
+    // pruning and manual removal orphan the `.recovery` blob forever.
+    this.unlinkIfPresent(recoveryBlobPathFor(path));
+  }
+
+  private unlinkIfPresent(path: string): void {
     try {
       unlinkSync(path);
     } catch (error) {

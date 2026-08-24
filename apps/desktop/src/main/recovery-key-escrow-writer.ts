@@ -1,18 +1,11 @@
 import { writeFileSync, renameSync, unlinkSync } from 'node:fs';
 import type { RecoveryKeyEscrowPort } from '@centresoutien/domain';
+import { recoveryBlobPathFor } from '../data/sqlite/recovery-blob-path';
 
-/** Extension of the sibling blob written next to an encrypted `.db` file. */
-export const RECOVERY_BLOB_SUFFIX = '.recovery';
-
-/**
- * Path of the sealed recovery blob that travels beside `dbFilePath`, e.g.
- * `centre-<id>.db` → `centre-<id>.recovery` and
- * `backup-<code>_<ULID>.db` → `backup-<code>_<ULID>.recovery`.
- */
-export function recoveryBlobPathFor(dbFilePath: string): string {
-  const withoutDbSuffix = dbFilePath.endsWith('.db') ? dbFilePath.slice(0, -'.db'.length) : dbFilePath;
-  return `${withoutDbSuffix}${RECOVERY_BLOB_SUFFIX}`;
-}
+// Re-exported so existing importers (composition root, tests) keep a single
+// import site while the `.db` → `.recovery` mapping lives in the data layer,
+// where backup pruning and center discard also derive it.
+export { RECOVERY_BLOB_SUFFIX, recoveryBlobPathFor } from '../data/sqlite/recovery-blob-path';
 
 /**
  * SOU-302 — persists the sealed DB-key blob as a sibling file next to a center's
@@ -21,12 +14,19 @@ export function recoveryBlobPathFor(dbFilePath: string): string {
  * recovery public key. Sealing is delegated to {@link RecoveryKeyEscrowPort}; the
  * write is atomic (temp file + rename) with 0o600 perms, since the blob relates
  * to key material even though it is useless without the offline private key.
+ *
+ * Fields are declared and assigned explicitly (no TS parameter-property
+ * shorthand) so the offline rekey CLI can import this module under Node's
+ * strip-only type-stripping, which rejects parameter properties.
  */
 export class RecoveryKeyEscrowWriter {
-  constructor(
-    private readonly escrow: RecoveryKeyEscrowPort,
-    private readonly recoveryPublicKey: Uint8Array,
-  ) {}
+  private readonly escrow: RecoveryKeyEscrowPort;
+  private readonly recoveryPublicKey: Uint8Array;
+
+  constructor(escrow: RecoveryKeyEscrowPort, recoveryPublicKey: Uint8Array) {
+    this.escrow = escrow;
+    this.recoveryPublicKey = recoveryPublicKey;
+  }
 
   writeSiblingFor(dbFilePath: string, dbKey: string): void {
     const sealed = this.escrow.sealDbKey(dbKey, this.recoveryPublicKey);
