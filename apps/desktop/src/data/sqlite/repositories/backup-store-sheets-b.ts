@@ -51,6 +51,10 @@ export const SHEET_SQL_B: Readonly<
       ['groupId', 'group_id'],
       ['startMonth', 'start_month'],
       ['endMonth', 'end_month'],
+      // The former-teacher snapshot (SOU-301) must survive an Excel backup/restore
+      // round-trip, or a restore would revert departed rows to the pre-SOU-301
+      // "attribute to current teacher" fallback. Plain nullable ULID text.
+      ['unenrolledUnderTeacherId', 'unenrolled_under_teacher_id'],
     ],
   },
   'weekly-recurring-sessions': {

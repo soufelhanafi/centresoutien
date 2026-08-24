@@ -49,6 +49,7 @@ function makeEnrollment(studentId: StudentId, overrides: Partial<Enrollment> = {
     groupId: GROUP,
     startMonth: '2026-09',
     endMonth: null,
+    unenrolledUnderTeacherId: null,
     ...overrides,
   };
 }

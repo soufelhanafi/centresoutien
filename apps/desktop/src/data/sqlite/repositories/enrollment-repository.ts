@@ -5,6 +5,7 @@ import type {
   EnrollmentRepository,
   CenterCode,
   DeviceId,
+  EntityId,
   GroupId,
   StudentId,
   UserId,
@@ -24,6 +25,7 @@ type EnrollmentRow = {
   group_id: string;
   start_month: string;
   end_month: string | null;
+  unenrolled_under_teacher_id: string | null;
 };
 
 function fromRow(row: EnrollmentRow): Enrollment {
@@ -40,6 +42,8 @@ function fromRow(row: EnrollmentRow): Enrollment {
     groupId: row.group_id as GroupId,
     startMonth: row.start_month,
     endMonth: row.end_month,
+    unenrolledUnderTeacherId:
+      row.unenrolled_under_teacher_id === null ? null : (row.unenrolled_under_teacher_id as EntityId),
   };
 }
 
@@ -58,16 +62,19 @@ function toParams(enrollment: Enrollment) {
     group_id: enrollment.groupId,
     start_month: enrollment.startMonth,
     end_month: enrollment.endMonth,
+    unenrolled_under_teacher_id: enrollment.unenrolledUnderTeacherId,
   };
 }
 
 const SAVE_SQL = `
   INSERT INTO enrollments
     (id, center_code, device_origin, created_at, updated_at, updated_by,
-     deleted_at, version, student_id, group_id, start_month, end_month)
+     deleted_at, version, student_id, group_id, start_month, end_month,
+     unenrolled_under_teacher_id)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
-     @deleted_at, @version, @student_id, @group_id, @start_month, @end_month)
+     @deleted_at, @version, @student_id, @group_id, @start_month, @end_month,
+     @unenrolled_under_teacher_id)
   ON CONFLICT(id) DO UPDATE SET
     updated_at  = excluded.updated_at,
     updated_by  = excluded.updated_by,
@@ -76,7 +83,8 @@ const SAVE_SQL = `
     student_id  = excluded.student_id,
     group_id    = excluded.group_id,
     start_month = excluded.start_month,
-    end_month   = excluded.end_month
+    end_month   = excluded.end_month,
+    unenrolled_under_teacher_id = excluded.unenrolled_under_teacher_id
 `;
 
 /**
@@ -130,6 +138,25 @@ export class SqliteEnrollmentRepository implements EnrollmentRepository {
       .run(iso, iso, by, id);
   }
 
+  async softDeleteUnderTeacher(
+    id: EnrollmentId,
+    at: Date,
+    by: UserId,
+    teacherId: EntityId | null,
+  ): Promise<void> {
+    const iso = at.toISOString();
+    // `deleted_at IS NULL` guard: only a live row is tombstoned, so a concurrent
+    // second unenroll that lost the race is a no-op and cannot overwrite the first
+    // snapshot (SOU-301 review).
+    this.db
+      .prepare(
+        `UPDATE enrollments
+         SET deleted_at = ?, updated_at = ?, updated_by = ?, unenrolled_under_teacher_id = ?
+         WHERE id = ? AND deleted_at IS NULL`,
+      )
+      .run(iso, iso, by, teacherId, id);
+  }
+
   async listChangedSince(cursor: Date): Promise<readonly Enrollment[]> {
     const rows = this.db
       .prepare('SELECT * FROM enrollments WHERE updated_at > ? ORDER BY updated_at')
@@ -148,6 +175,17 @@ export class SqliteEnrollmentRepository implements EnrollmentRepository {
     const rows = this.db
       .prepare('SELECT * FROM enrollments WHERE group_id = ? AND deleted_at IS NOT NULL ORDER BY id')
       .all(groupId) as EnrollmentRow[];
+    return rows.map(fromRow);
+  }
+
+  async listInactiveByFormerTeacher(teacherId: EntityId): Promise<readonly Enrollment[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM enrollments
+         WHERE unenrolled_under_teacher_id = ? AND deleted_at IS NOT NULL
+         ORDER BY id`,
+      )
+      .all(teacherId) as EnrollmentRow[];
     return rows.map(fromRow);
   }
 

@@ -7,85 +7,55 @@ import type { TeacherRepository } from '../ports/teacher-repository';
 import type { Clock } from '../ports/clock';
 import { isSubscriptionActiveInMonth } from '../policies/student-subscription-policy';
 import type { PlanPolicy } from '../plans/plan-policy';
-import type { CenterCode } from '../value-objects/ids';
-import type { Enrollment } from '../entities/enrollment';
-import type { Group, GroupId, GroupKind } from '../entities/group';
+import { toEntityId, type CenterCode } from '../value-objects/ids';
+import type { Group, GroupId } from '../entities/group';
 import type { SubjectId } from '../entities/subject';
 import type { StudentId } from '../entities/student';
 import type { TeacherId } from '../entities/teacher';
+import {
+  addPlacement,
+  buildGroupRef,
+  buildRosterEntry,
+  composeFormulaLabel,
+  monthOf,
+  type BilingualName,
+  type StudentPlacement,
+  type TeacherRosterEntry,
+  type TeacherRosterGroupRef,
+} from './teacher-roster-read-model';
+
+export type { TeacherRosterEntry, TeacherRosterGroupRef, TeacherRosterStatus } from './teacher-roster-read-model';
 
 export type GetTeacherRosterInput = { centerCode: CenterCode; teacherId: TeacherId };
 
-type BilingualName = { fr: string; ar: string };
-
-/** One of the teacher's groups the student sits in, named for display/filtering.
- *  `level` is the group's free-text grade label — it disambiguates two groups of
- *  the same subject in the group filter, where a group (which has no name of its
- *  own) is shown as "subject — level". */
-export type TeacherRosterGroupRef = {
-  groupId: GroupId;
-  subjectId: SubjectId;
-  subjectName: BilingualName;
-  level: string;
-  kind: GroupKind;
-};
-
-/**
- * A student's enrollment standing on a teacher's roster. `active` — at least one
- * live enrollment in one of the teacher's groups. `left` — no live enrollment left,
- * but a tombstoned one (SOU-299): the student the director hands the teacher still
- * appears, tagged with the month they departed.
- */
-export type TeacherRosterStatus = 'active' | 'left';
-
-/**
- * One line of a teacher's student roster (SOU-299) — distinct **student**, not
- * distinct enrollment: a student in two of the teacher's groups is a single row
- * whose `groups`/`subjects`/`kinds` aggregate those placements. Envelope-free — a
- * read-model row, not an entity.
- */
-export type TeacherRosterEntry = {
-  studentId: StudentId;
-  name: BilingualName;
-  /** The student's free-text grade label (`Student.level`), for display. */
-  level: string;
-  /** The teacher's groups this student sits in (or last sat in, when `left`). */
-  groups: readonly TeacherRosterGroupRef[];
-  /** Distinct subjects the student takes with this teacher, derived from `groups`. */
-  subjects: readonly { subjectId: SubjectId; name: BilingualName }[];
-  /** The distinct tracks (régulier / exam-prep) among `groups`. */
-  kinds: readonly GroupKind[];
-  /**
-   * The student's subscribed pack, composed from their live subscriptions'
-   * subjects — e.g. "Math + FR + AR" (CLAUDE.md §7). Bilingual so the on-screen
-   * "Formule" column renders in the active language while the FR-only PDF uses
-   * `.fr`. Both scripts are empty when the student holds no live subscription
-   * (common for a `left` student).
-   */
-  formulaLabel: BilingualName;
-  status: TeacherRosterStatus;
-  /** `YYYY-MM` the student left, when `status === 'left'`; null while active. */
-  leftMonth: string | null;
-};
-
-/**
+/*
  * The roster of students a teacher teaches (SOU-299), for the "Élèves" tab on the
  * teacher detail screen. A teacher is not linked to students directly — the chain
- * is **teacher → group(s) → enrolled students** — so this read model traverses the
- * teacher's live groups, resolves each group's active and tombstoned enrollments,
- * and folds them to one row per distinct student. Gated by `core.teachers`.
+ * is teacher → group(s) → enrolled students — so this read model traverses the
+ * teacher's live groups for active placements and, for departed ("Partis") rows,
+ * the tombstones attributed to this teacher. It folds everything to one row per
+ * distinct student. Gated by `core.teachers`.
  *
- * **Center-scoped** as defense in depth for the portable core: a teacher, group,
+ * Center-scoped as defense in depth for the portable core: a teacher, group,
  * enrollment, or student whose `centerCode` differs from the caller's is dropped,
- * exactly as {@link GetGroupRoster} does. On desktop the one-DB-per-center boundary
- * makes this redundant; the same use case runs on the future shared-Postgres
- * backend where an id alone is not a tenant guard.
+ * exactly as GetGroupRoster does. On desktop the one-DB-per-center boundary makes
+ * this redundant; the same use case runs on the future shared-Postgres backend
+ * where an id alone is not a tenant guard.
  *
  * A student who is both actively enrolled and separately tombstoned in the
  * teacher's groups resolves to `active` — a current placement always wins over a
  * past one, and only the active groups are shown. A student archived without first
  * being unenrolled is skipped (their record no longer resolves), so the roster
  * never shows a nameless seat — the same trailing-count caveat as the group roster.
+ *
+ * Departed ("Partis") attribution is by snapshot, never by the group's live teacher
+ * (SOU-301). A tombstoned enrollment carries `unenrolledUnderTeacherId` — the
+ * teacher who held the group when the student left — found across any group,
+ * including groups since reassigned away (listInactiveByFormerTeacher). So a group
+ * reassigned A→B keeps A's leavers on A's roster and never moves them onto B's. A
+ * tombstone whose snapshot is `null` (a pre-SOU-301 row, or a departure from an
+ * unstaffed group) is attributed to no one — the roster never guesses a teacher for
+ * it, which would re-introduce the very misattribution SOU-301 fixes.
  */
 export class GetTeacherRoster {
   constructor(
@@ -109,11 +79,10 @@ export class GetTeacherRoster {
     const teacherGroups = (await this.groups.listActive(input.centerCode)).filter(
       (group) => group.teacherId !== null && (group.teacherId as string) === teacherId,
     );
-    if (teacherGroups.length === 0) return [];
 
     const currentMonth = this.clock.now().toISOString().slice(0, 7);
     const subjectNames = await this.buildSubjectIndex(input.centerCode);
-    const placements = await this.collectPlacements(teacherGroups, input.centerCode, subjectNames);
+    const placements = await this.collectPlacements(input, teacherGroups, subjectNames);
 
     const entries = await Promise.all(
       [...placements.values()].map((placement) =>
@@ -132,41 +101,78 @@ export class GetTeacherRoster {
   }
 
   private async collectPlacements(
+    input: GetTeacherRosterInput,
     teacherGroups: readonly Group[],
-    centerCode: CenterCode,
     subjectNames: ReadonlyMap<SubjectId, BilingualName>,
   ): Promise<Map<StudentId, StudentPlacement>> {
     const placements = new Map<StudentId, StudentPlacement>();
+    const refByGroup = new Map<GroupId, TeacherRosterGroupRef>();
 
+    await this.collectActivePlacements(placements, refByGroup, input.centerCode, teacherGroups, subjectNames);
+    await this.collectFormerlyTaught(placements, refByGroup, input, subjectNames);
+
+    return placements;
+  }
+
+  // Active placements from the teacher's current groups. Foreign-center enrollments
+  // are dropped as defense in depth for the portable core (listActiveByGroup scopes
+  // by group id, not center), exactly as GetGroupRoster does.
+  private async collectActivePlacements(
+    placements: Map<StudentId, StudentPlacement>,
+    refByGroup: Map<GroupId, TeacherRosterGroupRef>,
+    centerCode: CenterCode,
+    teacherGroups: readonly Group[],
+    subjectNames: ReadonlyMap<SubjectId, BilingualName>,
+  ): Promise<void> {
     for (const group of teacherGroups) {
-      const ref: TeacherRosterGroupRef = {
-        groupId: group.id,
-        subjectId: group.subjectId,
-        subjectName: subjectNames.get(group.subjectId) ?? { fr: '', ar: '' },
-        level: group.level,
-        kind: group.kind,
-      };
+      const ref = buildGroupRef(group, subjectNames);
+      refByGroup.set(group.id, ref);
 
-      // `listActiveByGroup`/`listInactiveByGroup` scope by group id, not center;
-      // drop any foreign-center enrollment as defense in depth for the portable
-      // core, exactly as `GetGroupRoster` does (redundant under desktop's
-      // one-DB-per-center boundary, load-bearing on the shared-Postgres backend).
       const active = (await this.enrollments.listActiveByGroup(group.id)).filter(
         (enrollment) => enrollment.centerCode === centerCode,
       );
       for (const enrollment of active) {
         addPlacement(placements, enrollment, ref, 'active', null);
       }
-
-      const inactive = (await this.enrollments.listInactiveByGroup(group.id)).filter(
-        (enrollment) => enrollment.centerCode === centerCode,
-      );
-      for (const enrollment of inactive) {
-        addPlacement(placements, enrollment, ref, 'left', monthOf(enrollment.deletedAt));
-      }
     }
+  }
 
-    return placements;
+  // Departed placements attributed by the tombstone's former-teacher snapshot,
+  // across any group the teacher held (incl. groups since reassigned away). A
+  // tombstone whose group no longer resolves (archived/foreign) is dropped,
+  // consistent with the live-groups-only roster.
+  private async collectFormerlyTaught(
+    placements: Map<StudentId, StudentPlacement>,
+    refByGroup: Map<GroupId, TeacherRosterGroupRef>,
+    input: GetTeacherRosterInput,
+    subjectNames: ReadonlyMap<SubjectId, BilingualName>,
+  ): Promise<void> {
+    const departed = (
+      await this.enrollments.listInactiveByFormerTeacher(toEntityId(input.teacherId))
+    ).filter((enrollment) => enrollment.centerCode === input.centerCode);
+
+    for (const enrollment of departed) {
+      const ref = await this.resolveGroupRef(enrollment.groupId, refByGroup, input.centerCode, subjectNames);
+      if (ref === null) continue;
+      addPlacement(placements, enrollment, ref, 'left', monthOf(enrollment.deletedAt));
+    }
+  }
+
+  private async resolveGroupRef(
+    groupId: GroupId,
+    refByGroup: Map<GroupId, TeacherRosterGroupRef>,
+    centerCode: CenterCode,
+    subjectNames: ReadonlyMap<SubjectId, BilingualName>,
+  ): Promise<TeacherRosterGroupRef | null> {
+    const cached = refByGroup.get(groupId);
+    if (cached) return cached;
+
+    const group = await this.groups.findById(groupId);
+    if (group === null || group.centerCode !== centerCode) return null;
+
+    const ref = buildGroupRef(group, subjectNames);
+    refByGroup.set(groupId, ref);
+    return ref;
   }
 
   private async toEntry(
@@ -178,20 +184,13 @@ export class GetTeacherRoster {
     const student = await this.students.findById(placement.studentId);
     if (!student || student.centerCode !== centerCode) return null;
 
-    const isActive = placement.activeGroups.size > 0;
-    const groups = [...(isActive ? placement.activeGroups : placement.leftGroups).values()];
-
-    return {
-      studentId: student.id,
-      name: { fr: student.name.fr, ar: student.name.ar },
-      level: student.level,
-      groups,
-      subjects: distinctSubjects(groups),
-      kinds: distinctKinds(groups),
-      formulaLabel: await this.composeFormulaLabel(placement.studentId, centerCode, currentMonth, subjectNames),
-      status: isActive ? 'active' : 'left',
-      leftMonth: isActive ? null : placement.leftMonth,
-    };
+    const formulaLabel = await this.composeFormulaLabel(
+      placement.studentId,
+      centerCode,
+      currentMonth,
+      subjectNames,
+    );
+    return buildRosterEntry(student, placement, formulaLabel);
   }
 
   private async composeFormulaLabel(
@@ -200,80 +199,15 @@ export class GetTeacherRoster {
     currentMonth: string,
     subjectNames: ReadonlyMap<SubjectId, BilingualName>,
   ): Promise<BilingualName> {
-    // Only the subscription(s) active **this month** — `listLiveByStudent` returns
-    // non-tombstoned rows, which includes a subscription closed (`endMonth`) after a
-    // formula change; without the month filter a student who switched packs would
-    // show the union of their old and new subjects.
+    // Only the subscription(s) live this month — listLiveByStudent returns
+    // non-tombstoned rows including one closed (endMonth) after a formula change;
+    // without the month filter a student who switched packs would show the union
+    // of their old and new subjects.
     const subscriptions = (await this.subscriptions.listLiveByStudent(studentId)).filter(
       (subscription) =>
         subscription.centerCode === centerCode &&
         isSubscriptionActiveInMonth(subscription, currentMonth),
     );
-    const seen = new Set<SubjectId>();
-    const parts: BilingualName[] = [];
-    for (const subscription of subscriptions) {
-      for (const subjectId of subscription.subjectIds) {
-        if (seen.has(subjectId)) continue;
-        seen.add(subjectId);
-        const name = subjectNames.get(subjectId);
-        if (name) parts.push(name);
-      }
-    }
-    return {
-      fr: parts.map((part) => part.fr).join(' + '),
-      ar: parts.map((part) => part.ar).join(' + '),
-    };
+    return composeFormulaLabel(subscriptions, subjectNames);
   }
-}
-
-type StudentPlacement = {
-  studentId: StudentId;
-  activeGroups: Map<GroupId, TeacherRosterGroupRef>;
-  leftGroups: Map<GroupId, TeacherRosterGroupRef>;
-  leftMonth: string | null;
-};
-
-function addPlacement(
-  placements: Map<StudentId, StudentPlacement>,
-  enrollment: Enrollment,
-  ref: TeacherRosterGroupRef,
-  status: TeacherRosterStatus,
-  leftMonth: string | null,
-): void {
-  const placement = placements.get(enrollment.studentId) ?? {
-    studentId: enrollment.studentId,
-    activeGroups: new Map<GroupId, TeacherRosterGroupRef>(),
-    leftGroups: new Map<GroupId, TeacherRosterGroupRef>(),
-    leftMonth: null,
-  };
-  if (status === 'active') {
-    placement.activeGroups.set(ref.groupId, ref);
-  } else {
-    placement.leftGroups.set(ref.groupId, ref);
-    if (leftMonth && (placement.leftMonth === null || leftMonth > placement.leftMonth)) {
-      placement.leftMonth = leftMonth;
-    }
-  }
-  placements.set(enrollment.studentId, placement);
-}
-
-function distinctSubjects(
-  groups: readonly TeacherRosterGroupRef[],
-): readonly { subjectId: SubjectId; name: BilingualName }[] {
-  const seen = new Map<SubjectId, BilingualName>();
-  for (const group of groups) {
-    if (!seen.has(group.subjectId)) seen.set(group.subjectId, group.subjectName);
-  }
-  return [...seen.entries()].map(([subjectId, name]) => ({ subjectId, name }));
-}
-
-function distinctKinds(groups: readonly TeacherRosterGroupRef[]): readonly GroupKind[] {
-  const seen = new Set<GroupKind>();
-  for (const group of groups) seen.add(group.kind);
-  return [...seen];
-}
-
-function monthOf(at: Date | null): string | null {
-  if (!at) return null;
-  return at.toISOString().slice(0, 7);
 }
