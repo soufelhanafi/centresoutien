@@ -30,8 +30,8 @@ export class InMemoryEnrollmentRepository
 
   /**
    * Mirrors the SQLite adapter: soft-delete plus a former-teacher snapshot in one
-   * write. Reuses the base `softDelete` (deletedAt/updatedAt/updatedBy) then stamps
-   * the snapshot on the same live row so `all()` clones carry it.
+   * write, guarded on a live row (`deletedAt === null`) so a concurrent second
+   * unenroll cannot overwrite the first snapshot.
    */
   async softDeleteUnderTeacher(
     id: EnrollmentId,
@@ -39,9 +39,12 @@ export class InMemoryEnrollmentRepository
     by: UserId,
     teacherId: EntityId | null,
   ): Promise<void> {
-    await this.softDelete(id, at, by);
     const row = this.rows.get(id);
-    if (row) row.unenrolledUnderTeacherId = teacherId;
+    if (!row || row.deletedAt !== null) return;
+    row.deletedAt = at;
+    row.updatedAt = at;
+    row.updatedBy = by;
+    row.unenrolledUnderTeacherId = teacherId;
   }
 
   async listActiveByStudent(studentId: StudentId): Promise<readonly Enrollment[]> {

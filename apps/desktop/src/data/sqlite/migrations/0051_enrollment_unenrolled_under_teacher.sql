@@ -12,12 +12,12 @@
 --
 -- Additive-only, nullable, NO backfill (migration-authoring §3): existing
 -- enrollments (live and tombstoned) keep unenrolled_under_teacher_id NULL. The
--- domain reads NULL as "no snapshot" and the teacher roster falls back to the
--- group's current teacher for those rows, so replaying this on a laptop that is
--- versions behind changes nothing about its data. No envelope change-tracking
--- column (updated_at / updated_by / version) is touched, so it produces ZERO
--- phantom sync traffic — a device that already synced its enrollments converges by
--- itself.
+-- domain reads NULL as "no known teacher" and the teacher roster attributes such a
+-- tombstone to no one (it never guesses a current teacher), so replaying this on a
+-- laptop that is versions behind changes nothing about its data. No envelope
+-- change-tracking column (updated_at / updated_by / version) is touched, so it
+-- produces ZERO phantom sync traffic — a device that already synced its enrollments
+-- converges by itself.
 --
 -- No new sync MEANING for an existing field, and no SCHEMA_VERSION bump:
 -- enrollments are NOT a synced entity type today (no change-log projection mapper in

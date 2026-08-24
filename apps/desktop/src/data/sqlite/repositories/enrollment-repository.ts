@@ -145,11 +145,14 @@ export class SqliteEnrollmentRepository implements EnrollmentRepository {
     teacherId: EntityId | null,
   ): Promise<void> {
     const iso = at.toISOString();
+    // `deleted_at IS NULL` guard: only a live row is tombstoned, so a concurrent
+    // second unenroll that lost the race is a no-op and cannot overwrite the first
+    // snapshot (SOU-301 review).
     this.db
       .prepare(
         `UPDATE enrollments
          SET deleted_at = ?, updated_at = ?, updated_by = ?, unenrolled_under_teacher_id = ?
-         WHERE id = ?`,
+         WHERE id = ? AND deleted_at IS NULL`,
       )
       .run(iso, iso, by, teacherId, id);
   }

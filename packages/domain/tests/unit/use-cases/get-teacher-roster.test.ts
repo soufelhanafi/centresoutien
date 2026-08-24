@@ -251,11 +251,32 @@ describe('GetTeacherRoster', () => {
     await students.save(student);
     const gone = makeEnrollment(student.id, mathGroup.id);
     await enrollments.save(gone);
-    await enrollments.softDelete(gone.id, new Date('2026-09-15T00:00:00Z'), USER);
+    await enrollments.softDeleteUnderTeacher(
+      gone.id,
+      new Date('2026-09-15T00:00:00Z'),
+      USER,
+      TEACHER as string as EntityId,
+    );
 
     const roster = await useCase.execute({ centerCode: CENTER, teacherId: TEACHER });
     expect(roster).toHaveLength(1);
     expect(roster[0]).toMatchObject({ status: 'left', leftMonth: '2026-09' });
+  });
+
+  it('never attributes a null-snapshot departure to any teacher, even after the group is staffed (SOU-301)', async () => {
+    // Student left while the group was unstaffed → null snapshot. Assigning a
+    // teacher afterwards must NOT put that leaver on the new teacher's roster.
+    const unstaffed = makeGroup({ subjectId: MATH, teacherId: null });
+    await groups.save(unstaffed);
+    const student = makeStudent();
+    await students.save(student);
+    const gone = makeEnrollment(student.id, unstaffed.id);
+    await enrollments.save(gone);
+    await enrollments.softDeleteUnderTeacher(gone.id, new Date('2026-09-15T00:00:00Z'), USER, null);
+    // Now staff the group with TEACHER.
+    await groups.save({ ...unstaffed, teacherId: TEACHER as string as EntityId });
+
+    expect(await useCase.execute({ centerCode: CENTER, teacherId: TEACHER })).toEqual([]);
   });
 
   it('keeps a student active when still enrolled elsewhere despite leaving one group', async () => {
