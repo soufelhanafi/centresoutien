@@ -30,12 +30,18 @@ export class SqliteBackupAdapter implements BackupPort {
     private readonly db: DB,
     private readonly key: string,
     private readonly ids: IdGenerator,
+    // SOU-302 — after a backup `.db` is written, emit its sealed recovery blob as
+    // a sibling `.recovery` file so the DB key can be recovered offline together
+    // with this exact copy. Optional so backup works unchanged when escrow is off.
+    private readonly emitRecoverySibling?: (backupFilePath: string) => Promise<void>,
   ) {}
 
   async create({ destDir, centerCode }: { destDir: string; centerCode: CenterCode }): Promise<BackupFileInfo> {
     mkdirSync(destDir, { recursive: true });
     const fileName = `${this.ids.next(backupPrefixFor(centerCode))}.db`;
-    backupDatabase(this.db, join(destDir, fileName));
+    const path = join(destDir, fileName);
+    backupDatabase(this.db, path);
+    await this.emitRecoverySibling?.(path);
     return toFileInfo(destDir, fileName);
   }
 

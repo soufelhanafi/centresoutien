@@ -197,7 +197,10 @@ import { legacyLicenseFileNameForCenter, licenseFileName } from '../data/license
 import { VENDOR_LICENSE_PUBLIC_KEY_PEM } from '../data/license/vendor-public-key';
 import { SyncEngine, DuplicateMatcher, ResolveConflict } from '@centresoutien/domain';
 import { SqliteCenterTrialStore } from '../data/license/sqlite-center-trial-store';
-import { openDatabase } from '../data/sqlite/db';
+import { openDatabase, centreDbFileName } from '../data/sqlite/db';
+import { LibsodiumRecoveryKeyEscrow } from '../data/crypto/libsodium-recovery-key-escrow';
+import { RecoveryKeyEscrowWriter } from './recovery-key-escrow-writer';
+import { recoveryPublicKey } from './recovery-public-key';
 import type { CenterSummary, CenterKeyProvider } from '../data/sqlite/center-directory';
 import { SqliteMultiCenterStatsRead } from '../data/sqlite/multi-center-stats-read';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
@@ -1175,8 +1178,31 @@ export function buildContainer(options: ContainerOptions): Container {
   // manual/scheduled snapshot path and the restore verify/swap path use it.
   // Backups are same-install only: a file created on another laptop won't
   // verify here (cross-machine restore lands with sync, SOU-13).
+  // DB-key recovery escrow (SOU-302). The DB key (options.key) is sealed toward
+  // the product recovery PUBLIC key and persisted as a sibling `.recovery` file —
+  // one per center, next to the live DB at provisioning and next to every backup
+  // so it travels with the copy. libsodium's WASM must be ready first, so the
+  // escrow is built through an async factory and the seal-then-write is memoized;
+  // both the provisioning write and the backup hook reuse one ready instance.
+  let recoveryWriterPromise: Promise<RecoveryKeyEscrowWriter> | null = null;
+  const recoveryEscrowWriter = (): Promise<RecoveryKeyEscrowWriter> => {
+    recoveryWriterPromise ??= LibsodiumRecoveryKeyEscrow.create().then(
+      (escrow) => new RecoveryKeyEscrowWriter(escrow, recoveryPublicKey()),
+    );
+    return recoveryWriterPromise;
+  };
+  const sealRecoverySibling = async (dbFilePath: string): Promise<void> => {
+    const writer = await recoveryEscrowWriter();
+    writer.writeSiblingFor(dbFilePath, options.key);
+  };
+  // Provision the live DB's sibling blob at launch — fire-and-forget so a WASM
+  // load or disk hiccup can never block the window from opening.
+  void sealRecoverySibling(join(options.dir, centreDbFileName(options.centreId))).catch((error: unknown) =>
+    console.error('[recovery] sealing DB-key escrow blob failed', error),
+  );
+
   const backupConfigStore = new SqliteBackupConfigStore(db);
-  const backupAdapter = new SqliteBackupAdapter(db, options.key, ids);
+  const backupAdapter = new SqliteBackupAdapter(db, options.key, ids, sealRecoverySibling);
   const createBackup = new CreateBackup(backupAdapter, backupConfigStore);
   const getBackupConfig = new GetBackupConfig(backupConfigStore);
   const saveBackupConfig = new SaveBackupConfig(backupConfigStore);
