@@ -30,9 +30,11 @@ body {
   /*
    * A modal that prints its live DOM (e.g. the group attendance sheet) must not
    * be clipped to the 85vh scroll box the shared DialogContent now caps it at
-   * (SOU-311). Release the native height/overflow so the full content streams.
+   * (SOU-311). Release the height/overflow on both the dialog and its inner
+   * scroll wrapper so the full content streams.
    */
-  [role='dialog'] {
+  [role='dialog'],
+  [role='dialog'] [data-dialog-scroll] {
     max-height: none !important;
     overflow: visible !important;
   }

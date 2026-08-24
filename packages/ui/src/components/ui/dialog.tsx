@@ -37,18 +37,20 @@ export const DialogContent = React.forwardRef<
       // translate is physical, so pairing it with a logical `start-1/2` pushes the
       // modal off-screen in RTL (start becomes right, translate still goes left).
       // A centered overlay is direction-agnostic; its inner text still flows via dir.
-      // Height is capped at 85vh and the box is a flex column so that a tall
-      // body (see DialogBody) scrolls internally while the pinned header and
-      // footer stay reachable. `overflow-y-auto` is the app-wide fallback: a
-      // modal that does not use DialogBody still scrolls instead of clipping
-      // its actions off-screen (SOU-311).
+      // The content box itself never scrolls — it caps height at 85vh and clips to
+      // its rounded border, so the absolutely-positioned close button stays pinned.
+      // The inner wrapper owns the scroll: a tall DialogBody scrolls internally, and
+      // a modal without one still scrolls there rather than clipping its actions
+      // off-screen (SOU-311).
       className={cn(
-        'fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg',
+        'fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border bg-background shadow-lg',
         className,
       )}
       {...props}
     >
-      {children}
+      <div data-dialog-scroll className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
+        {children}
+      </div>
       <DialogPrimitive.Close className="absolute end-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <X className="h-4 w-4" aria-hidden="true" />
         <span className="sr-only">{closeLabel}</span>
@@ -68,7 +70,7 @@ export function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLD
 
 export type DialogBodyProps = ScrollAreaProps;
 
-/**
+/*
  * Scrollable body region for a modal. Sits between the pinned DialogHeader and
  * DialogFooter and absorbs overflow so a tall form never pushes the action
  * buttons off-screen (SOU-311). The `-mx-1 px-1` horizontal gutter keeps input
