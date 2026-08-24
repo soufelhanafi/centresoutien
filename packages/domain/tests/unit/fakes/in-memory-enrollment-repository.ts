@@ -3,6 +3,7 @@ import type { EnrollmentRepository } from '../../../src/ports/enrollment-reposit
 import type { Enrollment, EnrollmentId } from '../../../src/entities/enrollment';
 import type { GroupId } from '../../../src/entities/group';
 import type { StudentId } from '../../../src/entities/student';
+import type { EntityId, UserId } from '../../../src/value-objects/ids';
 
 /**
  * In-memory {@link EnrollmentRepository} for unit tests. Inherits the soft-deletable
@@ -19,6 +20,28 @@ export class InMemoryEnrollmentRepository
 
   async listInactiveByGroup(groupId: GroupId): Promise<readonly Enrollment[]> {
     return this.all().filter((e) => e.deletedAt !== null && e.groupId === groupId);
+  }
+
+  async listInactiveByFormerTeacher(teacherId: EntityId): Promise<readonly Enrollment[]> {
+    return this.all().filter(
+      (e) => e.deletedAt !== null && e.unenrolledUnderTeacherId === teacherId,
+    );
+  }
+
+  /**
+   * Mirrors the SQLite adapter: soft-delete plus a former-teacher snapshot in one
+   * write. Reuses the base `softDelete` (deletedAt/updatedAt/updatedBy) then stamps
+   * the snapshot on the same live row so `all()` clones carry it.
+   */
+  async softDeleteUnderTeacher(
+    id: EnrollmentId,
+    at: Date,
+    by: UserId,
+    teacherId: EntityId | null,
+  ): Promise<void> {
+    await this.softDelete(id, at, by);
+    const row = this.rows.get(id);
+    if (row) row.unenrolledUnderTeacherId = teacherId;
   }
 
   async listActiveByStudent(studentId: StudentId): Promise<readonly Enrollment[]> {

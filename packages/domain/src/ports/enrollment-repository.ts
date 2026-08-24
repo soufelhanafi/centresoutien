@@ -2,6 +2,7 @@ import type { SoftDeletableRepository } from '../repositories/soft-deletable';
 import type { Enrollment, EnrollmentId } from '../entities/enrollment';
 import type { GroupId } from '../entities/group';
 import type { StudentId } from '../entities/student';
+import type { EntityId, UserId } from '../value-objects/ids';
 
 /**
  * Persistence port for Enrollments. Inherits the soft-deletable surface
@@ -31,6 +32,32 @@ export interface EnrollmentRepository
    * `endMonth` is unused lifecycle metadata and is not consulted here.
    */
   listInactiveByGroup(groupId: GroupId): Promise<readonly Enrollment[]>;
+  /**
+   * The **tombstoned** enrollments stamped with `teacherId` as the teacher who held
+   * the group when the student left — `unenrolled_under_teacher_id = teacherId`
+   * (SOU-301). Backs the teacher-roster "Partis" list so a departed student is
+   * attributed to the teacher who actually taught them, independent of the group's
+   * *current* assignment: after a group is reassigned A→B, A's leavers stay on A's
+   * roster because their tombstone snapshots A, not the group's live teacher (B).
+   * Only rows with `deletedAt` set and a non-null snapshot match — pre-SOU-301
+   * tombstones (snapshot `null`) are handled by the roster's current-teacher
+   * fallback via {@link listInactiveByGroup}, not here.
+   */
+  listInactiveByFormerTeacher(teacherId: EntityId): Promise<readonly Enrollment[]>;
+  /**
+   * Soft-delete the enrollment **and** snapshot `unenrolledUnderTeacherId` in the
+   * same write (SOU-301) — the teacher-aware counterpart to {@link softDelete} that
+   * `UnenrollStudent` uses so the departed row records who taught the student. Pass
+   * the group's current `teacherId` (or `null` when the group is unstaffed). Sets
+   * `deletedAt`/`updatedAt` to `at` and `updatedBy` to `by`, exactly like
+   * `softDelete`; still a tombstone, never a hard delete.
+   */
+  softDeleteUnderTeacher(
+    id: EnrollmentId,
+    at: Date,
+    by: UserId,
+    teacherId: EntityId | null,
+  ): Promise<void>;
   /** Live enrollments the student holds (for the student detail sheet). */
   listActiveByStudent(studentId: StudentId): Promise<readonly Enrollment[]>;
   /** Live seat count in the group — the number the capacity guard checks against. */

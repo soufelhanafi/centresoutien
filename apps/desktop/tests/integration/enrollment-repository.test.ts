@@ -8,6 +8,7 @@ import type {
   EnrollmentId,
   CenterCode,
   DeviceId,
+  EntityId,
   GroupId,
   StudentId,
   UserId,
@@ -29,6 +30,8 @@ const GROUP_A = 'grp_00000000000000000000000001' as GroupId;
 const GROUP_B = 'grp_00000000000000000000000002' as GroupId;
 const STUDENT_A = 'stu_00000000000000000000000001' as StudentId;
 const STUDENT_B = 'stu_00000000000000000000000002' as StudentId;
+const TEACHER_A = 'tch_00000000000000000000000001' as EntityId;
+const TEACHER_B = 'tch_00000000000000000000000002' as EntityId;
 
 let dir: string;
 let db: DB;
@@ -63,6 +66,7 @@ function makeEnrollment(over: Partial<Enrollment> = {}): Enrollment {
     groupId: GROUP_A,
     startMonth: '2026-09',
     endMonth: null,
+    unenrolledUnderTeacherId: null,
     ...over,
   };
 }
@@ -162,6 +166,49 @@ describe('SqliteEnrollmentRepository', () => {
 
       const held = await repo.listActiveByStudent(STUDENT_A);
       expect(held.map((e) => e.groupId).sort()).toEqual([GROUP_A, GROUP_B]);
+    });
+  });
+
+  describe('softDeleteUnderTeacher / listInactiveByFormerTeacher (SOU-301)', () => {
+    it('round-trips the former-teacher snapshot through save + findById', async () => {
+      const enrollment = makeEnrollment({ unenrolledUnderTeacherId: TEACHER_A });
+      await repo.save(enrollment);
+      expect((await repo.findById(enrollment.id))?.unenrolledUnderTeacherId).toBe(TEACHER_A);
+    });
+
+    it('soft-deletes and stamps the snapshot in one write, visible to the sync feed', async () => {
+      const enrollment = makeEnrollment();
+      await repo.save(enrollment);
+      await repo.softDeleteUnderTeacher(
+        enrollment.id,
+        new Date('2026-08-02T00:00:00Z'),
+        USER,
+        TEACHER_A,
+      );
+
+      expect(await repo.findById(enrollment.id)).toBeNull();
+      const [tombstone] = await repo.listChangedSince(AT);
+      expect(tombstone?.deletedAt).toEqual(new Date('2026-08-02T00:00:00Z'));
+      expect(tombstone?.updatedBy).toBe(USER);
+      expect(tombstone?.unenrolledUnderTeacherId).toBe(TEACHER_A);
+    });
+
+    it('lists only tombstones stamped with the given teacher, never live or null-snapshot rows', async () => {
+      const underA = makeEnrollment({ studentId: STUDENT_A, groupId: GROUP_A });
+      await repo.save(underA);
+      await repo.softDeleteUnderTeacher(underA.id, AT, USER, TEACHER_A);
+
+      const underB = makeEnrollment({ studentId: STUDENT_B, groupId: GROUP_A });
+      await repo.save(underB);
+      await repo.softDeleteUnderTeacher(underB.id, AT, USER, TEACHER_B);
+
+      // A pre-SOU-301 tombstone (no snapshot) must not match any former teacher.
+      const legacy = makeEnrollment({ studentId: STUDENT_A, groupId: GROUP_B });
+      await repo.save(legacy);
+      await repo.softDelete(legacy.id, AT, USER);
+
+      const forA = await repo.listInactiveByFormerTeacher(TEACHER_A);
+      expect(forA.map((e) => e.id)).toEqual([underA.id]);
     });
   });
 

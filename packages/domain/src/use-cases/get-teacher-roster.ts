@@ -7,7 +7,7 @@ import type { TeacherRepository } from '../ports/teacher-repository';
 import type { Clock } from '../ports/clock';
 import { isSubscriptionActiveInMonth } from '../policies/student-subscription-policy';
 import type { PlanPolicy } from '../plans/plan-policy';
-import type { CenterCode } from '../value-objects/ids';
+import { toEntityId, type CenterCode } from '../value-objects/ids';
 import type { Enrollment } from '../entities/enrollment';
 import type { Group, GroupId, GroupKind } from '../entities/group';
 import type { SubjectId } from '../entities/subject';
@@ -86,6 +86,17 @@ export type TeacherRosterEntry = {
  * past one, and only the active groups are shown. A student archived without first
  * being unenrolled is skipped (their record no longer resolves), so the roster
  * never shows a nameless seat — the same trailing-count caveat as the group roster.
+ *
+ * **Departed ("Partis") attribution is by snapshot, not by the group's live teacher
+ * (SOU-301).** A tombstoned enrollment carries `unenrolledUnderTeacherId` — the
+ * teacher who held the group when the student left — so a group reassigned A→B
+ * keeps A's leavers on A's roster and never moves them onto B's. Two sources feed
+ * the departed rows: tombstones stamped with this teacher (found across *any*
+ * group, including groups since reassigned away — {@link
+ * EnrollmentRepository.listInactiveByFormerTeacher}), plus a fallback for
+ * pre-SOU-301 tombstones whose snapshot is `null` — those are attributed to the
+ * current teacher of the group they sit in, preserving the old behavior for data
+ * that predates the snapshot without guessing an owner for a since-reassigned group.
  */
 export class GetTeacherRoster {
   constructor(
@@ -109,11 +120,10 @@ export class GetTeacherRoster {
     const teacherGroups = (await this.groups.listActive(input.centerCode)).filter(
       (group) => group.teacherId !== null && (group.teacherId as string) === teacherId,
     );
-    if (teacherGroups.length === 0) return [];
 
     const currentMonth = this.clock.now().toISOString().slice(0, 7);
     const subjectNames = await this.buildSubjectIndex(input.centerCode);
-    const placements = await this.collectPlacements(teacherGroups, input.centerCode, subjectNames);
+    const placements = await this.collectPlacements(input, teacherGroups, subjectNames);
 
     const entries = await Promise.all(
       [...placements.values()].map((placement) =>
@@ -132,20 +142,36 @@ export class GetTeacherRoster {
   }
 
   private async collectPlacements(
+    input: GetTeacherRosterInput,
     teacherGroups: readonly Group[],
-    centerCode: CenterCode,
     subjectNames: ReadonlyMap<SubjectId, BilingualName>,
   ): Promise<Map<StudentId, StudentPlacement>> {
     const placements = new Map<StudentId, StudentPlacement>();
+    const refByGroup = new Map<GroupId, TeacherRosterGroupRef>();
 
+    await this.collectFromCurrentGroups(placements, refByGroup, input.centerCode, teacherGroups, subjectNames);
+    await this.collectFormerlyTaught(placements, refByGroup, input, subjectNames);
+
+    return placements;
+  }
+
+  /**
+   * Active placements + the pre-SOU-301 departed fallback, both drawn from the
+   * teacher's **current** groups. A tombstone with no former-teacher snapshot is
+   * attributed to the group's live teacher (this teacher); a snapshotted one is left
+   * to {@link collectFormerlyTaught}, which owns it regardless of the group's
+   * current assignment.
+   */
+  private async collectFromCurrentGroups(
+    placements: Map<StudentId, StudentPlacement>,
+    refByGroup: Map<GroupId, TeacherRosterGroupRef>,
+    centerCode: CenterCode,
+    teacherGroups: readonly Group[],
+    subjectNames: ReadonlyMap<SubjectId, BilingualName>,
+  ): Promise<void> {
     for (const group of teacherGroups) {
-      const ref: TeacherRosterGroupRef = {
-        groupId: group.id,
-        subjectId: group.subjectId,
-        subjectName: subjectNames.get(group.subjectId) ?? { fr: '', ar: '' },
-        level: group.level,
-        kind: group.kind,
-      };
+      const ref = buildGroupRef(group, subjectNames);
+      refByGroup.set(group.id, ref);
 
       // `listActiveByGroup`/`listInactiveByGroup` scope by group id, not center;
       // drop any foreign-center enrollment as defense in depth for the portable
@@ -159,14 +185,54 @@ export class GetTeacherRoster {
       }
 
       const inactive = (await this.enrollments.listInactiveByGroup(group.id)).filter(
-        (enrollment) => enrollment.centerCode === centerCode,
+        (enrollment) =>
+          enrollment.centerCode === centerCode && enrollment.unenrolledUnderTeacherId === null,
       );
       for (const enrollment of inactive) {
         addPlacement(placements, enrollment, ref, 'left', monthOf(enrollment.deletedAt));
       }
     }
+  }
 
-    return placements;
+  /**
+   * Departed placements attributed by the tombstone's `unenrolledUnderTeacherId`
+   * snapshot — the SOU-301 fix. These are found across *any* group the teacher held,
+   * so a since-reassigned group's leavers still surface here on their real teacher's
+   * roster. A tombstone whose group no longer resolves (archived/foreign) is dropped,
+   * consistent with the live-groups-only roster.
+   */
+  private async collectFormerlyTaught(
+    placements: Map<StudentId, StudentPlacement>,
+    refByGroup: Map<GroupId, TeacherRosterGroupRef>,
+    input: GetTeacherRosterInput,
+    subjectNames: ReadonlyMap<SubjectId, BilingualName>,
+  ): Promise<void> {
+    const departed = (
+      await this.enrollments.listInactiveByFormerTeacher(toEntityId(input.teacherId))
+    ).filter((enrollment) => enrollment.centerCode === input.centerCode);
+
+    for (const enrollment of departed) {
+      const ref = await this.resolveGroupRef(enrollment.groupId, refByGroup, input.centerCode, subjectNames);
+      if (ref === null) continue;
+      addPlacement(placements, enrollment, ref, 'left', monthOf(enrollment.deletedAt));
+    }
+  }
+
+  private async resolveGroupRef(
+    groupId: GroupId,
+    refByGroup: Map<GroupId, TeacherRosterGroupRef>,
+    centerCode: CenterCode,
+    subjectNames: ReadonlyMap<SubjectId, BilingualName>,
+  ): Promise<TeacherRosterGroupRef | null> {
+    const cached = refByGroup.get(groupId);
+    if (cached) return cached;
+
+    const group = await this.groups.findById(groupId);
+    if (group === null || group.centerCode !== centerCode) return null;
+
+    const ref = buildGroupRef(group, subjectNames);
+    refByGroup.set(groupId, ref);
+    return ref;
   }
 
   private async toEntry(
@@ -232,6 +298,19 @@ type StudentPlacement = {
   leftGroups: Map<GroupId, TeacherRosterGroupRef>;
   leftMonth: string | null;
 };
+
+function buildGroupRef(
+  group: Group,
+  subjectNames: ReadonlyMap<SubjectId, BilingualName>,
+): TeacherRosterGroupRef {
+  return {
+    groupId: group.id,
+    subjectId: group.subjectId,
+    subjectName: subjectNames.get(group.subjectId) ?? { fr: '', ar: '' },
+    level: group.level,
+    kind: group.kind,
+  };
+}
 
 function addPlacement(
   placements: Map<StudentId, StudentPlacement>,

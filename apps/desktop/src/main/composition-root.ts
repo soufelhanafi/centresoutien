@@ -790,7 +790,7 @@ export function buildContainer(options: ContainerOptions): Container {
     ids,
     plan,
   );
-  const unenrollStudent = new UnenrollStudent(enrollmentRepo, clock, plan);
+  const unenrollStudent = new UnenrollStudent(enrollmentRepo, groupRepo, clock, plan);
   // Group roster + list-counts read models (SOU-127): the roster resolves a group's
   // live enrollments to student names; list-with-counts reuses ListGroups and adds a
   // single batch enrollment count so the list renders fill % without an N+1.

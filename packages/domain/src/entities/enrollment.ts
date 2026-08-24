@@ -1,5 +1,6 @@
 import type { Brand } from '../value-objects/brand';
 import type { EntityEnvelope } from './envelope';
+import type { EntityId } from '../value-objects/ids';
 import type { StudentId } from './student';
 import type { GroupId } from './group';
 
@@ -24,6 +25,17 @@ export type EnrollmentId = Brand<string, 'EnrollmentId'>;
  * Not people-like, so it carries no `naturalKey` — an enrollment is identified by
  * its relationships (student + group), not by a matching key. Soft-delete only:
  * `UnenrollStudent` sets `deletedAt`; a tombstoned row still syncs.
+ *
+ * `unenrolledUnderTeacherId` snapshots the group's teacher at the moment the
+ * student is unenrolled (SOU-301). A group's `teacherId` is overwritten on
+ * reassignment and there is no teacher-assignment history, so "who taught this
+ * student while they were enrolled" is not recoverable from the group's *current*
+ * assignment — the departed student would otherwise be attributed to whoever holds
+ * the group now, placing a prior teacher's leavers on the new teacher's "Partis"
+ * roster. Stamped only on unenroll; `null` while the enrollment is live, and `null`
+ * on tombstones that predate this field (the teacher roster then falls back to the
+ * group's current teacher for those). It mirrors `Group.teacherId`'s generic
+ * `EntityId` (nullable — a group may be unstaffed when a student leaves).
  */
 export type Enrollment = EntityEnvelope & {
   readonly id: EnrollmentId;
@@ -31,4 +43,5 @@ export type Enrollment = EntityEnvelope & {
   groupId: GroupId;
   startMonth: string; // 'YYYY-MM', inclusive
   endMonth: string | null; // 'YYYY-MM' inclusive, or null when open-ended
+  unenrolledUnderTeacherId: EntityId | null;
 };
