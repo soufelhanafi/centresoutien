@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { CenterCode, LicenseClaims } from '@centresoutien/domain';
 import { buildContainer } from '../../src/main/composition-root';
 import { Ed25519LicenseAdapter } from '../../src/data/license/ed25519-license-adapter';
-import { licenseFileNameForCenter } from '../../src/data/license/license-file-path';
+import { licenseFileName } from '../../src/data/license/license-file-path';
 import { createIpcDispatcher } from '../../src/main/ipc/dispatcher';
 import { createHandlers } from '../../src/main/ipc/handlers';
 
@@ -54,11 +54,11 @@ const claims = (overrides: Partial<LicenseClaims> = {}): LicenseClaims => ({
   ...overrides,
 });
 
-/** An adapter reading the per-center path, trusting the committed TEST public key —
+/** An adapter reading the machine-scoped path, trusting the committed TEST public key —
  *  exactly what the `--mode e2e` build wires through `CS_LICENSE_PUBLIC_KEY`. */
 function trustedAdapter() {
   return new Ed25519LicenseAdapter({
-    filePath: join(dir, licenseFileNameForCenter(CENTER)),
+    filePath: join(dir, licenseFileName()),
     publicKey: TEST_PUBLIC_KEY_PEM,
   });
 }
@@ -99,7 +99,7 @@ describe('committed e2e license fixtures (SOU-172)', () => {
   });
 
   it('resolves each committed fixture shape to the license status the e2e scenarios expect', async () => {
-    const licensePath = join(dir, licenseFileNameForCenter(CENTER));
+    const licensePath = join(dir, licenseFileName());
     const cases: ReadonlyArray<{ readonly claims: LicenseClaims; readonly status: string }> = [
       { claims: claims(), status: 'active' }, // S7
       { claims: claims({ expiresAt: '2000-01-01T00:00:00.000Z' }), status: 'expired' }, // S8

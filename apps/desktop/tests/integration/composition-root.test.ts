@@ -14,7 +14,7 @@ import type {
 } from '@centresoutien/domain';
 import { buildContainer } from '../../src/main/composition-root';
 import { Ed25519LicenseAdapter } from '../../src/data/license/ed25519-license-adapter';
-import { licenseFileNameForCenter } from '../../src/data/license/license-file-path';
+import { legacyLicenseFileNameForCenter, licenseFileName } from '../../src/data/license/license-file-path';
 import { createIpcDispatcher } from '../../src/main/ipc/dispatcher';
 import { createHandlers } from '../../src/main/ipc/handlers';
 import { openDatabase } from '../../src/data/sqlite/db';
@@ -68,7 +68,7 @@ function signedLicenseFile(claims: LicenseClaims, privateKey: KeyObject): string
  */
 function installSignedLicense(claims: LicenseClaims): LicensePort {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
-  const licensePath = join(dir, licenseFileNameForCenter(CENTER));
+  const licensePath = join(dir, licenseFileName());
   writeFileSync(licensePath, signedLicenseFile(claims, privateKey));
   return new Ed25519LicenseAdapter({
     filePath: licensePath,
@@ -452,9 +452,9 @@ describe('composition root', () => {
     const { publicKey, privateKey } = generateKeyPairSync('ed25519');
     const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
     // The injected read adapter and the internal FsLicenseStore must resolve the
-    // same per-center path, or an activation write would land where startup never
-    // reads it (SOU-104 M2).
-    const licensePath = join(dir, licenseFileNameForCenter(CENTER));
+    // same machine-scoped path, or an activation write would land where startup
+    // never reads it (SOU-315).
+    const licensePath = join(dir, licenseFileName());
     const adapter = () => new Ed25519LicenseAdapter({ filePath: licensePath, publicKey: publicPem });
 
     const container = build('essentiel', adapter());
@@ -497,7 +497,7 @@ describe('composition root', () => {
   it('rejects a wrong-center license, leaving the plan and disk untouched (SOU-104)', async () => {
     const { publicKey, privateKey } = generateKeyPairSync('ed25519');
     const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
-    const licensePath = join(dir, licenseFileNameForCenter(CENTER));
+    const licensePath = join(dir, licenseFileName());
     const container = build(
       'essentiel',
       new Ed25519LicenseAdapter({ filePath: licensePath, publicKey: publicPem }),
@@ -526,15 +526,14 @@ describe('composition root', () => {
     container.dispose();
   });
 
-  it('scopes the license file per center — activating one center never licenses another (SOU-104 M2)', async () => {
+  it('entitles every center under one machine-scoped license; center binding still enforced (SOU-315)', async () => {
     const { publicKey, privateKey } = generateKeyPairSync('ed25519');
     const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
     const centerA = 'CS-CASA-001' as CenterCode;
     const centerB = 'CS-RABAT-002' as CenterCode;
-    const pathA = join(dir, licenseFileNameForCenter(centerA));
-    const pathB = join(dir, licenseFileNameForCenter(centerB));
+    const machinePath = join(dir, licenseFileName());
 
-    const buildCenter = (centreId: string, centerCode: CenterCode, path: string) =>
+    const buildCenter = (centreId: string, centerCode: CenterCode) =>
       buildContainer({
         centreId,
         centerCode,
@@ -544,52 +543,92 @@ describe('composition root', () => {
         planId: 'essentiel',
         appVersion: () => '2.0.0',
         scheduleRestart: () => {},
-        license: new Ed25519LicenseAdapter({ filePath: path, publicKey: publicPem }),
+        license: new Ed25519LicenseAdapter({
+          filePath: machinePath,
+          legacyFilePath: join(dir, legacyLicenseFileNameForCenter(centerCode)),
+          publicKey: publicPem,
+        }),
       });
 
-    const licenseFor = (centerCode: CenterCode) =>
+    const claims = (centerCode: CenterCode | null, centersAllowed: number | null): LicenseClaims => ({
+      plan: 'premium',
+      issuedAt: '2026-01-01T00:00:00.000Z',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      machineId: null,
+      centerCode,
+      centersAllowed,
+      founderDiscountExpiresAt: null,
+    });
+
+    // Activate an UNBOUND Premium license on center A: the multi-center shape the
+    // vendor signs (centerCode null, centersAllowed N). It writes the ONE
+    // machine-scoped file.
+    const a1 = buildCenter('A', centerA);
+    const da1 = createIpcDispatcher(createHandlers(a1.handlerDeps));
+    expect(
+      (await da1('license.activate', { license: signedLicenseFile(claims(null, 5), privateKey) }))
+        .status,
+    ).toBe('activated');
+    a1.dispose();
+
+    // Center B, opened in the same userData dir, reads the SAME machine-scoped file
+    // and inherits the Premium entitlement — the SOU-315 regression this guards.
+    const b1 = buildCenter('B', centerB);
+    const db1 = createIpcDispatcher(createHandlers(b1.handlerDeps));
+    expect((await db1('license.status', {})).status).toBe('active');
+    expect(await db1('plan.get', {})).toMatchObject({ planId: 'premium' });
+    b1.dispose();
+
+    // A center-BOUND license is still refused on another center: tenant binding is
+    // enforced by the claim, not by file isolation.
+    rmSync(machinePath, { force: true });
+    const a2 = buildCenter('A', centerA);
+    const da2 = createIpcDispatcher(createHandlers(a2.handlerDeps));
+    expect(
+      (await da2('license.activate', { license: signedLicenseFile(claims(centerA, null), privateKey) }))
+        .status,
+    ).toBe('activated');
+    a2.dispose();
+
+    const b2 = buildCenter('B', centerB);
+    const db2 = createIpcDispatcher(createHandlers(b2.handlerDeps));
+    expect((await db2('license.status', {})).status).toBe('wrong-center');
+    expect(await db2('plan.get', {})).toMatchObject({ planId: 'essentiel' });
+    b2.dispose();
+  });
+
+  it('falls back to the legacy per-center license file when the machine-scoped file is absent (SOU-315)', async () => {
+    const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+    const publicPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+    const legacyPath = join(dir, legacyLicenseFileNameForCenter(CENTER));
+    writeFileSync(
+      legacyPath,
       signedLicenseFile(
         {
           plan: 'premium',
           issuedAt: '2026-01-01T00:00:00.000Z',
           expiresAt: '2099-01-01T00:00:00.000Z',
           machineId: null,
-          centerCode,
+          centerCode: CENTER,
           centersAllowed: null,
           founderDiscountExpiresAt: null,
         },
         privateKey,
-      );
-
-    // Activate center A (writes A's per-center slot).
-    const a1 = buildCenter('A', centerA, pathA);
-    const da1 = createIpcDispatcher(createHandlers(a1.handlerDeps));
-    expect((await da1('license.activate', { license: licenseFor(centerA) })).status).toBe(
-      'activated',
+      ),
     );
-    a1.dispose();
 
-    // Center B, opened in the same userData dir, is NOT licensed by A's activation.
-    const b1 = buildCenter('B', centerB, pathB);
-    const db1 = createIpcDispatcher(createHandlers(b1.handlerDeps));
-    expect((await db1('license.status', {})).status).toBe('missing');
-    expect(await db1('plan.get', {})).toMatchObject({ planId: 'essentiel' });
-
-    // Activating B writes B's own slot, leaving A's file untouched.
-    expect((await db1('license.activate', { license: licenseFor(centerB) })).status).toBe(
-      'activated',
+    const container = build(
+      'essentiel',
+      new Ed25519LicenseAdapter({
+        filePath: join(dir, licenseFileName()),
+        legacyFilePath: legacyPath,
+        publicKey: publicPem,
+      }),
     );
-    b1.dispose();
-    expect(existsSync(pathA)).toBe(true);
-    expect(existsSync(pathB)).toBe(true);
-
-    // Center A, reopened, still reads its own premium license intact — the
-    // regression the reviewer flagged (B's activation had overwritten A's slot).
-    const a2 = buildCenter('A', centerA, pathA);
-    const da2 = createIpcDispatcher(createHandlers(a2.handlerDeps));
-    expect(await da2('plan.get', {})).toMatchObject({ planId: 'premium' });
-    expect((await da2('license.status', {})).status).toBe('active');
-    a2.dispose();
+    const dispatch = createIpcDispatcher(createHandlers(container.handlerDeps));
+    expect((await dispatch('license.status', {})).status).toBe('active');
+    expect(await dispatch('plan.get', {})).toMatchObject({ planId: 'premium' });
+    container.dispose();
   });
 
   it('persists a stable device origin across container rebuilds', async () => {
@@ -1037,7 +1076,7 @@ describe('composition root', () => {
   // resolves to `active`, only `license.status` + `license.activate` answer; every
   // other channel is rejected with `LicenseRestrictedError`. Supersedes SOU-173.
   describe('restricted-mode IPC hard lock (SOU-104)', () => {
-    const licensePath = () => join(dir, licenseFileNameForCenter(CENTER));
+    const licensePath = () => join(dir, licenseFileName());
 
     // Build a container whose injected adapter resolves to a non-active status,
     // wired through a dispatcher that consults the live restricted-mode gate.

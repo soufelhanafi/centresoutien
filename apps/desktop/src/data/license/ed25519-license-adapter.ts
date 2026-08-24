@@ -8,8 +8,13 @@ import {
 } from '@centresoutien/domain';
 
 export type Ed25519LicenseAdapterOptions = {
-  /** Absolute path to the license file (JSON envelope). */
+  /** Absolute path to the machine-scoped license file (JSON envelope). */
   readonly filePath: string;
+  /**
+   * Legacy per-center license file (SOU-104 M2), read only when `filePath` is
+   * absent (SOU-315 backward compat). New activations always write `filePath`.
+   */
+  readonly legacyFilePath?: string;
   /** Vendor public key, SPKI PEM. */
   readonly publicKey: string;
 };
@@ -61,11 +66,22 @@ export class Ed25519LicenseAdapter implements LicensePort {
   /**
    * File contents, or null when the file cannot be read. An absent, unreadable, or
    * permission-denied license is an expected offline state, never a startup failure —
-   * `LicensePort` guarantees `verify()` never throws.
+   * `LicensePort` guarantees `verify()` never throws. When the machine-scoped
+   * primary is absent, the legacy per-center file is tried (SOU-315) so an install
+   * that activated before the machine-scoped model keeps working.
    */
   private readFile(): string | null {
+    const primary = this.readPath(this.options.filePath);
+    if (primary !== null) return primary;
+    if (this.options.legacyFilePath !== undefined) {
+      return this.readPath(this.options.legacyFilePath);
+    }
+    return null;
+  }
+
+  private readPath(path: string): string | null {
     try {
-      return readFileSync(this.options.filePath, 'utf8');
+      return readFileSync(path, 'utf8');
     } catch {
       return null;
     }

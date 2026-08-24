@@ -193,7 +193,7 @@ import { Ed25519LicenseAdapter } from '../data/license/ed25519-license-adapter';
 import { E2eSyntheticLicense, isPlanId } from '../data/license/e2e-synthetic-license';
 import { FsLicenseStore } from '../data/license/fs-license-store';
 import { FileMachineIdentity } from '../data/license/file-machine-identity';
-import { licenseFileNameForCenter } from '../data/license/license-file-path';
+import { legacyLicenseFileNameForCenter, licenseFileName } from '../data/license/license-file-path';
 import { VENDOR_LICENSE_PUBLIC_KEY_PEM } from '../data/license/vendor-public-key';
 import { SyncEngine, DuplicateMatcher, ResolveConflict } from '@centresoutien/domain';
 import { SqliteCenterTrialStore } from '../data/license/sqlite-center-trial-store';
@@ -537,22 +537,29 @@ export function buildContainer(options: ContainerOptions): Container {
   const ids = options.ids ?? new UlidIdGenerator();
   // Trust anchor + license path are fixed in a packaged build so a user cannot
   // point them at a self-signed keypair to self-upgrade (SOU-98). The path is
-  // scoped per center (SOU-104 M2, CLAUDE.md §5ter) — each center owns its own
-  // license, so a multi-center owner activating center B never clobbers center
-  // A's file. The read (adapter) and write (store) paths share this one value,
-  // so they always agree. The `CS_LICENSE_*` env overrides are gated behind
-  // `__CS_E2E__` (SOU-172) — a build-time constant electron-vite sets `true` ONLY
-  // for the dedicated `--mode e2e` build and `false` for every dev and release
-  // build. In a release build the whole override branch (env reads + test key
-  // path) is dead-code-eliminated, so the shipped binary always trusts the vendor
-  // key at the fixed per-center path and a determined user cannot swap the trust
+  // machine-scoped (SOU-315, CLAUDE.md §5ter) — one license per laptop, shared by
+  // every center, so a Premium license entitles every center the director
+  // provisions. Center binding is enforced by the license's `centerCode` claim,
+  // not by the file name. The legacy per-center file (SOU-104 M2) is still read
+  // as a fallback when the machine-scoped file is absent. The read (adapter) and
+  // write (store) paths share the machine-scoped value, so they always agree. The
+  // `CS_LICENSE_*` env overrides are gated behind `__CS_E2E__` (SOU-172) — a
+  // build-time constant electron-vite sets `true` ONLY for the dedicated
+  // `--mode e2e` build and `false` for every dev and release build. In a release
+  // build the whole override branch (env reads + test key path) is
+  // dead-code-eliminated, so the shipped binary always trusts the vendor key at
+  // the fixed machine-scoped path and a determined user cannot swap the trust
   // anchor — the honest-user security baseline (CLAUDE.md §5quater) holds. The
   // e2e build injects a committed TEST public key so signature-valid fixtures can
   // activate; unit + integration tests inject through `options.license` instead.
-  const licenseFilePath = __CS_E2E__
-    ? (process.env['CS_LICENSE_FILE'] ??
-      join(options.dir, licenseFileNameForCenter(options.centerCode)))
-    : join(options.dir, licenseFileNameForCenter(options.centerCode));
+  const licenseFilePath =
+    __CS_E2E__ && process.env['CS_LICENSE_FILE']
+      ? process.env['CS_LICENSE_FILE']
+      : join(options.dir, licenseFileName());
+  const legacyLicenseFilePath = join(
+    options.dir,
+    legacyLicenseFileNameForCenter(options.centerCode),
+  );
   // E2E-only (SOU-172): the dedicated `--mode e2e` build boots ACTIVE on the tier
   // a spec asks for (`CS_PLAN`) whenever `CS_E2E_LICENSE_PLAN` is present — the
   // Playwright global-setup sets it for every NON-license spec, so the whole
@@ -576,6 +583,7 @@ export function buildContainer(options: ContainerOptions): Container {
         )
       : new Ed25519LicenseAdapter({
           filePath: licenseFilePath,
+          legacyFilePath: legacyLicenseFilePath,
           publicKey: licensePublicKey,
         }));
   // Machine-scoped id (SOU-104) — the anchor for the license's machine binding.
