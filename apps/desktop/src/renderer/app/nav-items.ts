@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { FeatureFlag } from '@centresoutien/domain';
+import type { PlanTier } from '@centresoutien/ui';
 
 /**
  * The single source of truth for the app shell's navigation. Both the sidebar
@@ -25,9 +26,8 @@ import type { FeatureFlag } from '@centresoutien/domain';
  * one place.
  *
  * `feature` gates an entry through `useFeature` (never a plan-name check — see
- * plan-feature-gate). The upgrade badge on a locked entry derives its tier from
- * `minimumPlanFor(feature)` (the domain's `FEATURE_TIER`), so no plan name is
- * ever hardcoded here.
+ * plan-feature-gate). `requiredTier` is display-only: it labels the upgrade
+ * badge on a locked entry and never drives the gating decision.
  *
  * `hideWhenLocked` removes the entry from the nav entirely when its feature is
  * missing, instead of the default locked (disabled + upgrade-badge) affordance.
@@ -44,6 +44,7 @@ export type NavModule = {
   readonly path: string;
   readonly icon: LucideIcon;
   readonly feature?: FeatureFlag;
+  readonly requiredTier?: PlanTier;
   readonly hideWhenLocked?: boolean;
 };
 
@@ -59,7 +60,7 @@ export const roomsModule = { id: 'rooms', path: '/rooms', icon: DoorOpen } as co
 export const planningModule = { id: 'planning', path: '/planning', icon: CalendarDays } as const satisfies NavModule;
 export const invoicingModule = { id: 'invoicing', path: '/invoicing', icon: ReceiptText } as const satisfies NavModule;
 export const paymentsModule = { id: 'payments', path: '/payments', icon: Wallet } as const satisfies NavModule;
-export const payrollModule = { id: 'payroll', path: '/payroll', icon: HandCoins, feature: 'payroll.teacher' } as const satisfies NavModule;
+export const payrollModule = { id: 'payroll', path: '/payroll', icon: HandCoins, feature: 'payroll.teacher', requiredTier: 'pro' } as const satisfies NavModule;
 export const multiCenterStatsModule = {
   id: 'multiCenterStats',
   path: '/multi-center-stats',
