@@ -821,6 +821,7 @@ export type {
 // Domain services
 export { DeviceSessionService } from './services/device-session-service';
 export { MonthlyFeeAttributionService } from './services/monthly-fee-attribution-service';
+export { AttributionLineAssembler } from './services/attribution-line-assembler';
 export { DashboardBasicMetricsBuilder } from './services/dashboard-basic-metrics-builder';
 export { mondayOfWeek } from './services/dashboard-basic-metrics';
 export {
@@ -1142,6 +1143,16 @@ export { ListTeacherPayouts } from './use-cases/list-teacher-payouts';
 export type { ListTeacherPayoutsInput } from './use-cases/list-teacher-payouts';
 export { GetTeacherAttributionBreakdown } from './use-cases/get-teacher-attribution-breakdown';
 export type { GetTeacherAttributionBreakdownInput } from './use-cases/get-teacher-attribution-breakdown';
+export { GetPayrollProjection } from './use-cases/get-payroll-projection';
+export type {
+  GetPayrollProjectionInput,
+  GetPayrollProjectionResult,
+} from './use-cases/get-payroll-projection';
+export { projectPayoutAmounts, sumAttributionByTeacher, flattenAttributionByTeacher } from './policies/payroll-projection-policy';
+export type {
+  TeacherPayrollProjection,
+  TeacherProjectedAttribution,
+} from './policies/payroll-projection-policy';
 export { GeneratePaymentReceiptPdf } from './use-cases/generate-payment-receipt-pdf';
 export type {
   GeneratePaymentReceiptPdfInput,

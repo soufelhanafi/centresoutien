@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { MonthlyFeeAttributionService } from '../../../src/services/monthly-fee-attribution-service';
+import { AttributionLineAssembler } from '../../../src/services/attribution-line-assembler';
 import { newEnvelope } from '../../../src/entities/envelope';
 import type { Invoice, InvoiceId } from '../../../src/entities/invoice';
 import type { InvoiceLine, InvoiceLineId } from '../../../src/entities/invoice-line';
@@ -49,7 +50,9 @@ describe('MonthlyFeeAttributionService', () => {
     formulas = new InMemoryFormulaRepository();
     enrollments = new InMemoryEnrollmentRepository();
     groups = new InMemoryGroupRepository();
-    service = new MonthlyFeeAttributionService(invoices, payments, formulas, enrollments, groups);
+    service = new MonthlyFeeAttributionService(
+      new AttributionLineAssembler(invoices, payments, formulas, enrollments, groups),
+    );
   });
 
   function seedGroup(overrides: Partial<Group> & { subjectId: SubjectId }): Group {
@@ -351,7 +354,9 @@ describe('MonthlyFeeAttributionService.attributedAmountsByTeacherAndSubject', ()
     formulas = new InMemoryFormulaRepository();
     enrollments = new InMemoryEnrollmentRepository();
     groups = new InMemoryGroupRepository();
-    service = new MonthlyFeeAttributionService(invoices, payments, formulas, enrollments, groups);
+    service = new MonthlyFeeAttributionService(
+      new AttributionLineAssembler(invoices, payments, formulas, enrollments, groups),
+    );
   });
 
   function seedGroup(overrides: Partial<Group> & { subjectId: SubjectId }): Group {
