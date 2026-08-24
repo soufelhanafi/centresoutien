@@ -3,12 +3,12 @@ import { useTranslation } from 'react-i18next';
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  ScrollArea,
 } from '@centresoutien/ui';
 import { StudentForm } from './student-form';
 import type { StudentNiveauFormValues } from '../../lib/niveaux/form-schemas';
@@ -41,17 +41,14 @@ export function StudentFormSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        closeLabel={t('students.form.cancel')}
-        className="flex max-h-[85vh] flex-col overflow-y-auto"
-      >
+      <DialogContent closeLabel={t('students.form.cancel')}>
         <DialogHeader>
           <DialogTitle>{t(`students.form.${mode}Title`)}</DialogTitle>
           <DialogDescription>{t(`students.form.${mode}Description`)}</DialogDescription>
         </DialogHeader>
-        <ScrollArea className="min-h-0 flex-1" contentClassName="-mx-1 px-1 py-4">
+        <DialogBody>
           <StudentForm formId={formId} defaultValues={defaultValues} onSubmit={onSubmit} />
-        </ScrollArea>
+        </DialogBody>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             {t('students.form.cancel')}

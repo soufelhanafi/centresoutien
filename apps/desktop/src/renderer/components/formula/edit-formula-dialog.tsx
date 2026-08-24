@@ -4,6 +4,7 @@ import type { FormulaWriteInput } from '../../lib/formulas/formula-view';
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -55,21 +56,23 @@ export function EditFormulaDialog({
           <DialogTitle>{t('formulas.form.editTitle')}</DialogTitle>
           <DialogDescription>{t('formulas.form.editDescription')}</DialogDescription>
         </DialogHeader>
-        <FormulaForm
-          formId={formId}
-          defaultValues={{
-            name: { fr: formula.name.fr, ar: formula.name.ar },
-            subjectIds: [...formula.subjectIds],
-            priceMad: formula.priceMad,
-            kind: formula.kind,
-            usePerSubjectPricing:
-              formula.subjectPrices !== null &&
-              formula.subjectPrices !== undefined &&
-              formula.subjectPrices.length > 0,
-            subjectPrices: (formula.subjectPrices ?? []).map((price) => ({ ...price })),
-          }}
-          onSubmit={handleSubmit}
-        />
+        <DialogBody>
+          <FormulaForm
+            formId={formId}
+            defaultValues={{
+              name: { fr: formula.name.fr, ar: formula.name.ar },
+              subjectIds: [...formula.subjectIds],
+              priceMad: formula.priceMad,
+              kind: formula.kind,
+              usePerSubjectPricing:
+                formula.subjectPrices !== null &&
+                formula.subjectPrices !== undefined &&
+                formula.subjectPrices.length > 0,
+              subjectPrices: (formula.subjectPrices ?? []).map((price) => ({ ...price })),
+            }}
+            onSubmit={handleSubmit}
+          />
+        </DialogBody>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             {t('formulas.form.cancel')}

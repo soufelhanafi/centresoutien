@@ -4,6 +4,7 @@ import type { FormulaWriteInput } from '../../lib/formulas/formula-view';
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -50,7 +51,9 @@ export function CreateFormulaDialog({
           <DialogTitle>{t('formulas.form.createTitle')}</DialogTitle>
           <DialogDescription>{t('formulas.form.createDescription')}</DialogDescription>
         </DialogHeader>
-        <FormulaForm formId={formId} defaultValues={EMPTY_FORMULA_INPUT} onSubmit={handleSubmit} />
+        <DialogBody>
+          <FormulaForm formId={formId} defaultValues={EMPTY_FORMULA_INPUT} onSubmit={handleSubmit} />
+        </DialogBody>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             {t('formulas.form.cancel')}
