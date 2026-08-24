@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { Lock } from 'lucide-react';
 import { PlanBadge, cn } from '@centresoutien/ui';
 import { useOptionalFeature } from '../../hooks/use-feature';
+import { minimumPlanFor } from '../../lib/plan/minimum-plan';
 import type { NavModule } from '../../app/nav-items';
 
 const BASE =
@@ -42,8 +43,8 @@ export function NavItem({ module, collapsed }: NavItemProps) {
         >
           {icon}
           {text}
-          {!collapsed && module.requiredTier ? (
-            <PlanBadge tier={module.requiredTier} />
+          {!collapsed && module.feature ? (
+            <PlanBadge tier={minimumPlanFor(module.feature)} />
           ) : (
             <Lock className={cn('h-3.5 w-3.5 shrink-0', collapsed && 'hidden')} aria-hidden="true" />
           )}
