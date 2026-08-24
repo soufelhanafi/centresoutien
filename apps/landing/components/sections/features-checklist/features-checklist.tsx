@@ -13,6 +13,7 @@ export async function FeaturesChecklist() {
 
   return (
     <section
+      id="fonctionnalites-completes"
       aria-labelledby="features-checklist-heading"
       className="mx-auto max-w-[1200px] px-8 py-24"
     >
