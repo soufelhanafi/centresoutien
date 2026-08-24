@@ -30,6 +30,14 @@ export default tseslint.config(
     files: ['**/scripts/**/*.mjs', '**/*.config.{ts,mjs}', '**/*.workspace.ts', 'eslint.config.mjs'],
     languageOptions: { globals: { ...globals.node } },
   },
+  // CommonJS build-tooling scripts (e.g. the electron-builder Windows sign
+  // hook): the desktop package is ESM, so a script electron-builder `require`s
+  // must be `.cjs` using require/module.exports.
+  {
+    files: ['**/build/**/*.cjs'],
+    languageOptions: { globals: { ...globals.node }, sourceType: 'commonjs' },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
   // Plain browser scripts served as static renderer assets (outside the
   // TypeScript/React toolchain, so they need explicit browser globals).
   {
