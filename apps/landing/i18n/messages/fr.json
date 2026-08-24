@@ -426,7 +426,7 @@
   "features_checklist": {
     "eyebrow": "Tout inclus",
     "heading": "Toutes les fonctionnalités, dans une seule formule.",
-    "subheading": "Un seul abonnement annuel, sans paliers. Tout est inclus.",
+    "subheading": "Achetez une fois, utilisez pour toujours. Tout est inclus.",
     "items": {
       "0": "Gestion des salles",
       "1": "Enseignants & disponibilités",
@@ -704,23 +704,23 @@
   },
   "cgv": {
     "meta_title": "Conditions générales de vente — Centre Soutien",
-    "meta_description": "Conditions générales de vente des abonnements du logiciel Centre Soutien.",
+    "meta_description": "Conditions générales de vente du logiciel Centre Soutien.",
     "breadcrumb": "CGV",
     "heading": "Conditions générales de vente",
     "updated": "Dernière mise à jour : 11 août 2026",
-    "intro": "Les présentes conditions générales de vente régissent les abonnements au logiciel de gestion Centre Soutien pour les centres de soutien scolaire. Toute souscription implique leur acceptation pleine et entière.",
+    "intro": "Les présentes conditions générales de vente régissent l'acquisition et l'utilisation du logiciel de gestion Centre Soutien pour les centres de soutien scolaire. Tout achat implique leur acceptation pleine et entière.",
     "sections": {
       "object": {
         "title": "Objet",
-        "body": "Les présentes CGV définissent les droits et obligations des parties dans le cadre de la souscription à un abonnement annuel au logiciel Centre Soutien."
+        "body": "Les présentes CGV définissent les droits et obligations des parties dans le cadre de l'acquisition d'une licence du logiciel Centre Soutien."
       },
       "pricing": {
         "title": "Tarifs",
-        "body": "L'abonnement au logiciel Centre Soutien est annuel, facturé en dirhams marocains (MAD). Les tarifs sont communiqués sur demande. Ils incluent les mises à jour du logiciel pendant toute la durée de l'abonnement."
+        "body": "Le logiciel Centre Soutien s'acquiert par un paiement unique, en dirhams marocains (MAD). Les tarifs sont communiqués sur demande. La licence inclut les mises à jour du logiciel."
       },
       "payment": {
         "title": "Paiement",
-        "body": "Le paiement est exigible à la souscription, par virement bancaire ou tout autre moyen proposé lors de la commande. L'accès au logiciel est activé après encaissement du paiement."
+        "body": "Le paiement est exigible à l'achat, par virement bancaire ou tout autre moyen proposé lors de la commande. L'accès au logiciel est activé après encaissement du paiement."
       },
       "refund": {
         "title": "Politique de remboursement",
@@ -728,7 +728,7 @@
       },
       "liability": {
         "title": "Responsabilité",
-        "body": "Centre Soutien s'engage à fournir un logiciel fonctionnel et à corriger les anomalies signalées dans un délai raisonnable. La responsabilité de Centre Soutien est limitée au montant de l'abonnement payé, hors cas de faute lourde ou de dol."
+        "body": "Centre Soutien s'engage à fournir un logiciel fonctionnel et à corriger les anomalies signalées dans un délai raisonnable. La responsabilité de Centre Soutien est limitée au montant payé, hors cas de faute lourde ou de dol."
       }
     }
   },
