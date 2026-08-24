@@ -25,7 +25,11 @@ import {
  */
 
 const locale = () => test.info().project.name as Locale;
-const MONTH = '2026-08';
+// A CLOSED month (strictly before the CI runner's clock) so the finalized
+// payout list is what renders — the open/current month now shows the SOU-316
+// projection section instead, which the finalized-list scenarios must not
+// trip over (see Scenario 9 for that surface).
+const MONTH = '2026-07';
 
 let live: Launched | null = null;
 test.afterEach(async () => {
@@ -78,7 +82,7 @@ test('Scenario 2 — list shows draft payouts; single confirm flips draft to pai
   const L = STR[locale()];
   live = await boot(locale(), { month: MONTH, teachers: [KARIM] });
   const win = live.win;
-  await gotoPayroll(win, L);
+  await gotoPayroll(win, L, MONTH);
   await assertMounted(win, L);
 
   const row = win.getByRole('row', { name: new RegExp(KARIM.nameFr) });
@@ -122,7 +126,7 @@ test('Scenario 3 — confirming an already-paid payout rejects with a domain err
     'teacher-payout-already-paid',
   );
 
-  await gotoPayroll(win, L);
+  await gotoPayroll(win, L, MONTH);
   const row = win.getByRole('row', { name: new RegExp(KARIM.nameFr) });
   await expect(row).toContainText(L.status.paid);
 });
@@ -137,7 +141,7 @@ test('Scenario 4 — bulk "mark all paid" confirms every draft and skip-counts a
   const L = STR[locale()];
   live = await boot(locale(), { month: MONTH, teachers: [KARIM, SANAE] });
   const win = live.win;
-  await gotoPayroll(win, L);
+  await gotoPayroll(win, L, MONTH);
   await assertMounted(win, L);
 
   const karimRow = win.getByRole('row', { name: new RegExp(KARIM.nameFr) });
@@ -162,7 +166,7 @@ test('Scenario 5 — generating payslips does not mutate payout status', async (
   live = await boot(locale(), { month: MONTH, teachers: [KARIM] });
   const win = live.win;
   await stubOpenPath(live.app);
-  await gotoPayroll(win, L);
+  await gotoPayroll(win, L, MONTH);
   await assertMounted(win, L);
 
   const row = win.getByRole('row', { name: new RegExp(KARIM.nameFr) });
@@ -204,7 +208,7 @@ test('Scenario 7 — the drill-down expands to show the attribution panel and it
   const L = STR[locale()];
   live = await boot(locale(), { month: MONTH, teachers: [SANAE] });
   const win = live.win;
-  await gotoPayroll(win, L);
+  await gotoPayroll(win, L, MONTH);
   await assertMounted(win, L);
 
   const row = win.getByRole('row', { name: new RegExp(SANAE.nameFr) });
@@ -229,11 +233,33 @@ test('Scenario 8 — AR locale renders RTL with locale-correct MAD formatting', 
   const L = STR.ar;
   live = await boot('ar', { month: MONTH, teachers: [KARIM] });
   const win = live.win;
-  await gotoPayroll(win, L);
+  await gotoPayroll(win, L, MONTH);
   await assertMounted(win, L);
 
   expect(await win.evaluate(() => document.documentElement.dir)).toBe('rtl');
   const row = win.getByRole('row', { name: new RegExp(KARIM.nameFr) });
   await expect(row).toContainText('د.م.');
   await win.screenshot({ path: shot('ar-rtl'), fullPage: true });
+});
+
+// ---------------------------------------------------------------------------
+// Scenario 9 — The open (current) month shows the SOU-316 provisional
+// projection; a closed month does not. Read-only, so only wiring is asserted:
+// the section and its "estimate" badge render for the open month and disappear
+// once a closed month is selected.
+// ---------------------------------------------------------------------------
+test('Scenario 9 — the open month shows the provisional projection, a closed month does not', async () => {
+  const L = STR[locale()];
+  live = await boot(locale(), { month: MONTH, teachers: [KARIM] });
+  const win = live.win;
+
+  await gotoPayroll(win, L); // defaults to the open (current) month
+
+  await expect(win.getByText(L.projection.title, { exact: true })).toBeVisible();
+  await expect(win.getByText(L.projection.estimate, { exact: true })).toBeVisible();
+  await win.screenshot({ path: shot('projection-open') });
+
+  await win.getByLabel(L.monthFilterLabel).fill('2026-01');
+  await win.waitForTimeout(500);
+  await expect(win.getByText(L.projection.title, { exact: true })).toHaveCount(0);
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GetTeacherAttributionBreakdown } from '../../../src/use-cases/get-teacher-attribution-breakdown';
 import { MonthlyFeeAttributionService } from '../../../src/services/monthly-fee-attribution-service';
+import { AttributionLineAssembler } from '../../../src/services/attribution-line-assembler';
 import { PlanPolicy } from '../../../src/plans/plan-policy';
 import { PLANS, type FeatureFlag, type Plan } from '../../../src/plans/plans';
 import { PlanFeatureUnavailableError } from '../../../src/errors/plan-errors';
@@ -19,11 +20,13 @@ describe('GetTeacherAttributionBreakdown', () => {
 
   beforeEach(() => {
     attribution = new MonthlyFeeAttributionService(
-      new InMemoryInvoiceRepository(),
-      new InMemoryPaymentRepository(),
-      new InMemoryFormulaRepository(),
-      new InMemoryEnrollmentRepository(),
-      new InMemoryGroupRepository(),
+      new AttributionLineAssembler(
+        new InMemoryInvoiceRepository(),
+        new InMemoryPaymentRepository(),
+        new InMemoryFormulaRepository(),
+        new InMemoryEnrollmentRepository(),
+        new InMemoryGroupRepository(),
+      ),
     );
   });
 

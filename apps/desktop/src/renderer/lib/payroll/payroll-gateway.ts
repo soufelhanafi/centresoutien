@@ -1,9 +1,19 @@
-import type { TeacherAttributionBreakdownEntryView, TeacherPayoutView } from './teacher-payout-view';
+import type {
+  TeacherAttributionBreakdownEntryView,
+  TeacherPayoutView,
+  TeacherPayrollProjectionView,
+  TeacherProjectedAttributionView,
+} from './teacher-payout-view';
 import { ipcPayrollGateway } from './ipc-payroll-gateway';
 
 export type ConfirmMonthlyResult = {
   readonly confirmed: number;
   readonly skippedAlreadyPaid: number;
+};
+
+export type PayrollProjectionResult = {
+  readonly projections: readonly TeacherPayrollProjectionView[];
+  readonly projectedBreakdown: readonly TeacherProjectedAttributionView[];
 };
 
 /**
@@ -17,6 +27,7 @@ export interface PayrollGateway {
   confirmPayout(teacherPayoutId: string): Promise<TeacherPayoutView>;
   confirmMonthly(month: string): Promise<ConfirmMonthlyResult>;
   attributionBreakdown(month: string): Promise<readonly TeacherAttributionBreakdownEntryView[]>;
+  getProjection(month: string): Promise<PayrollProjectionResult>;
 }
 
 /** The active gateway. */

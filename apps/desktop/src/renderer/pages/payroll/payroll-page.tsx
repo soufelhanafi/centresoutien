@@ -7,9 +7,11 @@ import { useTeachers } from '../../hooks/teacher/use-teachers';
 import { useSubjects } from '../../hooks/subject/use-subjects';
 import { usePayrollPayouts } from '../../hooks/payroll/use-payroll-payouts';
 import { useAttributionBreakdown } from '../../hooks/payroll/use-attribution-breakdown';
+import { usePayrollProjection } from '../../hooks/payroll/use-payroll-projection';
 import { groupBreakdownByTeacher } from '../../lib/payroll/attribution-grouping';
 import { currentMonth } from '../../lib/payroll/month';
 import { PayrollToolbar } from '../../components/payroll/payroll-toolbar';
+import { PayrollProjectionStatus } from '../../components/payroll/payroll-projection-status';
 import { PayrollListContent, type PayrollListStatus } from '../../components/payroll/payroll-list-content';
 
 /** Payroll dashboard (SOU-76): month-scoped payout list, drill-down, and the two monthly bulk actions. */
@@ -19,8 +21,13 @@ export function PayrollPage() {
   const upgradeCta = useUpgradeCta('payroll.teacher');
   const [month, setMonth] = useState(currentMonth());
 
+  const isCurrentMonth = month === currentMonth();
   const payoutsQuery = usePayrollPayouts(month, { enabled: hasPayroll });
-  const breakdownQuery = useAttributionBreakdown(month, { enabled: hasPayroll });
+  // The drill-down only expands a finalized payout row, so it is never needed
+  // for the open month (no payout rows exist yet) — skipping it avoids a second
+  // collected-ledger scan that the projection already performs.
+  const breakdownQuery = useAttributionBreakdown(month, { enabled: hasPayroll && !isCurrentMonth });
+  const projectionQuery = usePayrollProjection(month, { enabled: hasPayroll && isCurrentMonth });
   const teachersQuery = useTeachers('active', '');
   const subjectsQuery = useSubjects('all');
 
@@ -54,6 +61,10 @@ export function PayrollPage() {
         </h1>
         <p className="text-sm text-muted-foreground">{t('payroll.subtitle')}</p>
       </header>
+
+      {isCurrentMonth && (
+        <PayrollProjectionStatus query={projectionQuery} teachersById={teachersById} subjectsById={subjectsById} />
+      )}
 
       <PayrollToolbar month={month} onMonthChange={setMonth} payouts={payouts} />
 

@@ -3,6 +3,7 @@ import type {
   ConfirmMonthlyPayrolls,
   ListTeacherPayouts,
   GetTeacherAttributionBreakdown,
+  GetPayrollProjection,
   TeacherPayout,
   TeacherPayoutId,
   CenterCode,
@@ -14,6 +15,7 @@ export type ConfirmTeacherPayoutUseCase = Pick<ConfirmTeacherPayout, 'execute'>;
 export type ConfirmMonthlyPayrollsUseCase = Pick<ConfirmMonthlyPayrolls, 'execute'>;
 export type ListTeacherPayoutsUseCase = Pick<ListTeacherPayouts, 'execute'>;
 export type GetTeacherAttributionBreakdownUseCase = Pick<GetTeacherAttributionBreakdown, 'execute'>;
+export type GetPayrollProjectionUseCase = Pick<GetPayrollProjection, 'execute'>;
 
 /**
  * Only the surface the payroll dashboard's list/confirm/drill-down channels
@@ -29,6 +31,7 @@ export type PayrollHandlerDeps = {
   confirmTeacherPayout: ConfirmTeacherPayoutUseCase;
   confirmMonthlyPayrolls: ConfirmMonthlyPayrollsUseCase;
   getTeacherAttributionBreakdown: GetTeacherAttributionBreakdownUseCase;
+  getPayrollProjection: GetPayrollProjectionUseCase;
   centerCode: () => CenterCode;
   currentUserId: () => UserId;
 };
@@ -62,7 +65,11 @@ export function createPayrollHandlers(
   deps: PayrollHandlerDeps,
 ): Pick<
   IpcHandlers,
-  'payroll.listPayouts' | 'payroll.confirmPayout' | 'payroll.confirmMonthly' | 'payroll.attributionBreakdown'
+  | 'payroll.listPayouts'
+  | 'payroll.confirmPayout'
+  | 'payroll.confirmMonthly'
+  | 'payroll.attributionBreakdown'
+  | 'payroll.projection'
 > {
   return {
     'payroll.listPayouts': async (request) => {
@@ -96,6 +103,26 @@ export function createPayrollHandlers(
         Array.from(bySubject, ([subjectId, amountMad]) => ({ teacherId, subjectId, amountMad })),
       ).flat();
       return { breakdown };
+    },
+    'payroll.projection': async (request) => {
+      const { projections, projectedBreakdown } = await deps.getPayrollProjection.execute({
+        centerCode: deps.centerCode(),
+        month: request.month,
+      });
+      return {
+        projections: projections.map((projection) => ({
+          teacherId: projection.teacherId,
+          ruleKind: projection.ruleKind,
+          encaisseMad: projection.encaisseMad,
+          projeteMad: projection.projeteMad,
+          percentSnapshot: projection.percentSnapshot,
+        })),
+        projectedBreakdown: projectedBreakdown.map((row) => ({
+          teacherId: row.teacherId,
+          subjectId: row.subjectId,
+          amountMad: row.amountMad,
+        })),
+      };
     },
   };
 }

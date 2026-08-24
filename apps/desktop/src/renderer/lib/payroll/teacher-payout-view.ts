@@ -1,5 +1,10 @@
 import type { TeacherPayrollRuleKind, TeacherPayoutStatus } from '@centresoutien/domain';
-import type { TeacherAttributionBreakdownEntryDto, TeacherPayoutDto } from '../../../shared/ipc/contract';
+import type {
+  TeacherAttributionBreakdownEntryDto,
+  TeacherPayoutDto,
+  TeacherPayrollProjectionDto,
+  TeacherProjectedAttributionDto,
+} from '../../../shared/ipc/contract';
 
 export type { TeacherPayrollRuleKind, TeacherPayoutStatus };
 
@@ -23,3 +28,14 @@ export type TeacherPayoutView = TeacherPayoutDto;
  * `groupBreakdownByTeacher`.
  */
 export type TeacherAttributionBreakdownEntryView = TeacherAttributionBreakdownEntryDto;
+
+/**
+ * One in-progress payroll projection row (SOU-316) — the read-only figure the
+ * Paie page shows for the current (not-yet-closed) month. `encaisseMad` is
+ * collected-to-date; `projeteMad` is the projected month-end figure;
+ * `percentSnapshot` is `null` for `fixed-monthly`.
+ */
+export type TeacherPayrollProjectionView = TeacherPayrollProjectionDto;
+
+/** One projected subject-attribution row — the projection section's basis drill-down. */
+export type TeacherProjectedAttributionView = TeacherProjectedAttributionDto;

@@ -135,6 +135,7 @@ export class EnrollStudent {
       groupId,
       startMonth: fields.startMonth,
       endMonth: fields.endMonth,
+      unenrolledUnderTeacherId: null,
     };
 
     // Atomic check-then-insert (SOU-126): the `hasActiveEnrollment` pre-check above

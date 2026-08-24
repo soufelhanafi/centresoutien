@@ -50,6 +50,7 @@ export const STR: Record<
     bulkConfirmToast: (confirmed: number, skipped: number) => string;
     emptyState: { title: string; body: string };
     drilldown: { title: string; empty: string; show: string; hide: string };
+    projection: { title: string; estimate: string };
     lockedTitle: string;
     lockedBody: string;
   }
@@ -75,6 +76,7 @@ export const STR: Record<
       show: 'Afficher le détail',
       hide: 'Masquer le détail',
     },
+    projection: { title: 'Mois en cours', estimate: 'Estimation' },
     lockedTitle: 'Paie',
     lockedBody: 'Réservé à un plan supérieur',
   },
@@ -99,6 +101,7 @@ export const STR: Record<
       show: 'إظهار التفاصيل',
       hide: 'إخفاء التفاصيل',
     },
+    projection: { title: 'الشهر الجاري', estimate: 'تقدير' },
     lockedTitle: 'أجور الأساتذة',
     lockedBody: 'غير متاح في خطتك',
   },
@@ -185,10 +188,14 @@ export async function boot(
   return live;
 }
 
-/** Navigate to the payroll dashboard via the sidebar link. */
-export async function gotoPayroll(win: Page, L: (typeof STR)[Locale]): Promise<void> {
+/** Navigate to the payroll dashboard via the sidebar link, optionally selecting a specific month. */
+export async function gotoPayroll(win: Page, L: (typeof STR)[Locale], month?: string): Promise<void> {
   await win.getByRole('link', { name: L.navPayroll, exact: true }).click();
   await win.waitForTimeout(400);
+  if (month) {
+    await win.getByLabel(L.monthFilterLabel).fill(month);
+    await win.waitForTimeout(500);
+  }
 }
 
 /** True when the renderer error boundary is showing (page crashed on render). */
