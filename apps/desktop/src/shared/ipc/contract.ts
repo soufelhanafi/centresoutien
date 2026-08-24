@@ -2380,7 +2380,9 @@ export const ipcContract = {
       }),
     ]),
   },
-  // `auth.session` answers "is this device still remembered?" on startup;
+  // `auth.session` answers "is this device remembered AND does a trusted
+  // principal still resolve?" on startup (SOU-307: a legacy pre-SOU-265 session
+  // or one pointing at a removed user reports false, forcing a re-login);
   // `auth.logout` forgets it. Neither exposes the session id to the renderer.
   'auth.session': {
     request: z.object({}),
