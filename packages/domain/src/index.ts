@@ -675,6 +675,10 @@ export type { LogoStore } from './ports/logo-store';
 export type { BackupPort, BackupFileInfo, BackupVerification } from './ports/backup-port';
 export type { BackupConfigStore, BackupConfig } from './ports/backup-config-store';
 export { DEFAULT_BACKUP_RETENTION_COUNT } from './ports/backup-config-store';
+// DB-key recovery escrow (SOU-302) — seal a center DB key toward the product
+// recovery public key; the sealed blob travels next to the encrypted backup and
+// is opened only by the offline recovery CLI with the owner-held private key.
+export type { RecoveryKeyEscrowPort } from './ports/recovery-key-escrow-port';
 // Excel backup workbook (SOU-44) — data-level export/import, distinct from the
 // byte-level BackupPort above. The workbook contract (sheets, columns, import
 // order) lives in `backup/` and is the portable format a future web restore reuses.

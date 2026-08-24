@@ -6,6 +6,7 @@ import type { IdGenerator, BackupPort, BackupFileInfo, BackupVerification, Cente
 import { hasIdPrefix } from '@centresoutien/domain';
 import { backupDatabase } from '../migration-runner';
 import { openDatabaseAt } from '../db';
+import { recoveryBlobPathFor } from '../recovery-blob-path';
 
 /** Filenames this adapter creates and recognizes for a center: `backup-<centerCode>_<ULID>.db`. */
 function backupPrefixFor(centerCode: CenterCode): string {
@@ -30,12 +31,26 @@ export class SqliteBackupAdapter implements BackupPort {
     private readonly db: DB,
     private readonly key: string,
     private readonly ids: IdGenerator,
+    // SOU-302 — after a backup `.db` is written, emit its sealed recovery blob as
+    // a sibling `.recovery` file so the DB key can be recovered offline together
+    // with this exact copy. Optional so backup works unchanged when escrow is off.
+    private readonly emitRecoverySibling?: (backupFilePath: string) => Promise<void>,
   ) {}
 
   async create({ destDir, centerCode }: { destDir: string; centerCode: CenterCode }): Promise<BackupFileInfo> {
     mkdirSync(destDir, { recursive: true });
     const fileName = `${this.ids.next(backupPrefixFor(centerCode))}.db`;
-    backupDatabase(this.db, join(destDir, fileName));
+    const path = join(destDir, fileName);
+    backupDatabase(this.db, path);
+    // Best-effort, matching the launch-time escrow write in the composition
+    // root: a sealing/disk failure must never turn a good backup into a
+    // user-visible error. Log the error only (never the key) and still return
+    // the created backup.
+    try {
+      await this.emitRecoverySibling?.(path);
+    } catch (error) {
+      console.error('[recovery] sealing backup escrow blob failed', error);
+    }
     return toFileInfo(destDir, fileName);
   }
 
@@ -53,6 +68,13 @@ export class SqliteBackupAdapter implements BackupPort {
   }
 
   async remove(path: string): Promise<void> {
+    this.unlinkIfPresent(path);
+    // Take the SOU-302 recovery sibling with the backup — otherwise retention
+    // pruning and manual removal orphan the `.recovery` blob forever.
+    this.unlinkIfPresent(recoveryBlobPathFor(path));
+  }
+
+  private unlinkIfPresent(path: string): void {
     try {
       unlinkSync(path);
     } catch (error) {

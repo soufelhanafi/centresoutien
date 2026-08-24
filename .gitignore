@@ -30,3 +30,6 @@ actions-runner/
 
 # graphify generated knowledge graph (regenerate via: graphify update .)
 graphify-out/
+
+# SOU-302 — product recovery PRIVATE key (owner-held, offline). NEVER commit.
+RECOVERY_PRIVATE_KEY.txt
