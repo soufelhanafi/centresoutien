@@ -162,13 +162,14 @@ import {
   GetGroupAttendanceSheet,
   SwitchCenter,
   CenterSwitchError,
+  CreateCenter,
+  CenterProvisioningError,
 } from '@centresoutien/domain';
 import type {
   PlanId,
   FeatureFlag,
   Plan,
   CenterCode,
-  DeviceId,
   UserId,
   Clock,
   LicensePort,
@@ -186,6 +187,7 @@ import type {
   SessionDedupStore,
   PaymentReversalDedupStore,
   CenterSwitchPort,
+  CenterProvisioningPort,
 } from '@centresoutien/domain';
 import { Ed25519LicenseAdapter } from '../data/license/ed25519-license-adapter';
 import { E2eSyntheticLicense, isPlanId } from '../data/license/e2e-synthetic-license';
@@ -199,6 +201,8 @@ import { openDatabase } from '../data/sqlite/db';
 import type { CenterSummary, CenterKeyProvider } from '../data/sqlite/center-directory';
 import { SqliteMultiCenterStatsRead } from '../data/sqlite/multi-center-stats-read';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
+import { readOrCreateDeviceOrigin } from '../data/sqlite/device-origin';
+import { SqliteCenterProvisioning } from '../data/sqlite/center-provisioning';
 import { SqliteHubStore } from '../data/sqlite/hub/hub-store';
 import { HubServer } from './hub-server/hub-server';
 import { HttpSyncHubClient } from '../data/sync/http-sync-hub-client';
@@ -364,6 +368,17 @@ export type ContainerOptions = {
     keyFor: CenterKeyProvider;
     excludeCentreIds: readonly string[];
   };
+  /**
+   * Add-a-center provisioning (SOU-310, Premium `org.multi-center`). The app shell
+   * owns the per-center key derivation (the keychain lives in main), so it passes
+   * the same `keyFor` it uses for the switcher/stats; the composition root wires it
+   * into the `CenterProvisioning` adapter behind `CreateCenter`. Absent → the
+   * `center.create` use case rejects with `CenterProvisioningError` (after the plan
+   * gate), so the channel stays wired for integration tests without a shell.
+   */
+  provisioning?: {
+    keyFor: CenterKeyProvider;
+  };
 };
 
 export type Container = {
@@ -438,15 +453,7 @@ function adminAccountExists(db: DB): boolean {
 }
 
 /** Read the device's stable origin id, generating and persisting it on first run. */
-function resolveDeviceOrigin(db: DB, ids: IdGenerator): DeviceId {
-  const row = db.prepare("SELECT value FROM app_meta WHERE key = 'device_origin'").get() as
-    | { value: string }
-    | undefined;
-  if (row) return row.value as DeviceId;
-  const id = ids.next('dev');
-  db.prepare('INSERT INTO app_meta (key, value) VALUES (?, ?)').run('device_origin', id);
-  return id as DeviceId;
-}
+const resolveDeviceOrigin = readOrCreateDeviceOrigin;
 
 /**
  * The active plan, resolved once at startup from the tamper-evident license file
@@ -1326,6 +1333,31 @@ export function buildContainer(options: ContainerOptions): Container {
   );
   const deviceSessions = new DeviceSessionService(new SqliteDeviceSessionStore(db), clock, ids);
   const { resolveUpdatedBy, ...principalControls } = wireSessionPrincipal(deviceSessions, userRepo, DEV_USER);
+
+  // Add-a-center flow (SOU-310). `CreateCenter` gates the Premium `org.multi-center`
+  // feature server-side, provisions a fresh isolated per-center DB, then hands off
+  // to the SOU-96 switch path to land in it. The provisioner needs the shell's
+  // per-center key derivation (the keychain lives in main), so it is wired only when
+  // the shell passes it — otherwise provisioning rejects (after the plan gate),
+  // exactly like `center.switch` without a wired shell. The director who owns the
+  // new center is the signed-in user (`resolveUpdatedBy`), never renderer input.
+  const centerProvisioningPort: CenterProvisioningPort = options.provisioning
+    ? new SqliteCenterProvisioning({
+        dir: options.dir,
+        keyFor: options.provisioning.keyFor,
+        migrations: toMigrations(migrationFiles),
+        clock,
+        ids,
+        hasActiveLicense: () =>
+          resolveActivePlan(verifyLicenseCached(), clock.now(), licenseBinding).status === 'active',
+        seedPlan: activePlanId,
+        currentOwner: () => userRepo.findOwner(),
+      })
+    : {
+        provision: () =>
+          Promise.reject(new CenterProvisioningError('center provisioning is not available')),
+      };
+  const createCenter = new CreateCenter(plan, centerProvisioningPort, centerSwitchPort);
   const recoveryCodeResetUnitOfWork = new SqliteRecoveryCodeResetUnitOfWork(db, changeLog);
   const resetPasswordWithRecoveryCode = new ResetPasswordWithRecoveryCode(
     verifyRecoveryCode,
@@ -1673,6 +1705,8 @@ export function buildContainer(options: ContainerOptions): Container {
     // scan closure, and the open center's discriminator for `center.current`.
     switchCenter,
     listCenters,
+    // Add-a-center flow (SOU-310): the plan-gated create+provision+switch use case.
+    createCenter,
     currentCentreId: () => options.centreId,
     centerContext: () => ({ ...centerContext, updatedBy: resolveUpdatedBy() }),
     saveLocalePreference: (locale) => localePreferences.write(locale),

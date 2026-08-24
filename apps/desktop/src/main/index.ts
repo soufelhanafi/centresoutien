@@ -229,6 +229,12 @@ app.whenReady().then(async () => {
           keyFor: (id: string) => centerDbKey(dir, id).key,
           excludeCentreIds: [LEGACY_DEMO_CENTRE_ID],
         },
+        // Add-a-center provisioning (SOU-310): a brand-new center derives its key
+        // from the same keychain master as every other center (SOU-179), so the
+        // provisioner reuses the switcher's per-center key derivation.
+        provisioning: {
+          keyFor: (id: string) => centerDbKey(dir, id).key,
+        },
         ...(hubServer ? { hubServer } : hubClient ? { hubClient } : {}),
       });
     };

@@ -16,3 +16,24 @@ export class CenterSwitchError extends DomainError {
     super(`Center switch failed: ${reason}`);
   }
 }
+
+/**
+ * Provisioning a new center (SOU-310) could not complete: a fresh per-center DB
+ * could not be created, migrated, or seeded. Carries a stable
+ * `center-provisioning-failed` code the renderer maps to a localized message; the
+ * domain stays i18n-agnostic.
+ *
+ * The provisioning adapter is contracted to leave no partial center behind — a
+ * failed provision removes any half-written DB file — so this error always means
+ * "nothing was created", never "a broken center now exists".
+ *
+ * This is NOT the plan gate: adding a center is the Premium `org.multi-center`
+ * capability, and a locked plan surfaces as a `PlanFeatureUnavailableError` from
+ * `CreateCenter` before provisioning is ever attempted.
+ */
+export class CenterProvisioningError extends DomainError {
+  readonly code = 'center-provisioning-failed';
+  constructor(readonly reason: string) {
+    super(`Center provisioning failed: ${reason}`);
+  }
+}

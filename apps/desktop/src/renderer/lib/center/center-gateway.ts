@@ -1,3 +1,5 @@
+import type { CenterProfileInput } from '@centresoutien/domain';
+
 /**
  * The center switcher's list row (SOU-96): the minimal identity the header
  * dropdown and login selector need — never the full profile. `centreId` is the
@@ -24,6 +26,12 @@ export type CurrentCenterView = {
   displayName: string;
 };
 
+/** What `center.create` returns: the new center's file discriminator + tenant code. */
+export type CreatedCenterView = {
+  centreId: string;
+  centerCode: string;
+};
+
 /**
  * The seam the center switcher talks to (SOU-96). Two implementations satisfy it:
  * the real bridge over `window.api` (wired at integration, below) and an
@@ -35,6 +43,10 @@ export interface CenterGateway {
   list(): Promise<CenterListItemView[]>;
   current(): Promise<CurrentCenterView>;
   switchTo(centreId: string): Promise<void>;
+  /** Provisions a new isolated center and switches into it (SOU-310, Premium). The
+   *  profile is the domain's own `centerProfileSchema` output — the same shape the
+   *  Center Profile form produces and `center.create` validates. */
+  createCenter(profile: CenterProfileInput): Promise<CreatedCenterView>;
 }
 
 /**
@@ -49,5 +61,9 @@ export const windowCenterGateway: CenterGateway = {
   current: () => window.api.invoke('center.current', {}),
   switchTo: async (centreId) => {
     await window.api.invoke('center.switch', { centreId });
+  },
+  createCenter: async (profile) => {
+    const { centreId, centerCode } = await window.api.invoke('center.create', { profile });
+    return { centreId, centerCode };
   },
 };

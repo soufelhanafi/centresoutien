@@ -50,6 +50,16 @@
     "loadError": "Impossible de charger les centres.",
     "retry": "Réessayer",
     "error": "Le changement de centre a échoué. Réessayez.",
+    "add": "Ajouter un centre",
+    "addCenter": {
+      "title": "Ajouter un centre",
+      "description": "Créez un nouveau centre, entièrement séparé. Vous pourrez configurer les horaires et les congés plus tard dans les Réglages.",
+      "submit": "Créer le centre",
+      "submitting": "Création…",
+      "cancel": "Annuler",
+      "success": "Centre « {{name}} » créé.",
+      "error": "La création du centre a échoué. Réessayez."
+    },
     "login": {
       "title": "Choisir un centre",
       "subtitle": "Sélectionnez le centre à ouvrir."

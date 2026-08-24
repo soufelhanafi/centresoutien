@@ -1,17 +1,22 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from '@centresoutien/ui';
+import { Plus } from 'lucide-react';
+import { Button, toast } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
 import { useCenters } from '../../hooks/center/use-centers';
 import { useCurrentCenter } from '../../hooks/center/use-current-center';
 import { useSwitchCenter } from '../../hooks/center/use-switch-center';
 import { CurrentCenterLabel } from './current-center-label';
 import { CenterSwitcherMenu } from './center-switcher-menu';
+import { AddCenterDialog } from './add-center-dialog';
 
 /**
- * Header center switcher (SOU-96). Premium-only via `org.multi-center` AND shown
- * only when the device holds more than one local center — otherwise it degrades
- * to the plain center-name label, so a single-center / non-Premium install keeps
- * exactly today's header. Loading and read errors also fall back to the label.
+ * Header center switcher (SOU-96 + SOU-310). Premium-only via `org.multi-center`.
+ * The switching dropdown keeps its SOU-96 behavior — shown only with more than one
+ * center, otherwise the plain center-name label. Alongside it, a Premium operator
+ * always gets an "Add a center" button (SOU-310), reachable even with a single
+ * center so there is a way to grow to the second one. A non-Premium install keeps
+ * exactly today's plain label with no add affordance.
  */
 export function CenterSwitcher() {
   const { t } = useTranslation();
@@ -19,11 +24,12 @@ export function CenterSwitcher() {
   const centers = useCenters({ enabled: canMultiCenter });
   const current = useCurrentCenter({ enabled: canMultiCenter });
   const switchCenter = useSwitchCenter();
+  const [addOpen, setAddOpen] = useState(false);
 
   const list = centers.data ?? [];
   const currentCenter = current.data;
 
-  if (!canMultiCenter || list.length <= 1 || !currentCenter) {
+  if (!canMultiCenter || !currentCenter) {
     return <CurrentCenterLabel />;
   }
 
@@ -34,11 +40,28 @@ export function CenterSwitcher() {
   };
 
   return (
-    <CenterSwitcherMenu
-      centers={list}
-      current={currentCenter}
-      isSwitching={switchCenter.isPending}
-      onSwitch={requestSwitch}
-    />
+    <>
+      {list.length > 1 ? (
+        <CenterSwitcherMenu
+          centers={list}
+          current={currentCenter}
+          isSwitching={switchCenter.isPending}
+          onSwitch={requestSwitch}
+        />
+      ) : (
+        <CurrentCenterLabel />
+      )}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 shrink-0"
+        aria-label={t('centerSwitcher.add')}
+        onClick={() => setAddOpen(true)}
+      >
+        <Plus className="h-4 w-4" aria-hidden="true" />
+      </Button>
+      <AddCenterDialog open={addOpen} onOpenChange={setAddOpen} />
+    </>
   );
 }

@@ -1,8 +1,9 @@
-import type { CenterCode, SwitchCenter } from '@centresoutien/domain';
+import type { CenterCode, CreateCenter, SwitchCenter } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import type { CenterSummary } from '../../data/sqlite/center-directory';
 
 export type SwitchCenterUseCase = Pick<SwitchCenter, 'execute'>;
+export type CreateCenterUseCase = Pick<CreateCenter, 'execute'>;
 
 /** The slice of `GetCenterProfile` the current-center handler needs: the display
  *  name, or `null` before the profile is first saved. Structural so the real use
@@ -20,6 +21,8 @@ export type CenterProfileReader = { execute: () => Promise<{ readonly name: stri
 export type CenterSwitchHandlerDeps = {
   listCenters: () => Promise<readonly CenterSummary[]>;
   switchCenter: SwitchCenterUseCase;
+  /** Add-a-center flow (SOU-310): provisions a new center DB and switches into it. */
+  createCenter: CreateCenterUseCase;
   currentCentreId: () => string;
   activeCenterCode: () => CenterCode;
   getCenterProfile: CenterProfileReader;
@@ -47,7 +50,7 @@ export async function currentCenterSummary(deps: {
 
 export function createCenterSwitchHandlers(
   deps: CenterSwitchHandlerDeps,
-): Pick<IpcHandlers, 'center.list' | 'center.current' | 'center.switch'> {
+): Pick<IpcHandlers, 'center.list' | 'center.current' | 'center.switch' | 'center.create'> {
   return {
     'center.list': async () => {
       const centers = await deps.listCenters();
@@ -55,5 +58,6 @@ export function createCenterSwitchHandlers(
     },
     'center.current': () => currentCenterSummary(deps),
     'center.switch': (request) => deps.switchCenter.execute({ centreId: request.centreId }),
+    'center.create': (request) => deps.createCenter.execute({ profile: request.profile }),
   };
 }

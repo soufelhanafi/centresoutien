@@ -4,7 +4,9 @@ import type {
   CenterHours,
   CenterSetupUnit,
   CenterSetupUnitOfWork,
+  Membership,
   Niveau,
+  Organization,
 } from "@centresoutien/domain";
 
 const SAVE_CENTER_SQL = `
@@ -40,6 +42,24 @@ const SAVE_NIVEAU_SQL = `
      @deleted_at, @version, @name_fr, @name_ar, @code, @category, @active)
 `;
 
+const SAVE_ORGANIZATION_SQL = `
+  INSERT INTO organization
+    (id, center_code, device_origin, created_at, updated_at, updated_by,
+     deleted_at, version, name, billing_contact)
+  VALUES
+    (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
+     @deleted_at, @version, @name, @billing_contact)
+`;
+
+const SAVE_MEMBERSHIP_SQL = `
+  INSERT INTO membership
+    (id, center_code, device_origin, created_at, updated_at, updated_by,
+     deleted_at, version, user_id, centre_id, role)
+  VALUES
+    (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by,
+     @deleted_at, @version, @user_id, @centre_id, @role)
+`;
+
 /** Test-only hook for asserting that partial setup writes roll back. */
 export type SqliteCenterSetupUnitOfWorkOptions = {
   readonly afterCenterInsert?: () => void;
@@ -62,6 +82,7 @@ export class SqliteCenterSetupUnitOfWork implements CenterSetupUnitOfWork {
       this.options.afterCenterInsert?.();
       this.insertHours(unit.defaultHours);
       this.insertNiveaux(unit.defaultNiveaux);
+      this.insertOwnership(unit);
       this.insertTrial(unit);
     })();
   }
@@ -78,6 +99,20 @@ export class SqliteCenterSetupUnitOfWork implements CenterSetupUnitOfWork {
   private insertNiveaux(niveaux: readonly Niveau[]): void {
     const saveNiveau = this.db.prepare(SAVE_NIVEAU_SQL);
     for (const niveau of niveaux) saveNiveau.run(niveauRow(niveau));
+  }
+
+  /**
+   * The ownership rows (SOU-310): the owning Organization and the director's owner
+   * Membership. Both are `null` at first-run (no user exists to own the center
+   * yet), so this is a no-op there and only writes for the add-a-center flow.
+   */
+  private insertOwnership(unit: CenterSetupUnit): void {
+    if (unit.organization !== null) {
+      this.db.prepare(SAVE_ORGANIZATION_SQL).run(organizationRow(unit.organization));
+    }
+    if (unit.membership !== null) {
+      this.db.prepare(SAVE_MEMBERSHIP_SQL).run(membershipRow(unit.membership));
+    }
   }
 
   private insertTrial(unit: CenterSetupUnit): void {
@@ -122,6 +157,37 @@ function centerHoursRow(hours: CenterHours) {
     version: hours.version,
     day_of_week: hours.dayOfWeek,
     windows: JSON.stringify(hours.windows),
+  };
+}
+
+function organizationRow(organization: Organization) {
+  return {
+    id: organization.id,
+    center_code: organization.centerCode,
+    device_origin: organization.deviceOrigin,
+    created_at: organization.createdAt.toISOString(),
+    updated_at: organization.updatedAt.toISOString(),
+    updated_by: organization.updatedBy,
+    deleted_at: organization.deletedAt ? organization.deletedAt.toISOString() : null,
+    version: organization.version,
+    name: organization.name,
+    billing_contact: organization.billingContact,
+  };
+}
+
+function membershipRow(membership: Membership) {
+  return {
+    id: membership.id,
+    center_code: membership.centerCode,
+    device_origin: membership.deviceOrigin,
+    created_at: membership.createdAt.toISOString(),
+    updated_at: membership.updatedAt.toISOString(),
+    updated_by: membership.updatedBy,
+    deleted_at: membership.deletedAt ? membership.deletedAt.toISOString() : null,
+    version: membership.version,
+    user_id: membership.userId,
+    centre_id: membership.centreId,
+    role: membership.role,
   };
 }
 

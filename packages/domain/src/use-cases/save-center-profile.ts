@@ -6,17 +6,13 @@ import type { LicenseAccess } from "../ports/license-access";
 import type { PlanId } from "../plans/plans";
 import { newCenterTrial } from "../plans/trial";
 import type { CenterCode, DeviceId, UserId } from "../value-objects/ids";
-import { newEnvelope } from "../entities/envelope";
 import { applyWrite } from "../entities/write";
 import {
   centerProfileSchema,
   type CenterProfileInput,
 } from "../schemas/center";
-import {
-  CENTER_ID_PREFIX,
-  type Center,
-  type CenterId,
-} from "../entities/center";
+import type { Center } from "../entities/center";
+import { newCenter } from "./new-center";
 import { newDefaultCenterHours } from "./seed-default-center-hours";
 import { newDefaultNiveaux } from "./seed-default-niveaux";
 
@@ -61,7 +57,11 @@ export class SaveCenterProfile {
     input: SaveCenterProfileInput,
     profile: CenterProfileInput,
   ): Promise<Center> {
-    const center = this.newCenter(input, profile);
+    const center = newCenter(
+      { ...centerContext(input), profile, logoPath: input.logoPath, seedPlan: input.seedPlan },
+      this.clock,
+      this.ids,
+    );
     const context = centerContext(input);
     await this.setup.commit({
       center,
@@ -70,21 +70,14 @@ export class SaveCenterProfile {
       trial: this.licenseAccess.hasActiveLicense()
         ? null
         : newCenterTrial(this.clock.now()),
+      // First-run creates the center before any user exists (the owner is minted
+      // in a later wizard step), so no owner Membership can be seeded here.
+      // Ownership rows are seeded only by the add-a-center flow (SOU-310), which
+      // runs while the director is already signed in.
+      organization: null,
+      membership: null,
     });
     return center;
-  }
-
-  private newCenter(
-    input: SaveCenterProfileInput,
-    profile: CenterProfileInput,
-  ): Center {
-    return {
-      id: this.ids.next(CENTER_ID_PREFIX) as CenterId,
-      ...newEnvelope(centerContext(input), this.clock),
-      ...profile,
-      logoPath: input.logoPath,
-      plan: input.seedPlan,
-    };
   }
 
   private async updateExistingCenter(
