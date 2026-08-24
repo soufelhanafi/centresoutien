@@ -66,7 +66,6 @@ export const multiCenterStatsModule = {
   path: '/multi-center-stats',
   icon: BarChart3,
   feature: 'org.multi-center',
-  requiredTier: 'premium',
   hideWhenLocked: true,
 } as const satisfies NavModule;
 export const syncModule = { id: 'sync', path: '/sync', icon: RefreshCw, feature: 'sync.multi-device' } as const satisfies NavModule;
