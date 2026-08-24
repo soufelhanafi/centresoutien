@@ -127,10 +127,78 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # SOU-214: Windows Authenticode signing via SSL.com eSigner. Signing is
+      # opt-in on the presence of the SSL_COM_* secrets — when they are unset the
+      # installer builds unsigned (current pilot behavior) and the setup/verify
+      # steps below no-op, so this workflow keeps working with no secrets.
+      - name: Detect Windows signing secrets
+        id: winsign
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          SSL_COM_USERNAME: ${{ secrets.SSL_COM_USERNAME }}
+        run: |
+          if [ -n "$SSL_COM_USERNAME" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::SSL.com eSigner secrets present — Windows installer will be Authenticode-signed."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::SSL.com eSigner secrets not set — Windows installer will be built UNSIGNED."
+          fi
+
+      - name: Set up Java for CodeSignTool
+        if: runner.os == 'Windows' && steps.winsign.outputs.enabled == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up SSL.com CodeSignTool
+        if: runner.os == 'Windows' && steps.winsign.outputs.enabled == 'true'
+        shell: bash
+        # Pin the CodeSignTool release. Verify/bump at https://github.com/SSLcom/CodeSignTool/releases
+        # when activating signing — the cross-platform zip runs on the Temurin JRE above.
+        env:
+          CODESIGNTOOL_VERSION: v1.3.2
+        run: |
+          set -euo pipefail
+          curl -fsSL -o codesigntool.zip \
+            "https://github.com/SSLcom/CodeSignTool/releases/download/${CODESIGNTOOL_VERSION}/CodeSignTool-${CODESIGNTOOL_VERSION}.zip"
+          mkdir -p "$RUNNER_TEMP/codesigntool"
+          unzip -q codesigntool.zip -d "$RUNNER_TEMP/codesigntool"
+          # Some releases nest the tool one folder deep; locate the launcher and
+          # export its directory for the electron-builder sign hook.
+          DIR=$(find "$RUNNER_TEMP/codesigntool" -maxdepth 2 -name 'CodeSignTool.bat' -printf '%h\n' | head -1)
+          if [ -z "$DIR" ]; then
+            echo "CodeSignTool.bat not found in the extracted archive" >&2
+            exit 1
+          fi
+          echo "CODESIGNTOOL_DIR=$DIR" >> "$GITHUB_ENV"
+
       - name: Package (${{ matrix.artifact }})
         env:
           GH_TOKEN: ${{ inputs.publish && secrets.CS_RELEASES_TOKEN || '' }}
+          # Consumed by apps/desktop/build/sign-windows.cjs. Empty on non-Windows
+          # runners and when the secrets are unset — the hook stays a no-op then.
+          SSL_COM_USERNAME: ${{ secrets.SSL_COM_USERNAME }}
+          SSL_COM_PASSWORD: ${{ secrets.SSL_COM_PASSWORD }}
+          SSL_COM_CREDENTIAL_ID: ${{ secrets.SSL_COM_CREDENTIAL_ID }}
+          SSL_COM_TOTP_SECRET: ${{ secrets.SSL_COM_TOTP_SECRET }}
         run: pnpm --filter @centresoutien/desktop ${{ matrix.script }} --publish ${{ inputs.publish && 'always' || 'never' }}
+
+      # Fail the publish if signing was expected but the installer is not
+      # validly signed — an unsigned installer must never masquerade as signed.
+      - name: Verify Authenticode signature (Windows)
+        if: runner.os == 'Windows' && steps.winsign.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem apps/desktop/dist/*.exe | Select-Object -First 1
+          if ($null -eq $installer) { throw "No installer .exe found to verify" }
+          $sig = Get-AuthenticodeSignature $installer.FullName
+          Write-Host "Installer: $($installer.Name)"
+          Write-Host "Signature status: $($sig.Status)"
+          if ($sig.Status -ne 'Valid') { throw "Installer is not validly signed (status: $($sig.Status))" }
+          Write-Host "Signed by: $($sig.SignerCertificate.Subject)"
 
       # A green `electron-builder` exit code only proves packaging didn't
       # throw — it does NOT prove the native modules it bundled actually

@@ -41,16 +41,56 @@ verification honest.
 
 ## Signing
 
-No paid Developer ID / Windows code-signing cert exists yet — deferred to a
-follow-up once the first client validates the demo (one cert then covers
-every client; no per-client signing).
-
 - **macOS**: `mac.identity: null` in `electron-builder.yml` explicitly skips
   signing rather than letting electron-builder pick up an unrelated cert
-  from the local keychain.
-- **Windows**: unsigned unless `CSC_LINK` / `CSC_KEY_PASSWORD` env vars are
-  set (electron-builder's standard signing env vars — no config change
-  needed to opt in).
+  from the local keychain. Real Developer ID signing + notarization is
+  tracked separately (see SOU-214's deferred macOS section).
+- **Windows**: Authenticode signing via **SSL.com eSigner** cloud signing,
+  wired through a custom electron-builder sign hook. Unsigned until the CI
+  secrets are set — see **Windows CI signing** below.
+
+### Windows CI signing (SSL.com eSigner) — SOU-214
+
+Windows installers are Authenticode-signed in the Package workflow when four
+SSL.com eSigner secrets are present. Signing is delegated to a custom sign
+hook (`apps/desktop/build/sign-windows.cjs`) wired via
+`win.signtoolOptions.sign` in `electron-builder.yml`; the hook shells out to
+SSL.com's `CodeSignTool`. Signing runs **during** the build so `latest.yml`
+and the `.blockmap` are computed over the already-signed installer (signing
+after the fact would invalidate the auto-update metadata).
+
+**The hook self-guards.** With none of the `SSL_COM_*` env vars set it logs
+and returns without signing, so `pnpm dist:win` on a developer machine and CI
+runs without the secrets both produce an unsigned installer exactly as
+before. When the secrets are present, any signing failure fails the build —
+an unsigned installer is never published as if it were signed.
+
+**To activate** (once the SSL.com account is provisioned), add these repo
+Actions secrets:
+
+| Secret | Value |
+|---|---|
+| `SSL_COM_USERNAME` | eSigner account username |
+| `SSL_COM_PASSWORD` | eSigner account password |
+| `SSL_COM_CREDENTIAL_ID` | signing credential ID from the eSigner dashboard |
+| `SSL_COM_TOTP_SECRET` | eSigner automation TOTP secret (from **eSigner → Automate signing**) |
+
+The next Package run (`publish: true`) then signs automatically — no code
+change. Credentials are passed to CodeSignTool via the environment, never on
+the command line. The pinned CodeSignTool version lives in `package.yml`
+(`CODESIGNTOOL_VERSION`); verify/bump it against
+<https://github.com/SSLcom/CodeSignTool/releases> when activating.
+
+**Cert type caveat.** The chosen cert is SSL.com **Personal ID** (Individual
+Validation), so the Authenticode publisher shown to users is the individual's
+legal name, not "Centre Soutien". IV/OV do not clear SmartScreen on day one —
+reputation accrues over downloads (only EV clears it immediately). Swapping to
+an organization cert later changes the publisher name and can break the
+electron-updater signature chain, so keep the identity chosen here.
+
+**Signing budget.** electron-builder signs multiple PE files per release (the
+app `.exe` plus the NSIS installer, sometimes the uninstaller) — budget ~2-3
+signings per published release against the eSigner Tier 1 quota (20/month).
 
 ### Optional: self-signed dev certificate
 
@@ -67,17 +107,12 @@ Certificate Type "Code Signing". Then:
 CSC_NAME="Centre Soutien Dev" pnpm --filter @centresoutien/desktop dist:mac
 ```
 
-**Windows** (PowerShell, run as the account that will sign):
-
-```powershell
-$cert = New-SelfSignedCertificate -Type CodeSigning -Subject "CN=Centre Soutien Dev" -CertStoreLocation Cert:\CurrentUser\My
-$pwd = ConvertTo-SecureString -String "changeit" -Force -AsPlainText
-Export-PfxCertificate -Cert $cert -FilePath dev-cert.pfx -Password $pwd
-```
-
-```bash
-CSC_LINK=./dev-cert.pfx CSC_KEY_PASSWORD=changeit pnpm --filter @centresoutien/desktop dist:win
-```
+On **Windows**, the custom sign hook (`win.signtoolOptions.sign`) now owns
+signing, so the old `CSC_LINK` / `CSC_KEY_PASSWORD` self-signed `.pfx` path no
+longer takes effect — electron-builder calls the hook instead, and with no
+`SSL_COM_*` credentials the hook leaves the build unsigned. To exercise the
+real signed path on Windows, provision the SSL.com eSigner credentials (see
+**Windows CI signing** above) and set the four `SSL_COM_*` env vars locally.
 
 A self-signed cert does **not** satisfy Gatekeeper or SmartScreen trust —
 the workaround below is still required either way.

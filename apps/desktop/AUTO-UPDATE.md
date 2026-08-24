@@ -9,7 +9,12 @@ into the app — the feed is public.
 
 - **Windows**: silent background download, applied on next launch
   (`autoInstallOnAppQuit`). A persistent toast offers "restart now". NSIS
-  `.blockmap` gives differential (delta) downloads.
+  `.blockmap` gives differential (delta) downloads. Installers are
+  Authenticode-signed in CI via SSL.com eSigner when the signing secrets are
+  present (SOU-214) — once builds are signed, electron-updater enforces that
+  updates carry the same publisher signature. Unsigned → signed is a clean
+  transition (integrity is enforced only once builds are signed); see
+  `PACKAGING.md` → "Windows CI signing".
 - **macOS**: check-only and inert until a Developer ID signing + notarization
   ticket ships. Squirrel.Mac refuses to apply unsigned updates, so the app does
   not download on macOS (`autoDownload = false` there) and never shows the toast.
