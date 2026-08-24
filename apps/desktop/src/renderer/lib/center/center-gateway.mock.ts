@@ -14,8 +14,9 @@ const SEED_CENTERS: readonly MockCenter[] = [
  * out at integration by `center-gateway-instance` pointing at `windowCenterGateway`.
  */
 export function createMockCenterGateway(): CenterGateway {
-  const centers = SEED_CENTERS;
+  const centers: MockCenter[] = [...SEED_CENTERS];
   let activeCentreId = centers[0]?.centreId ?? '';
+  let created = 0;
 
   const resolveCurrent = (): CurrentCenterView => {
     const active = centers.find((center) => center.centreId === activeCentreId) ?? centers[0];
@@ -34,6 +35,14 @@ export function createMockCenterGateway(): CenterGateway {
         throw new Error('center-gateway-mock: unknown center');
       }
       activeCentreId = centreId;
+    },
+    createCenter: async (profile) => {
+      created += 1;
+      const centreId = `ctr_new_${String(created).padStart(3, '0')}`;
+      const centerCode = `CS-NEW-${String(created).padStart(3, '0')}`;
+      centers.push({ centreId, centerCode, displayName: profile.name });
+      activeCentreId = centreId;
+      return { centreId, centerCode };
     },
   };
 }

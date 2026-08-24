@@ -15,16 +15,21 @@ const DRAIN_POLL_MS = 5;
 const DRAIN_TIMEOUT_MS = 5000;
 
 /**
- * The channel that DRIVES a container hot-swap — the center switcher (SOU-96).
- * It is exempt from in-flight counting AND the
- * "swap in progress" guard: each is the very call that performs the swap, so
- * counting it would deadlock its own drain (the drain would wait for the call
+ * The channels that DRIVE a container hot-swap: the center switcher (SOU-96) and
+ * the add-a-center flow (SOU-310), which provisions a new center DB and then
+ * switches into it through the same path. Each is exempt from in-flight counting
+ * AND the "swap in progress" guard: each is the very call that performs the swap,
+ * so counting it would deadlock its own drain (the drain would wait for the call
  * that is waiting for the drain) and the guard would reject the call performing
- * the swap. Every OTHER channel is counted and blocked while a swap runs so a
- * live query can never hit a half-closed SQLite handle.
+ * the swap. `center.create` provisions against its OWN transient DB handle (never
+ * the live container's), so exempting it cannot expose a query to a closing
+ * handle — only its final switch touches the live container, and that drains every
+ * other channel first. Every OTHER channel is counted and blocked while a swap
+ * runs so a live query can never hit a half-closed SQLite handle.
  */
 const SWAP_DRIVING_CHANNELS: ReadonlySet<string> = new Set<IpcChannel>([
   'center.switch',
+  'center.create',
 ]);
 
 /**

@@ -171,6 +171,7 @@ function fakeContainer(centreId: string, hooks: FakeContainerHooks = {}): Contai
     listCenters: () => Promise.resolve([]),
     getCenterProfile: { execute: () => Promise.resolve({ name: `Centre ${centreId}` }) },
     switchCenter: { execute: () => Promise.resolve({ ok: true, centreId }) },
+    createCenter: { execute: () => Promise.resolve({ ok: true, centreId, centerCode }) },
   };
   return {
     handlerDeps,
@@ -251,6 +252,11 @@ describe('MainRuntime swap concurrency (SOU-193)', () => {
       ok: true,
       centreId: 'A',
     });
+    // center.create (SOU-310) provisions then switches through the same path, so it
+    // too must be exempt from the swapping guard and in-flight drain.
+    await expect(
+      invoke('center.create', { profile: { name: 'Annexe', address: '', phone: '', email: '' } }),
+    ).resolves.toEqual({ ok: true, centreId: 'A', centerCode: 'CS-A' });
 
     inFlight.resolve([]);
     await outstanding;

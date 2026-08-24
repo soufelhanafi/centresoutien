@@ -91,6 +91,8 @@ function setupUnit(): CenterSetupUnit {
     defaultHours,
     defaultNiveaux,
     trial: { startedAt: AT, lastSeenAt: AT },
+    organization: null,
+    membership: null,
   };
 }
 

@@ -2560,6 +2560,22 @@ export const ipcContract = {
     request: z.object({ centreId: z.string().min(1).regex(/^[A-Za-z0-9_-]+$/) }),
     response: z.object({ ok: z.literal(true), centreId: z.string() }),
   },
+  // Add a center (SOU-310, Premium `org.multi-center`). Provisions a brand-new
+  // isolated per-center DB from the profile, seeds its owner, then switches into
+  // it — gated in the domain (`CreateCenter`), so a locked plan throws
+  // `PlanFeatureUnavailableError` and a failed provision throws
+  // `CenterProvisioningError`. The request is the domain's own `centerProfileSchema`
+  // (name required; address/phone/email optional), identical to `center.save` minus
+  // the logo — a new center has none yet. The response carries the new center's file
+  // discriminator + tenant code; the switch it performs also pushes `center.changed`.
+  'center.create': {
+    request: z.object({ profile: centerProfileSchema }),
+    response: z.object({
+      ok: z.literal(true),
+      centreId: z.string(),
+      centerCode: z.string(),
+    }),
+  },
   // `center.logoBytes` reads back a stored logo so the renderer can re-display it
   // after a reload (the row keeps only the relative path, not the bytes). The data
   // adapter guards against path traversal and returns `null` for an unknown or
