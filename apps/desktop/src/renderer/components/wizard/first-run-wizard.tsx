@@ -9,6 +9,8 @@ import { WizardDone } from './wizard-done';
 import { LanguageStep } from './steps/language-step';
 import { AdminAccountStep } from './steps/admin-account-step';
 import { CenterProfileStep } from './steps/center-profile-step';
+import { WizardModeChoice } from './wizard-mode-choice';
+import { JoinCenterFlow } from './join/join-center-flow';
 
 /** One component per step. Adding a step is a domain change plus one entry here. */
 const STEP_COMPONENTS: Record<WizardStepId, ComponentType> = {
@@ -24,17 +26,13 @@ const STEP_COMPONENTS: Record<WizardStepId, ComponentType> = {
  */
 export function FirstRunWizard({ onComplete }: { onComplete: () => void }) {
   const { t } = useTranslation();
+  const mode = useWizardStore((store) => store.mode);
   const init = useWizardStore((store) => store.init);
   const state = useWizardStore((store) => store.state);
 
   useEffect(() => {
-    init();
-  }, [init]);
-
-  if (!state) return null;
-
-  const step = state.status === 'completed' ? null : currentStep(state);
-  const StepComponent = step ? STEP_COMPONENTS[step] : null;
+    if (mode === 'create') init();
+  }, [mode, init]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 p-6">
@@ -45,18 +43,43 @@ export function FirstRunWizard({ onComplete }: { onComplete: () => void }) {
             <p className="text-sm text-muted-foreground">{t('wizard.subtitle')}</p>
           </header>
 
-          {StepComponent && step ? (
-            <>
-              <WizardProgress state={state} />
-              <WizardShell step={step}>
-                <StepComponent />
-              </WizardShell>
-            </>
+          {mode === 'choose' ? (
+            <WizardModeChoice />
+          ) : mode === 'join' ? (
+            <JoinCenterFlow />
           ) : (
-            <WizardDone onEnter={onComplete} />
+            <CreateCenterSteps onComplete={onComplete} state={state} />
           )}
         </CardContent>
       </Card>
     </main>
   );
+}
+
+/** The unchanged domain step machine (language → center-profile → admin), shown
+ *  once the director chose to create a brand-new center. */
+function CreateCenterSteps({
+  onComplete,
+  state,
+}: {
+  onComplete: () => void;
+  state: ReturnType<typeof useWizardStore.getState>['state'];
+}) {
+  if (!state) return null;
+
+  const step = state.status === 'completed' ? null : currentStep(state);
+  const StepComponent = step ? STEP_COMPONENTS[step] : null;
+
+  if (StepComponent && step) {
+    return (
+      <>
+        <WizardProgress state={state} />
+        <WizardShell step={step}>
+          <StepComponent />
+        </WizardShell>
+      </>
+    );
+  }
+
+  return <WizardDone onEnter={onComplete} />;
 }

@@ -14,7 +14,17 @@ import {
  * those guarantees. Quitting before completion drops this state, so the wizard
  * restarts; only committed steps (the admin account) survive across launches.
  */
+/**
+ * First-run mode gate (SOU-318). Before the domain step machine runs, the
+ * director chooses whether to CREATE a brand-new center (the existing flow) or
+ * JOIN one already hosted on another laptop. This is renderer-only state — the
+ * domain machine owns only the create path's steps.
+ */
+export type WizardMode = 'choose' | 'create' | 'join';
+
 type WizardStore = {
+  mode: WizardMode;
+  setMode: (mode: WizardMode) => void;
   state: WizardState | null;
   /**
    * The admin step's username, retained in memory so returning to the step via
@@ -39,6 +49,8 @@ function hasStarted(state: WizardState | null): boolean {
 }
 
 export const useWizardStore = create<WizardStore>((set) => ({
+  mode: 'choose',
+  setMode: (mode) => set({ mode }),
   state: null,
   adminUsername: '',
   init: () =>

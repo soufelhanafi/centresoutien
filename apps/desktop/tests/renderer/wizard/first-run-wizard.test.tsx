@@ -56,7 +56,9 @@ async function fillAdmin(user: ReturnType<typeof userEvent.setup>) {
 }
 
 beforeEach(() => {
-  useWizardStore.setState({ state: null, adminUsername: '' });
+  // These walk-throughs target the create-center step machine directly; the
+  // mode-choice gate (SOU-318) is covered in its own spec.
+  useWizardStore.setState({ mode: 'create', state: null, adminUsername: '' });
   usePlanStore.getState().setPlan('essentiel');
 });
 
