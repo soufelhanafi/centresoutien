@@ -10,7 +10,6 @@
     "nav_aria": "Navigation principale",
     "nav": {
       "features": "Fonctionnalités",
-      "pricing": "Tarifs",
       "founder": "Programme Fondateur",
       "faq": "FAQ",
       "contact": "Contact"
@@ -424,106 +423,28 @@
       }
     }
   },
-  "pricing": {
-    "eyebrow": "Tarifs",
-    "heading": "Un tarif clair, payé une fois par an.",
-    "subheading": "Tous les prix sont en dirhams marocains, TVA incluse. Paiement annuel unique.",
-    "badge_recommended": "RECOMMANDÉ",
-    "per_year": "MAD/an",
-    "per_month_equiv": "MAD/mois équivalent",
-    "tiers": {
-      "essentiel": {
-        "name": "Essentiel",
-        "description": "Pour petits centres qui démarrent.",
-        "price": "1 490",
-        "monthly": "≈ 124 MAD/mois équivalent",
-        "cta": "Commencer l'essai",
-        "features": {
-          "0": "Jusqu'à 50 élèves",
-          "1": "2 enseignants",
-          "2": "1 salle",
-          "3": "Planning et facturation basique",
-          "4": "Support par email"
-        }
-      },
-      "pro": {
-        "name": "Pro",
-        "description": "Pour la plupart des centres, la formule la plus complète.",
-        "price": "3 490",
-        "monthly": "≈ 291 MAD/mois équivalent",
-        "cta": "Commencer l'essai",
-        "features": {
-          "0": "Jusqu'à 200 élèves",
-          "1": "10 enseignants",
-          "2": "5 salles",
-          "3": "Facturation avancée + relances",
-          "4": "Détection de conflits de planning",
-          "5": "Support prioritaire"
-        }
-      },
-      "premium": {
-        "name": "Premium",
-        "description": "Pour centres établis avec plusieurs enseignants.",
-        "price": "6 490",
-        "monthly": "≈ 541 MAD/mois équivalent",
-        "cta": "Nous contacter",
-        "features": {
-          "0": "Élèves illimités",
-          "1": "Enseignants illimités",
-          "2": "Salles illimitées",
-          "3": "Support prioritaire téléphonique",
-          "4": "Formation sur site incluse"
-        }
-      }
-    },
-    "comparison": {
-      "title": "Comparatif détaillé",
-      "rows": {
-        "0": {
-          "label": "Élèves",
-          "essentiel": "50",
-          "pro": "200",
-          "premium": "Illimités"
-        },
-        "1": {
-          "label": "Enseignants",
-          "essentiel": "2",
-          "pro": "10",
-          "premium": "Illimités"
-        },
-        "2": {
-          "label": "Salles",
-          "essentiel": "1",
-          "pro": "5",
-          "premium": "Illimitées"
-        },
-        "3": {
-          "label": "Planning avec détection de conflits",
-          "essentiel": "—",
-          "pro": "✓",
-          "premium": "✓"
-        },
-        "4": {
-          "label": "Relances automatiques WhatsApp/email",
-          "essentiel": "—",
-          "pro": "✓",
-          "premium": "✓"
-        },
-        "5": {
-          "label": "Support prioritaire téléphonique",
-          "essentiel": "—",
-          "pro": "—",
-          "premium": "✓"
-        },
-        "6": {
-          "label": "Formation sur site",
-          "essentiel": "—",
-          "pro": "—",
-          "premium": "✓"
-        }
-      }
-    },
-    "footnote": "Paiement annuel · Facturation en dirhams · TVA incluse"
+  "features_checklist": {
+    "eyebrow": "Tout inclus",
+    "heading": "Toutes les fonctionnalités, dans une seule formule.",
+    "subheading": "Achetez une fois, utilisez pour toujours. Tout est inclus.",
+    "items": {
+      "0": "Gestion des salles",
+      "1": "Enseignants & disponibilités",
+      "2": "Élèves & parents",
+      "3": "Groupes, matières & formules tarifaires",
+      "4": "Planning hebdomadaire avec détection de conflits",
+      "5": "Facturation mensuelle automatique",
+      "6": "Paiements, paiement partiel & relances",
+      "7": "Présences & suivi",
+      "8": "Préparation aux examens (Bac)",
+      "9": "Paie des enseignants",
+      "10": "Import / Export Excel",
+      "11": "Modèle de facture personnalisable",
+      "12": "Jours fériés & horaires du centre",
+      "13": "Synchronisation multi-appareils",
+      "14": "Bilingue FR / AR (RTL)",
+      "15": "Multi-centres"
+    }
   },
   "faq": {
     "eyebrow": "FAQ",
@@ -543,15 +464,15 @@
       },
       "multi_center": {
         "question": "Puis-je gérer plusieurs centres ?",
-        "answer": "Oui, à partir de la formule Pro. Chaque centre a son propre espace, ses propres élèves et sa propre facturation, dans une seule installation."
+        "answer": "Oui. Chaque centre a son propre espace, ses propres élèves et sa propre facturation, dans une seule installation."
       },
       "support": {
         "question": "Comment fonctionne le support ?",
-        "answer": "Par email pour Essentiel, prioritaire pour Pro (réponse sous 4h ouvrées), et par téléphone en français ou en darija pour Premium. Une base de connaissances complète est disponible dans l'app."
+        "answer": "Par email et par téléphone, en français ou en darija. Une base de connaissances complète est disponible dans l'app."
       },
       "trial": {
         "question": "Puis-je essayer avant d'acheter ?",
-        "answer": "Oui, 14 jours gratuits sans carte bancaire. Toutes les fonctionnalités de la formule Pro sont accessibles pendant l'essai."
+        "answer": "Oui, 14 jours gratuits sans carte bancaire. Toutes les fonctionnalités sont accessibles pendant l'essai."
       },
       "refund": {
         "question": "Politique de remboursement ?",
@@ -559,29 +480,7 @@
       },
       "training": {
         "question": "Formation incluse ?",
-        "answer": "Une session de prise en main d'une heure en visioconférence est incluse dans Pro. Premium inclut une formation sur site d'une journée pour votre équipe."
-      }
-    }
-  },
-  "testimonials": {
-    "eyebrow": "Témoignages",
-    "heading": "Ce qu'en disent les directeurs.",
-    "rating_label": "5 étoiles sur 5",
-    "cards": {
-      "karim": {
-        "quote": "Avant, je passais mes dimanches sur Excel. Maintenant, j'ai retrouvé mes week-ends.",
-        "name": "Karim Alaoui",
-        "role": "Directeur · Centre Al Massar · Casablanca"
-      },
-      "nadia": {
-        "quote": "Les factures sortent en un clic, en dirhams, avec les bons noms. C'est la première fois qu'on ne s'engueule plus avec les parents à la fin du mois.",
-        "name": "Nadia Benjelloun",
-        "role": "Directrice · Éduq'Plus · Rabat"
-      },
-      "hicham": {
-        "quote": "Mon secrétariat parle arabe, moi en français, les deux versions se synchronisent. On travaille enfin sur le même outil.",
-        "name": "Hicham Tazi",
-        "role": "Fondateur · Centre Atlas · Fès"
+        "answer": "Oui. Une session de prise en main d'une heure en visioconférence est incluse, ainsi qu'une formation sur site d'une journée pour votre équipe."
       }
     }
   },
@@ -601,7 +500,6 @@
         "title": "Produit",
         "links": {
           "features": "Fonctionnalités",
-          "pricing": "Tarifs",
           "download": "Téléchargement",
           "changelog": "Nouveautés"
         }
@@ -784,23 +682,23 @@
   },
   "cgv": {
     "meta_title": "Conditions générales de vente — Centre Soutien",
-    "meta_description": "Conditions générales de vente des abonnements du logiciel Centre Soutien.",
+    "meta_description": "Conditions générales de vente du logiciel Centre Soutien.",
     "breadcrumb": "CGV",
     "heading": "Conditions générales de vente",
     "updated": "Dernière mise à jour : 11 août 2026",
-    "intro": "Les présentes conditions générales de vente régissent les abonnements au logiciel de gestion Centre Soutien pour les centres de soutien scolaire. Toute souscription implique leur acceptation pleine et entière.",
+    "intro": "Les présentes conditions générales de vente régissent l'acquisition et l'utilisation du logiciel de gestion Centre Soutien pour les centres de soutien scolaire. Tout achat implique leur acceptation pleine et entière.",
     "sections": {
       "object": {
         "title": "Objet",
-        "body": "Les présentes CGV définissent les droits et obligations des parties dans le cadre de la souscription à un abonnement annuel au logiciel Centre Soutien, décliné en trois offres : Essentiel, Pro et Premium."
+        "body": "Les présentes CGV définissent les droits et obligations des parties dans le cadre de l'acquisition d'une licence du logiciel Centre Soutien."
       },
       "pricing": {
         "title": "Tarifs",
-        "body": "Les tarifs des abonnements sont affichés sur le site, en dirhams marocains (MAD), pour une période d'un an. Ils incluent les mises à jour du logiciel pendant la durée de l'abonnement."
+        "body": "Le logiciel Centre Soutien s'acquiert par un paiement unique, en dirhams marocains (MAD). Les tarifs sont communiqués sur demande. La licence inclut les mises à jour du logiciel."
       },
       "payment": {
         "title": "Paiement",
-        "body": "Le paiement est exigible à la souscription, par virement bancaire ou tout autre moyen proposé lors de la commande. L'accès au logiciel est activé après encaissement du paiement."
+        "body": "Le paiement est exigible à l'achat, par virement bancaire ou tout autre moyen proposé lors de la commande. L'accès au logiciel est activé après encaissement du paiement."
       },
       "refund": {
         "title": "Politique de remboursement",
@@ -808,7 +706,7 @@
       },
       "liability": {
         "title": "Responsabilité",
-        "body": "Centre Soutien s'engage à fournir un logiciel fonctionnel et à corriger les anomalies signalées dans un délai raisonnable. La responsabilité de Centre Soutien est limitée au montant de l'abonnement payé, hors cas de faute lourde ou de dol."
+        "body": "Centre Soutien s'engage à fournir un logiciel fonctionnel et à corriger les anomalies signalées dans un délai raisonnable. La responsabilité de Centre Soutien est limitée au montant payé, hors cas de faute lourde ou de dol."
       }
     }
   },

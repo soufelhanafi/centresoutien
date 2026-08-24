@@ -23,14 +23,6 @@ type OrganizationSchema = {
   sameAs: string[];
 };
 
-type Offer = {
-  "@type": "Offer";
-  name: string;
-  price: string;
-  priceCurrency: "MAD";
-  category: string;
-};
-
 type SoftwareApplicationSchema = {
   "@context": "https://schema.org";
   "@type": "SoftwareApplication";
@@ -38,7 +30,6 @@ type SoftwareApplicationSchema = {
   applicationCategory: "BusinessApplication";
   operatingSystem: string;
   inLanguage: string;
-  offers: Offer[];
 };
 
 type WebSiteSchema = {
@@ -48,17 +39,6 @@ type WebSiteSchema = {
   url: string;
   inLanguage: string;
 };
-
-/**
- * Pricing tiers, sourced from the design file
- * `html-design/Centre Soutien Landing.dc.html` (lines 517–604).
- * All three tiers are fixed annual prices in MAD — none is "on demand".
- */
-const PRICING_TIERS: ReadonlyArray<{ name: string; price: string }> = [
-  { name: "Essentiel", price: "1490" },
-  { name: "Pro", price: "3490" },
-  { name: "Premium", price: "6490" },
-];
 
 export function getOrganizationSchema(): OrganizationSchema {
   return {
@@ -84,13 +64,6 @@ export function getSoftwareApplicationSchema(
     applicationCategory: "BusinessApplication",
     operatingSystem: "Windows, macOS",
     inLanguage: IN_LANGUAGE[locale],
-    offers: PRICING_TIERS.map((tier) => ({
-      "@type": "Offer",
-      name: tier.name,
-      price: tier.price,
-      priceCurrency: "MAD",
-      category: "annual",
-    })),
   };
 }
 

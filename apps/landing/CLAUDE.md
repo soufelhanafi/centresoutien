@@ -192,7 +192,7 @@ Never let a page ship without OG image and canonical set.
 
 Emit at minimum on the homepage:
 - `Organization` — with `sameAs` links to social
-- `SoftwareApplication` — with `applicationCategory: "BusinessApplication"`, `operatingSystem: "Windows, macOS"`, `offers` with the three tiers
+- `SoftwareApplication` — with `applicationCategory: "BusinessApplication"` and `operatingSystem: "Windows, macOS"` (no `offers`: prices are no longer displayed, SOU-308)
 - `FAQPage` — mirrors the visible FAQ, question-for-question
 - `BreadcrumbList` on interior pages
 

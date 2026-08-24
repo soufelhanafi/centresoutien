@@ -55,7 +55,7 @@ Every expected tag must appear exactly once.
 For the homepage (`/fr/` and `/ar/`), verify these JSON-LD blocks are present:
 
 - [ ] `Organization` — includes `name`, `url`, `logo`, `sameAs` (social links).
-- [ ] `SoftwareApplication` — `applicationCategory: "BusinessApplication"`, `operatingSystem: "Windows, macOS"`, `offers` array with the three tiers.
+- [ ] `SoftwareApplication` — `applicationCategory: "BusinessApplication"`, `operatingSystem: "Windows, macOS"` (no `offers` — prices are no longer displayed, SOU-308).
 - [ ] `FAQPage` — one `Question` per visible FAQ item, question and answer text match the rendered content exactly.
 - [ ] `WebSite` — with `potentialAction` `SearchAction` only if site search exists (skip otherwise).
 

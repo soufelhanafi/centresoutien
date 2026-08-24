@@ -8,9 +8,8 @@ import { Hero } from "@/components/sections/hero";
 import { Problem } from "@/components/sections/problem";
 import { Features } from "@/components/sections/features";
 import { HowItWorks } from "@/components/sections/how-it-works";
-import { Pricing } from "@/components/sections/pricing";
+import { FeaturesChecklist } from "@/components/sections/features-checklist";
 import { FounderProgram } from "@/components/sections/founder-program";
-import { Testimonials } from "@/components/sections/testimonials";
 import { Faq } from "@/components/sections/faq";
 import { FinalCta } from "@/components/sections/final-cta";
 import { Footer } from "@/components/sections/footer";
@@ -88,9 +87,8 @@ export default async function LandingPage({
         <Problem />
         <Features />
         <HowItWorks />
-        <Pricing />
+        <FeaturesChecklist />
         <FounderProgram />
-        <Testimonials />
         <Faq />
         <FinalCta />
       </main>
