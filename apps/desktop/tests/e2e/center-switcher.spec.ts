@@ -138,6 +138,38 @@ test.describe('SOU-96 center switcher', () => {
     await app.close();
   });
 
+  test('dashboard refreshes when switching while already on the dashboard (SOU-314)', async () => {
+    const loc = locale();
+    const L = SW[loc];
+    const dir = freshUserDataDir();
+
+    await provisionCenter(loc, 'premium', dir, CENTER_A);
+    await provisionCenter(loc, 'premium', dir, CENTER_B);
+
+    const { app, win } = await launch({
+      locale: loc,
+      plan: 'premium',
+      centreId: CENTER_A.centreId,
+      centerCode: CENTER_A.code,
+      userDataDir: dir,
+    });
+
+    // Land on the dashboard — center A has TWO active students.
+    await expect(win.getByRole('heading', { level: 1, name: L.dashboardHeading })).toBeVisible();
+    await expect(activeStudentsCount(win)).toHaveText('2');
+
+    // Switch to B while the dashboard stays mounted — no navigation away.
+    await switchTo(win, CENTER_B.displayName);
+    expect((await currentCenter(win)).centreId).toBe(CENTER_B.centreId);
+    await expect(activeStudentsCount(win)).toHaveText('1');
+
+    // Switching back while still on the dashboard refreshes again to A's two.
+    await switchTo(win, CENTER_A.displayName);
+    await expect(activeStudentsCount(win)).toHaveText('2');
+
+    await app.close();
+  });
+
   test('single-center install shows a plain center label, no switcher dropdown', async () => {
     const loc = locale();
     const dir = freshUserDataDir();
