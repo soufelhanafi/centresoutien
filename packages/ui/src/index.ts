@@ -15,11 +15,12 @@ export {
   DialogOverlay,
   DialogContent,
   DialogHeader,
+  DialogBody,
   DialogFooter,
   DialogTitle,
   DialogDescription,
 } from './components/ui/dialog';
-export type { DialogContentProps } from './components/ui/dialog';
+export type { DialogContentProps, DialogBodyProps } from './components/ui/dialog';
 export { Input } from '@ui/components/ui/input';
 export type { InputProps } from '@ui/components/ui/input';
 export { Textarea } from '@ui/components/ui/textarea';

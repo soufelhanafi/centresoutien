@@ -4,12 +4,12 @@ import type { ParentInput } from '@centresoutien/domain';
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  ScrollArea,
 } from '@centresoutien/ui';
 import { ParentForm, type ParentFormInput } from './parent-form';
 
@@ -41,17 +41,14 @@ export function ParentFormSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        closeLabel={t('parents.form.cancel')}
-        className="flex max-h-[85vh] flex-col overflow-y-auto"
-      >
+      <DialogContent closeLabel={t('parents.form.cancel')}>
         <DialogHeader>
           <DialogTitle>{t(`parents.form.${mode}Title`)}</DialogTitle>
           <DialogDescription>{t(`parents.form.${mode}Description`)}</DialogDescription>
         </DialogHeader>
-        <ScrollArea className="min-h-0 flex-1" contentClassName="-mx-1 px-1 py-4">
+        <DialogBody>
           <ParentForm formId={formId} defaultValues={defaultValues} onSubmit={onSubmit} />
-        </ScrollArea>
+        </DialogBody>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             {t('parents.form.cancel')}

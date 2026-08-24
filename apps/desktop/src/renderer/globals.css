@@ -27,6 +27,15 @@ body {
   .os-scrollbar {
     display: none !important;
   }
+  /*
+   * A modal that prints its live DOM (e.g. the group attendance sheet) must not
+   * be clipped to the 85vh scroll box the shared DialogContent now caps it at
+   * (SOU-311). Release the native height/overflow so the full content streams.
+   */
+  [role='dialog'] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
 }
 
 /*
