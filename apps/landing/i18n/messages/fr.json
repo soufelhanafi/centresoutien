@@ -484,28 +484,6 @@
       }
     }
   },
-  "testimonials": {
-    "eyebrow": "Témoignages",
-    "heading": "Ce qu'en disent les directeurs.",
-    "rating_label": "5 étoiles sur 5",
-    "cards": {
-      "karim": {
-        "quote": "Avant, je passais mes dimanches sur Excel. Maintenant, j'ai retrouvé mes week-ends.",
-        "name": "Karim Alaoui",
-        "role": "Directeur · Centre Al Massar · Casablanca"
-      },
-      "nadia": {
-        "quote": "Les factures sortent en un clic, en dirhams, avec les bons noms. C'est la première fois qu'on ne s'engueule plus avec les parents à la fin du mois.",
-        "name": "Nadia Benjelloun",
-        "role": "Directrice · Éduq'Plus · Rabat"
-      },
-      "hicham": {
-        "quote": "Mon secrétariat parle arabe, moi en français, les deux versions se synchronisent. On travaille enfin sur le même outil.",
-        "name": "Hicham Tazi",
-        "role": "Fondateur · Centre Atlas · Fès"
-      }
-    }
-  },
   "final_cta": {
     "heading": "Prêt à quitter Excel ?",
     "subheading": "14 jours d'essai, sans carte bancaire. Vous ne réinstallez plus Excel après.",

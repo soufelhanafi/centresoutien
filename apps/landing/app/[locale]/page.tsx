@@ -10,7 +10,6 @@ import { Features } from "@/components/sections/features";
 import { HowItWorks } from "@/components/sections/how-it-works";
 import { FeaturesChecklist } from "@/components/sections/features-checklist";
 import { FounderProgram } from "@/components/sections/founder-program";
-import { Testimonials } from "@/components/sections/testimonials";
 import { Faq } from "@/components/sections/faq";
 import { FinalCta } from "@/components/sections/final-cta";
 import { Footer } from "@/components/sections/footer";
@@ -90,7 +89,6 @@ export default async function LandingPage({
         <HowItWorks />
         <FeaturesChecklist />
         <FounderProgram />
-        <Testimonials />
         <Faq />
         <FinalCta />
       </main>
