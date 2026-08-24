@@ -1437,6 +1437,8 @@ export function buildContainer(options: ContainerOptions): Container {
           clock,
           ids,
           plan,
+          hasActiveLicense: () =>
+            resolveActivePlan(verifyLicenseCached(), clock.now(), licenseBinding).status === 'active',
           clientConfig: options.joining.clientConfig,
           systemUserId: DEV_USER,
         })

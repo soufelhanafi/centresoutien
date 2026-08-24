@@ -141,6 +141,7 @@ function makeJoiner() {
     clock,
     ids: counterIds(),
     plan: new PlanPolicy(PLANS.pro),
+    hasActiveLicense: () => false,
     clientConfig: {
       write: (centreId, config) => written.push({ centreId, config }),
       clear: () => {},
@@ -177,6 +178,10 @@ describe('SqliteCenterJoinProvisioning cold-bootstrap (SOU-318)', () => {
         code: string;
       };
       expect(subject).toEqual({ name_fr: 'Mathématiques', code: 'MATH' });
+
+      // An unlicensed joiner gets a trial so the joined center is usable now.
+      const trial = db.prepare('SELECT COUNT(*) AS n FROM center_trial').get() as { n: number };
+      expect(trial.n).toBe(1);
     } finally {
       db.close();
     }

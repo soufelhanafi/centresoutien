@@ -62,6 +62,17 @@ export const RESTRICTED_MODE_BOOTSTRAP_CHANNELS: ReadonlySet<IpcChannel> = new S
   'center.save',
   'center.saveLogo',
   'center.logoBytes',
+  // Join-an-existing-center at first run (SOU-318): a second laptop has no license
+  // of its own yet, so it is in restricted mode when the first-run wizard offers
+  // "join". These two are the join branch's only needs — discover hubs on the LAN
+  // and pull a chosen center. Like the wizard's other bootstrap channels they are
+  // gated on `!setupComplete`, so once the joined center is set up they close: an
+  // already-configured, unlicensed center can no longer discover or re-join. The
+  // domain still requires `sync.multi-device` inside each handler, and the joined
+  // center's own LicenseGate still governs whether the app opens (a trial is seeded
+  // on join so it does).
+  'hub.discoverCenters',
+  'hub.joinCenter',
 ]);
 
 /**

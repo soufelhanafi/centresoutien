@@ -5,6 +5,7 @@ import {
   CenterJoinError,
   DuplicateMatcher,
   SyncEngine,
+  newCenterTrial,
   type CenterJoinProvisioningPort,
   type Clock,
   type IdGenerator,
@@ -46,6 +47,11 @@ export type CenterJoinProvisioningDeps = {
   readonly ids: IdGenerator;
   /** The active plan — the sync engine re-checks `sync.multi-device` on every run. */
   readonly plan: PlanPolicy;
+  /** Whether this machine already holds a valid license — a trial is seeded on the
+   *  joined center only when it does NOT, so an unlicensed second machine can use
+   *  the center it just joined during the trial window (a license is machine-scoped
+   *  and per-device, never synced). */
+  readonly hasActiveLicense: () => boolean;
   readonly clientConfig: HubClientConfigWriter;
   /** Stamped as `updatedBy` on any conflict resolution during the pull; a clean
    *  cold bootstrap writes none, so this is a system placeholder. */
@@ -143,6 +149,18 @@ export class SqliteCenterJoinProvisioning implements CenterJoinProvisioningPort 
     }
     if (center.centerCode !== centerCode) {
       throw new CenterJoinError(`the hub served a different center (${center.centerCode})`);
+    }
+
+    // The trial is device-local (never synced), so a pulled center has none. Seed
+    // one when this machine holds no license, so the joined center is usable now
+    // rather than landing straight on the activation screen.
+    if (!this.deps.hasActiveLicense()) {
+      const trial = newCenterTrial(this.deps.clock.now());
+      db.prepare(
+        `INSERT INTO center_trial (singleton, started_at, last_seen_at)
+         VALUES (1, ?, ?)
+         ON CONFLICT(singleton) DO NOTHING`,
+      ).run(trial.startedAt.toISOString(), trial.lastSeenAt.toISOString());
     }
   }
 
