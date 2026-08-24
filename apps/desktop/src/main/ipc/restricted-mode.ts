@@ -35,6 +35,15 @@ import type { IpcChannel } from '../../shared/ipc/contract';
  * sync, …) stays blocked in both states — the exploit CodeRabbit flagged
  * (`student.list` reachable while unlicensed) remains closed. The FR/AR language
  * toggle needs nothing here: it is client-only (`i18n.changeLanguage`).
+ *
+ * The center-switcher channels (`center.list` / `center.current` / `center.switch`)
+ * are deliberately NOT allow-listed: a lapsed license must not be able to leave
+ * its activation surface. For the two-tier model (SOU-309) this is correct — Pro
+ * is single-center (no switcher, no per-center stats, so none of those channels
+ * are ever called), and the Premium "switch away to a still-licensed center"
+ * escape hatch is its own ticket (SOU-196), deferred. `center.current` stays fully
+ * available to a Pro user while the license is active (restricted mode only
+ * closes it, which is the point).
  */
 export const RESTRICTED_MODE_ALWAYS_ALLOWED: ReadonlySet<IpcChannel> = new Set<IpcChannel>([
   'license.status',

@@ -86,4 +86,23 @@ describe('Sidebar — plan-gated navigation', () => {
     expect(screen.getByRole('link', { name: 'Synchronisation' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Paie' })).toBeInTheDocument();
   });
+
+  it('hides the per-center stats entry entirely when the plan lacks org.multi-center (SOU-309)', async () => {
+    // `PLANS.essentiel` (the beforeEach default) grants every module flag except
+    // `org.multi-center`, so the stats entry must be removed — not rendered as a
+    // locked button or a link.
+    renderSidebar();
+    expect(await screen.findByRole('link', { name: 'Élèves' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Statistiques par centre' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Statistiques par centre/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('Statistiques par centre')).not.toBeInTheDocument();
+  });
+
+  it('shows the per-center stats entry as a link for Premium (SOU-309)', async () => {
+    renderSidebar();
+    act(() => {
+      usePlanStore.getState().setPlan('premium');
+    });
+    expect(await screen.findByRole('link', { name: 'Statistiques par centre' })).toBeInTheDocument();
+  });
 });
