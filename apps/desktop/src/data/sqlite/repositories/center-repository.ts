@@ -4,10 +4,12 @@ import type {
   CenterId,
   CenterRepository,
   CenterCode,
+  ChangeLogWriter,
   DeviceId,
   UserId,
   PlanId,
 } from '@centresoutien/domain';
+import { toEntityId } from '@centresoutien/domain';
 
 /** The `center` table row shape as SQLite returns it. */
 type CenterRow = {
@@ -71,9 +73,17 @@ const SAVE_SQL = `
  * and SQL — no business decisions. The `singleton` guard keeps this to one live
  * row; `get` reads that row, and `save` upserts by id. Identity columns are
  * never rewritten on upsert.
+ *
+ * `save` also appends the profile edit to the change log (SOU-318): `center` is a
+ * synced entity type, so a profile change on one laptop must reach the others —
+ * the write and the log commit or roll back together in one transaction, exactly
+ * as the other logging repositories do.
  */
 export class SqliteCenterRepository implements CenterRepository {
-  constructor(private readonly db: DB) {}
+  constructor(
+    private readonly db: DB,
+    private readonly changeLog: ChangeLogWriter,
+  ) {}
 
   async get(): Promise<Center | null> {
     const row = this.db
@@ -83,22 +93,31 @@ export class SqliteCenterRepository implements CenterRepository {
   }
 
   async save(center: Center): Promise<void> {
-    this.db.prepare(SAVE_SQL).run({
-      id: center.id,
-      center_code: center.centerCode,
-      device_origin: center.deviceOrigin,
-      created_at: center.createdAt.toISOString(),
-      updated_at: center.updatedAt.toISOString(),
-      updated_by: center.updatedBy,
-      deleted_at: center.deletedAt ? center.deletedAt.toISOString() : null,
-      version: center.version,
-      name: center.name,
-      address: center.address,
-      phone: center.phone,
-      email: center.email,
-      logo_path: center.logoPath,
-      plan: center.plan,
-    });
+    this.db.transaction(() => {
+      this.db.prepare(SAVE_SQL).run({
+        id: center.id,
+        center_code: center.centerCode,
+        device_origin: center.deviceOrigin,
+        created_at: center.createdAt.toISOString(),
+        updated_at: center.updatedAt.toISOString(),
+        updated_by: center.updatedBy,
+        deleted_at: center.deletedAt ? center.deletedAt.toISOString() : null,
+        version: center.version,
+        name: center.name,
+        address: center.address,
+        phone: center.phone,
+        email: center.email,
+        logo_path: center.logoPath,
+        plan: center.plan,
+      });
+      this.changeLog.record({
+        entityType: 'center',
+        entityId: toEntityId(center.id),
+        centerCode: center.centerCode,
+        intent: 'upsert',
+        entity: center,
+      });
+    })();
   }
 
   async listChangedSince(cursor: Date): Promise<readonly Center[]> {

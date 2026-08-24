@@ -46,5 +46,19 @@
  * payload upcaster: a payload authored before the field simply projects the
  * missing key as NULL (mapper `?? null`), so `CURRENT_CHANGE_LOG_PAYLOAD_VERSION`
  * stays put.
+ *
+ * v5 (SOU-318): `center`, `organization`, and `membership` become synced entity
+ * types so a second device can cold-bootstrap the center's identity (profile +
+ * ownership) from the hub feed, not just its data. Same failure mode as v2/v3:
+ * the shapes did NOT change (payload version stays 1, no upcaster) and the tables
+ * already exist (0006 `center`, 0050 `organization`/`membership`), but a
+ * pre-SOU-318 app has no registered mapper for these three entityTypes — on pull
+ * it would shadow-store each change, project nothing to the real table
+ * (`projectToEntityTable` returns early with no mapper), and advance its cursor
+ * past it, permanently losing every synced profile/ownership row. The bump forces
+ * the handshake to reject that old app loudly ("mise à jour requise") on both
+ * sides, so it only pulls these changes once it has the mappers to keep them. No
+ * migration is added here (the tables and their envelope columns already exist),
+ * so the local `DatabaseSchemaAheadOfAppError` guard never fires for this change.
  */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;

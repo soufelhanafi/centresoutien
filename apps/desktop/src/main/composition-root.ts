@@ -1047,7 +1047,7 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
-  const centerRepo = new SqliteCenterRepository(db);
+  const centerRepo = new SqliteCenterRepository(db, changeLog);
   // Refresh the display-only `center.plan` mirror from the license-resolved plan
   // (SOU-98). No-op until the profile exists; the gate never reads this column.
   centerRepo.writePlanMirror(activePlanId);
@@ -1057,7 +1057,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // here — never via a renderer IPC round-trip, which restricted mode blocks on
   // an unlicensed first run.
   const centerHoursRepo = new SqliteCenterHoursRepository(db);
-  const centerSetup = new SqliteCenterSetupUnitOfWork(db);
+  const centerSetup = new SqliteCenterSetupUnitOfWork(db, changeLog);
   const saveCenterProfile = new SaveCenterProfile(
     centerRepo,
     clock,
