@@ -2600,6 +2600,15 @@
       "title": "Répartition par matière",
       "empty": "Aucune répartition attribuée pour ce mois."
     },
+    "projection": {
+      "title": "Mois en cours",
+      "estimate": "Estimation",
+      "subtitle": "Projection provisoire — elle évolue jusqu'à la clôture du mois et n'est pas un bulletin de paie définitif.",
+      "collected": "Encaissé à ce jour",
+      "projected": "Projeté fin de mois",
+      "basis": "Base projetée par matière",
+      "empty": "Aucun enseignant n'a de règle de paie active pour ce mois."
+    },
     "loadError": {
       "title": "Chargement impossible",
       "body": "Le chargement des versements a échoué.",
