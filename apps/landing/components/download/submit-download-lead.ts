@@ -1,10 +1,10 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { downloadLeadSchema } from "@/lib/validators";
 import { sendDownloadLeadNotification } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { hashIp } from "@/lib/ip-hash";
 
 export type DownloadLeadState =
   | { status: "idle" }
@@ -15,13 +15,19 @@ export type DownloadLeadState =
       fieldErrors?: Record<string, string>;
     };
 
+function hashIp(ip: string): string {
+  const salt = process.env.IP_HASH_SALT ?? "centresoutien";
+  return createHash("sha256").update(`${salt}:${ip}`).digest("hex").slice(0, 16);
+}
+
 export async function submitDownloadLead(
   _prev: DownloadLeadState,
   formData: FormData,
 ): Promise<DownloadLeadState> {
-  // Honeypot: bots fill hidden fields. Accept silently, do nothing.
+  // Honeypot: bots fill hidden fields. Accept silently but never unlock the
+  // download — a bot is not a lead.
   if (((formData.get("website") as string) ?? "").length > 0) {
-    return { status: "success" };
+    return { status: "idle" };
   }
 
   const parsed = downloadLeadSchema.safeParse({

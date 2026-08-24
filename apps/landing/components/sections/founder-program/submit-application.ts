@@ -1,10 +1,10 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { founderApplicationSchema } from "@/lib/validators";
 import { sendFounderNotification } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { hashIp } from "@/lib/ip-hash";
 
 export type FounderFormState =
   | { status: "idle" }
@@ -14,6 +14,11 @@ export type FounderFormState =
       error: "validation_failed" | "server_error";
       fieldErrors?: Record<string, string>;
     };
+
+function hashIp(ip: string): string {
+  const salt = process.env.IP_HASH_SALT ?? "centresoutien";
+  return createHash("sha256").update(`${salt}:${ip}`).digest("hex").slice(0, 16);
+}
 
 export async function submitFounderApplication(
   _prev: FounderFormState,
