@@ -41,7 +41,15 @@ export class SqliteBackupAdapter implements BackupPort {
     const fileName = `${this.ids.next(backupPrefixFor(centerCode))}.db`;
     const path = join(destDir, fileName);
     backupDatabase(this.db, path);
-    await this.emitRecoverySibling?.(path);
+    // Best-effort, matching the launch-time escrow write in the composition
+    // root: a sealing/disk failure must never turn a good backup into a
+    // user-visible error. Log the error only (never the key) and still return
+    // the created backup.
+    try {
+      await this.emitRecoverySibling?.(path);
+    } catch (error) {
+      console.error('[recovery] sealing backup escrow blob failed', error);
+    }
     return toFileInfo(destDir, fileName);
   }
 
