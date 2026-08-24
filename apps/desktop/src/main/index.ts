@@ -30,6 +30,7 @@ import { randomBytes } from 'node:crypto';
 import { sweepStaleTempPdfs } from '../data/fs/temp-pdf';
 import { LEGACY_DEMO_CENTRE_ID, resolveInitialCentreId } from './initial-centre-id';
 import { HubHostConfigStore, resolveLanBindHost } from './infra/hub-host-config-store';
+import { HubClientConfigStore } from './infra/hub-client-config-store';
 import { BonjourHubMdns } from './hub-discovery/mdns-adapters';
 
 // The packaged renderer entry loaded from disk. Shared by the window's
@@ -120,8 +121,12 @@ function resolveHubConfigFromEnv(): { port: number; token: string; bindHost: str
  * `CS_SYNC_HUB_TOKEN` are REQUIRED (a client with no pairing token would defeat
  * the hub's per-center auth), and the URL must parse as an http(s) origin. Real
  * pairing UX lands with the sync-setup ticket; this env seam is the opt-in until then.
+ *
+ * Dev/e2e override only. In a packaged build the env vars are unset and a joined
+ * center's hub comes from the persisted per-center config
+ * ({@link HubClientConfigStore}) — see `resolveHubClientConfig` in the boot block.
  */
-function resolveHubClientConfig(): { baseUrl: string; token: string } | null {
+function resolveHubClientConfigFromEnv(): { baseUrl: string; token: string } | null {
   const rawUrl = process.env['CS_SYNC_HUB_URL'];
   if (!rawUrl) return null;
   const token = process.env['CS_SYNC_HUB_TOKEN'];
@@ -190,8 +195,11 @@ app.whenReady().then(async () => {
     // are resolved per centreId inside `openCenter`, so a center switch re-opens
     // the correct hub role for the target center.
     const hubHostConfigStore = new HubHostConfigStore(dir);
+    const hubClientConfigStore = new HubClientConfigStore(dir);
     const resolveHubConfig = (centreId: string): { port: number; token: string; bindHost: string } | null =>
       resolveHubConfigFromEnv() ?? hubHostConfigStore.read(centreId);
+    const resolveHubClientConfig = (centreId: string): { baseUrl: string; token: string } | null =>
+      resolveHubClientConfigFromEnv() ?? hubClientConfigStore.read(centreId);
     // One Bonjour instance for the whole process (one multicast socket), shared as
     // advertiser + discoverer. Opening the socket can fail in a sandbox / on a
     // locked-down network — hosting config still works without it, so fail soft.
@@ -237,7 +245,7 @@ app.whenReady().then(async () => {
       // external hub. A hub host already wires its own client at its own listener,
       // so only a non-hosting device consults the client config (SOU-82).
       const hubServer = resolveHubConfig(centreId);
-      const hubClient = hubServer ? null : resolveHubClientConfig();
+      const hubClient = hubServer ? null : resolveHubClientConfig(centreId);
       return buildContainer({
         centreId,
         centerCode,
