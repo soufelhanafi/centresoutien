@@ -28,6 +28,7 @@ import {
 } from './key-store';
 import { sweepStaleTempPdfs } from '../data/fs/temp-pdf';
 import { LEGACY_DEMO_CENTRE_ID, resolveInitialCentreId } from './initial-centre-id';
+import { HubHostConfigStore } from './infra/hub-host-config-store';
 
 // The packaged renderer entry loaded from disk. Shared by the window's
 // `loadFile` and the trusted-origin resolution so the `file:` trust is pinned to
@@ -79,8 +80,12 @@ let disposeAutoUpdater: (() => void) | null = null;
  * beyond the local network. The hub host's own replica still
  * syncs through the same SyncHubPort client (over localhost), so these env vars
  * only decide WHO serves — never how the hub machine syncs.
+ *
+ * This is the dev/e2e override path only. In a packaged build the env vars are
+ * unset and hosting comes from the persisted per-center config
+ * ({@link HubHostConfigStore}) instead — see `resolveHubConfig` in the boot block.
  */
-function resolveHubConfig(): { port: number; token: string; bindHost: string } | null {
+function resolveHubConfigFromEnv(): { port: number; token: string; bindHost: string } | null {
   if (process.env['CS_HUB_ENABLED'] !== '1') return null;
   const token = process.env['CS_HUB_TOKEN'];
   if (!token) {
@@ -175,11 +180,15 @@ app.whenReady().then(async () => {
     // alive while the OS viewer reads it — a file younger than the threshold
     // cannot predate the previous session by more than a few minutes.
     sweepStaleTempPdfs(app.getPath('temp'));
-    const hubServer = resolveHubConfig();
-    // A hub host already wires its own client at its own listener; only a device
-    // that serves no hub can point at an external one (SOU-82).
-    const hubClient = hubServer ? null : resolveHubClientConfig();
     const dir = app.getPath('userData');
+    // Hub hosting is per-center now (SOU-318): the env override is the dev/e2e
+    // path; a packaged build reads which centers this device hosts (and on what
+    // port/interface, under which pairing token) from the persisted store. Both
+    // are resolved per centreId inside `openCenter`, so a center switch re-opens
+    // the correct hub role for the target center.
+    const hubHostConfigStore = new HubHostConfigStore(dir);
+    const resolveHubConfig = (centreId: string): { port: number; token: string; bindHost: string } | null =>
+      resolveHubConfigFromEnv() ?? hubHostConfigStore.read(centreId);
     const realCentreId = resolveInitialCentreId(process.env['CS_CENTRE']);
     const realCenterCode = (process.env['CS_CENTER_CODE'] ?? 'CS-DEV-001') as CenterCode;
 
@@ -212,6 +221,12 @@ app.whenReady().then(async () => {
       const { key, legacyKeys } = centerDbKey(dir, centreId);
       ensureDatabaseKeyed(join(dir, centreDbFileName(centreId)), key, legacyKeys);
       ensureDatabaseKeyed(join(dir, hubDbFileName(centreId)), key, legacyKeys);
+      // This device's hub role for THIS center: it either hosts the center's hub
+      // (env override or persisted config) or, failing that, may point at an
+      // external hub. A hub host already wires its own client at its own listener,
+      // so only a non-hosting device consults the client config (SOU-82).
+      const hubServer = resolveHubConfig(centreId);
+      const hubClient = hubServer ? null : resolveHubClientConfig();
       return buildContainer({
         centreId,
         centerCode,

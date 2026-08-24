@@ -1473,13 +1473,18 @@ export function buildContainer(options: ContainerOptions): Container {
   let hubServerInstance: HubServer | null = null;
   let hubStore: SqliteHubStore | null = null;
   let syncHub: SyncHubPort | null = null;
+  // Resolves once the embedded hub is actually listening — the initial self-push
+  // (below) waits on it so it never pushes at a socket that is not up yet.
+  let hubListening: Promise<number> | null = null;
   const hubConfig = options.hubServer;
   if (hubConfig) {
     hubStore = SqliteHubStore.open({ centreId: options.centreId, key: options.key, dir: options.dir }, clock);
     applyMigrations(hubStore.db, toMigrations(hubMigrationFiles));
     hubStore.registerCenter(options.centerCode, hubConfig.token, clock.now());
     hubServerInstance = new HubServer(hubStore, hubConfig.port, hubConfig.bindHost);
-    void hubServerInstance.start({ retries: 10, retryDelayMs: 150 }).catch((error: unknown) => {
+    const started = hubServerInstance.start({ retries: 10, retryDelayMs: 150 });
+    hubListening = started;
+    void started.catch((error: unknown) => {
       console.error('[hub] failed to start on port', hubConfig.port, error);
     });
     syncHub = new HttpSyncHubClient({
@@ -1536,6 +1541,24 @@ export function buildContainer(options: ContainerOptions): Container {
       })
     : null;
   const resolveConflict = new ResolveConflict(localSyncRepository, clock, plan, localSyncRepository);
+
+  // Initial self-push (SOU-318): a freshly designated hub host must publish its
+  // existing center to the canonical store BEFORE any laptop joins — otherwise a
+  // joining device pulls an empty feed and cold-bootstraps nothing. Once the hub
+  // is listening, drain this device's outbox and run one sync cycle against its
+  // own localhost hub (the same self-sync path every hub host uses). Fire-and-
+  // forget and idempotent: a second run simply finds nothing new to push. Only a
+  // hub host does this — a client-only device has no canonical store to seed.
+  if (hubServerInstance && syncEngine && hubListening) {
+    void hubListening
+      .then(() => {
+        syncOutbox.drain();
+        return syncEngine.run(matcher);
+      })
+      .catch((error: unknown) => {
+        console.error('[hub] initial self-push failed', error);
+      });
+  }
 
   const attemptLogin = new AttemptLogin(
     verifyUserPassword,
