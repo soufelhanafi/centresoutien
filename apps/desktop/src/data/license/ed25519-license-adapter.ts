@@ -8,11 +8,21 @@ import {
 } from '@centresoutien/domain';
 
 export type Ed25519LicenseAdapterOptions = {
-  /** Absolute path to the license file (JSON envelope). */
+  /** Absolute path to the machine-scoped license file (JSON envelope). */
   readonly filePath: string;
+  /**
+   * Legacy per-center license file (SOU-104 M2), read only when `filePath` is
+   * absent (SOU-315 backward compat). New activations always write `filePath`.
+   */
+  readonly legacyFilePath?: string;
   /** Vendor public key, SPKI PEM. */
   readonly publicKey: string;
 };
+
+type LicenseFileReadResult =
+  | { readonly status: 'ok'; readonly content: string }
+  | { readonly status: 'missing' }
+  | { readonly status: 'error' };
 
 /**
  * Reads a local license file and verifies its Ed25519 signature against the
@@ -61,13 +71,27 @@ export class Ed25519LicenseAdapter implements LicensePort {
   /**
    * File contents, or null when the file cannot be read. An absent, unreadable, or
    * permission-denied license is an expected offline state, never a startup failure —
-   * `LicensePort` guarantees `verify()` never throws.
+   * `LicensePort` guarantees `verify()` never throws. The legacy per-center file is
+   * tried ONLY when the machine-scoped primary is genuinely absent (ENOENT): a
+   * present-but-unreadable primary (EACCES/EISDIR/IO) fails closed to "no license"
+   * rather than silently preferring a stale legacy license.
    */
   private readFile(): string | null {
+    const primary = this.readPath(this.options.filePath);
+    if (primary.status === 'ok') return primary.content;
+    if (primary.status === 'missing' && this.options.legacyFilePath !== undefined) {
+      const legacy = this.readPath(this.options.legacyFilePath);
+      if (legacy.status === 'ok') return legacy.content;
+    }
+    return null;
+  }
+
+  private readPath(path: string): LicenseFileReadResult {
     try {
-      return readFileSync(this.options.filePath, 'utf8');
-    } catch {
-      return null;
+      return { status: 'ok', content: readFileSync(path, 'utf8') };
+    } catch (error) {
+      const code = error instanceof Error && 'code' in error ? error.code : undefined;
+      return code === 'ENOENT' ? { status: 'missing' } : { status: 'error' };
     }
   }
 
