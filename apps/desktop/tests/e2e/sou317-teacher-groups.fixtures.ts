@@ -133,9 +133,13 @@ export type Launched = { app: ElectronApplication; win: Page };
 type Bridge = { invoke: (channel: string, request: unknown) => Promise<{ id: string }> };
 
 export async function launch(locale: Locale, plan: PlanId, userDataDir: string): Promise<Launched> {
+  // Clear any inherited CS_E2E_OMIT_FEATURES so a value set in the parent shell can't
+  // silently disable features and make the suite nondeterministic (repo fixture convention).
+  const env: Record<string, string> = { ...process.env, CS_LOCALE: locale, CS_PLAN: plan };
+  delete env['CS_E2E_OMIT_FEATURES'];
   const app = await electron.launch({
     args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
-    env: { ...process.env, CS_LOCALE: locale, CS_PLAN: plan },
+    env,
   });
   const win = await app.firstWindow();
   await win.waitForLoadState('domcontentloaded');
@@ -146,6 +150,7 @@ export async function launch(locale: Locale, plan: PlanId, userDataDir: string):
 export async function boot(locale: Locale, plan: PlanId = 'premium'): Promise<Launched> {
   const live = await launch(locale, plan, freshUserDataDir());
   await live.win.evaluate(async (admin) => {
+    // `window.api` is the preload IPC bridge, absent from the DOM `Window` type — narrow cast, test-only.
     const api = (window as unknown as { api: { invoke: (c: string, r: unknown) => Promise<unknown> } }).api;
     await api.invoke('admin.create', admin);
     await api.invoke('auth.login', { ...admin, rememberDevice: true });
@@ -177,6 +182,7 @@ export type Seeded = {
 export async function seedScenario(win: Page): Promise<Seeded> {
   return win.evaluate(
     async ({ SUBJECTS, TEACHERS, STUDENTS, LEVELS, CAPS, SUB_START, ENROLL_MONTH }) => {
+      // `window.api` is the preload IPC bridge, absent from the DOM `Window` type — narrow cast, test-only.
       const api = (window as unknown as { api: Bridge }).api;
 
       let fmlSeq = 1;
