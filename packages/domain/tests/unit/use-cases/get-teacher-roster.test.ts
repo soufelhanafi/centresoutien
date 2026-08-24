@@ -305,6 +305,44 @@ describe('GetTeacherRoster', () => {
     expect(rosterB).toEqual([]);
   });
 
+  it('attributes a snapshotted departure in the teacher\'s current group without double-counting', async () => {
+    const group = makeGroup({ subjectId: MATH, teacherId: TEACHER as string as EntityId });
+    await groups.save(group);
+    const student = makeStudent({ name: { fr: 'Salma Tazi', ar: 'سلمى التازي' } });
+    await students.save(student);
+    const gone = makeEnrollment(student.id, group.id);
+    await enrollments.save(gone);
+    await enrollments.softDeleteUnderTeacher(
+      gone.id,
+      new Date('2026-09-15T00:00:00Z'),
+      USER,
+      TEACHER as string as EntityId,
+    );
+
+    const roster = await useCase.execute({ centerCode: CENTER, teacherId: TEACHER });
+    expect(roster).toHaveLength(1);
+    expect(roster[0]).toMatchObject({ status: 'left', leftMonth: '2026-09' });
+    expect(roster[0]?.groups.map((g) => g.groupId)).toEqual([group.id]);
+  });
+
+  it('drops a snapshotted departed row whose group was archived (SOU-301)', async () => {
+    const group = makeGroup({ subjectId: MATH, teacherId: TEACHER as string as EntityId });
+    await groups.save(group);
+    const student = makeStudent();
+    await students.save(student);
+    const gone = makeEnrollment(student.id, group.id);
+    await enrollments.save(gone);
+    await enrollments.softDeleteUnderTeacher(
+      gone.id,
+      new Date('2026-09-15T00:00:00Z'),
+      USER,
+      TEACHER as string as EntityId,
+    );
+    await groups.softDelete(group.id, new Date('2026-09-16T00:00:00Z'), USER);
+
+    expect(await useCase.execute({ centerCode: CENTER, teacherId: TEACHER })).toEqual([]);
+  });
+
   it('composes the formula from only the subscription active this month, not a closed prior pack', async () => {
     const mathGroup = makeGroup({ subjectId: MATH });
     await groups.save(mathGroup);

@@ -24,6 +24,12 @@
 -- packages/domain/src/sync), exactly like formulas/invoices in 0049. A brand-new
 -- nullable column on a non-projected entity needs no payload upcaster.
 --
+-- ⚠️ WHEN enrollments become a synced entity type: register
+-- unenrolled_under_teacher_id in the enrollment change-log mapper AND bump
+-- SCHEMA_VERSION at that time (see schema-version.ts v4 — a new nullable field on an
+-- already-synced entity), or older devices will drop this field on pull and advance
+-- their cursor past it, permanently losing the snapshot on that device.
+--
 -- No FK (sync-order safe, matching enrollments' student_id/group_id in 0016): the
 -- referenced teacher can arrive after the enrollment on a pull, so the relationship
 -- is a hint, not a schema constraint.

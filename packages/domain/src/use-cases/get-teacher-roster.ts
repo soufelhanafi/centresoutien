@@ -200,6 +200,11 @@ export class GetTeacherRoster {
    * so a since-reassigned group's leavers still surface here on their real teacher's
    * roster. A tombstone whose group no longer resolves (archived/foreign) is dropped,
    * consistent with the live-groups-only roster.
+   *
+   * `resolveGroupRef` uses `findById`, so this path can surface a leaver from a group
+   * that is merely deactivated (`active = false`) — strictly more complete than the
+   * null-snapshot fallback, which only reaches `listActive` groups. That asymmetry is
+   * intentional: the snapshot is authoritative, the fallback is a best-effort guess.
    */
   private async collectFormerlyTaught(
     placements: Map<StudentId, StudentPlacement>,
