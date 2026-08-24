@@ -15,7 +15,6 @@ const LINK_COLUMNS = [
     key: "product",
     links: [
       { key: "features", href: { pathname: "/", hash: "fonctionnalites" } },
-      { key: "pricing", href: { pathname: "/", hash: "tarifs" } },
       { key: "download", href: "/telechargement" },
       { key: "changelog", href: "/nouveautes" },
     ],
