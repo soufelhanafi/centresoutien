@@ -111,8 +111,23 @@ On **Windows**, the custom sign hook (`win.signtoolOptions.sign`) now owns
 signing, so the old `CSC_LINK` / `CSC_KEY_PASSWORD` self-signed `.pfx` path no
 longer takes effect — electron-builder calls the hook instead, and with no
 `SSL_COM_*` credentials the hook leaves the build unsigned. To exercise the
-real signed path on Windows, provision the SSL.com eSigner credentials (see
-**Windows CI signing** above) and set the four `SSL_COM_*` env vars locally.
+real signed path on Windows locally you need **both** the eSigner credentials
+and CodeSignTool on disk (the hook shells out to it):
+
+1. Download `CodeSignTool-<version>.zip` from
+   <https://github.com/SSLcom/CodeSignTool/releases> and extract it.
+2. Point the hook at the folder containing `CodeSignTool.bat` and set the four
+   credentials (see **Windows CI signing** above), e.g. in Git Bash:
+
+   ```bash
+   export CODESIGNTOOL_DIR="/c/tools/CodeSignTool"
+   export SSL_COM_USERNAME=... SSL_COM_PASSWORD=... \
+          SSL_COM_CREDENTIAL_ID=... SSL_COM_TOTP_SECRET=...
+   pnpm --filter @centresoutien/desktop dist:win
+   ```
+
+   With the credentials set but `CODESIGNTOOL_DIR` missing, the hook fails
+   fast rather than producing an unsigned build.
 
 A self-signed cert does **not** satisfy Gatekeeper or SmartScreen trust —
 the workaround below is still required either way.
