@@ -19,6 +19,11 @@ export type Ed25519LicenseAdapterOptions = {
   readonly publicKey: string;
 };
 
+type LicenseFileReadResult =
+  | { readonly status: 'ok'; readonly content: string }
+  | { readonly status: 'missing' }
+  | { readonly status: 'error' };
+
 /**
  * Reads a local license file and verifies its Ed25519 signature against the
  * vendor public key — the concrete {@link LicensePort} for the desktop tier
@@ -66,24 +71,27 @@ export class Ed25519LicenseAdapter implements LicensePort {
   /**
    * File contents, or null when the file cannot be read. An absent, unreadable, or
    * permission-denied license is an expected offline state, never a startup failure —
-   * `LicensePort` guarantees `verify()` never throws. When the machine-scoped
-   * primary is absent, the legacy per-center file is tried (SOU-315) so an install
-   * that activated before the machine-scoped model keeps working.
+   * `LicensePort` guarantees `verify()` never throws. The legacy per-center file is
+   * tried ONLY when the machine-scoped primary is genuinely absent (ENOENT): a
+   * present-but-unreadable primary (EACCES/EISDIR/IO) fails closed to "no license"
+   * rather than silently preferring a stale legacy license.
    */
   private readFile(): string | null {
     const primary = this.readPath(this.options.filePath);
-    if (primary !== null) return primary;
-    if (this.options.legacyFilePath !== undefined) {
-      return this.readPath(this.options.legacyFilePath);
+    if (primary.status === 'ok') return primary.content;
+    if (primary.status === 'missing' && this.options.legacyFilePath !== undefined) {
+      const legacy = this.readPath(this.options.legacyFilePath);
+      if (legacy.status === 'ok') return legacy.content;
     }
     return null;
   }
 
-  private readPath(path: string): string | null {
+  private readPath(path: string): LicenseFileReadResult {
     try {
-      return readFileSync(path, 'utf8');
-    } catch {
-      return null;
+      return { status: 'ok', content: readFileSync(path, 'utf8') };
+    } catch (error) {
+      const code = error instanceof Error && 'code' in error ? error.code : undefined;
+      return code === 'ENOENT' ? { status: 'missing' } : { status: 'error' };
     }
   }
 

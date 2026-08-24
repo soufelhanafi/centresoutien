@@ -427,13 +427,25 @@ export type Container = {
  * restricted-mode gate skip the Ed25519 read+verify on the synchronous IPC path
  * (SOU-104 perf) and re-verify only when the file actually changed; a `stat` is
  * orders of magnitude cheaper than a signature check on every dispatch.
+ *
+ * With SOU-315 the adapter may read the legacy per-center file when the
+ * machine-scoped primary is absent, so the fingerprint must reflect whichever
+ * file is actually in effect: the primary when present, otherwise the legacy file
+ * (`legacy:`-prefixed so the two states never collide). This keeps deletion or
+ * replacement of the legacy file from leaving a stale license effective.
  */
-function licenseFileFingerprint(filePath: string): string | null {
+function licenseFileFingerprint(filePath: string, legacyFilePath?: string): string | null {
   try {
     const stat = statSync(filePath);
     return `${stat.mtimeMs}:${stat.size}`;
   } catch {
-    return null;
+    if (legacyFilePath === undefined) return null;
+    try {
+      const stat = statSync(legacyFilePath);
+      return `legacy:${stat.mtimeMs}:${stat.size}`;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -616,10 +628,10 @@ export function buildContainer(options: ContainerOptions): Container {
   // injected license keeps the `CS_LICENSE_*` / `options.planId` override ergonomics
   // (never restricted); tests inject `options.license`, exercising the real lock.
   const devOverrideActive = import.meta.env.DEV && options.license === undefined;
-  let cachedFingerprint: string | null = licenseFileFingerprint(licenseFilePath);
+  let cachedFingerprint: string | null = licenseFileFingerprint(licenseFilePath, legacyLicenseFilePath);
   let cachedVerification = license.verify();
   const verifyLicenseCached = (): LicenseVerification => {
-    const fingerprint = licenseFileFingerprint(licenseFilePath);
+    const fingerprint = licenseFileFingerprint(licenseFilePath, legacyLicenseFilePath);
     if (fingerprint !== cachedFingerprint) {
       cachedFingerprint = fingerprint;
       cachedVerification = license.verify();

@@ -65,6 +65,31 @@ describe('Ed25519LicenseAdapter.verify', () => {
     expect(port.verify()).toEqual({ status: 'missing' });
   });
 
+  it('falls back to the legacy file when the primary is absent (SOU-315)', () => {
+    const legacyPath = join(dir, 'license.legacy.json');
+    writeFileSync(legacyPath, JSON.stringify(claimsEnvelope(CLAIMS, vendor.privateKey)));
+    const port = new Ed25519LicenseAdapter({
+      filePath,
+      legacyFilePath: legacyPath,
+      publicKey: VENDOR_PEM,
+    });
+    expect(port.verify()).toEqual({ status: 'valid', claims: CLAIMS });
+  });
+
+  it('does not fall back to the legacy file when the primary is present but unreadable (SOU-315)', () => {
+    // EISDIR: the primary path is a directory, so the read fails for a reason other
+    // than absence. A stale legacy license must NOT be preferred in that state.
+    mkdirSync(filePath);
+    const legacyPath = join(dir, 'license.legacy.json');
+    writeFileSync(legacyPath, JSON.stringify(claimsEnvelope(CLAIMS, vendor.privateKey)));
+    const port = new Ed25519LicenseAdapter({
+      filePath,
+      legacyFilePath: legacyPath,
+      publicKey: VENDOR_PEM,
+    });
+    expect(port.verify()).toEqual({ status: 'missing' });
+  });
+
   it('returns "valid" with parsed claims for a genuine vendor-signed license', () => {
     writeLicense(claimsEnvelope(CLAIMS, vendor.privateKey));
     const result = adapter().verify();
