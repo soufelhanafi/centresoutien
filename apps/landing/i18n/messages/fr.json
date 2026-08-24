@@ -601,23 +601,23 @@
   },
   "confidentialite": {
     "meta_title": "Politique de confidentialité — Centre Soutien",
-    "meta_description": "Ce que Centre Soutien collecte via le Programme Fondateur, la durée de conservation et vos droits au titre de la loi 09-08.",
+    "meta_description": "Ce que Centre Soutien collecte via le Programme Fondateur et le formulaire de téléchargement, la durée de conservation et vos droits au titre de la loi 09-08.",
     "breadcrumb": "Confidentialité",
     "heading": "Politique de confidentialité",
-    "updated": "Dernière mise à jour : 10 août 2026",
-    "intro": "Cette page décrit les données personnelles que Centre Soutien collecte via le formulaire du Programme Fondateur, pourquoi elles sont collectées, combien de temps elles sont conservées et les droits dont vous disposez au titre de la loi 09-08.",
+    "updated": "Dernière mise à jour : 24 août 2026",
+    "intro": "Cette page décrit les données personnelles que Centre Soutien collecte via le formulaire du Programme Fondateur et le formulaire de téléchargement, pourquoi elles sont collectées, combien de temps elles sont conservées et les droits dont vous disposez au titre de la loi 09-08.",
     "sections": {
       "collected": {
         "title": "Données collectées",
-        "body": "Le formulaire du Programme Fondateur collecte : le nom du centre, la ville, une tranche indicative du nombre d'élèves, une adresse email et un numéro de téléphone. À la soumission, une empreinte non réversible de votre adresse IP et des informations techniques sur votre navigateur sont également collectées pour protéger le formulaire contre le spam et les doublons. Aucune autre donnée n'est collectée sur ce site."
+        "body": "Le formulaire du Programme Fondateur collecte : le nom du centre, la ville, une tranche indicative du nombre d'élèves, une adresse email et un numéro de téléphone. Le formulaire de téléchargement collecte : votre nom complet et votre adresse email. À la soumission, une empreinte non réversible de votre adresse IP et des informations techniques sur votre navigateur sont également collectées pour protéger les formulaires contre le spam et les doublons. Aucune autre donnée n'est collectée sur ce site."
       },
       "purpose": {
         "title": "Finalité",
-        "body": "Ces informations servent uniquement à étudier votre candidature au Programme Fondateur et à vous recontacter. Elles ne sont jamais transmises à des tiers ni utilisées à des fins publicitaires."
+        "body": "Ces informations servent uniquement à étudier votre candidature au Programme Fondateur, à vous donner accès au téléchargement et à vous recontacter. Elles ne sont jamais transmises à des tiers ni utilisées à des fins publicitaires."
       },
       "retention": {
         "title": "Durée de conservation",
-        "body": "Les candidatures sont conservées 24 mois maximum, puis supprimées."
+        "body": "Les candidatures et les demandes de téléchargement sont conservées 24 mois maximum, puis supprimées."
       },
       "access": {
         "title": "Accès",
@@ -747,6 +747,31 @@
     "badge": "Logiciel de gestion pour centres de soutien",
     "heading": "Télécharger Centre Soutien",
     "subheading": "Gérez vos élèves, professeurs, groupes, séances et factures mensuelles depuis un seul logiciel, même sans connexion Internet.",
+    "lead": {
+      "title": "Téléchargez Centre Soutien",
+      "subtitle": "Laissez votre nom et votre email pour accéder au téléchargement.",
+      "fields": {
+        "name": {
+          "label": "Nom complet",
+          "placeholder": "Votre nom"
+        },
+        "email": {
+          "label": "Email",
+          "placeholder": "vous@exemple.ma"
+        }
+      },
+      "consent": "J'accepte que Centre Soutien collecte mon nom et mon email pour me donner accès au téléchargement. Données conservées 24 mois maximum, jamais transmises à des tiers. <link>Politique de confidentialité</link> — droits d'accès, de rectification et de suppression (loi 09-08).",
+      "submit": "Accéder au téléchargement",
+      "submitting": "Envoi…",
+      "success": "Merci. Votre téléchargement est prêt ci-dessous.",
+      "toast_validation": "Veuillez corriger les champs en rouge.",
+      "toast_error": "Une erreur est survenue. Réessayez dans un instant.",
+      "errors": {
+        "name": "Indiquez votre nom complet.",
+        "email": "Indiquez une adresse email valide.",
+        "consent": "Vous devez accepter la politique de confidentialité."
+      }
+    },
     "platforms": {
       "recommended": "Recommandé",
       "download": "Télécharger",

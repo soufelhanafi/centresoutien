@@ -19,3 +19,12 @@ export const founderApplicationSchema = z.object({
 });
 
 export type FounderApplication = z.infer<typeof founderApplicationSchema>;
+
+/** Single source of truth for the download lead capture, used client + server. */
+export const downloadLeadSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().max(160),
+  consent: z.literal(true),
+});
+
+export type DownloadLead = z.infer<typeof downloadLeadSchema>;

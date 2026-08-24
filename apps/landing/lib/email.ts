@@ -1,6 +1,6 @@
 import { SendEmailCommand, SESClient } from "@aws-sdk/client-ses";
 import { Resend } from "resend";
-import type { FounderApplication } from "@/lib/validators";
+import type { DownloadLead, FounderApplication } from "@/lib/validators";
 import type { ResetLocale } from "@/lib/auth-reset";
 import { isEmailSuppressed } from "@/lib/suppression-store";
 
@@ -57,6 +57,54 @@ export async function sendFounderNotification(
     to,
     replyTo: data.email,
     subject: `Candidature Programme Fondateur — ${data.centerName}`,
+    text,
+  });
+  if (error) {
+    // Deliberately opaque: Resend's message may echo recipient data.
+    throw new Error("email_send_failed");
+  }
+  return { sent: true };
+}
+
+/*
+ * Sends the team notification for a captured download lead. Mirrors
+ * sendFounderNotification: returns { sent: false } in development when Resend
+ * is unconfigured and throws in production — including on a Resend error — so
+ * the caller never reports success for a lost lead. Never logs PII.
+ */
+export async function sendDownloadLeadNotification(
+  data: DownloadLead,
+  meta: SubmissionMeta,
+): Promise<{ sent: boolean }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const to =
+    process.env.DOWNLOAD_LEAD_NOTIFICATION_EMAIL ??
+    process.env.FOUNDER_NOTIFICATION_EMAIL;
+  const from = process.env.RESEND_FROM_EMAIL;
+
+  if (!apiKey || !to || !from) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("email_not_configured");
+    }
+    console.info("[download-lead] Resend not configured — email skipped (dev)");
+    return { sent: false };
+  }
+
+  const resend = new Resend(apiKey);
+  const text = [
+    `Nom : ${data.name}`,
+    `Email : ${data.email}`,
+    "",
+    `Soumis le : ${meta.submittedAt}`,
+    `IP (hash) : ${meta.ipHash}`,
+    `User-Agent : ${meta.userAgent}`,
+  ].join("\n");
+
+  const { error } = await resend.emails.send({
+    from,
+    to,
+    replyTo: data.email,
+    subject: `Nouveau lead téléchargement — ${data.name}`,
     text,
   });
   if (error) {
