@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -110,8 +110,31 @@ describe('RecoveryKeyEscrowWriter', () => {
 // public key at "provisioning", then recover through the CLI with the owner-held
 // private key and open a real SQLCipher DB. Runs only where the untracked owner
 // key is present (this worktree); CI without it skips rather than fails.
+type CliResult = { status: number; stdout: string; stderr: string };
+
+function runCli(cliArgs: readonly string[], env: NodeJS.ProcessEnv): CliResult {
+  try {
+    const stdout = execFileSync('node', ['scripts/recover-db-key.mjs', ...cliArgs], {
+      cwd: APP_DIR,
+      encoding: 'utf8',
+      env,
+    });
+    return { status: 0, stdout, stderr: '' };
+  } catch (error) {
+    const failure = error as { status?: number; stdout?: string; stderr?: string };
+    return { status: failure.status ?? 1, stdout: failure.stdout ?? '', stderr: failure.stderr ?? '' };
+  }
+}
+
 describe('offline recovery CLI (production key path)', () => {
   const hasProductPrivateKey = existsSync(PRODUCT_PRIVATE_KEY_FILE);
+  const productPrivateKey = () => readFileSync(PRODUCT_PRIVATE_KEY_FILE, 'utf8').trim();
+
+  function sealSiblingFor(dbPath: string, dbKey: string): string {
+    const writer = new RecoveryKeyEscrowWriter(escrow, recoveryPublicKeyModule.recoveryPublicKey());
+    writer.writeSiblingFor(dbPath, dbKey);
+    return recoveryBlobPathFor(dbPath);
+  }
 
   it.skipIf(!hasProductPrivateKey)('recovers the DB key and opens the encrypted database', () => {
     const dbPath = join(dir, 'centre-CS-CASA-001.db');
@@ -120,20 +143,58 @@ describe('offline recovery CLI (production key path)', () => {
     seeded.prepare('INSERT INTO marker (v) VALUES (?)').run('present');
     seeded.close();
 
-    const writer = new RecoveryKeyEscrowWriter(escrow, recoveryPublicKeyModule.recoveryPublicKey());
-    writer.writeSiblingFor(dbPath, DB_KEY);
+    const blobPath = sealSiblingFor(dbPath, DB_KEY);
+    const result = runCli(['--blob', blobPath, '--db', dbPath, '--print-key'], {
+      ...process.env,
+      CS_RECOVERY_PRIVATE_KEY: productPrivateKey(),
+    });
 
-    const output = execFileSync(
-      'node',
-      ['scripts/recover-db-key.mjs', '--blob', recoveryBlobPathFor(dbPath), '--db', dbPath, '--print-key'],
-      {
-        cwd: APP_DIR,
-        encoding: 'utf8',
-        env: { ...process.env, CS_RECOVERY_PRIVATE_KEY: readFileSync(PRODUCT_PRIVATE_KEY_FILE, 'utf8').trim() },
-      },
-    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('schema object(s) readable');
+    expect(result.stdout).toContain(`db key: ${DB_KEY}`);
+  });
 
-    expect(output).toContain('schema object(s) readable');
-    expect(output).toContain(`db key: ${DB_KEY}`);
+  it('exits 2 when no private key is supplied', () => {
+    const dbPath = join(dir, 'centre-CS-CASA-001.db');
+    const result = runCli(['--blob', join(dir, 'x.recovery'), '--db', dbPath], {
+      ...process.env,
+      CS_RECOVERY_PRIVATE_KEY: '',
+    });
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('missing recovery private key');
+  });
+
+  it.skipIf(!hasProductPrivateKey)('exits 1 on a corrupt/garbage recovery blob', () => {
+    const blobPath = join(dir, 'garbage.recovery');
+    writeFileSync(blobPath, Buffer.from('this is not a sealed box'));
+
+    const result = runCli(['--blob', blobPath, '--db', join(dir, 'centre-CS-CASA-001.db')], {
+      ...process.env,
+      CS_RECOVERY_PRIVATE_KEY: productPrivateKey(),
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('could not unseal the recovery blob');
+  });
+
+  it.skipIf(!hasProductPrivateKey)('exits 1 when the recovered key does not open the database', () => {
+    const dbPath = join(dir, 'centre-CS-CASA-001.db');
+    const seeded = openDatabaseAt(dbPath, DB_KEY);
+    seeded.prepare('CREATE TABLE marker (v TEXT)').run();
+    seeded.close();
+
+    // Seal a DIFFERENT key than the one the DB was created with: the blob
+    // unseals fine, but the recovered key cannot open the file.
+    const wrongKey = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+    const blobPath = sealSiblingFor(dbPath, wrongKey);
+
+    const result = runCli(['--blob', blobPath, '--db', dbPath], {
+      ...process.env,
+      CS_RECOVERY_PRIVATE_KEY: productPrivateKey(),
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('did not open');
   });
 });

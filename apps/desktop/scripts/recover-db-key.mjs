@@ -12,8 +12,18 @@
  * it. Only this CLI can, and only with a private key the operator supplies at
  * run time — never hard-coded, never shipped.
  *
+ * SECURITY / RUNBOOK: `RECOVERY_PRIVATE_KEY.txt` (the owner-held private key)
+ * must NEVER sit on a machine that runs `electron-builder` — .gitignore keeps it
+ * out of git, but the packager will happily bundle any file under the app dir.
+ * Keep the private key offline, on a machine that never builds a release.
+ *
  * Requires the node-ABI build of the native module (same as rekey-db.mjs):
  *   pnpm rebuild:node
+ *
+ * Node: works on any supported Node (engines: >=22.12). It reuses the app's own
+ * TypeScript open path (no hand-rolled PRAGMAs); Node <22.18 needs
+ * `--experimental-strip-types` to import `.ts`, so the script re-execs itself
+ * once with that flag when TypeScript support isn't already active.
  *
  * The private key is read from an env var or a file, never argv (`ps` exposes
  * argv to every user on the machine, and shell history records it):
@@ -26,9 +36,27 @@
  * Add --print-key to also echo the recovered DB key (hex).
  */
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import _sodium from 'libsodium-wrappers';
-import { openEncryptedDatabase } from '../src/data/sqlite/db-open.ts';
-import { recoveryPublicKey } from '../src/main/recovery-public-key.ts';
+
+// Re-exec once under --experimental-strip-types when this Node cannot yet strip
+// TypeScript by default (< 22.18): the dynamic imports below load the app's `.ts`
+// open path, and doing so keeps a single source of the SQLCipher parameters
+// instead of duplicating PRAGMAs here. The child sees the flag active and skips
+// this branch, so there is no re-exec loop; env (incl. the private key) and args
+// are forwarded unchanged.
+if (!process.features.typescript) {
+  const result = spawnSync(
+    process.execPath,
+    ['--experimental-strip-types', fileURLToPath(import.meta.url), ...process.argv.slice(2)],
+    { stdio: 'inherit', env: process.env },
+  );
+  process.exit(result.status ?? 1);
+}
+
+const { openEncryptedDatabase } = await import('../src/data/sqlite/db-open.ts');
+const { recoveryPublicKey } = await import('../src/main/recovery-public-key.ts');
 
 function parseArgs(argv) {
   const args = { blob: undefined, db: undefined, keyFile: undefined, printKey: false };
@@ -51,6 +79,10 @@ function readPrivateKeyBase64({ keyFile }) {
   if (fromEnv && fromEnv.trim()) return fromEnv.trim();
   if (keyFile) return readFileSync(keyFile, 'utf8').trim();
   return null;
+}
+
+function message(error) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 const args = parseArgs(process.argv.slice(2));
@@ -91,8 +123,4 @@ try {
   process.exit(1);
 } finally {
   db?.close();
-}
-
-function message(error) {
-  return error instanceof Error ? error.message : String(error);
 }
