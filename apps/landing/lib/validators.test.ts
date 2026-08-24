@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { founderApplicationSchema } from './validators';
+import { downloadLeadSchema, founderApplicationSchema } from './validators';
 
 const base = {
   centerName: 'Centre Test',
@@ -42,4 +42,31 @@ describe('founderApplicationSchema phone', () => {
       expect(founderApplicationSchema.safeParse({ ...base, phone }).success).toBe(false);
     });
   }
+});
+
+describe('downloadLeadSchema', () => {
+  const base = {
+    name: 'Yassine Alaoui',
+    email: 'yassine@example.com',
+    consent: true as const,
+  };
+
+  it('accepts a valid name + email + consent', () => {
+    expect(downloadLeadSchema.safeParse(base).success).toBe(true);
+  });
+
+  const invalidEmails = ['', 'not-an-email', 'a@', 'a b@c.com', '@example.com'];
+  for (const email of invalidEmails) {
+    it(`rejects invalid email ${JSON.stringify(email)}`, () => {
+      expect(downloadLeadSchema.safeParse({ ...base, email }).success).toBe(false);
+    });
+  }
+
+  it('rejects a name shorter than 2 characters', () => {
+    expect(downloadLeadSchema.safeParse({ ...base, name: 'A' }).success).toBe(false);
+  });
+
+  it('rejects missing consent', () => {
+    expect(downloadLeadSchema.safeParse({ ...base, consent: false }).success).toBe(false);
+  });
 });

@@ -1,6 +1,6 @@
 ---
 name: founder-form-changes
-description: Guard any change to the Founder Program application form in the Centre Soutien Next.js repo — the single path in this codebase that collects personally identifiable information (PII). Use this skill any time the form component, its Zod schema, its API route, its storage destination, its email notification, its confirmation page, or the privacy policy is touched. Trigger on phrases like "update the founder form", "add a field", "change the submission endpoint", "log the submission", "email notification", "store the data", or when reviewing any diff touching `components/sections/founder-program`, `app/api/founder`, or `app/[locale]/confidentialite`. Moroccan loi 09-08 applies — treat this as a compliance-critical path.
+description: Guard any change to a PII-collecting form in the Centre Soutien Next.js repo — the Founder Program application form and the download lead-capture form. Use this skill any time a form component, its Zod schema, its server action, its storage destination, its email notification, or the privacy policy is touched. Trigger on phrases like "update the founder form", "add a field", "change the submission endpoint", "log the submission", "email notification", "store the data", "download form", or when reviewing any diff touching `components/sections/founder-program`, `components/download/download-lead-form.tsx`, `components/download/submit-download-lead.ts`, or `app/[locale]/confidentialite`. Moroccan loi 09-08 applies — treat this as a compliance-critical path.
 ---
 
 # Founder Form Changes Skill
@@ -8,6 +8,19 @@ description: Guard any change to the Founder Program application form in the Cen
 The Founder Program form is the only place in this repo that collects personally identifiable information from users. Any change to this path has legal exposure under **loi 09-08** (Moroccan data protection law) and reputational exposure with the target audience (school directors trusting a new product with their business data).
 
 Do not treat this as a normal form. Every change goes through this skill.
+
+---
+
+## The second PII path: the download lead form (SOU-312)
+
+Since SOU-312 the repo has **two** PII-collecting forms, not one. The download
+lead form (`components/download/download-lead-form.tsx` + its server action
+`components/download/submit-download-lead.ts`) collects **full name + email**
+to gate the app download. It reuses the exact same pipeline as the Founder form
+(shared `hashIp`, `checkRateLimit`, Resend relay) and therefore **every rule in
+this skill applies to it unchanged**: same honeypot, same consent checkbox, same
+never-log-PII list, same privacy-policy sync. When you touch either form, follow
+this skill. A new PII-collecting form in this repo must also be registered here.
 
 ---
 

@@ -130,13 +130,14 @@ If a page was added: run the full `seo-audit` skill before considering this chec
 
 ---
 
-## Check 8 — Founder form changes require extra scrutiny
+## Check 8 — PII form changes require extra scrutiny
 
 If the PR touches any of:
 - `components/sections/founder-program.tsx`
-- `app/api/founder/`
-- `lib/validators.ts` (specifically the Founder schema)
-- Any migration or DB schema for founder submissions
+- `components/download/download-lead-form.tsx`
+- `components/download/submit-download-lead.ts`
+- `lib/validators.ts` (specifically the Founder or download-lead schema)
+- Any migration or DB schema for form submissions
 
 Then run the `founder-form-changes` skill checks before proceeding. Personal data flow changes are the highest-risk changes in this repo — do not merge without a specific PII review.
 
