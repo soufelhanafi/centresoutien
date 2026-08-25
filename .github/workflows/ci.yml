@@ -69,10 +69,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       # Linux has no display, so Electron renders into a virtual framebuffer
-      # (Xvfb) — the standard headless-Electron recipe. All other Chromium/GTK
-      # libs are already on the ubuntu-latest image.
-      - name: Install Xvfb
-        run: sudo apt-get update && sudo apt-get install -y xvfb
+      # (Xvfb) — the standard headless-Electron recipe. The ubuntu-latest image
+      # has no Arabic fonts, so the ar/RTL specs' text lays out with tofu
+      # fallback and the boundingBox-based RTL layout assertions fail; Noto
+      # Arabic (fonts-noto-core) gives real Arabic glyph metrics. Other
+      # Chromium/GTK libs are already on the image.
+      - name: Install Xvfb and Arabic fonts
+        run: sudo apt-get update && sudo apt-get install -y xvfb fonts-noto-core
 
       # test:e2e's pretest hook builds the `--mode e2e` artifacts and rebuilds
       # the native module for the Electron ABI, so no separate build step is
