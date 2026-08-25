@@ -23,6 +23,7 @@ import {
   type Subject,
   type SubjectId,
   type TimeOfDay,
+  type User,
   type UserId,
   type WeekdayIndex,
   type WeeklyRecurringSession,
@@ -35,6 +36,7 @@ import { hubDbFileName, SqliteHubStore } from '../../src/data/sqlite/hub/hub-sto
 import { HubServer } from '../../src/main/hub-server/hub-server';
 import { HttpSyncHubClient } from '../../src/data/sync/http-sync-hub-client';
 import { SqliteSubjectRepository } from '../../src/data/sqlite/repositories/subject-repository';
+import { SqliteUserRepository } from '../../src/data/sqlite/repositories/user-repository';
 import { SqliteSessionRepository } from '../../src/data/sqlite/repositories/session-repository';
 import { SqliteWeeklyRecurringSessionRepository } from '../../src/data/sqlite/repositories/weekly-recurring-session-repository';
 import { SqliteCenterHoursOverrideRepository } from '../../src/data/sqlite/repositories/center-hours-override-repository';
@@ -164,6 +166,7 @@ class Device {
   readonly dir: string;
   readonly db: DB;
   readonly subjects: SqliteSubjectRepository;
+  readonly users: SqliteUserRepository;
   readonly weeklySessions: SqliteWeeklyRecurringSessionRepository;
   readonly sessions: SqliteSessionRepository;
   readonly overrides: SqliteCenterHoursOverrideRepository;
@@ -182,6 +185,7 @@ class Device {
     runMigrations(this.db, REAL_MIGRATIONS);
     const changeLog = new SqliteChangeLogWriter(this.db, clock, deviceId);
     this.subjects = new SqliteSubjectRepository(this.db, changeLog);
+    this.users = new SqliteUserRepository(this.db, changeLog);
     this.weeklySessions = new SqliteWeeklyRecurringSessionRepository(this.db, changeLog);
     this.sessions = new SqliteSessionRepository(this.db, changeLog);
     this.overrides = new SqliteCenterHoursOverrideRepository(this.db, changeLog);
@@ -706,5 +710,64 @@ describe('center-hours-override sync (SOU-199)', () => {
     const tombstone = changed.find((o) => o.id === OVERRIDE);
     expect(tombstone).toBeDefined();
     expect(tombstone?.deletedAt).toEqual(new Date('2026-08-02T00:00:00Z'));
+  });
+});
+
+/*
+ * The multi-laptop-sync nightly failure: `users` is a synced entity (0044) and,
+ * since SOU-258, the owner credential replicates. Two laptops that each run
+ * first-run mint DISTINCT ULIDs for the SAME owner username. Pre-0053 the second
+ * device's apply projected the peer's row with `ON CONFLICT(id)` — a fresh id, so
+ * a plain INSERT — which the hard `ux_users_username_live` index rejected with
+ * `UNIQUE constraint failed`, aborting the ENTIRE sync-apply batch. 0053 relaxed
+ * that index to non-unique; the duplicate now converges at read (greatest-id
+ * winner), the same shape sessions/subjects use for their collisions.
+ */
+describe('owner username collision on users (SOU-258 follow-up) — no wedge', () => {
+  function makeOwner(id: UserId, deviceOrigin: DeviceId, updatedBy: UserId): User {
+    return {
+      id,
+      centerCode: CENTER,
+      deviceOrigin,
+      createdAt: AT,
+      updatedAt: AT,
+      updatedBy,
+      deletedAt: null,
+      version: 0,
+      role: 'owner',
+      username: 'directrice',
+      fullName: null,
+      passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$abc$def',
+      setupCodeHash: null,
+      setupCodeExpiresAt: null,
+      setupCodeRedeemedAt: null,
+      email: null,
+    };
+  }
+
+  it('two laptops that each created the owner offline converge without aborting the batch', async () => {
+    // USER_A (…0A) < USER_B (…0B), so the deterministic winner is USER_B.
+    await a.users.save(makeOwner(USER_A, DEV_A, USER_A));
+    await b.users.save(makeOwner(USER_B, DEV_B, USER_B));
+
+    await a.sync(); // A pushes its owner row
+    await expect(b.sync()).resolves.toBeUndefined(); // B pulls it → no UNIQUE-index wedge
+    await a.sync(); // A pulls B's owner row
+
+    expect(a.blockedCount()).toBe(0);
+    expect(b.blockedCount()).toBe(0);
+
+    // Both owner rows physically coexist on each device (the peer's row applied),
+    // and every device resolves the SAME winner (greatest ULID) at read, so login,
+    // the owner-credential write, and the roster never see a duplicate.
+    for (const dev of [a, b]) {
+      const live = dev.db
+        .prepare("SELECT COUNT(*) AS n FROM users WHERE deleted_at IS NULL")
+        .get() as { n: number };
+      expect(live.n).toBe(2);
+      expect((await dev.users.findByUsername('directrice'))?.id).toBe(USER_B);
+      expect((await dev.users.findOwner())?.id).toBe(USER_B);
+      expect((await dev.users.listActive(CENTER)).map((u) => u.id)).toEqual([USER_B]);
+    }
   });
 });
