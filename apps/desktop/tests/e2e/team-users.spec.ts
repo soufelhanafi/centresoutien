@@ -233,7 +233,11 @@ test('S7 — director re-issues a code; staff recover with a new password (userI
   await win.locator('input[name="newPassword"]').fill(EMP_PW2);
   await win.locator('input[name="confirmPassword"]').fill(EMP_PW2);
   await win.getByRole('button', { name: t.setupSubmit }).click();
-  await expect(win.getByText(t.setupSuccess)).toBeVisible();
+  // `.first()`: this is the SECOND success in the flow (onboarding was the first),
+  // and the E2E window runs hidden, where the toast auto-dismiss timer is paused —
+  // so the earlier onboarding toast can still be mounted alongside this one. The
+  // real proof of recovery is signing in with the new password just below.
+  await expect(win.getByText(t.setupSuccess).first()).toBeVisible();
 
   await loginViaForm(win, EMP_USER, EMP_PW2, loc);
   await expect(win.getByText('Centre principal').first()).toBeVisible();
