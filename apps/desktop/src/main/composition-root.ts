@@ -1542,6 +1542,7 @@ export function buildContainer(options: ContainerOptions): Container {
     hasher,
     clock,
     ids,
+    new SqliteLoginThrottleStore(db),
   );
   // The relay origin is a build-time constant (production by default); the E2E
   // build alone reads a runtime CS_RELAY_URL to point at a mock, mirroring the

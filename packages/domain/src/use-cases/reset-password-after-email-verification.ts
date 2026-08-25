@@ -1,5 +1,6 @@
 import type { UserRepository } from '../ports/user-repository';
 import type { EmailPasswordResetUnitOfWork } from '../ports/email-password-reset-unit-of-work';
+import type { LoginThrottleStore } from '../ports/login-throttle-store';
 import type { PasswordHasher } from '../ports/password-hasher';
 import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
@@ -29,6 +30,13 @@ export type ResetPasswordAfterEmailVerificationResult = { readonly outcome: 'suc
  * sync-participating row appends a `users` change_log entry; a migrated,
  * device-local owner stays local.
  *
+ * A successful reset also clears the console-wide login throttle (SOU-27). A user
+ * who reaches this flow has almost always tripped the lockout by guessing the
+ * password they came here to reset; leaving `auth_lockout` armed would refuse the
+ * NEW password at the next login for the full cooldown, since `AttemptLogin`
+ * short-circuits on an active lock before it ever verifies. Proving control of the
+ * mailbox is strictly stronger than a login, so the guess counter is retired here.
+ *
  * CALLER CONTRACT: this use case performs NO mailbox verification of its own — the
  * relay `reset-request`/`reset-confirm` round-trip runs in the main process and
  * must succeed before this executes. Keeping the relay call and this reset in the
@@ -42,6 +50,7 @@ export class ResetPasswordAfterEmailVerification {
     private readonly hasher: PasswordHasher,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    private readonly loginThrottle: LoginThrottleStore,
   ) {}
 
   async execute(
@@ -67,6 +76,8 @@ export class ResetPasswordAfterEmailVerification {
         now,
       ),
     });
+
+    await this.loginThrottle.reset();
 
     return { outcome: 'success' };
   }

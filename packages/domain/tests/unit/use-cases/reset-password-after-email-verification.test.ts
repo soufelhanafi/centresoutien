@@ -4,6 +4,7 @@ import { InMemoryAuthAuditLogRepository } from '../fakes/in-memory-auth-audit-lo
 import { InMemoryUserRepository } from '../fakes/in-memory-user-repository';
 import { InMemoryDeviceSessionStore } from '../fakes/in-memory-device-session-store';
 import { InMemoryEmailPasswordResetUnitOfWork } from '../fakes/in-memory-email-password-reset-unit-of-work';
+import { InMemoryLoginThrottleStore } from '../fakes/in-memory-login-throttle-store';
 import type { DeviceSessionId } from '../../../src/entities/device-session';
 import type { User, UserId } from '../../../src/entities/user';
 import type { CenterCode, DeviceId } from '../../../src/value-objects/ids';
@@ -42,6 +43,7 @@ describe('ResetPasswordAfterEmailVerification (per-user, SOU-303)', () => {
   let auditLog: InMemoryAuthAuditLogRepository;
   let deviceSessionStore: InMemoryDeviceSessionStore;
   let resetUnitOfWork: InMemoryEmailPasswordResetUnitOfWork;
+  let loginThrottle: InMemoryLoginThrottleStore;
   let useCase: ResetPasswordAfterEmailVerification;
   const hasher = fakeHasher();
   const clock = fakeClock('2026-08-23T10:00:00Z');
@@ -50,10 +52,18 @@ describe('ResetPasswordAfterEmailVerification (per-user, SOU-303)', () => {
     users = new InMemoryUserRepository();
     auditLog = new InMemoryAuthAuditLogRepository();
     deviceSessionStore = new InMemoryDeviceSessionStore();
+    loginThrottle = new InMemoryLoginThrottleStore();
     await seedStaff(users, await hasher.hash('oldPass1'));
 
     resetUnitOfWork = new InMemoryEmailPasswordResetUnitOfWork(users, auditLog, deviceSessionStore);
-    useCase = new ResetPasswordAfterEmailVerification(users, resetUnitOfWork, hasher, clock, fakeIds());
+    useCase = new ResetPasswordAfterEmailVerification(
+      users,
+      resetUnitOfWork,
+      hasher,
+      clock,
+      fakeIds(),
+      loginThrottle,
+    );
   });
 
   it('rotates the resolved staff account password to the new value', async () => {
@@ -65,6 +75,15 @@ describe('ResetPasswordAfterEmailVerification (per-user, SOU-303)', () => {
     expect(await hasher.verify(account!.passwordHash!, 'oldPass1')).toBe(false);
     expect(account!.updatedAt).toEqual(clock.now());
     expect(resetUnitOfWork.commits).toBe(1);
+  });
+
+  it('clears the login lockout so the new password is not refused by a stale cooldown', async () => {
+    const lockedUntil = clock.now().getTime() + 15 * 60 * 1000;
+    await loginThrottle.save({ failedAttempts: 6, lockedUntil });
+
+    await useCase.execute({ newPassword: 'NewPass1', username: 'sanaa' });
+
+    expect(await loginThrottle.get()).toEqual({ failedAttempts: 0, lockedUntil: null });
   });
 
   it('resolves by username, case-insensitively', async () => {
@@ -118,6 +137,8 @@ describe('ResetPasswordAfterEmailVerification (per-user, SOU-303)', () => {
       expiresAt: clock.now().getTime() + 1_000_000,
       userId: null,
     });
+    const lockedUntil = clock.now().getTime() + 15 * 60 * 1000;
+    await loginThrottle.save({ failedAttempts: 6, lockedUntil });
 
     const failingUnitOfWork = new InMemoryEmailPasswordResetUnitOfWork(
       users,
@@ -131,6 +152,7 @@ describe('ResetPasswordAfterEmailVerification (per-user, SOU-303)', () => {
       hasher,
       clock,
       fakeIds(),
+      loginThrottle,
     );
 
     await expect(
@@ -143,6 +165,9 @@ describe('ResetPasswordAfterEmailVerification (per-user, SOU-303)', () => {
     expect(auditLog.list().some((e) => e.eventType === 'password-reset-via-email')).toBe(false);
     expect(await deviceSessionStore.getCurrent()).not.toBeNull();
     expect(deviceSessionStore.clearCount).toBe(0);
+    // The lock clear runs only after a successful commit, so a rolled-back reset
+    // must leave the console locked.
+    expect(await loginThrottle.get()).toEqual({ failedAttempts: 6, lockedUntil });
   });
 
   it('throws on a weak password without touching the account or committing', async () => {
