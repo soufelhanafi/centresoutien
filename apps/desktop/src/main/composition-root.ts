@@ -193,6 +193,7 @@ import type {
   SubjectCodeCollisionStore,
   SessionDedupStore,
   PaymentReversalDedupStore,
+  UserCredentialDuplicateStore,
   CenterSwitchPort,
   CenterProvisioningPort,
 } from '@centresoutien/domain';
@@ -1613,7 +1614,11 @@ export function buildContainer(options: ContainerOptions): Container {
   // attente" inbox even before a hub exists); the engine itself only runs when
   // a hub is configured, mirroring `syncHub` — `sync.run` then reports a null
   // result ("not paired") to the renderer instead of failing.
-  const localSyncRepository: LocalSyncRepository & SubjectCodeCollisionStore & SessionDedupStore & PaymentReversalDedupStore = new SqliteLocalSyncRepository(
+  const localSyncRepository: LocalSyncRepository &
+    SubjectCodeCollisionStore &
+    SessionDedupStore &
+    PaymentReversalDedupStore &
+    UserCredentialDuplicateStore = new SqliteLocalSyncRepository(
     db,
     clock,
     deviceOrigin,
@@ -1644,6 +1649,7 @@ export function buildContainer(options: ContainerOptions): Container {
         subjectCollisionStore: localSyncRepository,
         sessionDedupStore: localSyncRepository,
         paymentReversalDedupStore: localSyncRepository,
+        userCredentialDuplicateStore: localSyncRepository,
       })
     : null;
   const resolveConflict = new ResolveConflict(localSyncRepository, clock, plan, localSyncRepository);

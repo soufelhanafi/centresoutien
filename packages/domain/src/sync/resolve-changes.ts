@@ -32,6 +32,14 @@ import {
   type ReversalDedupCandidate,
   type ReversalDedup,
 } from './reversal-dedup';
+import {
+  USER_ENTITY_TYPE,
+  userCredentialDuplicateKey,
+  type UserCredentialDuplicate,
+  type UserCredentialDuplicateStore,
+} from './user-credential-duplicate';
+import { resolveUserCredentialCollision } from '../policies/user-credential-collision-policy';
+import { normalizeUsername } from '../policies/username-normalization';
 import type { PaymentId } from '../entities/payment';
 
 type ResolveBatchOutput = {
@@ -39,6 +47,7 @@ type ResolveBatchOutput = {
   readonly subjectCodeCollisions?: SubjectCodeCollision[];
   readonly sessionDedups?: SessionDedup[];
   readonly reversalDedups?: ReversalDedup[];
+  readonly userCredentialDuplicates?: UserCredentialDuplicate[];
 };
 
 /**
@@ -62,6 +71,7 @@ export class ChangeResolver {
     private readonly subjectCollisions: SubjectCodeCollisionStore | null = null,
     private readonly sessionDedups: SessionDedupStore | null = null,
     private readonly reversalDedups: PaymentReversalDedupStore | null = null,
+    private readonly userDuplicates: UserCredentialDuplicateStore | null = null,
   ) {}
 
   /** Apply or merge each inbound change; queue conflicts; never auto-resolve them. */
@@ -114,7 +124,52 @@ export class ChangeResolver {
     }
 
     this.detectDuplicates(change, output.conflicts, matcher);
+    if (applied) {
+      this.detectUserCredentialDuplicate(change, output.userCredentialDuplicates ?? []);
+    }
     return applied ? 1 : 0;
+  }
+
+  /**
+   * Surface a same-username duplicate when an inbound `users` row applied over a
+   * different live local row (two laptops created the same account offline,
+   * migration 0053). No behaviour changes — both rows stay live and reads resolve
+   * the greatest-ULID winner — but a shadowed CREDENTIAL is invisible on its own,
+   * so it is reported for a UI nudge. Only fires on the apply that first creates
+   * the coexistence (a re-delivered, already-applied change short-circuits before
+   * here), so the director is nudged once, not every sync.
+   */
+  private detectUserCredentialDuplicate(
+    change: HubChange,
+    duplicates: UserCredentialDuplicate[],
+  ): void {
+    const store = this.userDuplicates;
+    if (store === null || change.entityType !== USER_ENTITY_TYPE) return;
+    if (change.entity['deletedAt'] != null) return; // a tombstone frees the slot
+    const username = change.entity['username'];
+    if (typeof username !== 'string') return;
+    const other = store.findLiveUserIdByUsername(
+      this.centreId,
+      normalizeUsername(username),
+      change.entityId,
+    );
+    if (other === null) return;
+    const { winnerId, loserId } = resolveUserCredentialCollision(change.entityId, other);
+    this.pushUniqueUserCredentialDuplicate(duplicates, {
+      entityType: USER_ENTITY_TYPE,
+      username: normalizeUsername(username),
+      winnerId,
+      loserId,
+    });
+  }
+
+  private pushUniqueUserCredentialDuplicate(
+    duplicates: UserCredentialDuplicate[],
+    duplicate: UserCredentialDuplicate,
+  ): void {
+    const key = userCredentialDuplicateKey(duplicate);
+    if (duplicates.some((existing) => userCredentialDuplicateKey(existing) === key)) return;
+    duplicates.push(duplicate);
   }
 
   /**

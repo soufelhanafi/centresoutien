@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogTrigger, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState, LockOverlay } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
 import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
@@ -26,6 +26,7 @@ export function SyncPage() {
   const popupConflicts = uniqueConflicts([...blocked, ...(lastResult?.conflicts ?? [])]);
   const popupReversalDedups = lastResult?.reversalDedups ?? [];
   const popupCount = popupConflicts.length + popupReversalDedups.length;
+  const credentialDuplicates = lastResult?.userCredentialDuplicates ?? [];
 
   const onRun = () => {
     void run.mutateAsync().then(() => setPopupOpen(true));
@@ -62,6 +63,18 @@ export function SyncPage() {
             )}
           </div>
           {lastResult === null && <p className="text-xs text-muted-foreground">{t('sync.notPaired')}</p>}
+          {credentialDuplicates.length > 0 && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">{t('sync.credentialDuplicate.title')}</p>
+                <p className="text-xs text-muted-foreground">{t('sync.credentialDuplicate.body')}</p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

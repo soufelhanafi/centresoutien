@@ -120,6 +120,13 @@ export type { ReversalDedup } from './sync/reversal-dedup';
 export type { ReversalDedupCandidate, PaymentReversalDedupStore } from './sync/reversal-dedup';
 export { resolveSessionCollision } from './policies/session-collision-policy';
 export type { SessionCollisionResolution } from './policies/session-collision-policy';
+export { USER_ENTITY_TYPE, userCredentialDuplicateKey } from './sync/user-credential-duplicate';
+export type {
+  UserCredentialDuplicate,
+  UserCredentialDuplicateStore,
+} from './sync/user-credential-duplicate';
+export { resolveUserCredentialCollision } from './policies/user-credential-collision-policy';
+export type { UserCredentialCollisionResolution } from './policies/user-credential-collision-policy';
 
 // Sync hub port (wire types + the swappable seam)
 export type { SyncHubPort, SyncCursor, HubChange, ChangeBatch, LocalChange, PushResult } from './ports/sync-hub-port';

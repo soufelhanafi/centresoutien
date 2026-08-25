@@ -47,7 +47,22 @@
  * missing key as NULL (mapper `?? null`), so `CURRENT_CHANGE_LOG_PAYLOAD_VERSION`
  * stays put.
  *
- * v5 (SOU-318): `center`, `organization`, and `membership` become synced entity
+ * v5 (SOU-258 follow-up): `users` relaxes its per-center live-username
+ * uniqueness from a HARD unique index (`ux_users_username_live`, 0044) to a
+ * non-unique lookup index (migration 0053). The column shape is unchanged, but
+ * the SYNC BEHAVIOUR is not: a new device lets two same-username rows coexist
+ * (two laptops that each created the owner offline) and converges them at read,
+ * whereas a pre-0053 device still carrying the unique index would throw
+ * `UNIQUE constraint failed` and abort the ENTIRE sync-apply batch the moment it
+ * pulled the peer's owner row. The bump forces the handshake to reject that old
+ * app loudly ("mise à jour requise") — a v4 device pulling from a v5 hub sees
+ * `batch.schemaVersion (5) > SCHEMA_VERSION (4)` and throws `SchemaTooOldError`;
+ * a v4 push to a v5 hub is rejected by the hub's `schemaVersion < 5` guard —
+ * so an un-upgraded laptop can never wedge on the relaxed data. No payload
+ * upcaster: the entity shape did not change (`CURRENT_CHANGE_LOG_PAYLOAD_VERSION`
+ * stays put); this is purely the index/constraint relaxation.
+ *
+ * v6 (SOU-318): `center`, `organization`, and `membership` become synced entity
  * types so a second device can cold-bootstrap the center's identity (profile +
  * ownership) from the hub feed, not just its data. Same failure mode as v2/v3:
  * the shapes did NOT change (payload version stays 1, no upcaster) and the tables
@@ -61,4 +76,4 @@
  * migration is added here (the tables and their envelope columns already exist),
  * so the local `DatabaseSchemaAheadOfAppError` guard never fires for this change.
  */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;

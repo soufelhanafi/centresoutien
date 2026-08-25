@@ -31,6 +31,7 @@ function syncedResult(): SyncResult {
     subjectCodeCollisions: [],
     sessionDedups: [],
     reversalDedups: [],
+    userCredentialDuplicates: [],
     cursor: null,
     deviceClockSkew: false,
     resolutionPermission: 'granted',
@@ -84,6 +85,22 @@ describe('sync handlers — sync.multi-device plan gate', () => {
 
       expect(response.result?.reversalDedups).toEqual([
         { entityType: 'payments', reversesPaymentId, winnerId, loserId },
+      ]);
+    });
+
+    it('maps same-username user credential duplicates into the renderer DTO', async () => {
+      const winnerId = 'usr_00000000000000000000000002';
+      const loserId = 'usr_00000000000000000000000001';
+      const run = vi.fn(async (): Promise<SyncResult> => ({
+        ...syncedResult(),
+        userCredentialDuplicates: [{ entityType: 'users', username: 'directrice', winnerId, loserId }],
+      }));
+      const handlers = createSyncHandlers(makeDeps({ syncEngine: { run } }));
+
+      const response = await handlers['sync.run']();
+
+      expect(response.result?.userCredentialDuplicates).toEqual([
+        { entityType: 'users', username: 'directrice', winnerId, loserId },
       ]);
     });
 
