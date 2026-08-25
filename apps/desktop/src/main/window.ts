@@ -61,12 +61,17 @@ export function createMainWindow(
  * re-navigate on reload (see `index.ts`'s reload menu handler) so a reload picks
  * up whatever locale is on disk right now, instead of the native `reload()`
  * re-requesting the exact URL — query string included — the window first opened
- * with.
+ * with. `bypassCache` mirrors what native Force Reload (`reloadIgnoringCache`)
+ * does for the dev server; a packaged `loadFile` never hits an HTTP cache, so it
+ * has no effect there.
  */
-export function loadRenderer(window: BrowserWindow, renderer: RendererEntry): void {
+export function loadRenderer(window: BrowserWindow, renderer: RendererEntry, bypassCache = false): void {
   if (renderer.devUrl) {
     const search = renderer.query ? `?${new URLSearchParams(renderer.query).toString()}` : '';
-    void window.loadURL(`${renderer.devUrl}${search}`);
+    void window.loadURL(
+      `${renderer.devUrl}${search}`,
+      bypassCache ? { extraHeaders: 'pragma: no-cache\ncache-control: no-cache\n' } : undefined,
+    );
   } else {
     void window.loadFile(renderer.indexHtml, renderer.query ? { query: renderer.query } : undefined);
   }

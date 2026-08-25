@@ -8,6 +8,7 @@ import { buildContainer, type Container } from './composition-root';
 import { MainRuntime } from './main-runtime';
 import { CenterHost } from './center/center-host';
 import { createMainWindow, loadRenderer, type RendererEntry } from './window';
+import { menuLabelsFor } from './menu-labels';
 import { createIpcSenderGuard, isTrustedIpcEvent } from './security/ipc-sender-guard';
 import { resolveTrustedRendererOrigin, type TrustedRendererOrigin } from './security/renderer-origin';
 import { initAutoUpdater } from './updater/auto-updater-service';
@@ -187,31 +188,52 @@ function rendererEntry(locale: string | undefined): RendererEntry {
  */
 function openWindow(trustedOrigin: TrustedRendererOrigin): void {
   const preload = join(import.meta.dirname, '../preload/index.js');
-  mainWindow = createMainWindow(preload, rendererEntry(resolveLocale()), trustedOrigin);
+  const window = createMainWindow(preload, rendererEntry(resolveLocale()), trustedOrigin);
+  window.on('closed', () => {
+    if (mainWindow === window) mainWindow = null;
+  });
+  mainWindow = window;
+}
+
+/** The focused window if one is both open and alive, else the tracked main window (same fallback native Reload uses via `getFocusedWindow()`). */
+function targetWindow(): BrowserWindow | null {
+  const window = BrowserWindow.getFocusedWindow() ?? mainWindow;
+  return window && !window.isDestroyed() ? window : null;
+}
+
+/**
+ * Re-navigates instead of calling native `reload()`/`reloadIgnoringCache()`, so
+ * Reload / Force Reload pick up the on-disk locale preference fresh every time
+ * instead of the window's original URL, locale query string frozen at whatever
+ * it was on launch. Also re-installs the menu so its own labels track the
+ * locale that was just resolved.
+ */
+function reloadWithFreshLocale(bypassCache: boolean): void {
+  const window = targetWindow();
+  if (!window) return;
+  const locale = resolveLocale();
+  loadRenderer(window, rendererEntry(locale), bypassCache);
+  installMenu(locale);
 }
 
 /**
  * The app ships no menu bar of its own, only Electron's per-platform default —
- * except Reload / Force Reload, which default to `webContents.reload()` and
- * would just re-request the window's original URL, locale query string frozen
- * at whatever it was on launch. Re-navigating instead of reloading picks up the
- * on-disk locale preference fresh every time.
+ * except Reload / Force Reload, whose labels come from `menuLabelsFor` (the
+ * role-based items around them auto-localize via Electron/the OS).
  */
-function installMenu(): void {
+function installMenu(locale: string | undefined = resolveLocale()): void {
   const isMac = process.platform === 'darwin';
-  const reloadWithFreshLocale = (): void => {
-    if (mainWindow) loadRenderer(mainWindow, rendererEntry(resolveLocale()));
-  };
+  const labels = menuLabelsFor(locale);
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       ...(isMac ? [{ role: 'appMenu' as const }] : []),
       { role: 'fileMenu' as const },
       { role: 'editMenu' as const },
       {
-        label: 'View',
+        label: labels.view,
         submenu: [
-          { label: 'Reload', accelerator: 'CmdOrCtrl+R', click: reloadWithFreshLocale },
-          { label: 'Force Reload', accelerator: 'CmdOrCtrl+Shift+R', click: reloadWithFreshLocale },
+          { label: labels.reload, accelerator: 'CmdOrCtrl+R', click: () => reloadWithFreshLocale(false) },
+          { label: labels.forceReload, accelerator: 'CmdOrCtrl+Shift+R', click: () => reloadWithFreshLocale(true) },
           { role: 'toggleDevTools' as const },
           { type: 'separator' as const },
           { role: 'resetZoom' as const },

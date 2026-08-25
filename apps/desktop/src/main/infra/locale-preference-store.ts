@@ -22,8 +22,10 @@ function isLocalePreference(value: unknown): value is LocalePreference {
  * adapter sharing this contract — a browser client would resolve locale from
  * `Accept-Language` or a session cookie instead, not from a `userData` file.
  *
- * `read` is synchronous by design: it runs once, before the window (and its
- * `?locale=` query string) is created, so there is no async gap to await.
+ * `read` is synchronous by design — a single small `readFileSync`, cheap enough
+ * to call on every window navigation (initial open, reload, re-`activate`) with
+ * no async gap to await, so none of those paths can serve a locale that's gone
+ * stale since app launch.
  */
 export class LocalePreferenceStore {
   private readonly filePath: string;
