@@ -55,6 +55,7 @@ function makeOwner(passwordHash: string): User {
     version: 0,
     role: 'owner',
     username: 'directrice',
+    fullName: null,
     passwordHash,
     setupCodeHash: null,
     setupCodeExpiresAt: null,

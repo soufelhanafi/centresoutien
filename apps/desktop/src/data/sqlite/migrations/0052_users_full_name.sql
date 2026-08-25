@@ -1,0 +1,30 @@
+-- 0052_users_full_name.sql
+-- What: adds a nullable `full_name` column to `users` — the staff member's own
+--       display name, captured at self-onboarding.
+-- Why:  SOU-303 reshapes onboarding to code-first. The director's create step
+--       shrinks to pick-role -> generate-code; the invited staff set their own
+--       username, full name, and email when they redeem the code. `full_name` is
+--       the identity field that move adds. It is NULL for a not-yet-redeemed invite
+--       and for the migrated/first-run owner (no full name was ever collected), and
+--       is populated through the normal domain write path at redemption
+--       (RedeemSetupCode).
+-- Rollback: additive-only; logical undo is dropping the column (never applied to a
+--       released DB in place).
+-- First ships in: v2.x (SOU-303).
+--
+-- Additive + sync-neutral: ships nullable with NO backfill, so no existing row is
+-- touched and no updated_at / updated_by / version is bumped — every replica
+-- converges to the same NULL on its own, zero sync traffic and zero phantom
+-- conflicts. Population happens later through RedeemSetupCode, where the
+-- change-log / updated_at bump is correct. `users` is the synced credential store
+-- (0044); a stale device that pulls a row with this field populated tolerates it
+-- (the payload mapper ignores unknown fields).
+--
+-- Note on the code-first placeholder: a pending invite keeps `username` NOT NULL
+-- (the additive-only rule forbids rebuilding the shipped `users` table to drop that
+-- constraint) and carries a non-final placeholder — the row's own id, unique per
+-- row, so two open invites never collide on ux_users_username_live. The staff set
+-- their real username at redemption. No schema change is needed for that; this
+-- migration only adds `full_name`.
+
+ALTER TABLE users ADD COLUMN full_name TEXT;

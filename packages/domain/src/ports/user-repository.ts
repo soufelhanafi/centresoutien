@@ -1,6 +1,40 @@
 import type { SoftDeletableRepository } from '../repositories/soft-deletable';
 import type { User, UserId } from '../entities/user';
 import type { CenterCode } from '../value-objects/ids';
+import type { Email } from '../value-objects/email';
+
+/**
+ * The identity a first-login redemption captures (SOU-303): the staff's own
+ * username, full name, and (mandatory) contact email — their password-reset
+ * channel. Present when the redemption is a first onboarding; absent when it only
+ * rotates the password (a director-reissued recovery code for an already-onboarded
+ * account). `username` is the display form; the adapter recomputes its normalized
+ * key. `email` is already canonicalized by the Email VO.
+ */
+export type RedeemedIdentity = {
+  readonly username: string;
+  readonly fullName: string;
+  readonly email: Email;
+};
+
+/**
+ * The setup-code fields a re-issue rotates (SOU-303). Handed to
+ * {@link UserRepository.reopenSetupCode}: it updates ONLY these columns (+ the
+ * envelope `updatedAt`/`updatedBy`), never identity or credentials, so a re-issue
+ * can never clobber a concurrent redemption's chosen username/password by writing
+ * back a stale entity snapshot.
+ */
+export type SetupCodeReissue = {
+  readonly id: UserId;
+  /** Argon2 hash of the freshly minted one-time code. */
+  readonly setupCodeHash: string;
+  /** Epoch millis (UTC) when the fresh code expires. */
+  readonly setupCodeExpiresAt: number;
+  /** When the re-issue happened (UTC, from the Clock port). */
+  readonly updatedAt: Date;
+  /** Who re-issued it — the director's id. */
+  readonly updatedBy: UserId;
+};
 
 /**
  * The final values a setup-code redemption commits, plus the pending hash it must
@@ -18,6 +52,14 @@ export type SetupCodeRedemption = {
   readonly redeemedAt: Date;
   /** Who committed it — the redeeming user's own id. */
   readonly updatedBy: UserId;
+  /**
+   * The identity captured at a first onboarding (SOU-303). When present the commit
+   * also writes `username` (+ its recomputed normalized key), `full_name`, and
+   * `email`; when absent only the password is rotated (recovery). A same-username
+   * race that slips past the caller's pre-check trips the live-username uniqueness
+   * index — the adapter surfaces that as `UsernameAlreadyTakenError`.
+   */
+  readonly identity?: RedeemedIdentity;
 };
 
 /**
@@ -48,14 +90,50 @@ export interface UserRepository extends SoftDeletableRepository<UserId, User> {
   findOwner(): Promise<User | null>;
 
   /**
-   * Atomically redeem a pending setup code (SOU-252). Sets `passwordHash`, clears
-   * BOTH the setup-code hash and its expiry, and stamps `setupCodeRedeemedAt` —
-   * but ONLY while the row is still pending on `expectedSetupCodeHash` and not yet
-   * redeemed. This is a compare-and-set, not a read-modify-write: two concurrent
-   * redemptions cannot both win, and a second attempt after a redemption matches
-   * no row. Returns `true` when a row was redeemed, `false` when none matched (the
-   * caller maps `false` to `SetupCodeAlreadyRedeemedError`). Records the change_log
-   * append in the same transaction so the redeemed account replicates.
+   * True when this user's row already participates in the sync feed — created
+   * through the logging repository (it has a `users` change_log row) or pulled from
+   * the hub (it has a `sync_local_entity` shadow). Feeds the per-account replication
+   * decision on a password reset (SOU-258/SOU-303): a participating account appends
+   * a change_log row so the rotated hash reaches paired devices; a migrated,
+   * device-local owner (backfilled by migration 0044, neither present) stays local
+   * — pushing it would collide on `ux_users_username_live`. Never gates a write.
+   */
+  participatesInSync(userId: UserId): Promise<boolean>;
+
+  /**
+   * Every live user with a setup code that has NOT yet been redeemed (SOU-303) —
+   * the currently-open invites. Backs code-first redemption/validation, which
+   * locate an invite by the code rather than a username (the staff have not chosen
+   * one yet). EXPIRED-but-unredeemed codes are included so the caller can report
+   * "expired" distinctly from "invalid"; the caller filters on `setupCodeExpiresAt`.
+   */
+  listPendingInvites(): Promise<readonly User[]>;
+
+  /**
+   * Atomically redeem a pending setup code (SOU-252/SOU-303). Sets `passwordHash`,
+   * clears BOTH the setup-code hash and its expiry, stamps `setupCodeRedeemedAt`,
+   * and — when `redemption.identity` is present (a first onboarding) — also writes
+   * the chosen `username` (+ recomputed normalized key), `full_name`, and `email`.
+   * All of it applies ONLY while the row is still pending on `expectedSetupCodeHash`
+   * and not yet redeemed. This is a compare-and-set, not a read-modify-write: two
+   * concurrent redemptions cannot both win, and a second attempt after a redemption
+   * matches no row. Returns `true` when a row was redeemed, `false` when none
+   * matched (the caller maps `false` to `SetupCodeAlreadyRedeemedError`); throws
+   * `UsernameAlreadyTakenError` when a captured username collides with another live
+   * account (the uniqueness index is the last-resort race guard). Records the
+   * change_log append in the same transaction so the redeemed account replicates.
    */
   markSetupCodeRedeemed(redemption: SetupCodeRedemption): Promise<boolean>;
+
+  /**
+   * Re-open a setup code on an existing account (SOU-303 director re-issue). Rotates
+   * ONLY the setup-code fields (`setup_code_hash`, `setup_code_expires_at`, cleared
+   * `setup_code_redeemed_at`) plus `updated_at`/`updated_by` on the live row, and
+   * appends the change_log in the same transaction. Deliberately a targeted update,
+   * NOT a full-entity upsert: identity and credentials are untouched, so a re-issue
+   * running concurrently with a redemption can never revert the chosen username or
+   * password by writing back a stale snapshot. Returns the updated {@link User}, or
+   * `null` when no live row matched the id (deleted meanwhile).
+   */
+  reopenSetupCode(reissue: SetupCodeReissue): Promise<User | null>;
 }

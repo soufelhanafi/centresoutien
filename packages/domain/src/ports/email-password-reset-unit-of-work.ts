@@ -1,24 +1,36 @@
-import type { AdminAccount } from '../entities/admin-account';
+import type { UserId } from '../entities/user';
 import type { AuthAuditEvent } from '../entities/auth-audit-event';
 
 /**
+ * The minimal credential write a password reset commits (SOU-303): the target
+ * `users` row id, its new hash, and the bumped `updatedAt`. Per-user now — the
+ * reset resolves ANY account (owner or staff) by username and rotates that row —
+ * so this is expressed in generic `users` terms, not the owner-only AdminAccount.
+ */
+export type EmailPasswordCredentialWrite = {
+  readonly id: UserId;
+  readonly passwordHash: string;
+  readonly updatedAt: Date;
+};
+
+/**
  * The whole set of writes a successful email-verified password reset performs
- * (SOU-273), handed to {@link EmailPasswordResetUnitOfWork.commit} as ONE unit.
- * Mirrors {@link import('./recovery-code-reset-unit-of-work').RecoveryCodeResetUnitOfWork}
+ * (SOU-273/SOU-303), handed to {@link EmailPasswordResetUnitOfWork.commit} as ONE
+ * unit. Mirrors {@link import('./recovery-code-reset-unit-of-work').RecoveryCodeResetUnitOfWork}
  * but has NO code to consume: the mailbox proof is verified by the relay in the
  * main process BEFORE this seam, so the local unit only rotates the credential,
  * logs it, and clears any remembered device session.
  *
  * The use case computes every final value first (the new password hash already
- * sits on `account`), then delegates persistence so the writes commit
+ * sits on `credential`), then delegates persistence so the writes commit
  * all-or-nothing — a reset can never land the new hash while failing to log it or
  * to clear a live session.
  */
 export type EmailPasswordResetUnit = {
-  /** The account carrying the new `passwordHash` and bumped `updatedAt`. */
-  readonly account: AdminAccount;
+  /** The `users` row to rotate, carrying the new `passwordHash` and bumped `updatedAt`. */
+  readonly credential: EmailPasswordCredentialWrite;
   /**
-   * The DOMAIN's replication decision (SOU-258): true when the owner already
+   * The DOMAIN's replication decision (SOU-258): true when the account already
    * participates in the sync feed, so the reset's password write appends a
    * `users` change_log row in the same transaction. A migrated owner (backfilled
    * by migration 0044, no sync presence) stays device-local. The adapter

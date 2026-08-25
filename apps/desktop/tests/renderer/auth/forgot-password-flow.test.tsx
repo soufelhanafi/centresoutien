@@ -108,10 +108,14 @@ describe('ForgotPasswordFlow — email path', () => {
     renderFlow();
 
     await user.click(screen.getByRole('button', { name: /Par e-mail/ }));
+    await user.type(screen.getByLabelText("Nom d'utilisateur"), 'sanaa');
     await user.click(screen.getByRole('button', { name: 'Envoyer le code' }));
 
     await waitFor(() =>
-      expect(invoke).toHaveBeenCalledWith('auth.emailReset.request', { locale: 'fr' }),
+      expect(invoke).toHaveBeenCalledWith('auth.emailReset.request', {
+        username: 'sanaa',
+        locale: 'fr',
+      }),
     );
 
     await user.type(screen.getByLabelText('Code à 6 chiffres'), '123456');
@@ -121,6 +125,7 @@ describe('ForgotPasswordFlow — email path', () => {
 
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith('auth.emailReset.confirm', {
+        username: 'sanaa',
         code: '123456',
         password: 'Password1',
       }),
@@ -136,6 +141,7 @@ describe('ForgotPasswordFlow — email path', () => {
     renderFlow();
 
     await user.click(screen.getByRole('button', { name: /Par e-mail/ }));
+    await user.type(screen.getByLabelText("Nom d'utilisateur"), 'sanaa');
     await user.click(screen.getByRole('button', { name: 'Envoyer le code' }));
 
     expect(
@@ -145,6 +151,20 @@ describe('ForgotPasswordFlow — email path', () => {
     expect(
       screen.getByText('Comment souhaitez-vous réinitialiser votre mot de passe ?'),
     ).toBeInTheDocument();
+  });
+
+  it('shows a distinct message when the username matches no account', async () => {
+    window.api.invoke = vi.fn(async () => ({ outcome: 'account-not-found' }));
+    const user = userEvent.setup();
+    renderFlow();
+
+    await user.click(screen.getByRole('button', { name: /Par e-mail/ }));
+    await user.type(screen.getByLabelText("Nom d'utilisateur"), 'ghost');
+    await user.click(screen.getByRole('button', { name: 'Envoyer le code' }));
+
+    expect(await screen.findByText(/Aucun compte ne correspond/)).toBeInTheDocument();
+    // Not the no-email message, and no recovery-code suggestion for a wrong username.
+    expect(screen.queryByRole('button', { name: 'Utiliser un code de récupération' })).not.toBeInTheDocument();
   });
 
   it('marks the code field when the relay rejects the code', async () => {
@@ -157,6 +177,7 @@ describe('ForgotPasswordFlow — email path', () => {
     renderFlow();
 
     await user.click(screen.getByRole('button', { name: /Par e-mail/ }));
+    await user.type(screen.getByLabelText("Nom d'utilisateur"), 'sanaa');
     await user.click(screen.getByRole('button', { name: 'Envoyer le code' }));
     await user.type(await screen.findByLabelText('Code à 6 chiffres'), '000000');
     await user.type(screen.getByLabelText('Nouveau mot de passe'), 'Password1');

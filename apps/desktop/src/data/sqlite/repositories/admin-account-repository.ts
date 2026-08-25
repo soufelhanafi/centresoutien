@@ -59,30 +59,64 @@ export function adminAccountToSaveParams(account: AdminAccount) {
   };
 }
 
-// Writes the owner credential and, when the DOMAIN says to replicate (`options.replicate`,
-// SOU-258), appends a `users` change_log entry in the same transaction. The policy
-// — which owners participate in the sync feed — is computed by the use case via
-// {@link SqliteAdminAccountRepository.participatesInSync}; this helper only persists
-// the decision. Runs as plain statements so the recovery UoW can wrap them with
-// the code-consume + session clear atomically.
+// The minimal credential write both the owner (change-password / recovery-code)
+// and the per-user email reset (SOU-303) share: a `users` row id, its new hash, and
+// the bumped timestamp. The email reset targets any account (owner or staff), so
+// the shared helper is expressed in these generic terms, not the owner-only
+// AdminAccount.
+export type UserCredentialWrite = {
+  readonly id: string;
+  readonly passwordHash: string;
+  readonly updatedAt: Date;
+};
+
+// Writes a user's credential and, when the DOMAIN says to replicate
+// (`replicate`, SOU-258), appends a `users` change_log entry in the same
+// transaction. The policy — which accounts participate in the sync feed — is
+// computed by the use case (`participatesInSync`); this helper only persists the
+// decision. Runs as plain statements so a UoW can wrap it with the session clear +
+// audit atomically. `UPDATE users SET password_hash WHERE id` is generic by id, so
+// it rotates the owner row or any staff row identically.
+export function saveUserCredentialAndMaybeReplicate(
+  db: DB,
+  changeLog: ChangeLogWriter,
+  credential: UserCredentialWrite,
+  replicate: boolean,
+): void {
+  db.prepare(ADMIN_ACCOUNT_SAVE_SQL).run({
+    id: credential.id,
+    password_hash: credential.passwordHash,
+    updated_at: credential.updatedAt.toISOString(),
+  });
+  if (!replicate) return;
+
+  const row = db
+    .prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL')
+    .get(credential.id) as UserRow | undefined;
+  if (!row) return;
+  changeLog.record({
+    entityType: 'users',
+    entityId: toEntityId(credential.id),
+    centerCode: row.center_code as CenterCode,
+    intent: 'upsert',
+    entity: userRowToUser(row),
+  });
+}
+
+// The owner-scoped alias the change-password / recovery-code paths already call
+// (SOU-258). Delegates to the generic write above — one write path per table.
 export function saveOwnerCredentialAndMaybeReplicate(
   db: DB,
   changeLog: ChangeLogWriter,
   account: AdminAccount,
   replicate: boolean,
 ): void {
-  db.prepare(ADMIN_ACCOUNT_SAVE_SQL).run(adminAccountToSaveParams(account));
-  if (!replicate) return;
-
-  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(account.id) as UserRow | undefined;
-  if (!row) return;
-  changeLog.record({
-    entityType: 'users',
-    entityId: toEntityId(account.id),
-    centerCode: row.center_code as CenterCode,
-    intent: 'upsert',
-    entity: userRowToUser(row),
-  });
+  saveUserCredentialAndMaybeReplicate(
+    db,
+    changeLog,
+    { id: account.id, passwordHash: account.passwordHash, updatedAt: account.updatedAt },
+    replicate,
+  );
 }
 
 /**

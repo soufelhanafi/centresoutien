@@ -4,14 +4,13 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Database as DB } from 'better-sqlite3';
 import {
-  type AdminAccount,
-  type AdminAccountId,
   type AuthAuditEvent,
   type AuthAuditEventId,
   type AuthAuditEventType,
   type DeviceSession,
   type DeviceSessionId,
   type EmailPasswordResetUnit,
+  type EmailPasswordCredentialWrite,
   type User,
   type UserId,
   type CenterCode,
@@ -33,7 +32,7 @@ const LATER = new Date('2026-08-24T09:00:00Z');
 const OLD_HASH = '$argon2id$v=19$m=19456,t=2,p=1$old$oldhash';
 const NEW_HASH = '$argon2id$v=19$m=19456,t=2,p=1$new$newhash';
 
-const ACCOUNT_ID = 'usr_00000000000000000000000001' as AdminAccountId;
+const ACCOUNT_ID = 'usr_00000000000000000000000001' as UserId;
 const SESSION_ID = 'ses_00000000000000000000000001' as DeviceSessionId;
 
 function makeOwner(passwordHash: string): User {
@@ -48,6 +47,7 @@ function makeOwner(passwordHash: string): User {
     version: 0,
     role: 'owner',
     username: 'directrice',
+    fullName: null,
     passwordHash,
     setupCodeHash: null,
     setupCodeExpiresAt: null,
@@ -56,12 +56,12 @@ function makeOwner(passwordHash: string): User {
   };
 }
 
-function makeAccount(
+function makeCredential(
   passwordHash: string,
   updatedAt: Date,
-  id: AdminAccountId = ACCOUNT_ID,
-): AdminAccount {
-  return { id, username: 'directrice', passwordHash, createdAt: AT, updatedAt };
+  id: UserId = ACCOUNT_ID,
+): EmailPasswordCredentialWrite {
+  return { id, passwordHash, updatedAt };
 }
 
 function makeSession(): DeviceSession {
@@ -86,7 +86,7 @@ function auditEvent(eventType: AuthAuditEventType): AuthAuditEvent {
 
 function makeUnit(over: Partial<EmailPasswordResetUnit> = {}): EmailPasswordResetUnit {
   return {
-    account: makeAccount(NEW_HASH, LATER),
+    credential: makeCredential(NEW_HASH, LATER),
     // The seeded owner (written through SqliteUserRepository) participates in
     // sync, so the default reset replicates (SOU-258); the migrated test
     // overrides this to false.
@@ -185,7 +185,7 @@ describe('SqliteEmailPasswordResetUnitOfWork', () => {
   });
 
   it('keeps a migrated owner device-local: reset appends no users change_log row', async () => {
-    const MIGRATED_ID = 'usr_00000000000000000000000002' as AdminAccountId;
+    const MIGRATED_ID = 'usr_00000000000000000000000002' as UserId;
     db.prepare("DELETE FROM users WHERE id = 'usr_00000000000000000000000001'").run();
     db.prepare(
       `INSERT INTO users
@@ -200,7 +200,7 @@ describe('SqliteEmailPasswordResetUnitOfWork', () => {
     const before = usersChangeLogCount();
 
     await uow.commit(
-      makeUnit({ account: makeAccount(NEW_HASH, LATER, MIGRATED_ID), replicate: false }),
+      makeUnit({ credential: makeCredential(NEW_HASH, LATER, MIGRATED_ID), replicate: false }),
     );
 
     expect((await accounts.findOnly())?.passwordHash).toBe(NEW_HASH);

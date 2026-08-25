@@ -13,7 +13,7 @@ import {
   VALID_ADMIN,
 } from './team-users.fixtures';
 import { AUTH } from './login.fixtures';
-import { locale, EMP_USER, createLiveAppHarness } from './sou265.fixtures';
+import { locale, createLiveAppHarness } from './sou265.fixtures';
 
 /**
  * SOU-265 — remember-me principal survives an app restart. Log in through the UI
@@ -57,7 +57,7 @@ test('S2 — remembered principal survives restart; director can still invite [D
   // The recovered director principal still clears the owner/admin role guard.
   await gotoTeamTab(win, loc);
   await openInviteDialog(win, loc);
-  await submitInvite(win, EMP_USER, loc);
+  await submitInvite(win, loc);
   await expect(win.getByRole('heading', { name: t.setupCodeTitle })).toBeVisible();
   const code = await readSetupCode(win);
   expect(code, 'director can still mint an invite after the restart').toMatch(/[A-Z0-9-]{6,}/);

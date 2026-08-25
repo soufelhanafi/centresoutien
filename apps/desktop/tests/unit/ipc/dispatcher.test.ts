@@ -38,6 +38,9 @@ import {
   type CreateAdminAccountUseCase,
   type CreateUserUseCase,
   type RedeemSetupCodeUseCase,
+  type ValidateSetupCodeUseCase,
+  type ReissueSetupCodeUseCase,
+  type RecoverPasswordUseCase,
   type CreateGroupUseCase,
   type ListGroupsUseCase,
   type ListGroupsWithCountsUseCase,
@@ -129,17 +132,17 @@ const SETUP_CODE_EXPIRES_MS = new Date('2026-08-20T00:00:00Z').getTime();
 // Captures the last command `user.create` forwarded, so a test can assert the
 // envelope context (center/device/user) was injected in main, not sent by the
 // renderer.
-let lastCreateUserCommand: { username: string; role: string; centerCode: string } | null = null;
+let lastCreateUserCommand: { role: string; centerCode: string } | null = null;
 const stubCreateUser: CreateUserUseCase = {
   execute: async (command) => {
     lastCreateUserCommand = {
-      username: command.username,
       role: command.role,
       centerCode: command.centerCode,
     };
+    const id = 'usr_00000000000000000000000002' as UserId;
     return {
       user: {
-        id: 'usr_00000000000000000000000002' as UserId,
+        id,
         centerCode: command.centerCode,
         deviceOrigin: command.deviceOrigin,
         createdAt: NOW,
@@ -148,7 +151,10 @@ const stubCreateUser: CreateUserUseCase = {
         deletedAt: null,
         version: 0,
         role: 'secretary',
-        username: command.username,
+        // Code-first: no identity yet — the row carries a placeholder username (its
+        // id) and a null full name until the staff redeem the code (SOU-303).
+        username: id,
+        fullName: null,
         passwordHash: null,
         setupCodeHash: '$argon2id$v=19$m=19456,t=2,p=1$code$hash',
         setupCodeExpiresAt: SETUP_CODE_EXPIRES_MS,
@@ -164,6 +170,41 @@ const stubRedeemSetupCode: RedeemSetupCodeUseCase = {
     lastRedeemInput = { username: input.username, setupCode: input.setupCode };
   },
 };
+const stubValidateSetupCode: ValidateSetupCodeUseCase = {
+  execute: async () => ({ role: 'secretary', needsIdentity: true }),
+};
+let lastReissueUserId: string | null = null;
+const stubReissueSetupCode: ReissueSetupCodeUseCase = {
+  execute: async (command) => {
+    lastReissueUserId = command.userId;
+    return {
+      user: {
+        id: command.userId,
+        centerCode: context.centerCode,
+        deviceOrigin: context.deviceOrigin,
+        createdAt: NOW,
+        updatedAt: NOW,
+        updatedBy: command.updatedBy,
+        deletedAt: null,
+        version: 0,
+        role: 'secretary',
+        username: 'amine',
+        fullName: 'Amine Alaoui',
+        passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$owner$hash',
+        setupCodeHash: '$argon2id$v=19$m=19456,t=2,p=1$new$hash',
+        setupCodeExpiresAt: SETUP_CODE_EXPIRES_MS,
+        setupCodeRedeemedAt: null,
+      },
+      setupCode: 'B8L3-0GNQ-4RSU',
+    };
+  },
+};
+let lastRecoverInput: { setupCode: string } | null = null;
+const stubRecoverPassword: RecoverPasswordUseCase = {
+  execute: async (input) => {
+    lastRecoverInput = { setupCode: input.setupCode };
+  },
+};
 // One pending invite (has hashes) + one redeemed account (password set), so the
 // list test can assert redaction and both derived status values.
 const stubListUsers = async () => [
@@ -177,7 +218,9 @@ const stubListUsers = async () => [
     deletedAt: null,
     version: 0,
     role: 'secretary' as const,
-    username: 'amine',
+    // A pending invite: no identity yet — placeholder username, null full name.
+    username: 'usr_00000000000000000000000003',
+    fullName: null,
     passwordHash: null,
     setupCodeHash: '$argon2id$v=19$m=19456,t=2,p=1$abc$def',
     setupCodeExpiresAt: SETUP_CODE_EXPIRES_MS,
@@ -194,6 +237,7 @@ const stubListUsers = async () => [
     version: 0,
     role: 'owner' as const,
     username: 'directrice',
+    fullName: null,
     passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$owner$hash',
     setupCodeHash: null,
     setupCodeExpiresAt: null,
@@ -528,6 +572,9 @@ const dispatch = createIpcDispatcher(
     createAdminAccount: stubCreateAdminAccount,
     createUser: stubCreateUser,
     redeemSetupCode: stubRedeemSetupCode,
+    validateSetupCode: stubValidateSetupCode,
+    reissueSetupCode: stubReissueSetupCode,
+    recoverPassword: stubRecoverPassword,
     listUsers: stubListUsers,
     now: () => NOW,
     attemptLogin: stubAttemptLogin,
@@ -772,20 +819,20 @@ describe('createIpcDispatcher', () => {
   it('runs user.create, forwards the injected envelope context, and returns the view + one-time code', async () => {
     lastCreateUserCommand = null;
     await asPrincipal('owner', async () => {
-      await expect(dispatch('user.create', { username: 'amine', role: 'secretary' })).resolves.toEqual(
-        {
-          user: {
-            id: 'usr_00000000000000000000000002',
-            username: 'amine',
-            role: 'secretary',
-            status: 'setup-pending',
-          },
-          setupCode: 'A7K2-9FMP-3QRT',
+      // Code-first (SOU-303): the director sends only the role, and the pending
+      // invite's placeholder username/full name are never surfaced (both null).
+      await expect(dispatch('user.create', { role: 'secretary' })).resolves.toEqual({
+        user: {
+          id: 'usr_00000000000000000000000002',
+          username: null,
+          fullName: null,
+          role: 'secretary',
+          status: 'setup-pending',
         },
-      );
-      // The renderer sent only username + role; center/device/user were injected in main.
+        setupCode: 'A7K2-9FMP-3QRT',
+      });
+      // The renderer sent only the role; center/device/user were injected in main.
       expect(lastCreateUserCommand).toEqual({
-        username: 'amine',
         role: 'secretary',
         centerCode: context.centerCode,
       });
@@ -794,22 +841,22 @@ describe('createIpcDispatcher', () => {
 
   it('never leaks credential material through the user.create response', async () => {
     await asPrincipal('owner', async () => {
-      const res = await dispatch('user.create', { username: 'amine', role: 'secretary' });
+      const res = await dispatch('user.create', { role: 'secretary' });
       expect(res.user).not.toHaveProperty('passwordHash');
       expect(res.user).not.toHaveProperty('setupCodeHash');
       expect(JSON.stringify(res.user)).not.toContain('argon2id');
     });
   });
 
-  it('rejects user.create whose username fails the shared schema', async () => {
+  it('rejects user.create whose role fails the shared schema', async () => {
     await asPrincipal('owner', async () => {
-      await expect(dispatch('user.create', { username: 'a', role: 'secretary' })).rejects.toThrow();
+      await expect(dispatch('user.create', { role: '' })).rejects.toThrow();
     });
   });
 
   it('rejects user.create from an unauthenticated renderer (director-only channel)', async () => {
     principal = null;
-    const error = await dispatch('user.create', { username: 'amine', role: 'secretary' }).catch(
+    const error = await dispatch('user.create', { role: 'secretary' }).catch(
       (e: unknown) => e as Error,
     );
     // Unknown/absent principal surfaces as NotAuthenticatedError, whose stable
@@ -819,9 +866,9 @@ describe('createIpcDispatcher', () => {
 
   it('allows an admin (not just an owner) to run user.create', async () => {
     await asPrincipal('admin', async () => {
-      await expect(
-        dispatch('user.create', { username: 'amine', role: 'secretary' }),
-      ).resolves.toHaveProperty('setupCode');
+      await expect(dispatch('user.create', { role: 'secretary' })).resolves.toHaveProperty(
+        'setupCode',
+      );
     });
   });
 
@@ -829,25 +876,64 @@ describe('createIpcDispatcher', () => {
     'rejects user.create from a %s with the insufficient-role code (director-only)',
     async (role) => {
       await asPrincipal(role, async () => {
-        const error = await dispatch('user.create', {
-          username: 'amine',
-          role: 'secretary',
-        }).catch((e: unknown) => e as Error);
+        const error = await dispatch('user.create', { role: 'secretary' }).catch(
+          (e: unknown) => e as Error,
+        );
         expect(decodeDomainError(error.message)?.code).toBe('insufficient-role');
       });
     },
   );
 
+  it('runs user.validateSetupCode (unauthenticated) and returns the code-bound role', async () => {
+    await expect(
+      dispatch('user.validateSetupCode', { setupCode: 'A7K2-9FMP-3QRT' }),
+    ).resolves.toEqual({ role: 'secretary', needsIdentity: true });
+  });
+
   it('runs user.redeemSetupCode and forwards the request to the use case', async () => {
     lastRedeemInput = null;
     await expect(
       dispatch('user.redeemSetupCode', {
-        username: 'amine',
         setupCode: 'A7K2-9FMP-3QRT',
-        newPassword: 'Casa2026!',
+        username: 'amine',
+        fullName: 'Amine Alaoui',
+        email: 'amine@centre.ma',
+        newPassword: PASS,
       }),
     ).resolves.toEqual({ ok: true });
     expect(lastRedeemInput).toEqual({ username: 'amine', setupCode: 'A7K2-9FMP-3QRT' });
+  });
+
+  it('runs user.reissueSetupCode (director-only) and returns the view + fresh code', async () => {
+    lastReissueUserId = null;
+    await asPrincipal('owner', async () => {
+      const res = await dispatch('user.reissueSetupCode', {
+        userId: 'usr_00000000000000000000000003',
+      });
+      expect(res.setupCode).toBe('B8L3-0GNQ-4RSU');
+      expect(res.user.id).toBe('usr_00000000000000000000000003');
+      expect(res.user).not.toHaveProperty('setupCodeHash');
+      expect(lastReissueUserId).toBe('usr_00000000000000000000000003');
+    });
+  });
+
+  it('rejects user.reissueSetupCode from an unauthenticated renderer (director-only)', async () => {
+    principal = null;
+    const error = await dispatch('user.reissueSetupCode', {
+      userId: 'usr_00000000000000000000000003',
+    }).catch((e: unknown) => e as Error);
+    expect(decodeDomainError(error.message)?.code).toBe('not-authenticated');
+  });
+
+  it('runs user.recoverPassword (unauthenticated) and forwards the request', async () => {
+    lastRecoverInput = null;
+    await expect(
+      dispatch('user.recoverPassword', {
+        setupCode: 'B8L3-0GNQ-4RSU',
+        newPassword: PASS,
+      }),
+    ).resolves.toEqual({ ok: true });
+    expect(lastRecoverInput).toEqual({ setupCode: 'B8L3-0GNQ-4RSU' });
   });
 
   it('runs user.list and returns only redacted views (no credential hashes)', async () => {
@@ -857,13 +943,15 @@ describe('createIpcDispatcher', () => {
         users: [
           {
             id: 'usr_00000000000000000000000003',
-            username: 'amine',
+            username: null,
+            fullName: null,
             role: 'secretary',
             status: 'setup-pending',
           },
           {
             id: 'usr_00000000000000000000000001',
             username: 'directrice',
+            fullName: null,
             role: 'owner',
             status: 'active',
           },

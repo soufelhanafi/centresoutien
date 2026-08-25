@@ -39,7 +39,13 @@ type BlockingOutcome = 'rate-limited' | 'unreachable';
  * `invalid-or-expired` marks the code field; the throttle / offline outcomes
  * render inline. The password rule reuses the recovery-reset strength schema.
  */
-export function EmailResetConfirmStep({ onSuccess }: { onSuccess: () => void }) {
+export function EmailResetConfirmStep({
+  username,
+  onSuccess,
+}: {
+  username: string;
+  onSuccess: () => void;
+}) {
   const { t } = useTranslation();
   const confirm = useConfirmEmailReset();
   const [blocking, setBlocking] = useState<BlockingOutcome | null>(null);
@@ -50,7 +56,7 @@ export function EmailResetConfirmStep({ onSuccess }: { onSuccess: () => void }) 
 
   const onSubmit = form.handleSubmit(async (values) => {
     setBlocking(null);
-    const result = await confirm.mutateAsync({ code: values.code, password: values.password });
+    const result = await confirm.mutateAsync({ username, code: values.code, password: values.password });
     if (result.outcome === 'success') {
       onSuccess();
       return;

@@ -11,10 +11,19 @@ type UserListContentProps = {
   users: readonly UserView[];
   onRetry: () => void;
   onInvite: () => void;
+  onReissue: (user: UserView) => void;
+  reissuingId: string | null;
 };
 
 /** Renders the correct state for the team roster: loading, error, empty, or table. */
-export function UserListContent({ status, users, onRetry, onInvite }: UserListContentProps) {
+export function UserListContent({
+  status,
+  users,
+  onRetry,
+  onInvite,
+  onReissue,
+  reissuingId,
+}: UserListContentProps) {
   const { t } = useTranslation();
 
   if (status === 'loading') {
@@ -57,5 +66,5 @@ export function UserListContent({ status, users, onRetry, onInvite }: UserListCo
     );
   }
 
-  return <UserTable users={users} />;
+  return <UserTable users={users} onReissue={onReissue} reissuingId={reissuingId} />;
 }

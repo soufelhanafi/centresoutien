@@ -1,10 +1,10 @@
-import type { AdminAccountRepository } from '../ports/admin-account-repository';
+import type { UserRepository } from '../ports/user-repository';
 import type { EmailPasswordResetUnitOfWork } from '../ports/email-password-reset-unit-of-work';
 import type { PasswordHasher } from '../ports/password-hasher';
 import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
 import { resetPasswordAfterEmailVerificationSchema } from '../schemas/email-reset';
-import { AdminAccountNotFoundError } from '../errors/auth-errors';
+import { UserNotFoundError } from '../errors/user-errors';
 import {
   AUTH_AUDIT_EVENT_ID_PREFIX,
   type AuthAuditEvent,
@@ -20,12 +20,14 @@ export type ResetPasswordAfterEmailVerificationInput = {
 export type ResetPasswordAfterEmailVerificationResult = { readonly outcome: 'success' };
 
 /**
- * Rotates the local password once the owner has proved control of their contact
- * mailbox (SOU-273). The email path's counterpart to
- * {@link import('./reset-password-with-recovery-code').ResetPasswordWithRecoveryCode}:
- * same local tail (hash the new password, bump `updatedAt`, atomically clear any
- * remembered device session, log the reset) minus the recovery-code verification
- * and consumption.
+ * Rotates the local password once a staff member (or the owner) has proved control
+ * of their contact mailbox (SOU-273, generalized per-user in SOU-303). The account
+ * is resolved by USERNAME, not `findOwner()` — every account with an email on file
+ * can self-reset, not just the owner. Same local tail as the recovery-code reset:
+ * hash the new password, bump `updatedAt`, atomically clear any remembered device
+ * session, log the reset. The replication decision (SOU-258) is per-account: a
+ * sync-participating row appends a `users` change_log entry; a migrated,
+ * device-local owner stays local.
  *
  * CALLER CONTRACT: this use case performs NO mailbox verification of its own — the
  * relay `reset-request`/`reset-confirm` round-trip runs in the main process and
@@ -35,7 +37,7 @@ export type ResetPasswordAfterEmailVerificationResult = { readonly outcome: 'suc
  */
 export class ResetPasswordAfterEmailVerification {
   constructor(
-    private readonly accounts: AdminAccountRepository,
+    private readonly users: UserRepository,
     private readonly resetUnitOfWork: EmailPasswordResetUnitOfWork,
     private readonly hasher: PasswordHasher,
     private readonly clock: Clock,
@@ -48,16 +50,15 @@ export class ResetPasswordAfterEmailVerification {
     const { newPassword } = resetPasswordAfterEmailVerificationSchema.parse(input);
     const username = input.username;
 
-    const account = await this.accounts.findOnly();
-    if (!account) throw new AdminAccountNotFoundError();
+    const user = await this.users.findByUsername(username);
+    if (user === null) throw new UserNotFoundError();
 
     const now = this.clock.now();
-    account.passwordHash = await this.hasher.hash(newPassword);
-    account.updatedAt = now;
-    const replicate = await this.accounts.participatesInSync(account.id);
+    const passwordHash = await this.hasher.hash(newPassword);
+    const replicate = await this.users.participatesInSync(user.id);
 
     await this.resetUnitOfWork.commit({
-      account,
+      credential: { id: user.id, passwordHash, updatedAt: now },
       replicate,
       auditEvents: [this.auditEvent('password-reset-via-email', username, now)],
       deviceSessionInvalidatedEvent: this.auditEvent(

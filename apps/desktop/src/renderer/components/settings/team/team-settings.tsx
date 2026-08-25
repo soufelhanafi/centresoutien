@@ -8,9 +8,12 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  toast,
 } from '@centresoutien/ui';
 import { useUsers } from '../../../hooks/user/use-users';
+import { useReissueSetupCode } from '../../../hooks/user/use-reissue-setup-code';
 import type { CreateUserResult } from '../../../lib/users/users-gateway';
+import type { UserView } from '../../../lib/users/user-view';
 import { UserListContent, type UserListStatus } from './user-list-content';
 import { AddEmployeeDialog } from './add-employee-dialog';
 import { SetupCodeDialog } from './setup-code-dialog';
@@ -25,12 +28,26 @@ import { SetupCodeDialog } from './setup-code-dialog';
 export function TeamSettings() {
   const { t } = useTranslation();
   const users = useUsers();
+  const reissue = useReissueSetupCode();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [issuedCode, setIssuedCode] = useState<CreateUserResult | null>(null);
 
   const roster = users.data ?? [];
   const hasEmployees = roster.some((user) => user.role !== 'owner');
-  const status = resolveStatus({ isPending: users.isPending, isError: users.isError, hasEmployees });
+  const status = resolveStatus({
+    hasData: users.data !== undefined,
+    isPending: users.isPending,
+    isError: users.isError,
+    hasEmployees,
+  });
+
+  const handleReissue = async (user: UserView) => {
+    try {
+      setIssuedCode(await reissue.mutateAsync(user.id));
+    } catch {
+      toast.error(t('team.reissue.error'));
+    }
+  };
 
   return (
     <Card className="w-full max-w-2xl">
@@ -50,6 +67,8 @@ export function TeamSettings() {
           users={roster}
           onRetry={() => void users.refetch()}
           onInvite={() => setInviteOpen(true)}
+          onReissue={(user) => void handleReissue(user)}
+          reissuingId={reissue.isPending ? (reissue.variables ?? null) : null}
         />
       </CardContent>
 
@@ -57,7 +76,7 @@ export function TeamSettings() {
 
       {issuedCode ? (
         <SetupCodeDialog
-          username={issuedCode.user.username}
+          role={issuedCode.user.role}
           setupCode={issuedCode.setupCode}
           onClose={() => setIssuedCode(null)}
         />
@@ -67,15 +86,22 @@ export function TeamSettings() {
 }
 
 function resolveStatus({
+  hasData,
   isPending,
   isError,
   hasEmployees,
 }: {
+  hasData: boolean;
   isPending: boolean;
   isError: boolean;
   hasEmployees: boolean;
 }): UserListStatus {
+  // A roster we already have is shown even while a background refetch is failing:
+  // a transient user.list error (e.g. the first refetch after a re-login) must
+  // never blank a working team list into a full-page error — with retry:false a
+  // single blip would otherwise strand the ErrorState until a manual retry.
+  if (hasData) return hasEmployees ? 'ready' : 'empty';
   if (isPending) return 'loading';
   if (isError) return 'error';
-  return hasEmployees ? 'ready' : 'empty';
+  return 'empty';
 }
