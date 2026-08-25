@@ -143,18 +143,24 @@ export class SqliteAdminAccountRepository implements AdminAccountRepository {
     // owner. Without `role = 'owner'` an employee sharing (or colliding on) a
     // username could resolve here, and a subsequent owner password
     // `UPDATE … WHERE id = @id` would mutate that employee's row instead.
+    // Deterministic winner (greatest ULID) among any duplicate live owner rows —
+    // since 0053 dropped the live-username unique index, two devices that each
+    // created the owner offline can leave two live rows, and every read must
+    // resolve the SAME one so the owner-password `UPDATE … WHERE id` targets it
+    // consistently on every device (matches SqliteUserRepository.findByUsername).
     const row = this.db
       .prepare(
-        "SELECT id, username, password_hash, created_at, updated_at FROM users WHERE username_normalized = ? AND role = 'owner' AND deleted_at IS NULL",
+        "SELECT id, username, password_hash, created_at, updated_at FROM users WHERE username_normalized = ? AND role = 'owner' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1",
       )
       .get(normalizeUsername(username)) as UserOwnerRow | undefined;
     return row ? fromRow(row) : null;
   }
 
   async findOnly(): Promise<AdminAccount | null> {
+    // Deterministic winner among any duplicate live owners (see findByUsername).
     const row = this.db
       .prepare(
-        "SELECT id, username, password_hash, created_at, updated_at FROM users WHERE role = 'owner' AND deleted_at IS NULL LIMIT 1",
+        "SELECT id, username, password_hash, created_at, updated_at FROM users WHERE role = 'owner' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1",
       )
       .get() as UserOwnerRow | undefined;
     return row ? fromRow(row) : null;
@@ -164,8 +170,8 @@ export class SqliteAdminAccountRepository implements AdminAccountRepository {
     // The owner participates in the sync feed when it was created through the
     // logging user repository (a `users` change_log row) or pulled from the hub
     // into `sync_local_entity`. A migrated owner — backfilled by migration 0044
-    // with a device-local ULID — has neither, so its credentials stay
-    // device-local (SOU-258; colliding with ux_users_username_live if pushed).
+    // with a device-local ULID and no change_log row — has neither, so its
+    // credentials stay device-local (SOU-258): never part of the sync feed.
     const logged = this.db
       .prepare("SELECT 1 FROM change_log WHERE entity_type = 'users' AND entity_id = ? LIMIT 1")
       .get(ownerId);

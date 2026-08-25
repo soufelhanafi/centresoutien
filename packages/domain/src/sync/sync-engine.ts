@@ -11,6 +11,7 @@ import type { LocalSyncRepository } from './sync-local-repository';
 import type { SubjectCodeCollision, SubjectCodeCollisionStore } from './subject-code-collision';
 import type { SessionDedup, SessionDedupStore } from './session-dedup';
 import type { PaymentReversalDedupStore, ReversalDedup } from './reversal-dedup';
+import type { UserCredentialDuplicate, UserCredentialDuplicateStore } from './user-credential-duplicate';
 
 /**
  * The sync cycle: **pull → resolve → push** (SOU-80 §3). Every sync, in that
@@ -71,6 +72,14 @@ export type SyncEngineInput = {
    */
   sessionDedupStore?: SessionDedupStore;
   paymentReversalDedupStore?: PaymentReversalDedupStore;
+  /**
+   * User credential duplicate reads (SOU-258 follow-up). When wired, an inbound
+   * `users` apply whose normalized username already belongs to a different live
+   * local row (two laptops created the same account offline, migration 0053) is
+   * surfaced on the result so the UI can nudge a password reset — the shadowed
+   * credential no longer authenticates. Detection only; no behaviour change.
+   */
+  userCredentialDuplicateStore?: UserCredentialDuplicateStore;
   /** Total pull→resolve→push attempts before giving up (default `MAX_SYNC_ATTEMPTS`). */
   maxAttempts?: number;
 };
@@ -93,6 +102,13 @@ export type SyncResult = {
    */
   readonly sessionDedups: readonly SessionDedup[];
   readonly reversalDedups: readonly ReversalDedup[];
+  /**
+   * Same-username `users` duplicates noticed this run (SOU-258 follow-up) — two
+   * laptops created the same account offline. Deterministic (greatest-ULID wins),
+   * no human needed; surfaced so the UI can nudge a password reset for the
+   * shadowed credential.
+   */
+  readonly userCredentialDuplicates: readonly UserCredentialDuplicate[];
   readonly cursor: SyncCursor | null;
   /** True when the device clock diverged absurdly from the hub's — flagged, not trusted. */
   readonly deviceClockSkew: boolean;
@@ -130,6 +146,7 @@ export class SyncEngine {
       input.subjectCollisionStore ?? null,
       input.sessionDedupStore ?? null,
       input.paymentReversalDedupStore ?? null,
+      input.userCredentialDuplicateStore ?? null,
     );
   }
 
@@ -140,6 +157,7 @@ export class SyncEngine {
     const collisions: SubjectCodeCollision[] = [];
     const dedups: SessionDedup[] = [];
     const reversalDedups: ReversalDedup[] = [];
+    const userCredentialDuplicates: UserCredentialDuplicate[] = [];
     let applied = 0;
     let pushed = 0;
     let deviceClockSkew = false;
@@ -164,13 +182,14 @@ export class SyncEngine {
         subjectCodeCollisions: collisions,
         sessionDedups: dedups,
         reversalDedups,
+        userCredentialDuplicates,
       });
 
       const push = await this.pushPending(batch.cursor);
       pushed += push.pushed;
       if (push.status === 'accepted') {
         this.local.setCursor(push.cursor);
-        return this.result('synced', applied, pushed, conflicts, collisions, dedups, reversalDedups, push.cursor, deviceClockSkew);
+        return this.result('synced', applied, pushed, conflicts, collisions, dedups, reversalDedups, userCredentialDuplicates, push.cursor, deviceClockSkew);
       }
       // Rejected-stale: a concurrent sync won the version race for some entity.
       // Cursor is unchanged, so the next pull re-delivers the winning change and
@@ -179,7 +198,7 @@ export class SyncEngine {
     }
 
     this.local.setCursor(cursor ?? { seq: 0 });
-    return this.result('retries-exhausted', applied, pushed, conflicts, collisions, dedups, reversalDedups, cursor, deviceClockSkew);
+    return this.result('retries-exhausted', applied, pushed, conflicts, collisions, dedups, reversalDedups, userCredentialDuplicates, cursor, deviceClockSkew);
   }
 
   private result(
@@ -190,6 +209,7 @@ export class SyncEngine {
     subjectCodeCollisions: readonly SubjectCodeCollision[],
     sessionDedups: readonly SessionDedup[],
     reversalDedups: readonly ReversalDedup[],
+    userCredentialDuplicates: readonly UserCredentialDuplicate[],
     cursor: SyncCursor | null,
     deviceClockSkew: boolean,
   ): SyncResult {
@@ -201,6 +221,7 @@ export class SyncEngine {
       subjectCodeCollisions,
       sessionDedups,
       reversalDedups,
+      userCredentialDuplicates,
       cursor,
       deviceClockSkew,
       resolutionPermission: this.userCanResolve ? 'granted' : 'queued',

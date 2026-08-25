@@ -10,6 +10,7 @@ import type {
   SessionDedupStore,
   PaymentReversalDedupStore,
   ReversalDedupCandidate,
+  UserCredentialDuplicateStore,
 } from '@centresoutien/domain';
 import { PAYMENT_ENTITY_TYPE, SESSION_ENTITY_TYPE } from '@centresoutien/domain';
 import type { PaymentId } from '@centresoutien/domain';
@@ -90,6 +91,16 @@ const FIND_LIVE_SUBJECT_ID_BY_CODE_SQL = `
    LIMIT 1
 `;
 
+// The greatest-ULID other live row sharing a normalized username (SOU-258
+// follow-up): ORDER BY id DESC so the collision resolver's winner comparison lands
+// on the strongest contender, matching the repositories' greatest-ULID read rule.
+const FIND_LIVE_USER_ID_BY_USERNAME_SQL = `
+  SELECT id FROM users
+   WHERE center_code = ? AND username_normalized = ? AND id != ? AND deleted_at IS NULL
+   ORDER BY id DESC
+   LIMIT 1
+`;
+
 const CLEAR_SUBJECT_CODE_ROW_SQL = `
   UPDATE subjects SET code = NULL WHERE id = @id AND center_code = @center_code
 `;
@@ -150,7 +161,12 @@ const NEUTRALIZE_SESSION_SHADOW_SQL = `
  * strings) that the inbox re-surfaces.
  */
 export class SqliteLocalSyncRepository
-  implements LocalSyncRepository, SubjectCodeCollisionStore, SessionDedupStore, PaymentReversalDedupStore
+  implements
+    LocalSyncRepository,
+    SubjectCodeCollisionStore,
+    SessionDedupStore,
+    PaymentReversalDedupStore,
+    UserCredentialDuplicateStore
 {
   private readonly centerCode: CenterCode;
   private seqCounter: number;
@@ -317,6 +333,17 @@ export class SqliteLocalSyncRepository
     const row = this.db.prepare(FIND_LIVE_SUBJECT_ID_BY_CODE_SQL).get(centerCode, code, excludeId) as
       | { id: string }
       | undefined;
+    return row ? (row.id as EntityId) : null;
+  }
+
+  findLiveUserIdByUsername(
+    centerCode: CenterCode,
+    usernameNormalized: string,
+    excludeId: EntityId,
+  ): EntityId | null {
+    const row = this.db
+      .prepare(FIND_LIVE_USER_ID_BY_USERNAME_SQL)
+      .get(centerCode, usernameNormalized, excludeId) as { id: string } | undefined;
     return row ? (row.id as EntityId) : null;
   }
 

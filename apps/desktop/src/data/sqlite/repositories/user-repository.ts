@@ -147,15 +147,24 @@ export class SqliteUserRepository implements UserRepository {
   }
 
   async findByUsername(username: string): Promise<User | null> {
+    // Since 0053 dropped the live-username unique index, two devices that each
+    // created the same account offline can leave two live rows with this
+    // normalized username. `ORDER BY id DESC LIMIT 1` resolves the deterministic
+    // winner (greatest ULID) every device agrees on — the read-side rule
+    // teacher_availability / center_hours_overrides use — so login and the
+    // owner-credential write always land on the same row.
     const row = this.db
-      .prepare('SELECT * FROM users WHERE username_normalized = ? AND deleted_at IS NULL')
+      .prepare(
+        'SELECT * FROM users WHERE username_normalized = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1',
+      )
       .get(normalizeUsername(username)) as UserRow | undefined;
     return row ? userRowToUser(row) : null;
   }
 
   async findOwner(): Promise<User | null> {
+    // Deterministic winner among any duplicate live owners (see findByUsername).
     const row = this.db
-      .prepare("SELECT * FROM users WHERE role = 'owner' AND deleted_at IS NULL LIMIT 1")
+      .prepare("SELECT * FROM users WHERE role = 'owner' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1")
       .get() as UserRow | undefined;
     return row ? userRowToUser(row) : null;
   }
@@ -164,8 +173,9 @@ export class SqliteUserRepository implements UserRepository {
     // The account participates in the sync feed when it was created through the
     // logging user repository (a `users` change_log row) or pulled from the hub
     // into `sync_local_entity`. A migrated owner — backfilled by migration 0044
-    // with a device-local ULID — has neither, so its credentials stay device-local
-    // (SOU-258; pushing it would collide on ux_users_username_live).
+    // with a device-local ULID and no change_log row — has neither, so its
+    // credentials stay device-local (SOU-258): never part of the sync feed, so
+    // not retroactively pushed.
     const logged = this.db
       .prepare("SELECT 1 FROM change_log WHERE entity_type = 'users' AND entity_id = ? LIMIT 1")
       .get(userId);
@@ -189,13 +199,25 @@ export class SqliteUserRepository implements UserRepository {
   }
 
   async listActive(centerCode: CenterCode): Promise<readonly User[]> {
+    // One row per live username: since 0053 dropped the unique index, two devices
+    // that each created the same account offline can leave two live rows sharing a
+    // normalized username. Collapse each such group to its deterministic winner
+    // (greatest ULID, matching findByUsername) so the roster never shows the same
+    // director twice. Pending role-only invites carry a per-row placeholder
+    // username (their own id, migration 0052), so distinct invites never collapse.
     const rows = this.db
       .prepare(
-        `SELECT * FROM users
-          WHERE center_code = ? AND deleted_at IS NULL
-          ORDER BY username COLLATE NOCASE, id`,
+        `SELECT * FROM users u
+          WHERE u.center_code = @center_code AND u.deleted_at IS NULL
+            AND u.id = (
+              SELECT MAX(u2.id) FROM users u2
+               WHERE u2.center_code = u.center_code
+                 AND u2.deleted_at IS NULL
+                 AND u2.username_normalized = u.username_normalized
+            )
+          ORDER BY u.username COLLATE NOCASE, u.id`,
       )
-      .all(centerCode) as UserRow[];
+      .all({ center_code: centerCode }) as UserRow[];
     return rows.map(userRowToUser);
   }
 
@@ -229,6 +251,30 @@ export class SqliteUserRepository implements UserRepository {
     const { identity } = redemption;
     try {
       return this.db.transaction(() => {
+        // Live-username race guard, now that 0053 dropped the unique index that
+        // used to be the last resort. 0053 removed a HARD DB constraint (so a
+        // peer's same-username row can sync-apply and converge at read), but a
+        // LOCAL first onboarding must still not create a second live row for a
+        // username another account already holds. better-sqlite3 is synchronous
+        // and this runs inside the transaction, so the check + UPDATE are atomic:
+        // an onboarding that slips past the use case's async pre-check is caught
+        // here. Only when `identity` sets a username — a recovery (no identity)
+        // never changes the username, so it cannot collide.
+        if (identity) {
+          // Scope to the redeeming row's own center: one SQLCipher DB per center
+          // means this is the same tenant today, but encoding it keeps the guard
+          // correct if that ever changes and mirrors the other center-scoped reads.
+          const clash = this.db
+            .prepare(
+              `SELECT 1 FROM users
+                WHERE center_code = (SELECT center_code FROM users WHERE id = @id)
+                  AND username_normalized = @username_normalized
+                  AND id != @id AND deleted_at IS NULL
+                LIMIT 1`,
+            )
+            .get({ username_normalized: normalizeUsername(identity.username), id: redemption.id });
+          if (clash !== undefined) throw new UsernameAlreadyTakenError(identity.username);
+        }
         // Compare-and-set: only a row still pending on the verified hash (and not
         // yet redeemed) is updated. A concurrent redemption that already cleared the
         // hash matches zero rows, so the second attempt reports failure instead of
@@ -280,9 +326,10 @@ export class SqliteUserRepository implements UserRepository {
         return true;
       })();
     } catch (error) {
-      // The last-resort race guard: two simultaneous onboardings that both pass the
-      // use case's pre-check settle on the live-username uniqueness index. Surface
-      // the loser as the domain error the caller already handles.
+      // Defensive backstop: the primary same-username guard is now the
+      // in-transaction re-check above (0053 dropped the unique index). Should any
+      // other unique constraint on `users` ever reject a redemption write, still
+      // surface it as the domain error the caller already handles.
       if (isUniqueConstraintViolation(error)) {
         throw new UsernameAlreadyTakenError(identity?.username ?? '');
       }

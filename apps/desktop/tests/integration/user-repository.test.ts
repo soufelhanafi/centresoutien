@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Database as DB } from 'better-sqlite3';
 import type { User, UserId, CenterCode, DeviceId } from '@centresoutien/domain';
+import { UsernameAlreadyTakenError } from '@centresoutien/domain';
 import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteUserRepository } from '../../src/data/sqlite/repositories/user-repository';
@@ -327,19 +328,42 @@ describe('SqliteUserRepository', () => {
       ).rejects.toThrow();
     });
 
-    it('rejects a duplicate live username in the same center (partial unique index)', async () => {
-      await repo.save(makeUser({ id: 'usr_00000000000000000000000001' as UserId, username: 'dup' }));
-      await expect(
-        repo.save(
-          makeUser({ id: 'usr_00000000000000000000000002' as UserId, role: 'secretary', username: 'DUP' }),
-        ),
-      ).rejects.toThrow();
+  });
+
+  // Migration 0053 relaxed ux_users_username_live to a NON-unique index so two
+  // laptops that each created the same owner offline can sync-apply without the
+  // whole batch aborting on `UNIQUE constraint failed`. Local duplicate creation
+  // stays guarded by the domain use cases; any two rows that do coexist are
+  // resolved at read to the greatest-id winner, so login and the roster never see
+  // the duplicate.
+  describe('duplicate live username converges instead of throwing (0053)', () => {
+    it('persists two live rows with the same username and resolves reads to the greatest id', async () => {
+      const lower = makeUser({ id: 'usr_00000000000000000000000001' as UserId, username: 'directrice' });
+      // Same account materialized on a second laptop: different ULID, same
+      // (center, username, owner role) — the exact multi-laptop-sync collision.
+      const higher = makeUser({ id: 'usr_00000000000000000000000002' as UserId, username: 'DIRECTRICE' });
+      await expect(repo.save(lower)).resolves.toBeUndefined();
+      await expect(repo.save(higher)).resolves.toBeUndefined();
+
+      // Both rows physically persist — no unique index rejected the second save.
+      const liveCount = (
+        db.prepare('SELECT COUNT(*) AS n FROM users WHERE deleted_at IS NULL').get() as { n: number }
+      ).n;
+      expect(liveCount).toBe(2);
+
+      // Every singular read resolves the SAME deterministic winner (greatest ULID).
+      expect((await repo.findByUsername('directrice'))?.id).toBe(higher.id);
+      expect((await repo.findOwner())?.id).toBe(higher.id);
+
+      // The roster collapses the duplicate to that one winner.
+      const roster = await repo.listActive('CS-CASA-001' as CenterCode);
+      expect(roster.map((u) => u.id)).toEqual([higher.id]);
     });
 
-    it('frees a username after a soft delete and allows it across centers', async () => {
+    it('still allows the same username across centers and after a soft delete', async () => {
       const first = makeUser({ id: 'usr_00000000000000000000000001' as UserId, username: 'dup' });
       await repo.save(first);
-      // Different center → allowed.
+      // Different center → a legitimately distinct account (center = tenant).
       await repo.save(
         makeUser({
           id: 'usr_00000000000000000000000002' as UserId,
@@ -354,6 +378,43 @@ describe('SqliteUserRepository', () => {
           makeUser({ id: 'usr_00000000000000000000000003' as UserId, role: 'secretary', username: 'dup' }),
         ),
       ).resolves.toBeUndefined();
+    });
+
+    it('markSetupCodeRedeemed still rejects a first onboarding onto a live account’s username', async () => {
+      // The dropped index was the last-resort guard for a same-username race; the
+      // in-transaction re-check now catches an onboarding that slips past the use
+      // case pre-check, still surfacing UsernameAlreadyTakenError.
+      await repo.save(makeUser({ id: 'usr_00000000000000000000000001' as UserId, username: 'directrice' }));
+      const pending = makeUser({
+        id: 'usr_00000000000000000000000002' as UserId,
+        role: 'secretary',
+        username: 'pending-placeholder',
+        passwordHash: null,
+        setupCodeHash: 'pending-hash',
+        setupCodeExpiresAt: EXPIRES_MS,
+        setupCodeRedeemedAt: null,
+      });
+      await repo.save(pending);
+
+      await expect(
+        repo.markSetupCodeRedeemed({
+          id: pending.id,
+          expectedSetupCodeHash: 'pending-hash',
+          passwordHash: 'new-hash',
+          redeemedAt: new Date('2026-08-03T09:00:00Z'),
+          updatedBy: pending.id,
+          identity: {
+            username: 'DIRECTRICE',
+            fullName: 'Someone Else',
+            email: 'someone@example.com' as NonNullable<User['email']>,
+          },
+        }),
+      ).rejects.toBeInstanceOf(UsernameAlreadyTakenError);
+
+      // The pending row is untouched — the transaction rolled back.
+      const stillPending = await repo.findById(pending.id);
+      expect(stillPending?.passwordHash).toBeNull();
+      expect(stillPending?.setupCodeHash).toBe('pending-hash');
     });
   });
 });

@@ -56,8 +56,11 @@ export type SetupCodeRedemption = {
    * The identity captured at a first onboarding (SOU-303). When present the commit
    * also writes `username` (+ its recomputed normalized key), `full_name`, and
    * `email`; when absent only the password is rotated (recovery). A same-username
-   * race that slips past the caller's pre-check trips the live-username uniqueness
-   * index — the adapter surfaces that as `UsernameAlreadyTakenError`.
+   * race that slips past the caller's pre-check is caught by the adapter's
+   * in-transaction live-username re-check and surfaced as
+   * `UsernameAlreadyTakenError` (migration 0053 relaxed the DB unique index that
+   * used to be that guard so cross-device duplicates converge instead of aborting
+   * a sync-apply batch).
    */
   readonly identity?: RedeemedIdentity;
 };

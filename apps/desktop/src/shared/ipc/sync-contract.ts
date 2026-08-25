@@ -64,12 +64,23 @@ export const reversalDedupViewSchema = z.object({
   loserId: z.string(),
 });
 
+/** A same-username `users` duplicate surfaced after sync (SOU-258 follow-up):
+ *  two laptops created the same account offline. No credential is ever sent —
+ *  only ids + the shared username — so the renderer can nudge a password reset. */
+export const userCredentialDuplicateViewSchema = z.object({
+  entityType: z.literal('users'),
+  username: z.string(),
+  winnerId: z.string(),
+  loserId: z.string(),
+});
+
 export const syncResultViewSchema = z.object({
   status: z.enum(['synced', 'retries-exhausted']),
   applied: z.number().int().nonnegative(),
   pushed: z.number().int().nonnegative(),
   conflicts: z.array(syncConflictViewSchema),
   reversalDedups: z.array(reversalDedupViewSchema),
+  userCredentialDuplicates: z.array(userCredentialDuplicateViewSchema),
   deviceClockSkew: z.boolean(),
   resolutionPermission: z.enum(['granted', 'queued']),
 });
