@@ -36,7 +36,9 @@ export interface GroupsGateway {
   update(id: string, input: GroupInput): Promise<GroupRow>;
   archive(id: string): Promise<void>;
   restore(id: string): Promise<void>;
-  addStudent(groupId: string, studentId: string, startMonth: string): Promise<void>;
+  /** Returns the count of other-group schedule clashes the new enrollment surfaced
+   *  (0 = none) — non-blocking, the enrollment always succeeds regardless. */
+  addStudent(groupId: string, studentId: string, startMonth: string): Promise<number>;
   removeStudent(enrollmentId: string): Promise<void>;
 }
 

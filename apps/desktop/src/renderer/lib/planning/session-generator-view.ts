@@ -95,7 +95,7 @@ function blockMatchesAnyConflict(
     return (
       conflict.start === block.start &&
       conflict.end === block.end &&
-      (conflict.kind === 'hours' || conflict.roomId === block.roomId)
+      (conflict.kind === 'hours' || conflict.kind === 'student' || conflict.roomId === block.roomId)
     );
   });
 }

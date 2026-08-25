@@ -60,8 +60,14 @@ export function AddStudentDialog({
 
   const handleConfirm = async () => {
     try {
-      await add.mutateAsync({ groupId, studentId, startMonth });
+      const scheduleWarningCount = await add.mutateAsync({ groupId, studentId, startMonth });
       toast.success(t('groups.roster.addSuccess'));
+      // Non-blocking: the enrollment already succeeded above regardless of this
+      // count — a second toast just flags a schedule clash for the admin to
+      // review, never a reason to undo or refuse the enrollment.
+      if (scheduleWarningCount > 0) {
+        toast.warning(t('groups.roster.addScheduleWarning', { count: scheduleWarningCount }));
+      }
       onOpenChange(false);
     } catch (error) {
       // Surface each domain guard (full / duplicate / cross-kind / no

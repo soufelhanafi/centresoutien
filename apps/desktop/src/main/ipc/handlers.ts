@@ -734,6 +734,7 @@ function toGroupScheduleProposalView(proposal: GroupScheduleProposal) {
       gapDays: gap.gapDays,
     })),
     requestedSessionsPerWeek: proposal.requestedSessionsPerWeek,
+    shortfallReason: proposal.shortfallReason,
   };
 }
 
@@ -797,6 +798,22 @@ function toGeneratedScheduleConflictView(conflict: GeneratedScheduleConflict) {
       end: conflict.end,
       groupCapacity: conflict.groupCapacity,
       roomCapacity: conflict.roomCapacity,
+    };
+  }
+  if (conflict.kind === 'student') {
+    return {
+      kind: 'student' as const,
+      groupId: conflict.groupId,
+      dayOfWeek: conflict.dayOfWeek,
+      start: conflict.start,
+      end: conflict.end,
+      conflicts: conflict.conflicts.map((clash) => ({
+        studentId: clash.studentId,
+        otherGroupId: clash.otherGroupId,
+        dayOfWeek: clash.dayOfWeek,
+        start: clash.start,
+        end: clash.end,
+      })),
     };
   }
   return {
@@ -1470,8 +1487,23 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       });
     },
     'enrollment.create': async (request) => {
-      const enrollment = await deps.enrollStudent.execute({ ...request, ...deps.envelopeContext() });
-      return { id: enrollment.id };
+      const { enrollment, scheduleWarning } = await deps.enrollStudent.execute({
+        ...request,
+        ...deps.envelopeContext(),
+      });
+      return {
+        id: enrollment.id,
+        scheduleWarning:
+          scheduleWarning === null
+            ? null
+            : scheduleWarning.map((conflict) => ({
+                studentId: conflict.studentId,
+                otherGroupId: conflict.otherGroupId,
+                dayOfWeek: conflict.dayOfWeek,
+                start: conflict.start,
+                end: conflict.end,
+              })),
+      };
     },
     'enrollment.unenroll': async (request) => {
       const { centerCode, updatedBy } = deps.envelopeContext();

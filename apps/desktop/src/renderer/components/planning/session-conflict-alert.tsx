@@ -9,6 +9,7 @@ function conflictLine(
   t: ReturnType<typeof useTranslation>['t'],
 ): string {
   if (conflict.severity === 'error') return t(`errors.${conflict.code}`);
+  if (conflict.kind === 'student') return t('planning.conflict.student');
   return conflict.reason === null
     ? t('planning.conflict.teacherAvailability.generic')
     : t(`planning.conflict.teacherAvailability.${conflict.reason}`);
@@ -18,11 +19,12 @@ function conflictLine(
  * Inline scheduling-conflict alert (the add-session drawer pattern, SOU-283):
  * renders one localized line per classified conflict the domain raised on submit.
  * Hard `error` conflicts (room/teacher clash, outside hours, malformed time …)
- * render in the destructive treatment; a forceable teacher-availability `warning`
- * renders in the amber treatment used by the generator warnings, and the footer's
- * force button lets the admin push it through. When every conflict is a warning
- * the whole block is amber; a single blocking error makes it destructive. Renders
- * nothing when there is no conflict.
+ * render in the destructive treatment; a forceable `warning` — teacher
+ * availability or a student double-booked across two groups — renders in the
+ * amber treatment used by the generator warnings, and the footer's force button
+ * lets the admin push it through. When every conflict is a warning the whole
+ * block is amber; a single blocking error makes it destructive. Renders nothing
+ * when there is no conflict.
  */
 export function SessionConflictAlert({ conflicts }: { conflicts: readonly SessionWriteConflict[] }) {
   const { t } = useTranslation();

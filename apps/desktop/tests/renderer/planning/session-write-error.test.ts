@@ -64,6 +64,14 @@ describe('classifySessionWriteError', () => {
     });
   });
 
+  it('classifies student-double-booked as a forceable student warning', () => {
+    const encoded = encodeDomainError({ code: 'student-double-booked', message: 'boom' });
+    expect(classifySessionWriteError(new Error(encoded))).toEqual({
+      severity: 'warning',
+      kind: 'student',
+    });
+  });
+
   it('returns null for an unrelated failure', () => {
     expect(classifySessionWriteError(new Error('boom'))).toBeNull();
   });

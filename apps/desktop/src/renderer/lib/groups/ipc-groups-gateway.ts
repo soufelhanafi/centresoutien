@@ -110,13 +110,14 @@ class IpcGroupsGateway implements GroupsGateway {
       .map((student) => ({ id: student.id, name: student.name, level: student.level }));
   }
 
-  async addStudent(groupId: string, studentId: string, startMonth: string): Promise<void> {
-    await window.api.invoke('enrollment.create', {
+  async addStudent(groupId: string, studentId: string, startMonth: string): Promise<number> {
+    const { scheduleWarning } = await window.api.invoke('enrollment.create', {
       studentId,
       groupId,
       startMonth,
       endMonth: null,
     });
+    return scheduleWarning?.length ?? 0;
   }
 
   async removeStudent(enrollmentId: string): Promise<void> {
