@@ -23,6 +23,7 @@ import {
   type UserId,
 } from '@centresoutien/domain';
 import { centreDbFileName, openDatabaseAt } from './db';
+import { recoveryBlobPathFor } from './recovery-blob-path';
 import { applyMigrations, type Migration } from './migration-runner';
 import { readOrCreateDeviceOrigin } from './device-origin';
 import { SqliteCenterSetupUnitOfWork } from './repositories/center-setup-unit-of-work';
@@ -201,15 +202,18 @@ export class SqliteCenterProvisioning implements CenterProvisioningPort {
 }
 
 /**
- * Removes a SQLCipher DB file and its WAL/SHM sidecars, best-effort. A leftover
- * temp/discarded file is harmless once it no longer carries the discoverable
- * `centre-{id}.db` name, so a failed unlink is swallowed rather than masking the
- * original error the caller is already surfacing.
+ * Removes a SQLCipher DB file, its WAL/SHM sidecars, AND its SOU-302 `.recovery`
+ * escrow sibling, best-effort. A leftover temp/discarded file is harmless once it
+ * no longer carries the discoverable `centre-{id}.db` name, so a failed unlink is
+ * swallowed rather than masking the original error the caller is already
+ * surfacing. Including the `.recovery` sibling keeps a discarded/failed center
+ * from leaving a stale sealed-key blob behind.
  */
 function removeCenterFiles(file: string): void {
-  for (const suffix of ['', '-wal', '-shm']) {
+  const targets = [file, `${file}-wal`, `${file}-shm`, recoveryBlobPathFor(file)];
+  for (const target of targets) {
     try {
-      rmSync(`${file}${suffix}`, { force: true });
+      rmSync(target, { force: true });
     } catch {
       // Best effort — see the doc above.
     }

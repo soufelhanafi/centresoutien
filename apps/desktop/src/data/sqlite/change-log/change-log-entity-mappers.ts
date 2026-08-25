@@ -301,6 +301,7 @@ function userEntityToRow(entity: unknown): Record<string, unknown> {
     role: user.role,
     username: user.username,
     username_normalized: normalizeUsername(user.username),
+    full_name: user.fullName ?? null,
     password_hash: user.passwordHash,
     setup_code_hash: user.setupCodeHash,
     // Epoch millis (a number), not an ISO string — stored in an INTEGER column.

@@ -15,11 +15,13 @@ export function EmailResetForm({
   onSuccess: () => void;
   onBackToChooser: () => void;
 }) {
-  const [step, setStep] = useState<'request' | 'confirm'>('request');
+  // The username entered at step 1 is carried into step 2 so the confirm call
+  // targets the same account (SOU-303).
+  const [username, setUsername] = useState<string | null>(null);
 
-  if (step === 'confirm') {
-    return <EmailResetConfirmStep onSuccess={onSuccess} />;
+  if (username !== null) {
+    return <EmailResetConfirmStep username={username} onSuccess={onSuccess} />;
   }
 
-  return <EmailResetRequestStep onSent={() => setStep('confirm')} onBackToChooser={onBackToChooser} />;
+  return <EmailResetRequestStep onSent={setUsername} onBackToChooser={onBackToChooser} />;
 }

@@ -244,6 +244,9 @@
     "too-low": "Cette valeur est trop basse",
     "too-high": "Cette valeur est trop élevée",
     "invalid-email": "Adresse e-mail invalide",
+    "full-name-required": "Le nom complet est requis",
+    "full-name-too-long": "Le nom complet est trop long",
+    "email-required": "L'adresse e-mail est requise",
     "invalid-phone": "Numéro de téléphone invalide",
     "unsupported-logo-type": "Format de logo non pris en charge (PNG, JPG, WEBP ou SVG)",
     "logo-too-large": "Logo trop volumineux (2 Mo maximum)",
@@ -1884,8 +1887,15 @@
     },
     "table": {
       "username": "Nom d'utilisateur",
+      "name": "Nom",
+      "pendingName": "Compte non activé",
       "role": "Rôle",
-      "status": "Statut"
+      "status": "Statut",
+      "actions": "Actions"
+    },
+    "reissue": {
+      "action": "Nouveau code",
+      "error": "La génération du code a échoué. Réessayez."
     },
     "status": {
       "setupPending": "En attente d'activation",
@@ -1916,7 +1926,7 @@
     },
     "setupCode": {
       "title": "Code d'installation créé",
-      "description": "Transmettez ce code à {{username}} pour qu'il/elle active son compte lors de sa première connexion.",
+      "description": "Transmettez ce code à votre employé pour qu'il/elle crée son compte ({{role}}) lors de sa première connexion.",
       "copy": "Copier le code",
       "copied": "Code copié",
       "warning": "Ce code n'est affiché qu'une seule fois. Notez-le ou copiez-le maintenant : il ne pourra plus être consulté après la fermeture de cette fenêtre.",
@@ -2275,11 +2285,18 @@
     "setup": {
       "link": "Première connexion ? Activer mon compte",
       "title": "Activer mon compte",
-      "subtitle": "Saisissez le code d'installation que votre responsable vous a remis, puis choisissez votre mot de passe.",
+      "subtitle": "Saisissez le code d'installation que votre responsable vous a remis, puis créez votre compte.",
       "back": "Retour",
       "username": "Nom d'utilisateur",
+      "fullName": "Nom complet",
+      "fullNamePlaceholder": "ex. Fatima Zahra",
+      "email": "Adresse e-mail",
+      "emailHint": "Votre adresse personnelle — elle vous permettra de réinitialiser votre mot de passe.",
       "code": "Code d'installation",
       "codeHint": "Le code à usage unique que votre responsable vous a communiqué.",
+      "checking": "Vérification…",
+      "continue": "Continuer",
+      "recoveryHint": "Votre compte existe déjà. Choisissez un nouveau mot de passe pour y accéder à nouveau.",
       "newPassword": "Nouveau mot de passe",
       "passwordHint": "Au moins 8 caractères, avec une majuscule, une minuscule et un chiffre.",
       "confirmPassword": "Confirmer le mot de passe",
@@ -2314,6 +2331,9 @@
       },
       "email": {
         "explainer": "Nous enverrons un code à 6 chiffres à l'adresse e-mail enregistrée pour ce compte.",
+        "usernameLabel": "Nom d'utilisateur",
+        "usernamePlaceholder": "Votre nom d'utilisateur",
+        "accountNotFound": "Aucun compte ne correspond à ce nom d'utilisateur.",
         "sendCode": "Envoyer le code",
         "sending": "Envoi…",
         "confirmExplainer": "Saisissez le code reçu par e-mail, puis choisissez un nouveau mot de passe.",

@@ -365,8 +365,18 @@ export type {
 } from './schemas/teacher-availability';
 export { loginInputSchema } from './schemas/login';
 export type { LoginInput } from './schemas/login';
-export { createUserInputSchema, redeemSetupCodeInputSchema } from './schemas/user';
-export type { CreateUserInput, RedeemSetupCodeInput } from './schemas/user';
+export {
+  createUserInputSchema,
+  redeemSetupCodeInputSchema,
+  validateSetupCodeInputSchema,
+  recoverPasswordWithSetupCodeInputSchema,
+} from './schemas/user';
+export type {
+  CreateUserInput,
+  RedeemSetupCodeInput,
+  ValidateSetupCodeInput,
+  RecoverPasswordWithSetupCodeInput,
+} from './schemas/user';
 export {
   recoveryCodeSchema,
   recoveryCodeGroupSchema,
@@ -498,7 +508,13 @@ export type {
 } from './entities/teacher-availability-exception';
 export { ADMIN_ACCOUNT_ID_PREFIX } from './entities/admin-account';
 export type { AdminAccount, AdminAccountId } from './entities/admin-account';
-export { USER_ID_PREFIX, SETUP_CODE_TTL_MS, isSetupCodePending, canLogin } from './entities/user';
+export {
+  USER_ID_PREFIX,
+  SETUP_CODE_TTL_MS,
+  isSetupCodePending,
+  canLogin,
+  hasEstablishedIdentity,
+} from './entities/user';
 export type { User } from './entities/user';
 export { RECOVERY_CODE_ID_PREFIX } from './entities/recovery-code';
 export type { RecoveryCode, RecoveryCodeId } from './entities/recovery-code';
@@ -660,7 +676,12 @@ export type { CenterHoursOverrideRepository } from './ports/center-hours-overrid
 export type { TeacherAvailabilityRepository } from './ports/teacher-availability-repository';
 export type { TeacherAvailabilityExceptionRepository } from './ports/teacher-availability-exception-repository';
 export type { AdminAccountRepository } from './ports/admin-account-repository';
-export type { UserRepository, SetupCodeRedemption } from './ports/user-repository';
+export type {
+  UserRepository,
+  SetupCodeRedemption,
+  RedeemedIdentity,
+  SetupCodeReissue,
+} from './ports/user-repository';
 export type { PasswordHasher } from './ports/password-hasher';
 export type { SecureRandom } from './ports/secure-random';
 export type { RecoveryCodeRepository } from './ports/recovery-code-repository';
@@ -675,6 +696,10 @@ export type { LogoStore } from './ports/logo-store';
 export type { BackupPort, BackupFileInfo, BackupVerification } from './ports/backup-port';
 export type { BackupConfigStore, BackupConfig } from './ports/backup-config-store';
 export { DEFAULT_BACKUP_RETENTION_COUNT } from './ports/backup-config-store';
+// DB-key recovery escrow (SOU-302) — seal a center DB key toward the product
+// recovery public key; the sealed blob travels next to the encrypted backup and
+// is opened only by the offline recovery CLI with the owner-held private key.
+export type { RecoveryKeyEscrowPort } from './ports/recovery-key-escrow-port';
 // Excel backup workbook (SOU-44) — data-level export/import, distinct from the
 // byte-level BackupPort above. The workbook contract (sheets, columns, import
 // order) lives in `backup/` and is the portable format a future web restore reuses.
@@ -763,7 +788,12 @@ export type {
 export type {
   EmailPasswordResetUnitOfWork,
   EmailPasswordResetUnit,
+  EmailPasswordCredentialWrite,
 } from './ports/email-password-reset-unit-of-work';
+export type {
+  SetupCodeRecoveryUnitOfWork,
+  SetupCodeRecoveryUnit,
+} from './ports/setup-code-recovery-unit-of-work';
 // Recent-payments cash-desk feed (SOU-198) — cross-invoice read model served by the
 // same SQLite adapter that owns `payments`, mirroring OverdueInvoiceViewReadPort.
 export type { RecentPaymentsReadPort } from './ports/recent-payments-read-port';
@@ -1366,6 +1396,14 @@ export type { CreateUserCommand, CreateUserResult } from './use-cases/create-use
 export { SetOwnerEmail } from './use-cases/set-owner-email';
 export type { SetOwnerEmailInput } from './use-cases/set-owner-email';
 export { RedeemSetupCode } from './use-cases/redeem-setup-code';
+export { ValidateSetupCode } from './use-cases/validate-setup-code';
+export type { ValidatedSetupCode } from './use-cases/validate-setup-code';
+export { ReissueSetupCode } from './use-cases/reissue-setup-code';
+export type {
+  ReissueSetupCodeCommand,
+  ReissueSetupCodeResult,
+} from './use-cases/reissue-setup-code';
+export { RecoverPasswordWithSetupCode } from './use-cases/recover-password-with-setup-code';
 export { VerifyUserPassword } from './use-cases/verify-user-password';
 export type { VerifyUserPasswordInput } from './use-cases/verify-user-password';
 export { ChangeAdminPassword } from './use-cases/change-admin-password';

@@ -7,7 +7,7 @@ import {
   readSetupCode,
   logout,
   gotoRedeem,
-  submitRedeem,
+  redeemOnboarding,
   loginViaForm,
 } from './team-users.fixtures';
 import { locale, EMP_USER, EMP_PW, createLiveAppHarness } from './sou265.fixtures';
@@ -29,13 +29,23 @@ test('S4 — first-login redeem stays open (not caught by the role guard)', asyn
 
   await gotoTeamTab(win, loc);
   await openInviteDialog(win, loc);
-  await submitInvite(win, EMP_USER, loc);
+  await submitInvite(win, loc);
   const code = await readSetupCode(win);
   await win.getByRole('button', { name: t.setupCodeDone }).click();
 
   await logout(win, loc);
   await gotoRedeem(win, loc);
-  await submitRedeem(win, { username: EMP_USER, setupCode: code, newPassword: EMP_PW }, loc);
+  await redeemOnboarding(
+    win,
+    {
+      setupCode: code,
+      username: EMP_USER,
+      fullName: 'Fatima Zahra',
+      email: 'fatima@centre.ma',
+      newPassword: EMP_PW,
+    },
+    loc,
+  );
 
   await expect(win.getByText(t.setupSuccess)).toBeVisible();
   await expect(win.getByRole('heading', { name: t.loginTitle })).toBeVisible();

@@ -1,15 +1,29 @@
-import type { CenterCode, CreateUser, DeviceId, RedeemSetupCode, User, UserId } from '@centresoutien/domain';
+import type {
+  CenterCode,
+  CreateUser,
+  DeviceId,
+  RedeemSetupCode,
+  ValidateSetupCode,
+  ReissueSetupCode,
+  RecoverPasswordWithSetupCode,
+  User,
+  UserId,
+} from '@centresoutien/domain';
 import {
   NotAuthenticatedError,
   requireRole,
   canLogin,
   isSetupCodePending,
+  hasEstablishedIdentity,
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import type { SessionPrincipal } from '../session/session-principal';
 
 export type CreateUserUseCase = Pick<CreateUser, 'execute'>;
 export type RedeemSetupCodeUseCase = Pick<RedeemSetupCode, 'execute'>;
+export type ValidateSetupCodeUseCase = Pick<ValidateSetupCode, 'execute'>;
+export type ReissueSetupCodeUseCase = Pick<ReissueSetupCode, 'execute'>;
+export type RecoverPasswordUseCase = Pick<RecoverPasswordWithSetupCode, 'execute'>;
 
 // The center/device/user envelope stamped on every write; structurally the same
 // object `handlers.ts` builds, kept local so this module owns no import cycle.
@@ -27,6 +41,9 @@ export type UserHandlerDeps = {
   resolvePrincipal: () => Promise<SessionPrincipal | null>;
   createUser: CreateUserUseCase;
   redeemSetupCode: RedeemSetupCodeUseCase;
+  validateSetupCode: ValidateSetupCodeUseCase;
+  reissueSetupCode: ReissueSetupCodeUseCase;
+  recoverPassword: RecoverPasswordUseCase;
   listUsers: () => Promise<readonly User[]>;
   envelopeContext: () => UserEnvelopeContext;
   now: () => Date;
@@ -42,13 +59,18 @@ function userAccountStatus(user: User, now: Date): 'active' | 'setup-pending' | 
   return 'setup-expired';
 }
 
-// Project a User to its boundary DTO (SOU-256): credential material NEVER crosses
-// the boundary — `passwordHash`, `setupCodeHash`, and the raw setup code are
-// stripped, leaving only the fields the user-management list renders.
+// Project a User to its boundary DTO (SOU-256/SOU-303): credential material NEVER
+// crosses the boundary — `passwordHash`, `setupCodeHash`, and the raw setup code
+// are stripped. A not-yet-onboarded invite carries a placeholder username (its id),
+// which is never surfaced — `username`/`fullName` are `null` until the staff redeem
+// the code and choose their own identity; the roster renders the pending state from
+// `status` instead.
 function toUserView(user: User, now: Date) {
+  const onboarded = hasEstablishedIdentity(user);
   return {
     id: user.id,
-    username: user.username,
+    username: onboarded ? user.username : null,
+    fullName: user.fullName,
     role: user.role,
     status: userAccountStatus(user, now),
   };
@@ -78,7 +100,15 @@ async function requireDirector(
 // before the use case, and is unbypassable — the renderer never carries identity.
 export function createUserHandlers(
   deps: UserHandlerDeps,
-): Pick<IpcHandlers, 'user.create' | 'user.redeemSetupCode' | 'user.list'> {
+): Pick<
+  IpcHandlers,
+  | 'user.create'
+  | 'user.validateSetupCode'
+  | 'user.redeemSetupCode'
+  | 'user.reissueSetupCode'
+  | 'user.recoverPassword'
+  | 'user.list'
+> {
   return {
     'user.create': async (request) => {
       // Inviting staff is director-only work. Renderer visibility is not an
@@ -96,10 +126,37 @@ export function createUserHandlers(
       });
       return { user: toUserView(user, deps.now()), setupCode };
     },
+    // Intentionally unauthenticated (SOU-303): step 1 of the code-first flow. The
+    // invited staff prove the code alone, before typing any identity; the response
+    // carries the role bound to the code (never self-asserted) and whether identity
+    // must still be collected. Invalid/expired codes surface via the error-code
+    // transport, identically to redemption, so this leaks no more than step 2.
+    'user.validateSetupCode': async (request) => {
+      return deps.validateSetupCode.execute(request);
+    },
     // Intentionally unauthenticated: this IS the first-login flow — the invited
     // employee has no session yet. Single-use + expiry are enforced in the domain.
     'user.redeemSetupCode': async (request) => {
       await deps.redeemSetupCode.execute(request);
+      return { ok: true };
+    },
+    // Director-only recovery (SOU-303): re-open an existing user's setup code so
+    // they can set a new password when self-service reset can't run. Inviting-guard
+    // parity — this mints a hand-over code, exactly like user.create — so the same
+    // owner/admin gate applies. The write is attributed to the authorized principal.
+    'user.reissueSetupCode': async (request) => {
+      const principal = await requireDirector(deps);
+      const { user, setupCode } = await deps.reissueSetupCode.execute({
+        userId: request.userId as User['id'],
+        updatedBy: principal.userId,
+      });
+      return { user: toUserView(user, deps.now()), setupCode };
+    },
+    // Intentionally unauthenticated: an already-onboarded staff member redeems a
+    // director-reissued code to set a NEW password. No identity is re-collected;
+    // single-use + expiry are enforced in the domain.
+    'user.recoverPassword': async (request) => {
+      await deps.recoverPassword.execute(request);
       return { ok: true };
     },
     'user.list': async () => {

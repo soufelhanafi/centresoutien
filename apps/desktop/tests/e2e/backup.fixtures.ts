@@ -167,9 +167,16 @@ export async function confirmRestore(win: Page, loc: Locale, panel: Locator) {
   await dlg.getByRole('button', { name: BK[loc].restoreBtn, exact: true }).click();
 }
 
-/** List backup files in a destination dir, oldest first (ULID suffix sorts lexicographically by time). */
+/**
+ * List backup `.db` files in a destination dir, oldest first (ULID suffix sorts
+ * lexicographically by time). The SOU-302 recovery-key escrow writes a `.recovery`
+ * sidecar next to each backup; that sidecar is not itself a backup, so it is
+ * excluded here — callers restore the `.db`.
+ */
 export function listBackupFiles(dir: string): string[] {
-  return readdirSync(dir).sort();
+  return readdirSync(dir)
+    .filter((name) => name.endsWith('.db'))
+    .sort();
 }
 
 export function backupFilePath(dir: string, fileName: string): string {

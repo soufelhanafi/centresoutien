@@ -58,7 +58,9 @@ test('owner sets a recovery email, then resets the password by email and logs in
   await win.getByRole('button', { name: L.forgotLink }).click();
   await win.getByRole('button', { name: L.methodEmail }).click();
 
-  // 3) Request the code — the relay receives the owner's email + the UI locale.
+  // 3) Identify the account by username (SOU-303: reset is per-user, resolved by
+  //    username), then request the code — the relay receives the owner's email + locale.
+  await win.locator('#email-reset-username').fill(VALID_ADMIN.username);
   await win.getByRole('button', { name: L.sendCode }).click();
   await win.getByLabel(L.codeLabel, { exact: true }).waitFor({ state: 'visible' });
 
@@ -100,6 +102,7 @@ test('the old password no longer works after an email reset', async () => {
 
   await win.getByRole('button', { name: L.forgotLink }).click();
   await win.getByRole('button', { name: L.methodEmail }).click();
+  await win.locator('#email-reset-username').fill(VALID_ADMIN.username);
   await win.getByRole('button', { name: L.sendCode }).click();
   await win.getByLabel(L.codeLabel, { exact: true }).fill(MOCK_RESET_CODE);
   await win.getByLabel(L.newPassword, { exact: true }).fill(NEW_PASSWORD);

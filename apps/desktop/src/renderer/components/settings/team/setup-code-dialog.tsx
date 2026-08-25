@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Copy, KeyRound } from 'lucide-react';
+import type { Role } from '@centresoutien/domain';
 import {
   Button,
   Dialog,
@@ -12,17 +13,19 @@ import {
 } from '@centresoutien/ui';
 
 /**
- * Shows the one-time setup code returned by `user.create` (SOU-256). This is the
+ * Shows the one-time setup code returned by `user.create` (SOU-303). This is the
  * code's only appearance — no channel can read it again — so the copy affordance
- * and the "shown once" warning are load-bearing, not decorative. Dismissing the
- * dialog discards the code for good.
+ * and the "shown once" warning are load-bearing, not decorative. Code-first: the
+ * director hands the code to the employee, who chooses their own username / full
+ * name / email when they redeem it, so the dialog names the role the code grants,
+ * not a username. Dismissing the dialog discards the code for good.
  */
 export function SetupCodeDialog({
-  username,
+  role,
   setupCode,
   onClose,
 }: {
-  username: string;
+  role: Role;
   setupCode: string;
   onClose: () => void;
 }) {
@@ -39,7 +42,9 @@ export function SetupCodeDialog({
       <DialogContent closeLabel={t('common.close')}>
         <DialogHeader>
           <DialogTitle>{t('team.setupCode.title')}</DialogTitle>
-          <DialogDescription>{t('team.setupCode.description', { username })}</DialogDescription>
+          <DialogDescription>
+            {t('team.setupCode.description', { role: t(`team.roles.${role}`) })}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 p-4">

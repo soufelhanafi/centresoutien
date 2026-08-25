@@ -1,18 +1,44 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ResetPasswordAfterEmailVerification } from '../../../src/use-cases/reset-password-after-email-verification';
 import { InMemoryAuthAuditLogRepository } from '../fakes/in-memory-auth-audit-log-repository';
-import { InMemoryAdminAccountRepository } from '../fakes/in-memory-admin-account-repository';
+import { InMemoryUserRepository } from '../fakes/in-memory-user-repository';
 import { InMemoryDeviceSessionStore } from '../fakes/in-memory-device-session-store';
 import { InMemoryEmailPasswordResetUnitOfWork } from '../fakes/in-memory-email-password-reset-unit-of-work';
 import type { DeviceSessionId } from '../../../src/entities/device-session';
+import type { User, UserId } from '../../../src/entities/user';
+import type { CenterCode, DeviceId } from '../../../src/value-objects/ids';
 import { fakeHasher } from '../fakes/hasher';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
-import { AdminAccountNotFoundError } from '../../../src/errors/auth-errors';
-import type { AdminAccountId } from '../../../src/entities/admin-account';
+import { UserNotFoundError } from '../../../src/errors/user-errors';
 
-describe('ResetPasswordAfterEmailVerification', () => {
-  let accounts: InMemoryAdminAccountRepository;
+const AT = new Date('2026-08-23T10:00:00Z');
+
+async function seedStaff(users: InMemoryUserRepository, passwordHash: string): Promise<User> {
+  const user: User = {
+    id: 'usr_00000000000000000000000007' as UserId,
+    centerCode: 'CS-CASA-001' as CenterCode,
+    deviceOrigin: 'dev_00000000000000000000000001' as DeviceId,
+    createdAt: AT,
+    updatedAt: AT,
+    updatedBy: 'usr_00000000000000000000000007' as UserId,
+    deletedAt: null,
+    version: 0,
+    role: 'secretary',
+    username: 'sanaa',
+    fullName: 'Sanaa Bennani',
+    passwordHash,
+    setupCodeHash: null,
+    setupCodeExpiresAt: null,
+    setupCodeRedeemedAt: AT,
+    email: 'sanaa@centre.ma' as User['email'],
+  };
+  await users.save(user);
+  return user;
+}
+
+describe('ResetPasswordAfterEmailVerification (per-user, SOU-303)', () => {
+  let users: InMemoryUserRepository;
   let auditLog: InMemoryAuthAuditLogRepository;
   let deviceSessionStore: InMemoryDeviceSessionStore;
   let resetUnitOfWork: InMemoryEmailPasswordResetUnitOfWork;
@@ -21,47 +47,34 @@ describe('ResetPasswordAfterEmailVerification', () => {
   const clock = fakeClock('2026-08-23T10:00:00Z');
 
   beforeEach(async () => {
-    accounts = new InMemoryAdminAccountRepository();
+    users = new InMemoryUserRepository();
     auditLog = new InMemoryAuthAuditLogRepository();
     deviceSessionStore = new InMemoryDeviceSessionStore();
+    await seedStaff(users, await hasher.hash('oldPass1'));
 
-    accounts.save({
-      id: 'adm_1' as AdminAccountId,
-      username: 'admin',
-      passwordHash: await hasher.hash('oldPass1'),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    resetUnitOfWork = new InMemoryEmailPasswordResetUnitOfWork(
-      accounts,
-      auditLog,
-      deviceSessionStore,
-    );
-    useCase = new ResetPasswordAfterEmailVerification(
-      accounts,
-      resetUnitOfWork,
-      hasher,
-      clock,
-      fakeIds(),
-    );
+    resetUnitOfWork = new InMemoryEmailPasswordResetUnitOfWork(users, auditLog, deviceSessionStore);
+    useCase = new ResetPasswordAfterEmailVerification(users, resetUnitOfWork, hasher, clock, fakeIds());
   });
 
-  it('rotates the password to the new value', async () => {
-    const result = await useCase.execute({ newPassword: 'NewPass1', username: 'admin' });
+  it('rotates the resolved staff account password to the new value', async () => {
+    const result = await useCase.execute({ newPassword: 'NewPass1', username: 'sanaa' });
     expect(result.outcome).toBe('success');
 
-    const account = await accounts.findOnly();
-    expect(account).not.toBeNull();
-    expect(await hasher.verify(account!.passwordHash, 'NewPass1')).toBe(true);
-    expect(await hasher.verify(account!.passwordHash, 'oldPass1')).toBe(false);
+    const account = await users.findByUsername('sanaa');
+    expect(await hasher.verify(account!.passwordHash!, 'NewPass1')).toBe(true);
+    expect(await hasher.verify(account!.passwordHash!, 'oldPass1')).toBe(false);
     expect(account!.updatedAt).toEqual(clock.now());
     expect(resetUnitOfWork.commits).toBe(1);
   });
 
-  it('records the password-reset-via-email audit event', async () => {
-    await useCase.execute({ newPassword: 'NewPass1', username: 'admin' });
+  it('resolves by username, case-insensitively', async () => {
+    await useCase.execute({ newPassword: 'NewPass1', username: '  SANAA ' });
+    const account = await users.findByUsername('sanaa');
+    expect(await hasher.verify(account!.passwordHash!, 'NewPass1')).toBe(true);
+  });
 
+  it('records the password-reset-via-email audit event', async () => {
+    await useCase.execute({ newPassword: 'NewPass1', username: 'sanaa' });
     const events = auditLog.list();
     expect(events.some((e) => e.eventType === 'password-reset-via-email')).toBe(true);
     expect(events.every((e) => e.eventType !== 'password-reset-via-recovery-code')).toBe(true);
@@ -75,52 +88,26 @@ describe('ResetPasswordAfterEmailVerification', () => {
       userId: null,
     });
 
-    await useCase.execute({ newPassword: 'NewPass1', username: 'admin' });
+    await useCase.execute({ newPassword: 'NewPass1', username: 'sanaa' });
 
     expect(deviceSessionStore.clearCount).toBe(1);
     expect(await deviceSessionStore.getCurrent()).toBeNull();
-  });
-
-  it('records a device-session-invalidated event when a session was cleared', async () => {
-    await deviceSessionStore.save({
-      id: 'ses_1' as DeviceSessionId,
-      createdAt: clock.now().getTime(),
-      expiresAt: clock.now().getTime() + 1_000_000,
-      userId: null,
-    });
-
-    await useCase.execute({ newPassword: 'NewPass1', username: 'admin' });
-
-    const events = auditLog.list();
-    expect(events.some((e) => e.eventType === 'device-session-invalidated-after-reset')).toBe(true);
+    expect(auditLog.list().some((e) => e.eventType === 'device-session-invalidated-after-reset')).toBe(
+      true,
+    );
   });
 
   it('does not record a device-session-invalidated event when no session was remembered', async () => {
-    await useCase.execute({ newPassword: 'NewPass1', username: 'admin' });
-
+    await useCase.execute({ newPassword: 'NewPass1', username: 'sanaa' });
     const events = auditLog.list();
     expect(events.some((e) => e.eventType === 'device-session-invalidated-after-reset')).toBe(false);
     expect(events.some((e) => e.eventType === 'password-reset-via-email')).toBe(true);
   });
 
-  it('throws AdminAccountNotFoundError and does not commit when the account is missing', async () => {
-    accounts = new InMemoryAdminAccountRepository();
-    resetUnitOfWork = new InMemoryEmailPasswordResetUnitOfWork(
-      accounts,
-      auditLog,
-      deviceSessionStore,
-    );
-    useCase = new ResetPasswordAfterEmailVerification(
-      accounts,
-      resetUnitOfWork,
-      hasher,
-      clock,
-      fakeIds(),
-    );
-
+  it('throws UserNotFoundError and does not commit when no account matches the username', async () => {
     await expect(
-      useCase.execute({ newPassword: 'NewPass1', username: 'admin' }),
-    ).rejects.toBeInstanceOf(AdminAccountNotFoundError);
+      useCase.execute({ newPassword: 'NewPass1', username: 'ghost' }),
+    ).rejects.toBeInstanceOf(UserNotFoundError);
     expect(resetUnitOfWork.commits).toBe(0);
   });
 
@@ -133,13 +120,13 @@ describe('ResetPasswordAfterEmailVerification', () => {
     });
 
     const failingUnitOfWork = new InMemoryEmailPasswordResetUnitOfWork(
-      accounts,
+      users,
       auditLog,
       deviceSessionStore,
       true,
     );
     const failingUseCase = new ResetPasswordAfterEmailVerification(
-      accounts,
+      users,
       failingUnitOfWork,
       hasher,
       clock,
@@ -147,27 +134,23 @@ describe('ResetPasswordAfterEmailVerification', () => {
     );
 
     await expect(
-      failingUseCase.execute({ newPassword: 'NewPass1', username: 'admin' }),
+      failingUseCase.execute({ newPassword: 'NewPass1', username: 'sanaa' }),
     ).rejects.toThrow();
 
-    const account = await accounts.findOnly();
-    expect(await hasher.verify(account!.passwordHash, 'oldPass1')).toBe(true);
-    expect(await hasher.verify(account!.passwordHash, 'NewPass1')).toBe(false);
-
-    const events = auditLog.list();
-    expect(events.some((e) => e.eventType === 'password-reset-via-email')).toBe(false);
-    expect(events.some((e) => e.eventType === 'device-session-invalidated-after-reset')).toBe(false);
+    const account = await users.findByUsername('sanaa');
+    expect(await hasher.verify(account!.passwordHash!, 'oldPass1')).toBe(true);
+    expect(await hasher.verify(account!.passwordHash!, 'NewPass1')).toBe(false);
+    expect(auditLog.list().some((e) => e.eventType === 'password-reset-via-email')).toBe(false);
     expect(await deviceSessionStore.getCurrent()).not.toBeNull();
     expect(deviceSessionStore.clearCount).toBe(0);
   });
 
   it('throws on a weak password without touching the account or committing', async () => {
     await expect(
-      useCase.execute({ newPassword: 'short', username: 'admin' }),
+      useCase.execute({ newPassword: 'short', username: 'sanaa' }),
     ).rejects.toThrow();
-
-    const account = await accounts.findOnly();
-    expect(await hasher.verify(account!.passwordHash, 'oldPass1')).toBe(true);
+    const account = await users.findByUsername('sanaa');
+    expect(await hasher.verify(account!.passwordHash!, 'oldPass1')).toBe(true);
     expect(resetUnitOfWork.commits).toBe(0);
   });
 });

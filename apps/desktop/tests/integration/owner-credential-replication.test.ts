@@ -58,6 +58,7 @@ function makeOwner(passwordHash: string, id = 'usr_00000000000000000000000001'):
     version: 0,
     role: 'owner',
     username: 'directrice',
+    fullName: null,
     passwordHash,
     setupCodeHash: null,
     setupCodeExpiresAt: null,

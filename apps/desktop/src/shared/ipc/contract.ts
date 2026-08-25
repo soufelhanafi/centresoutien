@@ -52,6 +52,8 @@ import {
   adminCredentialsSchema,
   createUserInputSchema,
   redeemSetupCodeInputSchema,
+  validateSetupCodeInputSchema,
+  recoverPasswordWithSetupCodeInputSchema,
   ROLES,
   changeAdminPasswordSchema,
   recoveryCodeSchema,
@@ -89,7 +91,10 @@ const featureFlagSchema = z.enum(FEATURE_FLAGS);
 // single source of truth for the renderer's `UserView` type.
 const userViewSchema = z.object({
   id: z.string(),
-  username: z.string(),
+  // `null` for a not-yet-onboarded invite — the placeholder username is never
+  // surfaced; the staff choose their own at redemption (SOU-303).
+  username: z.string().nullable(),
+  fullName: z.string().nullable(),
   role: z.enum(ROLES),
   status: z.enum(['active', 'setup-pending', 'setup-expired']),
 });
@@ -2339,12 +2344,39 @@ export const ipcContract = {
     request: createUserInputSchema,
     response: z.object({ user: userViewSchema, setupCode: z.string() }),
   },
+  // Code-first onboarding step 1 (SOU-303): the invited staff validate the setup
+  // code ALONE before typing any identity. Returns the role bound to the code
+  // (never self-asserted) and whether identity must still be collected (a first
+  // onboarding) vs. only a new password (a director-reissued recovery code).
+  // Unauthenticated — the staff have no session yet. Domain errors setup-code-invalid
+  // / setup-code-expired surface via the error-code transport.
+  'user.validateSetupCode': {
+    request: validateSetupCodeInputSchema,
+    response: z.object({ role: z.enum(ROLES), needsIdentity: z.boolean() }),
+  },
   // First-login redemption (SOU-256): an invited employee proves they hold the
   // one-time code and sets their own password. Domain errors user-not-found,
   // setup-code-invalid, setup-code-expired, setup-code-already-redeemed (plus the
   // password-strength codes) surface via the error-code transport.
   'user.redeemSetupCode': {
     request: redeemSetupCodeInputSchema,
+    response: z.object({ ok: z.literal(true) }),
+  },
+  // Director re-issues an activation code for an existing user (SOU-303) — the
+  // recovery fallback when self-service reset can't run. Preserves the `userId`
+  // (no delete/recreate → audit trail intact) and returns the safe view plus the
+  // ONE-TIME code, exactly like `user.create`. Director-only (owner/admin);
+  // `user-not-found` / `role-not-invitable` surface via the error-code transport.
+  'user.reissueSetupCode': {
+    request: z.object({ userId: z.string() }),
+    response: z.object({ user: userViewSchema, setupCode: z.string() }),
+  },
+  // An already-onboarded staff member redeems a director-reissued code to set a NEW
+  // password (SOU-303). Unauthenticated (they are locked out); identity is not
+  // re-collected. Domain errors setup-code-invalid / setup-code-expired /
+  // setup-code-already-redeemed surface via the error-code transport.
+  'user.recoverPassword': {
+    request: recoverPasswordWithSetupCodeInputSchema,
     response: z.object({ ok: z.literal(true) }),
   },
   // The center's live user accounts for the management list. Returns only the safe
@@ -2503,19 +2535,24 @@ export const ipcContract = {
     request: z.object({ email: z.string().max(254).nullable() }),
     response: z.object({ email: z.string().nullable() }),
   },
-  // Email password reset (SOU-273) — the online reset path completing what SOU-155
-  // started. Both channels are intentionally unauthenticated (the owner is locked
-  // out). `request` asks the relay to email a locale-aware code to the owner's
-  // stored address (`no-email` when none is on file, `unreachable` when offline —
-  // the UI then points to the recovery-code path). `confirm` verifies the code via
-  // the relay and, only on success, resets the LOCAL password (session invalidated);
-  // the relay call + local reset both run in main so the renderer never holds a
-  // standalone reset capability. `invalid-or-expired` is the relay's single generic
-  // failure (wrong/expired/unknown/used code), never distinguished.
+  // Email password reset (SOU-273, generalized per-user in SOU-303) — the online
+  // reset path completing what SOU-155 started. Both channels are intentionally
+  // unauthenticated (the staff member is locked out) and carry the `username` they
+  // typed, so ANY account with an email — not just the owner — can self-reset.
+  // `request` resolves that account locally and asks the relay to email a
+  // locale-aware code to its stored address. Two failure modes are kept distinct:
+  // `account-not-found` (no live account for the username) vs `no-email` (account
+  // exists, no address on file — the UI points to asking the director for a fresh
+  // code); `unreachable` is offline. `confirm` verifies the code via the relay and,
+  // only on success, resets the LOCAL password (session invalidated); the relay call
+  // + local reset both run in main so the renderer never holds a standalone reset
+  // capability. `invalid-or-expired` is the relay's single generic failure
+  // (wrong/expired/unknown/used code), never distinguished.
   'auth.emailReset.request': {
-    request: z.object({ locale: z.enum(['fr', 'ar']) }),
+    request: z.object({ username: z.string().trim().min(1), locale: z.enum(['fr', 'ar']) }),
     response: z.discriminatedUnion('outcome', [
       z.object({ outcome: z.literal('sent') }),
+      z.object({ outcome: z.literal('account-not-found') }),
       z.object({ outcome: z.literal('no-email') }),
       z.object({ outcome: z.literal('rate-limited') }),
       z.object({ outcome: z.literal('unreachable') }),
@@ -2523,6 +2560,7 @@ export const ipcContract = {
   },
   'auth.emailReset.confirm': {
     request: z.object({
+      username: z.string().trim().min(1),
       code: z.string().trim().regex(/^\d{6}$/),
       // The email-reset use case's own schema, shared with the renderer form, so
       // the boundary, client, and domain validate the password identically (Qodo #2).

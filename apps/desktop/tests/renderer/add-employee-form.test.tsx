@@ -5,9 +5,10 @@ import { AddEmployeeForm } from '../../src/renderer/components/settings/team/add
 import i18n from '../../src/renderer/i18n/config';
 
 /**
- * `AddEmployeeForm` is presentation-only (SOU-256): it owns no mutation, so it is
- * exercised with an external submit button bound via `form={formId}` — exactly
- * how `AddEmployeeDialog` wires its footer button outside the form.
+ * `AddEmployeeForm` is presentation-only (SOU-303, code-first): a role picker with
+ * no mutation, exercised with an external submit button bound via `form={formId}`
+ * — exactly how `AddEmployeeDialog` wires its footer button outside the form. The
+ * director no longer types any identity; the staff choose it at redemption.
  */
 function renderForm(props: Partial<React.ComponentProps<typeof AddEmployeeForm>> = {}) {
   const onSubmit = props.onSubmit ?? vi.fn();
@@ -27,33 +28,20 @@ describe('AddEmployeeForm — French', () => {
     await i18n.changeLanguage('fr');
   });
 
-  it('requires a username and does not call onSubmit when empty', async () => {
-    const onSubmit = renderForm();
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole('button', { name: 'submit' }));
-
-    expect(await screen.findByText("Nom d'utilisateur trop court")).toBeInTheDocument();
-    expect(onSubmit).not.toHaveBeenCalled();
+  it('renders only the role picker (no identity fields)', () => {
+    renderForm();
+    expect(screen.getByText('Rôle')).toBeInTheDocument();
+    expect(screen.queryByLabelText("Nom d'utilisateur")).not.toBeInTheDocument();
   });
 
-  it('submits the username with the default invitable role', async () => {
+  it('submits the default invitable role, with no identity payload', async () => {
     const onSubmit = vi.fn();
     renderForm({ onSubmit });
     const user = userEvent.setup();
 
-    await user.type(screen.getByLabelText("Nom d'utilisateur"), 'fatima.secretaire');
     await user.click(screen.getByRole('button', { name: 'submit' }));
 
-    await vi.waitFor(() =>
-      expect(onSubmit).toHaveBeenCalledWith({ username: 'fatima.secretaire', role: 'secretary' }),
-    );
-  });
-
-  it('shows an inline error on the username field for a taken-username rejection', async () => {
-    renderForm({ serverFieldError: { field: 'username', code: 'username-already-taken' } });
-
-    expect(await screen.findByText("Ce nom d'utilisateur est déjà utilisé")).toBeInTheDocument();
+    await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ role: 'secretary' }));
   });
 });
 
@@ -62,8 +50,8 @@ describe('AddEmployeeForm — Arabic (RTL)', () => {
     await i18n.changeLanguage('ar');
   });
 
-  it('renders Arabic labels', async () => {
+  it('renders the Arabic role label', () => {
     renderForm();
-    expect(screen.getByLabelText('اسم المستخدم')).toBeInTheDocument();
+    expect(screen.getByText('الدور')).toBeInTheDocument();
   });
 });

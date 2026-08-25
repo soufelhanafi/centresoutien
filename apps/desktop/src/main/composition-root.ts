@@ -94,6 +94,9 @@ import {
   CreateAdminAccount,
   CreateUser,
   RedeemSetupCode,
+  ValidateSetupCode,
+  ReissueSetupCode,
+  RecoverPasswordWithSetupCode,
   VerifyUserPassword,
   ChangeAdminPassword,
   GenerateRecoveryCodes,
@@ -201,7 +204,10 @@ import { legacyLicenseFileNameForCenter, licenseFileName } from '../data/license
 import { VENDOR_LICENSE_PUBLIC_KEY_PEM } from '../data/license/vendor-public-key';
 import { SyncEngine, DuplicateMatcher, ResolveConflict } from '@centresoutien/domain';
 import { SqliteCenterTrialStore } from '../data/license/sqlite-center-trial-store';
-import { openDatabase } from '../data/sqlite/db';
+import { openDatabase, centreDbFileName } from '../data/sqlite/db';
+import { LibsodiumRecoveryKeyEscrow } from '../data/crypto/libsodium-recovery-key-escrow';
+import { RecoveryKeyEscrowWriter } from './recovery-key-escrow-writer';
+import { recoveryPublicKey } from './recovery-public-key';
 import type { CenterSummary, CenterKeyProvider } from '../data/sqlite/center-directory';
 import { SqliteMultiCenterStatsRead } from '../data/sqlite/multi-center-stats-read';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
@@ -252,6 +258,7 @@ import { SqliteUserRepository } from '../data/sqlite/repositories/user-repositor
 import { SqliteRecoveryCodeRepository } from '../data/sqlite/repositories/recovery-code-repository';
 import { SqliteRecoveryCodeResetUnitOfWork } from '../data/sqlite/repositories/recovery-code-reset-unit-of-work';
 import { SqliteEmailPasswordResetUnitOfWork } from '../data/sqlite/repositories/email-password-reset-unit-of-work';
+import { SqliteSetupCodeRecoveryUnitOfWork } from '../data/sqlite/repositories/setup-code-recovery-unit-of-work';
 import { HttpEmailResetRelay } from '../data/relay/http-email-reset-relay';
 import { SqliteResetPlanningUnitOfWork } from '../data/sqlite/repositories/reset-planning-unit-of-work';
 import { SqliteSecurityQuestionRepository } from '../data/sqlite/repositories/security-question-repository';
@@ -1211,8 +1218,31 @@ export function buildContainer(options: ContainerOptions): Container {
   // manual/scheduled snapshot path and the restore verify/swap path use it.
   // Backups are same-install only: a file created on another laptop won't
   // verify here (cross-machine restore lands with sync, SOU-13).
+  // DB-key recovery escrow (SOU-302). The DB key (options.key) is sealed toward
+  // the product recovery PUBLIC key and persisted as a sibling `.recovery` file —
+  // one per center, next to the live DB at provisioning and next to every backup
+  // so it travels with the copy. libsodium's WASM must be ready first, so the
+  // escrow is built through an async factory and the seal-then-write is memoized;
+  // both the provisioning write and the backup hook reuse one ready instance.
+  let recoveryWriterPromise: Promise<RecoveryKeyEscrowWriter> | null = null;
+  const recoveryEscrowWriter = (): Promise<RecoveryKeyEscrowWriter> => {
+    recoveryWriterPromise ??= LibsodiumRecoveryKeyEscrow.create().then(
+      (escrow) => new RecoveryKeyEscrowWriter(escrow, recoveryPublicKey()),
+    );
+    return recoveryWriterPromise;
+  };
+  const sealRecoverySibling = async (dbFilePath: string): Promise<void> => {
+    const writer = await recoveryEscrowWriter();
+    writer.writeSiblingFor(dbFilePath, options.key);
+  };
+  // Provision the live DB's sibling blob at launch — fire-and-forget so a WASM
+  // load or disk hiccup can never block the window from opening.
+  void sealRecoverySibling(join(options.dir, centreDbFileName(options.centreId))).catch((error: unknown) =>
+    console.error('[recovery] sealing DB-key escrow blob failed', error),
+  );
+
   const backupConfigStore = new SqliteBackupConfigStore(db);
-  const backupAdapter = new SqliteBackupAdapter(db, options.key, ids);
+  const backupAdapter = new SqliteBackupAdapter(db, options.key, ids, sealRecoverySibling);
   const createBackup = new CreateBackup(backupAdapter, backupConfigStore);
   const getBackupConfig = new GetBackupConfig(backupConfigStore);
   const saveBackupConfig = new SaveBackupConfig(backupConfigStore);
@@ -1368,6 +1398,16 @@ export function buildContainer(options: ContainerOptions): Container {
   const random = new NodeSecureRandom();
   const createUser = new CreateUser(userRepo, hasher, random, clock, ids);
   const redeemSetupCode = new RedeemSetupCode(userRepo, hasher, clock);
+  const validateSetupCode = new ValidateSetupCode(userRepo, hasher, clock);
+  const reissueSetupCode = new ReissueSetupCode(userRepo, hasher, random, clock);
+  const setupCodeRecoveryUnitOfWork = new SqliteSetupCodeRecoveryUnitOfWork(db, changeLog);
+  const recoverPassword = new RecoverPasswordWithSetupCode(
+    userRepo,
+    hasher,
+    clock,
+    ids,
+    setupCodeRecoveryUnitOfWork,
+  );
   const recoveryCodeRepo = new SqliteRecoveryCodeRepository(db);
   const auditLogRepo = new SqliteAuthAuditLogRepository(db);
   const generateRecoveryCodes = new GenerateRecoveryCodes(
@@ -1488,7 +1528,7 @@ export function buildContainer(options: ContainerOptions): Container {
   const setOwnerEmail = new SetOwnerEmail(userRepo, clock);
   const emailPasswordResetUnitOfWork = new SqliteEmailPasswordResetUnitOfWork(db, changeLog);
   const resetPasswordAfterEmailVerification = new ResetPasswordAfterEmailVerification(
-    adminRepo,
+    userRepo,
     emailPasswordResetUnitOfWork,
     hasher,
     clock,
@@ -1500,14 +1540,19 @@ export function buildContainer(options: ContainerOptions): Container {
   const relayBaseUrl =
     __CS_E2E__ && process.env['CS_RELAY_URL'] ? process.env['CS_RELAY_URL'] : __RELAY_BASE_URL__;
   const emailResetRelay = new HttpEmailResetRelay({ baseUrl: relayBaseUrl });
-  const ownerResetIdentity = async () => {
-    const owner = await userRepo.findOwner();
-    if (owner === null) return null;
+  // Per-user reset identity (SOU-303): resolve ANY account by the username the
+  // locked-out staff typed, not just the owner. `accountId` is that user's id, so
+  // the relay differentiates accounts; `email` is their own contact address (null
+  // when none is on file). Returns null when no live account matches the username —
+  // the handler reports that distinctly from "account exists but has no email".
+  const resetIdentity = async (username: string) => {
+    const user = await userRepo.findByUsername(username);
+    if (user === null) return null;
     return {
-      username: owner.username,
-      accountId: owner.id,
-      centerCode: owner.centerCode,
-      email: owner.email ?? null,
+      username: user.username,
+      accountId: user.id,
+      centerCode: user.centerCode,
+      email: user.email ?? null,
     };
   };
 
@@ -1824,6 +1869,9 @@ export function buildContainer(options: ContainerOptions): Container {
     createAdminAccount,
     createUser,
     redeemSetupCode,
+    validateSetupCode,
+    reissueSetupCode,
+    recoverPassword,
     listUsers: () => userRepo.listActive(context.centerCode),
     now: () => clock.now(),
     changeAdminPassword,
@@ -1840,7 +1888,8 @@ export function buildContainer(options: ContainerOptions): Container {
     securityQuestionsExist: () => securityQuestionRepo.exists(),
     setOwnerEmail,
     resetPasswordAfterEmailVerification,
-    ownerResetIdentity,
+    resetIdentity,
+    ownerEmail: async () => (await userRepo.findOwner())?.email ?? null,
     emailResetRelay,
     getCenterProfile,
     saveCenterProfile,

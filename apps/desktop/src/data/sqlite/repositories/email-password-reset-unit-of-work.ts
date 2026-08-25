@@ -4,7 +4,7 @@ import type {
   EmailPasswordResetUnitOfWork,
   EmailPasswordResetUnit,
 } from '@centresoutien/domain';
-import { saveOwnerCredentialAndMaybeReplicate } from './admin-account-repository';
+import { saveUserCredentialAndMaybeReplicate } from './admin-account-repository';
 import { AUTH_AUDIT_LOG_INSERT_SQL, authAuditEventToParams } from './auth-audit-log-repository';
 import { DEVICE_SESSION_CLEAR_SQL, DEVICE_SESSION_EXISTS_SQL } from './device-session-store';
 
@@ -39,7 +39,7 @@ export class SqliteEmailPasswordResetUnitOfWork implements EmailPasswordResetUni
 
   async commit(unit: EmailPasswordResetUnit): Promise<void> {
     const run = this.db.transaction((u: EmailPasswordResetUnit): void => {
-      saveOwnerCredentialAndMaybeReplicate(this.db, this.changeLog, u.account, u.replicate);
+      saveUserCredentialAndMaybeReplicate(this.db, this.changeLog, u.credential, u.replicate);
 
       for (const event of u.auditEvents) this.recordAudit.run(authAuditEventToParams(event));
 

@@ -28,7 +28,10 @@ export interface UserByIdReader {
 // - `resolve` (remember-me reopen): recovers the principal server-side from the
 //   remembered device session (the row carries the user id) + the User row (for
 //   the role, resolved fresh so a role change or removed user takes effect at
-//   once). Seeded at startup so a reopened remembered device has an identity.
+//   once). Seeded at startup so a reopened remembered device has an identity. An
+//   empty session read does NOT clobber a principal already established by an
+//   in-run `set` (a non-remembered login persists no session), so the guard keeps
+//   authorizing a director who logged in without remember-me.
 //
 // Two access shapes, because the two consumers differ:
 // - `resolve` is async — the authoritative read the IPC role guard runs per
@@ -51,6 +54,12 @@ export interface UserByIdReader {
 // principal a later write would trust as fresh.
 export class SessionPrincipalService {
   private cached: SessionPrincipal | null = null;
+  // Whether the current principal was stamped by an in-run login (`set`) rather
+  // than resolved from a persisted session. A non-remembered login persists no
+  // session, so the guard's `resolve` must not downgrade it to null on an empty
+  // session read — doing so failed every director-only IPC after a non-remembered
+  // re-login (SOU-303).
+  private establishedByLogin = false;
   private generation = 0;
 
   constructor(
@@ -63,18 +72,33 @@ export class SessionPrincipalService {
     try {
       const userId = await this.sessions.activeUserId();
       const user = userId === null ? null : await this.users.findById(userId);
-      const resolved: SessionPrincipal | null =
+      const fromSession: SessionPrincipal | null =
         userId !== null && user !== null ? { userId, role: user.role } : null;
       // A clear() or set() landed while our reads were in flight — its outcome is
-      // newer than ours, so discard this now-stale result rather than resurrect a
-      // logged-out user or overwrite a just-established login.
-      if (generation !== this.generation) return null;
-      this.cached = resolved;
-      return resolved;
+      // newer than ours. Return that newer principal (a fresh login) or null (a
+      // logout), never this now-stale read: this both refuses to resurrect a
+      // logged-out user and refuses to clobber a just-established login.
+      if (generation !== this.generation) return this.cached;
+      // A remembered session re-resolves the principal so a role change or a
+      // removed user takes effect at once. With no session row, an in-run login
+      // has already stamped the principal in memory (a non-remembered login
+      // persists nothing) — keep it rather than downgrade an authenticated
+      // director to null, which would reject every director-only IPC afterward.
+      if (fromSession !== null) {
+        this.cached = fromSession;
+        this.establishedByLogin = false;
+        return fromSession;
+      }
+      if (this.establishedByLogin) return this.cached;
+      this.cached = null;
+      return null;
     } catch (error) {
       // Fail closed: a now-unverifiable principal must not survive for
       // authorization. Only null the cache if nothing newer superseded us.
-      if (generation === this.generation) this.cached = null;
+      if (generation === this.generation) {
+        this.cached = null;
+        this.establishedByLogin = false;
+      }
       throw error;
     }
   }
@@ -83,6 +107,7 @@ export class SessionPrincipalService {
   set(principal: SessionPrincipal): void {
     this.generation += 1;
     this.cached = principal;
+    this.establishedByLogin = true;
   }
 
   current(): SessionPrincipal | null {
@@ -92,5 +117,6 @@ export class SessionPrincipalService {
   clear(): void {
     this.generation += 1;
     this.cached = null;
+    this.establishedByLogin = false;
   }
 }

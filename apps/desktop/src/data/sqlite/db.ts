@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3-multiple-ciphers';
 import type { Database as DB } from 'better-sqlite3';
 import { normalizeUsername, foldSearchText } from '@centresoutien/domain';
+import { openEncryptedDatabase } from './db-open';
 
 /**
  * SQLCipher-encrypted database access — one file per center (CLAUDE.md §5quater,
@@ -21,11 +22,7 @@ export function centreDbFileName(centreId: string): string {
 
 /** Open (or create) an encrypted database at an explicit file path. */
 export function openDatabaseAt(file: string, key: string): DB {
-  const db = new Database(file);
-  // PRAGMA does not support bound parameters; escape single quotes in the key.
-  db.pragma(`key = '${key.replace(/'/g, "''")}'`);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+  const db = openEncryptedDatabase(file, key);
   // SQLite's built-in LOWER() is ASCII-only, so migrations that must backfill
   // a case-insensitive column (SOU-153) call this UDF instead — it wraps the
   // one domain-level normalizeUsername, so backfilled data and runtime
