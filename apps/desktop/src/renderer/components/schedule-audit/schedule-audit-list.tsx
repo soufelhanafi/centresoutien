@@ -1,8 +1,12 @@
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, CircleCheck } from 'lucide-react';
 import { Button, EmptyState, ErrorState, Skeleton } from '@centresoutien/ui';
-import type { StrandedGroupView } from '../../lib/schedule-audit/stranded-session-view';
+import type {
+  RecurringSlotWarningView,
+  StrandedGroupView,
+} from '../../lib/schedule-audit/stranded-session-view';
 import { StrandedGroupRow } from './stranded-group-row';
+import { RecurringSlotWarningRow } from './recurring-slot-warning-row';
 
 export type ScheduleAuditStatus = 'loading' | 'error' | 'empty' | 'ready';
 
@@ -10,11 +14,19 @@ type ScheduleAuditListProps = {
   status: ScheduleAuditStatus;
   /** Pre-grouped by the domain (SOU-296) so badge and list share one computation. */
   groups: readonly StrandedGroupView[];
+  /** Un-materialized weekly templates a teacher-availability edit now strands
+   *  (SOU-296bis) — informational, no cancel action. */
+  recurringSlotWarnings: readonly RecurringSlotWarningView[];
   onRetry: () => void;
 };
 
 /** Renders the correct state for the audit report: loading, error, empty, or list. */
-export function ScheduleAuditList({ status, groups, onRetry }: ScheduleAuditListProps) {
+export function ScheduleAuditList({
+  status,
+  groups,
+  recurringSlotWarnings,
+  onRetry,
+}: ScheduleAuditListProps) {
   const { t } = useTranslation();
 
   if (status === 'loading') {
@@ -54,6 +66,9 @@ export function ScheduleAuditList({ status, groups, onRetry }: ScheduleAuditList
 
   return (
     <ul className="space-y-2.5">
+      {recurringSlotWarnings.map((warning) => (
+        <RecurringSlotWarningRow key={warning.session.id} warning={warning} />
+      ))}
       {groups.map((group) => (
         <StrandedGroupRow key={group.key} group={group} />
       ))}

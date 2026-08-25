@@ -1316,6 +1316,7 @@ export function buildContainer(options: ContainerOptions): Container {
     overrides: centerHoursOverrideRepo,
     availability: teacherAvailabilityRepo,
     availabilityExceptions: teacherAvailabilityExceptionRepo,
+    weeklySessions: sessionRepo,
     plan,
     clock,
   });

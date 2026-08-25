@@ -1277,11 +1277,13 @@ export type {
   SessionAuditReason,
   StrandedSession,
   StrandedSessionGroup,
+  StrandedRecurringSlot,
 } from './use-cases/audit-sessions-outside-effective-hours';
 export { auditReasonsFor } from './policies/session-audit-reason';
 export type { SessionAuditContext } from './policies/session-audit-reason';
 export { groupStrandedSessions } from './policies/stranded-session-grouping';
 export type { StrandedResourceKind } from './policies/stranded-session-grouping';
+export { findStrandedRecurringSlots } from './policies/stranded-recurring-slot';
 export { CancelSession } from './use-cases/cancel-session';
 export type { CancelSessionInput } from './use-cases/cancel-session';
 export { WeeklySessionScheduleValidator } from './services/weekly-session-schedule-validator';

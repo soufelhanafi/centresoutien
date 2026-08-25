@@ -80,3 +80,36 @@ export type StrandedGroupView = {
   readonly count: number;
   readonly occurrences: readonly StrandedSessionView[];
 };
+
+/**
+ * Presentation projection of one weekly recurring session, as the planner grid
+ * itself reads it — the same enriched shape `PlannerSessionView` aliases,
+ * duplicated here (rather than imported) so this module stays free of a
+ * cross-feature dependency on the planning lib.
+ */
+export type RecurringSlotSessionView = {
+  readonly id: string;
+  readonly dayOfWeek: number;
+  readonly start: string;
+  readonly end: string;
+  readonly roomId: string;
+  readonly roomName: string | null;
+  readonly teacherId: string | null;
+  readonly teacherName: BilingualText | null;
+  readonly groupId: string | null;
+  readonly subjectId: string | null;
+  readonly subjectName: BilingualText | null;
+  readonly level: string | null;
+  readonly kind: 'regular' | 'exam-prep';
+};
+
+/**
+ * One live weekly template a teacher-availability edit now strands (SOU-296bis)
+ * — flagged from the recurring slot itself, before any concrete occurrence of it
+ * is materialized. Always `outside-teacher-availability`; unlike
+ * {@link StrandedGroupView} there is no dated occurrence to cancel, so the
+ * renderer shows it as a plain informational warning, never an actionable row.
+ */
+export type RecurringSlotWarningView = {
+  readonly session: RecurringSlotSessionView;
+};

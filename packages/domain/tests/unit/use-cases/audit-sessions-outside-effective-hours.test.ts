@@ -36,12 +36,14 @@ import type {
 import type { WeekdayIndex } from '../../../src/value-objects/weekday';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
+import type { WeeklySessionView } from '../../../src/read-models/weekly-session-view';
 import { InMemorySessionOccurrenceViewReadPort } from '../fakes/in-memory-session-occurrence-view-read-port';
 import { InMemoryHolidayRepository } from '../fakes/in-memory-holiday-repository';
 import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-repository';
 import { InMemoryCenterHoursOverrideRepository } from '../fakes/in-memory-center-hours-override-repository';
 import { InMemoryTeacherAvailabilityRepository } from '../fakes/in-memory-teacher-availability-repository';
 import { InMemoryTeacherAvailabilityExceptionRepository } from '../fakes/in-memory-teacher-availability-exception-repository';
+import { InMemoryWeeklySessionViewReadPort } from '../fakes/in-memory-weekly-session-view-read-port';
 import { InMemoryEnrollmentRepository } from '../fakes/in-memory-enrollment-repository';
 import { fakeClock } from '../fakes/clock';
 
@@ -71,6 +73,25 @@ function occurrence(over: Partial<SessionOccurrenceView> & Pick<SessionOccurrenc
     roomName: 'Salle 1',
     roomCapacity: 20,
     roomArchived: false,
+    teacherId: null,
+    teacherName: null,
+    groupId: GROUP,
+    subjectId: SUBJECT,
+    subjectName: { fr: 'Maths', ar: 'رياضيات' },
+    level: '2e Bac',
+    kind: 'regular',
+    ...over,
+  };
+}
+
+function weeklySession(over: Partial<WeeklySessionView> = {}): WeeklySessionView {
+  return {
+    id: WRS_ID,
+    dayOfWeek: THURSDAY,
+    start: '09:00' as TimeOfDay,
+    end: '10:30' as TimeOfDay,
+    roomId: ROOM,
+    roomName: 'Salle 1',
     teacherId: null,
     teacherName: null,
     groupId: GROUP,
@@ -177,6 +198,7 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
   let overrides: InMemoryCenterHoursOverrideRepository;
   let availability: InMemoryTeacherAvailabilityRepository;
   let availabilityExceptions: InMemoryTeacherAvailabilityExceptionRepository;
+  let weeklySessions: InMemoryWeeklySessionViewReadPort;
   let enrollments: InMemoryEnrollmentRepository;
 
   function build(
@@ -191,6 +213,7 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
       overrides,
       availability,
       availabilityExceptions,
+      weeklySessions,
       plan: new PlanPolicy(plan),
       clock,
     });
@@ -205,6 +228,7 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
     overrides = new InMemoryCenterHoursOverrideRepository();
     availability = new InMemoryTeacherAvailabilityRepository();
     availabilityExceptions = new InMemoryTeacherAvailabilityExceptionRepository();
+    weeklySessions = new InMemoryWeeklySessionViewReadPort();
     enrollments = new InMemoryEnrollmentRepository();
     await centerHours.save(thursdayHours('09:00', '12:00'));
   });
@@ -460,6 +484,63 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
       expect(flat(result.groups)).toEqual([
         { session: both, reasons: ['outside-center-hours', 'outside-teacher-availability'] },
       ]);
+    });
+  });
+
+  describe('recurring-slot warnings (SOU-296bis)', () => {
+    it('flags a weekly template outside the teacher availability, with zero materialized occurrences', async () => {
+      const slot = weeklySession({ teacherId: TEACHER });
+      weeklySessions.seed(CENTER, [slot]);
+      await availability.save(
+        seededAvailability(weekWindows({ 1: [{ open: '09:00' as TimeOfDay, close: '12:00' as TimeOfDay }] })),
+      );
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      expect(result.groups).toEqual([]);
+      expect(result.recurringSlotWarnings).toEqual([{ session: slot }]);
+    });
+
+    it('does not flag a weekly template inside the teacher availability', async () => {
+      const slot = weeklySession({ teacherId: TEACHER });
+      weeklySessions.seed(CENTER, [slot]);
+      await availability.save(
+        seededAvailability(weekWindows({ 4: [{ open: '09:00' as TimeOfDay, close: '12:00' as TimeOfDay }] })),
+      );
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      expect(result.recurringSlotWarnings).toEqual([]);
+    });
+
+    it('does not flag an unstaffed weekly template', async () => {
+      weeklySessions.seed(CENTER, [weeklySession({ teacherId: null })]);
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      expect(result.recurringSlotWarnings).toEqual([]);
+    });
+
+    it('does not flag a teacher with no configured availability row (unrestricted)', async () => {
+      weeklySessions.seed(CENTER, [weeklySession({ teacherId: TEACHER })]);
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      expect(result.recurringSlotWarnings).toEqual([]);
+    });
+
+    it('never surfaces a recurring-slot warning when the plan lacks planning.teacher-availability', async () => {
+      const noAvailabilityPlan: Plan = {
+        id: 'essentiel',
+        features: new Set<FeatureFlag>(['settings.center-hours']),
+        limits: PLANS.essentiel.limits,
+      };
+      weeklySessions.seed(CENTER, [weeklySession({ teacherId: TEACHER })]);
+      await availability.save(seededAvailability(weekWindows({})));
+
+      const result = await build(noAvailabilityPlan).execute({ centerCode: CENTER });
+
+      expect(result.recurringSlotWarnings).toEqual([]);
     });
   });
 

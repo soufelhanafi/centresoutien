@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PLANS } from '@centresoutien/domain';
-import type { UseQueryResult } from '@tanstack/react-query';
+import type { ScheduleAuditResult } from '../../../src/renderer/lib/schedule-audit/schedule-audit-gateway';
 import type { StrandedGroupView, StrandedSessionView } from '../../../src/renderer/lib/schedule-audit/stranded-session-view';
 import { CenterHoursStrandedWarning } from '../../../src/renderer/components/settings/center-hours-stranded-warning';
 import { usePlanStore } from '../../../src/renderer/stores/plan-store';
@@ -10,10 +10,12 @@ import { planningModule } from '../../../src/renderer/app/nav-items';
 import i18n from '../../../src/renderer/i18n/config';
 import { planWithout } from '../fakes/plan';
 
-type StrandedResult = Pick<UseQueryResult<readonly StrandedGroupView[]>, 'data'>;
+function auditResult(groups: readonly StrandedGroupView[]): ScheduleAuditResult {
+  return { groups, recurringSlotWarnings: [] };
+}
 
 const mockStranded = vi.hoisted(() => ({
-  result: { data: [] } as StrandedResult,
+  result: { data: undefined } as { data: ScheduleAuditResult | undefined },
   spy: vi.fn(),
 }));
 
@@ -71,7 +73,7 @@ function strandedList(count: number): readonly StrandedGroupView[] {
 }
 
 beforeEach(() => {
-  mockStranded.result = { data: [] };
+  mockStranded.result = { data: auditResult([]) };
   mockStranded.spy.mockClear();
   usePlanStore.setState({ planId: 'essentiel', plan: PLANS.essentiel });
 });
@@ -86,7 +88,7 @@ describe('CenterHoursStrandedWarning — French', () => {
   });
 
   it('renders nothing when no session is stranded', () => {
-    mockStranded.result = { data: [] };
+    mockStranded.result = { data: auditResult([]) };
     const { container } = render(<CenterHoursStrandedWarning />);
 
     expect(container).toBeEmptyDOMElement();
@@ -94,7 +96,7 @@ describe('CenterHoursStrandedWarning — French', () => {
   });
 
   it('warns with the singular count and a review CTA to Planning', () => {
-    mockStranded.result = { data: strandedList(1) };
+    mockStranded.result = { data: auditResult(strandedList(1)) };
     render(<CenterHoursStrandedWarning />);
 
     expect(screen.getByRole('status')).toHaveTextContent(
@@ -107,7 +109,7 @@ describe('CenterHoursStrandedWarning — French', () => {
   });
 
   it('warns with the pluralized count when several sessions are stranded', () => {
-    mockStranded.result = { data: strandedList(3) };
+    mockStranded.result = { data: auditResult(strandedList(3)) };
     render(<CenterHoursStrandedWarning />);
 
     expect(screen.getByRole('status')).toHaveTextContent(
@@ -116,7 +118,7 @@ describe('CenterHoursStrandedWarning — French', () => {
   });
 
   it('sums occurrence counts across groups, not the group count', () => {
-    mockStranded.result = { data: [strandedGroup(0, 4)] };
+    mockStranded.result = { data: auditResult([strandedGroup(0, 4)]) };
     render(<CenterHoursStrandedWarning />);
 
     expect(screen.getByRole('status')).toHaveTextContent(
@@ -126,7 +128,7 @@ describe('CenterHoursStrandedWarning — French', () => {
 
   it('renders nothing and keeps the audit query dormant when the feature is off', () => {
     usePlanStore.setState({ plan: planWithout('settings.center-hours') });
-    mockStranded.result = { data: strandedList(2) };
+    mockStranded.result = { data: auditResult(strandedList(2)) };
     const { container } = render(<CenterHoursStrandedWarning />);
 
     expect(container).toBeEmptyDOMElement();
@@ -140,7 +142,7 @@ describe('CenterHoursStrandedWarning — Arabic (RTL)', () => {
   });
 
   it('renders the Arabic warning copy and CTA', () => {
-    mockStranded.result = { data: strandedList(3) };
+    mockStranded.result = { data: auditResult(strandedList(3)) };
     render(<CenterHoursStrandedWarning />);
 
     expect(screen.getByRole('status')).toHaveTextContent('حصص أصبحت الآن خارج مواعيد العمل.');
