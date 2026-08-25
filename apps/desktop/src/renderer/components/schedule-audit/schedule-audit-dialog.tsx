@@ -31,17 +31,18 @@ export function ScheduleAuditDialog() {
   // grouping — only a dedupe of a multi-reason occurrence that would otherwise
   // render once per singleton reason group. The badge and list share this array.
   const groups = useMemo(
-    () => dedupeSingletonOccurrences(query.data ?? []),
+    () => dedupeSingletonOccurrences(query.data?.groups ?? []),
     [query.data],
   );
+  const recurringSlotWarnings = query.data?.recurringSlotWarnings ?? [];
   const status: ScheduleAuditStatus = query.isPending
     ? 'loading'
     : query.isError
       ? 'error'
-      : groups.length > 0
+      : groups.length > 0 || recurringSlotWarnings.length > 0
         ? 'ready'
         : 'empty';
-  const count = groups.length;
+  const count = groups.length + recurringSlotWarnings.length;
 
   const handleOpenChange = (next: boolean) => {
     if (next && query.isStale) void query.refetch();
@@ -67,7 +68,12 @@ export function ScheduleAuditDialog() {
           <DialogDescription>{t('scheduleAudit.subtitle')}</DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[65vh]" contentClassName="pe-1">
-          <ScheduleAuditList status={status} groups={groups} onRetry={() => void query.refetch()} />
+          <ScheduleAuditList
+            status={status}
+            groups={groups}
+            recurringSlotWarnings={recurringSlotWarnings}
+            onRetry={() => void query.refetch()}
+          />
         </ScrollArea>
       </DialogContent>
     </Dialog>

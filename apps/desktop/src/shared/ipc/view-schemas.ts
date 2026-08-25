@@ -142,3 +142,10 @@ export const strandedSessionGroupSchema = z.object({
   count: z.number().int(),
   occurrences: z.array(strandedSessionSchema),
 });
+
+// A live weekly template a teacher-availability edit now strands (SOU-296bis),
+// flagged before any concrete occurrence of it is materialized — the recurring
+// sibling of `strandedSessionSchema`, always for reason `outside-teacher-availability`.
+export const strandedRecurringSlotSchema = z.object({
+  session: weeklySessionViewSchema,
+});

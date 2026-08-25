@@ -1698,10 +1698,15 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       });
     },
     'session.audit.outside-hours': async () => {
-      const { groups } = await deps.auditSessionsOutsideHours.execute({
+      const { groups, recurringSlotWarnings } = await deps.auditSessionsOutsideHours.execute({
         centerCode: deps.envelopeContext().centerCode,
       });
-      return { groups: groups.map(toStrandedSessionGroup) };
+      return {
+        groups: groups.map(toStrandedSessionGroup),
+        recurringSlotWarnings: recurringSlotWarnings.map((warning) => ({
+          session: toWeeklySessionView(warning.session),
+        })),
+      };
     },
     'session.cancel': async (request) => {
       const { centerCode, updatedBy } = deps.envelopeContext();

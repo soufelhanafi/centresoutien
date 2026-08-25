@@ -1,6 +1,10 @@
-import type { StrandedSessionGroupDto } from '../../../shared/ipc/contract';
-import type { ScheduleAuditGateway } from './schedule-audit-gateway';
-import type { StrandedGroupView, StrandedSessionView } from './stranded-session-view';
+import type { StrandedRecurringSlotDto, StrandedSessionGroupDto } from '../../../shared/ipc/contract';
+import type { ScheduleAuditGateway, ScheduleAuditResult } from './schedule-audit-gateway';
+import type {
+  RecurringSlotWarningView,
+  StrandedGroupView,
+  StrandedSessionView,
+} from './stranded-session-view';
 
 type StrandedSessionDto = StrandedSessionGroupDto['occurrences'][number];
 
@@ -17,9 +21,12 @@ type StrandedSessionDto = StrandedSessionGroupDto['occurrences'][number];
  * shape (`count` from the DTO, occurrences via their multi-reason `reasons`).
  */
 class IpcScheduleAuditGateway implements ScheduleAuditGateway {
-  async listOutsideHours(): Promise<readonly StrandedGroupView[]> {
-    const { groups } = await window.api.invoke('session.audit.outside-hours', {});
-    return groups.map(toStrandedGroupView);
+  async listOutsideHours(): Promise<ScheduleAuditResult> {
+    const { groups, recurringSlotWarnings } = await window.api.invoke('session.audit.outside-hours', {});
+    return {
+      groups: groups.map(toStrandedGroupView),
+      recurringSlotWarnings: recurringSlotWarnings.map(toRecurringSlotWarningView),
+    };
   }
 
   async cancel(id: string): Promise<void> {
@@ -41,6 +48,10 @@ function toStrandedGroupView(dto: StrandedSessionGroupDto): StrandedGroupView {
 
 function toStrandedSessionView(dto: StrandedSessionDto): StrandedSessionView {
   return { session: dto.session, reasons: dto.reasons };
+}
+
+function toRecurringSlotWarningView(dto: StrandedRecurringSlotDto): RecurringSlotWarningView {
+  return { session: dto.session };
 }
 
 export const ipcScheduleAuditGateway: ScheduleAuditGateway = new IpcScheduleAuditGateway();

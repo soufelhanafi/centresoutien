@@ -10,6 +10,7 @@ import {
   bilingualTextSchema,
   dayCloseReportViewSchema,
   hoursByWeekdayViewSchema,
+  strandedRecurringSlotSchema,
   strandedSessionGroupSchema,
   timeWindowViewSchema,
   weeklySessionViewSchema,
@@ -2107,12 +2108,17 @@ export const ipcContract = {
   // weekday, the primary resource (teacher/room id, or null for center-wide), the
   // stranded `count`, and the dated `occurrences` (each with its full `reasons`,
   // so a multi-reason occurrence appears in one group per reason). `session` is
-  // the ENRICHED `sessionOccurrenceViewSchema`. centerCode is injected in main,
-  // never sent from the renderer. Gated by `settings.center-hours` (every plan).
+  // the ENRICHED `sessionOccurrenceViewSchema`. `recurringSlotWarnings` (SOU-296bis)
+  // separately covers weekly templates whose own weekday/window a teacher's
+  // availability now violates, before any concrete occurrence of them exists — no
+  // "count"/expand, no cancel action, since there is no dated row to soft-delete.
+  // centerCode is injected in main, never sent from the renderer. Gated by
+  // `settings.center-hours` (every plan).
   'session.audit.outside-hours': {
     request: z.object({}),
     response: z.object({
       groups: z.array(strandedSessionGroupSchema),
+      recurringSlotWarnings: z.array(strandedRecurringSlotSchema),
     }),
   },
   // Per-occurrence cancel (SOU-201): soft-deletes ONE concrete dated session by
@@ -2788,6 +2794,11 @@ export type SessionOccurrenceDto = z.infer<typeof sessionOccurrenceViewSchema>;
 /** One deduplicated audit group from the standing audit (SOU-296): a reason, its
  *  weekday and primary resource, plus the stranded occurrences. */
 export type StrandedSessionGroupDto = IpcResponse<'session.audit.outside-hours'>['groups'][number];
+
+/** One recurring-slot warning from the standing audit (SOU-296bis): a weekly
+ *  template a teacher-availability edit now strands, before materialization. */
+export type StrandedRecurringSlotDto =
+  IpcResponse<'session.audit.outside-hours'>['recurringSlotWarnings'][number];
 
 /** The AttendanceRecord boundary DTO — the renderer's `AttendanceRecordView` aliases this. */
 export type AttendanceRecordDto = z.infer<typeof attendanceRecordViewSchema>;
