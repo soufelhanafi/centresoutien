@@ -82,7 +82,7 @@ describe('JoinCenterFlow — happy path (SOU-318)', () => {
     renderFlow();
 
     await user.click(await screen.findByText("Saisir l'adresse manuellement"));
-    await user.type(screen.getByLabelText("Adresse IP de l'hôte"), '10.0.0.5');
+    await user.type(screen.getByLabelText("Adresse de l'hôte"), '10.0.0.5');
     await user.type(screen.getByLabelText('Code du centre'), 'CS-X-001');
     await user.click(screen.getByRole('button', { name: 'Continuer' }));
 
@@ -91,7 +91,9 @@ describe('JoinCenterFlow — happy path (SOU-318)', () => {
 
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith('hub.joinCenter', {
-        baseUrl: 'http://10.0.0.5:8787',
+        // The manual form pre-fills the host's default port (4747) — the user typed
+        // only host + center code, so the request must carry 4747, not a stale default.
+        baseUrl: 'http://10.0.0.5:4747',
         token: 'ZZZZ-ZZZZ-ZZZZ',
         centerCode: 'CS-X-001',
       }),

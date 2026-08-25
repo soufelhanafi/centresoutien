@@ -113,6 +113,21 @@ export function resolveLanBindHost(): string | null {
   return null;
 }
 
+/**
+ * Whether `address` is still one of this machine's current non-internal IPv4
+ * interfaces (SOU-318). A stored hosting `bindHost` can go stale after a network
+ * change; boot uses this to re-resolve rather than bind an interface that no
+ * longer exists (which would fail silently while the UI still reads "hosting").
+ */
+export function isActiveLanAddress(address: string): boolean {
+  for (const addresses of Object.values(networkInterfaces())) {
+    for (const info of addresses ?? []) {
+      if (info.family === 'IPv4' && !info.internal && info.address === address) return true;
+    }
+  }
+  return false;
+}
+
 function isPrivateIpv4(address: string): boolean {
   const octets = address.split('.').map(Number);
   if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {

@@ -15,6 +15,7 @@ export default defineConfig({
   use: {
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
+    video: 'retain-on-failure',
   },
   projects: [
     { name: 'fr', use: { locale: 'fr-FR' } },

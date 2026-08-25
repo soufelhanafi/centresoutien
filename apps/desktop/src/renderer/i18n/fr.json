@@ -2979,7 +2979,7 @@
       },
       "manual": {
         "title": "Saisie manuelle",
-        "host": "Adresse IP de l'hôte",
+        "host": "Adresse de l'hôte",
         "hostPlaceholder": "192.168.1.10",
         "port": "Port",
         "centerCode": "Code du centre",

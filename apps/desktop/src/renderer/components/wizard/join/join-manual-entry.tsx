@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Input, Label } from '@centresoutien/ui';
 import { targetFromManual, type JoinTarget } from '../../../lib/hub/join-target';
+import { DEFAULT_HUB_PORT } from '../../../../shared/hub';
 
-const DEFAULT_PORT = '8787';
+// Pre-fill the host's default port so the common case (a host on the default
+// port) joins without the user editing it — one shared constant, no drift.
+const DEFAULT_PORT = String(DEFAULT_HUB_PORT);
 
 /**
  * Fallback for when LAN discovery finds nothing (SOU-318): the director types the

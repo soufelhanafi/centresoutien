@@ -187,6 +187,26 @@ describe('SqliteCenterJoinProvisioning cold-bootstrap (SOU-318)', () => {
     }
   });
 
+  it('normalizes the hub URL to its origin and persists the clean base URL', async () => {
+    const result = await makeJoiner().provisionFromHub({
+      // Trailing path + whitespace must be stripped before the HTTP client / config see it.
+      baseUrl: `  ${baseUrl}/hub/v1/extra?q=1  `,
+      token: TOKEN,
+      centerCode: CENTER,
+    });
+
+    expect(result.centerCode).toBe(CENTER);
+    expect(written).toEqual([{ centreId: result.centreId, config: { baseUrl, token: TOKEN } }]);
+  });
+
+  it('rejects a non-http(s) hub URL and leaves no center behind', async () => {
+    await expect(
+      makeJoiner().provisionFromHub({ baseUrl: 'ftp://nope', token: TOKEN, centerCode: CENTER }),
+    ).rejects.toBeInstanceOf(CenterJoinError);
+    expect(readdirSync(joinDir).filter((f) => f.startsWith('centre-'))).toEqual([]);
+    expect(written).toEqual([]);
+  });
+
   it('rejects a wrong pairing token and leaves no center behind', async () => {
     await expect(
       makeJoiner().provisionFromHub({ baseUrl, token: 'WRONG-TOKEN', centerCode: CENTER }),

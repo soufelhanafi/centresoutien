@@ -73,7 +73,12 @@ export type CenterJoinProvisioningDeps = {
 export class SqliteCenterJoinProvisioning implements CenterJoinProvisioningPort {
   constructor(private readonly deps: CenterJoinProvisioningDeps) {}
 
-  async provisionFromHub({ baseUrl, token, centerCode }: JoinCenterFromHubInput): Promise<JoinCenterFromHubResult> {
+  async provisionFromHub(input: JoinCenterFromHubInput): Promise<JoinCenterFromHubResult> {
+    // The domain schema only shape-checks the URL (it compiles without `URL`);
+    // parse it for real here and persist only the clean origin, so a stray
+    // path/whitespace can never reach the HTTP client or the stored client config.
+    const baseUrl = normalizeHubUrl(input.baseUrl);
+    const { token, centerCode } = input;
     const centreId = this.allocateCentreId();
     const finalFile = join(this.deps.dir, centreDbFileName(centreId));
     // The temp name does NOT match the switcher's `centre-*.db` scan, so a
@@ -133,13 +138,23 @@ export class SqliteCenterJoinProvisioning implements CenterJoinProvisioningPort 
     });
 
     // Drain the whole feed: each run applies the next batch and advances the
-    // cursor; a run that applies nothing means we are caught up.
+    // cursor; a run that applies nothing means we are caught up. If the cap is
+    // hit WITHOUT a zero-applied run (a pathological / constantly-changing hub),
+    // the replica is not fully caught up — fail rather than publish a partial
+    // center as "joined".
+    let converged = false;
     for (let run = 0; run < MAX_BOOTSTRAP_RUNS; run += 1) {
       const result = await engine.run(matcher);
       if (result.status !== 'synced') {
         throw new CenterJoinError('the initial sync did not converge');
       }
-      if (result.applied === 0) break;
+      if (result.applied === 0) {
+        converged = true;
+        break;
+      }
+    }
+    if (!converged) {
+      throw new CenterJoinError(`the initial sync did not converge within ${MAX_BOOTSTRAP_RUNS} passes`);
     }
 
     const changeLog = new SqliteChangeLogWriter(db, this.deps.clock, deviceOrigin);
@@ -190,6 +205,25 @@ function removeCenterFiles(file: string): void {
       // Best effort — see the doc above.
     }
   }
+}
+
+/**
+ * Parses + normalizes a hub URL to its bare origin (scheme + host + port), or
+ * throws {@link CenterJoinError}. Enforces http(s) and drops any path/query/hash,
+ * so only a clean base URL ever reaches {@link HttpSyncHubClient} (which builds
+ * request paths by string concatenation) or the persisted client config.
+ */
+function normalizeHubUrl(raw: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw.trim());
+  } catch {
+    throw new CenterJoinError('the hub address is not a valid URL');
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new CenterJoinError('the hub address must be an http(s) URL');
+  }
+  return parsed.origin;
 }
 
 function reasonFrom(error: unknown): string {

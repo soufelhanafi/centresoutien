@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, Loader2, Network, SearchX } from 'lucide-react';
 import { Button, EmptyState } from '@centresoutien/ui';
@@ -12,6 +12,9 @@ import { JoinManualEntry } from './join-manual-entry';
  * Step 1 of the join branch (SOU-318): browse the LAN for hubs (~2.5s), then list
  * what answered. Covers loading, an empty state with a retry + hint, an error
  * state, and a manual-address fallback for networks where mDNS is blocked.
+ *
+ * Discovery is a query that runs on mount (no `useEffect`-driven IPC); the retry
+ * button re-runs it via `refetch`.
  */
 export function JoinDiscoverStep({
   onPick,
@@ -24,12 +27,6 @@ export function JoinDiscoverStep({
   const discover = useDiscoverCenters();
   const [showManual, setShowManual] = useState(false);
 
-  const runDiscovery = discover.mutate;
-  useEffect(() => {
-    // Browse the LAN once on mount; re-runs go through the explicit retry button.
-    runDiscovery();
-  }, [runDiscovery]);
-
   const centers = discover.data ?? [];
 
   return (
@@ -41,40 +38,40 @@ export function JoinDiscoverStep({
       />
 
       <div className="flex flex-col gap-4">
-        {discover.isPending && (
+        {discover.isFetching && (
           <div className="flex items-center gap-3 py-6" aria-busy="true">
             <Loader2 className="h-5 w-5 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">{t('hub.join.discover.searching')}</p>
           </div>
         )}
 
-        {discover.isError && (
+        {!discover.isFetching && discover.isError && (
           <EmptyState
             icon={<SearchX className="h-5 w-5" aria-hidden="true" />}
             title={t('hub.join.discover.errorTitle')}
             description={t('hub.join.discover.errorBody')}
             action={
-              <Button type="button" variant="outline" size="sm" onClick={() => discover.mutate()}>
+              <Button type="button" variant="outline" size="sm" onClick={() => void discover.refetch()}>
                 {t('hub.join.discover.retry')}
               </Button>
             }
           />
         )}
 
-        {discover.isSuccess && centers.length === 0 && (
+        {!discover.isFetching && discover.isSuccess && centers.length === 0 && (
           <EmptyState
             icon={<SearchX className="h-5 w-5" aria-hidden="true" />}
             title={t('hub.join.discover.emptyTitle')}
             description={t('hub.join.discover.emptyBody')}
             action={
-              <Button type="button" variant="outline" size="sm" onClick={() => discover.mutate()}>
+              <Button type="button" variant="outline" size="sm" onClick={() => void discover.refetch()}>
                 {t('hub.join.discover.retry')}
               </Button>
             }
           />
         )}
 
-        {discover.isSuccess && centers.length > 0 && (
+        {!discover.isFetching && discover.isSuccess && centers.length > 0 && (
           <ul className="flex flex-col gap-2" aria-label={t('hub.join.discover.listLabel')}>
             {centers.map((center) => (
               <li key={`${center.centreId}-${center.host}`}>

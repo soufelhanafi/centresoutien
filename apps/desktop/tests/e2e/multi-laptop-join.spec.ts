@@ -33,6 +33,10 @@ const JOIN: Record<
   {
     joinCard: string;
     manualToggle: string;
+    hostLabel: string;
+    portLabel: string;
+    centerCodeLabel: string;
+    tokenLabel: string;
     manualContinue: string;
     codeConfirm: string;
     authTitle: string;
@@ -42,6 +46,10 @@ const JOIN: Record<
   fr: {
     joinCard: 'Rejoindre un centre existant',
     manualToggle: "Saisir l'adresse manuellement",
+    hostLabel: "Adresse de l'hôte",
+    portLabel: 'Port',
+    centerCodeLabel: 'Code du centre',
+    tokenLabel: "Code d'appairage",
     manualContinue: 'Continuer',
     codeConfirm: 'Rejoindre',
     authTitle: 'Connexion',
@@ -50,6 +58,10 @@ const JOIN: Record<
   ar: {
     joinCard: 'الانضمام إلى مركز موجود',
     manualToggle: 'إدخال العنوان يدويًا',
+    hostLabel: 'عنوان المضيف',
+    portLabel: 'المنفذ',
+    centerCodeLabel: 'رمز المركز',
+    tokenLabel: 'رمز الاقتران',
     manualContinue: 'متابعة',
     codeConfirm: 'انضمام',
     authTitle: 'تسجيل الدخول',
@@ -92,11 +104,11 @@ test('a second device joins an existing center over the LAN and cold-bootstraps 
   // choose "join" → manual address (mDNS is not reliable in CI) → pairing code.
   await win.getByRole('button', { name: new RegExp(J.joinCard) }).click();
   await win.getByRole('button', { name: J.manualToggle }).click();
-  await win.locator('#join-host').fill('127.0.0.1');
-  await win.locator('#join-port').fill(String(hub.port));
-  await win.locator('#join-center-code').fill(CENTER_CODE);
+  await win.getByLabel(J.hostLabel, { exact: true }).fill('127.0.0.1');
+  await win.getByLabel(J.portLabel, { exact: true }).fill(String(hub.port));
+  await win.getByLabel(J.centerCodeLabel, { exact: true }).fill(CENTER_CODE);
   await win.getByRole('button', { name: J.manualContinue }).click();
-  await win.locator('#join-token').fill(HUB_TOKEN);
+  await win.getByLabel(J.tokenLabel, { exact: true }).fill(HUB_TOKEN);
   await win.getByRole('button', { name: J.codeConfirm }).click();
 
   // On success main cold-bootstraps + switches into the joined center; the first-run
@@ -106,6 +118,9 @@ test('a second device joins an existing center over the LAN and cold-bootstraps 
   // Prove the bootstrap reconstructed the center: log in as the SYNCED director
   // (whose account only exists here because it was pulled) and read the subject back.
   await win.evaluate(async (admin) => {
+    // Cast: this runs INSIDE the renderer, where `window.api` is the preload
+    // bridge but has no ambient type in this Node-side spec — the same narrow
+    // bridge cast the sibling fixtures use.
     const api = (window as unknown as { api: { invoke: (c: string, r: unknown) => Promise<unknown> } }).api;
     await api.invoke('auth.login', { ...admin, rememberDevice: true });
   }, VALID_ADMIN);

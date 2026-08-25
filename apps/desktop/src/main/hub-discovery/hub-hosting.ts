@@ -1,9 +1,8 @@
 import type { HubHostConfig } from '../infra/hub-host-config-store';
+import { DEFAULT_HUB_PORT } from '../../shared/hub';
 import { generatePairingToken } from './hub-service';
 
-/** The default LAN port the embedded hub listens on when a center is designated
- *  as hosted here. Matches the `CS_HUB_PORT` dev-override default. */
-export const DEFAULT_HUB_PORT = 4747;
+export { DEFAULT_HUB_PORT };
 
 /** What the "Host this center" surface shows: whether this device hosts the open
  *  center and, if so, the address + token a joining laptop needs. */

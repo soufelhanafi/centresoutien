@@ -29,8 +29,9 @@ import {
 import { randomBytes } from 'node:crypto';
 import { sweepStaleTempPdfs } from '../data/fs/temp-pdf';
 import { LEGACY_DEMO_CENTRE_ID, resolveInitialCentreId } from './initial-centre-id';
-import { HubHostConfigStore, resolveLanBindHost } from './infra/hub-host-config-store';
+import { HubHostConfigStore, isActiveLanAddress, resolveLanBindHost } from './infra/hub-host-config-store';
 import { HubClientConfigStore } from './infra/hub-client-config-store';
+import { DEFAULT_HUB_PORT } from '../shared/hub';
 import { BonjourHubMdns } from './hub-discovery/mdns-adapters';
 
 // The packaged renderer entry loaded from disk. Shared by the window's
@@ -96,7 +97,7 @@ function resolveHubConfigFromEnv(): { port: number; token: string; bindHost: str
     console.warn('[hub] CS_HUB_ENABLED=1 but no CS_HUB_TOKEN set — hub is NOT serving.');
     return null;
   }
-  const rawPort = process.env['CS_HUB_PORT'] ?? '4747';
+  const rawPort = process.env['CS_HUB_PORT'] ?? String(DEFAULT_HUB_PORT);
   const port = Number(rawPort);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     console.warn(`[hub] invalid CS_HUB_PORT "${rawPort}" — hub is NOT serving.`);
@@ -196,8 +197,21 @@ app.whenReady().then(async () => {
     // the correct hub role for the target center.
     const hubHostConfigStore = new HubHostConfigStore(dir);
     const hubClientConfigStore = new HubClientConfigStore(dir);
-    const resolveHubConfig = (centreId: string): { port: number; token: string; bindHost: string } | null =>
-      resolveHubConfigFromEnv() ?? hubHostConfigStore.read(centreId);
+    const resolveHubConfig = (centreId: string): { port: number; token: string; bindHost: string } | null => {
+      const fromEnv = resolveHubConfigFromEnv();
+      if (fromEnv) return fromEnv;
+      const persisted = hubHostConfigStore.read(centreId);
+      if (persisted === null || isActiveLanAddress(persisted.bindHost)) return persisted;
+      // The stored LAN address is gone (the machine moved networks). Re-resolve so
+      // the hub binds a reachable interface — and rewrite the config so hosting
+      // status reflects the address it actually serves, instead of the hub failing
+      // to bind while the UI still reads "hosting". Token + port are preserved.
+      const healed = resolveLanBindHost();
+      if (healed === null) return persisted;
+      const next = { ...persisted, bindHost: healed };
+      hubHostConfigStore.write(centreId, next);
+      return next;
+    };
     const resolveHubClientConfig = (centreId: string): { baseUrl: string; token: string } | null =>
       resolveHubClientConfigFromEnv() ?? hubClientConfigStore.read(centreId);
     // One Bonjour instance for the whole process (one multicast socket), shared as

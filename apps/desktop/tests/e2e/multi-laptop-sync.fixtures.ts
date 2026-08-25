@@ -62,6 +62,10 @@ export const STR: Record<Locale, { nav: string; navAria: string; title: string; 
   },
 };
 
+// The preload bridge (`window.api`) has no ambient type inside a `page.evaluate`
+// callback, which is compiled for the renderer, not this Node-side spec. Every
+// helper below narrows `window` to just this bridge shape via a single
+// `unknown as { api: Bridge }` cast — the one justified unsafe cast this file uses.
 type Bridge = { invoke: (channel: string, req: unknown) => Promise<unknown> };
 
 export type Device = { app: ElectronApplication; win: Page; userDataDir: string };
