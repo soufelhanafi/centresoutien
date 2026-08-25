@@ -45,24 +45,66 @@ export function weeklyBlockFromOpen(
 }
 
 /**
- * Build the group's weekly block on `dayOfWeek`, anchored at the **earliest of
- * `windows` whose span is long enough to hold `durationMinutes`** (SOU-218). On
- * a split day — a mid-day/iftar break splits opening hours into two windows —
- * this lets the generator place a session in the afternoon window when the
- * morning one is too short, instead of always anchoring at the first window and
- * overrunning its close.
+ * The earliest sub-interval across `windows` that is at least `durationMinutes`
+ * wide once every overlapping interval in `occupied` is carved out of it —
+ * `null` when nothing fits. Walks each window left to right, advancing past
+ * each occupied interval it meets; this is what lets a second group sharing a
+ * teacher land right after the first group's block instead of colliding with
+ * it, without ever widening or narrowing the caller's own opening windows.
+ */
+function earliestFreeSlot(
+  windows: readonly TimeWindow[],
+  durationMinutes: number,
+  occupied: readonly TimeWindow[],
+): TimeWindow | null {
+  for (const window of windows) {
+    const overlapping = occupied
+      .filter(
+        (slot) => toMinutes(slot.open) < toMinutes(window.close) && toMinutes(slot.close) > toMinutes(window.open),
+      )
+      .sort((a, b) => toMinutes(a.open) - toMinutes(b.open));
+    let cursor = toMinutes(window.open);
+    for (const slot of overlapping) {
+      const slotOpen = toMinutes(slot.open);
+      if (slotOpen - cursor >= durationMinutes) {
+        return { open: fromMinutes(cursor), close: fromMinutes(slotOpen) };
+      }
+      cursor = Math.max(cursor, toMinutes(slot.close));
+    }
+    if (toMinutes(window.close) - cursor >= durationMinutes) {
+      return { open: fromMinutes(cursor), close: window.close };
+    }
+  }
+  return null;
+}
+
+/**
+ * Build the group's weekly block on `dayOfWeek`, anchored at the **earliest
+ * free slot across `windows` long enough to hold `durationMinutes`**, treating
+ * every interval in `occupied` (already-committed blocks on this weekday for
+ * the same teacher, earlier in the same generator run) as unavailable (SOU-218,
+ * SOU-259). On a split day — a mid-day/iftar break splits opening hours into
+ * two windows — or when an earlier group already took the first slot, this
+ * lets the generator place a session in whichever gap actually fits, instead
+ * of always anchoring at the first window's `open` regardless of what already
+ * sits there.
  *
- * When no single window is long enough it falls back to the first window's
- * `open`: the resulting overrun is left for {@link detectGeneratedScheduleConflicts}
- * (SOU-161) to surface as a non-blocking hours conflict, rather than silently
- * dropping the session. Returns `null` for a closed day (empty `windows`), which
- * the caller skips — no block on a day the center never opens.
+ * When nothing fits — no free slot honors `occupied`, or `occupied` is empty
+ * and no single window is long enough — it falls back to the first window's
+ * `open` exactly as before: the resulting overrun or double-book is left for
+ * {@link detectGeneratedScheduleConflicts} (SOU-161) to surface as a
+ * non-blocking conflict, rather than silently dropping the session. Returns
+ * `null` for a closed day (empty `windows`), which the caller skips — no block
+ * on a day the center never opens.
  */
 export function weeklyBlockInFittingWindow(
   dayOfWeek: WeekdayIndex,
   windows: readonly TimeWindow[],
   durationMinutes: number,
+  occupied: readonly TimeWindow[] = [],
 ): WeeklyBlock | null {
+  const freeSlot = earliestFreeSlot(windows, durationMinutes, occupied);
+  if (freeSlot !== null) return weeklyBlockFromOpen(dayOfWeek, freeSlot.open, durationMinutes);
   const fitsDuration = (window: TimeWindow): boolean =>
     toMinutes(window.close) - toMinutes(window.open) >= durationMinutes;
   const anchor = windows.find(fitsDuration) ?? windows[0];
