@@ -205,14 +205,20 @@ export class EnrollStudent {
     ];
     if (otherGroupIds.length === 0) return [];
 
+    const otherGroupSessions = await Promise.all(
+      otherGroupIds.map((otherGroupId) => this.sessions.listActiveByGroupId(centerCode, otherGroupId)),
+    );
     const blocksByGroup = new Map<GroupId, { dayOfWeek: WeekdayIndex; start: TimeOfDay; end: TimeOfDay }[]>();
-    for (const otherGroupId of otherGroupIds) {
-      const otherSessions = await this.sessions.listActiveByGroupId(centerCode, otherGroupId);
+    otherGroupIds.forEach((otherGroupId, index) => {
       blocksByGroup.set(
         otherGroupId,
-        otherSessions.map((session) => ({ dayOfWeek: session.dayOfWeek, start: session.start, end: session.end })),
+        otherGroupSessions[index]!.map((session) => ({
+          dayOfWeek: session.dayOfWeek,
+          start: session.start,
+          end: session.end,
+        })),
       );
-    }
+    });
     const rosterByGroup = new Map(otherGroupIds.map((otherGroupId) => [otherGroupId, [studentId]] as const));
     const studentIndex = buildStudentScheduleIndex(rosterByGroup, blocksByGroup);
 

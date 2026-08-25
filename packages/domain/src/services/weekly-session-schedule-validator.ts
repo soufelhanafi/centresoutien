@@ -113,24 +113,35 @@ export class WeeklySessionScheduleValidator {
     const roster = (await this.deps.enrollments.listActiveByGroup(groupId)).map((e) => e.studentId);
     if (roster.length === 0) return undefined;
 
+    const rosterEnrollments = await Promise.all(
+      roster.map((studentId) => this.deps.enrollments.listActiveByStudent(studentId)),
+    );
     const otherGroupIds = new Set<GroupId>();
-    for (const studentId of roster) {
-      const enrollments = await this.deps.enrollments.listActiveByStudent(studentId);
+    for (const enrollments of rosterEnrollments) {
       for (const enrollment of enrollments) {
         if (enrollment.groupId !== groupId) otherGroupIds.add(enrollment.groupId);
       }
     }
     if (otherGroupIds.size === 0) return undefined;
 
-    const rosterByGroup = await this.deps.enrollments.listActiveStudentIdsByGroups([...otherGroupIds]);
+    const otherGroupIdList = [...otherGroupIds];
+    const [rosterByGroup, otherGroupSessions] = await Promise.all([
+      this.deps.enrollments.listActiveStudentIdsByGroups(otherGroupIdList),
+      Promise.all(
+        otherGroupIdList.map((otherGroupId) => this.deps.sessions.listActiveByGroupId(centerCode, otherGroupId)),
+      ),
+    ]);
     const blocksByGroup = new Map<GroupId, { dayOfWeek: WeekdayIndex; start: TimeOfDay; end: TimeOfDay }[]>();
-    for (const otherGroupId of otherGroupIds) {
-      const sessions = await this.deps.sessions.listActiveByGroupId(centerCode, otherGroupId);
+    otherGroupIdList.forEach((otherGroupId, index) => {
       blocksByGroup.set(
         otherGroupId,
-        sessions.map((session) => ({ dayOfWeek: session.dayOfWeek, start: session.start, end: session.end })),
+        otherGroupSessions[index]!.map((session) => ({
+          dayOfWeek: session.dayOfWeek,
+          start: session.start,
+          end: session.end,
+        })),
       );
-    }
+    });
 
     return {
       groupId,
