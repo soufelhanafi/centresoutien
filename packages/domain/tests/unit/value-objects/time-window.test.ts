@@ -4,6 +4,7 @@ import {
   timeWindowContains,
   timeWindowsContain,
   areOrderedNonOverlappingWindows,
+  intersectTimeWindows,
 } from '../../../src/value-objects/time-window';
 import type { TimeWindow } from '../../../src/value-objects/time-window';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
@@ -108,5 +109,41 @@ describe('areOrderedNonOverlappingWindows', () => {
     expect(
       areOrderedNonOverlappingWindows([window('09:00', '15:00'), window('22:00', '21:00')]),
     ).toBe(false);
+  });
+});
+
+describe('intersectTimeWindows', () => {
+  it('narrows a wide window down to a narrower one nested inside it', () => {
+    expect(intersectTimeWindows([window('09:00', '22:00')], [window('19:00', '22:00')])).toEqual([
+      window('19:00', '22:00'),
+    ]);
+  });
+
+  it('returns the overlap of two partially-overlapping windows', () => {
+    expect(intersectTimeWindows([window('09:00', '12:00')], [window('11:00', '15:00')])).toEqual([
+      window('11:00', '12:00'),
+    ]);
+  });
+
+  it('returns nothing for two disjoint windows', () => {
+    expect(intersectTimeWindows([window('09:00', '12:00')], [window('14:00', '18:00')])).toEqual([]);
+  });
+
+  it('returns nothing for windows that only touch, not overlap', () => {
+    expect(intersectTimeWindows([window('09:00', '12:00')], [window('12:00', '15:00')])).toEqual([]);
+  });
+
+  it('returns nothing when either side is empty (a closed day on either end)', () => {
+    expect(intersectTimeWindows([], [window('19:00', '22:00')])).toEqual([]);
+    expect(intersectTimeWindows([window('19:00', '22:00')], [])).toEqual([]);
+  });
+
+  it('intersects a split day (iftar break) against a single wide window per-segment', () => {
+    expect(
+      intersectTimeWindows(
+        [window('09:00', '15:00'), window('21:00', '23:00')],
+        [window('14:00', '22:00')],
+      ),
+    ).toEqual([window('14:00', '15:00'), window('21:00', '22:00')]);
   });
 });

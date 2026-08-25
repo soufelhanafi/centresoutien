@@ -285,10 +285,26 @@ describe('PreviewGeneratedSchedule', () => {
   });
 
   describe('teacher availability (SOU-259, SOU-296)', () => {
-    it('generates no session — never one outside the staffing teacher’s weekly windows', async () => {
+    it('anchors inside the staffing teacher’s weekly window instead of the center-open default', async () => {
       await groups.save(makeGroup({ teacherId: TEACHER_1 as unknown as EntityId }));
       await availability.save(
         makeAvailability(TEACHER_1, { ...emptyWeek(), [MON]: [window('14:00', '16:00')] }),
+      );
+
+      const result = await useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 })));
+
+      expect(result.proposals[0]!.blocks).toEqual([
+        expect.objectContaining({ block: expect.objectContaining({ start: '14:00', end: '15:30' }) }),
+      ]);
+      expect(result.proposals[0]!.requestedSessionsPerWeek).toBe(1);
+      expect(result.conflicts.some((c) => c.kind === 'teacher-availability')).toBe(false);
+    });
+
+    it('generates no session when no window on the only eligible day fits the session duration', async () => {
+      await groups.save(makeGroup({ teacherId: TEACHER_1 as unknown as EntityId }));
+      await availability.save(
+        // Only a 30-minute gap — too short for the 90-minute session, and no other day is in the pool.
+        makeAvailability(TEACHER_1, { ...emptyWeek(), [MON]: [window('14:00', '14:30')] }),
       );
 
       const result = await useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 })));

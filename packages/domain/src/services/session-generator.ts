@@ -1,7 +1,7 @@
 import type { RandomPort } from '../ports/random-port';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import { toMinutes } from '../value-objects/time-of-day';
-import type { TimeWindow } from '../value-objects/time-window';
+import { intersectTimeWindows, type TimeWindow } from '../value-objects/time-window';
 import type { EntityId } from '../value-objects/ids';
 import type { GroupId, GroupKind } from '../entities/group';
 import type { TeacherId } from '../entities/teacher';
@@ -701,8 +701,9 @@ export class SessionGenerator {
     const teacherId = teacherByGroup.get(groupId) ?? null;
     const rules = teacherId !== null ? availability?.rulesByTeacher.get(teacherId) : undefined;
     if (rules === undefined) return config.sessionsPerWeek;
+    const restrictedWindows = this.availabilityRestrictedWindows(windowsByWeekday, teacherId, availability);
     const availableDays = eligiblePool.filter((day) => {
-      const block = weeklyBlockInFittingWindow(day, windowsByWeekday.get(day) ?? [], config.sessionDurationMinutes);
+      const block = weeklyBlockInFittingWindow(day, restrictedWindows.get(day) ?? [], config.sessionDurationMinutes);
       if (block === null) return false;
       const range = availability?.rangeByWeekday.get(day) ?? null;
       return teacherUnavailability(block, teacherId!, rules, range) === null;
@@ -725,9 +726,12 @@ export class SessionGenerator {
    * lets the caller detect and surface that shortfall. A true dead end (no
    * availability-clean day exists at any size, down to one) yields zero blocks
    * for the group. The search is greedy across groups (no cross-group
-   * backtracking) and day-only — each block still anchors at the earliest
-   * window of its weekday that fits the session duration (SOU-218), never
-   * varying the time within a chosen day.
+   * backtracking); within a chosen weekday, each block anchors at the
+   * earliest slot that both fits the session duration inside the teacher's
+   * own availability window (SOU-218) and clears whatever that same teacher
+   * already has booked on that weekday earlier in this run — so two groups
+   * sharing a teacher on the same day pack back-to-back instead of colliding
+   * on the same anchor time.
    */
   private placeAutoGroup(
     groupId: GroupId,
@@ -739,12 +743,20 @@ export class SessionGenerator {
     const requested = config.sessionsPerWeek;
     const occupied = [...context.existingSchedule, ...committed.map(generatedCandidateToScheduledRef)];
 
+    const committedForTeacher = committed.map(generatedCandidateToScheduledRef);
+
     const bestAtSize = (
       combinations: readonly (readonly WeekdayIndex[])[],
     ): readonly ScheduledBlockProposal[] | undefined => {
       let firstAvailabilityFree: readonly ScheduledBlockProposal[] | undefined;
       for (const weekdays of combinations) {
-        const blocks = this.roomBlocksForGroup(groupId, weekdays, config, context, occupied);
+        const blocks = this.roomBlocksForGroup(groupId, weekdays, config, context, occupied, committedForTeacher, true);
+        // A day whose intersected availability window dropped out of `blocks`
+        // makes this combo a partial match, not a real candidate at this size —
+        // the shrink-retry loop below is what handles "fewer days than asked
+        // for", never a silently-incomplete combo trivially passing because it
+        // has nothing left to conflict.
+        if (blocks.length < weekdays.length) continue;
         const conflicts = this.conflictsFor(groupId, blocks, context, committed);
         if (conflicts.length === 0) return blocks;
         if (
@@ -781,7 +793,7 @@ export class SessionGenerator {
   ): GroupScheduleProposal {
     return {
       groupId,
-      blocks: this.roomBlocksForGroup(groupId, config.pickedWeekdays, config, context, context.existingSchedule),
+      blocks: this.roomBlocksForGroup(groupId, config.pickedWeekdays, config, context, context.existingSchedule, [], false),
       gapViolations: gapViolations(config.pickedWeekdays, config.minGapDays),
       requestedSessionsPerWeek: config.pickedWeekdays.length,
     };
@@ -792,10 +804,24 @@ export class SessionGenerator {
    * *provisional* room via {@link assignRoomsToBlocks}, keyed back by block
    * identity — a `WeeklyBlock` object is unique per generated occurrence, so it
    * doubles as the map key. These rooms exist only so the per-group day search
-   * ({@link isConflictFree}) has a concrete room to detect a double-booking
+   * ({@link conflictsFor}) has a concrete room to detect a double-booking
    * against; {@link generate}'s run-wide final pass ({@link assignRunWideRooms})
    * re-rooms every committed block together, so this per-group draw never
    * survives into the result.
+   *
+   * Auto mode only (`restrictToAvailability`): the candidate windows are first
+   * restricted to the group's own teacher's declared availability
+   * ({@link availabilityRestrictedWindows}), and the anchor search skips over
+   * whatever that same teacher already has booked on a given weekday earlier
+   * in this same auto run (`placementOccupied`, via
+   * {@link teacherOccupiedByDay}) — so a second auto-placed group sharing a
+   * teacher on the only open day lands right after the first group's block
+   * instead of anchoring on top of it. Custom mode passes `false` and an empty
+   * `placementOccupied`: an admin's explicit weekday pick is never silently
+   * repositioned or dropped, only flagged by the conflicts pass, exactly as
+   * before (SOU-183). Either way `occupied` (existing schedule plus every
+   * block committed so far this run, regardless of teacher) still drives room
+   * drawing unchanged.
    */
   private roomBlocksForGroup(
     groupId: GroupId,
@@ -803,12 +829,65 @@ export class SessionGenerator {
     config: SessionGeneratorConfigBase,
     context: GroupPlacementContext,
     occupied: readonly ScheduledSessionRef[],
+    placementOccupied: readonly ScheduledSessionRef[],
+    restrictToAvailability: boolean,
   ): readonly ScheduledBlockProposal[] {
-    const blocks = this.buildBlocks(weekdays, context.windowsByWeekday, config.sessionDurationMinutes);
     const teacherId = context.teacherByGroup.get(groupId) ?? null;
+    const windowsByWeekday = restrictToAvailability
+      ? this.availabilityRestrictedWindows(context.windowsByWeekday, teacherId, context.availability)
+      : context.windowsByWeekday;
+    const occupiedByDay = this.teacherOccupiedByDay(placementOccupied, teacherId);
+    const blocks = this.buildBlocks(weekdays, windowsByWeekday, config.sessionDurationMinutes, occupiedByDay);
     const entries: UnroomedBlock[] = blocks.map((block) => ({ groupId, teacherId, block }));
     const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random, occupied, context.seatFit);
     return blocks.map((block) => ({ block, roomId: roomByBlock.get(block)!, teacherId }));
+  }
+
+  /**
+   * `windowsByWeekday` narrowed to the span the given teacher actually
+   * declared as available, per weekday (SOU-259 weekly windows intersected
+   * with SOU-261 center hours). A day whose intersection is empty carries no
+   * candidate block for this teacher, matching {@link maxAchievableSessions}'s
+   * accounting — {@link SessionGenerator} never places a block outside a
+   * teacher's declared weekly availability. No teacher, or a teacher with no
+   * weekly pattern configured (only one-off exceptions, or nothing at all),
+   * passes `windowsByWeekday` through unchanged.
+   */
+  private availabilityRestrictedWindows(
+    windowsByWeekday: ReadonlyMap<WeekdayIndex, readonly TimeWindow[]>,
+    teacherId: EntityId | null,
+    availability: GeneratorAvailabilityContext | undefined,
+  ): ReadonlyMap<WeekdayIndex, readonly TimeWindow[]> {
+    const rules = teacherId !== null ? availability?.rulesByTeacher.get(teacherId) : undefined;
+    if (rules?.weeklyWindows == null) return windowsByWeekday;
+    const restricted = new Map<WeekdayIndex, readonly TimeWindow[]>();
+    for (const [day, windows] of windowsByWeekday) {
+      restricted.set(day, intersectTimeWindows(windows, rules.weeklyWindows[day]));
+    }
+    return restricted;
+  }
+
+  /**
+   * `occupied`, narrowed to the given teacher's own blocks and grouped by
+   * weekday as plain `TimeWindow`s — exactly the shape
+   * {@link weeklyBlockInFittingWindow}'s occupied-slot search reads. A teacherless
+   * group has nothing to avoid (an empty map skips the search's occupied-aware
+   * branch on every day, matching pre-existing behavior).
+   */
+  private teacherOccupiedByDay(
+    occupied: readonly ScheduledSessionRef[],
+    teacherId: EntityId | null,
+  ): ReadonlyMap<WeekdayIndex, readonly TimeWindow[]> {
+    const byDay = new Map<WeekdayIndex, TimeWindow[]>();
+    if (teacherId === null) return byDay;
+    for (const ref of occupied) {
+      if (ref.teacherId !== teacherId) continue;
+      const window: TimeWindow = { open: ref.start, close: ref.end };
+      const existing = byDay.get(ref.dayOfWeek);
+      if (existing === undefined) byDay.set(ref.dayOfWeek, [window]);
+      else existing.push(window);
+    }
+    return byDay;
   }
 
   /**
@@ -905,12 +984,14 @@ export class SessionGenerator {
     weekdays: readonly WeekdayIndex[],
     windowsByWeekday: ReadonlyMap<WeekdayIndex, readonly TimeWindow[]>,
     durationMinutes: number,
+    occupiedByDay: ReadonlyMap<WeekdayIndex, readonly TimeWindow[]>,
   ): readonly WeeklyBlock[] {
     const blocks: WeeklyBlock[] = [];
     for (const day of [...new Set(weekdays)].sort((a, b) => a - b)) {
       const windows = windowsByWeekday.get(day) ?? [];
-      const block = weeklyBlockInFittingWindow(day, windows, durationMinutes);
-      if (block !== null) blocks.push(block); // a closed weekday carries no session
+      const occupied = occupiedByDay.get(day) ?? [];
+      const block = weeklyBlockInFittingWindow(day, windows, durationMinutes, occupied);
+      if (block !== null) blocks.push(block); // a closed weekday, or a day the teacher has no availability window on, carries no session
     }
     return blocks;
   }

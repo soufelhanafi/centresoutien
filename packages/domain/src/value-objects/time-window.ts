@@ -1,4 +1,4 @@
-import { toMinutes, type TimeOfDay } from './time-of-day';
+import { fromMinutes, toMinutes, type TimeOfDay } from './time-of-day';
 
 /**
  * A single opening interval within one day, in 24-hour `'HH:mm'` form
@@ -57,4 +57,31 @@ export function areOrderedNonOverlappingWindows(windows: readonly TimeWindow[]):
     previousClose = toMinutes(window.close);
   }
   return true;
+}
+
+/**
+ * The overlap of two ordered, non-overlapping window lists — used by the
+ * session generator to restrict a day's opening windows down to the span a
+ * given teacher is actually available in. A two-pointer sweep: each pair of
+ * windows contributes `[max(open), min(close))` when that range is
+ * positive-length. Either list empty (a closed day on either side) yields no
+ * overlap.
+ */
+export function intersectTimeWindows(
+  a: readonly TimeWindow[],
+  b: readonly TimeWindow[],
+): readonly TimeWindow[] {
+  const overlaps: TimeWindow[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    const left = a[i]!;
+    const right = b[j]!;
+    const start = Math.max(toMinutes(left.open), toMinutes(right.open));
+    const end = Math.min(toMinutes(left.close), toMinutes(right.close));
+    if (start < end) overlaps.push({ open: fromMinutes(start), close: fromMinutes(end) });
+    if (toMinutes(left.close) < toMinutes(right.close)) i += 1;
+    else j += 1;
+  }
+  return overlaps;
 }
