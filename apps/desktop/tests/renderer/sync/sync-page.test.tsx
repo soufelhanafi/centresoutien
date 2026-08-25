@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PLANS } from '@centresoutien/domain';
@@ -56,5 +56,62 @@ describe('Sync page — plan gating', () => {
 
     expect(screen.getByText('غير متاح في خطتك')).toBeInTheDocument();
     await i18n.changeLanguage('fr');
+  });
+});
+
+describe('Sync page — owner credential duplicate nudge (SOU-258 follow-up)', () => {
+  function resultWith(userCredentialDuplicates: unknown[]) {
+    return {
+      status: 'synced',
+      applied: 1,
+      pushed: 1,
+      conflicts: [],
+      reversalDedups: [],
+      userCredentialDuplicates,
+      deviceClockSkew: false,
+      resolutionPermission: 'granted',
+    };
+  }
+
+  it('renders the reset nudge after a sync that reports a same-username duplicate', async () => {
+    await i18n.changeLanguage('fr');
+    usePlanStore.setState({ planId: 'premium', plan: PLANS.premium });
+    window.api.invoke = vi.fn(async (channel: string) =>
+      channel === 'sync.run'
+        ? {
+            result: resultWith([
+              {
+                entityType: 'users',
+                username: 'directrice',
+                winnerId: 'usr_00000000000000000000000002',
+                loserId: 'usr_00000000000000000000000001',
+              },
+            ]),
+          }
+        : { conflicts: [] },
+    );
+
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Synchroniser' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Un compte du même identifiant');
+    expect(alert).toHaveTextContent('réinitialisez le mot de passe');
+  });
+
+  it('shows no nudge when the sync reports no duplicates', async () => {
+    await i18n.changeLanguage('fr');
+    usePlanStore.setState({ planId: 'premium', plan: PLANS.premium });
+    window.api.invoke = vi.fn(async (channel: string) =>
+      channel === 'sync.run' ? { result: resultWith([]) } : { conflicts: [] },
+    );
+
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Synchroniser' }));
+
+    await waitFor(() =>
+      expect(screen.getByText('Synchronisé : 1 appliquée(s), 1 envoyée(s), 0 conflit(s).')).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

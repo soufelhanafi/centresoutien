@@ -6,6 +6,7 @@ import type {
   SyncConflict,
   ConflictSide,
   ReversalDedup,
+  UserCredentialDuplicate,
   DeviceId,
   UserId,
   EntityId,
@@ -74,6 +75,7 @@ export function createSyncHandlers(deps: SyncHandlerDeps): Pick<
           pushed: result.pushed,
           conflicts: result.conflicts.map(toConflictView),
           reversalDedups: result.reversalDedups.map(toReversalDedupView),
+          userCredentialDuplicates: result.userCredentialDuplicates.map(toUserCredentialDuplicateView),
           deviceClockSkew: result.deviceClockSkew,
           resolutionPermission: result.resolutionPermission,
         },
@@ -148,6 +150,17 @@ function toReversalDedupView(dedup: ReversalDedup) {
     reversesPaymentId: dedup.reversesPaymentId,
     winnerId: dedup.winnerId,
     loserId: dedup.loserId,
+  };
+}
+
+// A same-username duplicate carries only ids + the shared username — never a
+// credential — so it crosses to the renderer as-is for the reset nudge.
+function toUserCredentialDuplicateView(duplicate: UserCredentialDuplicate) {
+  return {
+    entityType: duplicate.entityType,
+    username: duplicate.username,
+    winnerId: duplicate.winnerId,
+    loserId: duplicate.loserId,
   };
 }
 

@@ -2890,6 +2890,10 @@
     "runNow": "Synchroniser",
     "lastResult": "Synchronisé : {{applied}} appliquée(s), {{pushed}} envoyée(s), {{conflicts}} conflit(s).",
     "notPaired": "Ce poste n'est pas encore appairé à un hub. Utilisez le poste désigné pour configurer la synchronisation.",
+    "credentialDuplicate": {
+      "title": "Un compte du même identifiant a été configuré sur un autre poste",
+      "body": "Deux postes ont créé ce compte séparément. Un seul mot de passe reste actif. Si vous ne parvenez pas à vous connecter, réinitialisez le mot de passe depuis l'écran de connexion."
+    },
     "inboxTitle": "Conflits en attente",
     "inboxHint": "Les conflits bloqués qui nécessitent une décision humaine.",
     "inboxEmptyTitle": "Aucun conflit",

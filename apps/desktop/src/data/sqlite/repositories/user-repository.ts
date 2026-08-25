@@ -261,10 +261,14 @@ export class SqliteUserRepository implements UserRepository {
         // here. Only when `identity` sets a username — a recovery (no identity)
         // never changes the username, so it cannot collide.
         if (identity) {
+          // Scope to the redeeming row's own center: one SQLCipher DB per center
+          // means this is the same tenant today, but encoding it keeps the guard
+          // correct if that ever changes and mirrors the other center-scoped reads.
           const clash = this.db
             .prepare(
               `SELECT 1 FROM users
-                WHERE username_normalized = @username_normalized
+                WHERE center_code = (SELECT center_code FROM users WHERE id = @id)
+                  AND username_normalized = @username_normalized
                   AND id != @id AND deleted_at IS NULL
                 LIMIT 1`,
             )

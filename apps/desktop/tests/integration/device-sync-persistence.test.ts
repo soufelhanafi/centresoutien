@@ -20,6 +20,7 @@ import {
   type Session,
   type SessionId,
   type StudentId,
+  type SyncResult,
   type Subject,
   type SubjectId,
   type TimeOfDay,
@@ -202,13 +203,14 @@ class Device {
       centreId: CENTER,
       userCanResolve: true,
       sessionDedupStore: this.local,
+      userCredentialDuplicateStore: this.local,
     });
   }
 
   /** The sync path the IPC handler runs: drain local writes, then pull → resolve → push. */
-  async sync(): Promise<void> {
+  async sync(): Promise<SyncResult> {
     this.outbox.drain();
-    await this.engine.run(this.matcher);
+    return this.engine.run(this.matcher);
   }
 
   blockedCount(): number {
@@ -751,11 +753,23 @@ describe('owner username collision on users (SOU-258 follow-up) — no wedge', (
     await b.users.save(makeOwner(USER_B, DEV_B, USER_B));
 
     await a.sync(); // A pushes its owner row
-    await expect(b.sync()).resolves.toBeUndefined(); // B pulls it → no UNIQUE-index wedge
-    await a.sync(); // A pulls B's owner row
+    const bResult = await b.sync(); // B pulls it → no UNIQUE-index wedge
+    const aResult = await a.sync(); // A pulls B's owner row
 
     expect(a.blockedCount()).toBe(0);
     expect(b.blockedCount()).toBe(0);
+
+    // The divergence is surfaced (not silent): each device, on the sync that first
+    // pulls the peer's owner, reports one duplicate resolved to the greatest-ULID
+    // winner (USER_B) — the renderer nudges a password reset for the shadowed one.
+    const expectedDuplicate = {
+      entityType: 'users' as const,
+      username: 'directrice',
+      winnerId: USER_B,
+      loserId: USER_A,
+    };
+    expect(bResult.userCredentialDuplicates).toEqual([expectedDuplicate]);
+    expect(aResult.userCredentialDuplicates).toEqual([expectedDuplicate]);
 
     // Both owner rows physically coexist on each device (the peer's row applied),
     // and every device resolves the SAME winner (greatest ULID) at read, so login,
