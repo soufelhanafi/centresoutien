@@ -53,7 +53,13 @@ jobs:
 
   e2e:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    # E2E stays on macOS — the app ships on macOS/Windows, never Linux, so a
+    # macOS runner exercises a real user environment. A Linux+Xvfb port proved
+    # both slower (per-launch framebuffer overhead) and timing-flaky (toast
+    # animations, PDF export), so it's deferred; the win here is parallelism
+    # (see playwright.config.ts workers), which turns the old ~1h serial run
+    # into minutes on the same proven-green suite.
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -68,21 +74,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Linux has no display, so Electron renders into a virtual framebuffer
-      # (Xvfb) — the standard headless-Electron recipe. The ubuntu-latest image
-      # has no Arabic fonts, so the ar/RTL specs' text lays out with tofu
-      # fallback and the boundingBox-based RTL layout assertions fail; Noto
-      # Arabic (fonts-noto-core) gives real Arabic glyph metrics. Other
-      # Chromium/GTK libs are already on the image.
-      - name: Install Xvfb and Arabic fonts
-        run: sudo apt-get update && sudo apt-get install -y xvfb fonts-noto-core
-
       # test:e2e's pretest hook builds the `--mode e2e` artifacts and rebuilds
       # the native module for the Electron ABI, so no separate build step is
-      # needed. xvfb-run gives every launched Electron process a DISPLAY;
-      # CS_E2E_HIDDEN still positions the window off-screen (window.ts).
+      # needed. The runner is a real macOS display (no Xvfb); CS_E2E_HIDDEN
+      # keeps the Electron window off-screen (window.ts).
       - name: E2E (Electron, FR + AR)
-        run: xvfb-run -a pnpm --filter @centresoutien/desktop test:e2e
+        run: CS_E2E_HIDDEN=1 pnpm --filter @centresoutien/desktop test:e2e
 
       # On failure, keep the Playwright traces/screenshots so a flake or a
       # headless-only failure can be inspected without re-running locally.
