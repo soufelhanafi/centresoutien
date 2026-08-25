@@ -5,9 +5,19 @@ on:
     branches: [main]
   pull_request:
 
+# Cancel a superseded run when new commits land on the same ref, so PRs don't
+# pile up behind stale in-flight jobs (a frequent cause of runs being cancelled
+# or starved on the contended macOS runner pool).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # No window/display needed for lint, typecheck, unit tests, or the builds, so
+  # this runs on Linux: ~10x cheaper than macOS minutes and far shorter queue
+  # times. Only the Electron E2E job below needs the macOS runner's display.
   check:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
