@@ -284,8 +284,8 @@ describe('PreviewGeneratedSchedule', () => {
     });
   });
 
-  describe('teacher availability (SOU-259)', () => {
-    it('flags a block outside the staffing teacher’s weekly windows', async () => {
+  describe('teacher availability (SOU-259, SOU-296)', () => {
+    it('generates no session — never one outside the staffing teacher’s weekly windows', async () => {
       await groups.save(makeGroup({ teacherId: TEACHER_1 as unknown as EntityId }));
       await availability.save(
         makeAvailability(TEACHER_1, { ...emptyWeek(), [MON]: [window('14:00', '16:00')] }),
@@ -293,7 +293,9 @@ describe('PreviewGeneratedSchedule', () => {
 
       const result = await useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 })));
 
-      expect(result.conflicts.some((c) => c.kind === 'teacher-availability')).toBe(true);
+      expect(result.proposals[0]!.blocks).toHaveLength(0);
+      expect(result.proposals[0]!.requestedSessionsPerWeek).toBe(1);
+      expect(result.conflicts.some((c) => c.kind === 'teacher-availability')).toBe(false);
     });
 
     it('never flags availability when the plan lacks planning.teacher-availability', async () => {
@@ -309,7 +311,7 @@ describe('PreviewGeneratedSchedule', () => {
       expect(result.conflicts.some((c) => c.kind === 'teacher-availability')).toBe(false);
     });
 
-    it('flags a one-off absence overlapping the run range, even with no weekly pattern', async () => {
+    it('generates no session for a one-off absence overlapping the run range, even with no weekly pattern', async () => {
       await groups.save(makeGroup({ teacherId: TEACHER_1 as unknown as EntityId }));
       await availabilityExceptions.save(
         makeException(TEACHER_1, { start: '2026-10-01', end: '2026-10-15' }),
@@ -317,7 +319,9 @@ describe('PreviewGeneratedSchedule', () => {
 
       const result = await useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 })));
 
-      expect(result.conflicts.some((c) => c.kind === 'teacher-availability')).toBe(true);
+      expect(result.proposals[0]!.blocks).toHaveLength(0);
+      expect(result.proposals[0]!.requestedSessionsPerWeek).toBe(1);
+      expect(result.conflicts.some((c) => c.kind === 'teacher-availability')).toBe(false);
     });
 
     it('ignores an absence entirely outside the run range', async () => {

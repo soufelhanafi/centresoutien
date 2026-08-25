@@ -733,6 +733,7 @@ function toGroupScheduleProposalView(proposal: GroupScheduleProposal) {
       toDay: gap.toDay,
       gapDays: gap.gapDays,
     })),
+    requestedSessionsPerWeek: proposal.requestedSessionsPerWeek,
   };
 }
 

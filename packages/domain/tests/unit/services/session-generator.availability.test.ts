@@ -24,6 +24,7 @@ const FRI = 5 as WeekdayIndex;
 const SAT = 6 as WeekdayIndex;
 
 const G1 = 'grp_00000000000000000000000001' as GroupId;
+const G2 = 'grp_00000000000000000000000002' as GroupId;
 const ROOM_A = 'rom_00000000000000000000000001' as RoomId;
 const TEACHER_1 = 'tch_00000000000000000000000001' as EntityId;
 
@@ -92,9 +93,9 @@ describe('SessionGenerator — teacher availability (SOU-259)', () => {
     expect(conflicts).toEqual([]);
   });
 
-  it('falls back and flags when no weekday combo fits the availability', () => {
+  it('generates fewer sessions than requested rather than placing one outside availability (SOU-296)', () => {
     const generator = new SessionGenerator(fakeRandom());
-    // Two sessions a week, but the teacher only ever works Tuesday: every combo clashes.
+    // Two sessions a week, but the teacher only ever works Tuesday: no size-2 combo fits.
     const rules: TeacherAvailabilityRules = {
       weeklyWindows: { ...emptyWeek(), [TUE]: [window('09:00', '12:00')] },
       exceptions: [],
@@ -104,8 +105,53 @@ describe('SessionGenerator — teacher availability (SOU-259)', () => {
       input(autoConfig(), new Map([[TEACHER_1, rules]])),
     );
 
-    expect(proposals[0]!.blocks).toHaveLength(2);
-    expect(conflicts.some((c) => c.kind === 'teacher-availability')).toBe(true);
+    expect(blockDays(proposals[0]!)).toEqual([TUE]);
+    expect(proposals[0]!.requestedSessionsPerWeek).toBe(2);
+    expect(conflicts.some((c) => c.kind === 'teacher-availability')).toBe(false);
+  });
+
+  it('generates no sessions at all when the teacher has no available day in the pool (SOU-296)', () => {
+    const generator = new SessionGenerator(fakeRandom());
+    // The teacher is only ever available Sunday, which is outside the weekday pool.
+    const rules: TeacherAvailabilityRules = {
+      weeklyWindows: { ...emptyWeek(), [SUN]: [window('09:00', '12:00')] },
+      exceptions: [],
+    };
+
+    const { proposals, conflicts } = generator.generate(
+      input(autoConfig(), new Map([[TEACHER_1, rules]])),
+    );
+
+    expect(proposals[0]!.blocks).toHaveLength(0);
+    expect(proposals[0]!.requestedSessionsPerWeek).toBe(2);
+    expect(conflicts.some((c) => c.kind === 'teacher-availability')).toBe(false);
+  });
+
+  it('does not fail fast on nominal over-capacity when a restricted teacher’s real demand fits (SOU-296)', () => {
+    const generator = new SessionGenerator(fakeRandom());
+    // Nominal demand (2 groups x 3 sessions/week = 6) exceeds the 5-day x 1-room
+    // capacity of 5 — but G1's teacher can only ever land 1 of those 3 sessions
+    // (Monday only), so the real achievable demand is 1 + 3 = 4, which fits.
+    const rules: TeacherAvailabilityRules = {
+      weeklyWindows: { ...emptyWeek(), [MON]: [window('09:00', '12:00')] },
+      exceptions: [],
+    };
+
+    const result = generator.generate({
+      config: autoConfig({ weekdayPool: [MON, TUE, WED, THU, FRI], sessionsPerWeek: 3, minGapDays: 1 }),
+      groups: [G1, G2],
+      teacherByGroup: new Map([[G1, TEACHER_1]]),
+      rooms: [ROOM_A],
+      centerHours,
+      existingSchedule: [],
+      availabilityByTeacher: new Map([[TEACHER_1, rules]]),
+    });
+
+    const g1 = result.proposals.find((p) => p.groupId === G1)!;
+    const g2 = result.proposals.find((p) => p.groupId === G2)!;
+    expect(g1.blocks.length).toBeLessThanOrEqual(1);
+    expect(blockDays(g1).every((day) => day === MON)).toBe(true);
+    expect(g2.requestedSessionsPerWeek).toBe(3);
   });
 
   it('custom mode flags an off-day pick without blocking it', () => {

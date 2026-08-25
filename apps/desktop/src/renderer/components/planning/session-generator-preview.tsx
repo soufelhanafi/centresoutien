@@ -45,7 +45,12 @@ export function SessionGeneratorPreview({
 
   const groupLabel = (groupId: string): string => groupLabels.get(groupId) ?? groupId;
   const roomName = (roomId: string): string => roomNames.get(roomId) ?? roomId;
-  const visibleProposals = result.proposals.filter((proposal) => proposal.blocks.length > 0);
+  // A group with zero generated blocks but a nonzero requested count (SOU-296:
+  // the teacher had no available day in the pool) still has to render — it's
+  // exactly the case GeneratorWarnings' session-count shortfall exists to show.
+  const visibleProposals = result.proposals.filter(
+    (proposal) => proposal.blocks.length > 0 || proposal.requestedSessionsPerWeek > 0,
+  );
 
   if (visibleProposals.length === 0) {
     return (

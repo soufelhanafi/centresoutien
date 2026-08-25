@@ -19,7 +19,7 @@ import {
   type GeneratorAvailabilityContext,
   type GeneratorSeatCapacities,
 } from '../policies/generated-schedule-conflicts';
-import type { TeacherAvailabilityRules } from '../policies/teacher-availability-policy';
+import { teacherUnavailability, type TeacherAvailabilityRules } from '../policies/teacher-availability-policy';
 import { WEEKDAYS } from '../value-objects/weekday';
 import {
   GroupExceedsRoomCapacityError,
@@ -81,11 +81,20 @@ export type ScheduledBlockProposal = {
   readonly teacherId: EntityId | null;
 };
 
-/** One group's proposed weekly pattern plus any gap breaches (always empty in auto mode). */
+/**
+ * One group's proposed weekly pattern plus any gap breaches (always empty in
+ * auto mode). `requestedSessionsPerWeek` is `config.sessionsPerWeek` in auto
+ * mode (or `pickedWeekdays.length` in custom mode, which never falls short) —
+ * the caller compares it against `blocks.length` to detect the SOU-296
+ * availability shortfall: auto mode never places a block outside a teacher's
+ * declared availability, so a teacher free on fewer days than requested yields
+ * fewer blocks than asked for instead of a forced out-of-window placement.
+ */
 export type GroupScheduleProposal = {
   readonly groupId: GroupId;
   readonly blocks: readonly ScheduledBlockProposal[];
   readonly gapViolations: readonly WeekdayGap[];
+  readonly requestedSessionsPerWeek: number;
 };
 
 /**
@@ -427,14 +436,26 @@ export class SessionGenerator {
     const eligiblePool =
       config.mode === 'auto' ? this.poolFittingDuration(openPool, windowsByWeekday, config) : openPool;
     const seatFit = this.seatFitContext(input);
-    if (config.mode === 'auto') this.assertAutoRoomFeasibility(config, groups, eligiblePool, input.rooms, seatFit);
+    const availability = this.availabilityContext(input);
+    if (config.mode === 'auto') {
+      this.assertAutoRoomFeasibility(
+        config,
+        groups,
+        eligiblePool,
+        input.rooms,
+        seatFit,
+        windowsByWeekday,
+        input.teacherByGroup,
+        availability,
+      );
+    }
     const context: GroupPlacementContext = {
       windowsByWeekday,
       rooms: input.rooms,
       teacherByGroup: input.teacherByGroup,
       existingSchedule,
       centerHours,
-      availability: this.availabilityContext(input),
+      availability,
       seatFit,
     };
 
@@ -588,8 +609,11 @@ export class SessionGenerator {
     eligiblePool: readonly WeekdayIndex[],
     rooms: readonly RoomId[],
     seatFit: SeatFit | undefined,
+    windowsByWeekday: ReadonlyMap<WeekdayIndex, readonly TimeWindow[]>,
+    teacherByGroup: ReadonlyMap<GroupId, EntityId | null>,
+    availability: GeneratorAvailabilityContext | undefined,
   ): void {
-    this.assertRoomCapacity(config, groups, eligiblePool, rooms);
+    this.assertRoomCapacity(config, groups, eligiblePool, rooms, windowsByWeekday, teacherByGroup, availability);
     this.assertGroupsFitSomeRoom(groups, rooms, seatFit);
   }
 
@@ -616,16 +640,35 @@ export class SessionGenerator {
     }
   }
 
+  /**
+   * `groups × sessionsPerWeek` is the *nominal* demand, assuming every group
+   * gets its full request — no longer a safe proxy for actual demand once a
+   * teacher's availability legitimately caps some groups to fewer sessions
+   * (SOU-296): nominal demand can exceed capacity while every group's real
+   * achievable count still fits. So this sums each group's own achievable cap
+   * ({@link maxAchievableSessions}) instead of assuming the uniform nominal
+   * count, and only fails fast when even that tighter, still-conservative
+   * bound cannot fit.
+   */
   private assertRoomCapacity(
     config: SessionGeneratorConfigBase,
     groups: readonly GroupId[],
     eligiblePool: readonly WeekdayIndex[],
     rooms: readonly RoomId[],
+    windowsByWeekday: ReadonlyMap<WeekdayIndex, readonly TimeWindow[]>,
+    teacherByGroup: ReadonlyMap<GroupId, EntityId | null>,
+    availability: GeneratorAvailabilityContext | undefined,
   ): void {
     const perGroupChecksOwnDiagnosis =
       rooms.length === 0 || config.sessionsPerWeek < 1 || config.sessionsPerWeek > eligiblePool.length;
     if (perGroupChecksOwnDiagnosis) return;
-    if (groups.length * config.sessionsPerWeek > eligiblePool.length * rooms.length) {
+    const demand = groups.reduce(
+      (total, groupId) =>
+        total +
+        this.maxAchievableSessions(groupId, config, eligiblePool, windowsByWeekday, teacherByGroup, availability),
+      0,
+    );
+    if (demand > eligiblePool.length * rooms.length) {
       throw new InfeasibleGeneratorConfigError(
         'room-capacity-exceeded',
         eligiblePool,
@@ -636,15 +679,55 @@ export class SessionGenerator {
   }
 
   /**
+   * The most sessions this group could possibly get (SOU-296): `sessionsPerWeek`
+   * for a group with no teacher or no configured availability rules (unchanged
+   * from before availability existed), or the count of `eligiblePool` days the
+   * teacher has *any* available window on, capped at `sessionsPerWeek`,
+   * otherwise. Anchors one candidate block per day the same way
+   * {@link buildBlocks} does, so a day whose only opening window is too short
+   * for the session duration is correctly excluded too. Ignores minGapDays and
+   * room/teacher double-booking — both can only tighten the real placement
+   * further, never loosen it, so this stays a safe upper bound, not an exact
+   * prediction.
+   */
+  private maxAchievableSessions(
+    groupId: GroupId,
+    config: SessionGeneratorConfigBase,
+    eligiblePool: readonly WeekdayIndex[],
+    windowsByWeekday: ReadonlyMap<WeekdayIndex, readonly TimeWindow[]>,
+    teacherByGroup: ReadonlyMap<GroupId, EntityId | null>,
+    availability: GeneratorAvailabilityContext | undefined,
+  ): number {
+    const teacherId = teacherByGroup.get(groupId) ?? null;
+    const rules = teacherId !== null ? availability?.rulesByTeacher.get(teacherId) : undefined;
+    if (rules === undefined) return config.sessionsPerWeek;
+    const availableDays = eligiblePool.filter((day) => {
+      const block = weeklyBlockInFittingWindow(day, windowsByWeekday.get(day) ?? [], config.sessionDurationMinutes);
+      if (block === null) return false;
+      const range = availability?.rangeByWeekday.get(day) ?? null;
+      return teacherUnavailability(block, teacherId!, rules, range) === null;
+    }).length;
+    return Math.min(config.sessionsPerWeek, availableDays);
+  }
+
+  /**
    * Places one group by searching **every** min-gap-valid weekday combination
-   * (SOU-182), not just the first: it commits the first combo whose roomed
-   * blocks clash with nothing — neither the real committed schedule nor a group
-   * already placed earlier in this same run. Only a true dead-end, where no
-   * valid combo is conflict-free, falls back to the first valid combo and lets
-   * {@link detectGeneratedScheduleConflicts} surface the clash to the caller.
-   * The search is greedy across groups (no cross-group backtracking) and day-only
-   * — each block still anchors at the earliest window of its weekday that fits the
-   * session duration (SOU-218), never varying the time within a chosen day.
+   * of the requested size (SOU-182), not just the first: it commits the first
+   * combo whose roomed blocks clash with nothing — neither the real committed
+   * schedule nor a group already placed earlier in this same run. Failing that,
+   * it commits the first combo that is at least clean of teacher-availability
+   * conflicts, still surfacing any other clash (room/teacher double-booking) to
+   * the caller via {@link detectGeneratedScheduleConflicts} as before. Only when
+   * *no* combo at the requested size clears availability does the search retry
+   * at smaller sizes (SOU-296) — a teacher free on fewer days than requested
+   * yields fewer generated blocks rather than a block placed outside their
+   * declared availability; {@link GroupScheduleProposal.requestedSessionsPerWeek}
+   * lets the caller detect and surface that shortfall. A true dead end (no
+   * availability-clean day exists at any size, down to one) yields zero blocks
+   * for the group. The search is greedy across groups (no cross-group
+   * backtracking) and day-only — each block still anchors at the earliest
+   * window of its weekday that fits the session duration (SOU-218), never
+   * varying the time within a chosen day.
    */
   private placeAutoGroup(
     groupId: GroupId,
@@ -653,17 +736,42 @@ export class SessionGenerator {
     context: GroupPlacementContext,
     committed: readonly GeneratedBlockCandidate[],
   ): GroupScheduleProposal {
-    const combinations = this.feasibleCombinations(eligiblePool, config.sessionsPerWeek, config.minGapDays);
+    const requested = config.sessionsPerWeek;
     const occupied = [...context.existingSchedule, ...committed.map(generatedCandidateToScheduledRef)];
-    let firstCommittable: readonly ScheduledBlockProposal[] | undefined;
-    for (const weekdays of combinations) {
-      const blocks = this.roomBlocksForGroup(groupId, weekdays, config, context, occupied);
-      firstCommittable ??= blocks;
-      if (this.isConflictFree(groupId, blocks, context, committed)) {
-        return { groupId, blocks, gapViolations: [] };
+
+    const bestAtSize = (
+      combinations: readonly (readonly WeekdayIndex[])[],
+    ): readonly ScheduledBlockProposal[] | undefined => {
+      let firstAvailabilityFree: readonly ScheduledBlockProposal[] | undefined;
+      for (const weekdays of combinations) {
+        const blocks = this.roomBlocksForGroup(groupId, weekdays, config, context, occupied);
+        const conflicts = this.conflictsFor(groupId, blocks, context, committed);
+        if (conflicts.length === 0) return blocks;
+        if (
+          firstAvailabilityFree === undefined &&
+          conflicts.every((conflict) => conflict.kind !== 'teacher-availability')
+        ) {
+          firstAvailabilityFree = blocks;
+        }
+      }
+      return firstAvailabilityFree;
+    };
+
+    const atRequestedSize = bestAtSize(this.feasibleCombinations(eligiblePool, requested, config.minGapDays));
+    if (atRequestedSize !== undefined) {
+      return { groupId, blocks: atRequestedSize, gapViolations: [], requestedSessionsPerWeek: requested };
+    }
+
+    for (let size = requested - 1; size >= 1; size -= 1) {
+      const combinations = this.minGapCombinations(this.shuffle(eligiblePool), size, config.minGapDays);
+      if (combinations.length === 0) continue;
+      const blocks = bestAtSize(combinations);
+      if (blocks !== undefined) {
+        return { groupId, blocks, gapViolations: [], requestedSessionsPerWeek: requested };
       }
     }
-    return { groupId, blocks: firstCommittable!, gapViolations: [] };
+
+    return { groupId, blocks: [], gapViolations: [], requestedSessionsPerWeek: requested };
   }
 
   private placeCustomGroup(
@@ -675,6 +783,7 @@ export class SessionGenerator {
       groupId,
       blocks: this.roomBlocksForGroup(groupId, config.pickedWeekdays, config, context, context.existingSchedule),
       gapViolations: gapViolations(config.pickedWeekdays, config.minGapDays),
+      requestedSessionsPerWeek: config.pickedWeekdays.length,
     };
   }
 
@@ -703,18 +812,19 @@ export class SessionGenerator {
   }
 
   /**
-   * True when this group's roomed blocks clash with nothing the caller supplied:
-   * the real committed schedule plus every group already placed in this run
-   * (widened to {@link ScheduledSessionRef} so the checks treat them like
-   * persisted sessions). Reuses {@link detectGeneratedScheduleConflicts} so the
-   * search avoids exactly the clashes the run would otherwise report.
+   * This group's roomed blocks checked against the real committed schedule
+   * plus every group already placed in this run (widened to
+   * {@link ScheduledSessionRef} so the checks treat them like persisted
+   * sessions). `bestAtSize` reads this once per candidate combo and derives
+   * both "fully clean" and "clean of `teacher-availability`" from the same
+   * result, rather than recomputing conflicts per predicate.
    */
-  private isConflictFree(
+  private conflictsFor(
     groupId: GroupId,
     blocks: readonly ScheduledBlockProposal[],
     context: GroupPlacementContext,
     committed: readonly GeneratedBlockCandidate[],
-  ): boolean {
+  ): readonly GeneratedScheduleConflict[] {
     const candidates: GeneratedBlockCandidate[] = blocks.map((scheduled) => ({
       groupId,
       block: scheduled.block,
@@ -722,13 +832,12 @@ export class SessionGenerator {
       teacherId: scheduled.teacherId,
     }));
     const priorRuns = committed.map(generatedCandidateToScheduledRef);
-    const conflicts = detectGeneratedScheduleConflicts(
+    return detectGeneratedScheduleConflicts(
       candidates,
       [...context.existingSchedule, ...priorRuns],
       context.centerHours,
       context.availability,
     );
-    return conflicts.length === 0;
   }
 
   private feasibleCombinations(

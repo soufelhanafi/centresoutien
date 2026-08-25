@@ -734,6 +734,10 @@ const groupScheduleProposalViewSchema = z.object({
   groupId: z.string(),
   blocks: z.array(generatedBlockProposalViewSchema),
   gapViolations: z.array(weekdayGapViewSchema),
+  // SOU-296: informational only, like gapViolations — the renderer compares it
+  // against blocks.length to warn when auto mode generated fewer sessions than
+  // requested because the teacher wasn't available on every needed day.
+  requestedSessionsPerWeek: z.number().int(),
 });
 
 // The commit request's block shape (SOU-183): the renderer echoes back the

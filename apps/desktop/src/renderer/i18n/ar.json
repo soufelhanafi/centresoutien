@@ -1914,7 +1914,8 @@
           "exception": "الأستاذ غائب من {{from}} إلى {{to}}."
         },
         "gap": "الفارق أقل من الحد الأدنى ({{count}} يوم).",
-        "capacity": "القاعة {{room}} صغيرة جدًا: {{groupCapacity}} تلميذًا مقابل {{roomCapacity}} مقعدًا."
+        "capacity": "القاعة {{room}} صغيرة جدًا: {{groupCapacity}} تلميذًا مقابل {{roomCapacity}} مقعدًا.",
+        "sessionCount": "تم توليد {{actual}} حصة من أصل {{requested}} مطلوبة: الأستاذ غير متوفر في عدد كافٍ من الأيام."
       },
       "conflictAction": {
         "decisionRequired": "قرار مطلوب",
