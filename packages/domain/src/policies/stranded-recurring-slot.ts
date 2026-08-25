@@ -1,7 +1,7 @@
 import { toEntityId, type EntityId } from '../value-objects/ids';
 import type { WeeklySessionView } from '../read-models/weekly-session-view';
 import type { TeacherAvailabilityRules } from './teacher-availability-policy';
-import { teacherUnavailability } from './teacher-availability-policy';
+import { teacherUnavailabilityFor } from './teacher-availability-policy';
 
 /**
  * A weekly recurring slot the teacher's CURRENT availability rules now place
@@ -17,7 +17,7 @@ export type StrandedRecurringSlot = {
 
 /**
  * Every live weekly template whose own weekday/window no longer fits its
- * teacher's availability rules. Reuses {@link teacherUnavailability} with a
+ * teacher's availability rules. Reuses {@link teacherUnavailabilityFor} with a
  * `null` materialization range — a template carries no dates, so only the
  * weekly-window check applies; one-off exceptions need a concrete date and are
  * covered separately by the materialized-occurrence sweep.
@@ -28,14 +28,10 @@ export function findStrandedRecurringSlots(
 ): readonly StrandedRecurringSlot[] {
   const stranded: StrandedRecurringSlot[] = [];
   for (const session of sessions) {
-    if (session.teacherId === null) continue;
-    const teacherId = toEntityId(session.teacherId);
-    const rules = availabilityByTeacher.get(teacherId);
-    if (rules === undefined) continue;
-    const conflict = teacherUnavailability(
+    const conflict = teacherUnavailabilityFor(
       { dayOfWeek: session.dayOfWeek, start: session.start, end: session.end },
-      teacherId,
-      rules,
+      session.teacherId === null ? null : toEntityId(session.teacherId),
+      availabilityByTeacher,
       null,
     );
     if (conflict !== null) stranded.push({ session });

@@ -77,6 +77,24 @@ export function weekdayOccursWithin(
  * {@link SessionConflictPolicy}: the availability conflict is a preview
  * warning, so the caller wraps the returned error, never throws it.
  */
+/**
+ * {@link teacherUnavailability} for a session whose teacher may be unassigned
+ * or absent from the map (unrestricted) — the null-check/lookup/bail-out
+ * boilerplate every audit-style caller (materialized occurrences, recurring
+ * templates) otherwise repeats verbatim.
+ */
+export function teacherUnavailabilityFor(
+  candidate: SessionTimeCandidate,
+  teacherId: EntityId | null,
+  availabilityByTeacher: ReadonlyMap<EntityId, TeacherAvailabilityRules>,
+  materializationRange: DateRange | null,
+): TeacherUnavailableError | null {
+  if (teacherId === null) return null;
+  const rules = availabilityByTeacher.get(teacherId);
+  if (rules === undefined) return null;
+  return teacherUnavailability(candidate, teacherId, rules, materializationRange);
+}
+
 export function teacherUnavailability(
   candidate: SessionTimeCandidate,
   teacherId: EntityId,

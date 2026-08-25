@@ -10,7 +10,7 @@ import { SessionConflictPolicy } from './session-conflict-policy';
 import { isOverCapacity, isRoomDoubleBooked, isTeacherDoubleBooked } from './session-resource-conflict';
 import { resolveEffectiveWindows } from './center-hours-override-policy';
 import { holidayOn } from './holiday-policy';
-import { teacherUnavailability } from './teacher-availability-policy';
+import { teacherUnavailabilityFor } from './teacher-availability-policy';
 import { weekdayOf } from '../value-objects/date-range';
 
 /**
@@ -109,15 +109,11 @@ function teacherUnavailable(
   weekday: WeekdayIndex,
   availabilityByTeacher: ReadonlyMap<EntityId, TeacherAvailabilityRules>,
 ): boolean {
-  if (session.teacherId === null) return false;
-  const teacherId = toEntityId(session.teacherId);
-  const rules = availabilityByTeacher.get(teacherId);
-  if (rules === undefined) return false;
   return (
-    teacherUnavailability(
+    teacherUnavailabilityFor(
       { dayOfWeek: weekday, start: session.start, end: session.end },
-      teacherId,
-      rules,
+      session.teacherId === null ? null : toEntityId(session.teacherId),
+      availabilityByTeacher,
       { start: session.date, end: session.date },
     ) !== null
   );

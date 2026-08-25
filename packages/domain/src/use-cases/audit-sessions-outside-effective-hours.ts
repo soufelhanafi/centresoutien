@@ -7,9 +7,12 @@ import type { CenterHoursOverrideRepository } from '../ports/center-hours-overri
 import type { TeacherAvailabilityRepository } from '../ports/teacher-availability-repository';
 import type { TeacherAvailabilityExceptionRepository } from '../ports/teacher-availability-exception-repository';
 import type { WeeklySessionViewReadPort } from '../ports/weekly-session-view-read-port';
+import type { WeeklyRecurringSessionRepository } from '../ports/weekly-recurring-session-repository';
 import type { PlanPolicy } from '../plans/plan-policy';
 import { toEntityId, type CenterCode, type EntityId } from '../value-objects/ids';
 import type { SessionOccurrenceView } from '../read-models/session-occurrence-view';
+import type { WeeklySessionView } from '../read-models/weekly-session-view';
+import type { WeeklyRecurringSession } from '../entities/weekly-recurring-session';
 import type { DayHours } from '../policies/session-conflict-policy';
 import type { TeacherAvailabilityRules } from '../policies/teacher-availability-policy';
 import type { WeekdayIndex } from '../value-objects/weekday';
@@ -51,6 +54,10 @@ export type AuditSessionsDeps = {
   readonly availability: TeacherAvailabilityRepository;
   readonly availabilityExceptions: TeacherAvailabilityExceptionRepository;
   readonly weeklySessions: WeeklySessionViewReadPort;
+  /** Only `listActive` is used — the full templates, to filter out a paused
+   *  (`active: false`), expired (`validTo` passed), or already-acknowledged
+   *  (`conflictAccepted`) slot before it reaches the recurring-slot sweep. */
+  readonly weeklyTemplates: Pick<WeeklyRecurringSessionRepository, 'listActive'>;
   readonly plan: PlanPolicy;
   readonly clock: Clock;
 };
@@ -76,7 +83,10 @@ export type AuditSessionsDeps = {
  * {@link findStrandedRecurringSlots} — a weekly slot has no `sessions` row until
  * someone runs the generator for it, so without this second pass a freshly
  * created or freshly-orphaned template stays invisible to the standing audit no
- * matter how many times it re-runs.
+ * matter how many times it re-runs. {@link auditableWeeklySessions} keeps this
+ * pass from ever duplicating a materialized finding (a template that already
+ * has a stranded dated occurrence is skipped here) and from flagging a paused,
+ * expired, or already-force-accepted template forever with no way to clear it.
  */
 export class AuditSessionsOutsideEffectiveHours {
   constructor(private readonly deps: AuditSessionsDeps) {}
@@ -97,10 +107,12 @@ export class AuditSessionsOutsideEffectiveHours {
     const staticDayByWeekday = new Map<WeekdayIndex, DayHours>(
       resolveWeek(week).map((day) => [day.dayOfWeek, day]),
     );
-    const [availabilityByTeacher, enrollmentByGroup, weeklySessions] = await Promise.all([
+    const hasAvailabilityFlag = this.deps.plan.has('planning.teacher-availability');
+    const [availabilityByTeacher, enrollmentByGroup, weeklySessions, activeTemplates] = await Promise.all([
       this.loadAvailability(input.centerCode, sessions, today),
       this.loadEnrollmentCounts(sessions),
-      this.deps.weeklySessions.listWeekView(input.centerCode),
+      hasAvailabilityFlag ? this.deps.weeklySessions.listWeekView(input.centerCode) : Promise.resolve([]),
+      hasAvailabilityFlag ? this.deps.weeklyTemplates.listActive(input.centerCode) : Promise.resolve([]),
     ]);
     const { byDateRoom, byDateTeacher } = buildResourceScheduleIndex(sessions);
 
@@ -120,8 +132,42 @@ export class AuditSessionsOutsideEffectiveHours {
 
     return {
       groups: groupStrandedSessions(stranded),
-      recurringSlotWarnings: findStrandedRecurringSlots(weeklySessions, availabilityByTeacher),
+      recurringSlotWarnings: findStrandedRecurringSlots(
+        this.auditableWeeklySessions(weeklySessions, activeTemplates, stranded, today),
+        availabilityByTeacher,
+      ),
     };
+  }
+
+  /**
+   * Which live weekly templates the recurring-slot sweep should actually
+   * evaluate (SOU-296bis review fix): excludes a paused (`active: false`),
+   * expired (`validTo` before today), or already-acknowledged
+   * (`conflictAccepted`) slot, and — critically — excludes any template that
+   * already has a materialized occurrence reporting the same
+   * `outside-teacher-availability` reason, so a session that WAS generated
+   * never renders two cards (one dated + cancellable, one recurring-only) for
+   * the identical conflict.
+   */
+  private auditableWeeklySessions(
+    weeklySessions: readonly WeeklySessionView[],
+    activeTemplates: readonly WeeklyRecurringSession[],
+    stranded: readonly StrandedSession[],
+    today: string,
+  ): readonly WeeklySessionView[] {
+    const liveTemplateIds = new Set(
+      activeTemplates
+        .filter((t) => t.active && !t.conflictAccepted && (t.validTo === null || t.validTo >= today))
+        .map((t) => t.id),
+    );
+    const alreadyCoveredIds = new Set(
+      stranded
+        .filter((item) => item.reasons.includes('outside-teacher-availability'))
+        .map((item) => item.session.recurringSessionId),
+    );
+    return weeklySessions.filter(
+      (session) => liveTemplateIds.has(session.id) && !alreadyCoveredIds.has(session.id),
+    );
   }
 
   /** Live enrollment count per group the occurrences reference, one batch read

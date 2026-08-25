@@ -1317,6 +1317,7 @@ export function buildContainer(options: ContainerOptions): Container {
     availability: teacherAvailabilityRepo,
     availabilityExceptions: teacherAvailabilityExceptionRepo,
     weeklySessions: sessionRepo,
+    weeklyTemplates: sessionRepo,
     plan,
     clock,
   });
