@@ -18,11 +18,17 @@ export default defineConfig({
   // apps) while distinct files and the fr/ar projects run concurrently across
   // workers. On CI this turns a ~1h serial run into minutes.
   fullyParallel: false,
-  workers: process.env['CI'] ? 6 : 1,
-  // A parallel Electron E2E can flake on runner contention; one retry on CI
-  // self-heals a transient failure instead of failing the whole gate.
-  retries: process.env['CI'] ? 1 : 0,
-  timeout: 30_000,
+  // Each Electron launch spawns a full browser process tree; the ubuntu-latest
+  // runner has 4 cores, so 3 concurrent apps saturate it without the overload
+  // that made electron.launch fail with `spawn ETXTBSY` and boots blow the
+  // timeout at 6 workers. Still a big win over the old serial (workers: 1) run.
+  workers: process.env['CI'] ? 3 : 1,
+  // Absorb the occasional transient launch race (ETXTBSY) that survives even at
+  // a sane worker count; two retries keep a stray flake from failing the gate.
+  retries: process.env['CI'] ? 2 : 0,
+  // App first-run boot (seed admin + login + reload) can approach the default
+  // under load; 45s gives headroom so a slow-but-healthy boot isn't a failure.
+  timeout: 45_000,
   reporter: [['list']],
   use: {
     screenshot: 'only-on-failure',
