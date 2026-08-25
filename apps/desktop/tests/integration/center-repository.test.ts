@@ -3,10 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Database as DB } from 'better-sqlite3';
-import type { Center, CenterId, CenterCode, DeviceId, UserId } from '@centresoutien/domain';
+import type { Center, CenterId, CenterCode, Clock, DeviceId, UserId } from '@centresoutien/domain';
 import { openDatabase } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteCenterRepository } from '../../src/data/sqlite/repositories/center-repository';
+import { SqliteChangeLogWriter } from '../../src/data/sqlite/change-log/sqlite-change-log-writer';
 
 const KEY = 'passphrase-under-test';
 const REAL_MIGRATIONS = join(import.meta.dirname, '../../src/data/sqlite/migrations');
@@ -15,11 +16,13 @@ let dir: string;
 let db: DB;
 let repo: SqliteCenterRepository;
 
+const CLOCK: Clock = { now: () => AT };
+
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'cs-center-'));
   db = openDatabase({ centreId: 'C1', key: KEY, dir });
   runMigrations(db, REAL_MIGRATIONS);
-  repo = new SqliteCenterRepository(db);
+  repo = new SqliteCenterRepository(db, new SqliteChangeLogWriter(db, CLOCK, 'dev_00000000000000000000000001' as DeviceId));
 });
 afterEach(() => {
   db.close();
@@ -77,6 +80,16 @@ describe('SqliteCenterRepository', () => {
     expect(found?.logoPath).toBe('logos/lgo_0002.webp');
     expect(found?.plan).toBe('pro');
     expect(found?.version).toBe(4);
+  });
+
+  it('appends a center change_log row on save (SOU-318 sync-wiring)', async () => {
+    await repo.save(makeCenter());
+    const logged = db
+      .prepare("SELECT entity_type, entity_id, op FROM change_log WHERE entity_type = 'center'")
+      .all() as { entity_type: string; entity_id: string; op: string }[];
+    expect(logged).toEqual([
+      { entity_type: 'center', entity_id: 'ctr_00000000000000000000000001', op: 'create' },
+    ]);
   });
 
   describe('writePlanMirror (SOU-98 display-only mirror)', () => {

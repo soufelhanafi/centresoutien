@@ -3,6 +3,7 @@ import { backupIpcContract } from './backup-contract';
 import { dialogIpcContract } from './dialog-contract';
 import { externalIpcContract } from './external-contract';
 import { syncIpcContract } from './sync-contract';
+import { hubIpcContract } from './hub-contract';
 import type { syncConflictViewSchema, syncResultViewSchema } from './sync-contract';
 import { teacherAvailabilityIpcContract } from './teacher-availability-contract';
 import {
@@ -2677,6 +2678,7 @@ export const ipcContract = {
   ...dialogIpcContract,
   ...externalIpcContract,
   ...syncIpcContract,
+  ...hubIpcContract,
   ...teacherAvailabilityIpcContract,
 } as const;
 

@@ -126,6 +126,7 @@ test('SOU-250 wizard — logo picked in the first-run wizard persists a logoPath
   live = await cpf.launch({ locale: loc, plan: 'pro', userDataDir: dir });
   const win = live.win;
 
+  await win.getByRole('button', { name: t.createModeCard }).click();
   await win.getByRole('radio', { name: t.langRadio }).check();
   await win.getByRole('button', { name: t.next }).click();
   await expect(win.getByText(t.wizardCenterTitle).first()).toBeVisible();

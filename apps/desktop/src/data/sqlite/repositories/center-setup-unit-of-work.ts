@@ -4,10 +4,12 @@ import type {
   CenterHours,
   CenterSetupUnit,
   CenterSetupUnitOfWork,
+  ChangeLogWriter,
   Membership,
   Niveau,
   Organization,
 } from "@centresoutien/domain";
+import { toEntityId } from "@centresoutien/domain";
 
 const SAVE_CENTER_SQL = `
   INSERT INTO center
@@ -69,10 +71,20 @@ export type SqliteCenterSetupUnitOfWorkOptions = {
  * SQLite transaction for first-center setup. It deliberately writes directly
  * instead of composing repository calls: better-sqlite3 transactions are
  * synchronous, while repository ports are asynchronous by contract.
+ *
+ * Center, organization, and membership are synced entity types (SOU-318), so each
+ * seed write is also appended to the change log in the SAME transaction. That is
+ * what lets the hub carry a freshly provisioned center's identity + ownership, so
+ * a second device can cold-bootstrap the whole center from the feed. `center` is
+ * always logged; the ownership rows are logged only when present (they are `null`
+ * at first-run, before any user exists to own the center). Hours and niveaux are
+ * not logged here — they carry no registered sync mapper yet (their own repos log
+ * later edits), so logging their seed rows would only shadow-store them.
  */
 export class SqliteCenterSetupUnitOfWork implements CenterSetupUnitOfWork {
   constructor(
     private readonly db: DB,
+    private readonly changeLog: ChangeLogWriter,
     private readonly options: SqliteCenterSetupUnitOfWorkOptions = {},
   ) {}
 
@@ -89,6 +101,13 @@ export class SqliteCenterSetupUnitOfWork implements CenterSetupUnitOfWork {
 
   private insertCenter(center: Center): void {
     this.db.prepare(SAVE_CENTER_SQL).run(centerRow(center));
+    this.changeLog.record({
+      entityType: "center",
+      entityId: toEntityId(center.id),
+      centerCode: center.centerCode,
+      intent: "upsert",
+      entity: center,
+    });
   }
 
   private insertHours(hours: readonly CenterHours[]): void {
@@ -105,13 +124,28 @@ export class SqliteCenterSetupUnitOfWork implements CenterSetupUnitOfWork {
    * The ownership rows (SOU-310): the owning Organization and the director's owner
    * Membership. Both are `null` at first-run (no user exists to own the center
    * yet), so this is a no-op there and only writes for the add-a-center flow.
+   * Each written row is logged (SOU-318) so ownership syncs like the center row.
    */
   private insertOwnership(unit: CenterSetupUnit): void {
     if (unit.organization !== null) {
       this.db.prepare(SAVE_ORGANIZATION_SQL).run(organizationRow(unit.organization));
+      this.changeLog.record({
+        entityType: "organization",
+        entityId: toEntityId(unit.organization.id),
+        centerCode: unit.organization.centerCode,
+        intent: "upsert",
+        entity: unit.organization,
+      });
     }
     if (unit.membership !== null) {
       this.db.prepare(SAVE_MEMBERSHIP_SQL).run(membershipRow(unit.membership));
+      this.changeLog.record({
+        entityType: "membership",
+        entityId: toEntityId(unit.membership.id),
+        centerCode: unit.membership.centerCode,
+        intent: "upsert",
+        entity: unit.membership,
+      });
     }
   }
 

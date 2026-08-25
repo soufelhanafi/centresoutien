@@ -21,7 +21,7 @@ function renderGate() {
 
 beforeEach(async () => {
   await i18n.changeLanguage('fr');
-  useWizardStore.setState({ state: null });
+  useWizardStore.setState({ mode: 'choose', state: null });
   usePlanStore.getState().setPlan('essentiel');
 });
 
@@ -40,7 +40,8 @@ describe('FirstRunGate', () => {
   it('renders the wizard on a fresh install (no admin account)', async () => {
     window.api.invoke = vi.fn().mockResolvedValue({ exists: false });
     renderGate();
-    expect(await screen.findByText('Choisissez la langue')).toBeInTheDocument();
+    // The wizard now opens on the create-or-join mode choice (SOU-318).
+    expect(await screen.findByText('Créer un nouveau centre')).toBeInTheDocument();
     expect(screen.queryByText('app-content')).toBeNull();
   });
 

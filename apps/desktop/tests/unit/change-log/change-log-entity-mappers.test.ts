@@ -469,6 +469,112 @@ describe('getRegisteredChangeLogEntityToRowMapper — center_hours_overrides (SO
   });
 });
 
+describe('getRegisteredChangeLogEntityToRowMapper — center/organization/membership (SOU-318)', () => {
+  it('flattens a domain Center onto the physical center row, singleton pinned', () => {
+    const mapper = getRegisteredChangeLogEntityToRowMapper('center');
+    expect(mapper).toBeDefined();
+
+    const row = mapper!({
+      id: 'ctr_00000000000000000000000001',
+      centerCode: 'CS-CASA-001',
+      deviceOrigin: 'dev_1',
+      createdAt: ISO,
+      updatedAt: ISO,
+      updatedBy: 'usr_1',
+      deletedAt: null,
+      version: 4,
+      name: 'Centre Al Ilm',
+      address: '12 Rue Mohammed V',
+      phone: '0522-000000',
+      email: 'contact@alilm.ma',
+      logoPath: 'logos/lgo_0001.png',
+      plan: 'premium',
+    });
+
+    expect(row).toEqual({
+      id: 'ctr_00000000000000000000000001',
+      center_code: 'CS-CASA-001',
+      device_origin: 'dev_1',
+      created_at: ISO,
+      updated_at: ISO,
+      updated_by: 'usr_1',
+      deleted_at: null,
+      version: 4,
+      name: 'Centre Al Ilm',
+      address: '12 Rue Mohammed V',
+      phone: '0522-000000',
+      email: 'contact@alilm.ma',
+      logo_path: 'logos/lgo_0001.png',
+      plan: 'premium',
+      singleton: 1,
+    });
+  });
+
+  it('flattens a domain Organization onto the physical organization row', () => {
+    const mapper = getRegisteredChangeLogEntityToRowMapper('organization');
+    expect(mapper).toBeDefined();
+
+    const row = mapper!({
+      id: 'org_00000000000000000000000001',
+      centerCode: 'CS-CASA-001',
+      deviceOrigin: 'dev_1',
+      createdAt: ISO,
+      updatedAt: ISO,
+      updatedBy: 'usr_1',
+      deletedAt: null,
+      version: 1,
+      name: 'Centre Al Ilm',
+      billingContact: 'contact@alilm.ma',
+    });
+
+    expect(row).toEqual({
+      id: 'org_00000000000000000000000001',
+      center_code: 'CS-CASA-001',
+      device_origin: 'dev_1',
+      created_at: ISO,
+      updated_at: ISO,
+      updated_by: 'usr_1',
+      deleted_at: null,
+      version: 1,
+      name: 'Centre Al Ilm',
+      billing_contact: 'contact@alilm.ma',
+    });
+  });
+
+  it('flattens a domain Membership (and carries a tombstone through)', () => {
+    const mapper = getRegisteredChangeLogEntityToRowMapper('membership');
+    expect(mapper).toBeDefined();
+
+    const row = mapper!({
+      id: 'mbr_00000000000000000000000001',
+      centerCode: 'CS-CASA-001',
+      deviceOrigin: 'dev_1',
+      createdAt: new Date(ISO),
+      updatedAt: new Date(ISO),
+      updatedBy: 'usr_1',
+      deletedAt: new Date(ISO),
+      version: 2,
+      userId: 'usr_1',
+      centreId: 'CS-CASA-001',
+      role: 'owner',
+    });
+
+    expect(row).toEqual({
+      id: 'mbr_00000000000000000000000001',
+      center_code: 'CS-CASA-001',
+      device_origin: 'dev_1',
+      created_at: ISO,
+      updated_at: ISO,
+      updated_by: 'usr_1',
+      deleted_at: ISO,
+      version: 2,
+      user_id: 'usr_1',
+      centre_id: 'CS-CASA-001',
+      role: 'owner',
+    });
+  });
+});
+
 describe('subjectBackupRowToEntity', () => {
   it('converts the flat workbook subjects row to the canonical domain Subject', () => {
     const subject = subjectBackupRowToEntity({

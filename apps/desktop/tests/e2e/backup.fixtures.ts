@@ -104,6 +104,7 @@ export async function launchWithDbKey(opts: { locale: Locale; userDataDir: strin
  */
 export async function setupCenter(win: Page, loc: Locale, centerName: string): Promise<void> {
   const t = CP[loc];
+  await win.getByRole('button', { name: t.createModeCard }).click(); // mode choice -> create
   await win.getByRole('radio', { name: t.langRadio }).check();
   await win.getByRole('button', { name: t.next }).click(); // language -> center
   await win.getByLabel(t.nameLabel, { exact: true }).fill(centerName);

@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
+import { useFeature } from '../hooks/use-feature';
+import { HubHostingCard } from '../components/settings/hub/hub-hosting-card';
 import { CenterProfileSettings } from '../components/settings/settings-page';
 import { CenterHoursSettings } from '../components/center-hours/center-hours-settings';
 import { CenterHoursStrandedWarning } from '../components/settings/center-hours-stranded-warning';
@@ -23,6 +25,7 @@ import { BackupSettings } from '../components/settings/backup-settings';
  */
 export function SettingsPage() {
   const { t } = useTranslation();
+  const hasSync = useFeature('sync.multi-device');
 
   return (
     <section aria-labelledby="settings-title" className="mx-auto flex h-full w-full max-w-4xl flex-col">
@@ -42,6 +45,7 @@ export function SettingsPage() {
           <TabsTrigger value="plan">{t('settings.tabs.plan')}</TabsTrigger>
           <TabsTrigger value="license">{t('settings.tabs.license')}</TabsTrigger>
           <TabsTrigger value="backup">{t('settings.tabs.backup')}</TabsTrigger>
+          {hasSync && <TabsTrigger value="hosting">{t('settings.tabs.hosting')}</TabsTrigger>}
         </TabsList>
         <TabsContent value="profile">
           <CenterProfileSettings />
@@ -78,6 +82,11 @@ export function SettingsPage() {
         <TabsContent value="backup">
           <BackupSettings />
         </TabsContent>
+        {hasSync && (
+          <TabsContent value="hosting">
+            <HubHostingCard />
+          </TabsContent>
+        )}
       </Tabs>
     </section>
   );

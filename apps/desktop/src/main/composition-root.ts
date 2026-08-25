@@ -168,7 +168,9 @@ import {
   SwitchCenter,
   CenterSwitchError,
   CreateCenter,
+  JoinCenter,
   CenterProvisioningError,
+  CenterJoinError,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -212,14 +214,18 @@ import { SqliteMultiCenterStatsRead } from '../data/sqlite/multi-center-stats-re
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { readOrCreateDeviceOrigin } from '../data/sqlite/device-origin';
 import { SqliteCenterProvisioning } from '../data/sqlite/center-provisioning';
+import { SqliteCenterJoinProvisioning } from '../data/sqlite/center-join-provisioning';
 import { SqliteHubStore } from '../data/sqlite/hub/hub-store';
 import { HubServer } from './hub-server/hub-server';
 import { HttpSyncHubClient } from '../data/sync/http-sync-hub-client';
+import { HubHostingService, type HubHostingConfigAccess } from './hub-discovery/hub-hosting';
+import type { HubAdvertisement, HubAdvertiserPort, HubDiscovererPort } from './hub-discovery/hub-service';
 import { ChangeLogOutbox } from '../data/sqlite/change-log/change-log-outbox';
 import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-repository';
 import { SqliteNiveauRepository } from '../data/sqlite/repositories/niveau-repository';
 import { SqliteNiveauReference } from '../data/sqlite/repositories/niveau-reference';
 import { SqliteChangeLogWriter } from '../data/sqlite/change-log/sqlite-change-log-writer';
+import { backfillCenterIdentityChangeLog } from '../data/sqlite/center-identity-backfill';
 import { SqliteLocalSyncRepository } from '../data/sqlite/change-log/sqlite-sync-local-repository';
 import { SqliteDuplicateMatchSource } from '../data/sqlite/change-log/sqlite-duplicate-match-source';
 import { SqliteFormulaRepository } from '../data/sqlite/repositories/formula-repository';
@@ -388,6 +394,30 @@ export type ContainerOptions = {
    */
   provisioning?: {
     keyFor: CenterKeyProvider;
+  };
+  /** Join-an-existing-center provisioning (SOU-318). Provided by `index.ts`: the
+   *  per-center key derivation and the hub-client config writer the cold-bootstrap
+   *  persists on success. Absent → `hub.joinCenter` rejects with `CenterJoinError`
+   *  (after the plan gate). */
+  joining?: {
+    keyFor: CenterKeyProvider;
+    clientConfig: {
+      write(centreId: string, config: { baseUrl: string; token: string }): void;
+      clear(centreId: string): void;
+    };
+  };
+  /** LAN hub hosting + discovery (SOU-318). Provided by `index.ts`, which owns the
+   *  persisted config store (bound here to THIS center's id) and the single
+   *  Bonjour instance shared as advertiser + discoverer. Absent in tests and in
+   *  wirings that do not support hosting. */
+  hubHosting?: {
+    config: HubHostingConfigAccess;
+    resolveBindHost: () => string | null;
+    randomBytes: (size: number) => Uint8Array;
+    /** Absent when the mDNS socket could not be opened (sandboxed / CI) — hosting
+     *  config still works, the LAN just gets no advertisement / discovery. */
+    advertiser?: HubAdvertiserPort;
+    discoverer?: HubDiscovererPort;
   };
 };
 
@@ -691,6 +721,13 @@ export function buildContainer(options: ContainerOptions): Container {
   // and carried in the envelope context below.
   const deviceOrigin = resolveDeviceOrigin(db, ids);
   const changeLog = new SqliteChangeLogWriter(db, clock, deviceOrigin);
+
+  // Backfill the center's identity into the change log if it predates SOU-318
+  // sync-wiring (SOU-318), so an already-running center can still be joined from a
+  // second device. Idempotent and guarded to rows THIS device authored, so it is a
+  // no-op on fresh centers and on joined replicas — must run before the initial
+  // self-push below drains the outbox.
+  backfillCenterIdentityChangeLog(db, changeLog, deviceOrigin);
 
   const subjectRepo = new SqliteSubjectRepository(db, changeLog);
   const createSubject = new CreateSubject(subjectRepo, clock, ids, plan);
@@ -1055,7 +1092,7 @@ export function buildContainer(options: ContainerOptions): Container {
     plan,
   );
 
-  const centerRepo = new SqliteCenterRepository(db);
+  const centerRepo = new SqliteCenterRepository(db, changeLog);
   // Refresh the display-only `center.plan` mirror from the license-resolved plan
   // (SOU-98). No-op until the profile exists; the gate never reads this column.
   centerRepo.writePlanMirror(activePlanId);
@@ -1065,7 +1102,7 @@ export function buildContainer(options: ContainerOptions): Container {
   // here — never via a renderer IPC round-trip, which restricted mode blocks on
   // an unlicensed first run.
   const centerHoursRepo = new SqliteCenterHoursRepository(db);
-  const centerSetup = new SqliteCenterSetupUnitOfWork(db);
+  const centerSetup = new SqliteCenterSetupUnitOfWork(db, changeLog);
   const saveCenterProfile = new SaveCenterProfile(
     centerRepo,
     clock,
@@ -1436,6 +1473,30 @@ export function buildContainer(options: ContainerOptions): Container {
         discard: () => Promise.resolve(),
       };
   const createCenter = new CreateCenter(plan, centerProvisioningPort, centerSwitchPort);
+
+  // Join-an-existing-center flow (SOU-318). `JoinCenter` gates `sync.multi-device`
+  // then cold-bootstraps a local replica from the hub feed before switching in.
+  const joinCenter = new JoinCenter(
+    plan,
+    options.joining
+      ? new SqliteCenterJoinProvisioning({
+          dir: options.dir,
+          keyFor: options.joining.keyFor,
+          migrations: toMigrations(migrationFiles),
+          clock,
+          ids,
+          plan,
+          hasActiveLicense: () =>
+            resolveActivePlan(verifyLicenseCached(), clock.now(), licenseBinding).status === 'active',
+          clientConfig: options.joining.clientConfig,
+          systemUserId: DEV_USER,
+        })
+      : {
+          provisionFromHub: () => Promise.reject(new CenterJoinError('joining is not available')),
+          discard: () => Promise.resolve(),
+        },
+    centerSwitchPort,
+  );
   const recoveryCodeResetUnitOfWork = new SqliteRecoveryCodeResetUnitOfWork(db, changeLog);
   const resetPasswordWithRecoveryCode = new ResetPasswordWithRecoveryCode(
     verifyRecoveryCode,
@@ -1519,13 +1580,18 @@ export function buildContainer(options: ContainerOptions): Container {
   let hubServerInstance: HubServer | null = null;
   let hubStore: SqliteHubStore | null = null;
   let syncHub: SyncHubPort | null = null;
+  // Resolves once the embedded hub is actually listening — the initial self-push
+  // (below) waits on it so it never pushes at a socket that is not up yet.
+  let hubListening: Promise<number> | null = null;
   const hubConfig = options.hubServer;
   if (hubConfig) {
     hubStore = SqliteHubStore.open({ centreId: options.centreId, key: options.key, dir: options.dir }, clock);
     applyMigrations(hubStore.db, toMigrations(hubMigrationFiles));
     hubStore.registerCenter(options.centerCode, hubConfig.token, clock.now());
     hubServerInstance = new HubServer(hubStore, hubConfig.port, hubConfig.bindHost);
-    void hubServerInstance.start({ retries: 10, retryDelayMs: 150 }).catch((error: unknown) => {
+    const started = hubServerInstance.start({ retries: 10, retryDelayMs: 150 });
+    hubListening = started;
+    void started.catch((error: unknown) => {
       console.error('[hub] failed to start on port', hubConfig.port, error);
     });
     syncHub = new HttpSyncHubClient({
@@ -1587,6 +1653,66 @@ export function buildContainer(options: ContainerOptions): Container {
       })
     : null;
   const resolveConflict = new ResolveConflict(localSyncRepository, clock, plan, localSyncRepository);
+
+  // Initial self-push (SOU-318): a freshly designated hub host must publish its
+  // existing center to the canonical store BEFORE any laptop joins — otherwise a
+  // joining device pulls an empty feed and cold-bootstraps nothing. Once the hub
+  // is listening, drain this device's outbox and run one sync cycle against its
+  // own localhost hub (the same self-sync path every hub host uses). Fire-and-
+  // forget and idempotent: a second run simply finds nothing new to push. Only a
+  // hub host does this — a client-only device has no canonical store to seed.
+  if (hubServerInstance && syncEngine && hubListening) {
+    void hubListening
+      .then(() => {
+        syncOutbox.drain();
+        return syncEngine.run(matcher);
+      })
+      .catch((error: unknown) => {
+        console.error('[hub] initial self-push failed', error);
+      });
+  }
+
+  // Hosting designation service (SOU-318): turns the open center's hub role on/off
+  // as a config write; null in wirings without a hosting config (tests).
+  const hubHostingService = options.hubHosting
+    ? new HubHostingService({
+        config: options.hubHosting.config,
+        resolveBindHost: options.hubHosting.resolveBindHost,
+        randomBytes: options.hubHosting.randomBytes,
+      })
+    : null;
+
+  // mDNS advertisement (SOU-318): once the hub is listening, publish the center on
+  // the LAN so a second laptop can discover it — identity only in the TXT record,
+  // never the pairing token. Withdrawn on dispose (center switch / quit).
+  let hubAdvertisement: HubAdvertisement | null = null;
+  // The advertisement is published inside an async chain (below) while `dispose`
+  // is synchronous, so the two can race: if `dispose` runs before the chain
+  // resolves, it sees a null advertisement and its `stop()` is a no-op, leaving
+  // the ad the chain publishes moments later stranded on the LAN. This flag lets
+  // the chain detect a dispose that already happened and stop the fresh ad at once.
+  let hubDisposed = false;
+  if (hubConfig && options.hubHosting?.advertiser && hubListening) {
+    const advertiser = options.hubHosting.advertiser;
+    void hubListening
+      .then(async () => {
+        const profile = await getCenterProfile.execute();
+        const name = profile?.name ?? options.centerCode;
+        const advertisement = advertiser.advertise({
+          name,
+          port: hubConfig.port,
+          txt: { centreId: options.centreId, centerCode: options.centerCode, name },
+        });
+        if (hubDisposed) {
+          advertisement.stop();
+        } else {
+          hubAdvertisement = advertisement;
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('[hub] mDNS advertise failed', error);
+      });
+  }
 
   const attemptLogin = new AttemptLogin(
     verifyUserPassword,
@@ -1823,6 +1949,10 @@ export function buildContainer(options: ContainerOptions): Container {
     listBlockedConflicts: () => localSyncRepository.listBlocked(),
     localSyncRepository,
     deviceId: () => deviceOrigin,
+    hubHosting: hubHostingService,
+    hubDiscoverer: options.hubHosting?.discoverer ?? null,
+    requestHubRestart: options.scheduleRestart,
+    joinCenter,
   };
 
   return {
@@ -1839,6 +1969,11 @@ export function buildContainer(options: ContainerOptions): Container {
     // closed only AFTER the listener has stopped, so an in-flight request can
     // never hit a half-closed canonical store.
     dispose: () => {
+      // Withdraw the LAN advertisement first so no laptop discovers a hub that is
+      // about to stop (SOU-318). Set `hubDisposed` so an advertisement still being
+      // published by the async chain above stops itself instead of stranding.
+      hubDisposed = true;
+      hubAdvertisement?.stop();
       if (hubServerInstance && hubStore) {
         void hubServerInstance.stop().finally(() => hubStore?.close());
       } else if (hubStore) {

@@ -30,6 +30,13 @@ const DRAIN_TIMEOUT_MS = 5000;
 const SWAP_DRIVING_CHANNELS: ReadonlySet<string> = new Set<IpcChannel>([
   'center.switch',
   'center.create',
+  // Joining an existing center (SOU-318) cold-bootstraps a new DB then switches
+  // into it through the same path as `center.create`, so it is exempt for the
+  // same reason: counting it would deadlock its own drain, and the "swap in
+  // progress" guard would reject the very call performing the swap. The pull runs
+  // against its OWN transient DB handle, never the live container's, so exempting
+  // it cannot expose a query to a closing handle.
+  'hub.joinCenter',
 ]);
 
 /**

@@ -1946,7 +1946,8 @@
       "appearance": "Apparence",
       "plan": "Formule",
       "backup": "Sauvegarde",
-      "license": "Licence"
+      "license": "Licence",
+      "hosting": "Hébergement"
     },
     "center": {
       "title": "Profil du centre",
@@ -2412,6 +2413,17 @@
       "errorTitle": "Impossible de démarrer",
       "errorBody": "La vérification de la configuration a échoué.",
       "retry": "Réessayer"
+    },
+    "mode": {
+      "legend": "Comment souhaitez-vous commencer ?",
+      "create": {
+        "title": "Créer un nouveau centre",
+        "description": "Configurez un tout nouveau centre sur cet ordinateur."
+      },
+      "join": {
+        "title": "Rejoindre un centre existant",
+        "description": "Connectez cet ordinateur à un centre déjà hébergé sur un autre poste du réseau."
+      }
     }
   },
   "invoices": {
@@ -2974,5 +2986,74 @@
     "installNow": "Installer maintenant",
     "later": "Plus tard",
     "skip": "Ignorer cette version"
+  },
+  "hub": {
+    "join": {
+      "discover": {
+        "title": "Rechercher un centre",
+        "description": "Nous cherchons les centres hébergés sur votre réseau local.",
+        "searching": "Recherche des centres sur le réseau…",
+        "listLabel": "Centres trouvés",
+        "emptyTitle": "Aucun centre trouvé sur le réseau",
+        "emptyBody": "Vérifiez que l'autre ordinateur héberge bien le centre et que les deux postes sont sur le même réseau Wi-Fi.",
+        "errorTitle": "La recherche a échoué",
+        "errorBody": "Impossible de parcourir le réseau. Réessayez.",
+        "retry": "Réessayer",
+        "manualToggle": "Saisir l'adresse manuellement"
+      },
+      "manual": {
+        "title": "Saisie manuelle",
+        "host": "Adresse de l'hôte",
+        "hostPlaceholder": "192.168.1.10",
+        "port": "Port",
+        "centerCode": "Code du centre",
+        "centerCodePlaceholder": "CS-CASA-001",
+        "continue": "Continuer"
+      },
+      "code": {
+        "title": "Code d'appairage",
+        "description": "Saisissez le code affiché sur « {{name}} » pour rejoindre ce centre.",
+        "label": "Code d'appairage",
+        "placeholder": "XXXX-XXXX-XXXX",
+        "hint": "Le code s'affiche dans les Paramètres de l'ordinateur qui héberge le centre.",
+        "confirm": "Rejoindre"
+      },
+      "progress": {
+        "joining": "Récupération des données du centre…",
+        "errorTitle": "Impossible de rejoindre le centre",
+        "retry": "Réessayer"
+      },
+      "errors": {
+        "center-join-failed": "La connexion a échoué. Vérifiez le code d'appairage et que l'ordinateur hôte est bien accessible.",
+        "plan-feature-unavailable": "Cette fonctionnalité n'est pas disponible sur votre plan.",
+        "unknown": "Une erreur inattendue s'est produite. Réessayez."
+      }
+    },
+    "hosting": {
+      "title": "Héberger ce centre",
+      "subtitle": "Faites de cet ordinateur le serveur du centre sur le réseau local.",
+      "idleBody": "Faites de cet ordinateur le serveur du centre pour que d'autres postes puissent le rejoindre sur le réseau local.",
+      "enable": "Héberger ce centre",
+      "enableConfirmTitle": "Héberger ce centre ?",
+      "enableConfirm": "Héberger et redémarrer",
+      "restartNotice": "L'application va redémarrer pour appliquer ce changement.",
+      "cancel": "Annuler",
+      "activeBody": "Cet ordinateur héberge le centre. Communiquez le code d'appairage aux postes qui souhaitent le rejoindre.",
+      "tokenLabel": "Code d'appairage",
+      "tokenCopied": "Code copié.",
+      "tokenCopyError": "Impossible de copier le code.",
+      "copyToken": "Copier le code",
+      "addressLabel": "Adresse sur le réseau",
+      "disable": "Arrêter l'hébergement",
+      "disableConfirmTitle": "Arrêter l'hébergement ?",
+      "disableConfirm": "Arrêter et redémarrer",
+      "loadError": "Impossible de charger l'état d'hébergement.",
+      "retry": "Réessayer",
+      "enableErrors": {
+        "no-lan-interface": "Cet ordinateur n'est connecté à aucun réseau local. Connectez-le au Wi-Fi du centre, puis réessayez.",
+        "plan-feature-unavailable": "Cette fonctionnalité n'est pas disponible sur votre plan.",
+        "unknown": "L'activation de l'hébergement a échoué. Réessayez."
+      }
+    }
   }
 }

@@ -26,8 +26,13 @@ import {
   resolveCenterKey,
   SafeStorageSecretVault,
 } from './key-store';
+import { randomBytes } from 'node:crypto';
 import { sweepStaleTempPdfs } from '../data/fs/temp-pdf';
 import { LEGACY_DEMO_CENTRE_ID, resolveInitialCentreId } from './initial-centre-id';
+import { HubHostConfigStore, isActiveLanAddress, resolveLanBindHost } from './infra/hub-host-config-store';
+import { HubClientConfigStore } from './infra/hub-client-config-store';
+import { DEFAULT_HUB_PORT } from '../shared/hub';
+import { BonjourHubMdns } from './hub-discovery/mdns-adapters';
 
 // The packaged renderer entry loaded from disk. Shared by the window's
 // `loadFile` and the trusted-origin resolution so the `file:` trust is pinned to
@@ -67,6 +72,7 @@ let runtime: MainRuntime | null = null;
 let host: CenterHost | null = null;
 let mainWindow: BrowserWindow | null = null;
 let disposeAutoUpdater: (() => void) | null = null;
+let hubMdns: BonjourHubMdns | null = null;
 
 /**
  * Embedded LAN hub (SOU-90): designated-laptop opt-in until the sync setup
@@ -79,15 +85,19 @@ let disposeAutoUpdater: (() => void) | null = null;
  * beyond the local network. The hub host's own replica still
  * syncs through the same SyncHubPort client (over localhost), so these env vars
  * only decide WHO serves — never how the hub machine syncs.
+ *
+ * This is the dev/e2e override path only. In a packaged build the env vars are
+ * unset and hosting comes from the persisted per-center config
+ * ({@link HubHostConfigStore}) instead — see `resolveHubConfig` in the boot block.
  */
-function resolveHubConfig(): { port: number; token: string; bindHost: string } | null {
+function resolveHubConfigFromEnv(): { port: number; token: string; bindHost: string } | null {
   if (process.env['CS_HUB_ENABLED'] !== '1') return null;
   const token = process.env['CS_HUB_TOKEN'];
   if (!token) {
     console.warn('[hub] CS_HUB_ENABLED=1 but no CS_HUB_TOKEN set — hub is NOT serving.');
     return null;
   }
-  const rawPort = process.env['CS_HUB_PORT'] ?? '4747';
+  const rawPort = process.env['CS_HUB_PORT'] ?? String(DEFAULT_HUB_PORT);
   const port = Number(rawPort);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     console.warn(`[hub] invalid CS_HUB_PORT "${rawPort}" — hub is NOT serving.`);
@@ -112,8 +122,12 @@ function resolveHubConfig(): { port: number; token: string; bindHost: string } |
  * `CS_SYNC_HUB_TOKEN` are REQUIRED (a client with no pairing token would defeat
  * the hub's per-center auth), and the URL must parse as an http(s) origin. Real
  * pairing UX lands with the sync-setup ticket; this env seam is the opt-in until then.
+ *
+ * Dev/e2e override only. In a packaged build the env vars are unset and a joined
+ * center's hub comes from the persisted per-center config
+ * ({@link HubClientConfigStore}) — see `resolveHubClientConfig` in the boot block.
  */
-function resolveHubClientConfig(): { baseUrl: string; token: string } | null {
+function resolveHubClientConfigFromEnv(): { baseUrl: string; token: string } | null {
   const rawUrl = process.env['CS_SYNC_HUB_URL'];
   if (!rawUrl) return null;
   const token = process.env['CS_SYNC_HUB_TOKEN'];
@@ -175,11 +189,39 @@ app.whenReady().then(async () => {
     // alive while the OS viewer reads it — a file younger than the threshold
     // cannot predate the previous session by more than a few minutes.
     sweepStaleTempPdfs(app.getPath('temp'));
-    const hubServer = resolveHubConfig();
-    // A hub host already wires its own client at its own listener; only a device
-    // that serves no hub can point at an external one (SOU-82).
-    const hubClient = hubServer ? null : resolveHubClientConfig();
     const dir = app.getPath('userData');
+    // Hub hosting is per-center now (SOU-318): the env override is the dev/e2e
+    // path; a packaged build reads which centers this device hosts (and on what
+    // port/interface, under which pairing token) from the persisted store. Both
+    // are resolved per centreId inside `openCenter`, so a center switch re-opens
+    // the correct hub role for the target center.
+    const hubHostConfigStore = new HubHostConfigStore(dir);
+    const hubClientConfigStore = new HubClientConfigStore(dir);
+    const resolveHubConfig = (centreId: string): { port: number; token: string; bindHost: string } | null => {
+      const fromEnv = resolveHubConfigFromEnv();
+      if (fromEnv) return fromEnv;
+      const persisted = hubHostConfigStore.read(centreId);
+      if (persisted === null || isActiveLanAddress(persisted.bindHost)) return persisted;
+      // The stored LAN address is gone (the machine moved networks). Re-resolve so
+      // the hub binds a reachable interface — and rewrite the config so hosting
+      // status reflects the address it actually serves, instead of the hub failing
+      // to bind while the UI still reads "hosting". Token + port are preserved.
+      const healed = resolveLanBindHost();
+      if (healed === null) return persisted;
+      const next = { ...persisted, bindHost: healed };
+      hubHostConfigStore.write(centreId, next);
+      return next;
+    };
+    const resolveHubClientConfig = (centreId: string): { baseUrl: string; token: string } | null =>
+      resolveHubClientConfigFromEnv() ?? hubClientConfigStore.read(centreId);
+    // One Bonjour instance for the whole process (one multicast socket), shared as
+    // advertiser + discoverer. Opening the socket can fail in a sandbox / on a
+    // locked-down network — hosting config still works without it, so fail soft.
+    try {
+      hubMdns = new BonjourHubMdns();
+    } catch (error) {
+      console.warn('[hub] mDNS unavailable — hub advertise/discover disabled', error);
+    }
     const realCentreId = resolveInitialCentreId(process.env['CS_CENTRE']);
     const realCenterCode = (process.env['CS_CENTER_CODE'] ?? 'CS-DEV-001') as CenterCode;
 
@@ -212,6 +254,12 @@ app.whenReady().then(async () => {
       const { key, legacyKeys } = centerDbKey(dir, centreId);
       ensureDatabaseKeyed(join(dir, centreDbFileName(centreId)), key, legacyKeys);
       ensureDatabaseKeyed(join(dir, hubDbFileName(centreId)), key, legacyKeys);
+      // This device's hub role for THIS center: it either hosts the center's hub
+      // (env override or persisted config) or, failing that, may point at an
+      // external hub. A hub host already wires its own client at its own listener,
+      // so only a non-hosting device consults the client config (SOU-82).
+      const hubServer = resolveHubConfig(centreId);
+      const hubClient = hubServer ? null : resolveHubClientConfig(centreId);
       return buildContainer({
         centreId,
         centerCode,
@@ -234,6 +282,29 @@ app.whenReady().then(async () => {
         // provisioner reuses the switcher's per-center key derivation.
         provisioning: {
           keyFor: (id: string) => centerDbKey(dir, id).key,
+        },
+        // Join-an-existing-center provisioning (SOU-318): the cold-bootstrap
+        // derives each new center's key the same way, and persists which hub the
+        // joined center follows so it keeps syncing on boot.
+        joining: {
+          keyFor: (id: string) => centerDbKey(dir, id).key,
+          clientConfig: {
+            write: (id: string, config: { baseUrl: string; token: string }) =>
+              hubClientConfigStore.write(id, config),
+            clear: (id: string) => hubClientConfigStore.clear(id),
+          },
+        },
+        // LAN hub hosting + discovery (SOU-318): config accessors bound to THIS
+        // center's id, plus the shared mDNS adapter when the socket opened.
+        hubHosting: {
+          config: {
+            read: () => hubHostConfigStore.read(centreId),
+            write: (config) => hubHostConfigStore.write(centreId, config),
+            clear: () => hubHostConfigStore.clear(centreId),
+          },
+          resolveBindHost: resolveLanBindHost,
+          randomBytes: (size: number) => randomBytes(size),
+          ...(hubMdns ? { advertiser: hubMdns, discoverer: hubMdns } : {}),
         },
         ...(hubServer ? { hubServer } : hubClient ? { hubClient } : {}),
       });
@@ -318,6 +389,8 @@ app.on('will-quit', () => {
   host = null;
   disposeAutoUpdater?.();
   disposeAutoUpdater = null;
+  hubMdns?.destroy();
+  hubMdns = null;
 });
 
 app.on('window-all-closed', () => {

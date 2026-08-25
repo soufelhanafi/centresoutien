@@ -1,11 +1,14 @@
 import type {
   BackupRow,
+  Center,
   CenterCode,
   CenterHoursOverride,
   CenterHoursOverrideId,
   DeviceId,
+  Membership,
   Niveau,
   NiveauId,
+  Organization,
   Payment,
   Session,
   Subject,
@@ -426,6 +429,63 @@ function paymentEntityToRow(entity: unknown): Record<string, unknown> {
   };
 }
 
+function centerEntityToRow(entity: unknown): Record<string, unknown> {
+  const center = entity as Center;
+  return {
+    id: center.id,
+    center_code: center.centerCode,
+    device_origin: center.deviceOrigin,
+    created_at: toIsoString(center.createdAt),
+    updated_at: toIsoString(center.updatedAt),
+    updated_by: center.updatedBy,
+    deleted_at: toNullableIsoString(center.deletedAt),
+    version: center.version,
+    name: center.name,
+    address: center.address,
+    phone: center.phone,
+    email: center.email,
+    logo_path: center.logoPath,
+    plan: center.plan,
+    // The one-row-per-DB guard column. Its CHECK/UNIQUE both pin it to 1, so a
+    // pulled center always lands as the singleton, exactly as the repository's
+    // own SAVE_SQL writes it.
+    singleton: 1,
+  };
+}
+
+function organizationEntityToRow(entity: unknown): Record<string, unknown> {
+  const organization = entity as Organization;
+  return {
+    id: organization.id,
+    center_code: organization.centerCode,
+    device_origin: organization.deviceOrigin,
+    created_at: toIsoString(organization.createdAt),
+    updated_at: toIsoString(organization.updatedAt),
+    updated_by: organization.updatedBy,
+    deleted_at: toNullableIsoString(organization.deletedAt),
+    version: organization.version,
+    name: organization.name,
+    billing_contact: organization.billingContact,
+  };
+}
+
+function membershipEntityToRow(entity: unknown): Record<string, unknown> {
+  const membership = entity as Membership;
+  return {
+    id: membership.id,
+    center_code: membership.centerCode,
+    device_origin: membership.deviceOrigin,
+    created_at: toIsoString(membership.createdAt),
+    updated_at: toIsoString(membership.updatedAt),
+    updated_by: membership.updatedBy,
+    deleted_at: toNullableIsoString(membership.deletedAt),
+    version: membership.version,
+    user_id: membership.userId,
+    centre_id: membership.centreId,
+    role: membership.role,
+  };
+}
+
 // Default registration: `subjects` is the first repo-written entityType in the
 // log (SOU-79 representative slice); its payload is the nested domain Subject.
 registerChangeLogEntityToRowMapper('subjects', subjectEntityToRow);
@@ -458,3 +518,12 @@ registerChangeLogEntityToRowMapper('payments', paymentEntityToRow, 'append-only'
 // recomputed, exactly as the repository's SAVE_SQL does, so a pulled user lands
 // on laptop B's real table (login works there) instead of the neutral fallback.
 registerChangeLogEntityToRowMapper('users', userEntityToRow);
+// `center` + `organization` + `membership` (SOU-318): the center's identity and
+// ownership rows. Making them synced lets a second device cold-bootstrap the
+// whole center from the hub feed — profile, owning org, and director membership —
+// not just its data. All fields are flat scalars, so each mapper flattens the
+// envelope + domain columns exactly as the setup unit-of-work / center repository
+// write them, landing a pulled row on laptop B's real table instead of the shadow.
+registerChangeLogEntityToRowMapper('center', centerEntityToRow);
+registerChangeLogEntityToRowMapper('organization', organizationEntityToRow);
+registerChangeLogEntityToRowMapper('membership', membershipEntityToRow);

@@ -127,6 +127,10 @@ export class SqliteCenterProvisioning implements CenterProvisioningPort {
   ): Promise<void> {
     const deviceOrigin = readOrCreateDeviceOrigin(db, this.deps.ids);
     const context = { centerCode, deviceOrigin, updatedBy: director.id };
+    // One change-log writer for the whole provisioning transaction, so the
+    // seeded center/organization/membership rows (SOU-318) and the director's
+    // owner account all log under the same device origin.
+    const changeLog = new SqliteChangeLogWriter(db, this.deps.clock, deviceOrigin);
 
     const center = newCenter(
       { ...context, profile, logoPath: null, seedPlan: this.deps.seedPlan },
@@ -144,7 +148,7 @@ export class SqliteCenterProvisioning implements CenterProvisioningPort {
       this.deps.ids,
     );
 
-    await new SqliteCenterSetupUnitOfWork(db).commit({
+    await new SqliteCenterSetupUnitOfWork(db, changeLog).commit({
       center,
       defaultHours: newDefaultCenterHours(context, this.deps.clock, this.deps.ids),
       defaultNiveaux: newDefaultNiveaux(context, this.deps.clock, this.deps.ids),
@@ -153,7 +157,7 @@ export class SqliteCenterProvisioning implements CenterProvisioningPort {
       membership,
     });
 
-    await this.grantDirectorAccess(db, context, director);
+    await this.grantDirectorAccess(db, context, changeLog, director);
   }
 
   /**
@@ -166,6 +170,7 @@ export class SqliteCenterProvisioning implements CenterProvisioningPort {
   private async grantDirectorAccess(
     db: DB,
     context: { centerCode: CenterCode; deviceOrigin: DeviceId; updatedBy: UserId },
+    changeLog: SqliteChangeLogWriter,
     director: User,
   ): Promise<void> {
     const owner: User = {
@@ -175,7 +180,6 @@ export class SqliteCenterProvisioning implements CenterProvisioningPort {
         this.deps.clock,
       ),
     };
-    const changeLog = new SqliteChangeLogWriter(db, this.deps.clock, context.deviceOrigin);
     await new SqliteUserRepository(db, changeLog).save(owner);
     await new DeviceSessionService(
       new SqliteDeviceSessionStore(db),
