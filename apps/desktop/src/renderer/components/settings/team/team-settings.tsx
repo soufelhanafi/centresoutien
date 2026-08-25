@@ -34,7 +34,12 @@ export function TeamSettings() {
 
   const roster = users.data ?? [];
   const hasEmployees = roster.some((user) => user.role !== 'owner');
-  const status = resolveStatus({ isPending: users.isPending, isError: users.isError, hasEmployees });
+  const status = resolveStatus({
+    hasData: users.data !== undefined,
+    isPending: users.isPending,
+    isError: users.isError,
+    hasEmployees,
+  });
 
   const handleReissue = async (user: UserView) => {
     try {
@@ -81,15 +86,22 @@ export function TeamSettings() {
 }
 
 function resolveStatus({
+  hasData,
   isPending,
   isError,
   hasEmployees,
 }: {
+  hasData: boolean;
   isPending: boolean;
   isError: boolean;
   hasEmployees: boolean;
 }): UserListStatus {
+  // A roster we already have is shown even while a background refetch is failing:
+  // a transient user.list error (e.g. the first refetch after a re-login) must
+  // never blank a working team list into a full-page error — with retry:false a
+  // single blip would otherwise strand the ErrorState until a manual retry.
+  if (hasData) return hasEmployees ? 'ready' : 'empty';
   if (isPending) return 'loading';
   if (isError) return 'error';
-  return hasEmployees ? 'ready' : 'empty';
+  return 'empty';
 }
