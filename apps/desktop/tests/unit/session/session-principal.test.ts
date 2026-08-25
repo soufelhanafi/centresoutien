@@ -87,6 +87,36 @@ describe('SessionPrincipalService', () => {
     expect(service.current()).toEqual({ userId: OWNER, role: 'admin' });
   });
 
+  it('the guard resolve() keeps a non-remembered login on an empty session read (SOU-303)', async () => {
+    // A director logs in WITHOUT remember-me: no session row is persisted, so
+    // activeUserId() is null. The role guard runs resolve() on the next
+    // director-only IPC; it must return the login principal, not downgrade it to
+    // null (which failed user.list / user.reissueSetupCode after a re-login).
+    const service = new SessionPrincipalService(makeSessions(null), makeUsers(null));
+    service.set({ userId: OWNER, role: 'owner' });
+    expect(await service.resolve()).toEqual({ userId: OWNER, role: 'owner' });
+    expect(service.current()).toEqual({ userId: OWNER, role: 'owner' });
+  });
+
+  it('a remembered session still refreshes over a stale login principal, and logout wins', async () => {
+    // set() puts a secretary in memory; a remembered session that resolves to an
+    // owner row supersedes it (fresh role), proving the empty-read guard does not
+    // freeze a genuinely resolvable session.
+    let sessionUserId: UserId | null = OWNER;
+    const service = new SessionPrincipalService(
+      { activeUserId: async () => sessionUserId },
+      makeUsers(makeUser(OWNER, 'owner')),
+    );
+    service.set({ userId: OWNER, role: 'secretary' });
+    expect(await service.resolve()).toEqual({ userId: OWNER, role: 'owner' });
+    // After logout both the in-memory login and the session are gone — the empty
+    // read is authoritative again, with no lingering login principal to keep.
+    service.clear();
+    sessionUserId = null;
+    expect(await service.resolve()).toBeNull();
+    expect(service.current()).toBeNull();
+  });
+
   it('discards an in-flight resolve superseded by clear() — logout cannot be resurrected (B3)', async () => {
     let release!: (id: UserId | null) => void;
     const gate = new Promise<UserId | null>((resolve) => {
