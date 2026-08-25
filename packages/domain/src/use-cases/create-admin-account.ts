@@ -49,6 +49,9 @@ export class CreateAdminAccount {
       ),
       role: 'owner',
       username,
+      // The first-run wizard captures credentials only; the owner's display name is
+      // set later through the account, so it starts null (SOU-303).
+      fullName: null,
       passwordHash: await this.hasher.hash(password),
       setupCodeHash: null,
       setupCodeExpiresAt: null,

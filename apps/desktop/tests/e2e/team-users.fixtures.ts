@@ -48,10 +48,13 @@ export type TeamStrings = {
   setupCodeLabel: string;
   newPasswordLabel: string;
   confirmPasswordLabel: string;
+  setupContinue: string;
   setupSubmit: string;
   setupSuccess: string;
   setupCodeInvalid: string;
-  setupCodeAlreadyRedeemed: string;
+  recoveryHint: string;
+  reissueAction: string;
+  pendingName: string;
   appMarker: string;
 };
 
@@ -90,10 +93,13 @@ export const T: Record<Locale, TeamStrings> = {
     setupCodeLabel: "Code d'installation",
     newPasswordLabel: 'Nouveau mot de passe',
     confirmPasswordLabel: 'Confirmer le mot de passe',
+    setupContinue: 'Continuer',
     setupSubmit: 'Activer mon compte',
     setupSuccess: 'Compte activé. Connectez-vous avec votre nouveau mot de passe.',
     setupCodeInvalid: "Code d'installation invalide",
-    setupCodeAlreadyRedeemed: "Ce code d'installation a déjà été utilisé",
+    recoveryHint: 'Votre compte existe déjà. Choisissez un nouveau mot de passe pour y accéder à nouveau.',
+    reissueAction: 'Nouveau code',
+    pendingName: 'Compte non activé',
     appMarker: 'Centre principal',
   },
   ar: {
@@ -130,10 +136,13 @@ export const T: Record<Locale, TeamStrings> = {
     setupCodeLabel: 'رمز التفعيل',
     newPasswordLabel: 'كلمة المرور الجديدة',
     confirmPasswordLabel: 'تأكيد كلمة المرور',
+    setupContinue: 'متابعة',
     setupSubmit: 'تفعيل حسابي',
     setupSuccess: 'تم تفعيل الحساب. سجّل الدخول بكلمة مرورك الجديدة.',
     setupCodeInvalid: 'رمز التفعيل غير صالح',
-    setupCodeAlreadyRedeemed: 'تم استعمال رمز التفعيل هذا من قبل',
+    recoveryHint: 'حسابك موجود بالفعل. اختر كلمة مرور جديدة لاستعادة الوصول إليه.',
+    reissueAction: 'رمز جديد',
+    pendingName: 'حساب غير مفعّل',
     appMarker: 'المركز الرئيسي',
   },
 };
@@ -154,10 +163,14 @@ export async function openInviteDialog(win: Page, loc: Locale): Promise<void> {
   await expect(win.getByRole('dialog')).toBeVisible();
 }
 
-/** Fill the invite form with a username (role defaults to the only invitable role) and submit. */
-export async function submitInvite(win: Page, username: string, loc: Locale): Promise<void> {
-  await win.locator('input[name="username"]').fill(username);
+/** Submit the invite (code-first: role only — the director types no identity). */
+export async function submitInvite(win: Page, loc: Locale): Promise<void> {
   await win.getByRole('button', { name: T[loc].formSubmit }).click();
+}
+
+/** Re-issue a fresh code for the single non-owner (invitable) row on the roster. */
+export async function reissueFirstStaff(win: Page, loc: Locale): Promise<void> {
+  await win.getByRole('button', { name: T[loc].reissueAction }).first().click();
 }
 
 /** Read the one-time setup code from the success dialog's <code> element. */
@@ -179,14 +192,36 @@ export async function gotoRedeem(win: Page, loc: Locale): Promise<void> {
   await expect(win.getByRole('heading', { name: T[loc].setupTitle })).toBeVisible();
 }
 
-/** Fill and submit the redeem (activate account) form. */
-export async function submitRedeem(
+/** Step 1 of redeem: enter the code and continue. Used on its own for the
+ *  garbage-code case (which must fail at step 1, before any identity fields). */
+export async function enterSetupCode(win: Page, setupCode: string, loc: Locale): Promise<void> {
+  await win.locator('input[name="setupCode"]').fill(setupCode);
+  await win.getByRole('button', { name: T[loc].setupContinue }).click();
+}
+
+/** Full first-login redeem: code → continue → the staff's own identity + password. */
+export async function redeemOnboarding(
   win: Page,
-  input: { username: string; setupCode: string; newPassword: string },
+  input: { setupCode: string; username: string; fullName: string; email: string; newPassword: string },
   loc: Locale,
 ): Promise<void> {
+  await enterSetupCode(win, input.setupCode, loc);
+  await win.locator('input[name="fullName"]').fill(input.fullName);
   await win.locator('input[name="username"]').fill(input.username);
-  await win.locator('input[name="setupCode"]').fill(input.setupCode);
+  await win.locator('input[name="email"]').fill(input.email);
+  await win.locator('input[name="newPassword"]').fill(input.newPassword);
+  await win.locator('input[name="confirmPassword"]').fill(input.newPassword);
+  await win.getByRole('button', { name: T[loc].setupSubmit }).click();
+}
+
+/** Recovery redeem (already-onboarded account, director-reissued code): code →
+ *  continue → a new password only (no identity is re-collected). */
+export async function redeemRecovery(
+  win: Page,
+  input: { setupCode: string; newPassword: string },
+  loc: Locale,
+): Promise<void> {
+  await enterSetupCode(win, input.setupCode, loc);
   await win.locator('input[name="newPassword"]').fill(input.newPassword);
   await win.locator('input[name="confirmPassword"]').fill(input.newPassword);
   await win.getByRole('button', { name: T[loc].setupSubmit }).click();

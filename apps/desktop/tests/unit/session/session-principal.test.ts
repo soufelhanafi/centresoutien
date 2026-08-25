@@ -20,6 +20,7 @@ function makeUser(id: UserId, role: Role): User {
     version: 0,
     role,
     username: 'directrice',
+    fullName: null,
     passwordHash: '$argon2id$hash',
     setupCodeHash: null,
     setupCodeExpiresAt: null,

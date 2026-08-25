@@ -43,6 +43,7 @@ function makeUser(over: Partial<User> = {}): User {
     version: 0,
     role: 'owner',
     username: 'directrice',
+    fullName: null,
     passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$abc$def',
     setupCodeHash: null,
     setupCodeExpiresAt: null,
@@ -236,6 +237,82 @@ describe('SqliteUserRepository', () => {
         }
       ).n;
       expect(after - before).toBe(1);
+    });
+  });
+
+  describe('reopenSetupCode (director re-issue, targeted update)', () => {
+    const REISSUE_AT = new Date('2026-08-04T08:00:00Z');
+    const SELF = 'usr_00000000000000000000000002' as UserId;
+
+    function onboarded() {
+      return makeUser({
+        id: 'usr_00000000000000000000000002' as UserId,
+        role: 'secretary',
+        username: 'amine',
+        fullName: 'Amine Alaoui',
+        email: 'amine@example.com' as User['email'],
+        passwordHash: 'live-password-hash',
+        setupCodeHash: null,
+        setupCodeExpiresAt: null,
+        setupCodeRedeemedAt: new Date('2026-08-01T10:00:00Z'),
+      });
+    }
+
+    it('rotates only the setup-code fields, preserving identity + password (SOU-303 anti-clobber)', async () => {
+      const user = onboarded();
+      await repo.save(user);
+
+      const updated = await repo.reopenSetupCode({
+        id: user.id,
+        setupCodeHash: 'fresh-hash',
+        setupCodeExpiresAt: EXPIRES_MS,
+        updatedAt: REISSUE_AT,
+        updatedBy: SELF,
+      });
+
+      expect(updated?.setupCodeHash).toBe('fresh-hash');
+      expect(updated?.setupCodeExpiresAt).toBe(EXPIRES_MS);
+      expect(updated?.setupCodeRedeemedAt).toBeNull();
+      // Identity + credential are UNTOUCHED — a re-issue never reverts onboarding.
+      expect(updated?.username).toBe('amine');
+      expect(updated?.fullName).toBe('Amine Alaoui');
+      expect(updated?.email).toBe('amine@example.com');
+      expect(updated?.passwordHash).toBe('live-password-hash');
+      const found = await repo.findById(user.id);
+      expect(found?.passwordHash).toBe('live-password-hash');
+      expect(found?.username).toBe('amine');
+    });
+
+    it('records exactly one change_log row, and returns null for a missing row', async () => {
+      const user = onboarded();
+      await repo.save(user);
+      const before = (
+        db.prepare("SELECT COUNT(*) AS n FROM change_log WHERE entity_type = 'users'").get() as {
+          n: number;
+        }
+      ).n;
+      await repo.reopenSetupCode({
+        id: user.id,
+        setupCodeHash: 'h',
+        setupCodeExpiresAt: EXPIRES_MS,
+        updatedAt: REISSUE_AT,
+        updatedBy: SELF,
+      });
+      const after = (
+        db.prepare("SELECT COUNT(*) AS n FROM change_log WHERE entity_type = 'users'").get() as {
+          n: number;
+        }
+      ).n;
+      expect(after - before).toBe(1);
+
+      const gone = await repo.reopenSetupCode({
+        id: 'usr_00000000000000000000000404' as UserId,
+        setupCodeHash: 'h',
+        setupCodeExpiresAt: EXPIRES_MS,
+        updatedAt: REISSUE_AT,
+        updatedBy: SELF,
+      });
+      expect(gone).toBeNull();
     });
   });
 

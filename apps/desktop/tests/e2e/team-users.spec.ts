@@ -7,29 +7,35 @@ import {
   gotoTeamTab,
   openInviteDialog,
   submitInvite,
+  reissueFirstStaff,
   readSetupCode,
   logout,
   gotoRedeem,
-  submitRedeem,
+  enterSetupCode,
+  redeemOnboarding,
   loginViaForm,
+  VALID_ADMIN,
   type Launched,
   type Locale,
 } from './team-users.fixtures';
 
 /**
- * SOU-256 (slice B) — Team/Users management, one-time setup code, and the
- * first-login redeem flow. Black-box: the app is driven only through its UI and
- * the public preload bridge. Each test uses a fresh userData dir (fresh
- * encrypted center DB) and runs under both the `fr` (LTR) and `ar` (RTL)
- * Playwright projects, so the visual criteria get real RTL coverage.
+ * SOU-303 — code-first staff onboarding, director re-issue, and self-recovery.
+ * Black-box: the app is driven only through its UI and the public preload bridge.
+ * Each test uses a fresh userData dir (fresh encrypted center DB) and runs under
+ * both `fr` (LTR) and `ar` (RTL) Playwright projects, so the visual criteria get
+ * real RTL coverage.
  */
 
 const locale = () => test.info().project.name as Locale;
 
-// Employee credentials assembled at runtime (secret-scan friendly). Meets the
-// redeem password policy: >=8 chars, upper + lower + digit.
+// The identity the staff choose for THEMSELVES at redemption (SOU-303) — the
+// director never types it. Meets the password policy: >=8 chars, upper+lower+digit.
 const EMP_USER = 'fatima.secretaire';
+const EMP_FULL_NAME = 'Fatima Zahra';
+const EMP_EMAIL = 'fatima@centre.ma';
 const EMP_PW = ['Fatima', '2026', '!'].join('');
+const EMP_PW2 = ['Fatima', '2027', '?'].join('');
 
 let live: Launched | null = null;
 test.afterEach(async () => {
@@ -43,15 +49,15 @@ async function bootDirector(loc: Locale): Promise<Page> {
   return live.win;
 }
 
-/** Create an employee straight through the public bridge and return its one-time code. */
-async function inviteViaBridge(win: Page, username: string): Promise<string> {
-  return win.evaluate(async (u) => {
+/** Create an invite straight through the public bridge (role only) → its one-time code. */
+async function inviteViaBridge(win: Page): Promise<string> {
+  return win.evaluate(async () => {
     const api = (window as unknown as {
       api: { invoke: (c: string, r: unknown) => Promise<{ setupCode: string }> };
     }).api;
-    const res = await api.invoke('user.create', { username: u, role: 'secretary' });
+    const res = await api.invoke('user.create', { role: 'secretary' });
     return res.setupCode;
-  }, username);
+  });
 }
 
 test('S1 — roster empty state before any employee is invited', async () => {
@@ -64,116 +70,171 @@ test('S1 — roster empty state before any employee is invited', async () => {
   await expect(win.getByText(t.emptyTitle)).toBeVisible();
   await expect(win.getByText(t.emptyBody)).toBeVisible();
   await expect(win.getByRole('button', { name: t.addEmployee }).first()).toBeVisible();
-
-  await win.screenshot({ path: `test-results/sou256-team-empty-${loc}.png` });
 });
 
-test('S2 — add employee: one-time setup code dialog, then roster shows a pending row', async () => {
+test('S2 — invite (role only): one-time code dialog, then a pending row with no identity yet', async () => {
   const loc = locale();
   const t = T[loc];
   const win = await bootDirector(loc);
   await gotoTeamTab(win, loc);
 
   await openInviteDialog(win, loc);
-  await submitInvite(win, EMP_USER, loc);
+  await submitInvite(win, loc);
 
-  // One-time code dialog: title, a real code, copy button, single-view warning.
+  // One-time code dialog: title, a real code, single-view warning.
   await expect(win.getByRole('heading', { name: t.setupCodeTitle })).toBeVisible();
   const code = await readSetupCode(win);
   expect(code, 'a non-empty setup code is shown').toMatch(/[A-Z0-9-]{6,}/);
-  await expect(win.getByRole('button', { name: t.setupCodeCopy })).toBeVisible();
   await expect(win.getByText(t.setupCodeWarning)).toBeVisible();
-  await win.screenshot({ path: `test-results/sou256-setup-code-${loc}.png` });
 
-  // Dismiss → roster now lists the owner (active) and the invitee (pending).
+  // Dismiss → roster lists the owner (active) and a pending invite carrying no
+  // identity yet (the staff choose it at redemption).
   await win.getByRole('button', { name: t.setupCodeDone }).click();
-  const row = win.getByRole('row', { name: new RegExp(EMP_USER.replace('.', '\\.')) });
-  await expect(row).toBeVisible();
-  await expect(row.getByText(t.roleSecretary)).toBeVisible();
-  await expect(row.getByText(t.statusPending)).toBeVisible();
+  const pending = win.getByRole('row', { name: new RegExp(t.roleSecretary) });
+  await expect(pending).toBeVisible();
+  await expect(pending.getByText(t.pendingName)).toBeVisible();
+  await expect(pending.getByText(t.statusPending)).toBeVisible();
   await expect(win.getByRole('row', { name: /directrice/ }).getByText(t.statusActive)).toBeVisible();
-
-  await win.screenshot({ path: `test-results/sou256-roster-${loc}.png` });
 });
 
-test('S3 — duplicate username is rejected inline, no setup code is minted', async () => {
+test('S3 — a username taken by an onboarded staff is rejected at redemption', async () => {
+  test.setTimeout(60_000);
   const loc = locale();
   const t = T[loc];
   const win = await bootDirector(loc);
-  await inviteViaBridge(win, EMP_USER);
 
-  await gotoTeamTab(win, loc);
-  await openInviteDialog(win, loc);
-  await submitInvite(win, EMP_USER, loc);
+  const first = await inviteViaBridge(win);
+  const second = await inviteViaBridge(win);
+  await logout(win, loc);
 
+  // First staff onboards and claims the username.
+  await gotoRedeem(win, loc);
+  await redeemOnboarding(
+    win,
+    { setupCode: first, username: EMP_USER, fullName: EMP_FULL_NAME, email: EMP_EMAIL, newPassword: EMP_PW },
+    loc,
+  );
+  await expect(win.getByText(t.setupSuccess)).toBeVisible();
+
+  // Second staff tries the same username → rejected inline; no success.
+  await gotoRedeem(win, loc);
+  await redeemOnboarding(
+    win,
+    { setupCode: second, username: EMP_USER, fullName: 'Autre Nom', email: 'autre@centre.ma', newPassword: EMP_PW },
+    loc,
+  );
+  // Rejected inline; the onboarding form stays open (we did NOT return to login).
   await expect(win.getByText(t.usernameAlreadyTaken)).toBeVisible();
-  await expect(win.getByRole('heading', { name: t.setupCodeTitle })).toHaveCount(0);
-  // The invite dialog stays open so the director can correct the username.
-  await expect(win.getByRole('dialog')).toBeVisible();
+  await expect(win.locator('input[name="username"]')).toBeVisible();
 });
 
-test('S4 — redeem happy path: activate account, then log in with the chosen password', async () => {
+test('S4 — redeem happy path: staff set their own identity, then sign in with it', async () => {
+  test.setTimeout(60_000);
   const loc = locale();
   const t = T[loc];
   const win = await bootDirector(loc);
 
-  // Invite through the UI and capture the code exactly as the director would read it.
   await gotoTeamTab(win, loc);
   await openInviteDialog(win, loc);
-  await submitInvite(win, EMP_USER, loc);
+  await submitInvite(win, loc);
   const code = await readSetupCode(win);
   await win.getByRole('button', { name: t.setupCodeDone }).click();
 
   await logout(win, loc);
   await gotoRedeem(win, loc);
-  await submitRedeem(win, { username: EMP_USER, setupCode: code, newPassword: EMP_PW }, loc);
+  await redeemOnboarding(
+    win,
+    { setupCode: code, username: EMP_USER, fullName: EMP_FULL_NAME, email: EMP_EMAIL, newPassword: EMP_PW },
+    loc,
+  );
 
-  // Success surfaces and we are returned to the standard login screen.
   await expect(win.getByText(t.setupSuccess)).toBeVisible();
   await expect(win.getByRole('heading', { name: t.loginTitle })).toBeVisible();
-  await win.screenshot({ path: `test-results/sou256-redeem-success-${loc}.png` });
 
-  // The employee can now sign in with the username + password they chose.
   await loginViaForm(win, EMP_USER, EMP_PW, loc);
   await expect(win.getByRole('button', { name: t.logout })).toBeVisible();
-  // The app shell rendered for the newly-activated employee. Assert the center
-  // name the setup wizard persisted (literal in both locales) — logout + this
-  // marker together prove a real authenticated session, not the login screen.
   await expect(win.getByText('Centre principal').first()).toBeVisible();
 });
 
-test('S5 — redeem with a garbage code shows setup-code-invalid on the code field', async () => {
+test('S5 — a garbage code fails at step 1 (setup-code-invalid), before any identity fields', async () => {
   const loc = locale();
   const t = T[loc];
   const win = await bootDirector(loc);
-  await inviteViaBridge(win, EMP_USER);
+  await inviteViaBridge(win);
 
   await logout(win, loc);
   await gotoRedeem(win, loc);
   expect(await win.evaluate(() => document.documentElement.dir)).toBe(t.dir);
-  await submitRedeem(win, { username: EMP_USER, setupCode: 'WRON-GXXX-0000', newPassword: EMP_PW }, loc);
+  await enterSetupCode(win, 'WRON-GXXX-0000', loc);
 
   await expect(win.getByText(t.setupCodeInvalid)).toBeVisible();
+  // Still on the code step — identity fields never rendered, not on the login screen.
+  await expect(win.locator('input[name="fullName"]')).toHaveCount(0);
   await expect(win.getByRole('heading', { name: t.loginTitle })).toHaveCount(0);
-  await win.screenshot({ path: `test-results/sou256-redeem-invalid-${loc}.png` });
 });
 
-test('S6 — a setup code cannot be redeemed twice', async () => {
+test('S6 — a redeemed code no longer resolves (setup-code-invalid on re-entry)', async () => {
+  test.setTimeout(60_000);
   const loc = locale();
   const t = T[loc];
   const win = await bootDirector(loc);
-  const code = await inviteViaBridge(win, EMP_USER);
+  const code = await inviteViaBridge(win);
 
   await logout(win, loc);
-
-  // First redemption succeeds.
   await gotoRedeem(win, loc);
-  await submitRedeem(win, { username: EMP_USER, setupCode: code, newPassword: EMP_PW }, loc);
+  await redeemOnboarding(
+    win,
+    { setupCode: code, username: EMP_USER, fullName: EMP_FULL_NAME, email: EMP_EMAIL, newPassword: EMP_PW },
+    loc,
+  );
   await expect(win.getByText(t.setupSuccess)).toBeVisible();
-  await expect(win.getByRole('heading', { name: t.loginTitle })).toBeVisible();
 
-  // Second attempt with the same code is refused as already-redeemed.
+  // The same code, re-entered, resolves to nothing now — reported as invalid.
   await gotoRedeem(win, loc);
-  await submitRedeem(win, { username: EMP_USER, setupCode: code, newPassword: EMP_PW }, loc);
-  await expect(win.getByText(t.setupCodeAlreadyRedeemed)).toBeVisible();
+  await enterSetupCode(win, code, loc);
+  await expect(win.getByText(t.setupCodeInvalid)).toBeVisible();
+});
+
+test('S7 — director re-issues a code; staff recover with a new password (userId preserved)', async () => {
+  test.setTimeout(90_000);
+  const loc = locale();
+  const t = T[loc];
+  const win = await bootDirector(loc);
+
+  // Onboard the staff.
+  await gotoTeamTab(win, loc);
+  await openInviteDialog(win, loc);
+  await submitInvite(win, loc);
+  const code1 = await readSetupCode(win);
+  await win.getByRole('button', { name: t.setupCodeDone }).click();
+  await logout(win, loc);
+  await gotoRedeem(win, loc);
+  await redeemOnboarding(
+    win,
+    { setupCode: code1, username: EMP_USER, fullName: EMP_FULL_NAME, email: EMP_EMAIL, newPassword: EMP_PW },
+    loc,
+  );
+  await expect(win.getByText(t.setupSuccess)).toBeVisible();
+
+  // Director logs back in and re-issues a fresh code for the same account.
+  await loginViaForm(win, VALID_ADMIN.username, VALID_ADMIN.password, loc);
+  await gotoTeamTab(win, loc);
+  await reissueFirstStaff(win, loc);
+  const code2 = await readSetupCode(win);
+  await win.getByRole('button', { name: t.setupCodeDone }).click();
+  await logout(win, loc);
+
+  // Staff recovers: after the code, the re-issued flow shows a new-password-only
+  // step (identity already on file), then they sign in with the new password.
+  await gotoRedeem(win, loc);
+  await enterSetupCode(win, code2, loc);
+  await expect(win.getByText(t.recoveryHint)).toBeVisible();
+  await expect(win.locator('input[name="fullName"]')).toHaveCount(0);
+  await win.locator('input[name="newPassword"]').fill(EMP_PW2);
+  await win.locator('input[name="confirmPassword"]').fill(EMP_PW2);
+  await win.getByRole('button', { name: t.setupSubmit }).click();
+  await expect(win.getByText(t.setupSuccess)).toBeVisible();
+
+  await loginViaForm(win, EMP_USER, EMP_PW2, loc);
+  await expect(win.getByText('Centre principal').first()).toBeVisible();
 });

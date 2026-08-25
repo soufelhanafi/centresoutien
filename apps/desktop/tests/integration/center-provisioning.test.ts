@@ -31,6 +31,7 @@ const OWNER: User = {
   version: 0,
   role: 'owner',
   username: 'directrice',
+  fullName: null,
   passwordHash: '$argon2id$v=19$m=1,t=1,p=1$abc$def',
   setupCodeHash: null,
   setupCodeExpiresAt: null,

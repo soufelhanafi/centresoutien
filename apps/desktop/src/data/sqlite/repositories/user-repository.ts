@@ -4,13 +4,14 @@ import type {
   UserId,
   UserRepository,
   SetupCodeRedemption,
+  SetupCodeReissue,
   Role,
   CenterCode,
   DeviceId,
   Email,
   ChangeLogWriter,
 } from '@centresoutien/domain';
-import { toEntityId, normalizeUsername, isRole } from '@centresoutien/domain';
+import { toEntityId, normalizeUsername, isRole, UsernameAlreadyTakenError } from '@centresoutien/domain';
 
 /** The `users` table row shape as SQLite returns it. */
 export type UserRow = {
@@ -25,6 +26,7 @@ export type UserRow = {
   role: string;
   username: string;
   username_normalized: string;
+  full_name: string | null;
   password_hash: string | null;
   setup_code_hash: string | null;
   setup_code_expires_at: number | null;
@@ -52,6 +54,7 @@ export function userRowToUser(row: UserRow): User {
     version: row.version,
     role: toRole(row.role),
     username: row.username,
+    fullName: row.full_name,
     passwordHash: row.password_hash,
     setupCodeHash: row.setup_code_hash,
     setupCodeExpiresAt: row.setup_code_expires_at,
@@ -63,11 +66,11 @@ export function userRowToUser(row: UserRow): User {
 const SAVE_SQL = `
   INSERT INTO users
     (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at,
-     version, role, username, username_normalized, password_hash,
+     version, role, username, username_normalized, full_name, password_hash,
      setup_code_hash, setup_code_expires_at, setup_code_redeemed_at, email)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by, @deleted_at,
-     @version, @role, @username, @username_normalized, @password_hash,
+     @version, @role, @username, @username_normalized, @full_name, @password_hash,
      @setup_code_hash, @setup_code_expires_at, @setup_code_redeemed_at, @email)
   ON CONFLICT(id) DO UPDATE SET
     updated_at             = excluded.updated_at,
@@ -77,6 +80,7 @@ const SAVE_SQL = `
     role                   = excluded.role,
     username               = excluded.username,
     username_normalized    = excluded.username_normalized,
+    full_name              = excluded.full_name,
     password_hash          = excluded.password_hash,
     setup_code_hash        = excluded.setup_code_hash,
     setup_code_expires_at  = excluded.setup_code_expires_at,
@@ -97,6 +101,7 @@ function toSaveParams(user: User) {
     role: user.role,
     username: user.username,
     username_normalized: normalizeUsername(user.username),
+    full_name: user.fullName,
     password_hash: user.passwordHash,
     setup_code_hash: user.setupCodeHash,
     setup_code_expires_at: user.setupCodeExpiresAt,
@@ -155,6 +160,34 @@ export class SqliteUserRepository implements UserRepository {
     return row ? userRowToUser(row) : null;
   }
 
+  async participatesInSync(userId: UserId): Promise<boolean> {
+    // The account participates in the sync feed when it was created through the
+    // logging user repository (a `users` change_log row) or pulled from the hub
+    // into `sync_local_entity`. A migrated owner — backfilled by migration 0044
+    // with a device-local ULID — has neither, so its credentials stay device-local
+    // (SOU-258; pushing it would collide on ux_users_username_live).
+    const logged = this.db
+      .prepare("SELECT 1 FROM change_log WHERE entity_type = 'users' AND entity_id = ? LIMIT 1")
+      .get(userId);
+    if (logged !== undefined) return true;
+    const synced = this.db
+      .prepare("SELECT 1 FROM sync_local_entity WHERE entity_type = 'users' AND entity_id = ? LIMIT 1")
+      .get(userId);
+    return synced !== undefined;
+  }
+
+  async listPendingInvites(): Promise<readonly User[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM users
+          WHERE deleted_at IS NULL
+            AND setup_code_hash IS NOT NULL
+            AND setup_code_redeemed_at IS NULL`,
+      )
+      .all() as UserRow[];
+    return rows.map(userRowToUser);
+  }
+
   async listActive(centerCode: CenterCode): Promise<readonly User[]> {
     const rows = this.db
       .prepare(
@@ -193,43 +226,117 @@ export class SqliteUserRepository implements UserRepository {
 
   async markSetupCodeRedeemed(redemption: SetupCodeRedemption): Promise<boolean> {
     const iso = redemption.redeemedAt.toISOString();
+    const { identity } = redemption;
+    try {
+      return this.db.transaction(() => {
+        // Compare-and-set: only a row still pending on the verified hash (and not
+        // yet redeemed) is updated. A concurrent redemption that already cleared the
+        // hash matches zero rows, so the second attempt reports failure instead of
+        // clobbering the first password. When `identity` is present (a first
+        // onboarding) the same statement also writes the chosen username (+ its
+        // recomputed normalized key), full name, and email; when absent only the
+        // password is rotated (a director-reissued recovery code).
+        const info = this.db
+          .prepare(
+            `UPDATE users
+                SET password_hash          = @password_hash,
+                    setup_code_hash        = NULL,
+                    setup_code_expires_at  = NULL,
+                    setup_code_redeemed_at = @redeemed_at,
+                    updated_at             = @redeemed_at,
+                    updated_by             = @updated_by,
+                    username               = COALESCE(@username, username),
+                    username_normalized    = COALESCE(@username_normalized, username_normalized),
+                    full_name              = COALESCE(@full_name, full_name),
+                    email                  = COALESCE(@email, email)
+              WHERE id = @id
+                AND setup_code_hash = @expected_setup_code_hash
+                AND setup_code_redeemed_at IS NULL
+                AND deleted_at IS NULL`,
+          )
+          .run({
+            id: redemption.id,
+            expected_setup_code_hash: redemption.expectedSetupCodeHash,
+            password_hash: redemption.passwordHash,
+            redeemed_at: iso,
+            updated_by: redemption.updatedBy,
+            username: identity?.username ?? null,
+            username_normalized: identity ? normalizeUsername(identity.username) : null,
+            full_name: identity?.fullName ?? null,
+            email: identity?.email ?? null,
+          });
+        if (info.changes === 0) return false;
+
+        const row = this.db
+          .prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL')
+          .get(redemption.id) as UserRow;
+        this.changeLog.record({
+          entityType: 'users',
+          entityId: toEntityId(redemption.id),
+          centerCode: row.center_code as CenterCode,
+          intent: 'upsert',
+          entity: userRowToUser(row),
+        });
+        return true;
+      })();
+    } catch (error) {
+      // The last-resort race guard: two simultaneous onboardings that both pass the
+      // use case's pre-check settle on the live-username uniqueness index. Surface
+      // the loser as the domain error the caller already handles.
+      if (isUniqueConstraintViolation(error)) {
+        throw new UsernameAlreadyTakenError(identity?.username ?? '');
+      }
+      throw error;
+    }
+  }
+
+  async reopenSetupCode(reissue: SetupCodeReissue): Promise<User | null> {
+    const iso = reissue.updatedAt.toISOString();
     return this.db.transaction(() => {
-      // Compare-and-set: only a row still pending on the verified hash (and not yet
-      // redeemed) is updated. A concurrent redemption that already cleared the hash
-      // matches zero rows, so the second attempt reports failure instead of
-      // clobbering the first password.
+      // Targeted update: ONLY the setup-code fields + envelope change-tracking, on a
+      // live row. Identity/credentials are never written here, so a re-issue racing
+      // with a redemption cannot revert the chosen username/password.
       const info = this.db
         .prepare(
           `UPDATE users
-              SET password_hash          = @password_hash,
-                  setup_code_hash        = NULL,
-                  setup_code_expires_at  = NULL,
-                  setup_code_redeemed_at = @redeemed_at,
-                  updated_at             = @redeemed_at,
+              SET setup_code_hash        = @setup_code_hash,
+                  setup_code_expires_at  = @setup_code_expires_at,
+                  setup_code_redeemed_at = NULL,
+                  updated_at             = @updated_at,
                   updated_by             = @updated_by
             WHERE id = @id
-              AND setup_code_hash = @expected_setup_code_hash
-              AND setup_code_redeemed_at IS NULL
               AND deleted_at IS NULL`,
         )
         .run({
-          id: redemption.id,
-          expected_setup_code_hash: redemption.expectedSetupCodeHash,
-          password_hash: redemption.passwordHash,
-          redeemed_at: iso,
-          updated_by: redemption.updatedBy,
+          id: reissue.id,
+          setup_code_hash: reissue.setupCodeHash,
+          setup_code_expires_at: reissue.setupCodeExpiresAt,
+          updated_at: iso,
+          updated_by: reissue.updatedBy,
         });
-      if (info.changes === 0) return false;
+      if (info.changes === 0) return null;
 
-      const row = this.db.prepare('SELECT * FROM users WHERE id = ?').get(redemption.id) as UserRow;
+      const row = this.db
+        .prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL')
+        .get(reissue.id) as UserRow;
       this.changeLog.record({
         entityType: 'users',
-        entityId: toEntityId(redemption.id),
+        entityId: toEntityId(reissue.id),
         centerCode: row.center_code as CenterCode,
         intent: 'upsert',
         entity: userRowToUser(row),
       });
-      return true;
+      return userRowToUser(row);
     })();
   }
+}
+
+// better-sqlite3 tags a UNIQUE-index violation with this extended result code.
+function isUniqueConstraintViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'SQLITE_CONSTRAINT_UNIQUE'
+  );
 }

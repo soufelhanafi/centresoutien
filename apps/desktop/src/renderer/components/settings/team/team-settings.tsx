@@ -8,9 +8,12 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  toast,
 } from '@centresoutien/ui';
 import { useUsers } from '../../../hooks/user/use-users';
+import { useReissueSetupCode } from '../../../hooks/user/use-reissue-setup-code';
 import type { CreateUserResult } from '../../../lib/users/users-gateway';
+import type { UserView } from '../../../lib/users/user-view';
 import { UserListContent, type UserListStatus } from './user-list-content';
 import { AddEmployeeDialog } from './add-employee-dialog';
 import { SetupCodeDialog } from './setup-code-dialog';
@@ -25,12 +28,21 @@ import { SetupCodeDialog } from './setup-code-dialog';
 export function TeamSettings() {
   const { t } = useTranslation();
   const users = useUsers();
+  const reissue = useReissueSetupCode();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [issuedCode, setIssuedCode] = useState<CreateUserResult | null>(null);
 
   const roster = users.data ?? [];
   const hasEmployees = roster.some((user) => user.role !== 'owner');
   const status = resolveStatus({ isPending: users.isPending, isError: users.isError, hasEmployees });
+
+  const handleReissue = async (user: UserView) => {
+    try {
+      setIssuedCode(await reissue.mutateAsync(user.id));
+    } catch {
+      toast.error(t('team.reissue.error'));
+    }
+  };
 
   return (
     <Card className="w-full max-w-2xl">
@@ -50,6 +62,8 @@ export function TeamSettings() {
           users={roster}
           onRetry={() => void users.refetch()}
           onInvite={() => setInviteOpen(true)}
+          onReissue={(user) => void handleReissue(user)}
+          reissuingId={reissue.isPending ? (reissue.variables ?? null) : null}
         />
       </CardContent>
 
@@ -57,7 +71,7 @@ export function TeamSettings() {
 
       {issuedCode ? (
         <SetupCodeDialog
-          username={issuedCode.user.username}
+          role={issuedCode.user.role}
           setupCode={issuedCode.setupCode}
           onClose={() => setIssuedCode(null)}
         />

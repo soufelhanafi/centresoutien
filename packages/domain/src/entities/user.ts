@@ -37,10 +37,25 @@ export const SETUP_CODE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // - employee (invited): `passwordHash` is `null` until the one-time setup code is
 //   redeemed; `setupCodeHash` + `setupCodeExpiresAt` hold the pending invite, and
 //   `setupCodeRedeemedAt` stamps the single redemption.
+//
+// Code-first onboarding (SOU-303): the director's invite no longer carries the
+// employee's identity — it only picks a role and mints a code. Until the staff
+// redeem that code they have not chosen a `username`/`fullName`/`email` yet, so a
+// pending invite carries a non-final PLACEHOLDER username (its own id — unique per
+// row, so two open invites never collide on the live-username index) and a `null`
+// `fullName`. The additive-only migration rule (a shipped table is never rebuilt to
+// drop a NOT NULL) is why the column stays NOT NULL with a placeholder rather than
+// going nullable. "Identity not yet established" is read off `passwordHash === null`
+// (never redeemed), not off the placeholder — see {@link hasEstablishedIdentity}.
 export type User = EntityEnvelope & {
   readonly id: UserId;
   role: Role;
+  // Display username. For a pending, not-yet-redeemed invite this is a placeholder
+  // (the row's own id); the staff set their real username when they redeem the code.
   username: string;
+  // The staff member's own display name, set at self-onboarding (SOU-303); `null`
+  // for a pending invite and for the migrated owner (no full name was collected).
+  fullName: string | null;
   // Argon2id hash; `null` for an invited employee who has not redeemed their setup code yet.
   passwordHash: string | null;
   // Argon2id hash of the pending one-time setup code; `null` once redeemed or for an owner.
@@ -73,5 +88,14 @@ export function isSetupCodePending(user: User, now: Date): boolean {
 
 // True when the user can attempt a password login — i.e. a password has been set.
 export function canLogin(user: User): boolean {
+  return user.passwordHash !== null;
+}
+
+// True once the staff have completed their first code-first onboarding — i.e. they
+// have redeemed an invite at least once and therefore own a real username / full
+// name / email (SOU-303). A never-redeemed invite still carries its placeholder
+// username, so redemption uses this to decide whether to collect identity (first
+// onboarding) or only rotate the password (a director-reissued recovery code).
+export function hasEstablishedIdentity(user: User): boolean {
   return user.passwordHash !== null;
 }
