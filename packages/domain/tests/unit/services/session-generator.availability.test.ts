@@ -107,7 +107,34 @@ describe('SessionGenerator — teacher availability (SOU-259)', () => {
 
     expect(blockDays(proposals[0]!)).toEqual([TUE]);
     expect(proposals[0]!.requestedSessionsPerWeek).toBe(2);
+    expect(proposals[0]!.shortfallReason).toBe('teacher-availability');
     expect(conflicts.some((c) => c.kind === 'teacher-availability')).toBe(false);
+  });
+
+  it('flags the shortfall as min-gap, not teacher-availability, when the teacher has enough days but they sit too close together', () => {
+    const generator = new SessionGenerator(fakeRandom());
+    // The teacher is free on two adjacent weekdays (Tue, Wed — one day apart), but
+    // minGapDays requires 2: the only two usable days can never form a valid
+    // 2-session pattern together, even though the teacher IS available on enough
+    // days in isolation (this is the reported bug — the old message said "not
+    // available on enough days", which is false here).
+    const rules: TeacherAvailabilityRules = {
+      weeklyWindows: {
+        ...emptyWeek(),
+        [TUE]: [window('09:00', '12:00')],
+        [WED]: [window('09:00', '12:00')],
+      },
+      exceptions: [],
+    };
+
+    const { proposals, conflicts } = generator.generate(
+      input(autoConfig({ minGapDays: 2 }), new Map([[TEACHER_1, rules]])),
+    );
+
+    expect(proposals[0]!.blocks).toHaveLength(1);
+    expect(proposals[0]!.requestedSessionsPerWeek).toBe(2);
+    expect(proposals[0]!.shortfallReason).toBe('min-gap');
+    expect(conflicts).toEqual([]);
   });
 
   it('generates no sessions at all when the teacher has no available day in the pool (SOU-296)', () => {
@@ -124,6 +151,7 @@ describe('SessionGenerator — teacher availability (SOU-259)', () => {
 
     expect(proposals[0]!.blocks).toHaveLength(0);
     expect(proposals[0]!.requestedSessionsPerWeek).toBe(2);
+    expect(proposals[0]!.shortfallReason).toBe('teacher-availability');
     expect(conflicts.some((c) => c.kind === 'teacher-availability')).toBe(false);
   });
 
@@ -167,6 +195,7 @@ describe('SessionGenerator — teacher availability (SOU-259)', () => {
     const { proposals, conflicts } = generator.generate(input(config, new Map([[TEACHER_1, rules]])));
 
     expect(proposals[0]!.blocks).toHaveLength(1);
+    expect(proposals[0]!.shortfallReason).toBeNull();
     const availabilityConflicts = conflicts.filter((c) => c.kind === 'teacher-availability');
     expect(availabilityConflicts).toHaveLength(1);
     expect(availabilityConflicts[0]!.error.reason).toBe('out-of-window');

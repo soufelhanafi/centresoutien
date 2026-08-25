@@ -13,6 +13,8 @@ import { newEnvelope } from '../../../src/entities/envelope';
 import type { Group, GroupId } from '../../../src/entities/group';
 import type { SubjectId } from '../../../src/entities/subject';
 import type { RoomId } from '../../../src/entities/room';
+import type { Enrollment, EnrollmentId } from '../../../src/entities/enrollment';
+import type { StudentId } from '../../../src/entities/student';
 import type { TeacherId } from '../../../src/entities/teacher';
 import type { WeeklyRecurringSession, WeeklyRecurringSessionId } from '../../../src/entities/weekly-recurring-session';
 import type { CenterCode, DeviceId, EntityId, UserId } from '../../../src/value-objects/ids';
@@ -31,6 +33,7 @@ import { InMemoryCenterHoursRepository } from '../fakes/in-memory-center-hours-r
 import { InMemoryWeeklyRecurringSessionRepository } from '../fakes/in-memory-weekly-recurring-session-repository';
 import { InMemoryTeacherAvailabilityRepository } from '../fakes/in-memory-teacher-availability-repository';
 import { InMemoryTeacherAvailabilityExceptionRepository } from '../fakes/in-memory-teacher-availability-exception-repository';
+import { InMemoryEnrollmentRepository } from '../fakes/in-memory-enrollment-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeRandom } from '../fakes/random';
 import { planWithoutFeature } from '../fakes/plans';
@@ -114,6 +117,20 @@ const window = (open: string, close: string): TimeWindow => ({
   close: close as TimeOfDay,
 });
 
+let enrollmentSeq = 0;
+function makeEnrollment(studentId: StudentId, groupId: GroupId): Enrollment {
+  enrollmentSeq += 1;
+  return {
+    id: `enr_${String(enrollmentSeq).padStart(26, '0')}` as EnrollmentId,
+    ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
+    studentId,
+    groupId,
+    startMonth: '2026-09',
+    endMonth: null,
+    unenrolledUnderTeacherId: null,
+  };
+}
+
 let availabilitySeq = 0;
 function makeAvailability(teacherId: TeacherId, weeklyWindows: WeeklyTimeWindows): TeacherAvailability {
   availabilitySeq += 1;
@@ -147,6 +164,7 @@ describe('PreviewGeneratedSchedule', () => {
   let recurrences: InMemoryWeeklyRecurringSessionRepository;
   let availability: InMemoryTeacherAvailabilityRepository;
   let availabilityExceptions: InMemoryTeacherAvailabilityExceptionRepository;
+  let enrollments: InMemoryEnrollmentRepository;
   let useCase: PreviewGeneratedSchedule;
 
   function build(plan: Plan = PLANS.premium): PreviewGeneratedSchedule {
@@ -157,6 +175,7 @@ describe('PreviewGeneratedSchedule', () => {
       recurrences,
       availability,
       availabilityExceptions,
+      enrollments,
       new SessionGenerator(fakeRandom()),
       new PlanPolicy(plan),
     );
@@ -173,6 +192,7 @@ describe('PreviewGeneratedSchedule', () => {
     recurrences = new InMemoryWeeklyRecurringSessionRepository();
     availability = new InMemoryTeacherAvailabilityRepository();
     availabilityExceptions = new InMemoryTeacherAvailabilityExceptionRepository();
+    enrollments = new InMemoryEnrollmentRepository();
     await rooms.save(makeRoom(ROOM_A));
     useCase = build();
   });
@@ -281,6 +301,57 @@ describe('PreviewGeneratedSchedule', () => {
 
       const result = await useCase.execute(input(autoConfig({ weekdayPool: [MON], sessionsPerWeek: 1 })));
       expect(result.conflicts).toEqual([]);
+    });
+  });
+
+  describe('student double-booked across two groups (reported scenario: dual-subject students split across parallel groups)', () => {
+    const STUDENT = 'stu_00000000000000000000000001' as StudentId;
+
+    it('flags a student enrolled in both a Math and a Physics group scheduled at the exact same time', async () => {
+      const math = makeGroup();
+      const physics = makeGroup();
+      await groups.save(math);
+      await groups.save(physics);
+      await rooms.save(makeRoom(ROOM_B));
+      await enrollments.save(makeEnrollment(STUDENT, math.id));
+      await enrollments.save(makeEnrollment(STUDENT, physics.id));
+
+      // Custom mode with the same picked weekday for both groups anchors both at
+      // the identical earliest-fitting slot — deterministic, no random day search.
+      const result = await useCase.execute(
+        input(
+          autoConfig({
+            mode: 'custom',
+            pickedWeekdays: [MON],
+            sessionDurationMinutes: 90,
+          } as Partial<SessionGeneratorConfig>),
+        ),
+      );
+
+      const studentConflicts = result.conflicts.filter((c) => c.kind === 'student');
+      expect(studentConflicts.length).toBeGreaterThan(0);
+      expect(studentConflicts.map((c) => c.groupId).sort()).toEqual([math.id, physics.id].sort());
+    });
+
+    it('does not flag a student conflict when the two groups share no student', async () => {
+      const math = makeGroup();
+      const physics = makeGroup();
+      await groups.save(math);
+      await groups.save(physics);
+      await rooms.save(makeRoom(ROOM_B));
+      await enrollments.save(makeEnrollment(STUDENT, math.id));
+
+      const result = await useCase.execute(
+        input(
+          autoConfig({
+            mode: 'custom',
+            pickedWeekdays: [MON],
+            sessionDurationMinutes: 90,
+          } as Partial<SessionGeneratorConfig>),
+        ),
+      );
+
+      expect(result.conflicts.filter((c) => c.kind === 'student')).toEqual([]);
     });
   });
 

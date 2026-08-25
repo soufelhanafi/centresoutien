@@ -1,5 +1,10 @@
 import { SessionConflictPolicy, type DayHours } from './session-conflict-policy';
 import { teacherUnavailability, type TeacherAvailabilityRules } from './teacher-availability-policy';
+import {
+  buildStudentScheduleIndex,
+  studentDoubleBookingsForCandidate,
+  type StudentDoubleBooking,
+} from './student-schedule-conflict';
 import type {
   RoomConflictError,
   ScheduledSessionRef,
@@ -9,6 +14,7 @@ import type {
 import type { TeacherUnavailableError } from '../errors/teacher-availability-errors';
 import type { GroupId } from '../entities/group';
 import type { RoomId } from '../entities/room';
+import type { StudentId } from '../entities/student';
 import { toEntityId, type EntityId } from '../value-objects/ids';
 import type { DateRange } from '../value-objects/date-range';
 import type { TimeOfDay } from '../value-objects/time-of-day';
@@ -85,6 +91,22 @@ export type GeneratedScheduleConflict =
       readonly roomId: RoomId;
       readonly groupCapacity: number;
       readonly roomCapacity: number;
+    }
+  | {
+      /**
+       * A student enrolled in `groupId` also attends another group (this run's
+       * `rosterByGroup`) whose block overlaps this one — invisible to the room and
+       * teacher checks above, since a shared student sits outside both resources.
+       * Self-contained like `capacity`: no `error` object, and `conflicts` lists
+       * every clashing `(studentId, otherGroupId)` pair so the preview can name
+       * them all in one line rather than one warning per student.
+       */
+      readonly kind: 'student';
+      readonly groupId: GroupId;
+      readonly dayOfWeek: WeekdayIndex;
+      readonly start: TimeOfDay;
+      readonly end: TimeOfDay;
+      readonly conflicts: readonly StudentDoubleBooking[];
     };
 
 /**
@@ -128,7 +150,13 @@ export type GeneratorAvailabilityContext = {
  * diverge from manual single-session creation. With an `availability` context
  * (SOU-259) it additionally flags blocks outside a teacher's declared weekly
  * windows or covered by a one-off absence — same non-blocking warning contract.
- * Pure — no I/O, no clock.
+ * With a `rosterByGroup` context it additionally flags a student double-booked
+ * across two of this run's groups (a shared student in two independent groups
+ * whose sessions land at an overlapping weekday+time) — checked only against
+ * this run's own candidates, never the real committed schedule, since
+ * {@link ScheduledSessionRef} carries no `groupId` to attribute a roster to; the
+ * standing audit (SOU-296) covers the same clash once both groups are
+ * materialized, regardless of which run created them. Pure — no I/O, no clock.
  */
 export function detectGeneratedScheduleConflicts(
   candidates: readonly GeneratedBlockCandidate[],
@@ -136,8 +164,16 @@ export function detectGeneratedScheduleConflicts(
   centerHours: readonly DayHours[],
   availability?: GeneratorAvailabilityContext,
   seatFit?: GeneratorSeatCapacities,
+  rosterByGroup?: ReadonlyMap<GroupId, readonly StudentId[]>,
 ): readonly GeneratedScheduleConflict[] {
   const conflicts: GeneratedScheduleConflict[] = [];
+  const studentIndex =
+    rosterByGroup === undefined
+      ? undefined
+      : buildStudentScheduleIndex(
+          rosterByGroup,
+          groupBlocksOf(candidates),
+        );
 
   candidates.forEach((candidate, index) => {
     const { start, end } = candidate.block;
@@ -171,9 +207,43 @@ export function detectGeneratedScheduleConflicts(
         }
       }
     }
+
+    if (studentIndex !== undefined) {
+      const roster = rosterByGroup?.get(candidate.groupId) ?? [];
+      const studentConflicts = studentDoubleBookingsForCandidate(
+        { groupId: candidate.groupId, dayOfWeek: candidate.block.dayOfWeek, start, end },
+        roster,
+        studentIndex,
+      );
+      if (studentConflicts.length > 0) {
+        conflicts.push({
+          kind: 'student',
+          groupId: candidate.groupId,
+          dayOfWeek: candidate.block.dayOfWeek,
+          start,
+          end,
+          conflicts: studentConflicts,
+        });
+      }
+    }
   });
 
   return conflicts;
+}
+
+/** Every candidate's block, grouped by the group it belongs to — the shape
+ *  {@link buildStudentScheduleIndex} folds into a per-student schedule. */
+function groupBlocksOf(
+  candidates: readonly GeneratedBlockCandidate[],
+): ReadonlyMap<GroupId, readonly { dayOfWeek: WeekdayIndex; start: TimeOfDay; end: TimeOfDay }[]> {
+  const byGroup = new Map<GroupId, { dayOfWeek: WeekdayIndex; start: TimeOfDay; end: TimeOfDay }[]>();
+  for (const candidate of candidates) {
+    const block = { dayOfWeek: candidate.block.dayOfWeek, start: candidate.block.start, end: candidate.block.end };
+    const existing = byGroup.get(candidate.groupId);
+    if (existing === undefined) byGroup.set(candidate.groupId, [block]);
+    else existing.push(block);
+  }
+  return byGroup;
 }
 
 /**

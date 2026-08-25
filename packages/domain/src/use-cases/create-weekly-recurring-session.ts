@@ -82,7 +82,7 @@ export class CreateWeeklyRecurringSession {
 
     const forced = input.allowScheduleConflict === true;
     if (!forced) {
-      await this.validator.assertSlotFree(input.centerCode, toScheduleCandidate(slot));
+      await this.validator.assertSlotFree(input.centerCode, toScheduleCandidate(slot), slot.groupId);
     }
 
     const session = this.mint(input, slot, fields, forced);

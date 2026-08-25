@@ -5,6 +5,7 @@ import type { DayHours } from '../../../src/policies/session-conflict-policy';
 import type { ScheduledSessionRef } from '../../../src/errors/scheduling-errors';
 import type { GroupId } from '../../../src/entities/group';
 import type { RoomId } from '../../../src/entities/room';
+import type { StudentId } from '../../../src/entities/student';
 import type { EntityId } from '../../../src/value-objects/ids';
 import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import type { WeekdayIndex } from '../../../src/value-objects/weekday';
@@ -303,6 +304,90 @@ describe('detectGeneratedScheduleConflicts', () => {
           roomCapacity: 12,
         },
       ]);
+    });
+  });
+
+  describe('student double-booked across two of this run\'s groups', () => {
+    const STUDENT = 'stu_00000000000000000000000001' as StudentId;
+    const OTHER_STUDENT = 'stu_00000000000000000000000002' as StudentId;
+
+    it('flags a shared student attending two overlapping groups, on both blocks', () => {
+      const result = detectGeneratedScheduleConflicts(
+        [block(G1, ROOM_A, '09:00', '10:30'), block(G2, ROOM_B, '10:00', '11:00')],
+        [],
+        centerHours,
+        undefined,
+        undefined,
+        new Map([
+          [G1, [STUDENT]],
+          [G2, [STUDENT]],
+        ]),
+      );
+
+      const studentConflicts = result.filter((c) => c.kind === 'student');
+      expect(studentConflicts).toHaveLength(2);
+      expect(studentConflicts.map((c) => c.groupId).sort()).toEqual([G1, G2]);
+      expect(studentConflicts[0]).toMatchObject({
+        conflicts: [{ studentId: STUDENT }],
+      });
+    });
+
+    it('does not flag a student conflict when the two groups share no student', () => {
+      const result = detectGeneratedScheduleConflicts(
+        [block(G1, ROOM_A, '09:00', '10:30'), block(G2, ROOM_B, '10:00', '11:00')],
+        [],
+        centerHours,
+        undefined,
+        undefined,
+        new Map([
+          [G1, [STUDENT]],
+          [G2, [OTHER_STUDENT]],
+        ]),
+      );
+
+      expect(result.filter((c) => c.kind === 'student')).toEqual([]);
+    });
+
+    it('does not flag a student conflict against the same group', () => {
+      const result = detectGeneratedScheduleConflicts(
+        [block(G1, ROOM_A, '09:00', '10:30'), block(G1, ROOM_A, '10:30', '12:00')],
+        [],
+        centerHours,
+        undefined,
+        undefined,
+        new Map([[G1, [STUDENT]]]),
+      );
+
+      expect(result.filter((c) => c.kind === 'student')).toEqual([]);
+    });
+
+    it('never flags a student conflict when rosterByGroup is absent', () => {
+      const result = detectGeneratedScheduleConflicts(
+        [block(G1, ROOM_A, '09:00', '10:30'), block(G2, ROOM_B, '10:00', '11:00')],
+        [],
+        centerHours,
+      );
+
+      expect(result.filter((c) => c.kind === 'student')).toEqual([]);
+    });
+
+    it('is invisible to the room/teacher checks — a shared student in different rooms with different teachers stays clean otherwise', () => {
+      const result = detectGeneratedScheduleConflicts(
+        [
+          block(G1, ROOM_A, '09:00', '10:30', MON, TEACHER_A),
+          block(G2, ROOM_B, '09:00', '10:30', MON, TEACHER_B),
+        ],
+        [],
+        centerHours,
+        undefined,
+        undefined,
+        new Map([
+          [G1, [STUDENT]],
+          [G2, [STUDENT]],
+        ]),
+      );
+
+      expect(result.map((c) => c.kind).sort()).toEqual(['student', 'student']);
     });
   });
 });

@@ -16,10 +16,19 @@ import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/id
 import type { Group, GroupId } from '../../../src/entities/group';
 import type { Student, StudentId } from '../../../src/entities/student';
 import type { SubjectId } from '../../../src/entities/subject';
+import type { RoomId } from '../../../src/entities/room';
+import type { EnrollmentId } from '../../../src/entities/enrollment';
+import type {
+  WeeklyRecurringSession,
+  WeeklyRecurringSessionId,
+} from '../../../src/entities/weekly-recurring-session';
+import type { WeekdayIndex } from '../../../src/value-objects/weekday';
+import type { TimeOfDay } from '../../../src/value-objects/time-of-day';
 import type { IdGenerator } from '../../../src/ports/id-generator';
 import { InMemoryEnrollmentRepository } from '../fakes/in-memory-enrollment-repository';
 import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
 import { InMemoryStudentRepository } from '../fakes/in-memory-student-repository';
+import { InMemoryWeeklyRecurringSessionRepository } from '../fakes/in-memory-weekly-recurring-session-repository';
 import {
   fakeStudentSubscriptionReference,
   type SubscriptionCoverageEntry,
@@ -89,6 +98,7 @@ describe('EnrollStudent', () => {
   let enrollments: InMemoryEnrollmentRepository;
   let groups: InMemoryGroupRepository;
   let students: InMemoryStudentRepository;
+  let sessions: InMemoryWeeklyRecurringSessionRepository;
   // Shared across every build() in a test so successive enrollments get distinct
   // ids (enr_…01, enr_…02) instead of colliding in the repo Map.
   let ids: IdGenerator;
@@ -102,6 +112,7 @@ describe('EnrollStudent', () => {
       groups,
       students,
       fakeStudentSubscriptionReference(coverages),
+      sessions,
       fakeClock('2026-07-31T10:00:00Z'),
       ids,
       new PlanPolicy(plan),
@@ -112,6 +123,7 @@ describe('EnrollStudent', () => {
     enrollments = new InMemoryEnrollmentRepository();
     groups = new InMemoryGroupRepository();
     students = new InMemoryStudentRepository();
+    sessions = new InMemoryWeeklyRecurringSessionRepository();
     ids = fakeIds();
     await groups.save(makeGroup());
     await students.save(makeStudent());
@@ -119,7 +131,7 @@ describe('EnrollStudent', () => {
 
   describe('happy path', () => {
     it('enrolls a student with a prefixed id, the input months, and a fresh envelope', async () => {
-      const enrollment = await build(PLANS.essentiel).execute(
+      const { enrollment } = await build(PLANS.essentiel).execute(
         validInput({ startMonth: '2026-09', endMonth: '2027-06' }),
       );
 
@@ -138,7 +150,7 @@ describe('EnrollStudent', () => {
     });
 
     it('defaults endMonth to null (open-ended) and persists so it can be read back', async () => {
-      const enrollment = await build(PLANS.essentiel).execute(validInput());
+      const { enrollment } = await build(PLANS.essentiel).execute(validInput());
       expect(enrollment.endMonth).toBeNull();
       expect(await enrollments.findById(enrollment.id)).toEqual(enrollment);
     });
@@ -150,7 +162,7 @@ describe('EnrollStudent', () => {
 
     it('enrolls into an exam-prep group when the subscription kind matches', async () => {
       await groups.save(makeGroup({ kind: 'exam-prep' }));
-      const enrollment = await build(PLANS.essentiel, [
+      const { enrollment } = await build(PLANS.essentiel, [
         { ...regularCoverage, kind: 'exam-prep' },
       ]).execute(validInput());
       expect(await enrollments.findById(enrollment.id)).not.toBeNull();
@@ -182,12 +194,12 @@ describe('EnrollStudent', () => {
 
     it('frees a seat after unenroll so a new student fits (soft-deleted rows do not count)', async () => {
       await groups.save(makeGroup({ capacity: 1 }));
-      const first = await build(PLANS.essentiel).execute(validInput());
+      const { enrollment: first } = await build(PLANS.essentiel).execute(validInput());
       await enrollments.softDelete(first.id, new Date('2026-08-01T00:00:00Z'), USER);
 
       const other = 'stu_00000000000000000000000009' as StudentId;
       await students.save(makeStudent({ id: other, naturalKey: 'nk-2' }));
-      const second = await build(PLANS.essentiel, [
+      const { enrollment: second } = await build(PLANS.essentiel, [
         { studentId: other, subjectId: SUBJECT_ID, kind: 'regular' },
       ]).execute(validInput({ studentId: other }));
       expect(await enrollments.findById(second.id)).not.toBeNull();
@@ -214,10 +226,10 @@ describe('EnrollStudent', () => {
     });
 
     it('allows re-enrolling the same student in the group after an unenroll (tombstoned row does not count)', async () => {
-      const first = await build(PLANS.essentiel).execute(validInput());
+      const { enrollment: first } = await build(PLANS.essentiel).execute(validInput());
       await enrollments.softDelete(first.id, new Date('2026-08-01T00:00:00Z'), USER);
 
-      const second = await build(PLANS.essentiel).execute(validInput());
+      const { enrollment: second } = await build(PLANS.essentiel).execute(validInput());
       expect(second.id).not.toBe(first.id);
       expect(await enrollments.findById(second.id)).not.toBeNull();
       expect(await enrollments.countActiveByGroup(GROUP_ID)).toBe(1);
@@ -240,7 +252,7 @@ describe('EnrollStudent', () => {
       await build(PLANS.essentiel).execute(validInput());
       const otherGroup = 'grp_00000000000000000000000007' as GroupId;
       await groups.save(makeGroup({ id: otherGroup }));
-      const second = await build(PLANS.essentiel).execute(validInput({ groupId: otherGroup }));
+      const { enrollment: second } = await build(PLANS.essentiel).execute(validInput({ groupId: otherGroup }));
       expect(await enrollments.findById(second.id)).not.toBeNull();
     });
   });
@@ -267,7 +279,7 @@ describe('EnrollStudent', () => {
     it('enrolls into a regular group when the student also holds an active exam-prep subscription (dual coverage resolves via prefer-kind, not spuriously blocked)', async () => {
       // Both tracks cover the same subject. The port's prefer-kind resolution must
       // hand back the regular entry for a regular group, so the guard never fires.
-      const enrollment = await build(PLANS.essentiel, [
+      const { enrollment } = await build(PLANS.essentiel, [
         regularCoverage,
         { ...regularCoverage, kind: 'exam-prep' },
       ]).execute(validInput());
@@ -282,6 +294,91 @@ describe('EnrollStudent', () => {
         EnrollmentSubscriptionMissingError,
       );
       expect(await enrollments.countActiveByGroup(GROUP_ID)).toBe(0);
+    });
+  });
+
+  describe('student schedule warning (non-blocking)', () => {
+    const OTHER_GROUP = 'grp_00000000000000000000000007' as GroupId;
+    const ROOM = 'rom_00000000000000000000000001' as RoomId;
+
+    function makeSession(overrides: Partial<WeeklyRecurringSession> = {}): WeeklyRecurringSession {
+      return {
+        id: 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId,
+        ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
+        roomId: ROOM,
+        teacherId: null,
+        groupId: OTHER_GROUP,
+        dayOfWeek: 1 as WeekdayIndex,
+        start: '09:00' as TimeOfDay,
+        end: '10:30' as TimeOfDay,
+        active: true,
+        validFrom: null,
+        validTo: null,
+        conflictAccepted: false,
+        ...overrides,
+      };
+    }
+
+    it('still enrolls, but returns a schedule warning, when the new group already overlaps another group the student attends', async () => {
+      await groups.save(makeGroup({ id: OTHER_GROUP }));
+      await sessions.save(
+        makeSession({ id: 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId, groupId: OTHER_GROUP }),
+      );
+      await sessions.save(
+        makeSession({ id: 'wrs_00000000000000000000000002' as WeeklyRecurringSessionId, groupId: GROUP_ID }),
+      );
+      await enrollments.save({
+        id: 'enr_00000000000000000000000099' as EnrollmentId,
+        ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
+        studentId: STUDENT_ID,
+        groupId: OTHER_GROUP,
+        startMonth: '2026-09',
+        endMonth: null,
+        unenrolledUnderTeacherId: null,
+      });
+
+      const result = await build(PLANS.essentiel).execute(validInput());
+
+      expect(result.enrollment.id).toMatch(/^enr_/);
+      expect(result.scheduleWarning).toEqual([
+        { studentId: STUDENT_ID, otherGroupId: OTHER_GROUP, dayOfWeek: 1, start: '09:00', end: '10:30' },
+      ]);
+      expect(await enrollments.findById(result.enrollment.id)).not.toBeNull();
+    });
+
+    it('returns a null scheduleWarning when the student attends no other group', async () => {
+      await sessions.save(makeSession({ groupId: GROUP_ID }));
+
+      const result = await build(PLANS.essentiel).execute(validInput());
+
+      expect(result.scheduleWarning).toBeNull();
+    });
+
+    it('returns a null scheduleWarning when the two groups do not overlap in time', async () => {
+      await groups.save(makeGroup({ id: OTHER_GROUP }));
+      await sessions.save(
+        makeSession({
+          id: 'wrs_00000000000000000000000001' as WeeklyRecurringSessionId,
+          groupId: OTHER_GROUP,
+          dayOfWeek: 2 as WeekdayIndex,
+        }),
+      );
+      await sessions.save(
+        makeSession({ id: 'wrs_00000000000000000000000002' as WeeklyRecurringSessionId, groupId: GROUP_ID }),
+      );
+      await enrollments.save({
+        id: 'enr_00000000000000000000000099' as EnrollmentId,
+        ...newEnvelope({ centerCode: CENTER, deviceOrigin: DEVICE, updatedBy: USER }, envelopeClock),
+        studentId: STUDENT_ID,
+        groupId: OTHER_GROUP,
+        startMonth: '2026-09',
+        endMonth: null,
+        unenrolledUnderTeacherId: null,
+      });
+
+      const result = await build(PLANS.essentiel).execute(validInput());
+
+      expect(result.scheduleWarning).toBeNull();
     });
   });
 
@@ -371,7 +468,7 @@ describe('EnrollStudent', () => {
     });
 
     it('accepts a single-month enrollment where endMonth equals startMonth', async () => {
-      const enrollment = await build(PLANS.essentiel).execute(
+      const { enrollment } = await build(PLANS.essentiel).execute(
         validInput({ startMonth: '2026-09', endMonth: '2026-09' }),
       );
       expect(enrollment.startMonth).toBe('2026-09');

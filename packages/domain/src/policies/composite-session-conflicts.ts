@@ -4,6 +4,7 @@ import {
   type RoomSessionCandidate,
 } from './session-conflict-policy';
 import { teacherUnavailability, type TeacherAvailabilityRules } from './teacher-availability-policy';
+import { studentDoubleBookingsForCandidate, type StudentScheduleIndex } from './student-schedule-conflict';
 import {
   SessionOutsideOverrideHoursError,
   type MalformedSessionTimeError,
@@ -13,6 +14,9 @@ import {
   type TeacherConflictError,
 } from '../errors/scheduling-errors';
 import type { TeacherUnavailableError } from '../errors/teacher-availability-errors';
+import { StudentDoubleBookedError } from '../errors/student-conflict-errors';
+import type { GroupId } from '../entities/group';
+import type { StudentId } from '../entities/student';
 import type { TimeWindow } from '../value-objects/time-window';
 import type { DateRange } from '../value-objects/date-range';
 import type { EntityId } from '../value-objects/ids';
@@ -33,9 +37,11 @@ export type ConflictSeverity = 'error' | 'warning';
  * error is never thrown here — composite detection gathers, the scheduling use
  * case decides what to do with a non-empty list.
  *
- * The `teacher-availability` variant (SOU-283) is the only `warning`: an
- * out-of-window placement against a teacher's declared availability. It is
- * gathered last so a co-occurring hard error still wins the most-blocking slot.
+ * `teacher-availability` (SOU-283) and `student` are the two `warning` kinds: an
+ * out-of-window placement against a teacher's declared availability, or a
+ * student enrolled in the candidate's group also attending another group whose
+ * session overlaps this one. Both are gathered last so a co-occurring hard
+ * error still wins the most-blocking slot.
  */
 export type SessionConflict =
   | { kind: 'malformed'; severity: 'error'; error: MalformedSessionTimeError }
@@ -46,7 +52,8 @@ export type SessionConflict =
     }
   | { kind: 'room'; severity: 'error'; error: RoomConflictError }
   | { kind: 'teacher'; severity: 'error'; error: TeacherConflictError }
-  | { kind: 'teacher-availability'; severity: 'warning'; error: TeacherUnavailableError };
+  | { kind: 'teacher-availability'; severity: 'warning'; error: TeacherUnavailableError }
+  | { kind: 'student'; severity: 'warning'; error: StudentDoubleBookedError };
 
 /** A candidate booking a room and, optionally, a teacher. */
 export type CompositeSessionCandidate = RoomSessionCandidate & {
@@ -67,6 +74,21 @@ export type CompositeSessionCandidate = RoomSessionCandidate & {
 export type TeacherAvailabilityConflictContext = {
   readonly rules: TeacherAvailabilityRules;
   readonly materializationRange: DateRange | null;
+};
+
+/**
+ * The student-conflict inputs the composite check reads for the candidate's own
+ * group. `roster` is that group's current live enrollment; `studentIndex` is
+ * every OTHER group any of those students attends, pre-built by the caller so
+ * this check never needs to re-derive it — critically, the caller excludes the
+ * candidate's own `groupId` when building it, so this group's own other weekly
+ * slots never self-match. Absent means the slot binds no group (or the plan
+ * caller chose not to check), so the warning is skipped entirely.
+ */
+export type StudentConflictContext = {
+  readonly groupId: GroupId;
+  readonly roster: readonly StudentId[];
+  readonly studentIndex: StudentScheduleIndex;
 };
 
 /**
@@ -98,6 +120,7 @@ export type ConflictCheckContext = {
    * `warning`-severity `teacher-availability` conflict.
    */
   teacherAvailability?: TeacherAvailabilityConflictContext;
+  studentConflict?: StudentConflictContext;
 };
 
 /**
@@ -143,6 +166,23 @@ export function detectSessionConflicts(
       if (unavailable) {
         conflicts.push({ kind: 'teacher-availability', severity: 'warning', error: unavailable });
       }
+    }
+  }
+
+  const studentConflict = context.studentConflict;
+  if (studentConflict !== undefined) {
+    const clashes = studentDoubleBookingsForCandidate(
+      {
+        groupId: studentConflict.groupId,
+        dayOfWeek: candidate.dayOfWeek,
+        start: candidate.start,
+        end: candidate.end,
+      },
+      studentConflict.roster,
+      studentConflict.studentIndex,
+    );
+    if (clashes.length > 0) {
+      conflicts.push({ kind: 'student', severity: 'warning', error: new StudentDoubleBookedError(clashes) });
     }
   }
 
