@@ -15,6 +15,7 @@ import {
   type UserId,
 } from '@centresoutien/domain';
 import { centreDbFileName, openDatabaseAt } from './db';
+import { recoveryBlobPathFor } from './recovery-blob-path';
 import { applyMigrations, type Migration } from './migration-runner';
 import { readOrCreateDeviceOrigin } from './device-origin';
 import { SqliteChangeLogWriter } from './change-log/sqlite-change-log-writer';
@@ -105,7 +106,13 @@ export class SqliteCenterJoinProvisioning implements CenterJoinProvisioningPort 
       return { centreId, centerCode };
     } catch (error) {
       db?.close();
+      // Clean BOTH names: the temp file if we failed before publishing, AND the
+      // final file if we failed AFTER the atomic rename (e.g. clientConfig.write
+      // throwing) — otherwise a fully-populated, discoverable center DB holding
+      // another center's real data would survive the failure. Both removals are
+      // best-effort force-unlinks, so removing an absent name is a harmless no-op.
       removeCenterFiles(tempFile);
+      removeCenterFiles(finalFile);
       this.deps.clientConfig.clear(centreId);
       throw error instanceof CenterJoinError ? error : new CenterJoinError(reasonFrom(error));
     }
@@ -192,15 +199,20 @@ export class SqliteCenterJoinProvisioning implements CenterJoinProvisioningPort 
 }
 
 /**
- * Removes a SQLCipher DB file and its WAL/SHM sidecars, best-effort. A leftover
- * temp/discarded file is harmless once it no longer carries the discoverable
- * `centre-{id}.db` name, so a failed unlink is swallowed rather than masking the
- * original error the caller is already surfacing.
+ * Removes a SQLCipher DB file, its WAL/SHM sidecars, AND its SOU-302 `.recovery`
+ * escrow sibling, best-effort. A leftover temp/discarded file is harmless once it
+ * no longer carries the discoverable `centre-{id}.db` name, so a failed unlink is
+ * swallowed rather than masking the original error the caller is already
+ * surfacing. Including the `.recovery` sibling keeps a discarded/failed join from
+ * leaving a stale sealed-key blob behind — the switch-in that fails a join can
+ * have already sealed one for the just-joined center (mirrors
+ * {@link SqliteCenterProvisioning}).
  */
 function removeCenterFiles(file: string): void {
-  for (const suffix of ['', '-wal', '-shm']) {
+  const targets = [file, `${file}-wal`, `${file}-shm`, recoveryBlobPathFor(file)];
+  for (const target of targets) {
     try {
-      rmSync(`${file}${suffix}`, { force: true });
+      rmSync(target, { force: true });
     } catch {
       // Best effort — see the doc above.
     }

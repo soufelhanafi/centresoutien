@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -14,7 +14,8 @@ import {
   type IdGenerator,
   type UserId,
 } from '@centresoutien/domain';
-import { openDatabase, openDatabaseAt } from '../../src/data/sqlite/db';
+import { centreDbFileName, openDatabase, openDatabaseAt } from '../../src/data/sqlite/db';
+import { recoveryBlobPathFor } from '../../src/data/sqlite/recovery-blob-path';
 import { loadMigrations, runMigrations } from '../../src/data/sqlite/migration-runner';
 import { SqliteHubStore } from '../../src/data/sqlite/hub/hub-store';
 import { HubServer } from '../../src/main/hub-server/hub-server';
@@ -221,6 +222,50 @@ describe('SqliteCenterJoinProvisioning cold-bootstrap (SOU-318)', () => {
       makeJoiner().provisionFromHub({ baseUrl, token: TOKEN, centerCode: 'CS-OTHER-999' as CenterCode }),
     ).rejects.toBeInstanceOf(CenterJoinError);
 
+    expect(readdirSync(joinDir).filter((f) => f.startsWith('centre-'))).toEqual([]);
+  });
+
+  it('removes the published center DB when persisting the client config fails — no orphan on disk', async () => {
+    // The DB is cold-bootstrapped and atomically published BEFORE the client
+    // config is persisted; a persist failure after the rename must not strand a
+    // fully-populated center DB holding the joined center's real data.
+    const joiner = new SqliteCenterJoinProvisioning({
+      dir: joinDir,
+      keyFor: () => KEY,
+      migrations: loadMigrations(REAL_MIGRATIONS),
+      clock,
+      ids: counterIds(),
+      plan: new PlanPolicy(PLANS.pro),
+      hasActiveLicense: () => false,
+      clientConfig: {
+        write: () => {
+          throw new Error('disk full while persisting the hub client config');
+        },
+        clear: () => {},
+      },
+      systemUserId: SYSTEM,
+    });
+
+    await expect(
+      joiner.provisionFromHub({ baseUrl, token: TOKEN, centerCode: CENTER }),
+    ).rejects.toBeInstanceOf(CenterJoinError);
+
+    expect(readdirSync(joinDir).filter((f) => f.startsWith('centre-'))).toEqual([]);
+  });
+
+  it('discard removes the center DB and its SOU-302 recovery-escrow sibling', async () => {
+    const result = await makeJoiner().provisionFromHub({ baseUrl, token: TOKEN, centerCode: CENTER });
+
+    // The switch-in seals a `.recovery` blob next to the published DB; a later
+    // switch failure rolls the join back through discard(), which must remove it.
+    const dbPath = join(joinDir, centreDbFileName(result.centreId));
+    const recoveryPath = recoveryBlobPathFor(dbPath);
+    writeFileSync(recoveryPath, Buffer.from('sealed-key-blob'));
+    expect(existsSync(recoveryPath)).toBe(true);
+
+    await makeJoiner().discard(result.centreId);
+
+    expect(existsSync(recoveryPath)).toBe(false);
     expect(readdirSync(joinDir).filter((f) => f.startsWith('centre-'))).toEqual([]);
   });
 });

@@ -224,6 +224,7 @@ import { SqliteSubjectRepository } from '../data/sqlite/repositories/subject-rep
 import { SqliteNiveauRepository } from '../data/sqlite/repositories/niveau-repository';
 import { SqliteNiveauReference } from '../data/sqlite/repositories/niveau-reference';
 import { SqliteChangeLogWriter } from '../data/sqlite/change-log/sqlite-change-log-writer';
+import { backfillCenterIdentityChangeLog } from '../data/sqlite/center-identity-backfill';
 import { SqliteLocalSyncRepository } from '../data/sqlite/change-log/sqlite-sync-local-repository';
 import { SqliteDuplicateMatchSource } from '../data/sqlite/change-log/sqlite-duplicate-match-source';
 import { SqliteFormulaRepository } from '../data/sqlite/repositories/formula-repository';
@@ -719,6 +720,13 @@ export function buildContainer(options: ContainerOptions): Container {
   // and carried in the envelope context below.
   const deviceOrigin = resolveDeviceOrigin(db, ids);
   const changeLog = new SqliteChangeLogWriter(db, clock, deviceOrigin);
+
+  // Backfill the center's identity into the change log if it predates SOU-318
+  // sync-wiring (SOU-318), so an already-running center can still be joined from a
+  // second device. Idempotent and guarded to rows THIS device authored, so it is a
+  // no-op on fresh centers and on joined replicas — must run before the initial
+  // self-push below drains the outbox.
+  backfillCenterIdentityChangeLog(db, changeLog, deviceOrigin);
 
   const subjectRepo = new SqliteSubjectRepository(db, changeLog);
   const createSubject = new CreateSubject(subjectRepo, clock, ids, plan);
@@ -1672,17 +1680,28 @@ export function buildContainer(options: ContainerOptions): Container {
   // the LAN so a second laptop can discover it — identity only in the TXT record,
   // never the pairing token. Withdrawn on dispose (center switch / quit).
   let hubAdvertisement: HubAdvertisement | null = null;
+  // The advertisement is published inside an async chain (below) while `dispose`
+  // is synchronous, so the two can race: if `dispose` runs before the chain
+  // resolves, it sees a null advertisement and its `stop()` is a no-op, leaving
+  // the ad the chain publishes moments later stranded on the LAN. This flag lets
+  // the chain detect a dispose that already happened and stop the fresh ad at once.
+  let hubDisposed = false;
   if (hubConfig && options.hubHosting?.advertiser && hubListening) {
     const advertiser = options.hubHosting.advertiser;
     void hubListening
       .then(async () => {
         const profile = await getCenterProfile.execute();
         const name = profile?.name ?? options.centerCode;
-        hubAdvertisement = advertiser.advertise({
+        const advertisement = advertiser.advertise({
           name,
           port: hubConfig.port,
           txt: { centreId: options.centreId, centerCode: options.centerCode, name },
         });
+        if (hubDisposed) {
+          advertisement.stop();
+        } else {
+          hubAdvertisement = advertisement;
+        }
       })
       .catch((error: unknown) => {
         console.error('[hub] mDNS advertise failed', error);
@@ -1945,7 +1964,9 @@ export function buildContainer(options: ContainerOptions): Container {
     // never hit a half-closed canonical store.
     dispose: () => {
       // Withdraw the LAN advertisement first so no laptop discovers a hub that is
-      // about to stop (SOU-318).
+      // about to stop (SOU-318). Set `hubDisposed` so an advertisement still being
+      // published by the async chain above stops itself instead of stranding.
+      hubDisposed = true;
       hubAdvertisement?.stop();
       if (hubServerInstance && hubStore) {
         void hubServerInstance.stop().finally(() => hubStore?.close());
