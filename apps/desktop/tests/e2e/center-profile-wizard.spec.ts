@@ -30,6 +30,7 @@ test('data entered in the wizard Center Profile step persists as a center row', 
   live = await launch({ locale: loc, plan: 'pro', userDataDir: dir });
   const win = live.win;
 
+  await win.getByRole('button', { name: t.createModeCard }).click();
   await win.getByRole('radio', { name: t.langRadio }).check();
   await win.getByRole('button', { name: t.next }).click();
   await expect(win.getByText(t.wizardCenterTitle).first()).toBeVisible();

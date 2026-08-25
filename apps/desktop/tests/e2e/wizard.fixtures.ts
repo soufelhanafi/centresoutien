@@ -26,6 +26,7 @@ export type PlanId = 'essentiel' | 'pro' | 'premium';
 export const STR: Record<Locale, Record<string, string>> = {
   fr: {
     wizardTitle: 'Configuration initiale',
+    modeCreate: 'Créer un nouveau centre',
     next: 'Continuer',
     back: 'Retour',
     langFr: 'Français',
@@ -45,6 +46,7 @@ export const STR: Record<Locale, Record<string, string>> = {
   },
   ar: {
     wizardTitle: 'الإعداد الأولي',
+    modeCreate: 'إنشاء مركز جديد',
     next: 'متابعة',
     back: 'رجوع',
     langFr: 'Français',
@@ -88,6 +90,15 @@ export async function launch(opts: {
   });
   const win = await app.firstWindow();
   return { app, win };
+}
+
+/**
+ * Dismiss the SOU-318 first-run mode choice by picking "create a new center",
+ * which hands off to the language → center → admin step chain the wizard specs
+ * drive. The card exposes `role="button"` named by its title.
+ */
+export async function chooseCreateMode(win: Page, L: Record<string, string>): Promise<void> {
+  await win.getByRole('button', { name: L.modeCreate }).click();
 }
 
 /**

@@ -3,6 +3,7 @@ import {
   STR,
   VALID_ADMIN,
   adminExists,
+  chooseCreateMode,
   freshUserDataDir,
   launch,
   passAuthGate,
@@ -80,6 +81,9 @@ test('happy path: walks every mandatory step to Done and creates the admin exact
   await expect(win.getByText(L.wizardTitle).first()).toBeVisible();
   expect(await adminExists(win)).toBe(false);
 
+  // 0. Mode choice (SOU-318) — pick "create a new center" to enter the step chain.
+  await chooseCreateMode(win, L);
+
   // 1. Language
   await expectStep(win, L.languageStepTitle);
   await languageRadio(win, L, loc).check();
@@ -125,6 +129,7 @@ test('first-run gate: fresh state shows the wizard; after completion a relaunch 
   await expect(win.getByText(L.wizardTitle).first()).toBeVisible();
 
   // Complete the wizard end to end.
+  await chooseCreateMode(win, L);
   await languageRadio(win, L, loc).check();
   await next(win, L).click(); // language → center
   await fillCenter(win, L);

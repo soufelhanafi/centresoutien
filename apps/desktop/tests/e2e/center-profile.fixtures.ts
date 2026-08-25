@@ -20,6 +20,7 @@ export { launch, freshUserDataDir, VALID_ADMIN, type Launched, type Locale } fro
 export const CP: Record<
   Locale,
   {
+    createModeCard: string;
     langRadio: string;
     next: string;
     doneCta: string;
@@ -44,6 +45,7 @@ export const CP: Record<
   }
 > = {
   fr: {
+    createModeCard: 'Créer un nouveau centre',
     langRadio: 'Français',
     next: 'Continuer',
     doneCta: 'Commencer',
@@ -67,6 +69,7 @@ export const CP: Record<
     errInvalidEmail: 'Adresse e-mail invalide',
   },
   ar: {
+    createModeCard: 'إنشاء مركز جديد',
     langRadio: 'العربية',
     next: 'متابعة',
     doneCta: 'ابدأ',
@@ -132,6 +135,7 @@ export async function getCenter(win: Page): Promise<null | {
  */
 export async function completeSetupAndLogin(win: Page, loc: Locale): Promise<void> {
   const t = CP[loc];
+  await win.getByRole('button', { name: t.createModeCard }).click(); // mode choice -> create
   await win.getByRole('radio', { name: t.langRadio }).check();
   await win.getByRole('button', { name: t.next }).click(); // language -> center
   await win.getByLabel(t.nameLabel, { exact: true }).fill('Centre principal');
