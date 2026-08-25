@@ -52,11 +52,22 @@ export function createMainWindow(
   window.webContents.on('will-navigate', blockOffOriginNavigation);
   window.webContents.on('will-redirect', blockOffOriginNavigation);
 
+  loadRenderer(window, renderer);
+  return window;
+}
+
+/**
+ * Navigate `window` to the renderer entry, query params baked in. Also used to
+ * re-navigate on reload (see `index.ts`'s reload menu handler) so a reload picks
+ * up whatever locale is on disk right now, instead of the native `reload()`
+ * re-requesting the exact URL — query string included — the window first opened
+ * with.
+ */
+export function loadRenderer(window: BrowserWindow, renderer: RendererEntry): void {
   if (renderer.devUrl) {
     const search = renderer.query ? `?${new URLSearchParams(renderer.query).toString()}` : '';
     void window.loadURL(`${renderer.devUrl}${search}`);
   } else {
     void window.loadFile(renderer.indexHtml, renderer.query ? { query: renderer.query } : undefined);
   }
-  return window;
 }

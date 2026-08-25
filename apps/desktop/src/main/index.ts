@@ -1,13 +1,13 @@
 /// <reference types="vite/client" />
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { app, dialog, BrowserWindow, ipcMain } from 'electron';
+import { app, dialog, BrowserWindow, ipcMain, Menu } from 'electron';
 import { PLANS, CenterSwitchError } from '@centresoutien/domain';
 import type { PlanId, CenterCode } from '@centresoutien/domain';
 import { buildContainer, type Container } from './composition-root';
 import { MainRuntime } from './main-runtime';
 import { CenterHost } from './center/center-host';
-import { createMainWindow } from './window';
+import { createMainWindow, loadRenderer, type RendererEntry } from './window';
 import { createIpcSenderGuard, isTrustedIpcEvent } from './security/ipc-sender-guard';
 import { resolveTrustedRendererOrigin, type TrustedRendererOrigin } from './security/renderer-origin';
 import { initAutoUpdater } from './updater/auto-updater-service';
@@ -163,20 +163,66 @@ function scheduleRestart(): void {
 }
 
 /**
+ * `CS_LOCALE` (dev override) wins over the persisted preference (SOU-31); read
+ * fresh every time a window navigates — initial open, a `did-finish-load`-free
+ * reload, or a macOS re-`activate` — so none of those paths can serve a locale
+ * that's gone stale since app launch.
+ */
+function resolveLocale(): string | undefined {
+  return process.env['CS_LOCALE'] ?? runtime?.readLocalePreference() ?? undefined;
+}
+
+function rendererEntry(locale: string | undefined): RendererEntry {
+  return {
+    devUrl: process.env['ELECTRON_RENDERER_URL'],
+    indexHtml: RENDERER_INDEX_HTML,
+    ...(locale ? { query: { locale } } : {}),
+  };
+}
+
+/**
  * Electron main entry (SOU-15). Registers the typed IPC handlers, then opens the
  * hardened window. The composition root — wiring domain use cases to the SQLite
  * adapters and exposing them as IPC handlers — grows from here.
  */
-function openWindow(locale: string | undefined, trustedOrigin: TrustedRendererOrigin): void {
+function openWindow(trustedOrigin: TrustedRendererOrigin): void {
   const preload = join(import.meta.dirname, '../preload/index.js');
-  mainWindow = createMainWindow(
-    preload,
-    {
-      devUrl: process.env['ELECTRON_RENDERER_URL'],
-      indexHtml: RENDERER_INDEX_HTML,
-      ...(locale ? { query: { locale } } : {}),
-    },
-    trustedOrigin,
+  mainWindow = createMainWindow(preload, rendererEntry(resolveLocale()), trustedOrigin);
+}
+
+/**
+ * The app ships no menu bar of its own, only Electron's per-platform default —
+ * except Reload / Force Reload, which default to `webContents.reload()` and
+ * would just re-request the window's original URL, locale query string frozen
+ * at whatever it was on launch. Re-navigating instead of reloading picks up the
+ * on-disk locale preference fresh every time.
+ */
+function installMenu(): void {
+  const isMac = process.platform === 'darwin';
+  const reloadWithFreshLocale = (): void => {
+    if (mainWindow) loadRenderer(mainWindow, rendererEntry(resolveLocale()));
+  };
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      ...(isMac ? [{ role: 'appMenu' as const }] : []),
+      { role: 'fileMenu' as const },
+      { role: 'editMenu' as const },
+      {
+        label: 'View',
+        submenu: [
+          { label: 'Reload', accelerator: 'CmdOrCtrl+R', click: reloadWithFreshLocale },
+          { label: 'Force Reload', accelerator: 'CmdOrCtrl+Shift+R', click: reloadWithFreshLocale },
+          { role: 'toggleDevTools' as const },
+          { type: 'separator' as const },
+          { role: 'resetZoom' as const },
+          { role: 'zoomIn' as const },
+          { role: 'zoomOut' as const },
+          { type: 'separator' as const },
+          { role: 'togglefullscreen' as const },
+        ],
+      },
+      { role: 'windowMenu' as const },
+    ]),
   );
 }
 
@@ -334,11 +380,8 @@ app.whenReady().then(async () => {
       emitCenterChanged: (event: CenterChangedEvent) =>
         mainWindow?.webContents.send(CENTER_CHANGED_EVENT, event),
     });
-    // `CS_LOCALE` (dev override) wins over the persisted preference (SOU-31); the
-    // language tab writes that preference via `preferences.locale.set`, read
-    // synchronously here so it survives a restart without waiting on the renderer.
-    const locale = process.env['CS_LOCALE'] ?? runtime.readLocalePreference() ?? undefined;
-    openWindow(locale, trustedOrigin);
+    openWindow(trustedOrigin);
+    installMenu();
     // SOU-87: auto-update. Self-guards via app.isPackaged (off in dev/e2e).
     // isMacSigned is false until the macOS Developer ID signing ticket ships —
     // macOS runs check-only and never attempts a (failing) unsigned apply.
@@ -348,7 +391,7 @@ app.whenReady().then(async () => {
       isTrustedSender: (event) => isTrustedIpcEvent(event, trustedOrigin),
     }).dispose;
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) openWindow(locale, trustedOrigin);
+      if (BrowserWindow.getAllWindows().length === 0) openWindow(trustedOrigin);
     });
   } catch (error) {
     // A center DB migrated by a newer app build, then reopened after a rollback
