@@ -27,7 +27,11 @@ export function GeneratorPreviewGroup({
   decisions: GeneratorDecisions;
 }) {
   const { t } = useTranslation();
-  const hasWarnings = conflicts.length > 0 || proposal.gapViolations.length > 0;
+  const shortfall =
+    proposal.blocks.length < proposal.requestedSessionsPerWeek
+      ? { requested: proposal.requestedSessionsPerWeek, generated: proposal.blocks.length }
+      : null;
+  const hasWarnings = conflicts.length > 0 || proposal.gapViolations.length > 0 || shortfall !== null;
 
   return (
     <details className="group rounded-md border border-border">
@@ -62,7 +66,12 @@ export function GeneratorPreviewGroup({
             ))}
           </ul>
         )}
-        <GeneratorWarnings conflicts={conflicts} gapViolations={proposal.gapViolations} roomName={roomName} />
+        <GeneratorWarnings
+          conflicts={conflicts}
+          gapViolations={proposal.gapViolations}
+          shortfall={shortfall}
+          roomName={roomName}
+        />
       </div>
     </details>
   );

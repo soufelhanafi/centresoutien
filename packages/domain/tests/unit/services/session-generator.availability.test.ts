@@ -92,9 +92,9 @@ describe('SessionGenerator — teacher availability (SOU-259)', () => {
     expect(conflicts).toEqual([]);
   });
 
-  it('falls back and flags when no weekday combo fits the availability', () => {
+  it('generates fewer sessions than requested rather than placing one outside availability (SOU-296)', () => {
     const generator = new SessionGenerator(fakeRandom());
-    // Two sessions a week, but the teacher only ever works Tuesday: every combo clashes.
+    // Two sessions a week, but the teacher only ever works Tuesday: no size-2 combo fits.
     const rules: TeacherAvailabilityRules = {
       weeklyWindows: { ...emptyWeek(), [TUE]: [window('09:00', '12:00')] },
       exceptions: [],
@@ -104,8 +104,26 @@ describe('SessionGenerator — teacher availability (SOU-259)', () => {
       input(autoConfig(), new Map([[TEACHER_1, rules]])),
     );
 
-    expect(proposals[0]!.blocks).toHaveLength(2);
-    expect(conflicts.some((c) => c.kind === 'teacher-availability')).toBe(true);
+    expect(blockDays(proposals[0]!)).toEqual([TUE]);
+    expect(proposals[0]!.requestedSessionsPerWeek).toBe(2);
+    expect(conflicts.some((c) => c.kind === 'teacher-availability')).toBe(false);
+  });
+
+  it('generates no sessions at all when the teacher has no available day in the pool (SOU-296)', () => {
+    const generator = new SessionGenerator(fakeRandom());
+    // The teacher is only ever available Sunday, which is outside the weekday pool.
+    const rules: TeacherAvailabilityRules = {
+      weeklyWindows: { ...emptyWeek(), [SUN]: [window('09:00', '12:00')] },
+      exceptions: [],
+    };
+
+    const { proposals, conflicts } = generator.generate(
+      input(autoConfig(), new Map([[TEACHER_1, rules]])),
+    );
+
+    expect(proposals[0]!.blocks).toHaveLength(0);
+    expect(proposals[0]!.requestedSessionsPerWeek).toBe(2);
+    expect(conflicts.some((c) => c.kind === 'teacher-availability')).toBe(false);
   });
 
   it('custom mode flags an off-day pick without blocking it', () => {

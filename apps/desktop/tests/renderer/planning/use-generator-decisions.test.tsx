@@ -11,14 +11,14 @@ function block(over: Partial<GeneratorBlockProposal> = {}): GeneratorBlockPropos
 }
 
 const clashingPreview: GeneratorPreviewResult = {
-  proposals: [{ groupId: 'group_1', blocks: [block()], gapViolations: [] }],
+  proposals: [{ groupId: 'group_1', blocks: [block()], gapViolations: [], requestedSessionsPerWeek: 1 }],
   conflicts: [
     { kind: 'hours', groupId: 'group_1', dayOfWeek: 1, start: '09:00', end: '10:00', reason: 'after-close', open: '08:00', close: '09:30' },
   ],
 };
 
 const cleanPreview: GeneratorPreviewResult = {
-  proposals: [{ groupId: 'group_1', blocks: [block()], gapViolations: [] }],
+  proposals: [{ groupId: 'group_1', blocks: [block()], gapViolations: [], requestedSessionsPerWeek: 1 }],
   conflicts: [],
 };
 

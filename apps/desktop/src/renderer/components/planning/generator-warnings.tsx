@@ -74,10 +74,14 @@ function conflictToWarning(conflict: GeneratorConflict, deps: WarningDeps): read
   ];
 }
 
-/** Structurally-deduped warning lines for one proposal's conflicts + min-gap breaches. */
+/** A group generated fewer sessions than requested (SOU-296) — always the teacher's availability. */
+export type GeneratorSessionShortfall = { readonly requested: number; readonly generated: number };
+
+/** Structurally-deduped warning lines for one proposal's conflicts + min-gap breaches + session shortfall. */
 function buildWarningLines(
   conflicts: readonly GeneratorConflict[],
   gapViolations: GeneratorGroupProposal['gapViolations'],
+  shortfall: GeneratorSessionShortfall | null,
   deps: WarningDeps,
 ): readonly WarningLine[] {
   const lineByKey = new Map<string, WarningLine>();
@@ -88,6 +92,15 @@ function buildWarningLines(
   for (const gap of gapViolations) {
     lineByKey.set(`gap|${gap.fromDay}|${gap.toDay}|${gap.gapDays}`, {
       text: deps.t('planning.generator.warnings.gap', { count: gap.gapDays }),
+      blocking: false,
+    });
+  }
+  if (shortfall !== null) {
+    lineByKey.set(`session-count|${shortfall.generated}|${shortfall.requested}`, {
+      text: deps.t('planning.generator.warnings.sessionCount', {
+        actual: shortfall.generated,
+        requested: shortfall.requested,
+      }),
       blocking: false,
     });
   }
@@ -105,17 +118,19 @@ function buildWarningLines(
 export function GeneratorWarnings({
   conflicts,
   gapViolations,
+  shortfall = null,
   roomName,
 }: {
   conflicts: readonly GeneratorConflict[];
   gapViolations: GeneratorGroupProposal['gapViolations'];
+  shortfall?: GeneratorSessionShortfall | null;
   roomName: (roomId: string) => string;
 }) {
   const { t, i18n } = useTranslation();
 
-  if (conflicts.length === 0 && gapViolations.length === 0) return null;
+  if (conflicts.length === 0 && gapViolations.length === 0 && shortfall === null) return null;
 
-  const uniqueLines = buildWarningLines(conflicts, gapViolations, {
+  const uniqueLines = buildWarningLines(conflicts, gapViolations, shortfall, {
     t,
     language: i18n.language,
     weekday: (day) => t(`planning.weekdays.${day}`),
