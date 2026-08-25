@@ -52,8 +52,8 @@ jobs:
         run: pnpm --filter @centresoutien/landing build
 
   e2e:
-    if: github.event_name == 'pull_request' 
-    runs-on: macos-latest
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -68,13 +68,18 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Build desktop
-        run: pnpm --filter @centresoutien/desktop build
+      # Linux has no display, so Electron renders into a virtual framebuffer
+      # (Xvfb) — the standard headless-Electron recipe. All other Chromium/GTK
+      # libs are already on the ubuntu-latest image.
+      - name: Install Xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
 
-      # Runner is this machine's real display (macOS, no Xvfb equivalent) —
-      # CS_E2E_HIDDEN keeps the Electron window off-screen instead (window.ts).
+      # test:e2e's pretest hook builds the `--mode e2e` artifacts and rebuilds
+      # the native module for the Electron ABI, so no separate build step is
+      # needed. xvfb-run gives every launched Electron process a DISPLAY;
+      # CS_E2E_HIDDEN still positions the window off-screen (window.ts).
       - name: E2E (Electron, FR + AR)
-        run: CS_E2E_HIDDEN=1 pnpm --filter @centresoutien/desktop test:e2e
+        run: xvfb-run -a pnpm --filter @centresoutien/desktop test:e2e
 
       # On failure, keep the Playwright traces/screenshots so a flake or a
       # headless-only failure can be inspected without re-running locally.

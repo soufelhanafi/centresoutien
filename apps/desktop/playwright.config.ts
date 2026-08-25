@@ -18,7 +18,7 @@ export default defineConfig({
   // apps) while distinct files and the fr/ar projects run concurrently across
   // workers. On CI this turns a ~1h serial run into minutes.
   fullyParallel: false,
-  workers: process.env['CI'] ? 4 : 1,
+  workers: process.env['CI'] ? 6 : 1,
   // A parallel Electron E2E can flake on runner contention; one retry on CI
   // self-heals a transient failure instead of failing the whole gate.
   retries: process.env['CI'] ? 1 : 0,
