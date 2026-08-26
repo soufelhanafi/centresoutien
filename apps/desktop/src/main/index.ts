@@ -1,13 +1,14 @@
 /// <reference types="vite/client" />
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { app, dialog, BrowserWindow, ipcMain } from 'electron';
+import { app, dialog, BrowserWindow, ipcMain, Menu } from 'electron';
 import { PLANS, CenterSwitchError } from '@centresoutien/domain';
 import type { PlanId, CenterCode } from '@centresoutien/domain';
 import { buildContainer, type Container } from './composition-root';
 import { MainRuntime } from './main-runtime';
 import { CenterHost } from './center/center-host';
-import { createMainWindow } from './window';
+import { createMainWindow, loadRenderer, type RendererEntry } from './window';
+import { menuLabelsFor } from './menu-labels';
 import { createIpcSenderGuard, isTrustedIpcEvent } from './security/ipc-sender-guard';
 import { resolveTrustedRendererOrigin, type TrustedRendererOrigin } from './security/renderer-origin';
 import { initAutoUpdater } from './updater/auto-updater-service';
@@ -163,20 +164,87 @@ function scheduleRestart(): void {
 }
 
 /**
+ * `CS_LOCALE` (dev override) wins over the persisted preference (SOU-31); read
+ * fresh every time a window navigates — initial open, a `did-finish-load`-free
+ * reload, or a macOS re-`activate` — so none of those paths can serve a locale
+ * that's gone stale since app launch.
+ */
+function resolveLocale(): string | undefined {
+  return process.env['CS_LOCALE'] ?? runtime?.readLocalePreference() ?? undefined;
+}
+
+function rendererEntry(locale: string | undefined): RendererEntry {
+  return {
+    devUrl: process.env['ELECTRON_RENDERER_URL'],
+    indexHtml: RENDERER_INDEX_HTML,
+    ...(locale ? { query: { locale } } : {}),
+  };
+}
+
+/**
  * Electron main entry (SOU-15). Registers the typed IPC handlers, then opens the
  * hardened window. The composition root — wiring domain use cases to the SQLite
  * adapters and exposing them as IPC handlers — grows from here.
  */
-function openWindow(locale: string | undefined, trustedOrigin: TrustedRendererOrigin): void {
+function openWindow(trustedOrigin: TrustedRendererOrigin): void {
   const preload = join(import.meta.dirname, '../preload/index.js');
-  mainWindow = createMainWindow(
-    preload,
-    {
-      devUrl: process.env['ELECTRON_RENDERER_URL'],
-      indexHtml: RENDERER_INDEX_HTML,
-      ...(locale ? { query: { locale } } : {}),
-    },
-    trustedOrigin,
+  const window = createMainWindow(preload, rendererEntry(resolveLocale()), trustedOrigin);
+  window.on('closed', () => {
+    if (mainWindow === window) mainWindow = null;
+  });
+  mainWindow = window;
+}
+
+/** The focused window if one is both open and alive, else the tracked main window (same fallback native Reload uses via `getFocusedWindow()`). */
+function targetWindow(): BrowserWindow | null {
+  const window = BrowserWindow.getFocusedWindow() ?? mainWindow;
+  return window && !window.isDestroyed() ? window : null;
+}
+
+/**
+ * Re-navigates instead of calling native `reload()`/`reloadIgnoringCache()`, so
+ * Reload / Force Reload pick up the on-disk locale preference fresh every time
+ * instead of the window's original URL, locale query string frozen at whatever
+ * it was on launch. Also re-installs the menu so its own labels track the
+ * locale that was just resolved.
+ */
+function reloadWithFreshLocale(bypassCache: boolean): void {
+  const window = targetWindow();
+  if (!window) return;
+  const locale = resolveLocale();
+  loadRenderer(window, rendererEntry(locale), bypassCache);
+  installMenu(locale);
+}
+
+/**
+ * The app ships no menu bar of its own, only Electron's per-platform default —
+ * except Reload / Force Reload, whose labels come from `menuLabelsFor` (the
+ * role-based items around them auto-localize via Electron/the OS).
+ */
+function installMenu(locale: string | undefined = resolveLocale()): void {
+  const isMac = process.platform === 'darwin';
+  const labels = menuLabelsFor(locale);
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      ...(isMac ? [{ role: 'appMenu' as const }] : []),
+      { role: 'fileMenu' as const },
+      { role: 'editMenu' as const },
+      {
+        label: labels.view,
+        submenu: [
+          { label: labels.reload, accelerator: 'CmdOrCtrl+R', click: () => reloadWithFreshLocale(false) },
+          { label: labels.forceReload, accelerator: 'CmdOrCtrl+Shift+R', click: () => reloadWithFreshLocale(true) },
+          { role: 'toggleDevTools' as const },
+          { type: 'separator' as const },
+          { role: 'resetZoom' as const },
+          { role: 'zoomIn' as const },
+          { role: 'zoomOut' as const },
+          { type: 'separator' as const },
+          { role: 'togglefullscreen' as const },
+        ],
+      },
+      { role: 'windowMenu' as const },
+    ]),
   );
 }
 
@@ -334,11 +402,8 @@ app.whenReady().then(async () => {
       emitCenterChanged: (event: CenterChangedEvent) =>
         mainWindow?.webContents.send(CENTER_CHANGED_EVENT, event),
     });
-    // `CS_LOCALE` (dev override) wins over the persisted preference (SOU-31); the
-    // language tab writes that preference via `preferences.locale.set`, read
-    // synchronously here so it survives a restart without waiting on the renderer.
-    const locale = process.env['CS_LOCALE'] ?? runtime.readLocalePreference() ?? undefined;
-    openWindow(locale, trustedOrigin);
+    openWindow(trustedOrigin);
+    installMenu();
     // SOU-87: auto-update. Self-guards via app.isPackaged (off in dev/e2e).
     // isMacSigned is false until the macOS Developer ID signing ticket ships —
     // macOS runs check-only and never attempts a (failing) unsigned apply.
@@ -348,7 +413,7 @@ app.whenReady().then(async () => {
       isTrustedSender: (event) => isTrustedIpcEvent(event, trustedOrigin),
     }).dispose;
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) openWindow(locale, trustedOrigin);
+      if (BrowserWindow.getAllWindows().length === 0) openWindow(trustedOrigin);
     });
   } catch (error) {
     // A center DB migrated by a newer app build, then reopened after a rollback
