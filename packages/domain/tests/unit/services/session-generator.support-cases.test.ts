@@ -24,10 +24,11 @@ import { fakeRandom } from '../fakes/random';
  *   - ST = students, G = groups, S = subjects, T = teachers.
  *   - Rooms are unlimited — never the binding constraint here.
  *
- * These tests assert the generator's REAL behavior (so they stay green and
- * document it); each block also states the product owner's EXPECTED behavior and
- * the gap, which the companion report at
- * docs/reports/scheduling-support-cases.md analyses in full.
+ * After SOU-281 the planner treats a shared student as a placement constraint
+ * (not just a post-run warning), so Cases 1 and 4a now schedule cleanly — these
+ * tests assert that fixed behavior. Case 4b stays genuinely infeasible and still
+ * surfaces conflicts. The companion report at
+ * docs/reports/scheduling-support-cases.md analyses all four in full.
  */
 
 const TUE = 2 as WeekdayIndex;
@@ -129,13 +130,10 @@ function run(params: Parameters<typeof buildInput>[0]): Result {
 describe('Scheduling support cases', () => {
   describe('Case 1 — two teachers, two subjects, one student shared across both groups', () => {
     // G1 (S1) -> T1, G2 (S2) -> T2. ST1 is enrolled in BOTH G1 and G2.
-    // EXPECTED (product owner): the planner staggers the two groups so ST1 can
-    //   attend both — e.g. G1 19:00–20:30 and G2 20:30–22:00 on each day.
-    // REAL: the shared student is NOT a placement constraint. The two groups have
-    //   different teachers and different rooms, so nothing pushes them apart; both
-    //   land at 19:00–20:30 and the clash is only reported as a (non-blocking)
-    //   `student` conflict warning.
-    it('stacks both groups at 19:00–20:30 and only WARNS about the shared student', () => {
+    // The two groups have different teachers, so nothing about teachers pushes
+    // them apart — but ST1 is shared, so (SOU-281) the shared student is now a
+    // placement constraint: G2 anchors after G1 rather than on top of it.
+    it('staggers the two groups so the shared student can attend both — 0 conflicts', () => {
       const result = run({
         sessionsPerWeek: 2,
         teacherByGroup: new Map([
@@ -157,13 +155,10 @@ describe('Scheduling support cases', () => {
         { day: THU, start: '19:00', end: '20:30' },
       ]);
       expect(slotsOf(result, G2)).toEqual([
-        { day: TUE, start: '19:00', end: '20:30' },
-        { day: THU, start: '19:00', end: '20:30' },
+        { day: TUE, start: '20:30', end: '22:00' },
+        { day: THU, start: '20:30', end: '22:00' },
       ]);
-
-      expect(result.conflicts.some((c) => c.kind === 'room')).toBe(false);
-      expect(result.conflicts.some((c) => c.kind === 'teacher')).toBe(false);
-      expect(studentConflictCount(result)).toBeGreaterThan(0);
+      expect(result.conflicts).toEqual([]);
     });
   });
 
@@ -249,22 +244,18 @@ describe('Scheduling support cases', () => {
     ]);
 
     // A CONFLICT-FREE schedule exists at 1 session/week: put T1's groups on
-    // Tuesday and T2's groups on Thursday (or vice-versa). Then no student's two
-    // groups ever share a day. The greedy planner does NOT find it: it fills the
-    // earliest pool day first and never uses student rosters as a placement
-    // constraint, so it stacks all four groups on Tuesday and produces avoidable
-    // student clashes.
-    it('1 session/week: a conflict-free split exists, but the planner stacks all groups on Tuesday and warns', () => {
+    // Tuesday and T2's groups on Thursday. Then no student's two groups ever
+    // share a day. With shared students now a placement constraint (SOU-281),
+    // the day search rolls T2's groups onto Thursday once Tuesday is full of
+    // groups they share students with — so the planner finds exactly that split.
+    it('1 session/week: the planner splits T1 onto Tuesday and T2 onto Thursday — 0 conflicts', () => {
       const result = run({ sessionsPerWeek: 1, teacherByGroup: teachers, availabilityByTeacher: availability, rosterByGroup: rosters });
 
-      for (const group of [G1, G2, G3, G4]) {
-        expect(slotsOf(result, group).every((s) => s.day === TUE)).toBe(true);
-      }
-      // ST11 (G1 & G3) and ST22 (G2 & G4) both land at the same time → clash;
-      // ST12 and ST21 happen to fall on adjacent (non-overlapping) blocks.
-      expect(studentConflictCount(result)).toBeGreaterThan(0);
-      expect(result.conflicts.some((c) => c.kind === 'room')).toBe(false);
-      expect(result.conflicts.some((c) => c.kind === 'teacher')).toBe(false);
+      expect(slotsOf(result, G1)).toEqual([{ day: TUE, start: '19:00', end: '20:30' }]);
+      expect(slotsOf(result, G2)).toEqual([{ day: TUE, start: '20:30', end: '22:00' }]);
+      expect(slotsOf(result, G3)).toEqual([{ day: THU, start: '19:00', end: '20:30' }]);
+      expect(slotsOf(result, G4)).toEqual([{ day: THU, start: '20:30', end: '22:00' }]);
+      expect(result.conflicts).toEqual([]);
     });
 
     // At 2 sessions/week the scenario is genuinely INFEASIBLE: each teacher's two

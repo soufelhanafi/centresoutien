@@ -1,6 +1,6 @@
 import type { RandomPort } from '../ports/random-port';
 import type { WeekdayIndex } from '../value-objects/weekday';
-import { toMinutes } from '../value-objects/time-of-day';
+import { toMinutes, type TimeOfDay } from '../value-objects/time-of-day';
 import { intersectTimeWindows, type TimeWindow } from '../value-objects/time-window';
 import type { EntityId } from '../value-objects/ids';
 import type { GroupId, GroupKind } from '../entities/group';
@@ -21,6 +21,10 @@ import {
   type GeneratorSeatCapacities,
 } from '../policies/generated-schedule-conflicts';
 import { teacherUnavailability, type TeacherAvailabilityRules } from '../policies/teacher-availability-policy';
+import {
+  buildStudentScheduleIndex,
+  studentDoubleBookingsForCandidate,
+} from '../policies/student-schedule-conflict';
 import { WEEKDAYS } from '../value-objects/weekday';
 import {
   GroupExceedsRoomCapacityError,
@@ -198,6 +202,14 @@ type GroupPlacementContext = {
   readonly centerHours: readonly DayHours[];
   readonly availability: GeneratorAvailabilityContext | undefined;
   readonly seatFit: SeatFit | undefined;
+  /**
+   * Live roster per scoped group (SOU-281). Present, it makes a shared student a
+   * *placement* constraint — not just a post-run warning: a group anchors after
+   * (or on another day than) an already-placed group it shares a student with,
+   * the same way it already does for a shared teacher. `undefined` (no roster
+   * supplied) reproduces the pre-SOU-281 student-blind placement exactly.
+   */
+  readonly rosterByGroup: ReadonlyMap<GroupId, readonly StudentId[]> | undefined;
 };
 
 /**
@@ -471,6 +483,7 @@ export class SessionGenerator {
       centerHours,
       availability,
       seatFit,
+      rosterByGroup: input.rosterByGroup,
     };
 
     const committed: GeneratedBlockCandidate[] = [];
@@ -758,14 +771,14 @@ export class SessionGenerator {
     const requested = config.sessionsPerWeek;
     const occupied = [...context.existingSchedule, ...committed.map(generatedCandidateToScheduledRef)];
 
-    const committedForTeacher = committed.map(generatedCandidateToScheduledRef);
+    const placementBlockers = this.placementBlockersFor(groupId, context, committed);
 
     const bestAtSize = (
       combinations: readonly (readonly WeekdayIndex[])[],
     ): readonly ScheduledBlockProposal[] | undefined => {
       let firstAvailabilityFree: readonly ScheduledBlockProposal[] | undefined;
       for (const weekdays of combinations) {
-        const blocks = this.roomBlocksForGroup(groupId, weekdays, config, context, occupied, committedForTeacher, true);
+        const blocks = this.roomBlocksForGroup(groupId, weekdays, config, context, occupied, placementBlockers, true);
         // A day whose intersected availability window dropped out of `blocks`
         // makes this combo a partial match, not a real candidate at this size —
         // the shrink-retry loop below is what handles "fewer days than asked
@@ -871,10 +884,11 @@ export class SessionGenerator {
    * Auto mode only (`restrictToAvailability`): the candidate windows are first
    * restricted to the group's own teacher's declared availability
    * ({@link availabilityRestrictedWindows}), and the anchor search skips over
-   * whatever that same teacher already has booked on a given weekday earlier
-   * in this same auto run (`placementOccupied`, via
-   * {@link teacherOccupiedByDay}) — so a second auto-placed group sharing a
-   * teacher on the only open day lands right after the first group's block
+   * whatever the caller flagged as a blocker for this group on a given weekday
+   * earlier in this same auto run (`placementOccupied`, built by
+   * {@link placementBlockersFor} from same-teacher *and* shared-student blocks —
+   * SOU-281) — so a second auto-placed group sharing a teacher, or merely a
+   * student, on the only open day lands right after the first group's block
    * instead of anchoring on top of it. Custom mode passes `false` and an empty
    * `placementOccupied`: an admin's explicit weekday pick is never silently
    * repositioned or dropped, only flagged by the conflicts pass, exactly as
@@ -895,7 +909,7 @@ export class SessionGenerator {
     const windowsByWeekday = restrictToAvailability
       ? this.availabilityRestrictedWindows(context.windowsByWeekday, teacherId, context.availability)
       : context.windowsByWeekday;
-    const occupiedByDay = this.teacherOccupiedByDay(placementOccupied, teacherId);
+    const occupiedByDay = this.occupiedWindowsByDay(placementOccupied);
     const blocks = this.buildBlocks(weekdays, windowsByWeekday, config.sessionDurationMinutes, occupiedByDay);
     const entries: UnroomedBlock[] = blocks.map((block) => ({ groupId, teacherId, block }));
     const roomByBlock = assignRoomsToBlocks(entries, context.rooms, this.random, occupied, context.seatFit);
@@ -927,20 +941,48 @@ export class SessionGenerator {
   }
 
   /**
-   * `occupied`, narrowed to the given teacher's own blocks and grouped by
-   * weekday as plain `TimeWindow`s — exactly the shape
-   * {@link weeklyBlockInFittingWindow}'s occupied-slot search reads. A teacherless
-   * group has nothing to avoid (an empty map skips the search's occupied-aware
-   * branch on every day, matching pre-existing behavior).
+   * The already-committed blocks this group cannot share a slot with (SOU-281):
+   * a block belongs here when it either has the **same teacher** as this group
+   * (a teacher is in one place at a time) or belongs to a group this group
+   * **shares a student with** (that student is in one place at a time). Feeding
+   * these — not just the same-teacher blocks — into the anchor search is what
+   * lets a second group sharing only students pack after the first instead of
+   * on top of it. With no roster context (`rosterByGroup` undefined) the
+   * student half is inert and this collapses to the pre-SOU-281 same-teacher
+   * set exactly.
    */
-  private teacherOccupiedByDay(
+  private placementBlockersFor(
+    groupId: GroupId,
+    context: GroupPlacementContext,
+    committed: readonly GeneratedBlockCandidate[],
+  ): readonly ScheduledSessionRef[] {
+    const teacherId = context.teacherByGroup.get(groupId) ?? null;
+    const ownRoster = context.rosterByGroup?.get(groupId);
+    const ownStudents = ownRoster !== undefined ? new Set(ownRoster) : undefined;
+    const sharesStudent = (otherGroupId: GroupId): boolean => {
+      if (ownStudents === undefined) return false;
+      const otherRoster = context.rosterByGroup?.get(otherGroupId);
+      return otherRoster !== undefined && otherRoster.some((studentId) => ownStudents.has(studentId));
+    };
+    return committed
+      .filter((candidate) => {
+        const sameTeacher = teacherId !== null && candidate.teacherId === teacherId;
+        return sameTeacher || sharesStudent(candidate.groupId);
+      })
+      .map(generatedCandidateToScheduledRef);
+  }
+
+  /**
+   * The given blocks grouped by weekday as plain `TimeWindow`s — exactly the
+   * shape {@link weeklyBlockInFittingWindow}'s occupied-slot search reads. The
+   * caller has already narrowed the refs to the ones this group must avoid
+   * ({@link placementBlockersFor}), so no filtering happens here.
+   */
+  private occupiedWindowsByDay(
     occupied: readonly ScheduledSessionRef[],
-    teacherId: EntityId | null,
   ): ReadonlyMap<WeekdayIndex, readonly TimeWindow[]> {
     const byDay = new Map<WeekdayIndex, TimeWindow[]>();
-    if (teacherId === null) return byDay;
     for (const ref of occupied) {
-      if (ref.teacherId !== teacherId) continue;
       const window: TimeWindow = { open: ref.start, close: ref.end };
       const existing = byDay.get(ref.dayOfWeek);
       if (existing === undefined) byDay.set(ref.dayOfWeek, [window]);
@@ -956,6 +998,16 @@ export class SessionGenerator {
    * sessions). `bestAtSize` reads this once per candidate combo and derives
    * both "fully clean" and "clean of `teacher-availability`" from the same
    * result, rather than recomputing conflicts per predicate.
+   *
+   * The room/teacher/hours/availability checks run through
+   * {@link detectGeneratedScheduleConflicts}; the shared-student check
+   * (SOU-281) is layered on separately because that pass builds its student
+   * index from the candidates it is given, and here the candidates are only
+   * *this* group's blocks — the committed groups this block could clash with
+   * live in `committed`. Both feed the same "prefer a clean combo, fall back to
+   * an availability-clean one" logic, so a placement that would double-book a
+   * shared student is passed over for a cleaner weekday exactly as a room or
+   * teacher clash already is.
    */
   private conflictsFor(
     groupId: GroupId,
@@ -970,12 +1022,50 @@ export class SessionGenerator {
       teacherId: scheduled.teacherId,
     }));
     const priorRuns = committed.map(generatedCandidateToScheduledRef);
-    return detectGeneratedScheduleConflicts(
+    const resourceConflicts = detectGeneratedScheduleConflicts(
       candidates,
       [...context.existingSchedule, ...priorRuns],
       context.centerHours,
       context.availability,
     );
+    return [...resourceConflicts, ...this.studentConflictsAgainstCommitted(groupId, blocks, context, committed)];
+  }
+
+  /**
+   * The shared-student clashes (SOU-281) between this group's candidate blocks
+   * and the groups already committed in this run — nothing if no roster context
+   * was supplied. The student index is built from the committed groups' blocks
+   * (never this group's own — a group's several weekly slots are not a per-student
+   * conflict), then each candidate block is tested against it, mirroring the
+   * final-pass check in {@link detectGeneratedScheduleConflicts} but scoped to
+   * one group mid-search.
+   */
+  private studentConflictsAgainstCommitted(
+    groupId: GroupId,
+    blocks: readonly ScheduledBlockProposal[],
+    context: GroupPlacementContext,
+    committed: readonly GeneratedBlockCandidate[],
+  ): readonly GeneratedScheduleConflict[] {
+    const rosterByGroup = context.rosterByGroup;
+    const ownRoster = rosterByGroup?.get(groupId);
+    if (rosterByGroup === undefined || ownRoster === undefined || ownRoster.length === 0) return [];
+
+    const committedBlocksByGroup = new Map<GroupId, { dayOfWeek: WeekdayIndex; start: TimeOfDay; end: TimeOfDay }[]>();
+    for (const candidate of committed) {
+      const block = { dayOfWeek: candidate.block.dayOfWeek, start: candidate.block.start, end: candidate.block.end };
+      const existing = committedBlocksByGroup.get(candidate.groupId);
+      if (existing === undefined) committedBlocksByGroup.set(candidate.groupId, [block]);
+      else existing.push(block);
+    }
+    const studentIndex = buildStudentScheduleIndex(rosterByGroup, committedBlocksByGroup);
+
+    const conflicts: GeneratedScheduleConflict[] = [];
+    for (const scheduled of blocks) {
+      const { dayOfWeek, start, end } = scheduled.block;
+      const clashes = studentDoubleBookingsForCandidate({ groupId, dayOfWeek, start, end }, ownRoster, studentIndex);
+      if (clashes.length > 0) conflicts.push({ kind: 'student', groupId, dayOfWeek, start, end, conflicts: clashes });
+    }
+    return conflicts;
   }
 
   private feasibleCombinations(
