@@ -483,6 +483,7 @@
       "addConfirm": "Inscrire",
       "addCancel": "Annuler",
       "addSuccess": "Élève inscrit",
+      "addScheduleWarning": "Attention : cet élève est déjà inscrit dans {{count}} autre(s) groupe(s) au même horaire.",
       "addError": "L'inscription a échoué",
       "remove": "Retirer",
       "removeSuccess": "Élève retiré",
@@ -1630,6 +1631,7 @@
       "outsideTeacherAvailability": "Hors disponibilités de l'enseignant",
       "teacherDoubleBooked": "Enseignant déjà occupé",
       "roomDoubleBooked": "Salle déjà occupée",
+      "studentDoubleBooked": "Élève inscrit dans deux groupes en même temps",
       "roomArchived": "Salle archivée",
       "roomOverCapacity": "Salle en surcapacité"
     },
@@ -1730,7 +1732,8 @@
         "generic": "L'enseignant n'est pas disponible sur ce créneau.",
         "out-of-window": "Ce créneau est en dehors des disponibilités déclarées de l'enseignant.",
         "exception": "L'enseignant est absent sur cette période."
-      }
+      },
+      "student": "Un ou plusieurs élèves de ce groupe sont déjà inscrits dans un autre groupe à ce même horaire."
     },
     "allSessions": {
       "noRoom": "Sans salle",
@@ -1839,13 +1842,15 @@
         },
         "room": "Salle {{room}} déjà occupée le {{day}}.",
         "teacher": "Enseignant déjà occupé le {{day}}.",
+        "student": "{{count}} élève(s) déjà inscrit(s) dans un autre groupe le {{day}} au même horaire.",
         "teacherAvailability": {
           "outOfWindow": "{{day}} : hors des disponibilités de l'enseignant.",
           "exception": "Enseignant absent du {{from}} au {{to}}."
         },
         "gap": "Écart inférieur au minimum ({{count}} jour(s)).",
         "capacity": "Salle {{room}} trop petite : {{groupCapacity}} élèves pour {{roomCapacity}} places.",
-        "sessionCount": "{{actual}} séance(s) générée(s) sur {{requested}} demandée(s) : l'enseignant n'est pas disponible sur assez de jours."
+        "sessionCountAvailability": "{{actual}} séance(s) générée(s) sur {{requested}} demandée(s) : l'enseignant n'est pas disponible sur assez de jours.",
+        "sessionCountMinGap": "{{actual}} séance(s) générée(s) sur {{requested}} demandée(s) : les jours disponibles de l'enseignant sont trop rapprochés pour respecter l'écart minimum entre les séances."
       },
       "conflictAction": {
         "decisionRequired": "Décision requise",

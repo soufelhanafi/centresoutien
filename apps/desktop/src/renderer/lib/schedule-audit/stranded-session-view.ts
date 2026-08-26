@@ -2,7 +2,7 @@
 export type BilingualText = { readonly fr: string; readonly ar: string };
 
 /**
- * The seven canonical audit reason codes (SOU-296) — the renderer mirror of the
+ * The eight canonical audit reason codes (SOU-296) — the renderer mirror of the
  * domain `SessionAuditReason`, verbatim (no local renaming). One occurrence may
  * be stranded for several reasons at once; the domain groups per reason.
  */
@@ -12,6 +12,7 @@ export type SessionAuditReason =
   | 'outside-teacher-availability'
   | 'teacher-double-booked'
   | 'room-double-booked'
+  | 'student-double-booked'
   | 'room-archived'
   | 'room-over-capacity';
 
@@ -60,7 +61,7 @@ export type StrandedSessionView = {
  * Which resource a finding is anchored to — the renderer mirror of the domain
  * `StrandedResourceKind`. Drives the collapsed card's identity label.
  */
-export type StrandedResourceKind = 'room' | 'teacher' | 'center';
+export type StrandedResourceKind = 'room' | 'teacher' | 'group' | 'center';
 
 /**
  * One domain-grouped structural audit problem (SOU-296): every stranded

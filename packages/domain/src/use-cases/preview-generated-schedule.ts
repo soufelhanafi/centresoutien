@@ -4,6 +4,7 @@ import type { CenterHoursRepository } from '../ports/center-hours-repository';
 import type { TeacherAvailabilityRepository } from '../ports/teacher-availability-repository';
 import type { TeacherAvailabilityExceptionRepository } from '../ports/teacher-availability-exception-repository';
 import type { WeeklyRecurringSessionRepository } from '../ports/weekly-recurring-session-repository';
+import type { EnrollmentRepository } from '../ports/enrollment-repository';
 import type { PlanPolicy } from '../plans/plan-policy';
 import { toEntityId, type CenterCode, type EntityId } from '../value-objects/ids';
 import { WEEKDAYS, type WeekdayIndex } from '../value-objects/weekday';
@@ -45,6 +46,7 @@ export class PreviewGeneratedSchedule {
     private readonly recurrences: WeeklyRecurringSessionRepository,
     private readonly availability: TeacherAvailabilityRepository,
     private readonly availabilityExceptions: TeacherAvailabilityExceptionRepository,
+    private readonly enrollments: EnrollmentRepository,
     private readonly generator: SessionGenerator,
     private readonly plan: PlanPolicy,
   ) {}
@@ -65,6 +67,9 @@ export class PreviewGeneratedSchedule {
     const centerHours = resolveWeek(await this.centerHours.listForCenter(centerCode));
     const existingSchedule = await this.loadExistingSchedule(centerCode, config);
     const availabilityByTeacher = await this.loadAvailability(centerCode, teacherByGroup, config);
+    const rosterByGroup = await this.enrollments.listActiveStudentIdsByGroups(
+      scopedGroups.map((group) => group.id),
+    );
 
     return this.generator.generate({
       config,
@@ -76,6 +81,7 @@ export class PreviewGeneratedSchedule {
       centerHours,
       existingSchedule,
       availabilityByTeacher,
+      rosterByGroup,
     });
   }
 

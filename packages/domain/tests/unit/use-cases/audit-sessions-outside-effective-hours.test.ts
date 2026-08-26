@@ -380,6 +380,45 @@ describe('AuditSessionsOutsideEffectiveHours', () => {
       const result = await build().execute({ centerCode: CENTER });
       expect(result.groups).toEqual([]);
     });
+
+    it('flags student-double-booked when a shared student attends two overlapping groups the same date', async () => {
+      const OTHER_GROUP = 'grp_00000000000000000000000002' as GroupId;
+      const OTHER_ROOM = 'rom_00000000000000000000000002' as RoomId;
+      const first = occurrence({
+        date: '2026-01-08', groupId: GROUP, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay,
+      });
+      const second = occurrence({
+        date: '2026-01-08', groupId: OTHER_GROUP, roomId: OTHER_ROOM, start: '10:00' as TimeOfDay, end: '11:00' as TimeOfDay,
+      });
+      occurrences.seed(first);
+      occurrences.seed(second);
+      const shared = makeEnrollment(GROUP);
+      await enrollments.save(shared);
+      await enrollments.save({ ...makeEnrollment(OTHER_GROUP), studentId: shared.studentId });
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      const rows = flat(result.groups);
+      expect(rows).toHaveLength(2);
+      expect(rows.every((row) => row.reasons.includes('student-double-booked'))).toBe(true);
+    });
+
+    it('does not flag student-double-booked when the two groups share no student', async () => {
+      const OTHER_GROUP = 'grp_00000000000000000000000002' as GroupId;
+      const OTHER_ROOM = 'rom_00000000000000000000000002' as RoomId;
+      occurrences.seed(occurrence({
+        date: '2026-01-08', groupId: GROUP, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay,
+      }));
+      occurrences.seed(occurrence({
+        date: '2026-01-08', groupId: OTHER_GROUP, roomId: OTHER_ROOM, start: '10:00' as TimeOfDay, end: '11:00' as TimeOfDay,
+      }));
+      await enrollments.save(makeEnrollment(GROUP));
+      await enrollments.save(makeEnrollment(OTHER_GROUP));
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      expect(result.groups).toEqual([]);
+    });
   });
 
   describe('grouping', () => {

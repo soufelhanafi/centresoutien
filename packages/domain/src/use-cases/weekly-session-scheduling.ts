@@ -3,6 +3,7 @@ import {
   type CompositeSessionCandidate,
   type ConflictCheckContext,
   type TeacherAvailabilityConflictContext,
+  type StudentConflictContext,
 } from '../policies/composite-session-conflicts';
 import type { DayHours } from '../policies/session-conflict-policy';
 import type { ScheduledSessionRef } from '../errors/scheduling-errors';
@@ -116,10 +117,10 @@ export function toCompositeCandidate(fields: ScheduleCandidateFields): Composite
 
 /**
  * Run the SOU-55 composite check (malformed → hours → room → teacher →
- * teacher-availability) and throw the most-blocking conflict when the slot
- * clashes; a free slot returns. The caller pre-scopes `existing` (same center,
- * that weekday, alive) and — on edit — excludes the row being edited so a slot
- * never clashes with itself.
+ * teacher-availability → student) and throw the most-blocking conflict when the
+ * slot clashes; a free slot returns. The caller pre-scopes `existing` (same
+ * center, that weekday, alive) and — on edit — excludes the row being edited so
+ * a slot never clashes with itself.
  *
  * When `overrideWindows` is supplied (SOU-165: an active center-hours override
  * covers the slot's concrete date), those windows replace the static `week` for
@@ -136,6 +137,11 @@ export function toCompositeCandidate(fields: ScheduleCandidateFields): Composite
  * which point the caller's `allowScheduleConflict` force path can commit past it.
  * A teacher with no configured row is never passed here, so unconfigured teachers
  * stay unrestricted.
+ *
+ * When `studentConflict` is supplied (the slot binds a group with a live
+ * roster), a student on that roster also attending another group whose session
+ * overlaps this one is gathered the same `warning`-severity way — forceable,
+ * never a hard block.
  */
 export function assertScheduleFree(
   fields: ScheduleCandidateFields,
@@ -143,12 +149,14 @@ export function assertScheduleFree(
   week: readonly DayHours[],
   overrideWindows?: readonly TimeWindow[],
   availability?: TeacherAvailabilityConflictContext,
+  studentConflict?: StudentConflictContext,
 ): void {
   const context: ConflictCheckContext = {
     existing,
     week,
     ...(overrideWindows !== undefined ? { overrideWindows } : {}),
     ...(availability !== undefined ? { teacherAvailability: availability } : {}),
+    ...(studentConflict !== undefined ? { studentConflict } : {}),
   };
   const conflicts = detectSessionConflicts(toCompositeCandidate(fields), context);
   const first = conflicts[0];

@@ -6,8 +6,14 @@ import type { DayHours } from './session-conflict-policy';
 import type { TeacherAvailabilityRules } from './teacher-availability-policy';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import type { GroupId } from '../entities/group';
+import type { StudentId } from '../entities/student';
 import { SessionConflictPolicy } from './session-conflict-policy';
-import { isOverCapacity, isRoomDoubleBooked, isTeacherDoubleBooked } from './session-resource-conflict';
+import {
+  isOverCapacity,
+  isRoomDoubleBooked,
+  isStudentDoubleBooked,
+  isTeacherDoubleBooked,
+} from './session-resource-conflict';
 import { resolveEffectiveWindows } from './center-hours-override-policy';
 import { holidayOn } from './holiday-policy';
 import { teacherUnavailabilityFor } from './teacher-availability-policy';
@@ -22,6 +28,9 @@ import { weekdayOf } from '../value-objects/date-range';
  * `teacher-unavailable` → `outside-teacher-availability`,
  * `holiday/blackout` → `on-holiday`. The three original codes are kept verbatim
  * so existing callers/badges migrate with a rename, not a re-map.
+ * `student-double-booked` covers a student enrolled in two independent groups
+ * whose sessions land at an overlapping date+time — invisible to the room and
+ * teacher checks, since a shared student sits outside both resources.
  */
 export type SessionAuditReason =
   | 'outside-center-hours'
@@ -29,6 +38,7 @@ export type SessionAuditReason =
   | 'outside-teacher-availability'
   | 'teacher-double-booked'
   | 'room-double-booked'
+  | 'student-double-booked'
   | 'room-archived'
   | 'room-over-capacity';
 
@@ -50,11 +60,15 @@ export type SessionAuditContext = {
   readonly teacherScheduleIndex: ReadonlyMap<string, readonly SessionOccurrenceView[]>;
   /** Live enrollment count per group — the room-over-capacity numerator. */
   readonly enrollmentByGroup: ReadonlyMap<GroupId, number>;
+  /** Live roster (student ids) per group — the student double-book roster lookup. */
+  readonly rosterByGroup: ReadonlyMap<GroupId, readonly StudentId[]>;
+  /** Live occurrences indexed by `(date, studentId)`, for the student double-book check. */
+  readonly studentScheduleIndex: ReadonlyMap<string, readonly SessionOccurrenceView[]>;
 };
 
 /**
  * Classify one occurrence against the current live state, returning every reason
- * that now applies (empty = still fits). No precedence — all seven checks run.
+ * that now applies (empty = still fits). No precedence — all eight checks run.
  * Reuses the same primitives interactive scheduling trusts (never a parallel
  * reimplementation): {@link holidayOn}, the shared window-fit rule via
  * {@link resolveEffectiveWindows} + {@link SessionConflictPolicy.withinWindows},
@@ -83,6 +97,9 @@ export function auditReasonsFor(
   if (isRoomDoubleBooked(session, context.roomScheduleIndex)) reasons.push('room-double-booked');
   if (isTeacherDoubleBooked(session, context.teacherScheduleIndex)) {
     reasons.push('teacher-double-booked');
+  }
+  if (isStudentDoubleBooked(session, context.rosterByGroup, context.studentScheduleIndex)) {
+    reasons.push('student-double-booked');
   }
   return reasons;
 }

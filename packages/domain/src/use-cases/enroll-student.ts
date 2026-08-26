@@ -2,6 +2,7 @@ import type { EnrollmentRepository } from '../ports/enrollment-repository';
 import type { GroupRepository } from '../ports/group-repository';
 import type { StudentRepository } from '../ports/student-repository';
 import type { StudentSubscriptionReferencePort } from '../ports/student-subscription-reference';
+import type { WeeklyRecurringSessionRepository } from '../ports/weekly-recurring-session-repository';
 import type { Clock } from '../ports/clock';
 import type { IdGenerator } from '../ports/id-generator';
 import type { PlanPolicy } from '../plans/plan-policy';
@@ -11,6 +12,13 @@ import { enrollmentInputSchema, type EnrollmentInput } from '../schemas/enrollme
 import { ENROLLMENT_ID_PREFIX, type Enrollment, type EnrollmentId } from '../entities/enrollment';
 import type { StudentId } from '../entities/student';
 import type { GroupId } from '../entities/group';
+import type { WeekdayIndex } from '../value-objects/weekday';
+import type { TimeOfDay } from '../value-objects/time-of-day';
+import {
+  buildStudentScheduleIndex,
+  studentDoubleBookingsForCandidate,
+  type StudentDoubleBooking,
+} from '../policies/student-schedule-conflict';
 import { StudentNotFoundError } from '../errors/student-errors';
 import { GroupNotFoundError } from '../errors/group-errors';
 import {
@@ -24,6 +32,17 @@ export type EnrollStudentInput = EnrollmentInput & {
   centerCode: CenterCode;
   deviceOrigin: DeviceId;
   updatedBy: UserId;
+};
+
+/**
+ * A successful enrollment plus a non-blocking heads-up (never a rejection): the
+ * newly-enrolled student already attends another group whose weekly schedule
+ * overlaps this one's — invisible to room/teacher checks, since a shared
+ * student sits outside both resources. `scheduleWarning` is `null` when clean.
+ */
+export type EnrollStudentResult = {
+  readonly enrollment: Enrollment;
+  readonly scheduleWarning: readonly StudentDoubleBooking[] | null;
 };
 
 /**
@@ -53,6 +72,14 @@ export type EnrollStudentInput = EnrollmentInput & {
  * subscription coverage comes from the declared-only `StudentSubscriptionReferencePort`
  * (SOU-63 supplies the real adapter). A fresh enrollment carries the full envelope
  * and is soft-deletable only.
+ *
+ * After the enrollment is persisted, a student-schedule check runs (never a
+ * guard, never blocking): does the new group's own weekly schedule already
+ * overlap another group this same student actively attends? If so, the result
+ * carries a non-null `scheduleWarning` for the caller to surface — the student
+ * stays enrolled either way, since a scheduling clash is a matter for an admin
+ * to resolve (move groups, accept it), never a reason to refuse a paying
+ * student's enrollment.
  */
 export class EnrollStudent {
   constructor(
@@ -60,12 +87,13 @@ export class EnrollStudent {
     private readonly groups: GroupRepository,
     private readonly students: StudentRepository,
     private readonly subscriptions: StudentSubscriptionReferencePort,
+    private readonly sessions: WeeklyRecurringSessionRepository,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
     private readonly plan: PlanPolicy,
   ) {}
 
-  async execute(input: EnrollStudentInput): Promise<Enrollment> {
+  async execute(input: EnrollStudentInput): Promise<EnrollStudentResult> {
     this.plan.require('core.groups');
     const fields = enrollmentInputSchema.parse(input);
 
@@ -148,6 +176,58 @@ export class EnrollStudent {
     if (!inserted) {
       throw new DuplicateEnrollmentError(studentId, groupId);
     }
-    return enrollment;
+
+    const conflicts = await this.scheduleWarningFor(input.centerCode, studentId, groupId);
+    return { enrollment, scheduleWarning: conflicts.length > 0 ? conflicts : null };
+  }
+
+  /**
+   * The new group's own weekly blocks checked against every OTHER group the
+   * student already actively attends — non-blocking, computed only after the
+   * enrollment is already persisted, so it can never veto a paying student's
+   * enrollment. Empty when the new group has no scheduled blocks yet, or the
+   * student attends no other group.
+   */
+  private async scheduleWarningFor(
+    centerCode: CenterCode,
+    studentId: StudentId,
+    groupId: GroupId,
+  ): Promise<readonly StudentDoubleBooking[]> {
+    const newGroupSessions = await this.sessions.listActiveByGroupId(centerCode, groupId);
+    if (newGroupSessions.length === 0) return [];
+
+    const otherGroupIds = [
+      ...new Set(
+        (await this.enrollments.listActiveByStudent(studentId))
+          .map((e) => e.groupId)
+          .filter((otherGroupId) => otherGroupId !== groupId),
+      ),
+    ];
+    if (otherGroupIds.length === 0) return [];
+
+    const otherGroupSessions = await Promise.all(
+      otherGroupIds.map((otherGroupId) => this.sessions.listActiveByGroupId(centerCode, otherGroupId)),
+    );
+    const blocksByGroup = new Map<GroupId, { dayOfWeek: WeekdayIndex; start: TimeOfDay; end: TimeOfDay }[]>();
+    otherGroupIds.forEach((otherGroupId, index) => {
+      blocksByGroup.set(
+        otherGroupId,
+        otherGroupSessions[index]!.map((session) => ({
+          dayOfWeek: session.dayOfWeek,
+          start: session.start,
+          end: session.end,
+        })),
+      );
+    });
+    const rosterByGroup = new Map(otherGroupIds.map((otherGroupId) => [otherGroupId, [studentId]] as const));
+    const studentIndex = buildStudentScheduleIndex(rosterByGroup, blocksByGroup);
+
+    return newGroupSessions.flatMap((session) =>
+      studentDoubleBookingsForCandidate(
+        { groupId, dayOfWeek: session.dayOfWeek, start: session.start, end: session.end },
+        [studentId],
+        studentIndex,
+      ),
+    );
   }
 }

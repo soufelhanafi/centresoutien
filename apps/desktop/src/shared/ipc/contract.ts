@@ -737,8 +737,14 @@ const groupScheduleProposalViewSchema = z.object({
   gapViolations: z.array(weekdayGapViewSchema),
   // SOU-296: informational only, like gapViolations — the renderer compares it
   // against blocks.length to warn when auto mode generated fewer sessions than
-  // requested because the teacher wasn't available on every needed day.
+  // requested.
   requestedSessionsPerWeek: z.number().int(),
+  // Why the shortfall above happened, when `blocks.length < requestedSessionsPerWeek`:
+  // `'teacher-availability'` (not enough usable days at all) vs `'min-gap'`
+  // (enough usable days, but no subset of them respects the run's minGapDays
+  // spacing) — the renderer must show a different message for each, since they
+  // need different remediation. `null` when there's no shortfall.
+  shortfallReason: z.enum(['teacher-availability', 'min-gap']).nullable(),
 });
 
 // The commit request's block shape (SOU-183): the renderer echoes back the
@@ -837,6 +843,28 @@ const generatedScheduleConflictViewSchema = z.discriminatedUnion('kind', [
     end: z.string(),
     groupCapacity: z.number(),
     roomCapacity: z.number(),
+  }),
+  // A student enrolled in `groupId` also attends another of this run's groups
+  // (`conflicts[].otherGroupId`) whose block overlaps this one — invisible to
+  // the room/teacher checks above, since a shared student sits outside both
+  // resources. Checked only within this run's own candidates, never the real
+  // committed schedule (the standing audit covers that once both groups are
+  // materialized). Forceable like room/teacher.
+  z.object({
+    kind: z.literal('student'),
+    groupId: z.string(),
+    dayOfWeek: generatorWeekday,
+    start: z.string(),
+    end: z.string(),
+    conflicts: z.array(
+      z.object({
+        studentId: z.string(),
+        otherGroupId: z.string(),
+        dayOfWeek: generatorWeekday,
+        start: z.string(),
+        end: z.string(),
+      }),
+    ),
   }),
 ]);
 
@@ -1822,9 +1850,26 @@ export const ipcContract = {
   // centerCode/device/user are injected in main, never sent from the renderer. Gated
   // by `core.groups` (every plan) in the use cases; exam-prep coverage additionally
   // requires an exam-prep subscription.
+  // `scheduleWarning` (non-blocking): the newly-enrolled student already attends
+  // another group whose weekly schedule overlaps this one's — invisible to
+  // room/teacher checks, since a shared student sits outside both resources.
+  // `null` when clean. The enrollment always succeeds either way.
   'enrollment.create': {
     request: enrollmentInputSchema,
-    response: z.object({ id: z.string() }),
+    response: z.object({
+      id: z.string(),
+      scheduleWarning: z
+        .array(
+          z.object({
+            studentId: z.string(),
+            otherGroupId: z.string(),
+            dayOfWeek: generatorWeekday,
+            start: z.string(),
+            end: z.string(),
+          }),
+        )
+        .nullable(),
+    }),
   },
   'enrollment.unenroll': {
     request: z.object({ id: z.string() }),

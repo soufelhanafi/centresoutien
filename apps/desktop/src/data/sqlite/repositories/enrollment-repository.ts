@@ -223,6 +223,29 @@ export class SqliteEnrollmentRepository implements EnrollmentRepository {
     return counts;
   }
 
+  async listActiveStudentIdsByGroups(
+    groupIds: readonly GroupId[],
+  ): Promise<ReadonlyMap<GroupId, readonly StudentId[]>> {
+    const roster = new Map<GroupId, StudentId[]>();
+    // No group ids → no query (an `IN ()` is a syntax error), and nothing to list.
+    if (groupIds.length === 0) return roster;
+    const placeholders = groupIds.map(() => '?').join(', ');
+    const rows = this.db
+      .prepare(
+        `SELECT group_id, student_id FROM enrollments
+         WHERE group_id IN (${placeholders}) AND deleted_at IS NULL
+         ORDER BY group_id, id`,
+      )
+      .all(...groupIds) as { group_id: string; student_id: string }[];
+    for (const row of rows) {
+      const groupId = row.group_id as GroupId;
+      const existing = roster.get(groupId);
+      if (existing === undefined) roster.set(groupId, [row.student_id as StudentId]);
+      else existing.push(row.student_id as StudentId);
+    }
+    return roster;
+  }
+
   async hasActiveEnrollment(studentId: StudentId, groupId: GroupId): Promise<boolean> {
     const row = this.db
       .prepare(

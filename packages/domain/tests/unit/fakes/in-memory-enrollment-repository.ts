@@ -68,6 +68,23 @@ export class InMemoryEnrollmentRepository
     return counts;
   }
 
+  /**
+   * Mirrors the SQLite `GROUP BY`: a group with zero live rows is **absent** from
+   * the map (never an empty array), same convention as {@link countActiveByGroups}.
+   */
+  async listActiveStudentIdsByGroups(
+    groupIds: readonly GroupId[],
+  ): Promise<ReadonlyMap<GroupId, readonly StudentId[]>> {
+    const roster = new Map<GroupId, readonly StudentId[]>();
+    for (const groupId of groupIds) {
+      const students = this.all()
+        .filter((e) => e.deletedAt === null && e.groupId === groupId)
+        .map((e) => e.studentId);
+      if (students.length > 0) roster.set(groupId, students);
+    }
+    return roster;
+  }
+
   async hasActiveEnrollment(studentId: StudentId, groupId: GroupId): Promise<boolean> {
     return this.all().some(
       (e) => e.deletedAt === null && e.studentId === studentId && e.groupId === groupId,

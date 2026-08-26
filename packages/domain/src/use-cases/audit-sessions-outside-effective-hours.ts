@@ -17,8 +17,9 @@ import type { DayHours } from '../policies/session-conflict-policy';
 import type { TeacherAvailabilityRules } from '../policies/teacher-availability-policy';
 import type { WeekdayIndex } from '../value-objects/weekday';
 import type { GroupId } from '../entities/group';
+import type { StudentId } from '../entities/student';
 import { auditReasonsFor, type StrandedSession } from '../policies/session-audit-reason';
-import { buildResourceScheduleIndex } from '../policies/session-resource-conflict';
+import { buildResourceScheduleIndex, buildStudentScheduleByDate } from '../policies/session-resource-conflict';
 import {
   findStrandedRecurringSlots,
   type StrandedRecurringSlot,
@@ -65,7 +66,7 @@ export type AuditSessionsDeps = {
 /**
  * Read-only, center-wide standing audit (SOU-201, extended SOU-296) reporting every
  * live materialized session the *current* state now strands, across the full
- * conflict taxonomy: hours, holidays, teacher availability, room/teacher
+ * conflict taxonomy: hours, holidays, teacher availability, room/teacher/student
  * double-books, archived rooms, and room over-capacity. It never mutates;
  * cancelling a stranded occurrence is `CancelSession`.
  *
@@ -108,13 +109,16 @@ export class AuditSessionsOutsideEffectiveHours {
       resolveWeek(week).map((day) => [day.dayOfWeek, day]),
     );
     const hasAvailabilityFlag = this.deps.plan.has('planning.teacher-availability');
-    const [availabilityByTeacher, enrollmentByGroup, weeklySessions, activeTemplates] = await Promise.all([
-      this.loadAvailability(input.centerCode, sessions, today),
-      this.loadEnrollmentCounts(sessions),
-      hasAvailabilityFlag ? this.deps.weeklySessions.listWeekView(input.centerCode) : Promise.resolve([]),
-      hasAvailabilityFlag ? this.deps.weeklyTemplates.listActive(input.centerCode) : Promise.resolve([]),
-    ]);
+    const [availabilityByTeacher, enrollmentByGroup, rosterByGroup, weeklySessions, activeTemplates] =
+      await Promise.all([
+        this.loadAvailability(input.centerCode, sessions, today),
+        this.loadEnrollmentCounts(sessions),
+        this.loadRoster(sessions),
+        hasAvailabilityFlag ? this.deps.weeklySessions.listWeekView(input.centerCode) : Promise.resolve([]),
+        hasAvailabilityFlag ? this.deps.weeklyTemplates.listActive(input.centerCode) : Promise.resolve([]),
+      ]);
     const { byDateRoom, byDateTeacher } = buildResourceScheduleIndex(sessions);
+    const studentScheduleIndex = buildStudentScheduleByDate(sessions, rosterByGroup);
 
     const stranded: StrandedSession[] = [];
     for (const session of sessions) {
@@ -126,6 +130,8 @@ export class AuditSessionsOutsideEffectiveHours {
         roomScheduleIndex: byDateRoom,
         teacherScheduleIndex: byDateTeacher,
         enrollmentByGroup,
+        rosterByGroup,
+        studentScheduleIndex,
       });
       if (reasons.length > 0) stranded.push({ session, reasons });
     }
@@ -170,17 +176,32 @@ export class AuditSessionsOutsideEffectiveHours {
     );
   }
 
+  /** The distinct groups the audited occurrences reference, one batch read
+   *  (SOU-127 pattern) — shared by the enrollment-count and roster reads below. */
+  private groupIdsOf(sessions: readonly SessionOccurrenceView[]): readonly GroupId[] {
+    return [...new Set(sessions.map((session) => session.groupId).filter((id): id is GroupId => id !== null))];
+  }
+
   /** Live enrollment count per group the occurrences reference, one batch read
    *  (SOU-127 pattern) — the room-over-capacity numerator. Groups absent from the
    *  map default to 0 inside {@link auditReasonsFor}. */
   private async loadEnrollmentCounts(
     sessions: readonly SessionOccurrenceView[],
   ): Promise<ReadonlyMap<GroupId, number>> {
-    const groupIds = [
-      ...new Set(sessions.map((session) => session.groupId).filter((id): id is GroupId => id !== null)),
-    ];
+    const groupIds = this.groupIdsOf(sessions);
     if (groupIds.length === 0) return new Map();
     return this.deps.enrollments.countActiveByGroups(groupIds);
+  }
+
+  /** Live roster (student ids) per group the occurrences reference, one batch read
+   *  — the student double-book check's roster lookup. Groups absent from the map
+   *  have no live enrollment inside {@link auditReasonsFor}. */
+  private async loadRoster(
+    sessions: readonly SessionOccurrenceView[],
+  ): Promise<ReadonlyMap<GroupId, readonly StudentId[]>> {
+    const groupIds = this.groupIdsOf(sessions);
+    if (groupIds.length === 0) return new Map();
+    return this.deps.enrollments.listActiveStudentIdsByGroups(groupIds);
   }
 
   /**

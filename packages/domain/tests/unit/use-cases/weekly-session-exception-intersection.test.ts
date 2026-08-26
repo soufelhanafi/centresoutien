@@ -34,6 +34,7 @@ import { InMemoryGroupRepository } from '../fakes/in-memory-group-repository';
 import { InMemoryRoomRepository } from '../fakes/in-memory-room-repository';
 import { InMemoryTeacherAvailabilityRepository } from '../fakes/in-memory-teacher-availability-repository';
 import { InMemoryTeacherAvailabilityExceptionRepository } from '../fakes/in-memory-teacher-availability-exception-repository';
+import { InMemoryEnrollmentRepository } from '../fakes/in-memory-enrollment-repository';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 
@@ -131,6 +132,7 @@ describe('weekly-session exception × recurrence validity (SOU-287)', () => {
       overrides,
       availability,
       availabilityExceptions,
+      enrollments: new InMemoryEnrollmentRepository(),
       clock,
       plan: new PlanPolicy(PLANS.essentiel),
     });

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Archive, CalendarOff, Clock, DoorClosed, TriangleAlert, Users, UserX } from 'lucide-react';
+import { Archive, CalendarOff, Clock, DoorClosed, GraduationCap, TriangleAlert, Users, UserX } from 'lucide-react';
 import { Badge, type BadgeProps } from '@centresoutien/ui';
 import type { SessionAuditReason } from '../../lib/schedule-audit/stranded-session-view';
 
@@ -31,6 +31,11 @@ const REASON_CONFIG: Record<SessionAuditReason, ReasonConfig> = {
     icon: DoorClosed,
     labelKey: 'scheduleAudit.reason.roomDoubleBooked',
   },
+  'student-double-booked': {
+    variant: 'destructive',
+    icon: GraduationCap,
+    labelKey: 'scheduleAudit.reason.studentDoubleBooked',
+  },
   'room-archived': { variant: 'neutral', icon: Archive, labelKey: 'scheduleAudit.reason.roomArchived' },
   'room-over-capacity': {
     variant: 'warning',
@@ -42,7 +47,8 @@ const REASON_CONFIG: Record<SessionAuditReason, ReasonConfig> = {
 /**
  * Why a session is stranded: the reason badge for one of the SOU-296 taxonomy
  * codes (outside hours, on-holiday, teacher unavailable / double-booked,
- * room double-booked / archived / over capacity).
+ * room double-booked / archived / over capacity, student double-booked across
+ * two group enrollments).
  */
 export function AuditReasonBadge({ reason }: { reason: SessionAuditReason }) {
   const { t } = useTranslation();

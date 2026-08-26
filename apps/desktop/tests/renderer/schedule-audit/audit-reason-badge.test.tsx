@@ -14,6 +14,7 @@ describe('AuditReasonBadge — French labels (SOU-296 full taxonomy)', () => {
     ['outside-teacher-availability', "Hors disponibilités de l'enseignant"],
     ['teacher-double-booked', 'Enseignant déjà occupé'],
     ['room-double-booked', 'Salle déjà occupée'],
+    ['student-double-booked', 'Élève inscrit dans deux groupes en même temps'],
     ['room-archived', 'Salle archivée'],
     ['room-over-capacity', 'Salle en surcapacité'],
   ] as const)('labels %s', (reason, label) => {
@@ -33,6 +34,7 @@ describe('AuditReasonBadge — Arabic labels (SOU-296 full taxonomy)', () => {
     ['outside-teacher-availability', 'خارج أوقات توفر الأستاذ'],
     ['teacher-double-booked', 'الأستاذ محجوز مسبقًا'],
     ['room-double-booked', 'القاعة محجوزة مسبقًا'],
+    ['student-double-booked', 'تلميذ مسجل في مجموعتين في نفس الوقت'],
     ['room-archived', 'القاعة مؤرشفة'],
     ['room-over-capacity', 'القاعة فوق طاقتها'],
   ] as const)('labels %s', (reason, label) => {

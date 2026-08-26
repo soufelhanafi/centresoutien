@@ -110,15 +110,18 @@ export const dayCloseReportViewSchema = z.object({
   ),
 });
 
-// The seven audit reason codes (SOU-296) — mirrors the domain `SessionAuditReason`.
+// The eight audit reason codes (SOU-296) — mirrors the domain `SessionAuditReason`.
 // Mapping to the issue's names: `teacher-unavailable` → `outside-teacher-availability`,
-// `holiday/blackout` → `on-holiday`.
+// `holiday/blackout` → `on-holiday`. `student-double-booked`: a student enrolled in
+// two independent groups whose sessions land at an overlapping date+time — invisible
+// to the room/teacher checks, since a shared student sits outside both resources.
 export const sessionAuditReasonSchema = z.enum([
   'outside-center-hours',
   'on-holiday',
   'outside-teacher-availability',
   'teacher-double-booked',
   'room-double-booked',
+  'student-double-booked',
   'room-archived',
   'room-over-capacity',
 ]);
@@ -137,7 +140,7 @@ export const strandedSessionGroupSchema = z.object({
   key: z.string(),
   reason: sessionAuditReasonSchema,
   weekday: z.number().int().min(0).max(6),
-  resourceKind: z.enum(['room', 'teacher', 'center']),
+  resourceKind: z.enum(['room', 'teacher', 'group', 'center']),
   resourceId: z.string().nullable(),
   count: z.number().int(),
   occurrences: z.array(strandedSessionSchema),

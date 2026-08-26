@@ -4,7 +4,7 @@ import { weekdayOf } from '../value-objects/date-range';
 import type { SessionAuditReason, StrandedSession } from './session-audit-reason';
 
 /** Which resource a finding is anchored to — drives the dedup key and the label. */
-export type StrandedResourceKind = 'room' | 'teacher' | 'center';
+export type StrandedResourceKind = 'room' | 'teacher' | 'group' | 'center';
 
 /**
  * One structural audit problem (SOU-262, re-keyed SOU-296): every stranded
@@ -86,6 +86,8 @@ function primaryResource(
     case 'teacher-double-booked':
     case 'outside-teacher-availability':
       return { kind: 'teacher', id: item.session.teacherId === null ? null : toEntityId(item.session.teacherId) };
+    case 'student-double-booked':
+      return { kind: 'group', id: item.session.groupId === null ? null : toEntityId(item.session.groupId) };
     case 'on-holiday':
     case 'outside-center-hours':
       return { kind: 'center', id: null };

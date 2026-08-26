@@ -6,6 +6,7 @@ import type { EntityId } from '../value-objects/ids';
 import type { GroupId, GroupKind } from '../entities/group';
 import type { TeacherId } from '../entities/teacher';
 import type { RoomId } from '../entities/room';
+import type { StudentId } from '../entities/student';
 import type { ScheduledSessionRef } from '../errors/scheduling-errors';
 import { strictlyOverlaps, type DayHours } from '../policies/session-conflict-policy';
 import { weeklyBlockInFittingWindow, type WeeklyBlock } from '../value-objects/weekly-block';
@@ -85,16 +86,21 @@ export type ScheduledBlockProposal = {
  * One group's proposed weekly pattern plus any gap breaches (always empty in
  * auto mode). `requestedSessionsPerWeek` is `config.sessionsPerWeek` in auto
  * mode (or `pickedWeekdays.length` in custom mode, which never falls short) —
- * the caller compares it against `blocks.length` to detect the SOU-296
- * availability shortfall: auto mode never places a block outside a teacher's
- * declared availability, so a teacher free on fewer days than requested yields
- * fewer blocks than asked for instead of a forced out-of-window placement.
+ * the caller compares it against `blocks.length` to detect a shortfall
+ * (SOU-296): auto mode never places a block outside a teacher's declared
+ * availability or closer together than `minGapDays`, so either constraint can
+ * independently yield fewer blocks than asked for instead of a forced invalid
+ * placement. `shortfallReason` tells the caller which one, since the two need
+ * different remediation (declare more availability vs loosen the spacing or
+ * accept fewer sessions) and a single generic message conflating them is
+ * actively misleading — see {@link SessionGenerator.placeAutoGroup}.
  */
 export type GroupScheduleProposal = {
   readonly groupId: GroupId;
   readonly blocks: readonly ScheduledBlockProposal[];
   readonly gapViolations: readonly WeekdayGap[];
   readonly requestedSessionsPerWeek: number;
+  readonly shortfallReason: 'teacher-availability' | 'min-gap' | null;
 };
 
 /**
@@ -147,6 +153,14 @@ export type SessionGenerationInput = {
    */
   readonly roomCapacities?: ReadonlyMap<RoomId, number>;
   readonly groupCapacities?: ReadonlyMap<GroupId, number>;
+  /**
+   * Live roster (student ids) per scoped group. When present, the final
+   * conflict pass additionally flags a student double-booked across two of
+   * this run's groups (checked only against this run's own candidates, never
+   * the real committed schedule — see {@link detectGeneratedScheduleConflicts}).
+   * Optional: absent reproduces the pre-existing student-blind behavior exactly.
+   */
+  readonly rosterByGroup?: ReadonlyMap<GroupId, readonly StudentId[]>;
 };
 
 /**
@@ -492,6 +506,7 @@ export class SessionGenerator {
       centerHours,
       context.availability,
       context.seatFit,
+      input.rosterByGroup,
     );
     return { proposals, conflicts };
   }
@@ -771,7 +786,7 @@ export class SessionGenerator {
 
     const atRequestedSize = bestAtSize(this.feasibleCombinations(eligiblePool, requested, config.minGapDays));
     if (atRequestedSize !== undefined) {
-      return { groupId, blocks: atRequestedSize, gapViolations: [], requestedSessionsPerWeek: requested };
+      return { groupId, blocks: atRequestedSize, gapViolations: [], requestedSessionsPerWeek: requested, shortfallReason: null };
     }
 
     for (let size = requested - 1; size >= 1; size -= 1) {
@@ -779,11 +794,54 @@ export class SessionGenerator {
       if (combinations.length === 0) continue;
       const blocks = bestAtSize(combinations);
       if (blocks !== undefined) {
-        return { groupId, blocks, gapViolations: [], requestedSessionsPerWeek: requested };
+        return {
+          groupId,
+          blocks,
+          gapViolations: [],
+          requestedSessionsPerWeek: requested,
+          shortfallReason: this.shortfallReason(groupId, requested, blocks.length, config, eligiblePool, context),
+        };
       }
     }
 
-    return { groupId, blocks: [], gapViolations: [], requestedSessionsPerWeek: requested };
+    return {
+      groupId,
+      blocks: [],
+      gapViolations: [],
+      requestedSessionsPerWeek: requested,
+      shortfallReason: this.shortfallReason(groupId, requested, 0, config, eligiblePool, context),
+    };
+  }
+
+  /**
+   * Distinguishes why an auto-mode placement fell short of `requested` (SOU-296):
+   * `'teacher-availability'` when the teacher genuinely doesn't have enough
+   * usable days at all — {@link maxAchievableSessions} (which ignores
+   * `minGapDays` and is a safe upper bound) is itself below `requested` — versus
+   * `'min-gap'` when enough usable days exist but no subset of them spaced
+   * `minGapDays` apart could be found, so the spacing rule alone capped the
+   * count. The two need different remediation (declare more availability vs
+   * loosen the spacing / accept fewer sessions), so the caller must not collapse
+   * them into one generic message.
+   */
+  private shortfallReason(
+    groupId: GroupId,
+    requested: number,
+    achieved: number,
+    config: SessionGeneratorConfigBase,
+    eligiblePool: readonly WeekdayIndex[],
+    context: GroupPlacementContext,
+  ): 'teacher-availability' | 'min-gap' | null {
+    if (achieved >= requested) return null;
+    const achievableDays = this.maxAchievableSessions(
+      groupId,
+      config,
+      eligiblePool,
+      context.windowsByWeekday,
+      context.teacherByGroup,
+      context.availability,
+    );
+    return achievableDays < requested ? 'teacher-availability' : 'min-gap';
   }
 
   private placeCustomGroup(
@@ -796,6 +854,7 @@ export class SessionGenerator {
       blocks: this.roomBlocksForGroup(groupId, config.pickedWeekdays, config, context, context.existingSchedule, [], false),
       gapViolations: gapViolations(config.pickedWeekdays, config.minGapDays),
       requestedSessionsPerWeek: config.pickedWeekdays.length,
+      shortfallReason: null,
     };
   }
 

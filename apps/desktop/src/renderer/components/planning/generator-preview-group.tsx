@@ -29,7 +29,11 @@ export function GeneratorPreviewGroup({
   const { t } = useTranslation();
   const shortfall =
     proposal.blocks.length < proposal.requestedSessionsPerWeek
-      ? { requested: proposal.requestedSessionsPerWeek, generated: proposal.blocks.length }
+      ? {
+          requested: proposal.requestedSessionsPerWeek,
+          generated: proposal.blocks.length,
+          reason: proposal.shortfallReason,
+        }
       : null;
   const hasWarnings = conflicts.length > 0 || proposal.gapViolations.length > 0 || shortfall !== null;
 

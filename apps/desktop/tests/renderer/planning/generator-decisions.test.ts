@@ -16,7 +16,9 @@ function block(over: Partial<GeneratorBlockProposal> = {}): GeneratorBlockPropos
 
 function result(over: Partial<GeneratorPreviewResult> = {}): GeneratorPreviewResult {
   return {
-    proposals: [{ groupId: 'group_1', blocks: [block()], gapViolations: [], requestedSessionsPerWeek: 1 }],
+    proposals: [
+      { groupId: 'group_1', blocks: [block()], gapViolations: [], requestedSessionsPerWeek: 1, shortfallReason: null },
+    ],
     conflicts: [],
     ...over,
   };
@@ -40,6 +42,7 @@ describe('conflictingBlockKeys', () => {
           blocks: [block({ start: '09:00', end: '10:00' }), block({ start: '11:00', end: '12:00' })],
           gapViolations: [],
           requestedSessionsPerWeek: 2,
+          shortfallReason: null,
         },
       ],
       conflicts: [
@@ -59,6 +62,7 @@ describe('conflictingBlockKeys', () => {
           blocks: [block({ roomId: 'room_a' }), block({ roomId: 'room_b' })],
           gapViolations: [],
           requestedSessionsPerWeek: 2,
+          shortfallReason: null,
         },
       ],
       conflicts: [
@@ -80,6 +84,7 @@ describe('conflictingBlockKeys', () => {
           ],
           gapViolations: [],
           requestedSessionsPerWeek: 3,
+          shortfallReason: null,
         },
       ],
       conflicts: [
@@ -110,6 +115,7 @@ describe('buildCommitProposals', () => {
         blocks: [block({ start: '09:00' }), block({ start: '11:00' })],
         gapViolations: [],
         requestedSessionsPerWeek: 2,
+        shortfallReason: null,
       },
     ],
     conflicts: [

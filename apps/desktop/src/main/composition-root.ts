@@ -853,6 +853,7 @@ export function buildContainer(options: ContainerOptions): Container {
     groupRepo,
     studentRepo,
     subscriptionReference,
+    sessionRepo,
     clock,
     ids,
     plan,
@@ -1339,6 +1340,7 @@ export function buildContainer(options: ContainerOptions): Container {
     overrides: centerHoursOverrideRepo,
     availability: teacherAvailabilityRepo,
     availabilityExceptions: teacherAvailabilityExceptionRepo,
+    enrollments: enrollmentRepo,
     clock,
     plan,
   });
@@ -1389,6 +1391,7 @@ export function buildContainer(options: ContainerOptions): Container {
     sessionRepo,
     teacherAvailabilityRepo,
     teacherAvailabilityExceptionRepo,
+    enrollmentRepo,
     new SessionGenerator(new NodeRandomPort()),
     plan,
   );

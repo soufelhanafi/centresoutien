@@ -67,9 +67,11 @@ export type TeacherAvailabilityConflictReason = 'out-of-window' | 'exception';
 /**
  * One classified weekly-session write rejection (SOU-283): a hard blocking
  * `error` (room/teacher double-book, outside hours, malformed time …) or a
- * forceable `warning` (the teacher is placed outside their declared availability).
- * A warning mirrors the SOU-189 double-book force UX — the admin acknowledges it
- * to push the write through with `allowScheduleConflict`.
+ * forceable `warning` — the teacher is placed outside their declared
+ * availability, or a student enrolled in the slot's group also attends another
+ * group whose session overlaps. A warning mirrors the SOU-189 double-book force
+ * UX — the admin acknowledges it to push the write through with
+ * `allowScheduleConflict`.
  */
 export type SessionWriteConflict =
   | { readonly severity: 'error'; readonly code: SessionWriteErrorCode }
@@ -77,7 +79,8 @@ export type SessionWriteConflict =
       readonly severity: 'warning';
       readonly kind: 'teacher-availability';
       readonly reason: TeacherAvailabilityConflictReason | null;
-    };
+    }
+  | { readonly severity: 'warning'; readonly kind: 'student' };
 
 /**
  * The stable domain codes a teacher-availability rejection may carry. The base
@@ -96,9 +99,9 @@ const TEACHER_AVAILABILITY_CODE_TO_REASON: Readonly<
 
 /**
  * Classifies a caught weekly-session write rejection (SOU-283): a forceable
- * teacher-availability `warning`, a hard `error` the form surfaces inline, or
- * `null` for an unrelated failure the caller toasts generically. One write raises
- * one conflict.
+ * teacher-availability or student `warning`, a hard `error` the form surfaces
+ * inline, or `null` for an unrelated failure the caller toasts generically. One
+ * write raises one conflict.
  */
 export function classifySessionWriteError(error: unknown): SessionWriteConflict | null {
   const code = resolveDomainErrorCode(error);
@@ -106,6 +109,9 @@ export function classifySessionWriteError(error: unknown): SessionWriteConflict 
   const availabilityReason = TEACHER_AVAILABILITY_CODE_TO_REASON[code];
   if (availabilityReason !== undefined) {
     return { severity: 'warning', kind: 'teacher-availability', reason: availabilityReason };
+  }
+  if (code === 'student-double-booked') {
+    return { severity: 'warning', kind: 'student' };
   }
   const rendererCode = DECODED_CODE_TO_RENDERER_CODE[code];
   return rendererCode ? { severity: 'error', code: rendererCode } : null;

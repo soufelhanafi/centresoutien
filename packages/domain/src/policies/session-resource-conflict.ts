@@ -1,18 +1,20 @@
 import type { SessionOccurrenceView } from '../read-models/session-occurrence-view';
 import type { GroupId } from '../entities/group';
+import type { StudentId } from '../entities/student';
 import { strictlyOverlaps } from './session-conflict-policy';
 
 /**
- * The room/teacher resource-conflict checks the standing audit (SOU-296) runs
- * against the LIVE committed schedule. Split out of `session-audit-reason` so
- * the taxonomy file stays under the size ceiling. All three reuse the same
+ * The room/teacher/student resource-conflict checks the standing audit (SOU-296)
+ * runs against the LIVE committed schedule. Split out of `session-audit-reason` so
+ * the taxonomy file stays under the size ceiling. All of them reuse the same
  * overlap / seat-fit primitives interactive scheduling trusts — never a parallel
  * reimplementation.
  *
- * The double-book checks are driven by a pre-built index ({@link buildResourceScheduleIndex})
- * instead of a linear scan, so an N-occurrence audit stays O(N) rather than O(N²):
- * each session only inspects the handful of occurrences sharing its exact
- * `(date, resource)` bucket, never the whole schedule.
+ * The double-book checks are driven by a pre-built index ({@link buildResourceScheduleIndex},
+ * {@link buildStudentScheduleByDate}) instead of a linear scan, so an
+ * N-occurrence audit stays O(N) rather than O(N²): each session only inspects
+ * the handful of occurrences sharing its exact `(date, resource)` bucket, never
+ * the whole schedule.
  */
 
 /** Sessions keyed by `date\u0000resourceId`, for the two double-book lookups. */
@@ -86,4 +88,49 @@ export function isTeacherDoubleBooked(
   if (session.teacherId === null) return false;
   const bucket = byDateTeacher.get(teacherKeyOf(session)) ?? [];
   return bucket.some((other) => other.id !== session.id && strictlyOverlaps(session, other));
+}
+
+const studentKeyOf = (date: string, studentId: StudentId): string => `${date}\u0000${studentId}`;
+
+/**
+ * Indexes the live schedule by `(date, studentId)`, one entry per roster member
+ * of the session's group — the student-conflict counterpart of
+ * {@link buildResourceScheduleIndex}. A group absent from `rosterByGroup` (or
+ * with no live enrollment) contributes nothing.
+ */
+export function buildStudentScheduleByDate(
+  liveSchedule: readonly SessionOccurrenceView[],
+  rosterByGroup: ReadonlyMap<GroupId, readonly StudentId[]>,
+): ReadonlyMap<string, readonly SessionOccurrenceView[]> {
+  const byDateStudent = new Map<string, SessionOccurrenceView[]>();
+  for (const session of liveSchedule) {
+    if (session.groupId === null) continue;
+    for (const studentId of rosterByGroup.get(session.groupId) ?? []) {
+      const key = studentKeyOf(session.date, studentId);
+      const bucket = byDateStudent.get(key);
+      if (bucket === undefined) byDateStudent.set(key, [session]);
+      else bucket.push(session);
+    }
+  }
+  return byDateStudent;
+}
+
+/**
+ * A student on this session's roster also attends another live occurrence
+ * (a different group) on the same civil date, overlapping this one's time —
+ * the case room and teacher checks can never catch, since a shared student sits
+ * outside both resources. Looked up via the `(date, studentId)` index, same
+ * pattern as {@link isRoomDoubleBooked}/{@link isTeacherDoubleBooked}.
+ */
+export function isStudentDoubleBooked(
+  session: SessionOccurrenceView,
+  rosterByGroup: ReadonlyMap<GroupId, readonly StudentId[]>,
+  byDateStudent: ReadonlyMap<string, readonly SessionOccurrenceView[]>,
+): boolean {
+  if (session.groupId === null) return false;
+  const roster = rosterByGroup.get(session.groupId) ?? [];
+  return roster.some((studentId) => {
+    const bucket = byDateStudent.get(studentKeyOf(session.date, studentId)) ?? [];
+    return bucket.some((other) => other.groupId !== session.groupId && strictlyOverlaps(session, other));
+  });
 }

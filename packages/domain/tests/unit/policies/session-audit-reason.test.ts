@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { auditReasonsFor, type SessionAuditContext } from '../../../src/policies/session-audit-reason';
-import { buildResourceScheduleIndex } from '../../../src/policies/session-resource-conflict';
+import { buildResourceScheduleIndex, buildStudentScheduleByDate } from '../../../src/policies/session-resource-conflict';
 import type { SessionOccurrenceView } from '../../../src/read-models/session-occurrence-view';
 import type { SessionId } from '../../../src/entities/session';
 import type { WeeklyRecurringSessionId } from '../../../src/entities/weekly-recurring-session';
 import type { RoomId } from '../../../src/entities/room';
 import type { GroupId } from '../../../src/entities/group';
+import type { StudentId } from '../../../src/entities/student';
 import type { SubjectId } from '../../../src/entities/subject';
 import type { HolidayId } from '../../../src/entities/holiday';
 import type { EntityId } from '../../../src/value-objects/ids';
@@ -19,6 +20,8 @@ import type { TimeWindow } from '../../../src/value-objects/time-window';
 const ROOM = 'rom_00000000000000000000000001' as RoomId;
 const OTHER_ROOM = 'rom_00000000000000000000000002' as RoomId;
 const GROUP = 'grp_00000000000000000000000001' as GroupId;
+const OTHER_GROUP = 'grp_00000000000000000000000002' as GroupId;
+const STUDENT = 'stu_00000000000000000000000001' as StudentId;
 const SUBJECT = 'sub_00000000000000000000000001' as SubjectId;
 const TEACHER = 'tch_00000000000000000000000001' as EntityId;
 const OTHER_TEACHER = 'tch_00000000000000000000000002' as EntityId;
@@ -63,11 +66,13 @@ function fixedHoliday(date: string): HolidayOccurrence {
 }
 
 function context(
-  over: Partial<Omit<SessionAuditContext, 'roomScheduleIndex' | 'teacherScheduleIndex'>> & {
+  over: Partial<
+    Omit<SessionAuditContext, 'roomScheduleIndex' | 'teacherScheduleIndex' | 'studentScheduleIndex'>
+  > & {
     liveSchedule?: readonly SessionOccurrenceView[];
   } = {},
 ): SessionAuditContext {
-  const { liveSchedule = [], ...rest } = over;
+  const { liveSchedule = [], rosterByGroup = new Map(), ...rest } = over;
   const { byDateRoom, byDateTeacher } = buildResourceScheduleIndex(liveSchedule);
   return {
     holidays: [],
@@ -77,6 +82,8 @@ function context(
     roomScheduleIndex: byDateRoom,
     teacherScheduleIndex: byDateTeacher,
     enrollmentByGroup: new Map(),
+    rosterByGroup,
+    studentScheduleIndex: buildStudentScheduleByDate(liveSchedule, rosterByGroup),
     ...rest,
   };
 }
@@ -159,6 +166,36 @@ describe('auditReasonsFor', () => {
     const session = occurrence({ teacherId: TEACHER });
     const other = occurrence({ teacherId: OTHER_TEACHER, roomId: OTHER_ROOM, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
     expect(auditReasonsFor(session, context({ liveSchedule: [other] }))).toEqual([]);
+  });
+
+  it('flags student-double-booked when a shared student attends two overlapping groups the same date', () => {
+    const session = occurrence({ groupId: GROUP, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
+    const other = occurrence({ groupId: OTHER_GROUP, roomId: OTHER_ROOM, start: '10:00' as TimeOfDay, end: '11:00' as TimeOfDay });
+    const rosterByGroup = new Map([
+      [GROUP, [STUDENT]],
+      [OTHER_GROUP, [STUDENT]],
+    ]);
+    expect(auditReasonsFor(session, context({ liveSchedule: [other], rosterByGroup }))).toEqual([
+      'student-double-booked',
+    ]);
+  });
+
+  it('does not flag student-double-booked when no roster member is shared', () => {
+    const otherStudent = 'stu_00000000000000000000000002' as StudentId;
+    const session = occurrence({ groupId: GROUP, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
+    const other = occurrence({ groupId: OTHER_GROUP, roomId: OTHER_ROOM, start: '10:00' as TimeOfDay, end: '11:00' as TimeOfDay });
+    const rosterByGroup = new Map([
+      [GROUP, [STUDENT]],
+      [OTHER_GROUP, [otherStudent]],
+    ]);
+    expect(auditReasonsFor(session, context({ liveSchedule: [other], rosterByGroup }))).toEqual([]);
+  });
+
+  it('does not flag student-double-booked against the same group', () => {
+    const session = occurrence({ groupId: GROUP, start: '09:00' as TimeOfDay, end: '10:30' as TimeOfDay });
+    const other = occurrence({ groupId: GROUP, roomId: OTHER_ROOM, start: '10:00' as TimeOfDay, end: '11:00' as TimeOfDay });
+    const rosterByGroup = new Map([[GROUP, [STUDENT]]]);
+    expect(auditReasonsFor(session, context({ liveSchedule: [other], rosterByGroup }))).toEqual([]);
   });
 
   it('gathers every reason that applies at once (no precedence)', () => {

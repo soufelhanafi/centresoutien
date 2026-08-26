@@ -92,7 +92,7 @@ export class UpdateWeeklyRecurringSession {
 
     const forced = input.allowScheduleConflict === true;
     if (!forced) {
-      await this.validator.assertSlotFree(input.centerCode, toScheduleCandidate(slot), input.id);
+      await this.validator.assertSlotFree(input.centerCode, toScheduleCandidate(slot), slot.groupId, input.id);
     }
 
     return this.applyEdit(existing, slot, fields, forced, input.updatedBy);

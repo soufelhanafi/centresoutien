@@ -74,6 +74,15 @@ export interface EnrollmentRepository
    */
   countActiveByGroups(groupIds: readonly GroupId[]): Promise<ReadonlyMap<GroupId, number>>;
   /**
+   * Live roster (student ids only) for **many** groups in one query — the batch
+   * behind cross-group scheduling checks (a student double-booked across two
+   * group enrollments), so a center-wide sweep never fans out one
+   * {@link listActiveByGroup} per group (an N+1). Returns a map keyed by group
+   * id; a group with **no** live enrollment is absent from the map, mirroring
+   * {@link countActiveByGroups}.
+   */
+  listActiveStudentIdsByGroups(groupIds: readonly GroupId[]): Promise<ReadonlyMap<GroupId, readonly StudentId[]>>;
+  /**
    * Whether the student already holds a **live** (non-tombstoned) enrollment in
    * the group — the duplicate-enrollment guard (SOU-123). `(studentId, groupId)`
    * is the idempotency key: a soft-deleted (unenrolled) row does not count, so

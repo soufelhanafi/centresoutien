@@ -68,14 +68,37 @@ function conflictToWarning(conflict: GeneratorConflict, deps: WarningDeps): read
       },
     ];
   }
+  if (conflict.kind === 'student') {
+    return [
+      `student|${slot}`,
+      {
+        text: t('planning.generator.warnings.student', {
+          count: conflict.conflicts.length,
+          day: weekday(conflict.dayOfWeek),
+        }),
+        blocking: false,
+      },
+    ];
+  }
   return [
     `room|${slot}|${conflict.roomId}`,
     { text: t('planning.generator.warnings.room', { room: roomName(conflict.roomId), day: weekday(conflict.dayOfWeek) }), blocking: false },
   ];
 }
 
-/** A group generated fewer sessions than requested (SOU-296) — always the teacher's availability. */
-export type GeneratorSessionShortfall = { readonly requested: number; readonly generated: number };
+/**
+ * A group generated fewer sessions than requested (SOU-296). `reason` names why,
+ * since the two causes need different remediation and must not share one
+ * message: `'teacher-availability'` — the teacher doesn't have enough usable
+ * days at all; `'min-gap'` — enough usable days exist, but no subset of them
+ * respects the run's minimum spacing between sessions. `null` only when the
+ * domain hasn't classified it (defensive; every real shortfall carries a reason).
+ */
+export type GeneratorSessionShortfall = {
+  readonly requested: number;
+  readonly generated: number;
+  readonly reason: 'teacher-availability' | 'min-gap' | null;
+};
 
 /** Structurally-deduped warning lines for one proposal's conflicts + min-gap breaches + session shortfall. */
 function buildWarningLines(
@@ -96,8 +119,12 @@ function buildWarningLines(
     });
   }
   if (shortfall !== null) {
+    const messageKey =
+      shortfall.reason === 'min-gap'
+        ? 'planning.generator.warnings.sessionCountMinGap'
+        : 'planning.generator.warnings.sessionCountAvailability';
     lineByKey.set(`session-count|${shortfall.generated}|${shortfall.requested}`, {
-      text: deps.t('planning.generator.warnings.sessionCount', {
+      text: deps.t(messageKey, {
         actual: shortfall.generated,
         requested: shortfall.requested,
       }),
@@ -109,11 +136,11 @@ function buildWarningLines(
 
 /**
  * The warnings for one group's proposal (SOU-161): center-hours overruns, room /
- * teacher double-bookings, min-gap breaches, and — SOU-275 — a seat-overflow
- * "capacity" conflict. Most are informational (the admin decides whether to adjust
- * the config or force them in); a capacity conflict is a hard block, rendered in a
- * distinct destructive treatment because it can never be committed. Renders
- * nothing when the proposal is clean.
+ * teacher / student double-bookings, min-gap breaches, and — SOU-275 — a
+ * seat-overflow "capacity" conflict. Most are informational (the admin decides
+ * whether to adjust the config or force them in); a capacity conflict is a hard
+ * block, rendered in a distinct destructive treatment because it can never be
+ * committed. Renders nothing when the proposal is clean.
  */
 export function GeneratorWarnings({
   conflicts,
