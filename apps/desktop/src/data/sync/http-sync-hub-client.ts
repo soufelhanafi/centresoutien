@@ -98,7 +98,7 @@ export class HttpSyncHubClient implements SyncHubPort {
       },
     );
     this.expectOk(response);
-    const batch = batchSchema.safeParse(await this.readJson(response));
+    const batch = batchSchema.safeParse(this.parseJson(response));
     if (!batch.success) {
       throw new HubTransportError('bad-response', 'The sync hub sent a malformed change batch.');
     }
@@ -120,11 +120,11 @@ export class HttpSyncHubClient implements SyncHubPort {
       }),
     });
     if (response.status === 409) {
-      const body = (await this.readJson(response)) as { deviceSchema?: number; requiredSchema?: number };
+      const body = this.parseJson(response) as { deviceSchema?: number; requiredSchema?: number };
       throw new SchemaTooOldError(body.deviceSchema ?? 0, body.requiredSchema ?? 0);
     }
     this.expectOk(response);
-    const result = pushResultSchema.safeParse(await this.readJson(response));
+    const result = pushResultSchema.safeParse(this.parseJson(response));
     if (!result.success) {
       throw new HubTransportError('bad-response', 'The sync hub sent a malformed push result.');
     }
@@ -137,7 +137,7 @@ export class HttpSyncHubClient implements SyncHubPort {
       { method: 'GET' },
     );
     this.expectOk(response);
-    const parsed = cursorResponseSchema.safeParse(await this.readJson(response));
+    const parsed = cursorResponseSchema.safeParse(this.parseJson(response));
     if (!parsed.success) {
       throw new HubTransportError('bad-response', 'The sync hub sent a malformed cursor response.');
     }
@@ -146,14 +146,21 @@ export class HttpSyncHubClient implements SyncHubPort {
 
   /**
    * Network failure + timeout + auth rejection are transport errors; everything
-   * else returns for the caller to decode (409 = schema handshake).
+   * else is returned for the caller to decode (409 = schema handshake).
+   *
+   * The timeout must cover the whole exchange, body included: `fetch` resolves
+   * the moment response headers arrive, so a hub that sends headers and then
+   * stalls mid-body (the other laptop went to sleep, WiFi dropped between the two)
+   * would leave the body read hanging forever if the timer were cleared at
+   * headers — the sync spinner spins with no progress until the app is killed.
+   * The body is therefore drained here under the same abort signal, and the timer
+   * is cleared only once the bytes are in hand.
    */
-  private async request(path: string, init: { method: string; body?: string }): Promise<Response> {
+  private async request(path: string, init: { method: string; body?: string }): Promise<HubResponse> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-    let response: Response;
     try {
-      response = await this.fetchImpl(`${this.baseUrl}/hub/v1${path}`, {
+      const response = await this.fetchImpl(`${this.baseUrl}/hub/v1${path}`, {
         ...init,
         headers: {
           'content-type': 'application/json',
@@ -161,7 +168,16 @@ export class HttpSyncHubClient implements SyncHubPort {
         },
         signal: controller.signal,
       });
+      if (response.status === 401) {
+        throw new HubTransportError(
+          'unauthorized',
+          'The sync hub rejected this device: bad pairing token for the center.',
+        );
+      }
+      const rawBody = await response.text();
+      return { status: response.status, ok: response.ok, rawBody };
     } catch (cause) {
+      if (cause instanceof HubTransportError) throw cause;
       const message = controller.signal.aborted
         ? `The sync hub at ${this.baseUrl} did not answer in time.`
         : `Cannot reach the sync hub at ${this.baseUrl}.`;
@@ -169,29 +185,25 @@ export class HttpSyncHubClient implements SyncHubPort {
     } finally {
       clearTimeout(timeout);
     }
-    if (response.status === 401) {
-      throw new HubTransportError(
-        'unauthorized',
-        'The sync hub rejected this device: bad pairing token for the center.',
-      );
-    }
-    return response;
   }
 
-  private async readJson(response: Response): Promise<unknown> {
+  private parseJson(response: HubResponse): unknown {
     try {
-      return (await response.json()) as unknown;
+      return JSON.parse(response.rawBody) as unknown;
     } catch {
       throw new HubTransportError('bad-response', `The sync hub sent a non-JSON body (HTTP ${response.status}).`);
     }
   }
 
-  private expectOk(response: Response): void {
+  private expectOk(response: HubResponse): void {
     if (!response.ok) {
       throw new HubTransportError('bad-response', `The sync hub answered HTTP ${response.status}.`);
     }
   }
 }
+
+/** A hub HTTP exchange whose body was fully drained inside the request timeout. */
+type HubResponse = { status: number; ok: boolean; rawBody: string };
 
 /** Revive the protocol-level timestamps only; entity payload dates stay strings. */
 function reviveBatch(batch: z.infer<typeof batchSchema>): ChangeBatch {
