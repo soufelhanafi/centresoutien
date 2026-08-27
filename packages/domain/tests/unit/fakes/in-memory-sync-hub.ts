@@ -64,20 +64,28 @@ export class InMemorySyncHub implements SyncHubPort {
     centreId: CenterCode,
     cursor: SyncCursor | null,
     deviceId: DeviceId,
+    limit?: number,
   ): Promise<ChangeBatch> {
     const key = this.cursorKey(deviceId, centreId);
     // A null cursor always means "from the head" — never a stored per-device
     // cursor, so a fresh install replays the whole feed (SOU-80 §3).
     const start = cursor?.seq ?? 0;
     const feed = this.feedOf(centreId);
-    const changes = feed.filter((change) => change.seq > start);
-    const nextCursor = { seq: feed.length };
+    const after = feed.filter((change) => change.seq > start);
+    const cap = limit && limit > 0 ? limit : after.length;
+    const changes = after.slice(0, cap);
+    // Cursor is the position AFTER the last delivered change — a chunked pull
+    // resumes exactly here — and `remaining` is what is still queued past it.
+    const lastSeq = changes.length > 0 ? (changes[changes.length - 1]?.seq ?? start) : start;
+    const nextCursor = { seq: lastSeq };
+    const remaining = after.length - changes.length;
     this.cursors.set(key, nextCursor);
     return {
       changes,
       cursor: nextCursor,
       schemaVersion: this.schemaVersion,
       hubTime: this.clock.now(),
+      remaining,
     };
   }
 

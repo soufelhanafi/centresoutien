@@ -40,6 +40,36 @@ import type { UserCredentialDuplicate, UserCredentialDuplicateStore } from './us
 export const MAX_SYNC_ATTEMPTS = 5;
 export const CLOCK_SKEW_THRESHOLD_MS = 15 * 60 * 1000;
 
+/**
+ * Feed rows pulled per hub round-trip. A first sync of a large center streams in
+ * chunks this size (each advancing and persisting the cursor) instead of one
+ * unbounded response: a stall costs one chunk, not the whole transfer, and the
+ * cursor persisted after every chunk makes the pull resumable across restarts.
+ */
+export const DEFAULT_PULL_LIMIT = 500;
+
+/** Live progress of the pull phase — feed rows received so far vs the total. */
+export type SyncProgress = {
+  /** Feed rows received and applied so far this run. */
+  readonly pulled: number;
+  /** Total feed rows this run will pull (received so far + still queued on the hub). */
+  readonly total: number;
+};
+
+/**
+ * Per-run controls (SOU-330). All optional, so the plain `run(matcher)` call is
+ * unchanged. `onProgress` fires once per pulled chunk for a live "X / Y" bar;
+ * `shouldStop` is polled at each chunk boundary so a human can pause a long
+ * first import — a paused run persists its cursor and resumes from there next
+ * time (applies are idempotent, so a re-pulled chunk is a no-op). `pullLimit`
+ * overrides {@link DEFAULT_PULL_LIMIT}.
+ */
+export type SyncRunOptions = {
+  readonly onProgress?: (progress: SyncProgress) => void;
+  readonly shouldStop?: () => boolean;
+  readonly pullLimit?: number;
+};
+
 export type SyncEngineInput = {
   hub: SyncHubPort;
   local: LocalSyncRepository;
@@ -85,7 +115,12 @@ export type SyncEngineInput = {
 };
 
 export type SyncResult = {
-  readonly status: 'synced' | 'retries-exhausted';
+  /**
+   * `paused` (SOU-330): a human stopped a long import at a chunk boundary. The
+   * cursor is persisted, so the next run resumes from there — it is not a
+   * failure and never loses data.
+   */
+  readonly status: 'synced' | 'retries-exhausted' | 'paused';
   /** Entities applied or auto-merged from the pull. */
   readonly applied: number;
   /** Entities pushed and accepted by the hub. */
@@ -150,7 +185,7 @@ export class SyncEngine {
     );
   }
 
-  async run(matcher: DuplicateMatcher): Promise<SyncResult> {
+  async run(matcher: DuplicateMatcher, options: SyncRunOptions = {}): Promise<SyncResult> {
     this.plan.require('sync.multi-device');
 
     const conflicts: SyncConflict[] = [];
@@ -160,7 +195,12 @@ export class SyncEngine {
     const userCredentialDuplicates: UserCredentialDuplicate[] = [];
     let applied = 0;
     let pushed = 0;
+    let pulled = 0;
     let deviceClockSkew = false;
+    const pullLimit = options.pullLimit && options.pullLimit > 0 ? options.pullLimit : DEFAULT_PULL_LIMIT;
+
+    const finish = (status: SyncResult['status'], cursor: SyncCursor | null): SyncResult =>
+      this.result(status, applied, pushed, conflicts, collisions, dedups, reversalDedups, userCredentialDuplicates, cursor, deviceClockSkew);
 
     // The device's own cursor is the source of truth. A fresh install (empty
     // local DB) has no cursor and pulls from 0 — the hub's per-device cursor is
@@ -169,36 +209,51 @@ export class SyncEngine {
     let cursor = this.local.getCursor();
 
     for (let attempt = 0; attempt < this.maxAttempts; attempt++) {
-      const batch = await this.hub.pullChanges(this.centreId, cursor, this.deviceId);
-      if (batch.schemaVersion > SCHEMA_VERSION) {
-        // Too old to write. Pull is additive-safe, but a too-old device cannot
-        // round-trip shapes other devices already wrote — stop before it diverges.
-        throw new SchemaTooOldError(SCHEMA_VERSION, batch.schemaVersion);
+      // PULL PHASE — one chunk per round-trip, the cursor persisted after each so
+      // a stall or a human pause costs one chunk, never the whole transfer, and
+      // the next run resumes from where this one stopped.
+      for (;;) {
+        const batch = await this.hub.pullChanges(this.centreId, cursor, this.deviceId, pullLimit);
+        if (batch.schemaVersion > SCHEMA_VERSION) {
+          // Too old to write. Pull is additive-safe, but a too-old device cannot
+          // round-trip shapes other devices already wrote — stop before it diverges.
+          throw new SchemaTooOldError(SCHEMA_VERSION, batch.schemaVersion);
+        }
+        deviceClockSkew = deviceClockSkew || this.isClockSkewed(batch.hubTime);
+
+        applied += this.resolver.resolveBatch(batch.changes, matcher, {
+          conflicts,
+          subjectCodeCollisions: collisions,
+          sessionDedups: dedups,
+          reversalDedups,
+          userCredentialDuplicates,
+        });
+        pulled += batch.changes.length;
+        cursor = batch.cursor;
+        this.local.setCursor(cursor);
+        options.onProgress?.({ pulled, total: pulled + batch.remaining });
+
+        // Drained the feed (or an empty answer we can't advance past) — push next.
+        if (batch.remaining <= 0 || batch.changes.length === 0) break;
+        // Pause only between chunks: the cursor is already persisted, so this is a
+        // clean, resumable stop — never mid-push.
+        if (options.shouldStop?.()) return finish('paused', cursor);
       }
-      deviceClockSkew = deviceClockSkew || this.isClockSkewed(batch.hubTime);
 
-      applied += this.resolver.resolveBatch(batch.changes, matcher, {
-        conflicts,
-        subjectCodeCollisions: collisions,
-        sessionDedups: dedups,
-        reversalDedups,
-        userCredentialDuplicates,
-      });
-
-      const push = await this.pushPending(batch.cursor);
+      const push = await this.pushPending(cursor ?? { seq: 0 });
       pushed += push.pushed;
       if (push.status === 'accepted') {
         this.local.setCursor(push.cursor);
-        return this.result('synced', applied, pushed, conflicts, collisions, dedups, reversalDedups, userCredentialDuplicates, push.cursor, deviceClockSkew);
+        return finish('synced', push.cursor);
       }
       // Rejected-stale: a concurrent sync won the version race for some entity.
-      // Cursor is unchanged, so the next pull re-delivers the winning change and
-      // this device re-resolves (idempotent via the version skip in the resolver).
-      cursor = push.cursor;
+      // Re-pull from the persisted local cursor — the winner's rows sit beyond it
+      // — and re-resolve (idempotent via the version skip in the resolver).
+      cursor = this.local.getCursor();
     }
 
     this.local.setCursor(cursor ?? { seq: 0 });
-    return this.result('retries-exhausted', applied, pushed, conflicts, collisions, dedups, reversalDedups, userCredentialDuplicates, cursor, deviceClockSkew);
+    return finish('retries-exhausted', cursor);
   }
 
   private result(

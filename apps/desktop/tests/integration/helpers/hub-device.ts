@@ -78,6 +78,11 @@ export class HubDevice {
     return { applied: result.applied, pushed: result.pushed };
   }
 
+  /** Run one cycle with explicit run options (chunk limit, progress, pause). */
+  syncWith(options: Parameters<SyncEngine['run']>[1]): ReturnType<SyncEngine['run']> {
+    return this.engine.run(NO_DUPLICATES, options);
+  }
+
   entity(entityType: string, entityId: EntityId): Record<string, unknown> | null {
     return this.local.entity(entityType, entityId);
   }

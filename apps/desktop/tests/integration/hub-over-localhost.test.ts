@@ -424,6 +424,39 @@ describe('embedded hub over localhost (SOU-90)', () => {
     expect(() => db.prepare("UPDATE hub_feed SET op = 'delete'").run()).toThrow(/append-only/);
   });
 
+  it('serves a large feed in bounded chunks with a decreasing remaining count (SOU-330)', async () => {
+    const pusher = clientFor();
+    for (const id of [S1, S2, S3]) {
+      await pusher.pushChanges({
+        centreId: CENTER,
+        deviceId: DEV_A,
+        changes: [change(id, 0)],
+        schemaVersion: SCHEMA_VERSION,
+      });
+    }
+
+    const reader = clientFor();
+    const first = await reader.pullChanges(CENTER, null, DEV_B, 2);
+    expect(first.changes.map((c) => c.entityId)).toEqual([S1, S2]);
+    expect(first.cursor).toEqual({ seq: 2 });
+    expect(first.remaining).toBe(1);
+
+    const second = await reader.pullChanges(CENTER, first.cursor, DEV_B, 2);
+    expect(second.changes.map((c) => c.entityId)).toEqual([S3]);
+    expect(second.cursor).toEqual({ seq: 3 });
+    expect(second.remaining).toBe(0);
+
+    // A device that chunks its pull (limit 1) still converges on the whole feed.
+    const chunked = new HubDevice({ hub: clientFor(), clock, deviceId: DEV_H, updatedBy: USER_H });
+    const progress: number[] = [];
+    const engineResult = await chunked.syncWith({ pullLimit: 1, onProgress: (p) => progress.push(p.total) });
+    expect(engineResult.status).toBe('synced');
+    expect(engineResult.applied).toBe(3);
+    expect(chunked.entity('students', S1)?.['version']).toBe(1);
+    expect(chunked.entity('students', S3)?.['version']).toBe(1);
+    expect(progress).toEqual([3, 3, 3]);
+  });
+
   it('refuses a second center on a store already bound to one', async () => {
     store.registerCenter(CENTER, TOKEN, AT);
     expect(() => store.tokenFor('CS-OTHER-999' as CenterCode)).toThrow(/bound to center CS-CASA-001/);

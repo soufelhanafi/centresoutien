@@ -37,9 +37,18 @@ export const INSERT_FEED_SQL = `
      @device_id, @updated_by, @device_seq, @received_at)
 `;
 
-/** Everything accepted since a cursor, oldest first — the delta feed slice. */
+/**
+ * Everything accepted since a cursor, oldest first, capped at `?` rows — the
+ * delta feed slice for one chunked pull. SQLite treats `LIMIT -1` as unbounded,
+ * so a non-positive cap means "the whole feed" (the legacy single-shot pull).
+ */
 export const SELECT_FEED_AFTER_SQL = `
-  SELECT * FROM hub_feed WHERE centre_id = ? AND seq > ? ORDER BY seq
+  SELECT * FROM hub_feed WHERE centre_id = ? AND seq > ? ORDER BY seq LIMIT ?
+`;
+
+/** How many rows are still queued past a cursor — the `remaining` progress total. */
+export const COUNT_FEED_AFTER_SQL = `
+  SELECT COUNT(*) AS n FROM hub_feed WHERE centre_id = ? AND seq > ?
 `;
 
 /** The current feed head — cursors and deltas are sliced on it. */

@@ -201,7 +201,8 @@ export class HubServer {
       return;
     }
     const cursor = parsed.data.cursor ?? null;
-    this.send(res, 200, this.store.pull(centreId, cursor, parsed.data.deviceId as DeviceId));
+    const limit = parsed.data.limit ?? undefined;
+    this.send(res, 200, this.store.pull(centreId, cursor, parsed.data.deviceId as DeviceId, limit));
   }
 
   private async handlePush(req: IncomingMessage, res: ServerResponse, centreId: CenterCode): Promise<void> {

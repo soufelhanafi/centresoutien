@@ -20,6 +20,13 @@ export type HubRoute = { centreId: CenterCode; action: HubRouteAction };
 export const MAX_REQUEST_BODY_BYTES = 2 * 1024 * 1024;
 
 /**
+ * Hard ceiling on a pull chunk (SOU-330). A client sets the chunk size, but the
+ * hub caps it so one request can never be asked to materialize an unbounded
+ * slice of the feed — the whole point of chunking. Well above the 500 default.
+ */
+export const MAX_PULL_LIMIT = 5000;
+
+/**
  * Boundary validation (SOU-90 review Major 1). The renderer-input-via-IPC rule
  * applies here too: a token-holding but buggy/hostile LAN device is untrusted,
  * so every field that lands in a store query is Zod-validated BEFORE use. A
@@ -45,6 +52,8 @@ export type WireLocalChange = z.infer<typeof wireChangeSchema>;
 export const pullBodySchema = z.object({
   deviceId: z.string().min(1),
   cursor: z.object({ seq: z.number().int().nonnegative() }).nullish(),
+  /** Chunk cap (SOU-330). Omitted / non-positive = the legacy whole-feed pull. */
+  limit: z.number().int().positive().max(MAX_PULL_LIMIT).nullish(),
 });
 
 export const pushBodySchema = z.object({

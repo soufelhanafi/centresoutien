@@ -75,7 +75,7 @@ export const userCredentialDuplicateViewSchema = z.object({
 });
 
 export const syncResultViewSchema = z.object({
-  status: z.enum(['synced', 'retries-exhausted']),
+  status: z.enum(['synced', 'retries-exhausted', 'paused']),
   applied: z.number().int().nonnegative(),
   pushed: z.number().int().nonnegative(),
   conflicts: z.array(syncConflictViewSchema),

@@ -14,9 +14,9 @@ import {
   type SyncCursor,
 } from '@centresoutien/domain';
 import {
+  COUNT_FEED_AFTER_SQL,
   hubFeedRowToChange,
   INSERT_FEED_SQL,
-  MAX_FEED_SEQ_SQL,
   SELECT_FEED_AFTER_SQL,
   type HubFeedRow,
 } from './hub-feed';
@@ -61,7 +61,7 @@ export type PushInput = {
 export interface HubStorePort {
   registerCenter(centreId: CenterCode, token: string, now: Date): void;
   tokenFor(centreId: CenterCode): string | null;
-  pull(centreId: CenterCode, cursor: SyncCursor | null, deviceId: DeviceId): ChangeBatch;
+  pull(centreId: CenterCode, cursor: SyncCursor | null, deviceId: DeviceId, limit?: number): ChangeBatch;
   push(input: PushInput): PushResult;
   cursorFor(deviceId: DeviceId, centreId: CenterCode): SyncCursor | null;
   close(): void;
@@ -125,22 +125,28 @@ export class SqliteHubStore implements HubStorePort {
   }
 
   /**
-   * Everything the hub accepted since `cursor` (from 0 when null), plus the
-   * device's new cursor. Updates the hub's own cursor bookkeeping for
-   * `(deviceId, centreId)` — the device's local cursor stays the source of
-   * truth; the hub's copy is for retention/compaction decisions.
+   * Up to `limit` writes the hub accepted since `cursor` (from 0 when null, no
+   * cap when `limit` is non-positive), plus the device's new cursor — the
+   * position AFTER the last delivered row, so a chunked pull resumes exactly
+   * there — and `remaining`, how many rows are still queued past it. Updates the
+   * hub's own cursor bookkeeping for `(deviceId, centreId)`; the device's local
+   * cursor stays the source of truth (the hub's copy drives retention/compaction).
    */
-  pull(centreId: CenterCode, cursor: SyncCursor | null, deviceId: DeviceId): ChangeBatch {
+  pull(centreId: CenterCode, cursor: SyncCursor | null, deviceId: DeviceId, limit?: number): ChangeBatch {
     this.assertCentre(centreId);
     const start = cursor?.seq ?? 0;
-    const rows = this.db.prepare(SELECT_FEED_AFTER_SQL).all(centreId, start) as HubFeedRow[];
-    const nextCursor = this.feedHead(centreId);
+    const cap = limit && limit > 0 ? limit : -1;
+    const rows = this.db.prepare(SELECT_FEED_AFTER_SQL).all(centreId, start, cap) as HubFeedRow[];
+    const lastSeq = rows.length > 0 ? (rows[rows.length - 1]?.seq ?? start) : start;
+    const nextCursor: SyncCursor = { seq: lastSeq };
+    const { n: remaining } = this.db.prepare(COUNT_FEED_AFTER_SQL).get(centreId, lastSeq) as { n: number };
     this.setCursor(deviceId, centreId, nextCursor);
     return {
       changes: rows.map((row) => hubFeedRowToChange(row)),
       cursor: nextCursor,
       schemaVersion: SCHEMA_VERSION,
       hubTime: this.clock.now(),
+      remaining,
     };
   }
 
@@ -277,11 +283,6 @@ export class SqliteHubStore implements HubStorePort {
 
   private setCursor(deviceId: DeviceId, centreId: CenterCode, cursor: SyncCursor): void {
     this.db.prepare(UPSERT_CURSOR_SQL).run({ device_id: deviceId, centre_id: centreId, seq: cursor.seq });
-  }
-
-  private feedHead(centreId: CenterCode): SyncCursor {
-    const row = this.db.prepare(MAX_FEED_SEQ_SQL).get(centreId) as { seq: number };
-    return { seq: row.seq };
   }
 
   private rejectedResult(deviceId: DeviceId, centreId: CenterCode): PushResult {

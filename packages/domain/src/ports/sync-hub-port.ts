@@ -56,6 +56,12 @@ export type ChangeBatch = {
   readonly schemaVersion: number;
   /** The hub's clock — compared against the device's to flag skew (display only). */
   readonly hubTime: Date;
+  /**
+   * Feed rows still waiting AFTER this batch's `cursor` (0 when the feed is
+   * drained). Lets a chunked pull show real progress ("1 200 / 5 000") and know
+   * when to stop looping — the pull is complete exactly when `remaining` is 0.
+   */
+  readonly remaining: number;
 };
 
 /** A pending local write the device wants the hub to accept. */
@@ -104,8 +110,20 @@ export interface SyncHubPort {
    * Transport errors (an unreachable HTTP hub) reject this call and propagate
    * out of the sync engine unchanged — SOU-81 adds a transport status to
    * `SyncResult` when the embedded hub lands.
+   *
+   * `limit` caps how many feed rows this call returns, so a first sync of a big
+   * center streams in bounded chunks (each advancing the cursor) instead of one
+   * unbounded response that can stall a whole transfer. Omitted / non-positive
+   * means "no cap" — the legacy whole-feed pull. The returned `cursor` is the
+   * position AFTER the last delivered change, and `ChangeBatch.remaining` says
+   * how many rows are still queued, so the engine loops until it reaches 0.
    */
-  pullChanges(centreId: CenterCode, cursor: SyncCursor | null, deviceId: DeviceId): Promise<ChangeBatch>;
+  pullChanges(
+    centreId: CenterCode,
+    cursor: SyncCursor | null,
+    deviceId: DeviceId,
+    limit?: number,
+  ): Promise<ChangeBatch>;
 
   /**
    * Apply `changes` iff every entity's `baseVersion` (carried on the

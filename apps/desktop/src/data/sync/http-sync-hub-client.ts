@@ -56,6 +56,7 @@ const batchSchema = z.object({
   cursor: z.object({ seq: z.number() }),
   schemaVersion: z.number(),
   hubTime: z.string(),
+  remaining: z.number(),
 });
 
 const pushResultSchema = z.union([
@@ -89,12 +90,13 @@ export class HttpSyncHubClient implements SyncHubPort {
     centreId: CenterCode,
     cursor: SyncCursor | null,
     deviceId: DeviceId,
+    limit?: number,
   ): Promise<ChangeBatch> {
     const response = await this.request(
       `/${centreId}/pull`,
       {
         method: 'POST',
-        body: JSON.stringify({ cursor: cursor ?? null, deviceId }),
+        body: JSON.stringify({ cursor: cursor ?? null, deviceId, limit }),
       },
     );
     this.expectOk(response);
@@ -225,5 +227,6 @@ function reviveBatch(batch: z.infer<typeof batchSchema>): ChangeBatch {
     cursor: batch.cursor,
     schemaVersion: batch.schemaVersion,
     hubTime: new Date(batch.hubTime),
+    remaining: batch.remaining,
   };
 }
