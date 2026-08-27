@@ -1,6 +1,7 @@
 import type { IpcChannel, IpcRequest, IpcResponse } from './contract';
 import type { CenterChangedEvent } from './center-events';
 import type { UpdateStatusEvent } from './update-events';
+import type { SyncProgressEvent } from './sync-events';
 
 /**
  * The surface the preload bridge exposes on `window.api`. Defined in shared so
@@ -19,6 +20,9 @@ export interface DesktopApi {
   // downloads, and finishes. Returns an unsubscribe function — call it on
   // unmount to detach the ipcRenderer listener.
   onUpdateStatus(listener: (event: UpdateStatusEvent) => void): () => void;
+  // Subscribe to live sync progress (SOU-330). Fires once per pulled chunk while
+  // a sync / import runs. Returns an unsubscribe function — call it on unmount.
+  onSyncProgress(listener: (event: SyncProgressEvent) => void): () => void;
   // Ask main to quit and install a downloaded update now (SOU-87).
   restartNow(): void;
 }

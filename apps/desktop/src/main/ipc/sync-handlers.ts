@@ -14,6 +14,7 @@ import type {
   PlanPolicy,
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
+import type { SyncProgressEvent } from '../../shared/ipc/sync-events';
 
 export type SyncEngineRunner = Pick<SyncEngine, 'run'>;
 export type ResolveConflictUseCase = Pick<ResolveConflict, 'execute'>;
@@ -45,6 +46,9 @@ export type SyncHandlerDeps = {
   localSyncRepository: LocalSyncRepository;
   deviceId: () => DeviceId;
   updatedBy: () => UserId;
+  /** Push one live progress tick to the renderer (SOU-330). A no-op wiring in
+   *  headless/test contexts with no window. */
+  emitSyncProgress: (event: SyncProgressEvent) => void;
 };
 
 /**
@@ -56,18 +60,26 @@ export type SyncHandlerDeps = {
  */
 export function createSyncHandlers(deps: SyncHandlerDeps): Pick<
   IpcHandlers,
-  'sync.run' | 'sync.conflicts.list' | 'sync.conflict.resolve' | 'sync.test.seedConflict'
+  'sync.run' | 'sync.conflicts.list' | 'sync.conflict.resolve' | 'sync.cancel' | 'sync.test.seedConflict'
 > {
+  // A pause requested from the renderer (SOU-330). One run at a time (the button
+  // is disabled while pending), so a single flag suffices: `sync.run` clears it
+  // at the start, `sync.cancel` raises it, the engine polls it between chunks.
+  let cancelRequested = false;
   return {
     'sync.run': async () => {
       deps.plan.require('sync.multi-device');
       if (deps.syncEngine === null || deps.matcher === null) {
         return { result: null };
       }
+      cancelRequested = false;
       // Enqueue this device's local writes (SOU-180) before pull → resolve → push,
       // so a freshly created/edited entity is actually pushed to the hub.
       deps.syncOutbox.drain();
-      const result: SyncResult = await deps.syncEngine.run(deps.matcher);
+      const result: SyncResult = await deps.syncEngine.run(deps.matcher, {
+        onProgress: (progress) => deps.emitSyncProgress(progress),
+        shouldStop: () => cancelRequested,
+      });
       return {
         result: {
           status: result.status,
@@ -95,6 +107,13 @@ export function createSyncHandlers(deps: SyncHandlerDeps): Pick<
         updatedBy: deps.updatedBy(),
         resolution: request.resolution,
       });
+      return { ok: true };
+    },
+    'sync.cancel': () => {
+      // Raise the pause flag; the in-flight run stops at its next chunk boundary
+      // and returns `status: 'paused'` with its cursor persisted. Harmless when
+      // nothing is running — the next `sync.run` clears it before starting.
+      cancelRequested = true;
       return { ok: true };
     },
     'sync.test.seedConflict': (request) => {

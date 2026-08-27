@@ -16,6 +16,7 @@ import { DATABASE_SCHEMA_AHEAD_MESSAGE, DatabaseSchemaAheadOfAppError } from '..
 import { centreDbFileName, DatabaseKeyMismatchError, ensureDatabaseKeyed } from '../data/sqlite/db';
 import { FsCenterDirectory, type CenterSummary } from '../data/sqlite/center-directory';
 import { CENTER_CHANGED_EVENT, type CenterChangedEvent } from '../shared/ipc/center-events';
+import { SYNC_PROGRESS_EVENT } from '../shared/ipc/sync-events';
 import { hubDbFileName } from '../data/sqlite/hub/hub-store';
 import {
   DATABASE_KEY_MESSAGE,
@@ -337,6 +338,7 @@ app.whenReady().then(async () => {
         planId: activePlanId(),
         appVersion: () => app.getVersion(),
         scheduleRestart,
+        emitSyncProgress: (event) => mainWindow?.webContents.send(SYNC_PROGRESS_EVENT, event),
         centerSwitch,
         // Per-center stats (SOU-106): the same per-center key derivation + demo
         // exclusion the switcher's directory uses, so the read-only aggregation

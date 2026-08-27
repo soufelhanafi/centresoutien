@@ -109,6 +109,7 @@ Object.defineProperty(window, 'api', {
     // <App> mounts without crashing; useAppUpdate() subscribes on mount and
     // needs a callable disposer for its effect cleanup.
     onUpdateStatus: () => () => {},
+    onSyncProgress: () => () => {},
     restartNow: () => {},
   },
 });

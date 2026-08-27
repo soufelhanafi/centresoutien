@@ -52,6 +52,7 @@ function makeDeps(overrides: Partial<SyncHandlerDeps> = {}): SyncHandlerDeps {
     localSyncRepository: {} as SyncHandlerDeps['localSyncRepository'],
     deviceId: () => DEVICE,
     updatedBy: () => USER,
+    emitSyncProgress: vi.fn(),
     ...overrides,
   };
 }

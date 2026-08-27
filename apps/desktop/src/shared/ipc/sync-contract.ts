@@ -124,6 +124,13 @@ export const syncIpcContract = {
     request: syncResolveRequestSchema,
     response: z.object({ ok: z.literal(true) }),
   },
+  // Request a graceful pause of the in-flight run (SOU-330). The engine stops at
+  // the next chunk boundary and returns `status: 'paused'` with its cursor
+  // persisted, so the next run resumes. A no-op when nothing is running.
+  'sync.cancel': {
+    request: z.object({}),
+    response: z.object({ ok: z.literal(true) }),
+  },
   'sync.test.seedConflict': {
     request: syncSeedConflictRequestSchema,
     response: z.object({ ok: z.literal(true) }),

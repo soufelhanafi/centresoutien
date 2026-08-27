@@ -210,6 +210,7 @@ import { LibsodiumRecoveryKeyEscrow } from '../data/crypto/libsodium-recovery-ke
 import { RecoveryKeyEscrowWriter } from './recovery-key-escrow-writer';
 import { recoveryPublicKey } from './recovery-public-key';
 import type { CenterSummary, CenterKeyProvider } from '../data/sqlite/center-directory';
+import type { SyncProgressEvent } from '../shared/ipc/sync-events';
 import { SqliteMultiCenterStatsRead } from '../data/sqlite/multi-center-stats-read';
 import { applyMigrations, toMigrations } from '../data/sqlite/migration-runner';
 import { readOrCreateDeviceOrigin } from '../data/sqlite/device-origin';
@@ -329,6 +330,10 @@ export type ContainerOptions = {
    *  the app must relaunch to reopen it. Kept out of composition-root/handlers
    *  so they stay Electron-free, mirroring `appVersion`. */
   scheduleRestart: () => void;
+  /** Push a live sync-progress tick to the renderer (SOU-330). Electron-free —
+   *  `index.ts` wires it to `webContents.send`; absent in headless/test wirings,
+   *  where it defaults to a no-op. */
+  emitSyncProgress?: (event: SyncProgressEvent) => void;
   /** Test-only injection seam (SOU-98): integration tests pass a real
    *  {@link Ed25519LicenseAdapter} built from a test keypair + written license
    *  file instead of relying on the DEV-only `CS_LICENSE_*` env overrides, which
@@ -1954,6 +1959,7 @@ export function buildContainer(options: ContainerOptions): Container {
     listBlockedConflicts: () => localSyncRepository.listBlocked(),
     localSyncRepository,
     deviceId: () => deviceOrigin,
+    emitSyncProgress: options.emitSyncProgress ?? (() => {}),
     hubHosting: hubHostingService,
     hubDiscoverer: options.hubHosting?.discoverer ?? null,
     requestHubRestart: options.scheduleRestart,
