@@ -127,10 +127,110 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # SOU-214: Windows Authenticode signing via SSL.com eSigner. Signing runs
+      # only on a real publish (publish=true) with all four SSL_COM_* secrets
+      # set. Otherwise the installer builds unsigned (current pilot behavior)
+      # and the setup/verify steps no-op — so the workflow keeps working with no
+      # secrets, dry runs never consume the eSigner quota, and the credentials
+      # are scoped to the Windows signing runner only (never the macOS jobs).
+      - name: Detect Windows signing secrets
+        id: winsign
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          PUBLISH: ${{ inputs.publish }}
+          SSL_COM_USERNAME: ${{ secrets.SSL_COM_USERNAME }}
+          SSL_COM_PASSWORD: ${{ secrets.SSL_COM_PASSWORD }}
+          SSL_COM_CREDENTIAL_ID: ${{ secrets.SSL_COM_CREDENTIAL_ID }}
+          SSL_COM_TOTP_SECRET: ${{ secrets.SSL_COM_TOTP_SECRET }}
+        run: |
+          present=0
+          for value in "$SSL_COM_USERNAME" "$SSL_COM_PASSWORD" "$SSL_COM_CREDENTIAL_ID" "$SSL_COM_TOTP_SECRET"; do
+            [ -n "$value" ] && present=$((present + 1))
+          done
+          if [ "$present" -eq 0 ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::SSL.com eSigner secrets not set — Windows installer will be built UNSIGNED."
+          elif [ "$present" -ne 4 ]; then
+            # Match the sign hook's all-or-none contract, but fail fast here with
+            # a clear config error instead of throwing mid-package.
+            echo "::error::SSL.com eSigner is partially configured ($present/4 secrets set) — set all of SSL_COM_USERNAME, SSL_COM_PASSWORD, SSL_COM_CREDENTIAL_ID, SSL_COM_TOTP_SECRET, or none."
+            exit 1
+          elif [ "$PUBLISH" != "true" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Dry run (publish=false) — skipping Windows signing to preserve the eSigner quota."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::SSL.com eSigner secrets present — Windows installer will be Authenticode-signed."
+          fi
+
+      - name: Set up Java for CodeSignTool
+        if: runner.os == 'Windows' && steps.winsign.outputs.enabled == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up SSL.com CodeSignTool
+        if: runner.os == 'Windows' && steps.winsign.outputs.enabled == 'true'
+        shell: bash
+        # Pin the CodeSignTool release AND its SHA-256 — this executable controls
+        # signing, so a tampered download must never reach the signing step.
+        # Verify/bump both at https://github.com/SSLcom/CodeSignTool/releases when
+        # activating signing; the cross-platform zip runs on the Temurin JRE above.
+        env:
+          CODESIGNTOOL_VERSION: v1.3.2
+          CODESIGNTOOL_SHA256: f14b1e1ef14bfa1fd00279c363aab0debbf5dcfba0e4bcdce5d22bb771de0e3a
+          SSL_COM_USERNAME: ${{ secrets.SSL_COM_USERNAME }}
+          SSL_COM_PASSWORD: ${{ secrets.SSL_COM_PASSWORD }}
+          SSL_COM_CREDENTIAL_ID: ${{ secrets.SSL_COM_CREDENTIAL_ID }}
+          SSL_COM_TOTP_SECRET: ${{ secrets.SSL_COM_TOTP_SECRET }}
+        run: |
+          set -euo pipefail
+          curl -fsSL -o codesigntool.zip \
+            "https://github.com/SSLcom/CodeSignTool/releases/download/${CODESIGNTOOL_VERSION}/CodeSignTool-${CODESIGNTOOL_VERSION}.zip"
+          echo "${CODESIGNTOOL_SHA256}  codesigntool.zip" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/codesigntool"
+          unzip -q codesigntool.zip -d "$RUNNER_TEMP/codesigntool"
+          # Some releases nest the tool one folder deep; locate the launcher and
+          # export its directory for the electron-builder sign hook.
+          DIR=$(find "$RUNNER_TEMP/codesigntool" -maxdepth 2 -name 'CodeSignTool.bat' -printf '%h\n' | head -1)
+          if [ -z "$DIR" ]; then
+            echo "CodeSignTool.bat not found in the extracted archive" >&2
+            exit 1
+          fi
+          echo "CODESIGNTOOL_DIR=$DIR" >> "$GITHUB_ENV"
+          # Scope the signing credentials to this Windows signing run only — they
+          # are never exported on the macOS jobs or on dry runs.
+          {
+            echo "SSL_COM_USERNAME=$SSL_COM_USERNAME"
+            echo "SSL_COM_PASSWORD=$SSL_COM_PASSWORD"
+            echo "SSL_COM_CREDENTIAL_ID=$SSL_COM_CREDENTIAL_ID"
+            echo "SSL_COM_TOTP_SECRET=$SSL_COM_TOTP_SECRET"
+          } >> "$GITHUB_ENV"
+
       - name: Package (${{ matrix.artifact }})
         env:
           GH_TOKEN: ${{ inputs.publish && secrets.CS_RELEASES_TOKEN || '' }}
+          # SSL_COM_* / CODESIGNTOOL_DIR are exported to $GITHUB_ENV by the
+          # "Set up SSL.com CodeSignTool" step on the Windows signing runner only;
+          # apps/desktop/build/sign-windows.cjs reads them there and no-ops when
+          # they are absent (macOS, dry runs, missing secrets).
         run: pnpm --filter @centresoutien/desktop ${{ matrix.script }} --publish ${{ inputs.publish && 'always' || 'never' }}
+
+      # Fail the publish if signing was expected but the installer is not
+      # validly signed — an unsigned installer must never masquerade as signed.
+      - name: Verify Authenticode signature (Windows)
+        if: runner.os == 'Windows' && steps.winsign.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem apps/desktop/dist/*.exe | Select-Object -First 1
+          if ($null -eq $installer) { throw "No installer .exe found to verify" }
+          $sig = Get-AuthenticodeSignature $installer.FullName
+          Write-Host "Installer: $($installer.Name)"
+          Write-Host "Signature status: $($sig.Status)"
+          if ($sig.Status -ne 'Valid') { throw "Installer is not validly signed (status: $($sig.Status))" }
+          Write-Host "Signed by: $($sig.SignerCertificate.Subject)"
 
       # A green `electron-builder` exit code only proves packaging didn't
       # throw — it does NOT prove the native modules it bundled actually

@@ -42,6 +42,15 @@ win:
     - target: nsis
       arch:
         - x64
+  # SOU-214: Windows Authenticode signing via SSL.com eSigner cloud signing.
+  # The custom sign hook self-guards on the SSL_COM_* env vars — with no
+  # credentials present it leaves the build unsigned (local dev / CI without
+  # secrets), so nothing here changes to activate signing: set the four
+  # SSL_COM_* CI secrets (see PACKAGING.md "Windows CI signing") and the next
+  # publish signs. A custom sign function means electron-builder delegates
+  # signing entirely and never looks for a CSC_LINK cert file.
+  signtoolOptions:
+    sign: ./build/sign-windows.cjs
 
 nsis:
   oneClick: false
