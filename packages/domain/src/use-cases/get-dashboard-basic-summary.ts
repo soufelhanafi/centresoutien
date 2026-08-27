@@ -34,7 +34,7 @@ export class GetDashboardBasicSummary {
     const [argent, effectifs, teacherWeeklyLoad, seances] = await Promise.all([
       this.builder.buildArgent(input.centerCode, month),
       this.builder.buildEffectifs(input.centerCode, month),
-      this.builder.buildTeacherWeeklyLoad(input.centerCode, weekStart),
+      this.builder.buildTeacherWeeklyLoad(input.centerCode),
       this.builder.buildSeances(input.centerCode, weekStart),
     ]);
 

@@ -113,21 +113,28 @@ export class DashboardBasicMetricsBuilder {
     return { activeStudentCount, groupCount, averageStudentsPerGroup, unenrolledStudentCount, groupBars };
   }
 
+  /**
+   * Sourced from the live {@link WeeklyRecurringSessionRepository} template —
+   * the same data the Planning grid renders — rather than concrete
+   * materialized `Session` occurrences. This keeps the figure identical to
+   * what a director sees on the Planning screen: it never falls behind
+   * because a week hasn't been generated yet, and it doesn't drop hours for a
+   * holiday-skipped or cancelled occurrence, which are materialization-time
+   * concerns, not changes to the teacher's assigned weekly load.
+   */
   async buildTeacherWeeklyLoad(
     centerCode: CenterCode,
-    weekStart: string,
   ): Promise<readonly TeacherWeeklyLoad[]> {
-    const weekEnd = addDays(weekStart, 6);
-    const [weekSessions, liveTeachers] = await Promise.all([
-      this.deps.sessions.listForRange(centerCode, { start: weekStart, end: weekEnd }),
+    const [recurringRefs, liveTeachers] = await Promise.all([
+      this.listAllRecurringRefs(centerCode),
       this.deps.teachers.listActive(centerCode),
     ]);
 
     const minutesByTeacher = new Map<string, number>();
-    for (const session of weekSessions) {
-      if (session.teacherId === null) continue;
-      const durationMinutes = toMinutes(session.end) - toMinutes(session.start);
-      minutesByTeacher.set(session.teacherId, (minutesByTeacher.get(session.teacherId) ?? 0) + durationMinutes);
+    for (const ref of recurringRefs) {
+      if (ref.teacherId === undefined) continue;
+      const durationMinutes = toMinutes(ref.end) - toMinutes(ref.start);
+      minutesByTeacher.set(ref.teacherId, (minutesByTeacher.get(ref.teacherId) ?? 0) + durationMinutes);
     }
 
     const teacherById = new Map<string, Teacher>(liveTeachers.map((teacher) => [teacher.id, teacher]));

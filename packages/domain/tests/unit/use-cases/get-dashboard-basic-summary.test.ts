@@ -349,7 +349,7 @@ describe('GetDashboardBasicSummary', () => {
   });
 
   describe('teacherWeeklyLoad', () => {
-    it('sums each teacher\'s session minutes this week and sorts by minutes desc', async () => {
+    it('sums each teacher\'s live recurring weekly-session minutes and sorts by minutes desc', async () => {
       const t1 = makeTeacher('Yassine');
       const t2 = makeTeacher('Karim');
       const t3 = makeTeacher('Salma');
@@ -357,18 +357,18 @@ describe('GetDashboardBasicSummary', () => {
       await teachers.save(t2);
       await teachers.save(t3);
 
-      const s1 = makeSession('2026-08-10', '09:00' as TimeOfDay, '10:00' as TimeOfDay); // 60
-      s1.teacherId = toEntityId(t1.id);
-      const s2 = makeSession('2026-08-11', '10:00' as TimeOfDay, '12:00' as TimeOfDay); // 120
-      s2.teacherId = toEntityId(t2.id);
-      const s3 = makeSession('2026-08-12', '14:00' as TimeOfDay, '15:30' as TimeOfDay); // 90
-      s3.teacherId = toEntityId(t3.id);
-      const s4 = makeSession('2026-08-13', '16:00' as TimeOfDay, '17:30' as TimeOfDay); // 90
-      s4.teacherId = toEntityId(t1.id);
-      await sessions.save(s1);
-      await sessions.save(s2);
-      await sessions.save(s3);
-      await sessions.save(s4);
+      const r1 = makeRecurring(1, '09:00' as TimeOfDay, '10:00' as TimeOfDay); // 60
+      r1.teacherId = toEntityId(t1.id);
+      const r2 = makeRecurring(2, '10:00' as TimeOfDay, '12:00' as TimeOfDay); // 120
+      r2.teacherId = toEntityId(t2.id);
+      const r3 = makeRecurring(3, '14:00' as TimeOfDay, '15:30' as TimeOfDay); // 90
+      r3.teacherId = toEntityId(t3.id);
+      const r4 = makeRecurring(4, '16:00' as TimeOfDay, '17:30' as TimeOfDay); // 90
+      r4.teacherId = toEntityId(t1.id);
+      await recurring.save(r1);
+      await recurring.save(r2);
+      await recurring.save(r3);
+      await recurring.save(r4);
 
       const result = await build().execute({ centerCode: CENTER });
 
@@ -379,7 +379,7 @@ describe('GetDashboardBasicSummary', () => {
       ]);
     });
 
-    it('omits teachers with no session this week and caps the list at DASHBOARD_TEACHER_LOAD_TOP_N', async () => {
+    it('omits teachers with no recurring session and caps the list at DASHBOARD_TEACHER_LOAD_TOP_N', async () => {
       const noSession = makeTeacher('Inactive');
       await teachers.save(noSession);
 
@@ -390,10 +390,13 @@ describe('GetDashboardBasicSummary', () => {
         leaders.push({ teacher, minutes: i * 10 });
       }
 
+      let dayOfWeek = 0;
       for (const { teacher, minutes } of leaders) {
-        const session = makeSession(WEEK_START, '09:00' as TimeOfDay, fromMinutes(540 + minutes));
-        session.teacherId = toEntityId(teacher.id);
-        await sessions.save(session);
+        const day = (dayOfWeek % 7) as WeekdayIndex;
+        dayOfWeek += 1;
+        const r = makeRecurring(day, '09:00' as TimeOfDay, fromMinutes(540 + minutes));
+        r.teacherId = toEntityId(teacher.id);
+        await recurring.save(r);
       }
 
       const result = await build().execute({ centerCode: CENTER });
@@ -407,15 +410,32 @@ describe('GetDashboardBasicSummary', () => {
       expect(ids).not.toContain(noSession.id);
     });
 
-    it('ignores sessions dated outside the current week', async () => {
+    it('reports the recurring template load even when no Session has been materialized for the current week (SOU-planning-dashboard-sync)', async () => {
       const t1 = makeTeacher('Yassine');
       await teachers.save(t1);
-      const inside = makeSession('2026-08-10', '09:00' as TimeOfDay, '10:00' as TimeOfDay);
-      inside.teacherId = toEntityId(t1.id);
-      const outside = makeSession('2026-08-17', '09:00' as TimeOfDay, '12:00' as TimeOfDay);
-      outside.teacherId = toEntityId(t1.id);
-      await sessions.save(inside);
-      await sessions.save(outside);
+      const r1 = makeRecurring(1, '09:00' as TimeOfDay, '10:00' as TimeOfDay); // 60
+      r1.teacherId = toEntityId(t1.id);
+      await recurring.save(r1);
+      // Deliberately no `sessions.save(...)` — the planner grid still shows this
+      // teacher's 60 recurring minutes, so the dashboard must match, not show 0.
+
+      const result = await build().execute({ centerCode: CENTER });
+
+      expect(result.teacherWeeklyLoad).toEqual([
+        { teacherId: t1.id, teacherName: t1.name, weeklyMinutes: 60 },
+      ]);
+    });
+
+    it('excludes a cancelled (soft-deleted) recurring session from a teacher\'s load', async () => {
+      const t1 = makeTeacher('Yassine');
+      await teachers.save(t1);
+      const active = makeRecurring(1, '09:00' as TimeOfDay, '10:00' as TimeOfDay); // 60
+      active.teacherId = toEntityId(t1.id);
+      const cancelled = makeRecurring(2, '10:00' as TimeOfDay, '12:00' as TimeOfDay); // 120
+      cancelled.teacherId = toEntityId(t1.id);
+      await recurring.save(active);
+      await recurring.save(cancelled);
+      await recurring.softDelete(cancelled.id, clock().now(), USER);
 
       const result = await build().execute({ centerCode: CENTER });
 
