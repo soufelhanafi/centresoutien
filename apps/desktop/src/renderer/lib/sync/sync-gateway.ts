@@ -8,6 +8,8 @@ import type {
  *  to `window.api`; tests can substitute a fake. */
 export interface SyncGateway {
   run(): Promise<SyncRunResultView | null>;
+  /** Asks the running sync to pause gracefully; it stops at the next chunk boundary. */
+  cancel(): Promise<void>;
   listConflicts(): Promise<readonly SyncConflictView[]>;
   resolveConflict(input: {
     entityType: string;
@@ -20,6 +22,10 @@ export class IpcSyncGateway implements SyncGateway {
   async run(): Promise<SyncRunResultView | null> {
     const { result } = await window.api.invoke('sync.run', {});
     return result;
+  }
+
+  async cancel(): Promise<void> {
+    await window.api.invoke('sync.cancel', {});
   }
 
   async listConflicts(): Promise<readonly SyncConflictView[]> {

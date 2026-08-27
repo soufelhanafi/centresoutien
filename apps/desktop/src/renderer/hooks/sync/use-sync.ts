@@ -30,6 +30,16 @@ export function useRunSync() {
   });
 }
 
+/**
+ * Asks the in-flight sync to pause at the next chunk boundary (SOU-330). The
+ * cursor is persisted on the main side, so the next `useRunSync()` resumes.
+ */
+export function useCancelSync() {
+  return useMutation({
+    mutationFn: () => syncGateway.cancel(),
+  });
+}
+
 /** Settles one conflict a human already decided on in the popup / inbox. */
 export function useResolveConflict() {
   const queryClient = useQueryClient();

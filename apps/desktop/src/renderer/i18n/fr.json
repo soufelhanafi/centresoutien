@@ -2908,6 +2908,16 @@
     "runNow": "Synchroniser",
     "lastResult": "Synchronisé : {{applied}} appliquée(s), {{pushed}} envoyée(s), {{conflicts}} conflit(s).",
     "notPaired": "Ce poste n'est pas encore appairé à un hub. Utilisez le poste désigné pour configurer la synchronisation.",
+    "progress": {
+      "ariaLabel": "Progression de la synchronisation",
+      "count": "{{pulled}} / {{total}}",
+      "estimating": "Estimation…",
+      "remainingSeconds": "≈ {{seconds}} s restant",
+      "remainingMinutes": "≈ {{minutes}} min restant",
+      "stop": "Arrêter",
+      "pausedBody": "En pause — reprenez pour continuer.",
+      "resume": "Reprendre"
+    },
     "credentialDuplicate": {
       "title": "Un compte du même identifiant a été configuré sur un autre poste",
       "body": "Deux postes ont créé ce compte séparément. Un seul mot de passe reste actif. Si vous ne parvenez pas à vous connecter, réinitialisez le mot de passe depuis l'écran de connexion."

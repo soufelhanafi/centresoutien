@@ -4,8 +4,10 @@ import { RefreshCw, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogTrigger, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState, LockOverlay } from '@centresoutien/ui';
 import { useFeature } from '../../hooks/use-feature';
 import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
-import { useRunSync, useBlockedConflicts } from '../../hooks/sync/use-sync';
+import { useRunSync, useCancelSync, useBlockedConflicts } from '../../hooks/sync/use-sync';
+import { useSyncProgress } from '../../hooks/sync/use-sync-progress';
 import { ConflictPopup, conflictKey } from '../../components/sync/conflict-popup';
+import { SyncProgressCard } from '../../components/sync/sync-progress-card';
 
 /**
  * Synchronisation module (SOU-91): runs one pull → resolve → push cycle against
@@ -18,18 +20,26 @@ export function SyncPage() {
   const hasSync = useFeature('sync.multi-device');
   const upgradeCta = useUpgradeCta('sync.multi-device');
   const run = useRunSync();
+  const cancel = useCancelSync();
+  const { progress, reset: resetProgress } = useSyncProgress();
   const conflicts = useBlockedConflicts({ enabled: hasSync });
   const [popupOpen, setPopupOpen] = useState(false);
 
   const blocked = conflicts.data ?? [];
   const lastResult = run.data;
+  const isPaused = lastResult?.status === 'paused';
   const popupConflicts = uniqueConflicts([...blocked, ...(lastResult?.conflicts ?? [])]);
   const popupReversalDedups = lastResult?.reversalDedups ?? [];
   const popupCount = popupConflicts.length + popupReversalDedups.length;
   const credentialDuplicates = lastResult?.userCredentialDuplicates ?? [];
 
   const onRun = () => {
+    resetProgress();
     void run.mutateAsync().then(() => setPopupOpen(true));
+  };
+
+  const onStop = () => {
+    void cancel.mutateAsync();
   };
 
   const content = (
@@ -52,7 +62,7 @@ export function SyncPage() {
               <RefreshCw className={`h-4 w-4 rtl:scale-x-[-1] ${run.isPending ? 'animate-spin' : ''}`} aria-hidden="true" />
               {t('sync.runNow')}
             </Button>
-            {lastResult && (
+            {lastResult && !isPaused && (
               <span className="text-xs text-muted-foreground">
                 {t('sync.lastResult', {
                   applied: lastResult.applied,
@@ -62,6 +72,18 @@ export function SyncPage() {
               </span>
             )}
           </div>
+          {run.isPending && progress && (
+            <SyncProgressCard progress={progress} onStop={onStop} stopping={cancel.isPending} />
+          )}
+          {!run.isPending && isPaused && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-xs text-muted-foreground">{t('sync.progress.pausedBody')}</p>
+              <Button variant="outline" size="sm" onClick={onRun}>
+                <RefreshCw className="h-4 w-4 rtl:scale-x-[-1]" aria-hidden="true" />
+                {t('sync.progress.resume')}
+              </Button>
+            </div>
+          )}
           {lastResult === null && <p className="text-xs text-muted-foreground">{t('sync.notPaired')}</p>}
           {credentialDuplicates.length > 0 && (
             <div
