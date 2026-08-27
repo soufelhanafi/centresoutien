@@ -32,11 +32,15 @@ export type GroupEnrollmentBar = {
   readonly capacity: number | null;
 };
 
-/** One teacher's scheduled minutes in the current week — a row of the charge widget. */
+/** One teacher's weekly load — a row of the charge widget. */
 export type TeacherWeeklyLoad = {
   readonly teacherId: TeacherId;
   readonly teacherName: { fr: string; ar: string };
-  /** Scheduled minutes this week across all sessions led by this teacher. */
+  /**
+   * Minutes across this teacher's live `WeeklyRecurringSession` blocks — the
+   * same recurring-template total the Planning grid shows, not a count of
+   * materialized `Session` occurrences in any particular calendar week.
+   */
   readonly weeklyMinutes: number;
 };
 
@@ -68,6 +72,11 @@ export type GroupWithoutSessions = {
  * planifiées" — the sum of every live `WeeklyRecurringSession`'s duration
  * minutes, regardless of its validity window (no week filtering; revisit when
  * the session generator starts honoring validity windows, SOU-55/131).
+ * `teacherWeeklyLoad` follows the same recurring-template convention as
+ * `plannedMinutes`, not the `weekSessionCount` one — it is deliberately NOT a
+ * count of this calendar week's materialized `Session` rows, so it always
+ * agrees with the Planning grid regardless of whether that week has been
+ * generated yet.
  *
  * **Bounded reads / no new schema.** Every figure is built from repository
  * aggregates that already exist for other screens (`countActive`,
