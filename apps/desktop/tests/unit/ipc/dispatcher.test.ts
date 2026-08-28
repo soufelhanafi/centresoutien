@@ -132,15 +132,18 @@ const SETUP_CODE_EXPIRES_MS = new Date('2026-08-20T00:00:00Z').getTime();
 // Captures the last command `user.create` forwarded, so a test can assert the
 // envelope context (center/device/user) was injected in main, not sent by the
 // renderer.
-let lastCreateUserCommand: { role: string; centerCode: string } | null = null;
+let lastCreateUserCommand: { role: string; username: string; centerCode: string } | null = null;
 const stubCreateUser: CreateUserUseCase = {
   execute: async (command) => {
     lastCreateUserCommand = {
       role: command.role,
+      username: command.username,
       centerCode: command.centerCode,
     };
     const id = 'usr_00000000000000000000000002' as UserId;
     return {
+      // The director set the credentials, so the account is born ACTIVE: a password
+      // hash is set and no setup code exists. The employee signs in directly.
       user: {
         id,
         centerCode: command.centerCode,
@@ -151,16 +154,13 @@ const stubCreateUser: CreateUserUseCase = {
         deletedAt: null,
         version: 0,
         role: 'secretary',
-        // Code-first: no identity yet — the row carries a placeholder username (its
-        // id) and a null full name until the staff redeem the code (SOU-303).
-        username: id,
-        fullName: null,
-        passwordHash: null,
-        setupCodeHash: '$argon2id$v=19$m=19456,t=2,p=1$code$hash',
-        setupCodeExpiresAt: SETUP_CODE_EXPIRES_MS,
+        username: command.username,
+        fullName: command.fullName ?? null,
+        passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$code$hash',
+        setupCodeHash: null,
+        setupCodeExpiresAt: null,
         setupCodeRedeemedAt: null,
       },
-      setupCode: 'A7K2-9FMP-3QRT',
     };
   },
 };
@@ -816,24 +816,30 @@ describe('createIpcDispatcher', () => {
     ).rejects.toThrow();
   });
 
-  it('runs user.create, forwards the injected envelope context, and returns the view + one-time code', async () => {
+  it('runs user.create, forwards the injected envelope context, and returns the active view', async () => {
     lastCreateUserCommand = null;
     await asPrincipal('owner', async () => {
-      // Code-first (SOU-303): the director sends only the role, and the pending
-      // invite's placeholder username/full name are never surfaced (both null).
-      await expect(dispatch('user.create', { role: 'secretary' })).resolves.toEqual({
+      // The director sets the credentials, so the account is born active and the
+      // response carries only its safe view — no code, nothing secret.
+      await expect(
+        dispatch('user.create', {
+          role: 'secretary',
+          username: 'assistante',
+          password: 'Secret123',
+        }),
+      ).resolves.toEqual({
         user: {
           id: 'usr_00000000000000000000000002',
-          username: null,
+          username: 'assistante',
           fullName: null,
           role: 'secretary',
-          status: 'setup-pending',
+          status: 'active',
         },
-        setupCode: 'A7K2-9FMP-3QRT',
       });
-      // The renderer sent only the role; center/device/user were injected in main.
+      // The renderer sent role + credentials; center/device/user were injected in main.
       expect(lastCreateUserCommand).toEqual({
         role: 'secretary',
+        username: 'assistante',
         centerCode: context.centerCode,
       });
     });
@@ -841,7 +847,11 @@ describe('createIpcDispatcher', () => {
 
   it('never leaks credential material through the user.create response', async () => {
     await asPrincipal('owner', async () => {
-      const res = await dispatch('user.create', { role: 'secretary' });
+      const res = await dispatch('user.create', {
+        role: 'secretary',
+        username: 'assistante',
+        password: 'Secret123',
+      });
       expect(res.user).not.toHaveProperty('passwordHash');
       expect(res.user).not.toHaveProperty('setupCodeHash');
       expect(JSON.stringify(res.user)).not.toContain('argon2id');
@@ -850,15 +860,27 @@ describe('createIpcDispatcher', () => {
 
   it('rejects user.create whose role fails the shared schema', async () => {
     await asPrincipal('owner', async () => {
-      await expect(dispatch('user.create', { role: '' })).rejects.toThrow();
+      await expect(
+        dispatch('user.create', { role: '', username: 'assistante', password: 'Secret123' }),
+      ).rejects.toThrow();
+    });
+  });
+
+  it('rejects user.create whose password fails the shared schema', async () => {
+    await asPrincipal('owner', async () => {
+      await expect(
+        dispatch('user.create', { role: 'secretary', username: 'assistante', password: 'weak' }),
+      ).rejects.toThrow();
     });
   });
 
   it('rejects user.create from an unauthenticated renderer (director-only channel)', async () => {
     principal = null;
-    const error = await dispatch('user.create', { role: 'secretary' }).catch(
-      (e: unknown) => e as Error,
-    );
+    const error = await dispatch('user.create', {
+      role: 'secretary',
+      username: 'assistante',
+      password: 'Secret123',
+    }).catch((e: unknown) => e as Error);
     // Unknown/absent principal surfaces as NotAuthenticatedError, whose stable
     // `not-authenticated` code the renderer localizes — not the role code.
     expect(decodeDomainError(error.message)?.code).toBe('not-authenticated');
@@ -866,9 +888,13 @@ describe('createIpcDispatcher', () => {
 
   it('allows an admin (not just an owner) to run user.create', async () => {
     await asPrincipal('admin', async () => {
-      await expect(dispatch('user.create', { role: 'secretary' })).resolves.toHaveProperty(
-        'setupCode',
-      );
+      await expect(
+        dispatch('user.create', {
+          role: 'secretary',
+          username: 'assistante',
+          password: 'Secret123',
+        }),
+      ).resolves.toHaveProperty('user');
     });
   });
 
@@ -876,9 +902,11 @@ describe('createIpcDispatcher', () => {
     'rejects user.create from a %s with the insufficient-role code (director-only)',
     async (role) => {
       await asPrincipal(role, async () => {
-        const error = await dispatch('user.create', { role: 'secretary' }).catch(
-          (e: unknown) => e as Error,
-        );
+        const error = await dispatch('user.create', {
+          role: 'secretary',
+          username: 'assistante',
+          password: 'Secret123',
+        }).catch((e: unknown) => e as Error);
         expect(decodeDomainError(error.message)?.code).toBe('insufficient-role');
       });
     },
@@ -1011,8 +1039,8 @@ describe('createIpcDispatcher', () => {
     expect(principal).toEqual({ userId: LOGGED_IN_USER.userId, role: 'owner' });
     // The freshly-established owner now passes the director-only guard.
     await expect(
-      dispatch('user.create', { username: 'amine', role: 'secretary' }),
-    ).resolves.toHaveProperty('setupCode');
+      dispatch('user.create', { username: 'amine', role: 'secretary', password: 'Secret123' }),
+    ).resolves.toHaveProperty('user');
     principal = null;
   });
 

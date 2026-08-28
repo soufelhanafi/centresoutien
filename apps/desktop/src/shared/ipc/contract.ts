@@ -2388,16 +2388,16 @@ export const ipcContract = {
     request: changeAdminPasswordSchema,
     response: z.object({ ok: z.literal(true) }),
   },
-  // User management (SOU-256). The director invites an employee via `user.create`,
-  // which returns the created user's safe view plus the ONE-TIME `setupCode` in
-  // plaintext — its sole appearance, handed to the employee on-screen and never
-  // re-readable (no listable channel exposes it). center/device/user are injected
-  // in main from the envelope context, never sent by the renderer. Domain errors
-  // (username-already-taken, invalid-user-role, role-not-invitable, plus the shared
-  // schema's validation codes) surface via the standard error-code transport.
+  // User management (SOU-256). The director creates an employee via `user.create`,
+  // setting the login username + password directly, so the account is born active
+  // and the response carries only its safe view — no setup code, nothing secret
+  // crosses the boundary. center/device/user are injected in main from the envelope
+  // context, never sent by the renderer. Domain errors (username-already-taken,
+  // invalid-user-role, role-not-invitable, plus the shared schema's password /
+  // username validation codes) surface via the standard error-code transport.
   'user.create': {
     request: createUserInputSchema,
-    response: z.object({ user: userViewSchema, setupCode: z.string() }),
+    response: z.object({ user: userViewSchema }),
   },
   // Code-first onboarding step 1 (SOU-303): the invited staff validate the setup
   // code ALONE before typing any identity. Returns the role bound to the code

@@ -111,20 +111,20 @@ export function createUserHandlers(
 > {
   return {
     'user.create': async (request) => {
-      // Inviting staff is director-only work. Renderer visibility is not an
+      // Creating staff is director-only work. Renderer visibility is not an
       // authorization boundary — the preload bridge exposes this channel directly,
-      // so a logged-out renderer could otherwise mint an employee, read the
-      // one-time setup code, redeem it, and gain access with no prior credential.
-      // Only owner/admin may invite; secretary/viewer are rejected. The write is
-      // attributed to the authorized principal returned by the guard, not the
-      // global cache, closing the auth-then-stamp race (SOU-265).
+      // so a logged-out renderer could otherwise mint an employee with a password of
+      // its choosing and gain access with no prior credential. Only owner/admin may
+      // create; secretary/viewer are rejected. The write is attributed to the
+      // authorized principal returned by the guard, not the global cache, closing
+      // the auth-then-stamp race (SOU-265).
       const principal = await requireDirector(deps);
-      const { user, setupCode } = await deps.createUser.execute({
+      const { user } = await deps.createUser.execute({
         ...request,
         ...deps.envelopeContext(),
         updatedBy: principal.userId,
       });
-      return { user: toUserView(user, deps.now()), setupCode };
+      return { user: toUserView(user, deps.now()) };
     },
     // Intentionally unauthenticated (SOU-303): step 1 of the code-first flow. The
     // invited staff prove the code alone, before typing any identity; the response

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CreateUser } from '../../../src/use-cases/create-user';
-import { RedeemSetupCode } from '../../../src/use-cases/redeem-setup-code';
 import { ReissueSetupCode } from '../../../src/use-cases/reissue-setup-code';
 import { CreateAdminAccount } from '../../../src/use-cases/create-admin-account';
 import { SETUP_CODE_TTL_MS } from '../../../src/entities/user';
@@ -20,22 +19,16 @@ const CONTEXT = {
   updatedBy: 'usr_00000000000000000000000001' as UserId,
 };
 
-// Onboard a secretary (invite -> redeem) so it has a password + identity, then
-// return its stored row.
+// Create an active secretary directly (director-set credentials) so it has a
+// password + identity, then return its stored row — the account a recovery code is
+// later re-issued against.
 async function onboardedSecretary(clock: ReturnType<typeof fakeClock>, users: InMemoryUserRepository) {
-  const { user, setupCode } = await new CreateUser(
-    users,
-    fakeHasher(),
-    fakeSecureRandom(),
-    clock,
-    fakeIds(),
-  ).execute({ role: 'secretary', ...CONTEXT });
-  await new RedeemSetupCode(users, fakeHasher(), clock).execute({
-    setupCode,
+  const { user } = await new CreateUser(users, fakeHasher(), clock, fakeIds()).execute({
+    role: 'secretary',
     username: 'secretaire',
+    password: ['Rabat', '2027', '?'].join(''),
     fullName: 'Fatima Zahra',
-    email: 'fatima@centre.ma',
-    newPassword: ['Rabat', '2027', '?'].join(''),
+    ...CONTEXT,
   });
   return (await users.findById(user.id))!;
 }
@@ -60,7 +53,7 @@ describe('ReissueSetupCode', () => {
     expect(user.id).toBe(before.id); // userId preserved -> audit trail intact
     expect(user.username).toBe('secretaire');
     expect(user.fullName).toBe('Fatima Zahra');
-    expect(user.email).toBe('fatima@centre.ma');
+    expect(user.email).toBeNull(); // direct-create sets no email; a re-issue never adds one
     expect(user.passwordHash).toBe(before.passwordHash); // old password still valid until redeemed
     expect(user.setupCodeHash).toBe(`hashed:${setupCode}`);
     expect(user.setupCodeExpiresAt).toBe(clock.now().getTime() + SETUP_CODE_TTL_MS);

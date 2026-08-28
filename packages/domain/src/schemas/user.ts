@@ -37,14 +37,20 @@ const strongPassword = z
   .regex(/[A-Z]/, { message: 'password-needs-uppercase' })
   .regex(/[0-9]/, { message: 'password-needs-digit' });
 
-// Code-first onboarding (SOU-303): the director's invite step shrinks to a single
-// field — the role. Identity (username / full name / email) moves to staff-side
-// redemption, so the director never sees or sets it. The role is bounded as a
-// non-empty string here and validated in the use case — known (fail-closed,
-// SOU-95) AND invitable (secretary only, not owner/admin) — so the invite path can
-// never mint a privileged role. One home for the role check.
+// Direct account creation (single-laptop model): the director sets the new user's
+// login credentials in one step — username + password — plus an optional display
+// name, and the account is born active (a password is set immediately, no setup
+// code to hand over). The employee then signs in with those credentials directly.
+// The role is bounded as a non-empty string here and validated in the use case —
+// known (fail-closed, SOU-95) AND invitable (secretary only, not owner/admin) — so
+// the create path can never mint a privileged role. One home for the role check.
 export const createUserInputSchema = z.object({
   role: z.string().trim().min(1, { message: 'role-required' }),
+  username,
+  password: strongPassword,
+  // The director may name the employee for the roster; blank is allowed and stored
+  // as no name. Bounded and trimmed here; the use case folds an empty string to null.
+  fullName: z.string().trim().max(FULL_NAME_MAX, { message: 'full-name-too-long' }).optional(),
 });
 
 export type CreateUserInput = z.infer<typeof createUserInputSchema>;

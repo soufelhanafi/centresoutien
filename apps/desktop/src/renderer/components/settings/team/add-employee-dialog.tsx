@@ -13,24 +13,21 @@ import {
 } from '@centresoutien/ui';
 import { useCreateUser } from '../../../hooks/user/use-create-user';
 import { mapCreateUserError } from '../../../lib/users/create-user-error';
-import type { CreateUserResult } from '../../../lib/users/users-gateway';
 import { AddEmployeeForm } from './add-employee-form';
 
 /**
- * Invite-employee flow (SOU-303, code-first): owns the mutation and hands the
- * created account plus its one-time setup code back to the parent, which reveals
- * the code dialog. The director picks a role only — there is no identity to reject
- * inline — so a rejection (defensive role codes / auth guards) falls back to a
- * toast. Mirrors `CreateSubjectDialog`.
+ * Add-employee flow (single-laptop model): owns the mutation. The director sets the
+ * new user's login username + password directly, so the account is created active
+ * and there is no code to reveal — success is a toast and the roster refreshes. A
+ * rejection (a taken username, the defensive role/auth guards) falls back to a
+ * toast keyed by the domain error code. Mirrors `CreateSubjectDialog`.
  */
 export function AddEmployeeDialog({
   open,
   onOpenChange,
-  onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated: (result: CreateUserResult) => void;
 }) {
   const { t } = useTranslation();
   const formId = useId();
@@ -38,8 +35,8 @@ export function AddEmployeeDialog({
 
   const handleSubmit = async (values: CreateUserInput) => {
     try {
-      const result = await create.mutateAsync(values);
-      onCreated(result);
+      await create.mutateAsync(values);
+      toast.success(t('team.form.created'));
       onOpenChange(false);
     } catch (error) {
       const code = mapCreateUserError(error);

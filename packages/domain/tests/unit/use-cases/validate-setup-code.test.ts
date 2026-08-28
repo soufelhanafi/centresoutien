@@ -1,13 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { CreateUser } from '../../../src/use-cases/create-user';
 import { ValidateSetupCode } from '../../../src/use-cases/validate-setup-code';
 import { SETUP_CODE_TTL_MS } from '../../../src/entities/user';
 import { SetupCodeInvalidError, SetupCodeExpiredError } from '../../../src/errors/user-errors';
 import { InMemoryUserRepository } from '../fakes/in-memory-user-repository';
+import { seedPendingInvite } from '../fakes/pending-invite';
 import { fakeHasher } from '../fakes/hasher';
-import { fakeSecureRandom } from '../fakes/secure-random';
 import { fakeClock } from '../fakes/clock';
-import { fakeIds } from '../fakes/ids';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 
 const NOW = '2026-07-29T10:00:00Z';
@@ -27,13 +25,8 @@ describe('ValidateSetupCode (code-first step 1)', () => {
     users = new InMemoryUserRepository();
     clock = fakeClock(NOW);
     validate = new ValidateSetupCode(users, fakeHasher(), clock);
-    ({ setupCode } = await new CreateUser(
-      users,
-      fakeHasher(),
-      fakeSecureRandom(),
-      clock,
-      fakeIds(),
-    ).execute({ role: 'secretary', ...CONTEXT }));
+    setupCode = 'A7K2-9FMP-3QRT';
+    await seedPendingInvite(users, clock, CONTEXT, setupCode);
   });
 
   it('returns the role bound to the code and flags that identity is still needed', async () => {

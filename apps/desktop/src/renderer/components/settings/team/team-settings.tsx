@@ -12,7 +12,7 @@ import {
 } from '@centresoutien/ui';
 import { useUsers } from '../../../hooks/user/use-users';
 import { useReissueSetupCode } from '../../../hooks/user/use-reissue-setup-code';
-import type { CreateUserResult } from '../../../lib/users/users-gateway';
+import type { ReissueResult } from '../../../lib/users/users-gateway';
 import type { UserView } from '../../../lib/users/user-view';
 import { UserListContent, type UserListStatus } from './user-list-content';
 import { AddEmployeeDialog } from './add-employee-dialog';
@@ -30,7 +30,7 @@ export function TeamSettings() {
   const users = useUsers();
   const reissue = useReissueSetupCode();
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [issuedCode, setIssuedCode] = useState<CreateUserResult | null>(null);
+  const [issuedCode, setIssuedCode] = useState<ReissueResult | null>(null);
 
   const roster = users.data ?? [];
   const hasEmployees = roster.some((user) => user.role !== 'owner');
@@ -72,7 +72,7 @@ export function TeamSettings() {
         />
       </CardContent>
 
-      <AddEmployeeDialog open={inviteOpen} onOpenChange={setInviteOpen} onCreated={setIssuedCode} />
+      <AddEmployeeDialog open={inviteOpen} onOpenChange={setInviteOpen} />
 
       {issuedCode ? (
         <SetupCodeDialog

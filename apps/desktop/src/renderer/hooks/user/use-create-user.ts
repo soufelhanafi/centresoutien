@@ -4,9 +4,9 @@ import { usersGateway } from '../../lib/users/users-gateway';
 import { userKeys } from './keys';
 
 /**
- * Invites an employee (SOU-256). On success it invalidates the team roster so
- * the new setup-pending account appears. The resolved value carries the one-time
- * setup code — the caller must surface it before discarding the result.
+ * Creates an employee with director-set credentials (SOU-256). On success it
+ * invalidates the team roster so the new active account appears. The account is
+ * born ready to sign in — there is no code to surface.
  */
 export function useCreateUser() {
   const queryClient = useQueryClient();
