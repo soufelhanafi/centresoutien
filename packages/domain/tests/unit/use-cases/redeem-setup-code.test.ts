@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { CreateUser } from '../../../src/use-cases/create-user';
 import { RedeemSetupCode } from '../../../src/use-cases/redeem-setup-code';
 import { VerifyUserPassword } from '../../../src/use-cases/verify-user-password';
 import { SETUP_CODE_TTL_MS } from '../../../src/entities/user';
@@ -11,8 +10,8 @@ import {
 } from '../../../src/errors/user-errors';
 import { InvalidEmailError } from '../../../src/value-objects/email';
 import { InMemoryUserRepository } from '../fakes/in-memory-user-repository';
+import { seedPendingInvite } from '../fakes/pending-invite';
 import { fakeHasher } from '../fakes/hasher';
-import { fakeSecureRandom } from '../fakes/secure-random';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
@@ -28,18 +27,17 @@ const CONTEXT = {
 
 const IDENTITY = { username: 'secretaire', fullName: 'Fatima Zahra', email: 'fatima@centre.ma' };
 
-/** Invite an employee (role only) and return the plaintext setup code. `idSeed`
- *  varies so two invites in one test get distinct ids (the fake id generator
- *  restarts per instance). */
+/** Seed a pending invite and return the plaintext setup code. `idSeed` varies so
+ *  two invites in one test get distinct ids and distinct codes (the fake id
+ *  generator restarts per instance). */
 async function invite(
   clock: ReturnType<typeof fakeClock>,
   users: InMemoryUserRepository,
   idSeed = 1,
-) {
-  return new CreateUser(users, fakeHasher(), fakeSecureRandom(), clock, fakeIds(idSeed)).execute({
-    role: 'secretary',
-    ...CONTEXT,
-  });
+): Promise<{ setupCode: string }> {
+  const setupCode = `A7K2-9FMP-${String(idSeed).padStart(4, '0')}`;
+  await seedPendingInvite(users, clock, CONTEXT, setupCode, fakeIds(idSeed));
+  return { setupCode };
 }
 
 describe('RedeemSetupCode (code-first onboarding)', () => {

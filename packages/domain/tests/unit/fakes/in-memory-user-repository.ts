@@ -30,6 +30,24 @@ export class InMemoryUserRepository
     return null;
   }
 
+  // Atomic create-time guard, mirroring the SQLite adapter: the same-username
+  // clash check and the insert are one synchronous unit, so a collision is a hard
+  // rejection. Scoped to the account's own center, like the adapter's guard.
+  async createLocalAccount(user: User): Promise<void> {
+    const target = normalizeUsername(user.username);
+    for (const row of this.rows.values()) {
+      if (
+        row.id !== user.id &&
+        row.deletedAt === null &&
+        row.centerCode === user.centerCode &&
+        normalizeUsername(row.username) === target
+      ) {
+        throw new UsernameAlreadyTakenError(user.username);
+      }
+    }
+    await this.save(user);
+  }
+
   async listActive(centerCode: CenterCode): Promise<readonly User[]> {
     return [...this.rows.values()]
       .filter((row) => row.deletedAt === null && row.centerCode === centerCode)

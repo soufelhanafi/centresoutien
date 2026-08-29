@@ -6,13 +6,15 @@ import type {
   RecoverPasswordWithSetupCodeInput,
 } from '@centresoutien/domain';
 import type { UserView } from './user-view';
-import type { CreateUserResult, UsersGateway } from './users-gateway';
+import type { ReissueResult, UsersGateway } from './users-gateway';
 
 /**
  * The real {@link UsersGateway}: maps each method onto its typed IPC channel
  * (SOU-256 / SOU-303). No business logic — the domain use cases behind the channels
- * own it. `create` and `reissue` echo back the one-time `setupCode` unchanged so the
- * caller can show it once and then discard it. Mirrors `IpcSubjectsGateway`.
+ * own it. `create` returns the new active account's safe view (no code — the
+ * director set its credentials); `reissue` echoes back the one-time recovery
+ * `setupCode` unchanged so the caller can show it once and then discard it. Mirrors
+ * `IpcSubjectsGateway`.
  */
 class IpcUsersGateway implements UsersGateway {
   async list(): Promise<readonly UserView[]> {
@@ -20,12 +22,12 @@ class IpcUsersGateway implements UsersGateway {
     return users;
   }
 
-  async create(input: CreateUserInput): Promise<CreateUserResult> {
-    const { user, setupCode } = await window.api.invoke('user.create', input);
-    return { user, setupCode };
+  async create(input: CreateUserInput): Promise<UserView> {
+    const { user } = await window.api.invoke('user.create', input);
+    return user;
   }
 
-  async reissue(userId: string): Promise<CreateUserResult> {
+  async reissue(userId: string): Promise<ReissueResult> {
     const { user, setupCode } = await window.api.invoke('user.reissueSetupCode', { userId });
     return { user, setupCode };
   }

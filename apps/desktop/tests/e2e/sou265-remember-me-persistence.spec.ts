@@ -6,8 +6,7 @@ import {
   completeSetupAndLogin,
   gotoTeamTab,
   openInviteDialog,
-  submitInvite,
-  readSetupCode,
+  createEmployeeViaForm,
   logout,
   loginViaForm,
   VALID_ADMIN,
@@ -57,8 +56,10 @@ test('S2 — remembered principal survives restart; director can still invite [D
   // The recovered director principal still clears the owner/admin role guard.
   await gotoTeamTab(win, loc);
   await openInviteDialog(win, loc);
-  await submitInvite(win, loc);
-  await expect(win.getByRole('heading', { name: t.setupCodeTitle })).toBeVisible();
-  const code = await readSetupCode(win);
-  expect(code, 'director can still mint an invite after the restart').toMatch(/[A-Z0-9-]{6,}/);
+  await createEmployeeViaForm(
+    win,
+    { username: 'fatima.secretaire', password: ['Fatima', '2026', '!'].join('') },
+    loc,
+  );
+  await expect(win.getByText(t.createdToast), 'director can still create an account after the restart').toBeVisible();
 });

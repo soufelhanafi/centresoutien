@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
+import { z } from 'zod';
 import { createUserInputSchema, INVITABLE_ROLES, type CreateUserInput } from '@centresoutien/domain';
 import {
   Form,
@@ -8,6 +9,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -16,9 +18,25 @@ import {
 } from '@centresoutien/ui';
 import { FieldMessage } from '../../form/field-message';
 
-/** Blank defaults for the invite flow — first invitable role, no identity fields. */
-export const EMPTY_EMPLOYEE_INPUT: CreateUserInput = {
+// Confirm-password is a UI concern that extends — never forks — the shared domain
+// schema; the confirmation field is stripped before submit so the caller sees
+// exactly `CreateUserInput`.
+const employeeFormSchema = createUserInputSchema
+  .extend({ confirmPassword: z.string() })
+  .refine((values) => values.password === values.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'password-mismatch',
+  });
+
+type EmployeeFormValues = z.infer<typeof employeeFormSchema>;
+
+/** Blank defaults: first invitable role, empty credentials. */
+const EMPTY_EMPLOYEE_FORM: EmployeeFormValues = {
   role: INVITABLE_ROLES[0],
+  username: '',
+  password: '',
+  confirmPassword: '',
+  fullName: '',
 };
 
 type AddEmployeeFormProps = {
@@ -28,27 +46,84 @@ type AddEmployeeFormProps = {
 };
 
 /**
- * The invite-employee fields (SOU-303, code-first): a role picker only, seeded
- * from the domain's `INVITABLE_ROLES` (secretary only today) — never a hardcoded
- * list, so re-splitting roles later stays a domain edit. The director no longer
- * types a username/full name/email: the invited staff choose their own identity
- * when they redeem the code. Presentation only — the caller owns the mutation and
- * the one-time setup code it returns.
+ * The add-employee fields (single-laptop model): the director sets the new user's
+ * login username + password directly, names them optionally, and picks a role —
+ * seeded from the domain's `INVITABLE_ROLES` (secretary only today), never a
+ * hardcoded list. The account is created active, so the employee signs in with
+ * these credentials with no code to redeem. Presentation only — the caller owns the
+ * mutation. A taken username is surfaced back onto the username field by the caller.
  */
 export function AddEmployeeForm({ formId, onSubmit }: AddEmployeeFormProps) {
   const { t } = useTranslation();
-  const form = useForm<CreateUserInput>({
-    resolver: zodResolver(createUserInputSchema),
-    defaultValues: EMPTY_EMPLOYEE_INPUT,
+  const form = useForm<EmployeeFormValues>({
+    resolver: zodResolver(employeeFormSchema),
+    defaultValues: EMPTY_EMPLOYEE_FORM,
   });
 
-  const submit = form.handleSubmit(async (values) => {
-    await onSubmit(values);
+  const submit = form.handleSubmit(async ({ role, username, password, fullName }) => {
+    await onSubmit({ role, username, password, fullName });
   });
 
   return (
     <Form {...form}>
       <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
+        <FormField
+          control={form.control}
+          name="fullName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('team.form.fullNameLabel')}</FormLabel>
+              <FormControl>
+                <Input autoComplete="name" {...field} />
+              </FormControl>
+              <FieldMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="username"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('team.form.usernameLabel')}</FormLabel>
+              <FormControl>
+                <Input autoComplete="off" {...field} />
+              </FormControl>
+              <FieldMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('team.form.passwordLabel')}</FormLabel>
+              <FormControl>
+                <Input type="password" autoComplete="new-password" {...field} />
+              </FormControl>
+              <p className="text-xs text-muted-foreground">{t('team.form.passwordHint')}</p>
+              <FieldMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="confirmPassword"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('team.form.confirmPasswordLabel')}</FormLabel>
+              <FormControl>
+                <Input type="password" autoComplete="new-password" {...field} />
+              </FormControl>
+              <FieldMessage />
+            </FormItem>
+          )}
+        />
+
         <FormField
           control={form.control}
           name="role"

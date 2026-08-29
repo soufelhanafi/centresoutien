@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CreateUser } from '../../../src/use-cases/create-user';
-import { RedeemSetupCode } from '../../../src/use-cases/redeem-setup-code';
 import { ReissueSetupCode } from '../../../src/use-cases/reissue-setup-code';
 import { RecoverPasswordWithSetupCode } from '../../../src/use-cases/recover-password-with-setup-code';
 import { VerifyUserPassword } from '../../../src/use-cases/verify-user-password';
@@ -10,6 +9,7 @@ import { InMemoryUserRepository } from '../fakes/in-memory-user-repository';
 import { InMemoryAuthAuditLogRepository } from '../fakes/in-memory-auth-audit-log-repository';
 import { InMemoryDeviceSessionStore } from '../fakes/in-memory-device-session-store';
 import { InMemorySetupCodeRecoveryUnitOfWork } from '../fakes/in-memory-setup-code-recovery-unit-of-work';
+import { seedPendingInvite } from '../fakes/pending-invite';
 import { fakeHasher } from '../fakes/hasher';
 import { fakeSecureRandom } from '../fakes/secure-random';
 import { fakeClock } from '../fakes/clock';
@@ -26,22 +26,22 @@ const CONTEXT = {
   updatedBy: 'usr_00000000000000000000000001' as UserId,
 };
 
+/** Seed a pending un-onboarded invite and return its plaintext code. */
 async function invite(clock: ReturnType<typeof fakeClock>, users: InMemoryUserRepository) {
-  return new CreateUser(users, fakeHasher(), fakeSecureRandom(), clock, fakeIds()).execute({
-    role: 'secretary',
-    ...CONTEXT,
-  });
+  const setupCode = 'A7K2-9FMP-3QRT';
+  await seedPendingInvite(users, clock, CONTEXT, setupCode);
+  return { setupCode };
 }
 
-/** Onboard a staff account, then have the director re-issue a fresh code. */
+/** Create an active staff account (director-set credentials), then have the
+ *  director re-issue a fresh recovery code against it. */
 async function onboardThenReissue(clock: ReturnType<typeof fakeClock>, users: InMemoryUserRepository) {
-  const { user, setupCode } = await invite(clock, users);
-  await new RedeemSetupCode(users, fakeHasher(), clock).execute({
-    setupCode,
+  const { user } = await new CreateUser(users, fakeHasher(), clock, fakeIds()).execute({
+    role: 'secretary',
     username: 'secretaire',
+    password: OLD_PASSWORD,
     fullName: 'Fatima Zahra',
-    email: 'fatima@centre.ma',
-    newPassword: OLD_PASSWORD,
+    ...CONTEXT,
   });
   const { setupCode: fresh } = await new ReissueSetupCode(
     users,
@@ -83,7 +83,7 @@ describe('RecoverPasswordWithSetupCode', () => {
     expect(stored?.setupCodeRedeemedAt).not.toBeNull();
     // Identity is untouched by a recovery.
     expect(stored?.fullName).toBe('Fatima Zahra');
-    expect(stored?.email).toBe('fatima@centre.ma');
+    expect(stored?.email).toBeNull();
     expect(unitOfWork.commits).toBe(1);
   });
 

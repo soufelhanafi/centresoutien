@@ -241,6 +241,64 @@ describe('SqliteUserRepository', () => {
     });
   });
 
+  describe('createLocalAccount (atomic create-time uniqueness)', () => {
+    it('inserts a new active account and records one change_log row', async () => {
+      const employee = makeUser({
+        id: 'usr_00000000000000000000000002' as UserId,
+        role: 'secretary',
+        username: 'assistante',
+      });
+      await repo.createLocalAccount(employee);
+      expect(await repo.findByUsername('assistante')).toMatchObject({ id: employee.id });
+      const rows = (
+        db
+          .prepare("SELECT COUNT(*) AS n FROM change_log WHERE entity_type = 'users'")
+          .get() as { n: number }
+      ).n;
+      expect(rows).toBe(1);
+    });
+
+    it('rejects a second account with the same normalized username (no second row)', async () => {
+      await repo.createLocalAccount(
+        makeUser({ id: 'usr_00000000000000000000000002' as UserId, role: 'secretary', username: 'assistante' }),
+      );
+      await expect(
+        repo.createLocalAccount(
+          makeUser({
+            id: 'usr_00000000000000000000000003' as UserId,
+            role: 'secretary',
+            username: 'ASSISTANTE',
+          }),
+        ),
+      ).rejects.toBeInstanceOf(UsernameAlreadyTakenError);
+      const live = (
+        db
+          .prepare("SELECT COUNT(*) AS n FROM users WHERE username_normalized = 'assistante' AND deleted_at IS NULL")
+          .get() as { n: number }
+      ).n;
+      expect(live).toBe(1);
+    });
+
+    it('lets a username be reused once the prior holder is tombstoned', async () => {
+      const first = makeUser({
+        id: 'usr_00000000000000000000000002' as UserId,
+        role: 'secretary',
+        username: 'assistante',
+      });
+      await repo.createLocalAccount(first);
+      await repo.softDelete(
+        first.id,
+        new Date('2026-08-02T08:00:00Z'),
+        'usr_00000000000000000000000001' as UserId,
+      );
+      await expect(
+        repo.createLocalAccount(
+          makeUser({ id: 'usr_00000000000000000000000003' as UserId, role: 'secretary', username: 'assistante' }),
+        ),
+      ).resolves.toBeUndefined();
+    });
+  });
+
   describe('reopenSetupCode (director re-issue, targeted update)', () => {
     const REISSUE_AT = new Date('2026-08-04T08:00:00Z');
     const SELF = 'usr_00000000000000000000000002' as UserId;

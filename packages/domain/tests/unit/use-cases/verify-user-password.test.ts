@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CreateAdminAccount } from '../../../src/use-cases/create-admin-account';
-import { CreateUser } from '../../../src/use-cases/create-user';
 import { VerifyUserPassword } from '../../../src/use-cases/verify-user-password';
 import { InMemoryUserRepository } from '../fakes/in-memory-user-repository';
+import { seedPendingInvite } from '../fakes/pending-invite';
 import { fakeHasher } from '../fakes/hasher';
-import { fakeSecureRandom } from '../fakes/secure-random';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
@@ -48,13 +47,14 @@ describe('VerifyUserPassword', () => {
     expect(await verify.execute({ username: 'ghost', password: PASSWORD })).toBeNull();
   });
 
-  it('returns null for an invited employee who has not redeemed their setup code (no password set)', async () => {
-    await new CreateUser(users, fakeHasher(), fakeSecureRandom(), fakeClock('2026-07-29T10:00:00Z'), fakeIds(9)).execute({
-      username: 'secretaire',
-      role: 'secretary',
-      updatedBy: 'usr_00000000000000000000000001' as UserId,
-      ...CONTEXT,
-    });
-    expect(await verify.execute({ username: 'secretaire', password: PASSWORD })).toBeNull();
+  it('returns null for a pending invite that has no password set', async () => {
+    const invite = await seedPendingInvite(
+      users,
+      fakeClock('2026-07-29T10:00:00Z'),
+      { ...CONTEXT, updatedBy: 'usr_00000000000000000000000001' as UserId },
+      'A7K2-9FMP-3QRT',
+      fakeIds(9),
+    );
+    expect(await verify.execute({ username: invite.username, password: PASSWORD })).toBeNull();
   });
 });

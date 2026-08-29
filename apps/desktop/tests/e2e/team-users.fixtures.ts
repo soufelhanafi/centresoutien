@@ -22,6 +22,7 @@ export type TeamStrings = {
   teamSubtitle: string;
   addEmployee: string;
   formSubmit: string;
+  fullNameLabel: string;
   roleSecretary: string;
   roleOwner: string;
   emptyTitle: string;
@@ -37,6 +38,7 @@ export type TeamStrings = {
   setupCodeWarning: string;
   setupCodeDone: string;
   usernameAlreadyTaken: string;
+  createdToast: string;
   // login + redeem
   logout: string;
   loginTitle: string;
@@ -67,6 +69,7 @@ export const T: Record<Locale, TeamStrings> = {
     teamSubtitle: "Invitez vos employés et gérez leurs accès à l'application.",
     addEmployee: 'Ajouter un employé',
     formSubmit: 'Créer le compte',
+    fullNameLabel: 'Nom complet (facultatif)',
     roleSecretary: 'Secrétaire',
     roleOwner: 'Propriétaire',
     emptyTitle: "Aucun employé pour l'instant",
@@ -83,6 +86,7 @@ export const T: Record<Locale, TeamStrings> = {
       "Ce code n'est affiché qu'une seule fois. Notez-le ou copiez-le maintenant : il ne pourra plus être consulté après la fermeture de cette fenêtre.",
     setupCodeDone: "J'ai noté le code",
     usernameAlreadyTaken: "Ce nom d'utilisateur est déjà utilisé",
+    createdToast: "Le compte a été créé. L'employé peut maintenant se connecter.",
     logout: 'Se déconnecter',
     loginTitle: 'Connexion',
     usernameLabel: "Nom d'utilisateur",
@@ -110,6 +114,7 @@ export const T: Record<Locale, TeamStrings> = {
     teamSubtitle: 'ادعُ موظفيك وأدِر وصولهم إلى التطبيق.',
     addEmployee: 'إضافة موظف',
     formSubmit: 'إنشاء الحساب',
+    fullNameLabel: 'الاسم الكامل (اختياري)',
     roleSecretary: 'سكرتير',
     roleOwner: 'المالك',
     emptyTitle: 'لا يوجد موظفون بعد',
@@ -126,6 +131,7 @@ export const T: Record<Locale, TeamStrings> = {
       'يُعرَض هذا الرمز مرة واحدة فقط. دوّنه أو انسخه الآن: لن يمكن الاطلاع عليه مجددًا بعد إغلاق هذه النافذة.',
     setupCodeDone: 'لقد دوّنت الرمز',
     usernameAlreadyTaken: 'اسم المستخدم هذا مستعمل بالفعل',
+    createdToast: 'تم إنشاء الحساب. يمكن للموظف الآن تسجيل الدخول.',
     logout: 'تسجيل الخروج',
     loginTitle: 'تسجيل الدخول',
     usernameLabel: 'اسم المستخدم',
@@ -163,9 +169,38 @@ export async function openInviteDialog(win: Page, loc: Locale): Promise<void> {
   await expect(win.getByRole('dialog')).toBeVisible();
 }
 
-/** Submit the invite (code-first: role only — the director types no identity). */
-export async function submitInvite(win: Page, loc: Locale): Promise<void> {
-  await win.getByRole('button', { name: T[loc].formSubmit }).click();
+/**
+ * Fill the add-employee dialog with director-set credentials and submit. The
+ * account is created active — the employee can then sign in directly with these
+ * credentials, no code to redeem.
+ */
+export async function createEmployeeViaForm(
+  win: Page,
+  input: { fullName?: string; username: string; password: string },
+  loc: Locale,
+): Promise<void> {
+  const t = T[loc];
+  const dialog = win.getByRole('dialog');
+  if (input.fullName !== undefined) {
+    await dialog.getByLabel(t.fullNameLabel, { exact: true }).fill(input.fullName);
+  }
+  await dialog.getByLabel(t.usernameLabel, { exact: true }).fill(input.username);
+  await dialog.getByLabel(t.passwordLabel, { exact: true }).fill(input.password);
+  await dialog.getByLabel(t.confirmPasswordLabel, { exact: true }).fill(input.password);
+  await win.getByRole('button', { name: t.formSubmit }).click();
+}
+
+/** Create an employee straight through the public bridge (director-set credentials). */
+export async function createEmployeeViaBridge(
+  win: Page,
+  input: { username: string; password: string },
+): Promise<void> {
+  await win.evaluate(async (payload) => {
+    const api = (window as unknown as {
+      api: { invoke: (c: string, r: unknown) => Promise<unknown> };
+    }).api;
+    await api.invoke('user.create', { role: 'secretary', ...payload });
+  }, input);
 }
 
 /** Re-issue a fresh code for the single non-owner (invitable) row on the roster. */
@@ -199,29 +234,15 @@ export async function enterSetupCode(win: Page, setupCode: string, loc: Locale):
   await win.getByRole('button', { name: T[loc].setupContinue }).click();
 }
 
-/** Full first-login redeem: code → continue → the staff's own identity + password. */
-export async function redeemOnboarding(
-  win: Page,
-  input: { setupCode: string; username: string; fullName: string; email: string; newPassword: string },
-  loc: Locale,
-): Promise<void> {
-  await enterSetupCode(win, input.setupCode, loc);
-  await win.locator('input[name="fullName"]').fill(input.fullName);
-  await win.locator('input[name="username"]').fill(input.username);
-  await win.locator('input[name="email"]').fill(input.email);
-  await win.locator('input[name="newPassword"]').fill(input.newPassword);
-  await win.locator('input[name="confirmPassword"]').fill(input.newPassword);
-  await win.getByRole('button', { name: T[loc].setupSubmit }).click();
-}
-
-/** Recovery redeem (already-onboarded account, director-reissued code): code →
- *  continue → a new password only (no identity is re-collected). */
+/** Second step of recovery redeem: set a new password only (no identity). Assumes
+ *  the caller has already entered the code with {@link enterSetupCode} and is on
+ *  the new-password step — so it never re-enters the code (the input is gone by
+ *  now). */
 export async function redeemRecovery(
   win: Page,
-  input: { setupCode: string; newPassword: string },
+  input: { newPassword: string },
   loc: Locale,
 ): Promise<void> {
-  await enterSetupCode(win, input.setupCode, loc);
   await win.locator('input[name="newPassword"]').fill(input.newPassword);
   await win.locator('input[name="confirmPassword"]').fill(input.newPassword);
   await win.getByRole('button', { name: T[loc].setupSubmit }).click();

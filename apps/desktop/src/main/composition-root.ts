@@ -1410,7 +1410,7 @@ export function buildContainer(options: ContainerOptions): Container {
   const changeAdminPassword = new ChangeAdminPassword(adminRepo, hasher, clock);
 
   const random = new NodeSecureRandom();
-  const createUser = new CreateUser(userRepo, hasher, random, clock, ids);
+  const createUser = new CreateUser(userRepo, hasher, clock, ids);
   const redeemSetupCode = new RedeemSetupCode(userRepo, hasher, clock);
   const validateSetupCode = new ValidateSetupCode(userRepo, hasher, clock);
   const reissueSetupCode = new ReissueSetupCode(userRepo, hasher, random, clock);

@@ -1920,14 +1920,19 @@
     },
     "form": {
       "title": "Ajouter un employé",
-      "description": "Créez un compte pour un employé. Un code d'installation à usage unique sera généré.",
+      "description": "Créez un compte pour un employé. Choisissez son nom d'utilisateur et son mot de passe : il pourra se connecter directement avec ces identifiants.",
+      "fullNameLabel": "Nom complet (facultatif)",
       "usernameLabel": "Nom d'utilisateur",
       "usernamePlaceholder": "ex. fatima.secretaire",
+      "passwordLabel": "Mot de passe",
+      "passwordHint": "Au moins 8 caractères, avec une majuscule, une minuscule et un chiffre.",
+      "confirmPasswordLabel": "Confirmer le mot de passe",
       "roleLabel": "Rôle",
-      "roleHint": "L'employé pourra se connecter avec ce rôle après avoir activé son compte.",
+      "roleHint": "L'employé pourra se connecter avec ce rôle.",
       "cancel": "Annuler",
       "submit": "Créer le compte",
       "saving": "Création…",
+      "created": "Le compte a été créé. L'employé peut maintenant se connecter.",
       "error": "La création du compte a échoué. Réessayez."
     },
     "setupCode": {
