@@ -17,6 +17,7 @@ import {
 import { openDatabaseAt } from '../../src/data/sqlite/db';
 import { runMigrations } from '../../src/data/sqlite/migration-runner';
 import { hubDbFileName, SqliteHubStore } from '../../src/data/sqlite/hub/hub-store';
+import { HUB_FEED_PAGE_SIZE } from '../../src/data/sqlite/hub/hub-feed';
 import { HubServer } from '../../src/main/hub-server/hub-server';
 import { HttpSyncHubClient } from '../../src/data/sync/http-sync-hub-client';
 import { HubTransportError } from '../../src/data/sync/hub-transport-error';
@@ -422,6 +423,34 @@ describe('embedded hub over localhost (SOU-90)', () => {
     });
     expect(() => db.prepare('DELETE FROM hub_feed').run()).toThrow(/append-only/);
     expect(() => db.prepare("UPDATE hub_feed SET op = 'delete'").run()).toThrow(/append-only/);
+  });
+
+  it('caps a pull at HUB_FEED_PAGE_SIZE and drains the rest across hasMore pages (45-minute-onboarding follow-up)', () => {
+    // A cold bootstrap against a mature center is exactly this shape: far more
+    // feed rows than one response should ever carry. Pushed directly against
+    // the store (bypassing the HTTP body-size cap) so seeding is fast.
+    const total = HUB_FEED_PAGE_SIZE + 5;
+    const changes: LocalChange[] = Array.from({ length: total }, (_, i) =>
+      change(`stu_${String(i).padStart(26, '0')}` as EntityId, 0),
+    );
+    const pushed = store.push({ centreId: CENTER, deviceId: DEV_A, changes, schemaVersion: SCHEMA_VERSION });
+    expect(pushed.status).toBe('accepted');
+
+    const page1 = store.pull(CENTER, null, DEV_B);
+    expect(page1.changes).toHaveLength(HUB_FEED_PAGE_SIZE);
+    expect(page1.hasMore).toBe(true);
+    // The cursor reflects the last row ACTUALLY RETURNED, never the feed head —
+    // otherwise the device would believe it consumed rows it was never given.
+    expect(page1.cursor.seq).toBe(HUB_FEED_PAGE_SIZE);
+
+    const page2 = store.pull(CENTER, page1.cursor, DEV_B);
+    expect(page2.changes).toHaveLength(5);
+    expect(page2.hasMore).toBe(false);
+    expect(page2.cursor.seq).toBe(total);
+
+    // Nothing lost or duplicated across the two pages.
+    const seenIds = new Set([...page1.changes, ...page2.changes].map((c) => c.entityId));
+    expect(seenIds.size).toBe(total);
   });
 
   it('refuses a second center on a store already bound to one', async () => {

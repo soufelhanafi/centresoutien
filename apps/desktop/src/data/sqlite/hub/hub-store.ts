@@ -15,8 +15,8 @@ import {
 } from '@centresoutien/domain';
 import {
   hubFeedRowToChange,
+  HUB_FEED_PAGE_SIZE,
   INSERT_FEED_SQL,
-  MAX_FEED_SEQ_SQL,
   SELECT_FEED_AFTER_SQL,
   type HubFeedRow,
 } from './hub-feed';
@@ -125,22 +125,35 @@ export class SqliteHubStore implements HubStorePort {
   }
 
   /**
-   * Everything the hub accepted since `cursor` (from 0 when null), plus the
-   * device's new cursor. Updates the hub's own cursor bookkeeping for
-   * `(deviceId, centreId)` — the device's local cursor stays the source of
-   * truth; the hub's copy is for retention/compaction decisions.
+   * Up to one page of what the hub accepted since `cursor` (from 0 when null),
+   * plus the device's new cursor and whether more remains beyond this page
+   * (SOU-318 follow-up). A cold bootstrap against a mature center can be years
+   * of history — capping the response is what keeps that fast; the caller
+   * (`SyncEngine`) drains pages in a loop until `hasMore` is false.
+   *
+   * Requests `HUB_FEED_PAGE_SIZE + 1` rows so a single query both fills the
+   * page and detects `hasMore`, with no separate COUNT. The returned cursor is
+   * always the seq of the LAST ROW ACTUALLY RETURNED — never the feed's true
+   * head — so a capped page can never make a device believe it has consumed
+   * rows it was never given.
    */
   pull(centreId: CenterCode, cursor: SyncCursor | null, deviceId: DeviceId): ChangeBatch {
     this.assertCentre(centreId);
     const start = cursor?.seq ?? 0;
-    const rows = this.db.prepare(SELECT_FEED_AFTER_SQL).all(centreId, start) as HubFeedRow[];
-    const nextCursor = this.feedHead(centreId);
+    const rows = this.db
+      .prepare(SELECT_FEED_AFTER_SQL)
+      .all(centreId, start, HUB_FEED_PAGE_SIZE + 1) as HubFeedRow[];
+    const hasMore = rows.length > HUB_FEED_PAGE_SIZE;
+    const page = hasMore ? rows.slice(0, HUB_FEED_PAGE_SIZE) : rows;
+    const lastRow = page[page.length - 1];
+    const nextCursor: SyncCursor = lastRow ? { seq: lastRow.seq } : (cursor ?? { seq: 0 });
     this.setCursor(deviceId, centreId, nextCursor);
     return {
-      changes: rows.map((row) => hubFeedRowToChange(row)),
+      changes: page.map((row) => hubFeedRowToChange(row)),
       cursor: nextCursor,
       schemaVersion: SCHEMA_VERSION,
       hubTime: this.clock.now(),
+      hasMore,
     };
   }
 
@@ -277,11 +290,6 @@ export class SqliteHubStore implements HubStorePort {
 
   private setCursor(deviceId: DeviceId, centreId: CenterCode, cursor: SyncCursor): void {
     this.db.prepare(UPSERT_CURSOR_SQL).run({ device_id: deviceId, centre_id: centreId, seq: cursor.seq });
-  }
-
-  private feedHead(centreId: CenterCode): SyncCursor {
-    const row = this.db.prepare(MAX_FEED_SEQ_SQL).get(centreId) as { seq: number };
-    return { seq: row.seq };
   }
 
   private rejectedResult(deviceId: DeviceId, centreId: CenterCode): PushResult {

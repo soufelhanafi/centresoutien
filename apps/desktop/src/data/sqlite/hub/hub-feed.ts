@@ -37,14 +37,19 @@ export const INSERT_FEED_SQL = `
      @device_id, @updated_by, @device_seq, @received_at)
 `;
 
-/** Everything accepted since a cursor, oldest first — the delta feed slice. */
-export const SELECT_FEED_AFTER_SQL = `
-  SELECT * FROM hub_feed WHERE centre_id = ? AND seq > ? ORDER BY seq
-`;
+/**
+ * Max rows one pull returns. A cold bootstrap against a mature center can be
+ * years of history; capping the response keeps each pull's payload small and
+ * fast to transfer/parse/apply, and gives the caller a natural checkpoint to
+ * persist its cursor at (SOU-318 follow-up: 45-minute onboarding syncs).
+ * `SqliteHubStore.pull` requests `HUB_FEED_PAGE_SIZE + 1` rows so it can detect
+ * `hasMore` without a second COUNT query, then trims back to this size.
+ */
+export const HUB_FEED_PAGE_SIZE = 1000;
 
-/** The current feed head — cursors and deltas are sliced on it. */
-export const MAX_FEED_SEQ_SQL = `
-  SELECT COALESCE(MAX(seq), 0) AS seq FROM hub_feed WHERE centre_id = ?
+/** Up to `limit` rows accepted since a cursor, oldest first — the delta feed slice. */
+export const SELECT_FEED_AFTER_SQL = `
+  SELECT * FROM hub_feed WHERE centre_id = ? AND seq > ? ORDER BY seq LIMIT ?
 `;
 
 /** Map a persisted feed row back to the wire {@link HubChange} the devices see. */

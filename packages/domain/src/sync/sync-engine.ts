@@ -1,5 +1,5 @@
 import type { Clock } from '../ports/clock';
-import { entityKey, type SyncCursor, type SyncHubPort } from '../ports/sync-hub-port';
+import { entityKey, type ChangeBatch, type SyncCursor, type SyncHubPort } from '../ports/sync-hub-port';
 import type { PlanPolicy } from '../plans/plan-policy';
 import { SchemaTooOldError, SyncProtocolError } from '../errors/sync-errors';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
@@ -158,6 +158,16 @@ export class SyncEngine {
     const dedups: SessionDedup[] = [];
     const reversalDedups: ReversalDedup[] = [];
     const userCredentialDuplicates: UserCredentialDuplicate[] = [];
+    // Built once and reused across every page/attempt: `resolveBatch` only
+    // pushes onto these arrays, so accumulation across the whole run is exactly
+    // what re-passing the same object gives for free.
+    const resolveOutput: Parameters<ChangeResolver['resolveBatch']>[2] = {
+      conflicts,
+      subjectCodeCollisions: collisions,
+      sessionDedups: dedups,
+      reversalDedups,
+      userCredentialDuplicates,
+    };
     let applied = 0;
     let pushed = 0;
     let deviceClockSkew = false;
@@ -169,23 +179,28 @@ export class SyncEngine {
     let cursor = this.local.getCursor();
 
     for (let attempt = 0; attempt < this.maxAttempts; attempt++) {
-      const batch = await this.hub.pullChanges(this.centreId, cursor, this.deviceId);
-      if (batch.schemaVersion > SCHEMA_VERSION) {
-        // Too old to write. Pull is additive-safe, but a too-old device cannot
-        // round-trip shapes other devices already wrote — stop before it diverges.
-        throw new SchemaTooOldError(SCHEMA_VERSION, batch.schemaVersion);
-      }
+      // Drain every page the hub offers before moving on to push: a hub may cap
+      // one pull well below "everything since cursor" (a cold bootstrap against
+      // a mature center can be years of history), so `hasMore` decides whether
+      // to keep pulling rather than a single call being assumed complete. The
+      // cursor is persisted after each page — not just once at the end — so an
+      // interrupted multi-page drain resumes on the next sync instead of
+      // re-fetching everything from scratch.
+      let batch = await this.pullOnePage(cursor);
       deviceClockSkew = deviceClockSkew || this.isClockSkewed(batch.hubTime);
+      applied += this.applyPage(batch, matcher, resolveOutput);
+      cursor = batch.cursor;
+      this.local.setCursor(cursor);
 
-      applied += this.resolver.resolveBatch(batch.changes, matcher, {
-        conflicts,
-        subjectCodeCollisions: collisions,
-        sessionDedups: dedups,
-        reversalDedups,
-        userCredentialDuplicates,
-      });
+      while (batch.hasMore) {
+        batch = await this.pullOnePage(cursor);
+        deviceClockSkew = deviceClockSkew || this.isClockSkewed(batch.hubTime);
+        applied += this.applyPage(batch, matcher, resolveOutput);
+        cursor = batch.cursor;
+        this.local.setCursor(cursor);
+      }
 
-      const push = await this.pushPending(batch.cursor);
+      const push = await this.pushPending(cursor);
       pushed += push.pushed;
       if (push.status === 'accepted') {
         this.local.setCursor(push.cursor);
@@ -262,5 +277,32 @@ export class SyncEngine {
   private isClockSkewed(hubTime: Date): boolean {
     const diff = Math.abs(this.clock.now().getTime() - hubTime.getTime());
     return diff > CLOCK_SKEW_THRESHOLD_MS;
+  }
+
+  private async pullOnePage(cursor: SyncCursor | null): Promise<ChangeBatch> {
+    const batch = await this.hub.pullChanges(this.centreId, cursor, this.deviceId);
+    if (batch.schemaVersion > SCHEMA_VERSION) {
+      // Too old to write. Pull is additive-safe, but a too-old device cannot
+      // round-trip shapes other devices already wrote — stop before it diverges.
+      throw new SchemaTooOldError(SCHEMA_VERSION, batch.schemaVersion);
+    }
+    return batch;
+  }
+
+  /**
+   * Resolve one page through the batching seam: when the local
+   * adapter has a real transaction (`runBatch`), a page of up to thousands of
+   * entities commits once instead of once per entity — the difference between a
+   * cold bootstrap finishing in seconds and taking the better part of an hour.
+   * Falls back to calling the resolver directly when the adapter has no such
+   * notion (e.g. an in-memory test double).
+   */
+  private applyPage(
+    batch: ChangeBatch,
+    matcher: DuplicateMatcher,
+    output: Parameters<ChangeResolver['resolveBatch']>[2],
+  ): number {
+    const runBatch = this.local.runBatch?.bind(this.local) ?? (<T,>(fn: () => T): T => fn());
+    return runBatch(() => this.resolver.resolveBatch(batch.changes, matcher, output));
   }
 }

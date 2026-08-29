@@ -114,4 +114,16 @@ export interface LocalSyncRepository {
   getCursor(): SyncCursor | null;
 
   setCursor(cursor: SyncCursor): void;
+
+  /**
+   * Optional batching seam: when the adapter has a notion of a transaction,
+   * wrap every write `fn` makes in ONE commit instead of one per call. A cold
+   * bootstrap applies a whole feed page (up to thousands of entities) through
+   * this repository one entity at a time; without batching that is thousands of
+   * individual SQLite/SQLCipher commits, which dominates the time it takes.
+   * `fn` runs synchronously and its return value passes through unchanged.
+   * Omit entirely (the engine falls back to calling `fn()` directly) when the
+   * adapter has no such notion — an in-memory test double, for instance.
+   */
+  runBatch?<T>(fn: () => T): T;
 }

@@ -48,7 +48,15 @@ export type HubChange = {
   readonly receivedAt: Date;
 };
 
-/** Everything since a cursor, plus the new cursor and the hub's schema version. */
+/**
+ * One page of the feed since a cursor, plus the new cursor and the hub's schema
+ * version. A hub MAY cap `changes` below "everything since cursor" (a cold
+ * bootstrap against a mature center can be years of history) — `hasMore` says
+ * whether more remains beyond this page, so the engine keeps pulling pages
+ * before it moves on to push. `cursor` always reflects exactly what `changes`
+ * covers (the last row actually returned), never the feed's true head, so a
+ * capped response can never make a device skip rows it was never given.
+ */
 export type ChangeBatch = {
   readonly changes: readonly HubChange[];
   readonly cursor: SyncCursor;
@@ -56,6 +64,8 @@ export type ChangeBatch = {
   readonly schemaVersion: number;
   /** The hub's clock — compared against the device's to flag skew (display only). */
   readonly hubTime: Date;
+  /** True when the feed holds more past `cursor` that this page did not include. */
+  readonly hasMore: boolean;
 };
 
 /** A pending local write the device wants the hub to accept. */

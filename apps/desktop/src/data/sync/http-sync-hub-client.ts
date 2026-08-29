@@ -56,6 +56,7 @@ const batchSchema = z.object({
   cursor: z.object({ seq: z.number() }),
   schemaVersion: z.number(),
   hubTime: z.string(),
+  hasMore: z.boolean(),
 });
 
 const pushResultSchema = z.union([
@@ -225,5 +226,6 @@ function reviveBatch(batch: z.infer<typeof batchSchema>): ChangeBatch {
     cursor: batch.cursor,
     schemaVersion: batch.schemaVersion,
     hubTime: new Date(batch.hubTime),
+    hasMore: batch.hasMore,
   };
 }

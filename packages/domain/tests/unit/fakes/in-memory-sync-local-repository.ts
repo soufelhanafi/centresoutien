@@ -143,6 +143,16 @@ export class InMemorySyncLocalRepository implements LocalSyncRepository {
     this.cursorValue = cursor;
   }
 
+  /** Test probe: how many times the engine batched a page through here — the
+   *  real SQLite adapter turns each call into one transaction instead of one
+   *  per entity, so this counts pages, not entities. */
+  runBatchCalls = 0;
+
+  runBatch<T>(fn: () => T): T {
+    this.runBatchCalls++;
+    return fn();
+  }
+
   // ----- Test / device-simulation helpers (mirror what change_log would record) -----
 
   /** Record a local upsert write exactly as the change_log adapter would. */
