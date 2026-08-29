@@ -22,6 +22,7 @@ export type TeamStrings = {
   teamSubtitle: string;
   addEmployee: string;
   formSubmit: string;
+  fullNameLabel: string;
   roleSecretary: string;
   roleOwner: string;
   emptyTitle: string;
@@ -68,6 +69,7 @@ export const T: Record<Locale, TeamStrings> = {
     teamSubtitle: "Invitez vos employés et gérez leurs accès à l'application.",
     addEmployee: 'Ajouter un employé',
     formSubmit: 'Créer le compte',
+    fullNameLabel: 'Nom complet (facultatif)',
     roleSecretary: 'Secrétaire',
     roleOwner: 'Propriétaire',
     emptyTitle: "Aucun employé pour l'instant",
@@ -112,6 +114,7 @@ export const T: Record<Locale, TeamStrings> = {
     teamSubtitle: 'ادعُ موظفيك وأدِر وصولهم إلى التطبيق.',
     addEmployee: 'إضافة موظف',
     formSubmit: 'إنشاء الحساب',
+    fullNameLabel: 'الاسم الكامل (اختياري)',
     roleSecretary: 'سكرتير',
     roleOwner: 'المالك',
     emptyTitle: 'لا يوجد موظفون بعد',
@@ -231,14 +234,15 @@ export async function enterSetupCode(win: Page, setupCode: string, loc: Locale):
   await win.getByRole('button', { name: T[loc].setupContinue }).click();
 }
 
-/** Recovery redeem (already-onboarded account, director-reissued code): code →
- *  continue → a new password only (no identity is re-collected). */
+/** Second step of recovery redeem: set a new password only (no identity). Assumes
+ *  the caller has already entered the code with {@link enterSetupCode} and is on
+ *  the new-password step — so it never re-enters the code (the input is gone by
+ *  now). */
 export async function redeemRecovery(
   win: Page,
-  input: { setupCode: string; newPassword: string },
+  input: { newPassword: string },
   loc: Locale,
 ): Promise<void> {
-  await enterSetupCode(win, input.setupCode, loc);
   await win.locator('input[name="newPassword"]').fill(input.newPassword);
   await win.locator('input[name="confirmPassword"]').fill(input.newPassword);
   await win.getByRole('button', { name: T[loc].setupSubmit }).click();

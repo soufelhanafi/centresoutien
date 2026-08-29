@@ -150,7 +150,7 @@ test('S6 — director re-issues a recovery code; the employee resets their passw
   await enterSetupCode(win, code, loc);
   await expect(win.getByText(t.recoveryHint)).toBeVisible();
   await expect(win.locator('input[name="fullName"]')).toHaveCount(0);
-  await redeemRecovery(win, { setupCode: code, newPassword: EMP_PW2 }, loc);
+  await redeemRecovery(win, { newPassword: EMP_PW2 }, loc);
   await expect(win.getByText(t.setupSuccess).first()).toBeVisible();
 
   await loginViaForm(win, EMP_USER, EMP_PW2, loc);

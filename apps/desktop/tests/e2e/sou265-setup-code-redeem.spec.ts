@@ -44,7 +44,7 @@ test('S4 — unauthenticated recovery redeem stays open (not caught by the role 
   await gotoRedeem(win, loc);
   await enterSetupCode(win, code, loc);
   await expect(win.getByText(t.recoveryHint)).toBeVisible();
-  await redeemRecovery(win, { setupCode: code, newPassword: NEW_PW }, loc);
+  await redeemRecovery(win, { newPassword: NEW_PW }, loc);
 
   await expect(win.getByText(t.setupSuccess).first()).toBeVisible();
   await expect(win.getByRole('heading', { name: t.loginTitle })).toBeVisible();
