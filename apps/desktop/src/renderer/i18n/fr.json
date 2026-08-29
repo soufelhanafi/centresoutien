@@ -41,6 +41,9 @@
       "title": "Une erreur est survenue",
       "body": "Impossible d'afficher cet écran. Réessayez.",
       "retry": "Réessayer"
+    },
+    "syncBanner": {
+      "inProgress": "Synchronisation en cours…"
     }
   },
   "centerSwitcher": {
