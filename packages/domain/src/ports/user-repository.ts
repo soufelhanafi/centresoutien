@@ -79,12 +79,30 @@ export type SetupCodeRedemption = {
 export interface UserRepository extends SoftDeletableRepository<UserId, User> {
   /**
    * The live (non-tombstoned) user whose normalized username matches, or null.
-   * Backs login and the create-time uniqueness guard. Implementations match on
-   * the normalized form (`normalizeUsername`: NFC + trim + lower-case), never
-   * raw string equality, so casing/whitespace typed at login still resolves the
-   * account — the same rule the old admin login used (SOU-153).
+   * Backs login. Implementations match on the normalized form
+   * (`normalizeUsername`: NFC + trim + lower-case), never raw string equality, so
+   * casing/whitespace typed at login still resolves the account — the same rule the
+   * old admin login used (SOU-153).
    */
   findByUsername(username: string): Promise<User | null>;
+
+  /**
+   * Insert a deliberately-created local account, atomically rejecting a live
+   * username clash with {@link UsernameAlreadyTakenError}. The clash check and the
+   * INSERT run in ONE transaction, so two concurrent creates that both pass a prior
+   * async check cannot both land — the second is rejected, never merged (users are
+   * created deliberately, not matched in from two devices). This is the create-time
+   * uniqueness guard; a plain async pre-check is not enough because password hashing
+   * yields the event loop between check and write.
+   *
+   * Distinct from the inherited permissive `save` upsert ON PURPOSE: `save` backs
+   * the sync-apply path, which MUST stay permissive so a peer's converging
+   * same-username row can apply and reconcile at read (migration 0053 dropped the DB
+   * unique index for exactly this reason). Local creation uses this guarded method
+   * instead. Records the change_log append in the same transaction so the account
+   * replicates.
+   */
+  createLocalAccount(user: User): Promise<void>;
 
   /** Every live user of the center, tombstones excluded. Backs the user-management list. */
   listActive(centerCode: CenterCode): Promise<readonly User[]>;

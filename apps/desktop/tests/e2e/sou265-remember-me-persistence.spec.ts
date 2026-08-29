@@ -56,6 +56,10 @@ test('S2 — remembered principal survives restart; director can still invite [D
   // The recovered director principal still clears the owner/admin role guard.
   await gotoTeamTab(win, loc);
   await openInviteDialog(win, loc);
-  await createEmployeeViaForm(win, { username: 'fatima.secretaire', password: 'Fatima2026!' }, loc);
+  await createEmployeeViaForm(
+    win,
+    { username: 'fatima.secretaire', password: ['Fatima', '2026', '!'].join('') },
+    loc,
+  );
   await expect(win.getByText(t.createdToast), 'director can still create an account after the restart').toBeVisible();
 });

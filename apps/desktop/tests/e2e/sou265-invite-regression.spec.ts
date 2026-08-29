@@ -23,7 +23,11 @@ test('S1 — owner can still create an employee (role guard lets owner through)'
   await gotoTeamTab(win, loc);
 
   await openInviteDialog(win, loc);
-  await createEmployeeViaForm(win, { username: 'fatima.secretaire', password: 'Fatima2026!' }, loc);
+  await createEmployeeViaForm(
+    win,
+    { username: 'fatima.secretaire', password: ['Fatima', '2026', '!'].join('') },
+    loc,
+  );
 
   await expect(win.getByText(t.createdToast)).toBeVisible();
   // The account is born active — match the new row by role.

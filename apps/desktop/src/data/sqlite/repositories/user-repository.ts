@@ -139,6 +139,50 @@ export class SqliteUserRepository implements UserRepository {
     })();
   }
 
+  async createLocalAccount(user: User): Promise<void> {
+    try {
+      this.db.transaction(() => {
+        // Live-username race guard for a deliberate local creation. 0053 dropped the
+        // DB unique index (so a peer's converging same-username row can sync-apply),
+        // so the check must live here — and because better-sqlite3 is synchronous and
+        // this runs inside the transaction, the check + INSERT are atomic: two
+        // concurrent creates that both pass the use case's prior checks cannot both
+        // land. Scoped to the account's own center, mirroring markSetupCodeRedeemed.
+        const clash = this.db
+          .prepare(
+            `SELECT 1 FROM users
+              WHERE center_code = @center_code
+                AND username_normalized = @username_normalized
+                AND id != @id AND deleted_at IS NULL
+              LIMIT 1`,
+          )
+          .get({
+            center_code: user.centerCode,
+            username_normalized: normalizeUsername(user.username),
+            id: user.id,
+          });
+        if (clash !== undefined) throw new UsernameAlreadyTakenError(user.username);
+
+        this.db.prepare(SAVE_SQL).run(toSaveParams(user));
+        this.changeLog.record({
+          entityType: 'users',
+          entityId: toEntityId(user.id),
+          centerCode: user.centerCode,
+          intent: 'upsert',
+          entity: user,
+        });
+      })();
+    } catch (error) {
+      // Defensive backstop, mirroring markSetupCodeRedeemed: the in-transaction
+      // re-check above is the primary guard, but should any other unique constraint
+      // on `users` ever reject the INSERT, surface it as the domain error too.
+      if (isUniqueConstraintViolation(error)) {
+        throw new UsernameAlreadyTakenError(user.username);
+      }
+      throw error;
+    }
+  }
+
   async findById(id: UserId): Promise<User | null> {
     const row = this.db
       .prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL')

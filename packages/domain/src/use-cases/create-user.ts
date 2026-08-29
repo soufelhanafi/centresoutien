@@ -7,11 +7,7 @@ import { isRole, isInvitableRole } from '../value-objects/role';
 import { newEnvelope } from '../entities/envelope';
 import { createUserInputSchema, type CreateUserInput } from '../schemas/user';
 import { USER_ID_PREFIX, type User } from '../entities/user';
-import {
-  InvalidUserRoleError,
-  RoleNotInvitableError,
-  UsernameAlreadyTakenError,
-} from '../errors/user-errors';
+import { InvalidUserRoleError, RoleNotInvitableError } from '../errors/user-errors';
 
 export type CreateUserCommand = CreateUserInput & {
   centerCode: CenterCode;
@@ -35,9 +31,11 @@ export type CreateUserResult = {
 // The role must be known (fail-closed, SOU-95) AND invitable — the create path may
 // only mint a `secretary`; `owner`/`admin`/`viewer` are rejected so it can never
 // bypass the first-run owner guard or grant a privileged role. The username is
-// unique per center among live rows: a collision with an existing account is a hard
-// rejection (`UsernameAlreadyTakenError`), never a merge — accounts are created
-// deliberately, not matched in from two devices.
+// unique per center among live rows: `createLocalAccount` checks the clash and
+// inserts in one transaction, so a collision is a hard rejection
+// (`UsernameAlreadyTakenError`), never a merge, even for two creates racing past a
+// plain pre-check — accounts are created deliberately, not matched in from two
+// devices.
 export class CreateUser {
   constructor(
     private readonly users: UserRepository,
@@ -51,10 +49,6 @@ export class CreateUser {
 
     if (!isRole(role)) throw new InvalidUserRoleError(role);
     if (!isInvitableRole(role)) throw new RoleNotInvitableError(role);
-
-    if ((await this.users.findByUsername(username)) !== null) {
-      throw new UsernameAlreadyTakenError(username);
-    }
 
     const id = this.ids.next(USER_ID_PREFIX) as UserId;
     const user: User = {
@@ -77,7 +71,7 @@ export class CreateUser {
       email: null,
     };
 
-    await this.users.save(user);
+    await this.users.createLocalAccount(user);
     return { user };
   }
 }
