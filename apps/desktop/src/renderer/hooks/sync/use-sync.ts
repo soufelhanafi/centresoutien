@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { syncGateway } from '../../lib/sync/sync-gateway';
 import type { ConflictResolutionView } from '../../lib/sync/sync-view';
@@ -19,15 +19,25 @@ export function useBlockedConflicts(options: { enabled: boolean }) {
   });
 }
 
-/** Runs one pull → resolve → push cycle against the wired hub. */
+/** Runs one pull → resolve → push cycle against the wired hub. Keyed with
+ *  `syncKeys.run` so `useSyncInProgress` can see it from anywhere in the app,
+ *  not just wherever this hook itself is called. */
 export function useRunSync() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: syncKeys.run,
     mutationFn: () => syncGateway.run(),
     onSuccess: (result) => {
       if (result) invalidateAllDomainQueries(queryClient);
     },
   });
+}
+
+/** True while a `sync.run` mutation is in flight anywhere in the app — the
+ *  app-shell banner's only signal, so it stays accurate whether the sync was
+ *  started from the Sync page's button or any future auto-trigger. */
+export function useSyncInProgress(): boolean {
+  return useIsMutating({ mutationKey: syncKeys.run }) > 0;
 }
 
 /** Settles one conflict a human already decided on in the popup / inbox. */

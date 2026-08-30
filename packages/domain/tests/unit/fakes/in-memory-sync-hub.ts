@@ -15,6 +15,9 @@ import type { LocalChange } from '../../../src/ports/sync-hub-port';
 export class InMemorySyncHub implements SyncHubPort {
   private readonly clock: Clock;
   readonly schemaVersion: number;
+  /** Max rows returned per pull, mirroring the real hub's page cap — tests can
+   *  shrink it to exercise the engine's multi-page drain without huge fixtures. */
+  private readonly pageSize: number;
   /** entityKey(centreId, entityType, entityId) → canonical { version, entity }. */
   private readonly canonical = new Map<string, { version: number; entity: Record<string, unknown> }>();
   /** centreId → append-only feed of accepted writes. */
@@ -25,9 +28,10 @@ export class InMemorySyncHub implements SyncHubPort {
   /** How many schema-mismatch pushes were rejected (asserted in tests). */
   schemaRejections = 0;
 
-  constructor(clock: Clock, options?: { schemaVersion?: number }) {
+  constructor(clock: Clock, options?: { schemaVersion?: number; pageSize?: number }) {
     this.clock = clock;
     this.schemaVersion = options?.schemaVersion ?? SCHEMA_VERSION;
+    this.pageSize = options?.pageSize ?? Infinity;
   }
 
   private centreKey(centreId: CenterCode, entityType: string, entityId: string): string {
@@ -70,14 +74,18 @@ export class InMemorySyncHub implements SyncHubPort {
     // cursor, so a fresh install replays the whole feed (SOU-80 §3).
     const start = cursor?.seq ?? 0;
     const feed = this.feedOf(centreId);
-    const changes = feed.filter((change) => change.seq > start);
-    const nextCursor = { seq: feed.length };
+    const available = feed.filter((change) => change.seq > start);
+    const hasMore = available.length > this.pageSize;
+    const changes = hasMore ? available.slice(0, this.pageSize) : available;
+    const lastChange = changes[changes.length - 1];
+    const nextCursor = lastChange ? { seq: lastChange.seq } : (cursor ?? { seq: 0 });
     this.cursors.set(key, nextCursor);
     return {
       changes,
       cursor: nextCursor,
       schemaVersion: this.schemaVersion,
       hubTime: this.clock.now(),
+      hasMore,
     };
   }
 

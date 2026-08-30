@@ -405,6 +405,10 @@ export type ContainerOptions = {
       write(centreId: string, config: { baseUrl: string; token: string }): void;
       clear(centreId: string): void;
     };
+    /** Forwards cold-bootstrap progress to the renderer (45-minute-onboarding
+     *  follow-up). `index.ts` wires this to `webContents.send`; absent in
+     *  wirings with no window to report to (e.g. tests). */
+    reportProgress?: (applied: number) => void;
   };
   /** LAN hub hosting + discovery (SOU-318). Provided by `index.ts`, which owns the
    *  persisted config store (bound here to THIS center's id) and the single
@@ -1495,6 +1499,9 @@ export function buildContainer(options: ContainerOptions): Container {
             resolveActivePlan(verifyLicenseCached(), clock.now(), licenseBinding).status === 'active',
           clientConfig: options.joining.clientConfig,
           systemUserId: DEV_USER,
+          ...(options.joining.reportProgress !== undefined
+            ? { reportProgress: options.joining.reportProgress }
+            : {}),
         })
       : {
           provisionFromHub: () => Promise.reject(new CenterJoinError('joining is not available')),

@@ -248,6 +248,64 @@ describe('SyncEngine — pull → resolve → push', () => {
     expect(reset.entity('students', S2)).toBeDefined();
   });
 
+  it('a cold bootstrap drains every page before pushing, even when the hub caps each pull', async () => {
+    const clock = fakeClock('2026-08-01T10:00:00Z');
+    // A page size well below the feed size forces the multi-page drain path —
+    // this is the same shape as a new laptop joining a mature center, where the
+    // hub never hands back the whole history in one response.
+    const hub = new InMemorySyncHub(clock, { pageSize: 2 });
+    const a = new InMemorySyncLocalRepository(clock, DEV_A);
+    const b = new InMemorySyncLocalRepository(clock, DEV_B);
+
+    for (const id of [S1, S2, S3, S4, S5]) {
+      a.writeLocal('students', id, studentEntity(id), ['name'], USER_A);
+    }
+    await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A }).run(matcherFor(a));
+
+    // One `run()` call on B must apply all 5 rows across 3 pages (2, 2, 1) —
+    // not just the first page — before it ever reaches push.
+    const result = await makeEngine({ hub, local: b, clock, deviceId: DEV_B, updatedBy: USER_B }).run(matcherFor(b));
+
+    expect(result.status).toBe('synced');
+    expect(result.applied).toBe(5);
+    for (const id of [S1, S2, S3, S4, S5]) {
+      expect(b.entity('students', id)).toBeDefined();
+    }
+    // The device's cursor reflects the true feed head, not just the first page.
+    expect(b.getCursor()).toEqual({ seq: 5 });
+    // One `runBatch` per page (2, 2, 1 = 3 pages) — the real adapter turns each
+    // into one transaction, so this is the difference between 3 commits and 5.
+    expect(b.runBatchCalls).toBe(3);
+  });
+
+  it('onPage reports the cumulative applied count once per page, not once per entity', async () => {
+    const clock = fakeClock('2026-08-01T10:00:00Z');
+    const hub = new InMemorySyncHub(clock, { pageSize: 2 });
+    const a = new InMemorySyncLocalRepository(clock, DEV_A);
+    const b = new InMemorySyncLocalRepository(clock, DEV_B);
+
+    for (const id of [S1, S2, S3, S4, S5]) {
+      a.writeLocal('students', id, studentEntity(id), ['name'], USER_A);
+    }
+    await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A }).run(matcherFor(a));
+
+    const progress: number[] = [];
+    const engine = makeEngine({
+      hub,
+      local: b,
+      clock,
+      deviceId: DEV_B,
+      updatedBy: USER_B,
+      onPage: (applied) => progress.push(applied),
+    });
+
+    await engine.run(matcherFor(b));
+
+    // Pages of 2, 2, 1 — the callback reports the running total, not the
+    // per-page count, so the UI can show "X applied" directly.
+    expect(progress).toEqual([2, 4, 5]);
+  });
+
   it('a push accepted while another device wrote does not lose the other device row (SOU-90 B1)', async () => {
     const clock = fakeClock('2026-08-01T10:00:00Z');
     const hub = new InMemorySyncHub(clock);

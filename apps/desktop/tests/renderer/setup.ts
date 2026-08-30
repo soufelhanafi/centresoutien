@@ -110,6 +110,11 @@ Object.defineProperty(window, 'api', {
     // needs a callable disposer for its effect cleanup.
     onUpdateStatus: () => () => {},
     restartNow: () => {},
+    // Stub the join-progress push channel (45-minute-onboarding follow-up) so
+    // JoinProgressStep mounts without crashing; it subscribes on mount and
+    // needs a callable disposer for its effect cleanup. Join-flow-specific
+    // tests override `window.api.onJoinProgress` to assert on live updates.
+    onJoinProgress: () => () => {},
   },
 });
 

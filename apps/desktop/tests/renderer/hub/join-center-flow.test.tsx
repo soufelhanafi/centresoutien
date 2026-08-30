@@ -101,6 +101,51 @@ describe('JoinCenterFlow — happy path (SOU-318)', () => {
   });
 });
 
+describe('JoinCenterFlow — live progress (45-minute-onboarding follow-up)', () => {
+  it('shows the running applied count as the cold bootstrap reports progress', async () => {
+    let progressListener: ((event: { applied: number }) => void) | null = null;
+    window.api.onJoinProgress = (listener) => {
+      progressListener = listener;
+      return () => {
+        progressListener = null;
+      };
+    };
+    let resolveJoin: (value: unknown) => void = () => undefined;
+    const invoke = vi.fn(async (channel: string) => {
+      if (channel === 'hub.discoverCenters') return { centers: [DISCOVERED] };
+      if (channel === 'hub.joinCenter') {
+        return new Promise((resolve) => {
+          resolveJoin = resolve;
+        });
+      }
+      return {};
+    });
+    window.api.invoke = invoke;
+    const user = userEvent.setup();
+    renderFlow();
+
+    await user.click(await screen.findByText('Centre Al Amal — Casablanca'));
+    await user.type(await screen.findByLabelText("Code d'appairage"), 'A1B2-C3D4-E5F6');
+    await user.click(screen.getByRole('button', { name: 'Rejoindre' }));
+
+    // The join is in flight; nothing has reported progress yet.
+    await screen.findByText('Récupération des données du centre…');
+    expect(screen.queryByText(/éléments synchronisés/)).not.toBeInTheDocument();
+    expect(progressListener).not.toBeNull();
+
+    // The cold bootstrap reports its first page.
+    progressListener?.({ applied: 4200 });
+    expect(await screen.findByText('4200 éléments synchronisés…')).toBeInTheDocument();
+
+    // A later page updates the same live count, not a second line.
+    progressListener?.({ applied: 8600 });
+    expect(await screen.findByText('8600 éléments synchronisés…')).toBeInTheDocument();
+    expect(screen.queryByText('4200 éléments synchronisés…')).not.toBeInTheDocument();
+
+    resolveJoin({ ok: true, centreId: 'ctr_casa_001', centerCode: 'CS-CASA-001' });
+  });
+});
+
 describe('JoinCenterFlow — error path (SOU-318)', () => {
   it('maps a center-join-failed rejection to its localized message with retry', async () => {
     const invoke = vi.fn(async (channel: string) => {

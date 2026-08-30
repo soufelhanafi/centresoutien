@@ -16,6 +16,7 @@ import { DATABASE_SCHEMA_AHEAD_MESSAGE, DatabaseSchemaAheadOfAppError } from '..
 import { centreDbFileName, DatabaseKeyMismatchError, ensureDatabaseKeyed } from '../data/sqlite/db';
 import { FsCenterDirectory, type CenterSummary } from '../data/sqlite/center-directory';
 import { CENTER_CHANGED_EVENT, type CenterChangedEvent } from '../shared/ipc/center-events';
+import { JOIN_PROGRESS_EVENT } from '../shared/ipc/join-progress-events';
 import { hubDbFileName } from '../data/sqlite/hub/hub-store';
 import {
   DATABASE_KEY_MESSAGE,
@@ -361,6 +362,12 @@ app.whenReady().then(async () => {
               hubClientConfigStore.write(id, config),
             clear: (id: string) => hubClientConfigStore.clear(id),
           },
+          // 45-minute-onboarding follow-up: forwards the cold bootstrap's
+          // per-page progress to the join wizard. `mainWindow` is read live
+          // (not captured), matching `emitCenterChanged` above — the window
+          // may not exist yet when this closure is built.
+          reportProgress: (applied: number) =>
+            mainWindow?.webContents.send(JOIN_PROGRESS_EVENT, { applied }),
         },
         // LAN hub hosting + discovery (SOU-318): config accessors bound to THIS
         // center's id, plus the shared mDNS adapter when the socket opened.

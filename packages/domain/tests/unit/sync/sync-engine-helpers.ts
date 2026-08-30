@@ -51,6 +51,7 @@ export function makeEngine(input: {
   sessionDedupStore?: SessionDedupStore;
   subjectCollisionStore?: SubjectCodeCollisionStore;
   paymentReversalDedupStore?: PaymentReversalDedupStore;
+  onPage?: (applied: number) => void;
 }): SyncEngine {
   return new SyncEngine({
     hub: input.hub,
@@ -67,6 +68,7 @@ export function makeEngine(input: {
     ...(input.paymentReversalDedupStore !== undefined
       ? { paymentReversalDedupStore: input.paymentReversalDedupStore }
       : {}),
+    ...(input.onPage !== undefined ? { onPage: input.onPage } : {}),
   });
 }
 

@@ -41,6 +41,9 @@
       "title": "Une erreur est survenue",
       "body": "Impossible d'afficher cet écran. Réessayez.",
       "retry": "Réessayer"
+    },
+    "syncBanner": {
+      "inProgress": "Synchronisation en cours…"
     }
   },
   "centerSwitcher": {
@@ -3031,6 +3034,7 @@
       },
       "progress": {
         "joining": "Récupération des données du centre…",
+        "applied": "{{count}} éléments synchronisés…",
         "errorTitle": "Impossible de rejoindre le centre",
         "retry": "Réessayer"
       },

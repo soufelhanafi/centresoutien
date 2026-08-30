@@ -648,6 +648,20 @@ export class SqliteLocalSyncRepository
       .get() as { seq: number };
     return row.seq;
   }
+
+  /**
+   * One SQLite transaction for a whole feed page instead of one per entity —
+   * every write inside `fn` (each still calling `db.transaction()` on its own,
+   * e.g. `applyInbound`) nests as a savepoint under this outer commit via
+   * better-sqlite3's transaction nesting, so no other method needs to change.
+   * A cold bootstrap against a mature center applies thousands of entities per
+   * page; without this it is thousands of individual SQLCipher commits, which
+   * is most of what made a first-time laptop join take the better part of an
+   * hour instead of seconds.
+   */
+  runBatch<T>(fn: () => T): T {
+    return this.db.transaction(fn)();
+  }
 }
 
 type PendingRow = {

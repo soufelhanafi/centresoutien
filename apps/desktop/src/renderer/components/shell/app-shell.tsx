@@ -3,6 +3,7 @@ import { Outlet } from '@tanstack/react-router';
 import { ScrollArea } from '@centresoutien/ui';
 import { Sidebar } from './sidebar';
 import { AppHeader } from './app-header';
+import { SyncStatusBanner } from './sync-status-banner';
 import { CommandPalette } from '../search/command-palette';
 import { UpgradeDialog } from '../upgrade/upgrade-dialog';
 
@@ -25,6 +26,7 @@ export function AppShell() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col print:block">
         <AppHeader />
+        <SyncStatusBanner />
         <main
           tabIndex={-1}
           className="flex min-h-0 flex-1 focus:outline-none print:block"
