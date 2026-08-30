@@ -1,6 +1,7 @@
 import type { IpcChannel, IpcRequest, IpcResponse } from './contract';
 import type { CenterChangedEvent } from './center-events';
 import type { UpdateStatusEvent } from './update-events';
+import type { JoinProgressEvent } from './join-progress-events';
 
 /**
  * The surface the preload bridge exposes on `window.api`. Defined in shared so
@@ -21,4 +22,11 @@ export interface DesktopApi {
   onUpdateStatus(listener: (event: UpdateStatusEvent) => void): () => void;
   // Ask main to quit and install a downloaded update now (SOU-87).
   restartNow(): void;
+  /**
+   * Subscribe to cold-bootstrap join progress (45-minute-onboarding follow-up).
+   * Fires repeatedly while `hub.joinCenter` is in flight; the join wizard uses
+   * it to show real, moving progress instead of a dead spinner. Returns an
+   * unsubscribe function — call it on unmount to detach the ipcRenderer listener.
+   */
+  onJoinProgress(listener: (event: JoinProgressEvent) => void): () => void;
 }

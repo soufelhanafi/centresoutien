@@ -82,6 +82,15 @@ export type SyncEngineInput = {
   userCredentialDuplicateStore?: UserCredentialDuplicateStore;
   /** Total pull→resolve→push attempts before giving up (default `MAX_SYNC_ATTEMPTS`). */
   maxAttempts?: number;
+  /**
+   * Optional progress callback (cold-bootstrap follow-up): called with the
+   * cumulative count applied so far THIS run, once per page. A join against a
+   * mature center can be thousands of entities across many pages — this is
+   * what lets the UI show real, moving progress instead of an indeterminate
+   * spinner for however long that takes. Omit for an ordinary sync where no
+   * caller renders progress.
+   */
+  onPage?: (applied: number) => void;
 };
 
 export type SyncResult = {
@@ -125,6 +134,7 @@ export class SyncEngine {
   private readonly centreId: CenterCode;
   private readonly userCanResolve: boolean;
   private readonly maxAttempts: number;
+  private readonly onPage: ((applied: number) => void) | undefined;
   private readonly resolver: ChangeResolver;
 
   constructor(input: SyncEngineInput) {
@@ -137,6 +147,7 @@ export class SyncEngine {
     this.centreId = input.centreId;
     this.userCanResolve = input.userCanResolve;
     this.maxAttempts = input.maxAttempts ?? MAX_SYNC_ATTEMPTS;
+    this.onPage = input.onPage;
     this.resolver = new ChangeResolver(
       input.local,
       input.clock,
@@ -191,6 +202,7 @@ export class SyncEngine {
       applied += this.applyPage(batch, matcher, resolveOutput);
       cursor = batch.cursor;
       this.local.setCursor(cursor);
+      this.onPage?.(applied);
 
       while (batch.hasMore) {
         batch = await this.pullOnePage(cursor);
@@ -198,6 +210,7 @@ export class SyncEngine {
         applied += this.applyPage(batch, matcher, resolveOutput);
         cursor = batch.cursor;
         this.local.setCursor(cursor);
+        this.onPage?.(applied);
       }
 
       const push = await this.pushPending(cursor);

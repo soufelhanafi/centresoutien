@@ -278,6 +278,34 @@ describe('SyncEngine — pull → resolve → push', () => {
     expect(b.runBatchCalls).toBe(3);
   });
 
+  it('onPage reports the cumulative applied count once per page, not once per entity', async () => {
+    const clock = fakeClock('2026-08-01T10:00:00Z');
+    const hub = new InMemorySyncHub(clock, { pageSize: 2 });
+    const a = new InMemorySyncLocalRepository(clock, DEV_A);
+    const b = new InMemorySyncLocalRepository(clock, DEV_B);
+
+    for (const id of [S1, S2, S3, S4, S5]) {
+      a.writeLocal('students', id, studentEntity(id), ['name'], USER_A);
+    }
+    await makeEngine({ hub, local: a, clock, deviceId: DEV_A, updatedBy: USER_A }).run(matcherFor(a));
+
+    const progress: number[] = [];
+    const engine = makeEngine({
+      hub,
+      local: b,
+      clock,
+      deviceId: DEV_B,
+      updatedBy: USER_B,
+      onPage: (applied) => progress.push(applied),
+    });
+
+    await engine.run(matcherFor(b));
+
+    // Pages of 2, 2, 1 — the callback reports the running total, not the
+    // per-page count, so the UI can show "X applied" directly.
+    expect(progress).toEqual([2, 4, 5]);
+  });
+
   it('a push accepted while another device wrote does not lose the other device row (SOU-90 B1)', async () => {
     const clock = fakeClock('2026-08-01T10:00:00Z');
     const hub = new InMemorySyncHub(clock);

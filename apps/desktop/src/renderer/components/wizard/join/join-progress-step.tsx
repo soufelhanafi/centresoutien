@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Loader2, PlugZap } from 'lucide-react';
 import { Button, ErrorState } from '@centresoutien/ui';
 import { joinCenterErrorCode } from '../../../lib/hub/hub-join-error';
+import { useJoinProgress } from '../../../hooks/hub/use-join-progress';
 
 /**
  * Step 3 of the join branch (SOU-318): the join is running. On success main
@@ -22,6 +23,7 @@ export function JoinProgressStep({
   onBack: () => void;
 }) {
   const { t } = useTranslation();
+  const applied = useJoinProgress();
 
   if (isError) {
     return (
@@ -49,6 +51,15 @@ export function JoinProgressStep({
     <div className="flex flex-col items-center gap-3 py-10 text-center" aria-busy="true">
       <Loader2 className="h-6 w-6 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
       <p className="text-sm text-muted-foreground">{t('hub.join.progress.joining')}</p>
+      {/* Live count from the cold bootstrap's per-page progress — replaces a
+          dead spinner with real, moving feedback for a mature center's full
+          history. `aria-live` so a screen reader tracks it without re-reading
+          the whole region on every update. */}
+      {applied > 0 && (
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          {t('hub.join.progress.applied', { count: applied })}
+        </p>
+      )}
     </div>
   );
 }

@@ -57,6 +57,13 @@ export type CenterJoinProvisioningDeps = {
   /** Stamped as `updatedBy` on any conflict resolution during the pull; a clean
    *  cold bootstrap writes none, so this is a system placeholder. */
   readonly systemUserId: UserId;
+  /**
+   * Optional progress callback (45-minute-onboarding follow-up): forwarded to
+   * the `SyncEngine` as `onPage`, so the join wizard can show real, moving
+   * progress across a cold bootstrap's many pages instead of a spinner with no
+   * feedback for however long that takes. Omit in tests that don't render UI.
+   */
+  readonly reportProgress?: (applied: number) => void;
 };
 
 /**
@@ -142,6 +149,7 @@ export class SqliteCenterJoinProvisioning implements CenterJoinProvisioningPort 
       subjectCollisionStore: local,
       sessionDedupStore: local,
       paymentReversalDedupStore: local,
+      ...(this.deps.reportProgress !== undefined ? { onPage: this.deps.reportProgress } : {}),
     });
 
     // Drain the whole feed: each run applies the next batch and advances the

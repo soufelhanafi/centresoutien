@@ -7,6 +7,7 @@ import {
   UPDATE_RESTART_COMMAND,
   type UpdateStatusEvent,
 } from '../shared/ipc/update-events';
+import { JOIN_PROGRESS_EVENT, type JoinProgressEvent } from '../shared/ipc/join-progress-events';
 
 /**
  * The only bridge across the isolation boundary. It forwards typed invocations
@@ -39,6 +40,12 @@ const api: DesktopApi = {
     return () => ipcRenderer.removeListener(UPDATE_STATUS_EVENT, subscription);
   },
   restartNow: (): void => ipcRenderer.send(UPDATE_RESTART_COMMAND),
+  onJoinProgress: (listener: (event: JoinProgressEvent) => void): (() => void) => {
+    const subscription = (_event: IpcRendererEvent, payload: JoinProgressEvent): void =>
+      listener(payload);
+    ipcRenderer.on(JOIN_PROGRESS_EVENT, subscription);
+    return () => ipcRenderer.removeListener(JOIN_PROGRESS_EVENT, subscription);
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);
