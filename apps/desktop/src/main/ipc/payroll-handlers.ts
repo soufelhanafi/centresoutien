@@ -9,9 +9,9 @@ import type {
   CenterCode,
   UserId,
 } from '@centresoutien/domain';
-import { NotAuthenticatedError, requireUserPermission } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import type { SessionPrincipal } from '../session/session-principal';
+import { requirePermission } from './require-permission';
 
 export type ConfirmTeacherPayoutUseCase = Pick<ConfirmTeacherPayout, 'execute'>;
 export type ConfirmMonthlyPayrollsUseCase = Pick<ConfirmMonthlyPayrolls, 'execute'>;
@@ -43,9 +43,7 @@ export type PayrollHandlerDeps = {
 };
 
 async function requirePayrollPermission(deps: Pick<PayrollHandlerDeps, 'resolvePrincipal'>): Promise<void> {
-  const principal = await deps.resolvePrincipal();
-  if (principal === null) throw new NotAuthenticatedError();
-  requireUserPermission(principal, 'nav.payroll');
+  await requirePermission(deps.resolvePrincipal, 'nav.payroll');
 }
 
 /** Project a TeacherPayout to its boundary DTO: envelope stripped, like every other view in `handlers.ts`. */

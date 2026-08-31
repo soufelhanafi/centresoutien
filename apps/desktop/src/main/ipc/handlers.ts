@@ -212,6 +212,7 @@ import { createSyncHandlers, type SyncHandlerDeps } from './sync-handlers';
 import { createHubHandlers, type HubHandlerDeps } from './hub-handlers';
 import { createCenterSwitchHandlers, type CenterSwitchHandlerDeps } from './center-switch-handlers';
 import { createUserHandlers, type UserHandlerDeps } from './user-handlers';
+import { requirePermission } from './require-permission';
 import { createEmailResetHandlers, type EmailResetHandlerDeps } from './email-reset-handlers';
 import {
   createAttendanceReportingHandlers,
@@ -600,9 +601,17 @@ function toRecentPaymentView(row: RecentPaymentView) {
 // `payment.void` / `payment.summary`, which the Invoicing page's payment
 // recording flow uses and stays open to every signed-in account.
 async function requirePaymentsPermission(deps: Pick<HandlerDeps, 'resolvePrincipal'>): Promise<void> {
-  const principal = await deps.resolvePrincipal();
-  if (principal === null) throw new NotAuthenticatedError();
-  requireUserPermission(principal, 'nav.payments');
+  await requirePermission(deps.resolvePrincipal, 'nav.payments');
+}
+
+// Assistant-visibility (`nav.payroll`): `payroll.computeMonthly` lives here
+// rather than `payroll-handlers.ts` (it backs the confirm-flow's preview step,
+// wired earlier in `createHandlers`), but it is the same Payroll-page-only
+// surface `requirePayrollPermission` gates there — same flag, same reasoning.
+async function requirePayrollComputeMonthlyPermission(
+  deps: Pick<HandlerDeps, 'resolvePrincipal'>,
+): Promise<void> {
+  await requirePermission(deps.resolvePrincipal, 'nav.payroll');
 }
 
 /** Project a Teacher to its boundary DTO: envelope stripped, dates serialized,
@@ -1045,8 +1054,22 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       planId: deps.activePlanId(),
       features: [...deps.activePlanFeatures()],
     }),
+    // `license.status` stays ungated: the app-wide restricted-mode gate
+    // (`license-gate.tsx`, the first-run gate) reads it for every account, not
+    // just the License settings tab — only the write is settings.sensitive.
     'license.status': () => deps.getLicenseStatus.execute(),
-    'license.activate': (request) => deps.activateLicense.execute({ rawLicense: request.license }),
+    // Deliberately NOT `requireSensitiveSettingsPermission` unconditionally:
+    // this channel is also the pre-login/restricted-mode recovery path (a
+    // lapsed or missing license leaves the app unusable before anyone can sign
+    // in at all — see the SOU-104 restricted-mode tests), so an absent
+    // principal must still go through. Once a principal IS established, the
+    // normal Settings > License tab write is gated like any other
+    // settings.sensitive action.
+    'license.activate': async (request) => {
+      const principal = await deps.resolvePrincipal();
+      if (principal !== null) requireUserPermission(principal, 'settings.sensitive');
+      return deps.activateLicense.execute({ rawLicense: request.license });
+    },
     'subject.create': async (request) => {
       const subject = await deps.createSubject.execute({ ...request, ...deps.envelopeContext() });
       return { id: subject.id };
@@ -1638,6 +1661,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       return { rules: rules.map(toTeacherPayrollRuleView) };
     },
     'payroll.computeMonthly': async (request) => {
+      await requirePayrollComputeMonthlyPermission(deps);
       return deps.computeMonthlyPayrolls.execute({
         month: request.month,
         ...deps.envelopeContext(),

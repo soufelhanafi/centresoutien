@@ -8,6 +8,8 @@ import type {
 import type { BackupImportPreviewDto } from '../../shared/ipc/backup-contract';
 import type { IpcHandlers } from '../../shared/ipc/contract';
 import type { DialogPathRegistry } from './dialog-path-registry';
+import type { SessionPrincipal } from '../session/session-principal';
+import { requirePermission } from './require-permission';
 
 export type ExportBackupUseCase = Pick<ExportBackup, 'execute'>;
 export type PreviewImportBackupUseCase = Pick<PreviewImportBackup, 'execute'>;
@@ -21,6 +23,9 @@ export type BackupExcelHandlerDeps = {
   activeCenterCode: () => CenterCode;
   /** Resolves dialog-issued path tokens so no channel trusts a renderer path. */
   dialogPaths: DialogPathRegistry;
+  // Assistant-visibility (`settings.sensitive`): every channel here backs the
+  // Backup settings tab's Excel import/export card exclusively.
+  resolvePrincipal: () => Promise<SessionPrincipal | null>;
 };
 
 const XLSX_SUFFIX = '.xlsx';
@@ -60,12 +65,14 @@ export function createBackupExcelHandlers(
 ): Pick<IpcHandlers, 'backup.excel.export' | 'backup.excel.preview' | 'backup.excel.apply'> {
   return {
     'backup.excel.export': async (request) => {
+      await requirePermission(deps.resolvePrincipal, 'settings.sensitive');
       const result = await deps.exportBackup.execute({
         filePath: resolveBackupPath(deps.dialogPaths, request.pathToken),
       });
       return { filePath: result.filePath, counts: result.counts };
     },
     'backup.excel.preview': async (request) => {
+      await requirePermission(deps.resolvePrincipal, 'settings.sensitive');
       const preview = await deps.previewImportBackup.execute({
         filePath: resolveBackupPath(deps.dialogPaths, request.pathToken),
         centerCode: deps.activeCenterCode(),
@@ -73,6 +80,7 @@ export function createBackupExcelHandlers(
       return { preview: toPreviewView(preview) };
     },
     'backup.excel.apply': async (request) => {
+      await requirePermission(deps.resolvePrincipal, 'settings.sensitive');
       const result = await deps.applyImportBackup.execute({
         filePath: resolveBackupPath(deps.dialogPaths, request.pathToken),
         centerCode: deps.activeCenterCode(),

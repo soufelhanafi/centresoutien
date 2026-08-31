@@ -298,8 +298,12 @@ const stubClearPrincipal = () => {
   principal = null;
 };
 /** Run `body` with a principal set, always restoring null afterwards. */
-async function asPrincipal(role: Role, body: () => Promise<void>): Promise<void> {
-  principal = { userId: 'usr_00000000000000000000000001' as UserId, role, permissions: new Set() };
+async function asPrincipal(
+  role: Role,
+  body: () => Promise<void>,
+  permissions: ReadonlySet<PermissionFlag> = new Set(),
+): Promise<void> {
+  principal = { userId: 'usr_00000000000000000000000001' as UserId, role, permissions };
   try {
     await body();
   } finally {
@@ -900,15 +904,34 @@ describe('createIpcDispatcher', () => {
     expect(decodeDomainError(error.message)?.code).toBe('not-authenticated');
   });
 
-  it('allows an admin (not just an owner) to run user.create', async () => {
+  it('allows an admin (not just an owner) to run user.create, once granted settings.sensitive', async () => {
+    // Unlike `owner`, an `admin` principal's own stored permissions ARE
+    // consulted (assistant-visibility) — this test grants `settings.sensitive`
+    // explicitly to isolate what it actually covers: role sufficiency, not the
+    // permission gate (covered separately below).
+    await asPrincipal(
+      'admin',
+      async () => {
+        await expect(
+          dispatch('user.create', {
+            role: 'secretary',
+            username: 'assistante',
+            password: CREATE_PW,
+          }),
+        ).resolves.toHaveProperty('user');
+      },
+      new Set(['settings.sensitive']),
+    );
+  });
+
+  it('rejects an admin who lacks settings.sensitive from running user.create', async () => {
     await asPrincipal('admin', async () => {
-      await expect(
-        dispatch('user.create', {
-          role: 'secretary',
-          username: 'assistante',
-          password: CREATE_PW,
-        }),
-      ).resolves.toHaveProperty('user');
+      const error = await dispatch('user.create', {
+        role: 'secretary',
+        username: 'assistante',
+        password: CREATE_PW,
+      }).catch((e: unknown) => e as Error);
+      expect(decodeDomainError(error.message)?.code).toBe('user-permission-denied');
     });
   });
 

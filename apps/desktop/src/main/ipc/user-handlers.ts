@@ -14,6 +14,7 @@ import type {
 import {
   NotAuthenticatedError,
   requireRole,
+  requireUserPermission,
   canLogin,
   isSetupCodePending,
   hasEstablishedIdentity,
@@ -87,8 +88,16 @@ function toUserView(user: User, now: Date) {
 // NotAuthenticatedError) whose role is `admin` or higher (else InsufficientRoleError,
 // which the shared error-code transport carries to the renderer as `insufficient-role`).
 // A legacy/expired/unknown session resolves to `null` and is rejected as
-// unauthenticated: the device must log in again to re-establish who it is. The
-// resolved principal is RETURNED so guarded writes stamp `updatedBy` from it
+// unauthenticated: the device must log in again to re-establish who it is.
+//
+// Also requires `settings.sensitive` (assistant-visibility): the role check alone
+// is not enough once permissions exist — an `admin` passes `requireRole` but is
+// exactly the kind of account the owner's toggle is meant to restrict, so it must
+// ALSO be checked here, not just hidden behind the Team tab in the renderer
+// (`owner` always passes both checks; `hasUserPermission` never consults its own
+// stored permissions).
+//
+// The resolved principal is RETURNED so guarded writes stamp `updatedBy` from it
 // directly, never re-reading the mutable cache after another await could have
 // changed it (a concurrent logout would otherwise mis-attribute the write).
 async function requireDirector(
@@ -97,6 +106,7 @@ async function requireDirector(
   const principal = await deps.resolvePrincipal();
   if (principal === null) throw new NotAuthenticatedError();
   requireRole(principal.role, 'admin');
+  requireUserPermission(principal, 'settings.sensitive');
   return principal;
 }
 
