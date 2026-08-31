@@ -1,4 +1,5 @@
 import { DomainError } from './plan-errors';
+import type { PermissionFlag } from '../permissions/permissions';
 
 // Thrown when creating a user whose username is already taken by a live account in
 // the center. The multi-user replacement for the old single-admin
@@ -71,5 +72,27 @@ export class SetupCodeAlreadyRedeemedError extends DomainError {
   readonly code = 'setup-code-already-redeemed';
   constructor() {
     super('The setup code has already been used.');
+  }
+}
+
+// Thrown by `requireUserPermission` when the signed-in account's per-user
+// permissions don't include the flag a gated screen or channel requires. The
+// per-user counterpart to `PlanFeatureUnavailableError` — same enforcement shape,
+// scoped to one employee's account instead of the whole center's plan.
+export class UserPermissionDeniedError extends DomainError {
+  readonly code = 'user-permission-denied';
+  constructor(readonly permission: PermissionFlag) {
+    super(`Permission "${permission}" is not granted to this account.`);
+  }
+}
+
+// Thrown when an owner's own account is the target of a permission-restriction
+// write. The owner's stored `permissions` are never consulted (they always pass
+// every check), so restricting them would be a silent no-op at best — rejecting
+// it outright keeps the owner from believing they locked down their own access.
+export class CannotRestrictOwnerError extends DomainError {
+  readonly code = 'cannot-restrict-owner';
+  constructor() {
+    super("The owner's access cannot be restricted.");
   }
 }

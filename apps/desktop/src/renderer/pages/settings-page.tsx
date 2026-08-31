@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
 import { useFeature } from '../hooks/use-feature';
+import { useUserPermission } from '../hooks/use-user-permission';
 import { HubHostingCard } from '../components/settings/hub/hub-hosting-card';
 import { CenterProfileSettings } from '../components/settings/settings-page';
 import { CenterHoursSettings } from '../components/center-hours/center-hours-settings';
@@ -26,6 +27,10 @@ import { BackupSettings } from '../components/settings/backup-settings';
 export function SettingsPage() {
   const { t } = useTranslation();
   const hasSync = useFeature('sync.multi-device');
+  // Assistant-visibility: team management, license, plan info, and backup/restore
+  // are director-only surfaces the owner can hide from an assistant in one flag —
+  // deliberately lumped rather than four separate switches (keep-it-simple).
+  const hasSensitiveSettings = useUserPermission('settings.sensitive');
 
   return (
     <section aria-labelledby="settings-title" className="mx-auto flex h-full w-full max-w-4xl flex-col">
@@ -37,14 +42,18 @@ export function SettingsPage() {
           <TabsTrigger value="profile">{t('settings.tabs.profile')}</TabsTrigger>
           <TabsTrigger value="hours">{t('settings.tabs.hours')}</TabsTrigger>
           <TabsTrigger value="holidays">{t('settings.tabs.holidays')}</TabsTrigger>
-          <TabsTrigger value="team">{t('settings.tabs.team')}</TabsTrigger>
+          {hasSensitiveSettings && <TabsTrigger value="team">{t('settings.tabs.team')}</TabsTrigger>}
           <TabsTrigger value="password">{t('settings.tabs.password')}</TabsTrigger>
           <TabsTrigger value="security">{t('settings.tabs.security')}</TabsTrigger>
           <TabsTrigger value="language">{t('settings.tabs.language')}</TabsTrigger>
           <TabsTrigger value="appearance">{t('settings.tabs.appearance')}</TabsTrigger>
-          <TabsTrigger value="plan">{t('settings.tabs.plan')}</TabsTrigger>
-          <TabsTrigger value="license">{t('settings.tabs.license')}</TabsTrigger>
-          <TabsTrigger value="backup">{t('settings.tabs.backup')}</TabsTrigger>
+          {hasSensitiveSettings && <TabsTrigger value="plan">{t('settings.tabs.plan')}</TabsTrigger>}
+          {hasSensitiveSettings && (
+            <TabsTrigger value="license">{t('settings.tabs.license')}</TabsTrigger>
+          )}
+          {hasSensitiveSettings && (
+            <TabsTrigger value="backup">{t('settings.tabs.backup')}</TabsTrigger>
+          )}
           {hasSync && <TabsTrigger value="hosting">{t('settings.tabs.hosting')}</TabsTrigger>}
         </TabsList>
         <TabsContent value="profile">
@@ -58,9 +67,11 @@ export function SettingsPage() {
         <TabsContent value="holidays">
           <HolidaysSettings />
         </TabsContent>
-        <TabsContent value="team">
-          <TeamSettings />
-        </TabsContent>
+        {hasSensitiveSettings && (
+          <TabsContent value="team">
+            <TeamSettings />
+          </TabsContent>
+        )}
         <TabsContent value="password">
           <PasswordSettings />
         </TabsContent>
@@ -73,15 +84,21 @@ export function SettingsPage() {
         <TabsContent value="appearance">
           <AppearanceSettings />
         </TabsContent>
-        <TabsContent value="plan">
-          <PlanSettings />
-        </TabsContent>
-        <TabsContent value="license">
-          <LicenseSettings />
-        </TabsContent>
-        <TabsContent value="backup">
-          <BackupSettings />
-        </TabsContent>
+        {hasSensitiveSettings && (
+          <TabsContent value="plan">
+            <PlanSettings />
+          </TabsContent>
+        )}
+        {hasSensitiveSettings && (
+          <TabsContent value="license">
+            <LicenseSettings />
+          </TabsContent>
+        )}
+        {hasSensitiveSettings && (
+          <TabsContent value="backup">
+            <BackupSettings />
+          </TabsContent>
+        )}
         {hasSync && (
           <TabsContent value="hosting">
             <HubHostingCard />

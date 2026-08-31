@@ -80,16 +80,21 @@ import {
   INVOICE_LIST_MAX_PAGE_SIZE,
   FEATURE_FLAGS,
   PAYMENT_METHODS,
+  PERMISSION_FLAGS,
 } from '@centresoutien/domain';
 
 const featureFlagSchema = z.enum(FEATURE_FLAGS);
+const permissionFlagSchema = z.enum(PERMISSION_FLAGS);
 
 // The safe projection of a User across the IPC boundary (SOU-256). Credential
 // material — `passwordHash`, `setupCodeHash`, and the one-time setup code — is
 // NEVER present here: only the fields the user-management list renders survive.
 // `status` is the domain-derived login-readiness (active | setup-pending |
-// setup-expired), computed in main; the renderer never sees a hash. This is the
-// single source of truth for the renderer's `UserView` type.
+// setup-expired), computed in main; the renderer never sees a hash. `permissions`
+// is the owner-togglable per-account screen visibility (assistant-visibility) —
+// meaningless for `role: 'owner'` (always every screen) but always present so the
+// team roster's permission dialog has something to seed its switches from. This
+// is the single source of truth for the renderer's `UserView` type.
 const userViewSchema = z.object({
   id: z.string(),
   // `null` for a not-yet-onboarded invite — the placeholder username is never
@@ -98,6 +103,7 @@ const userViewSchema = z.object({
   fullName: z.string().nullable(),
   role: z.enum(ROLES),
   status: z.enum(['active', 'setup-pending', 'setup-expired']),
+  permissions: z.array(permissionFlagSchema),
 });
 
 /** The center profile as it crosses the IPC boundary — envelope dates stay in main. */
@@ -2441,6 +2447,15 @@ export const ipcContract = {
     request: z.object({}),
     response: z.object({ users: z.array(userViewSchema) }),
   },
+  // Owner toggles which hideable screens (payments, payroll, sensitive settings)
+  // one employee may see (assistant-visibility). Sends the whole desired set, not
+  // a single flag flip — the dialog holds every switch's state and saves once.
+  // Director-only, like every other user.* write; the domain rejects a
+  // `role: 'owner'` target with `cannot-restrict-owner`.
+  'user.updatePermissions': {
+    request: z.object({ userId: z.string(), permissions: z.array(permissionFlagSchema) }),
+    response: z.object({ user: userViewSchema }),
+  },
   // Center opening hours (SOU-29). `get` returns only persisted rows (empty on a
   // fresh center — the renderer seeds from the domain's DEFAULT_WEEKLY_HOURS).
   // `save` takes the whole 7-row week (the domain's own schema) and echoes back
@@ -2493,7 +2508,14 @@ export const ipcContract = {
   'auth.login': {
     request: loginInputSchema,
     response: z.discriminatedUnion('outcome', [
-      z.object({ outcome: z.literal('success') }),
+      // `role`/`permissions` ride along on success (assistant-visibility) so the
+      // renderer can seed its session cache and gate nav/settings without a
+      // second `auth.session` round trip right after login.
+      z.object({
+        outcome: z.literal('success'),
+        role: z.enum(ROLES),
+        permissions: z.array(permissionFlagSchema),
+      }),
       z.object({
         outcome: z.literal('invalid-credentials'),
         remainingAttempts: z.number().int().nonnegative(),
@@ -2508,9 +2530,15 @@ export const ipcContract = {
   // principal still resolve?" on startup (SOU-307: a legacy pre-SOU-265 session
   // or one pointing at a removed user reports false, forcing a re-login);
   // `auth.logout` forgets it. Neither exposes the session id to the renderer.
+  // `role`/`permissions` are `null` when not authenticated, else the signed-in
+  // account's — the renderer's nav/settings gating source (assistant-visibility).
   'auth.session': {
     request: z.object({}),
-    response: z.object({ authenticated: z.boolean() }),
+    response: z.object({
+      authenticated: z.boolean(),
+      role: z.enum(ROLES).nullable(),
+      permissions: z.array(permissionFlagSchema).nullable(),
+    }),
   },
   'auth.logout': {
     request: z.object({}),

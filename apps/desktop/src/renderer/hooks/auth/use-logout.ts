@@ -9,6 +9,11 @@ export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => window.api.invoke('auth.logout', {}),
-    onSuccess: () => queryClient.setQueryData(sessionQueryKey, { authenticated: false }),
+    onSuccess: () =>
+      queryClient.setQueryData(sessionQueryKey, {
+        authenticated: false,
+        role: null,
+        permissions: null,
+      }),
   });
 }

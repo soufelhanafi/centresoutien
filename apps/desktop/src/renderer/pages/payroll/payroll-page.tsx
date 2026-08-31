@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Navigate } from '@tanstack/react-router';
 import { LockOverlay } from '@centresoutien/ui';
+import { DEFAULT_ROUTE } from '../../app/nav-items';
 import { useFeature } from '../../hooks/use-feature';
+import { useUserPermission } from '../../hooks/use-user-permission';
 import { useUpgradeCta } from '../../hooks/use-upgrade-prompt';
 import { useTeachers } from '../../hooks/teacher/use-teachers';
 import { useSubjects } from '../../hooks/subject/use-subjects';
@@ -19,15 +22,20 @@ export function PayrollPage() {
   const { t } = useTranslation();
   const hasPayroll = useFeature('payroll.teacher');
   const upgradeCta = useUpgradeCta('payroll.teacher');
+  const hasPermission = useUserPermission('nav.payroll');
   const [month, setMonth] = useState(currentMonth());
 
   const isCurrentMonth = month === currentMonth();
-  const payoutsQuery = usePayrollPayouts(month, { enabled: hasPayroll });
+  const payoutsQuery = usePayrollPayouts(month, { enabled: hasPayroll && hasPermission });
   // The drill-down only expands a finalized payout row, so it is never needed
   // for the open month (no payout rows exist yet) — skipping it avoids a second
   // collected-ledger scan that the projection already performs.
-  const breakdownQuery = useAttributionBreakdown(month, { enabled: hasPayroll && !isCurrentMonth });
-  const projectionQuery = usePayrollProjection(month, { enabled: hasPayroll && isCurrentMonth });
+  const breakdownQuery = useAttributionBreakdown(month, {
+    enabled: hasPayroll && hasPermission && !isCurrentMonth,
+  });
+  const projectionQuery = usePayrollProjection(month, {
+    enabled: hasPayroll && hasPermission && isCurrentMonth,
+  });
   const teachersQuery = useTeachers('active', '');
   const subjectsQuery = useSubjects('all');
 
@@ -78,6 +86,11 @@ export function PayrollPage() {
       />
     </section>
   );
+
+  // Direct hash navigation bypasses the sidebar's own hiding (nav-item.tsx) — the
+  // route itself must refuse a denied assistant too, not just the link to it.
+  // Checked after every hook above (rules of hooks), before the plan-lock render.
+  if (!hasPermission) return <Navigate to={DEFAULT_ROUTE} replace />;
 
   if (!hasPayroll) {
     return (

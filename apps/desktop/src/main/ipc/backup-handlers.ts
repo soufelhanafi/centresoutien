@@ -8,6 +8,8 @@ import type {
   CenterCode,
 } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
+import type { SessionPrincipal } from '../session/session-principal';
+import { requirePermission } from './require-permission';
 
 export type CreateBackupUseCase = Pick<CreateBackup, 'execute'>;
 export type GetBackupConfigUseCase = Pick<GetBackupConfig, 'execute'>;
@@ -27,6 +29,10 @@ export type BackupHandlerDeps = {
   /** Called once a restore has swapped the live DB file — schedules an app
    *  relaunch so the next `buildContainer` opens the restored file. */
   scheduleRestart: () => void;
+  // Assistant-visibility (`settings.sensitive`): every channel here backs the
+  // Backup settings tab exclusively — backup/restore is the most consequential
+  // of the sensitive-settings actions (restore replaces the live DB file).
+  resolvePrincipal: () => Promise<SessionPrincipal | null>;
 };
 
 /** Project a backup file to its boundary DTO: `Date` serialized, like every
@@ -60,6 +66,7 @@ export function createBackupHandlers(
 ): Pick<IpcHandlers, 'backup.create' | 'backup.restore' | 'backup.config.get' | 'backup.config.set'> {
   return {
     'backup.create': async (request) => {
+      await requirePermission(deps.resolvePrincipal, 'settings.sensitive');
       const file = await deps.createBackup.execute({
         destDir: request.destDir,
         centerCode: deps.activeCenterCode(),
@@ -67,15 +74,18 @@ export function createBackupHandlers(
       return { file: toBackupFileView(file) };
     },
     'backup.restore': async (request) => {
+      await requirePermission(deps.resolvePrincipal, 'settings.sensitive');
       const result = await deps.restoreBackup.execute({ path: request.path, key: deps.dbKey() });
       if (result.outcome === 'restored') deps.scheduleRestart();
       return { outcome: result.outcome };
     },
-    'backup.config.get': async () => ({
-      config: toBackupConfigView(await deps.getBackupConfig.execute()),
-    }),
-    'backup.config.set': async (request) => ({
-      config: toBackupConfigView(await deps.saveBackupConfig.execute(request)),
-    }),
+    'backup.config.get': async () => {
+      await requirePermission(deps.resolvePrincipal, 'settings.sensitive');
+      return { config: toBackupConfigView(await deps.getBackupConfig.execute()) };
+    },
+    'backup.config.set': async (request) => {
+      await requirePermission(deps.resolvePrincipal, 'settings.sensitive');
+      return { config: toBackupConfigView(await deps.saveBackupConfig.execute(request)) };
+    },
   };
 }

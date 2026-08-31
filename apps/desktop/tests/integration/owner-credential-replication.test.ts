@@ -63,6 +63,8 @@ function makeOwner(passwordHash: string, id = 'usr_00000000000000000000000001'):
     setupCodeHash: null,
     setupCodeExpiresAt: null,
     setupCodeRedeemedAt: null,
+    email: null,
+    permissions: new Set(),
   };
 }
 

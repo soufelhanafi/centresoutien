@@ -176,6 +176,7 @@ import {
   NiveauNotFoundError,
   NotAuthenticatedError,
   SECURITY_QUESTION_KEYS,
+  requireUserPermission,
 } from '@centresoutien/domain';
 import type { RegisterableIpcHandlers, IpcRequest } from '../../shared/ipc/contract';
 import type { SessionPrincipal } from '../session/session-principal';
@@ -211,6 +212,7 @@ import { createSyncHandlers, type SyncHandlerDeps } from './sync-handlers';
 import { createHubHandlers, type HubHandlerDeps } from './hub-handlers';
 import { createCenterSwitchHandlers, type CenterSwitchHandlerDeps } from './center-switch-handlers';
 import { createUserHandlers, type UserHandlerDeps } from './user-handlers';
+import { requirePermission } from './require-permission';
 import { createEmailResetHandlers, type EmailResetHandlerDeps } from './email-reset-handlers';
 import {
   createAttendanceReportingHandlers,
@@ -592,6 +594,24 @@ function toRecentPaymentView(row: RecentPaymentView) {
     studentId: row.studentId,
     studentName: row.studentName,
   };
+}
+
+// Assistant-visibility (`nav.payments`): the Payments page's own two read
+// channels (`payment.recent`, `payment.takings`) — never `payment.record` /
+// `payment.void` / `payment.summary`, which the Invoicing page's payment
+// recording flow uses and stays open to every signed-in account.
+async function requirePaymentsPermission(deps: Pick<HandlerDeps, 'resolvePrincipal'>): Promise<void> {
+  await requirePermission(deps.resolvePrincipal, 'nav.payments');
+}
+
+// Assistant-visibility (`nav.payroll`): `payroll.computeMonthly` lives here
+// rather than `payroll-handlers.ts` (it backs the confirm-flow's preview step,
+// wired earlier in `createHandlers`), but it is the same Payroll-page-only
+// surface `requirePayrollPermission` gates there — same flag, same reasoning.
+async function requirePayrollComputeMonthlyPermission(
+  deps: Pick<HandlerDeps, 'resolvePrincipal'>,
+): Promise<void> {
+  await requirePermission(deps.resolvePrincipal, 'nav.payroll');
 }
 
 /** Project a Teacher to its boundary DTO: envelope stripped, dates serialized,
@@ -1034,8 +1054,22 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       planId: deps.activePlanId(),
       features: [...deps.activePlanFeatures()],
     }),
+    // `license.status` stays ungated: the app-wide restricted-mode gate
+    // (`license-gate.tsx`, the first-run gate) reads it for every account, not
+    // just the License settings tab — only the write is settings.sensitive.
     'license.status': () => deps.getLicenseStatus.execute(),
-    'license.activate': (request) => deps.activateLicense.execute({ rawLicense: request.license }),
+    // Deliberately NOT `requireSensitiveSettingsPermission` unconditionally:
+    // this channel is also the pre-login/restricted-mode recovery path (a
+    // lapsed or missing license leaves the app unusable before anyone can sign
+    // in at all — see the SOU-104 restricted-mode tests), so an absent
+    // principal must still go through. Once a principal IS established, the
+    // normal Settings > License tab write is gated like any other
+    // settings.sensitive action.
+    'license.activate': async (request) => {
+      const principal = await deps.resolvePrincipal();
+      if (principal !== null) requireUserPermission(principal, 'settings.sensitive');
+      return deps.activateLicense.execute({ rawLicense: request.license });
+    },
     'subject.create': async (request) => {
       const subject = await deps.createSubject.execute({ ...request, ...deps.envelopeContext() });
       return { id: subject.id };
@@ -1460,6 +1494,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       };
     },
     'payment.recent': async (request) => {
+      await requirePaymentsPermission(deps);
       const rows = await deps.listRecentPayments.execute({
         centerCode: deps.envelopeContext().centerCode,
         ...(request.from !== undefined && { from: request.from }),
@@ -1470,6 +1505,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       return { payments: rows.map(toRecentPaymentView) };
     },
     'payment.takings': async (request) => {
+      await requirePaymentsPermission(deps);
       const takings = await deps.getDayTakings.execute({
         centerCode: deps.envelopeContext().centerCode,
         day: request.day,
@@ -1625,6 +1661,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       return { rules: rules.map(toTeacherPayrollRuleView) };
     },
     'payroll.computeMonthly': async (request) => {
+      await requirePayrollComputeMonthlyPermission(deps);
       return deps.computeMonthlyPayrolls.execute({
         month: request.month,
         ...deps.envelopeContext(),
@@ -1906,8 +1943,16 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
           // of whether a remember-me session was persisted. A non-remembered
           // login persists no session, so re-reading it would wrongly resolve to
           // null and both drop attribution and lock the director out of the guard.
-          deps.setPrincipal({ userId: result.user.userId, role: result.user.role });
-          return { outcome: 'success' };
+          deps.setPrincipal({
+            userId: result.user.userId,
+            role: result.user.role,
+            permissions: result.user.permissions,
+          });
+          return {
+            outcome: 'success',
+            role: result.user.role,
+            permissions: [...result.user.permissions],
+          };
         case 'invalid-credentials':
           return { outcome: 'invalid-credentials', remainingAttempts: result.remainingAttempts };
         case 'locked-out':
@@ -1923,15 +1968,19 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       // session (pre-SOU-265, no user_id) or one pointing at a removed user
       // resolves to null, so the gate forces a re-login that stamps user_id
       // (SOU-307).
-      if (!(await deps.deviceSessions.isAuthenticated())) return { authenticated: false };
+      if (!(await deps.deviceSessions.isAuthenticated())) {
+        return { authenticated: false, role: null, permissions: null };
+      }
       try {
-        return { authenticated: (await deps.resolvePrincipal()) !== null };
+        const principal = await deps.resolvePrincipal();
+        if (principal === null) return { authenticated: false, role: null, permissions: null };
+        return { authenticated: true, role: principal.role, permissions: [...principal.permissions] };
       } catch (error) {
         // Fail closed to the login screen, not the error screen: a transient
         // read failure during principal resolution must not hard-block startup.
         // The user can still re-authenticate once the DB recovers.
         console.error('[auth] failed to resolve session principal', error);
-        return { authenticated: false };
+        return { authenticated: false, role: null, permissions: null };
       }
     },
     'auth.logout': async () => {

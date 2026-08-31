@@ -28,6 +28,10 @@ describe('Settings page — tabs', () => {
     const user = userEvent.setup();
     renderPage();
 
+    // The sensitive-settings tabs (Formule, Sauvegarde, …) are gated behind the
+    // async `auth.session` read (assistant-visibility) — wait for the first one
+    // before asserting the rest synchronously.
+    expect(await screen.findByRole('tab', { name: 'Formule' })).toBeInTheDocument();
     for (const label of [
       'Profil',
       'Horaires',
@@ -35,7 +39,6 @@ describe('Settings page — tabs', () => {
       'Mot de passe',
       'Questions de sécurité',
       'Langue',
-      'Formule',
       'Sauvegarde',
     ]) {
       expect(screen.getByRole('tab', { name: label })).toBeInTheDocument();
@@ -55,6 +58,7 @@ describe('Settings page — tabs', () => {
     await i18n.changeLanguage('ar');
     renderPage();
 
+    expect(await screen.findByRole('tab', { name: 'الباقة' })).toBeInTheDocument();
     for (const label of [
       'الملف الشخصي',
       'المواعيد',
@@ -62,7 +66,6 @@ describe('Settings page — tabs', () => {
       'كلمة المرور',
       'أسئلة الأمان',
       'اللغة',
-      'الباقة',
       'النسخ الاحتياطي',
     ]) {
       expect(screen.getByRole('tab', { name: label })).toBeInTheDocument();

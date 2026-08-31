@@ -13,6 +13,7 @@ import type {
   StudentId,
   PhoneNumber,
   Role,
+  PermissionFlag,
   RoomId,
   SubjectId,
   TimeOfDay,
@@ -162,6 +163,8 @@ const stubCreateUser: CreateUserUseCase = {
         setupCodeHash: null,
         setupCodeExpiresAt: null,
         setupCodeRedeemedAt: null,
+        email: null,
+        permissions: new Set(),
       },
     };
   },
@@ -196,6 +199,8 @@ const stubReissueSetupCode: ReissueSetupCodeUseCase = {
         setupCodeHash: '$argon2id$v=19$m=19456,t=2,p=1$new$hash',
         setupCodeExpiresAt: SETUP_CODE_EXPIRES_MS,
         setupCodeRedeemedAt: null,
+        email: null,
+        permissions: new Set(),
       },
       setupCode: 'B8L3-0GNQ-4RSU',
     };
@@ -227,6 +232,8 @@ const stubListUsers = async () => [
     setupCodeHash: '$argon2id$v=19$m=19456,t=2,p=1$abc$def',
     setupCodeExpiresAt: SETUP_CODE_EXPIRES_MS,
     setupCodeRedeemedAt: null,
+    email: null,
+    permissions: new Set(['nav.payments']),
   },
   {
     id: 'usr_00000000000000000000000001' as UserId,
@@ -244,6 +251,8 @@ const stubListUsers = async () => [
     setupCodeHash: null,
     setupCodeExpiresAt: null,
     setupCodeRedeemedAt: NOW,
+    email: null,
+    permissions: new Set(),
   },
 ];
 
@@ -254,6 +263,7 @@ const LOGGED_IN_USER = {
   userId: 'usr_00000000000000000000000001' as UserId,
   username: 'directrice',
   role: 'owner' as Role,
+  permissions: new Set<PermissionFlag>(),
 };
 const stubAttemptLogin: AttemptLoginUseCase = {
   execute: async (input) => {
@@ -272,7 +282,8 @@ const stubDeviceSessions: DeviceSessions = {
 // The trusted session principal the SOU-265 role guard reads. `null` == no
 // established principal (rejected as unauthenticated); a role drives the director
 // gate on user.create / user.list.
-let principal: { userId: UserId; role: Role } | null = null;
+type StubPrincipal = { userId: UserId; role: Role; permissions: ReadonlySet<PermissionFlag> };
+let principal: StubPrincipal | null = null;
 let resolveThrows = false;
 const stubResolvePrincipal = async () => {
   if (resolveThrows) throw new Error('sqlite busy');
@@ -280,15 +291,19 @@ const stubResolvePrincipal = async () => {
 };
 // Login establishes the principal in memory directly from the verified identity
 // (SOU-265) — independent of any persisted session — so the stub mirrors that.
-const stubSetPrincipal = (next: { userId: UserId; role: Role }) => {
+const stubSetPrincipal = (next: StubPrincipal) => {
   principal = next;
 };
 const stubClearPrincipal = () => {
   principal = null;
 };
 /** Run `body` with a principal set, always restoring null afterwards. */
-async function asPrincipal(role: Role, body: () => Promise<void>): Promise<void> {
-  principal = { userId: 'usr_00000000000000000000000001' as UserId, role };
+async function asPrincipal(
+  role: Role,
+  body: () => Promise<void>,
+  permissions: ReadonlySet<PermissionFlag> = new Set(),
+): Promise<void> {
+  principal = { userId: 'usr_00000000000000000000000001' as UserId, role, permissions };
   try {
     await body();
   } finally {
@@ -836,6 +851,7 @@ describe('createIpcDispatcher', () => {
           fullName: null,
           role: 'secretary',
           status: 'active',
+          permissions: [],
         },
       });
       // The renderer sent role + credentials; center/device/user were injected in main.
@@ -888,15 +904,34 @@ describe('createIpcDispatcher', () => {
     expect(decodeDomainError(error.message)?.code).toBe('not-authenticated');
   });
 
-  it('allows an admin (not just an owner) to run user.create', async () => {
+  it('allows an admin (not just an owner) to run user.create, once granted settings.sensitive', async () => {
+    // Unlike `owner`, an `admin` principal's own stored permissions ARE
+    // consulted (assistant-visibility) — this test grants `settings.sensitive`
+    // explicitly to isolate what it actually covers: role sufficiency, not the
+    // permission gate (covered separately below).
+    await asPrincipal(
+      'admin',
+      async () => {
+        await expect(
+          dispatch('user.create', {
+            role: 'secretary',
+            username: 'assistante',
+            password: CREATE_PW,
+          }),
+        ).resolves.toHaveProperty('user');
+      },
+      new Set(['settings.sensitive']),
+    );
+  });
+
+  it('rejects an admin who lacks settings.sensitive from running user.create', async () => {
     await asPrincipal('admin', async () => {
-      await expect(
-        dispatch('user.create', {
-          role: 'secretary',
-          username: 'assistante',
-          password: CREATE_PW,
-        }),
-      ).resolves.toHaveProperty('user');
+      const error = await dispatch('user.create', {
+        role: 'secretary',
+        username: 'assistante',
+        password: CREATE_PW,
+      }).catch((e: unknown) => e as Error);
+      expect(decodeDomainError(error.message)?.code).toBe('user-permission-denied');
     });
   });
 
@@ -977,6 +1012,7 @@ describe('createIpcDispatcher', () => {
             fullName: null,
             role: 'secretary',
             status: 'setup-pending',
+            permissions: ['nav.payments'],
           },
           {
             id: 'usr_00000000000000000000000001',
@@ -984,6 +1020,7 @@ describe('createIpcDispatcher', () => {
             fullName: null,
             role: 'owner',
             status: 'active',
+            permissions: [],
           },
         ],
       });
@@ -1026,7 +1063,7 @@ describe('createIpcDispatcher', () => {
   it('serializes auth.login success', async () => {
     await expect(
       dispatch('auth.login', { username: 'directrice', password: PASS, rememberDevice: true }),
-    ).resolves.toEqual({ outcome: 'success' });
+    ).resolves.toEqual({ outcome: 'success', role: 'owner', permissions: [] });
   });
 
   it('establishes the principal on a NON-remembered login so the director clears the guard (SOU-265 B1)', async () => {
@@ -1037,8 +1074,12 @@ describe('createIpcDispatcher', () => {
     // rejected at the role guard and writes mis-attribute to the bootstrap user.
     await expect(
       dispatch('auth.login', { username: 'directrice', password: PASS }),
-    ).resolves.toEqual({ outcome: 'success' });
-    expect(principal).toEqual({ userId: LOGGED_IN_USER.userId, role: 'owner' });
+    ).resolves.toEqual({ outcome: 'success', role: 'owner', permissions: [] });
+    expect(principal).toEqual({
+      userId: LOGGED_IN_USER.userId,
+      role: 'owner',
+      permissions: new Set(),
+    });
     // The freshly-established owner now passes the director-only guard.
     await expect(
       dispatch('user.create', { username: 'amine', role: 'secretary', password: CREATE_PW }),
@@ -1047,7 +1088,7 @@ describe('createIpcDispatcher', () => {
   });
 
   it('clears the principal on a recovery-code password reset (SOU-265 B4)', async () => {
-    principal = { userId: LOGGED_IN_USER.userId, role: 'owner' };
+    principal = { userId: LOGGED_IN_USER.userId, role: 'owner', permissions: new Set() };
     await expect(
       dispatch('auth.resetWithCode', { code: 'ABCD-EFGH-JKLM-NPQR', password: 'Casa2026!' }),
     ).resolves.toEqual({ outcome: 'success' });
@@ -1072,10 +1113,22 @@ describe('createIpcDispatcher', () => {
     remembered = true;
     // A remembered session authenticates only when it resolves to a principal
     // (SOU-307); the remember-me reopen path recovers it from the stored user id.
-    principal = { userId: 'usr_00000000000000000000000001' as UserId, role: 'owner' };
-    await expect(dispatch('auth.session', {})).resolves.toEqual({ authenticated: true });
+    principal = {
+      userId: 'usr_00000000000000000000000001' as UserId,
+      role: 'owner',
+      permissions: new Set(),
+    };
+    await expect(dispatch('auth.session', {})).resolves.toEqual({
+      authenticated: true,
+      role: 'owner',
+      permissions: [],
+    });
     await expect(dispatch('auth.logout', {})).resolves.toEqual({ ok: true });
-    await expect(dispatch('auth.session', {})).resolves.toEqual({ authenticated: false });
+    await expect(dispatch('auth.session', {})).resolves.toEqual({
+      authenticated: false,
+      role: null,
+      permissions: null,
+    });
   });
 
   it('auth.session fails closed to unauthenticated when principal resolution throws (SOU-307)', async () => {
@@ -1083,7 +1136,11 @@ describe('createIpcDispatcher', () => {
     resolveThrows = true;
     // A transient read failure must not block startup behind the error screen —
     // it degrades to the login screen instead.
-    await expect(dispatch('auth.session', {})).resolves.toEqual({ authenticated: false });
+    await expect(dispatch('auth.session', {})).resolves.toEqual({
+      authenticated: false,
+      role: null,
+      permissions: null,
+    });
     resolveThrows = false;
   });
 

@@ -84,7 +84,10 @@ describe('Sidebar — plan-gated navigation', () => {
     });
     expect(await screen.findByRole('link', { name: 'Parents' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Synchronisation' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Paie' })).toBeInTheDocument();
+    // 'Paie' is additionally gated behind the async `auth.session` read
+    // (assistant-visibility), so it needs its own wait — unlike the two links
+    // above, which are plan-gated only and settle synchronously with the store.
+    expect(await screen.findByRole('link', { name: 'Paie' })).toBeInTheDocument();
   });
 
   it('hides the per-center stats entry entirely when the plan lacks org.multi-center (SOU-309)', async () => {

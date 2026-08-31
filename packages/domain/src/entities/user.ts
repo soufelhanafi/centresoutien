@@ -2,6 +2,7 @@ import type { EntityEnvelope } from './envelope';
 import type { Role } from '../value-objects/role';
 import type { UserId } from '../value-objects/ids';
 import type { Email } from '../value-objects/email';
+import type { PermissionFlag } from '../permissions/permissions';
 
 export type { UserId } from '../value-objects/ids';
 
@@ -74,6 +75,12 @@ export type User = EntityEnvelope & {
   // any other editable column. NOT a duplicate-matching key (accounts match on
   // username), so it is absent from the naturalKey and uniqueness index.
   email: Email | null;
+  // Which hideable screens (payments, payroll, sensitive settings) this account may
+  // see, toggled by the owner per employee. Only meaningful for non-owner roles —
+  // `hasUserPermission`/`requireUserPermission` never consult it for `role: 'owner'`,
+  // which always passes every check. Defaults to every flag granted at creation
+  // (opt-out: nothing is hidden until the owner explicitly unchecks something).
+  permissions: ReadonlySet<PermissionFlag>;
 };
 
 // True when a user still has a redeemable setup code (pending and unexpired at `now`).

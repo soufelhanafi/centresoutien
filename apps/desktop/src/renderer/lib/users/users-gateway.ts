@@ -4,6 +4,7 @@ import type {
   ValidateSetupCodeInput,
   ValidatedSetupCode,
   RecoverPasswordWithSetupCodeInput,
+  PermissionFlag,
 } from '@centresoutien/domain';
 import type { UserView } from './user-view';
 import { ipcUsersGateway } from './ipc-users-gateway';
@@ -25,6 +26,8 @@ export type ReissueResult = { readonly user: UserView; readonly setupCode: strin
  * the login screen with no session: `validateSetupCode` proves the code alone
  * (step 1), then `redeemSetupCode` (first onboarding — captures identity) or
  * `recoverPassword` (already-onboarded — password only) commits it.
+ * `updatePermissions` backs the team roster's per-account permission switches
+ * (assistant-visibility) — sends the whole desired set, not a single toggle.
  */
 export interface UsersGateway {
   list(): Promise<readonly UserView[]>;
@@ -33,6 +36,7 @@ export interface UsersGateway {
   validateSetupCode(input: ValidateSetupCodeInput): Promise<ValidatedSetupCode>;
   redeemSetupCode(input: RedeemSetupCodeInput): Promise<void>;
   recoverPassword(input: RecoverPasswordWithSetupCodeInput): Promise<void>;
+  updatePermissions(userId: string, permissions: readonly PermissionFlag[]): Promise<UserView>;
 }
 
 /** The active gateway: the real IPC adapter. Swapping it is this one line. */

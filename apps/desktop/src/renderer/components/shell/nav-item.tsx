@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { Lock } from 'lucide-react';
 import { PlanBadge, cn } from '@centresoutien/ui';
 import { useOptionalFeature } from '../../hooks/use-feature';
+import { useUserPermission } from '../../hooks/use-user-permission';
 import type { NavModule } from '../../app/nav-items';
 
 const BASE =
@@ -24,7 +25,11 @@ export function NavItem({ module, collapsed }: NavItemProps) {
   const Icon = module.icon;
   const hasFeature = useOptionalFeature(module.feature);
   const locked = module.feature !== undefined && !hasFeature;
+  const hasPermission = useUserPermission(module.permission);
 
+  // A denied permission hides the entry outright, unconditionally — an
+  // assistant-visibility screen the owner hid never shows an upgrade-style lock.
+  if (!hasPermission) return null;
   if (module.hideWhenLocked && locked) return null;
 
   const icon = <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />;

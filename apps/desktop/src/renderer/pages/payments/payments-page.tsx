@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Navigate } from '@tanstack/react-router';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@centresoutien/ui';
+import { DEFAULT_ROUTE } from '../../app/nav-items';
+import { useUserPermission } from '../../hooks/use-user-permission';
 import { OpenInvoicePicker } from '../../components/payments/open-invoice-picker';
 import { RecentPaymentsFeed } from '../../components/payments/recent-payments-feed';
 import {
@@ -30,6 +33,11 @@ export function PaymentsPage() {
   const [feedFilters, setFeedFilters] = useState<RecentPaymentsFilterState>(
     EMPTY_RECENT_PAYMENTS_FILTERS,
   );
+  const hasPermission = useUserPermission('nav.payments');
+
+  // Direct hash navigation bypasses the sidebar's own hiding (nav-item.tsx) — the
+  // route itself must refuse a denied assistant too, not just the link to it.
+  if (!hasPermission) return <Navigate to={DEFAULT_ROUTE} replace />;
 
   return (
     <section aria-labelledby="payments-title" className="mx-auto flex w-full max-w-5xl flex-col gap-5">

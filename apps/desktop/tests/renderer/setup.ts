@@ -45,9 +45,12 @@ Object.defineProperty(window, 'api', {
         case 'centerHours.get':
           return { week: [] };
         // Default to a remembered device so App smoke tests render the app, not
-        // the login screen. Auth-specific tests override `window.api.invoke`.
+        // the login screen. `role: 'owner'` so assistant-visibility gating
+        // (useUserPermission) doesn't hide anything for the default fixture —
+        // an owner always sees every screen. Auth-specific and
+        // assistant-visibility-specific tests override `window.api.invoke`.
         case 'auth.session':
-          return { authenticated: true };
+          return { authenticated: true, role: 'owner', permissions: [] };
         // Default to no saved profile so App smoke tests render the blank
         // Settings form. Center-specific tests override `window.api.invoke`.
         case 'center.get':

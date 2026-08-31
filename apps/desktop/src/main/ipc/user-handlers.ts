@@ -6,12 +6,15 @@ import type {
   ValidateSetupCode,
   ReissueSetupCode,
   RecoverPasswordWithSetupCode,
+  UpdateUserPermissions,
+  PermissionFlag,
   User,
   UserId,
 } from '@centresoutien/domain';
 import {
   NotAuthenticatedError,
   requireRole,
+  requireUserPermission,
   canLogin,
   isSetupCodePending,
   hasEstablishedIdentity,
@@ -24,6 +27,7 @@ export type RedeemSetupCodeUseCase = Pick<RedeemSetupCode, 'execute'>;
 export type ValidateSetupCodeUseCase = Pick<ValidateSetupCode, 'execute'>;
 export type ReissueSetupCodeUseCase = Pick<ReissueSetupCode, 'execute'>;
 export type RecoverPasswordUseCase = Pick<RecoverPasswordWithSetupCode, 'execute'>;
+export type UpdateUserPermissionsUseCase = Pick<UpdateUserPermissions, 'execute'>;
 
 // The center/device/user envelope stamped on every write; structurally the same
 // object `handlers.ts` builds, kept local so this module owns no import cycle.
@@ -44,6 +48,7 @@ export type UserHandlerDeps = {
   validateSetupCode: ValidateSetupCodeUseCase;
   reissueSetupCode: ReissueSetupCodeUseCase;
   recoverPassword: RecoverPasswordUseCase;
+  updateUserPermissions: UpdateUserPermissionsUseCase;
   listUsers: () => Promise<readonly User[]>;
   envelopeContext: () => UserEnvelopeContext;
   now: () => Date;
@@ -73,6 +78,7 @@ function toUserView(user: User, now: Date) {
     fullName: user.fullName,
     role: user.role,
     status: userAccountStatus(user, now),
+    permissions: [...user.permissions] satisfies PermissionFlag[],
   };
 }
 
@@ -82,8 +88,16 @@ function toUserView(user: User, now: Date) {
 // NotAuthenticatedError) whose role is `admin` or higher (else InsufficientRoleError,
 // which the shared error-code transport carries to the renderer as `insufficient-role`).
 // A legacy/expired/unknown session resolves to `null` and is rejected as
-// unauthenticated: the device must log in again to re-establish who it is. The
-// resolved principal is RETURNED so guarded writes stamp `updatedBy` from it
+// unauthenticated: the device must log in again to re-establish who it is.
+//
+// Also requires `settings.sensitive` (assistant-visibility): the role check alone
+// is not enough once permissions exist — an `admin` passes `requireRole` but is
+// exactly the kind of account the owner's toggle is meant to restrict, so it must
+// ALSO be checked here, not just hidden behind the Team tab in the renderer
+// (`owner` always passes both checks; `hasUserPermission` never consults its own
+// stored permissions).
+//
+// The resolved principal is RETURNED so guarded writes stamp `updatedBy` from it
 // directly, never re-reading the mutable cache after another await could have
 // changed it (a concurrent logout would otherwise mis-attribute the write).
 async function requireDirector(
@@ -92,6 +106,7 @@ async function requireDirector(
   const principal = await deps.resolvePrincipal();
   if (principal === null) throw new NotAuthenticatedError();
   requireRole(principal.role, 'admin');
+  requireUserPermission(principal, 'settings.sensitive');
   return principal;
 }
 
@@ -108,6 +123,7 @@ export function createUserHandlers(
   | 'user.reissueSetupCode'
   | 'user.recoverPassword'
   | 'user.list'
+  | 'user.updatePermissions'
 > {
   return {
     'user.create': async (request) => {
@@ -165,6 +181,19 @@ export function createUserHandlers(
       const users = await deps.listUsers();
       const now = deps.now();
       return { users: users.map((user) => toUserView(user, now)) };
+    },
+    // Owner/admin toggles which hideable screens a non-owner account may see
+    // (assistant-visibility). Same director gate as every other user.* write; the
+    // domain itself rejects a `role: 'owner'` target (`CannotRestrictOwnerError`)
+    // so this can never silently no-op the director's own access.
+    'user.updatePermissions': async (request) => {
+      const principal = await requireDirector(deps);
+      const updated = await deps.updateUserPermissions.execute({
+        userId: request.userId as User['id'],
+        permissions: new Set(request.permissions as PermissionFlag[]),
+        updatedBy: principal.userId,
+      });
+      return { user: toUserView(updated, deps.now()) };
     },
   };
 }

@@ -7,6 +7,7 @@ import { adminCredentialsSchema, type AdminCredentials } from '../schemas/admin-
 import { OwnerAlreadyExistsError } from '../errors/user-errors';
 import { newEnvelope } from '../entities/envelope';
 import { USER_ID_PREFIX, type User } from '../entities/user';
+import { ALL_PERMISSION_FLAGS } from '../permissions/permissions';
 
 export type CreateAdminAccountInput = AdminCredentials;
 
@@ -57,6 +58,9 @@ export class CreateAdminAccount {
       setupCodeExpiresAt: null,
       setupCodeRedeemedAt: null,
       email: null,
+      // Never consulted — `role: 'owner'` always passes `hasUserPermission` — but
+      // stored as "everything" for consistency with what a fresh account looks like.
+      permissions: ALL_PERMISSION_FLAGS,
     };
 
     await this.users.save(owner);

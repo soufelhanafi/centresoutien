@@ -10,8 +10,15 @@ import type {
   DeviceId,
   Email,
   ChangeLogWriter,
+  PermissionFlag,
 } from '@centresoutien/domain';
-import { toEntityId, normalizeUsername, isRole, UsernameAlreadyTakenError } from '@centresoutien/domain';
+import {
+  toEntityId,
+  normalizeUsername,
+  isRole,
+  UsernameAlreadyTakenError,
+  PERMISSION_FLAGS,
+} from '@centresoutien/domain';
 
 /** The `users` table row shape as SQLite returns it. */
 export type UserRow = {
@@ -32,6 +39,7 @@ export type UserRow = {
   setup_code_expires_at: number | null;
   setup_code_redeemed_at: string | null;
   email: string | null;
+  permissions: string;
 };
 
 function toRole(value: string): Role {
@@ -40,6 +48,21 @@ function toRole(value: string): Role {
   // silently trusted, so an unknown value can never out-rank a real role.
   if (!isRole(value)) throw new Error(`users: unknown role "${value}"`);
   return value;
+}
+
+function isPermissionFlag(value: unknown): value is PermissionFlag {
+  return typeof value === 'string' && (PERMISSION_FLAGS as readonly string[]).includes(value);
+}
+
+// Parses the stored JSON array, silently dropping any token this build's
+// PERMISSION_FLAGS no longer recognizes — additive-only evolution (a stale
+// replica's row, or a flag retired later) rather than a fail-closed throw: an
+// unknown permission token can only ever narrow what an account sees, never
+// widen it, so tolerating it is safe where `toRole` cannot be.
+function toPermissions(json: string): ReadonlySet<PermissionFlag> {
+  const parsed: unknown = JSON.parse(json);
+  if (!Array.isArray(parsed)) return new Set();
+  return new Set(parsed.filter(isPermissionFlag));
 }
 
 export function userRowToUser(row: UserRow): User {
@@ -60,6 +83,7 @@ export function userRowToUser(row: UserRow): User {
     setupCodeExpiresAt: row.setup_code_expires_at,
     setupCodeRedeemedAt: row.setup_code_redeemed_at === null ? null : new Date(row.setup_code_redeemed_at),
     email: row.email === null ? null : (row.email as Email),
+    permissions: toPermissions(row.permissions),
   };
 }
 
@@ -67,11 +91,11 @@ const SAVE_SQL = `
   INSERT INTO users
     (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at,
      version, role, username, username_normalized, full_name, password_hash,
-     setup_code_hash, setup_code_expires_at, setup_code_redeemed_at, email)
+     setup_code_hash, setup_code_expires_at, setup_code_redeemed_at, email, permissions)
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by, @deleted_at,
      @version, @role, @username, @username_normalized, @full_name, @password_hash,
-     @setup_code_hash, @setup_code_expires_at, @setup_code_redeemed_at, @email)
+     @setup_code_hash, @setup_code_expires_at, @setup_code_redeemed_at, @email, @permissions)
   ON CONFLICT(id) DO UPDATE SET
     updated_at             = excluded.updated_at,
     updated_by             = excluded.updated_by,
@@ -85,7 +109,8 @@ const SAVE_SQL = `
     setup_code_hash        = excluded.setup_code_hash,
     setup_code_expires_at  = excluded.setup_code_expires_at,
     setup_code_redeemed_at = excluded.setup_code_redeemed_at,
-    email                  = excluded.email
+    email                  = excluded.email,
+    permissions            = excluded.permissions
 `;
 
 function toSaveParams(user: User) {
@@ -107,6 +132,7 @@ function toSaveParams(user: User) {
     setup_code_expires_at: user.setupCodeExpiresAt,
     setup_code_redeemed_at: user.setupCodeRedeemedAt ? user.setupCodeRedeemedAt.toISOString() : null,
     email: user.email,
+    permissions: JSON.stringify([...user.permissions]),
   };
 }
 

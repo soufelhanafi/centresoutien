@@ -242,7 +242,7 @@ describe('composition root', () => {
     // exercised only through the throttled `auth.login` path.
     expect(
       await dispatch2('auth.login', { username: 'directrice', password: PASS, rememberDevice: false }),
-    ).toEqual({ outcome: 'success' });
+    ).toMatchObject({ outcome: 'success' });
     expect(
       await dispatch2('auth.login', {
         username: 'directrice',
@@ -269,21 +269,21 @@ describe('composition root', () => {
     await dispatch1('admin.create', { username: 'directrice', password: PASS });
 
     // Not authenticated before logging in.
-    expect(await dispatch1('auth.session', {})).toEqual({ authenticated: false });
+    expect(await dispatch1('auth.session', {})).toMatchObject({ authenticated: false });
     expect(
       await dispatch1('auth.login', {
         username: 'directrice',
         password: PASS,
         rememberDevice: true,
       }),
-    ).toEqual({ outcome: 'success' });
-    expect(await dispatch1('auth.session', {})).toEqual({ authenticated: true });
+    ).toMatchObject({ outcome: 'success' });
+    expect(await dispatch1('auth.session', {})).toMatchObject({ authenticated: true });
     first.dispose();
 
     // Reopen the same encrypted file: the remembered session survives.
     const second = build();
     const dispatch2 = createIpcDispatcher(createHandlers(second.handlerDeps));
-    expect(await dispatch2('auth.session', {})).toEqual({ authenticated: true });
+    expect(await dispatch2('auth.session', {})).toMatchObject({ authenticated: true });
 
     // Logout forgets it, and the forgetting also survives a restart.
     expect(await dispatch2('auth.logout', {})).toEqual({ ok: true });
@@ -291,7 +291,7 @@ describe('composition root', () => {
 
     const third = build();
     const dispatch3 = createIpcDispatcher(createHandlers(third.handlerDeps));
-    expect(await dispatch3('auth.session', {})).toEqual({ authenticated: false });
+    expect(await dispatch3('auth.session', {})).toMatchObject({ authenticated: false });
     third.dispose();
   });
 
@@ -300,12 +300,12 @@ describe('composition root', () => {
     const d1 = createIpcDispatcher(createHandlers(first.handlerDeps));
     await d1('admin.create', { username: 'directrice', password: PASS });
     await d1('auth.login', { username: 'directrice', password: PASS, rememberDevice: false });
-    expect(await d1('auth.session', {})).toEqual({ authenticated: false });
+    expect(await d1('auth.session', {})).toMatchObject({ authenticated: false });
     first.dispose();
 
     const second = build();
     const d2 = createIpcDispatcher(createHandlers(second.handlerDeps));
-    expect(await d2('auth.session', {})).toEqual({ authenticated: false });
+    expect(await d2('auth.session', {})).toMatchObject({ authenticated: false });
     second.dispose();
   });
 
@@ -321,7 +321,7 @@ describe('composition root', () => {
 
     const second = build();
     const d2 = createIpcDispatcher(createHandlers(second.handlerDeps));
-    expect(await d2('auth.session', {})).toEqual({ authenticated: false });
+    expect(await d2('auth.session', {})).toMatchObject({ authenticated: false });
     // Sensitive admin channels must not stay reachable through an identity-less
     // session either (SOU-307 consistency: principal must resolve, not just a
     // remembered device).
@@ -342,7 +342,7 @@ describe('composition root', () => {
 
     const second = build();
     const d2 = createIpcDispatcher(createHandlers(second.handlerDeps));
-    expect(await d2('auth.session', {})).toEqual({ authenticated: false });
+    expect(await d2('auth.session', {})).toMatchObject({ authenticated: false });
     second.dispose();
   });
 

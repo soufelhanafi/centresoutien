@@ -744,6 +744,7 @@ describe('owner username collision on users (SOU-258 follow-up) — no wedge', (
       setupCodeExpiresAt: null,
       setupCodeRedeemedAt: null,
       email: null,
+      permissions: new Set(),
     };
   }
 
