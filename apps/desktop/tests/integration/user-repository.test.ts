@@ -50,6 +50,7 @@ function makeUser(over: Partial<User> = {}): User {
     setupCodeExpiresAt: null,
     setupCodeRedeemedAt: null,
     email: null,
+    permissions: new Set(),
     ...over,
   };
 }

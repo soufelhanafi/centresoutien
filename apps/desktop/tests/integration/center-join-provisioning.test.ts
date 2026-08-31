@@ -76,6 +76,7 @@ const OWNER_ENTITY: Record<string, unknown> = {
   setupCodeExpiresAt: null,
   setupCodeRedeemedAt: null,
   email: null,
+  permissions: ['nav.payments', 'nav.payroll', 'settings.sensitive'],
 };
 
 const SUBJECT_ENTITY: Record<string, unknown> = {

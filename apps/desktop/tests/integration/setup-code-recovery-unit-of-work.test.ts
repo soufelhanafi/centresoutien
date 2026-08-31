@@ -56,6 +56,7 @@ function makeStaff(): User {
     setupCodeExpiresAt: EXPIRES_MS,
     setupCodeRedeemedAt: null,
     email: 'sanaa@centre.ma' as User['email'],
+    permissions: new Set(),
   };
 }
 

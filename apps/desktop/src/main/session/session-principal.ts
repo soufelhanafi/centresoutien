@@ -1,9 +1,15 @@
-import type { Role, User, UserId } from '@centresoutien/domain';
+import type { PermissionFlag, Role, User, UserId } from '@centresoutien/domain';
 
 // The trusted identity of whoever is signed in on this device (SOU-265).
+// `permissions` rides alongside `role` for the exact same reason and with the
+// exact same live-refresh guarantee: `resolve()` re-reads it from the `users`
+// table on every director-only/permission-gated call, so an owner unchecking a
+// screen for an employee takes effect on that employee's next IPC call, not
+// only after their next login.
 export type SessionPrincipal = {
   readonly userId: UserId;
   readonly role: Role;
+  readonly permissions: ReadonlySet<PermissionFlag>;
 };
 
 // The slice of DeviceSessionService the resolver needs — the live user id.
@@ -73,7 +79,9 @@ export class SessionPrincipalService {
       const userId = await this.sessions.activeUserId();
       const user = userId === null ? null : await this.users.findById(userId);
       const fromSession: SessionPrincipal | null =
-        userId !== null && user !== null ? { userId, role: user.role } : null;
+        userId !== null && user !== null
+          ? { userId, role: user.role, permissions: user.permissions }
+          : null;
       // A clear() or set() landed while our reads were in flight — its outcome is
       // newer than ours. Return that newer principal (a fresh login) or null (a
       // logout), never this now-stale read: this both refuses to resurrect a

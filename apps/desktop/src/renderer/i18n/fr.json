@@ -1945,6 +1945,33 @@
       "copied": "Code copié",
       "warning": "Ce code n'est affiché qu'une seule fois. Notez-le ou copiez-le maintenant : il ne pourra plus être consulté après la fermeture de cette fenêtre.",
       "done": "J'ai noté le code"
+    },
+    "permissions": {
+      "action": "Permissions",
+      "title": "Permissions de l'employé",
+      "description": "Choisissez les écrans visibles pour {{name}}.",
+      "flags": {
+        "nav": {
+          "payments": {
+            "label": "Paiements",
+            "description": "Voir la caisse et l'historique des paiements."
+          },
+          "payroll": {
+            "label": "Paie",
+            "description": "Voir le tableau de bord de la paie des enseignants."
+          }
+        },
+        "settings": {
+          "sensitive": {
+            "label": "Paramètres sensibles",
+            "description": "Équipe, licence, formule et sauvegarde."
+          }
+        }
+      },
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "error": "La mise à jour des permissions a échoué. Réessayez."
     }
   },
   "settings": {

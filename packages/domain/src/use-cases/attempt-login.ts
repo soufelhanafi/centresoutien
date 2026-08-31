@@ -4,16 +4,19 @@ import type { LoginThrottlePolicy } from '../policies/login-throttle-policy';
 import type { DeviceSessionService } from '../services/device-session-service';
 import type { Role } from '../value-objects/role';
 import type { UserId } from '../value-objects/ids';
+import type { PermissionFlag } from '../permissions/permissions';
 import { loginInputSchema, type LoginInput } from '../schemas/login';
 
 // The identity a successful login resolves — who signed in and at what role.
 // Published as the SOU-252 contract the presentation layer consumes to scope the
 // session (SOU-256): the login screen no longer just learns "in", it learns which
-// user and role are now active.
+// user and role are now active. `permissions` rides along so the renderer can gate
+// its own nav/settings without a second round trip.
 export type AuthenticatedUser = {
   readonly userId: UserId;
   readonly username: string;
   readonly role: Role;
+  readonly permissions: ReadonlySet<PermissionFlag>;
 };
 
 // Verifies a credential pair, returning the AuthenticatedUser on a match or `null`

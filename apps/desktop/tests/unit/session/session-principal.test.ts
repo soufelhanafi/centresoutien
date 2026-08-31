@@ -25,6 +25,8 @@ function makeUser(id: UserId, role: Role): User {
     setupCodeHash: null,
     setupCodeExpiresAt: null,
     setupCodeRedeemedAt: new Date('2026-08-01T00:00:00Z'),
+    email: null,
+    permissions: new Set(),
   };
 }
 
@@ -40,9 +42,9 @@ describe('SessionPrincipalService', () => {
   it('resolves { userId, role } from the active session and the user row', async () => {
     const service = new SessionPrincipalService(makeSessions(OWNER), makeUsers(makeUser(OWNER, 'owner')));
     const principal = await service.resolve();
-    expect(principal).toEqual({ userId: OWNER, role: 'owner' });
+    expect(principal).toEqual({ userId: OWNER, role: 'owner', permissions: new Set() });
     // The synchronous snapshot the envelope reads mirrors the last resolve.
-    expect(service.current()).toEqual({ userId: OWNER, role: 'owner' });
+    expect(service.current()).toEqual({ userId: OWNER, role: 'owner', permissions: new Set() });
   });
 
   it('resolves null when the device has no active session (unknown principal)', async () => {
@@ -67,9 +69,9 @@ describe('SessionPrincipalService', () => {
     const service = new SessionPrincipalService(makeSessions(OWNER), {
       findById: async () => makeUser(OWNER, role),
     });
-    expect(await service.resolve()).toEqual({ userId: OWNER, role: 'secretary' });
+    expect(await service.resolve()).toEqual({ userId: OWNER, role: 'secretary', permissions: new Set() });
     role = 'admin';
-    expect(await service.resolve()).toEqual({ userId: OWNER, role: 'admin' });
+    expect(await service.resolve()).toEqual({ userId: OWNER, role: 'admin', permissions: new Set() });
   });
 
   it('clear() drops the cached principal (logout)', async () => {
@@ -83,8 +85,8 @@ describe('SessionPrincipalService', () => {
     // The session reader returns null (a non-remembered login persists nothing);
     // set() must still establish the principal from the verified identity.
     const service = new SessionPrincipalService(makeSessions(null), makeUsers(null));
-    service.set({ userId: OWNER, role: 'admin' });
-    expect(service.current()).toEqual({ userId: OWNER, role: 'admin' });
+    service.set({ userId: OWNER, role: 'admin', permissions: new Set() });
+    expect(service.current()).toEqual({ userId: OWNER, role: 'admin', permissions: new Set() });
   });
 
   it('the guard resolve() keeps a non-remembered login on an empty session read (SOU-303)', async () => {
@@ -93,9 +95,9 @@ describe('SessionPrincipalService', () => {
     // director-only IPC; it must return the login principal, not downgrade it to
     // null (which failed user.list / user.reissueSetupCode after a re-login).
     const service = new SessionPrincipalService(makeSessions(null), makeUsers(null));
-    service.set({ userId: OWNER, role: 'owner' });
-    expect(await service.resolve()).toEqual({ userId: OWNER, role: 'owner' });
-    expect(service.current()).toEqual({ userId: OWNER, role: 'owner' });
+    service.set({ userId: OWNER, role: 'owner', permissions: new Set() });
+    expect(await service.resolve()).toEqual({ userId: OWNER, role: 'owner', permissions: new Set() });
+    expect(service.current()).toEqual({ userId: OWNER, role: 'owner', permissions: new Set() });
   });
 
   it('a remembered session still refreshes over a stale login principal, and logout wins', async () => {
@@ -107,8 +109,8 @@ describe('SessionPrincipalService', () => {
       { activeUserId: async () => sessionUserId },
       makeUsers(makeUser(OWNER, 'owner')),
     );
-    service.set({ userId: OWNER, role: 'secretary' });
-    expect(await service.resolve()).toEqual({ userId: OWNER, role: 'owner' });
+    service.set({ userId: OWNER, role: 'secretary', permissions: new Set() });
+    expect(await service.resolve()).toEqual({ userId: OWNER, role: 'owner', permissions: new Set() });
     // After logout both the in-memory login and the session are gone — the empty
     // read is authoritative again, with no lingering login principal to keep.
     service.clear();
@@ -145,11 +147,11 @@ describe('SessionPrincipalService', () => {
       makeUsers(makeUser(OWNER, 'secretary')),
     );
     const inFlight = service.resolve();
-    service.set({ userId: OWNER, role: 'owner' });
+    service.set({ userId: OWNER, role: 'owner', permissions: new Set() });
     release(OWNER);
     await inFlight;
     // The freshly-established login wins over the stale resolve's secretary read.
-    expect(service.current()).toEqual({ userId: OWNER, role: 'owner' });
+    expect(service.current()).toEqual({ userId: OWNER, role: 'owner', permissions: new Set() });
   });
 
   it('fails closed on a transient read error — a stale principal is not retained (B5)', async () => {
@@ -160,7 +162,7 @@ describe('SessionPrincipalService', () => {
     };
     const service = new SessionPrincipalService(makeSessions(OWNER), users);
     // A principal is established, then a transient DB error hits the next resolve.
-    service.set({ userId: OWNER, role: 'owner' });
+    service.set({ userId: OWNER, role: 'owner', permissions: new Set() });
     await expect(service.resolve()).rejects.toThrow('sqlite busy');
     // The now-unverifiable principal must be dropped, not silently trusted.
     expect(service.current()).toBeNull();

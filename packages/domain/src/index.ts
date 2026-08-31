@@ -165,6 +165,14 @@ export type { CenterTrial, CenterTrialResolution } from './plans/trial';
 export { TRIAL_DURATION_DAYS, newCenterTrial, resolveCenterTrial } from './plans/trial';
 export { licenseFileSchema, licenseClaimsSchema } from './schemas/license';
 export type { LicenseFileInput } from './schemas/license';
+
+// Per-user permissions (assistant-visibility): the owner-togglable counterpart to
+// plan feature flags, scoped to one employee's account instead of the whole
+// center. See packages/domain/src/permissions/permissions.ts.
+export { PERMISSION_FLAGS, ALL_PERMISSION_FLAGS } from './permissions/permissions';
+export type { PermissionFlag } from './permissions/permissions';
+export { hasUserPermission, requireUserPermission } from './permissions/user-permission-policy';
+export type { PermissionSubject } from './permissions/user-permission-policy';
 // License activation (SOU-104): the binding + founder-discount rules layered on
 // SOU-98's signature check, plus the activation/status use cases the renderer's
 // activation screen drives through IPC.
@@ -208,6 +216,8 @@ export {
   SetupCodeInvalidError,
   SetupCodeExpiredError,
   SetupCodeAlreadyRedeemedError,
+  UserPermissionDeniedError,
+  CannotRestrictOwnerError,
 } from './errors/user-errors';
 export { StudentNotFoundError, StudentVersionConflictError } from './errors/student-errors';
 export { MergeSameEntityError } from './errors/merge-errors';
@@ -1415,6 +1425,8 @@ export type {
 export { RecoverPasswordWithSetupCode } from './use-cases/recover-password-with-setup-code';
 export { VerifyUserPassword } from './use-cases/verify-user-password';
 export type { VerifyUserPasswordInput } from './use-cases/verify-user-password';
+export { UpdateUserPermissions } from './use-cases/update-user-permissions';
+export type { UpdateUserPermissionsCommand } from './use-cases/update-user-permissions';
 export { ChangeAdminPassword } from './use-cases/change-admin-password';
 export type { ChangeAdminPasswordInput } from './use-cases/change-admin-password';
 export { AttemptLogin } from './use-cases/attempt-login';

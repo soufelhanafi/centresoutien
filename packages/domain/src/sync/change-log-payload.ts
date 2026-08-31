@@ -33,12 +33,21 @@ export type ChangeLogPayloadUpcaster = (entity: unknown) => unknown;
  * write. `entity` must be the domain shape — not a physical row — so the log
  * stays portable.
  */
+// `JSON.stringify` special-cases `Date` for free (`toJSON` → ISO string) but has
+// no such handling for `Set` — a bare `Set` serializes as `{}`, silently
+// dropping every member (e.g. `User.permissions`). This mirrors that same
+// free-ride for any `Set`-typed field anywhere in an entity, so a future
+// Set-typed field never needs its own payload-serialization workaround.
+function replaceSetsWithArrays(_key: string, value: unknown): unknown {
+  return value instanceof Set ? [...value] : value;
+}
+
 export function serializeChangeLogPayload(entity: unknown): string {
   const payload: ChangeLogPayload = {
     version: CURRENT_CHANGE_LOG_PAYLOAD_VERSION,
     entity,
   };
-  return JSON.stringify(payload);
+  return JSON.stringify(payload, replaceSetsWithArrays);
 }
 
 /**

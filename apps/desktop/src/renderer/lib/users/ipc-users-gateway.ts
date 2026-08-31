@@ -4,6 +4,7 @@ import type {
   ValidateSetupCodeInput,
   ValidatedSetupCode,
   RecoverPasswordWithSetupCodeInput,
+  PermissionFlag,
 } from '@centresoutien/domain';
 import type { UserView } from './user-view';
 import type { ReissueResult, UsersGateway } from './users-gateway';
@@ -42,6 +43,14 @@ class IpcUsersGateway implements UsersGateway {
 
   async recoverPassword(input: RecoverPasswordWithSetupCodeInput): Promise<void> {
     await window.api.invoke('user.recoverPassword', input);
+  }
+
+  async updatePermissions(userId: string, permissions: readonly PermissionFlag[]): Promise<UserView> {
+    const { user } = await window.api.invoke('user.updatePermissions', {
+      userId,
+      permissions: [...permissions],
+    });
+    return user;
   }
 }
 

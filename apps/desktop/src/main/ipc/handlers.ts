@@ -176,6 +176,7 @@ import {
   NiveauNotFoundError,
   NotAuthenticatedError,
   SECURITY_QUESTION_KEYS,
+  requireUserPermission,
 } from '@centresoutien/domain';
 import type { RegisterableIpcHandlers, IpcRequest } from '../../shared/ipc/contract';
 import type { SessionPrincipal } from '../session/session-principal';
@@ -592,6 +593,16 @@ function toRecentPaymentView(row: RecentPaymentView) {
     studentId: row.studentId,
     studentName: row.studentName,
   };
+}
+
+// Assistant-visibility (`nav.payments`): the Payments page's own two read
+// channels (`payment.recent`, `payment.takings`) — never `payment.record` /
+// `payment.void` / `payment.summary`, which the Invoicing page's payment
+// recording flow uses and stays open to every signed-in account.
+async function requirePaymentsPermission(deps: Pick<HandlerDeps, 'resolvePrincipal'>): Promise<void> {
+  const principal = await deps.resolvePrincipal();
+  if (principal === null) throw new NotAuthenticatedError();
+  requireUserPermission(principal, 'nav.payments');
 }
 
 /** Project a Teacher to its boundary DTO: envelope stripped, dates serialized,
@@ -1460,6 +1471,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       };
     },
     'payment.recent': async (request) => {
+      await requirePaymentsPermission(deps);
       const rows = await deps.listRecentPayments.execute({
         centerCode: deps.envelopeContext().centerCode,
         ...(request.from !== undefined && { from: request.from }),
@@ -1470,6 +1482,7 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       return { payments: rows.map(toRecentPaymentView) };
     },
     'payment.takings': async (request) => {
+      await requirePaymentsPermission(deps);
       const takings = await deps.getDayTakings.execute({
         centerCode: deps.envelopeContext().centerCode,
         day: request.day,
@@ -1906,8 +1919,16 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
           // of whether a remember-me session was persisted. A non-remembered
           // login persists no session, so re-reading it would wrongly resolve to
           // null and both drop attribution and lock the director out of the guard.
-          deps.setPrincipal({ userId: result.user.userId, role: result.user.role });
-          return { outcome: 'success' };
+          deps.setPrincipal({
+            userId: result.user.userId,
+            role: result.user.role,
+            permissions: result.user.permissions,
+          });
+          return {
+            outcome: 'success',
+            role: result.user.role,
+            permissions: [...result.user.permissions],
+          };
         case 'invalid-credentials':
           return { outcome: 'invalid-credentials', remainingAttempts: result.remainingAttempts };
         case 'locked-out':
@@ -1923,15 +1944,19 @@ export function createHandlers(deps: HandlerDeps): RegisterableIpcHandlers {
       // session (pre-SOU-265, no user_id) or one pointing at a removed user
       // resolves to null, so the gate forces a re-login that stamps user_id
       // (SOU-307).
-      if (!(await deps.deviceSessions.isAuthenticated())) return { authenticated: false };
+      if (!(await deps.deviceSessions.isAuthenticated())) {
+        return { authenticated: false, role: null, permissions: null };
+      }
       try {
-        return { authenticated: (await deps.resolvePrincipal()) !== null };
+        const principal = await deps.resolvePrincipal();
+        if (principal === null) return { authenticated: false, role: null, permissions: null };
+        return { authenticated: true, role: principal.role, permissions: [...principal.permissions] };
       } catch (error) {
         // Fail closed to the login screen, not the error screen: a transient
         // read failure during principal resolution must not hard-block startup.
         // The user can still re-authenticate once the DB recovers.
         console.error('[auth] failed to resolve session principal', error);
-        return { authenticated: false };
+        return { authenticated: false, role: null, permissions: null };
       }
     },
     'auth.logout': async () => {

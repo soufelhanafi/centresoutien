@@ -49,7 +49,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   return (
     <LoginScreen
-      onAuthenticated={() => queryClient.setQueryData(sessionQueryKey, { authenticated: true })}
+      onAuthenticated={(session) =>
+        queryClient.setQueryData(sessionQueryKey, {
+          authenticated: true,
+          role: session.role,
+          permissions: session.permissions,
+        })
+      }
     />
   );
 }

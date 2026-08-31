@@ -37,6 +37,7 @@ const OWNER: User = {
   setupCodeExpiresAt: null,
   setupCodeRedeemedAt: null,
   email: null,
+  permissions: new Set(),
 };
 
 function counterIds(seed = 1): IdGenerator {

@@ -17,7 +17,7 @@ import {
   Settings,
   type LucideIcon,
 } from 'lucide-react';
-import type { FeatureFlag } from '@centresoutien/domain';
+import type { FeatureFlag, PermissionFlag } from '@centresoutien/domain';
 import type { PlanTier } from '@centresoutien/ui';
 
 /**
@@ -35,6 +35,12 @@ import type { PlanTier } from '@centresoutien/ui';
  * Pro user has no "per-center stats" (SOU-309), so that entry must not appear as
  * a dead lock.
  *
+ * `permission` gates through `useUserPermission` (assistant-visibility) — an
+ * owner-togglable per-employee screen visibility, orthogonal to `feature`'s
+ * per-plan gate. Unlike a locked plan feature, a denied permission hides the
+ * entry outright: an assistant isn't shown an upgrade-style affordance for a
+ * screen the owner deliberately hid from them.
+ *
  * Each module is a named `as const` value so its `path` stays a string literal —
  * that keeps the router's route tree and every `<Link to>` fully type-checked.
  */
@@ -44,6 +50,7 @@ export type NavModule = {
   readonly path: string;
   readonly icon: LucideIcon;
   readonly feature?: FeatureFlag;
+  readonly permission?: PermissionFlag;
   readonly requiredTier?: PlanTier;
   readonly hideWhenLocked?: boolean;
 };
@@ -59,8 +66,8 @@ export const groupsModule = { id: 'groups', path: '/groups', icon: Boxes } as co
 export const roomsModule = { id: 'rooms', path: '/rooms', icon: DoorOpen } as const satisfies NavModule;
 export const planningModule = { id: 'planning', path: '/planning', icon: CalendarDays } as const satisfies NavModule;
 export const invoicingModule = { id: 'invoicing', path: '/invoicing', icon: ReceiptText } as const satisfies NavModule;
-export const paymentsModule = { id: 'payments', path: '/payments', icon: Wallet } as const satisfies NavModule;
-export const payrollModule = { id: 'payroll', path: '/payroll', icon: HandCoins, feature: 'payroll.teacher', requiredTier: 'pro' } as const satisfies NavModule;
+export const paymentsModule = { id: 'payments', path: '/payments', icon: Wallet, permission: 'nav.payments' } as const satisfies NavModule;
+export const payrollModule = { id: 'payroll', path: '/payroll', icon: HandCoins, feature: 'payroll.teacher', requiredTier: 'pro', permission: 'nav.payroll' } as const satisfies NavModule;
 export const multiCenterStatsModule = {
   id: 'multiCenterStats',
   path: '/multi-center-stats',

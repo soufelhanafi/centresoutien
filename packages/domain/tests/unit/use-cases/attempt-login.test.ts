@@ -15,6 +15,7 @@ import { fakeHasher } from '../fakes/hasher';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 import type { CenterCode, DeviceId } from '../../../src/value-objects/ids';
+import { ALL_PERMISSION_FLAGS } from '../../../src/permissions/permissions';
 
 const USERNAME = 'directrice';
 // Assembled from fragments so no literal password string appears in source
@@ -65,7 +66,7 @@ describe('AttemptLogin', () => {
     const result = await login.execute({ username: USERNAME, password: PASSWORD });
     expect(result).toEqual({
       outcome: 'success',
-      user: { userId: owner.id, username: USERNAME, role: 'owner' },
+      user: { userId: owner.id, username: USERNAME, role: 'owner', permissions: ALL_PERMISSION_FLAGS },
     });
   });
 

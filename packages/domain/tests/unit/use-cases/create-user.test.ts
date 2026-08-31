@@ -10,6 +10,7 @@ import { fakeHasher } from '../fakes/hasher';
 import { fakeClock } from '../fakes/clock';
 import { fakeIds } from '../fakes/ids';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
+import { PERMISSION_FLAGS } from '../../../src/permissions/permissions';
 
 const NOW = '2026-07-29T10:00:00Z';
 // Split so no contiguous password-shaped literal lands in the diff for secret scanners.
@@ -58,6 +59,13 @@ describe('CreateUser', () => {
 
       const blank = await useCase.execute(command({ username: 'autre', fullName: '   ' }));
       expect(blank.user.fullName).toBeNull();
+    });
+
+    it('grants every permission flag by default (opt-out, nothing hidden)', async () => {
+      const { user } = await useCase.execute(command());
+      for (const flag of PERMISSION_FLAGS) {
+        expect(user.permissions.has(flag)).toBe(true);
+      }
     });
 
     it('carries a fresh envelope stamped by the creating director', async () => {

@@ -9,7 +9,9 @@ import type {
   CenterCode,
   UserId,
 } from '@centresoutien/domain';
+import { NotAuthenticatedError, requireUserPermission } from '@centresoutien/domain';
 import type { IpcHandlers } from '../../shared/ipc/contract';
+import type { SessionPrincipal } from '../session/session-principal';
 
 export type ConfirmTeacherPayoutUseCase = Pick<ConfirmTeacherPayout, 'execute'>;
 export type ConfirmMonthlyPayrollsUseCase = Pick<ConfirmMonthlyPayrolls, 'execute'>;
@@ -34,7 +36,17 @@ export type PayrollHandlerDeps = {
   getPayrollProjection: GetPayrollProjectionUseCase;
   centerCode: () => CenterCode;
   currentUserId: () => UserId;
+  // Assistant-visibility (`nav.payroll`): every channel here backs the one
+  // Payroll dashboard page, so a single principal resolve + permission check up
+  // front gates the whole module — mirrors `requireDirector` in user-handlers.ts.
+  resolvePrincipal: () => Promise<SessionPrincipal | null>;
 };
+
+async function requirePayrollPermission(deps: Pick<PayrollHandlerDeps, 'resolvePrincipal'>): Promise<void> {
+  const principal = await deps.resolvePrincipal();
+  if (principal === null) throw new NotAuthenticatedError();
+  requireUserPermission(principal, 'nav.payroll');
+}
 
 /** Project a TeacherPayout to its boundary DTO: envelope stripped, like every other view in `handlers.ts`. */
 function toTeacherPayoutView(payout: TeacherPayout) {
@@ -73,6 +85,7 @@ export function createPayrollHandlers(
 > {
   return {
     'payroll.listPayouts': async (request) => {
+      await requirePayrollPermission(deps);
       const payouts = await deps.listTeacherPayouts.execute({
         centerCode: deps.centerCode(),
         month: request.month,
@@ -80,6 +93,7 @@ export function createPayrollHandlers(
       return { payouts: payouts.map(toTeacherPayoutView) };
     },
     'payroll.confirmPayout': async (request) => {
+      await requirePayrollPermission(deps);
       const payout = await deps.confirmTeacherPayout.execute({
         centerCode: deps.centerCode(),
         teacherPayoutId: request.teacherPayoutId as TeacherPayoutId,
@@ -88,6 +102,7 @@ export function createPayrollHandlers(
       return { payout: toTeacherPayoutView(payout) };
     },
     'payroll.confirmMonthly': async (request) => {
+      await requirePayrollPermission(deps);
       return deps.confirmMonthlyPayrolls.execute({
         centerCode: deps.centerCode(),
         month: request.month,
@@ -95,6 +110,7 @@ export function createPayrollHandlers(
       });
     },
     'payroll.attributionBreakdown': async (request) => {
+      await requirePayrollPermission(deps);
       const byTeacher = await deps.getTeacherAttributionBreakdown.execute({
         centerCode: deps.centerCode(),
         month: request.month,
@@ -105,6 +121,7 @@ export function createPayrollHandlers(
       return { breakdown };
     },
     'payroll.projection': async (request) => {
+      await requirePayrollPermission(deps);
       const { projections, projectedBreakdown } = await deps.getPayrollProjection.execute({
         centerCode: deps.centerCode(),
         month: request.month,

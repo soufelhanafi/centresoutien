@@ -17,6 +17,7 @@ import type { UserView } from '../../../lib/users/user-view';
 import { UserListContent, type UserListStatus } from './user-list-content';
 import { AddEmployeeDialog } from './add-employee-dialog';
 import { SetupCodeDialog } from './setup-code-dialog';
+import { PermissionsDialog } from './permissions-dialog';
 
 /**
  * Team / Users section of the Settings page (SOU-256). Lists the center's
@@ -31,6 +32,7 @@ export function TeamSettings() {
   const reissue = useReissueSetupCode();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [issuedCode, setIssuedCode] = useState<ReissueResult | null>(null);
+  const [managingPermissionsFor, setManagingPermissionsFor] = useState<UserView | null>(null);
 
   const roster = users.data ?? [];
   const hasEmployees = roster.some((user) => user.role !== 'owner');
@@ -69,6 +71,7 @@ export function TeamSettings() {
           onInvite={() => setInviteOpen(true)}
           onReissue={(user) => void handleReissue(user)}
           reissuingId={reissue.isPending ? (reissue.variables ?? null) : null}
+          onManagePermissions={setManagingPermissionsFor}
         />
       </CardContent>
 
@@ -79,6 +82,13 @@ export function TeamSettings() {
           role={issuedCode.user.role}
           setupCode={issuedCode.setupCode}
           onClose={() => setIssuedCode(null)}
+        />
+      ) : null}
+
+      {managingPermissionsFor ? (
+        <PermissionsDialog
+          user={managingPermissionsFor}
+          onClose={() => setManagingPermissionsFor(null)}
         />
       ) : null}
     </Card>

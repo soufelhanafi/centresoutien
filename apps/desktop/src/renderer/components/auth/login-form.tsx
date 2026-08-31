@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
-import { loginInputSchema } from '@centresoutien/domain';
+import { loginInputSchema, type PermissionFlag, type Role } from '@centresoutien/domain';
 import {
   Button,
   Checkbox,
@@ -26,6 +26,10 @@ const loginFormSchema = loginInputSchema.extend({ rememberDevice: z.boolean() })
 
 type LoginFormValues = z.infer<typeof loginFormSchema>;
 
+/** The identity a successful login resolves — threaded through `onAuthenticated`
+ *  so the gate can seed the session cache with no extra IPC round trip. */
+export type AuthenticatedSession = { role: Role; permissions: PermissionFlag[] };
+
 /** What the last attempt told us: nothing yet, wrong creds, or a live lock. */
 type Feedback =
   | { readonly kind: 'invalid'; readonly remaining: number }
@@ -44,7 +48,7 @@ export function LoginForm({
   onAuthenticated,
   onForgotPassword,
 }: {
-  onAuthenticated: () => void;
+  onAuthenticated: (session: AuthenticatedSession) => void;
   onForgotPassword: () => void;
 }) {
   const { t } = useTranslation();
@@ -62,7 +66,7 @@ export function LoginForm({
     const result = await login.mutateAsync(values);
     switch (result.outcome) {
       case 'success':
-        onAuthenticated();
+        onAuthenticated({ role: result.role, permissions: result.permissions });
         return;
       case 'invalid-credentials':
         setFeedback({ kind: 'invalid', remaining: result.remainingAttempts });

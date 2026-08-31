@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Card, CardContent } from '@centresoutien/ui';
 import { LanguageToggle } from '../language-toggle';
-import { LoginForm } from './login-form';
+import { LoginForm, type AuthenticatedSession } from './login-form';
 import { ForgotPasswordFlow } from './forgot-password/forgot-password-flow';
 import { SetupCodeRedeemFlow } from './setup-code/setup-code-redeem-flow';
 import { LoginCenterSelector } from './login-center-selector';
@@ -16,19 +16,27 @@ import { useCenters } from '../../hooks/center/use-centers';
  * admin may want to switch before their first sign-in. The "forgot password" flow
  * (SOU-156) swaps into the same card so recovery feels part of one product.
  */
-export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
+export function LoginScreen({
+  onAuthenticated,
+}: {
+  onAuthenticated: (session: AuthenticatedSession) => void;
+}) {
   const { t } = useTranslation();
   const [view, setView] = useState<'login' | 'forgot' | 'redeem' | 'selectCenter'>('login');
+  const [session, setSession] = useState<AuthenticatedSession | null>(null);
   const canMultiCenter = useFeature('org.multi-center');
   const centers = useCenters({ enabled: canMultiCenter });
 
   // A Premium user with more than one local center picks which to enter before
-  // the app loads (SOU-96); everyone else goes straight in.
-  const handleAuthenticated = () => {
+  // the app loads (SOU-96); everyone else goes straight in. The resolved session
+  // (role/permissions) is held so the center-picker step can still hand it to
+  // `onAuthenticated` once a center is chosen.
+  const handleAuthenticated = (nextSession: AuthenticatedSession) => {
     if (canMultiCenter && (centers.data?.length ?? 0) > 1) {
+      setSession(nextSession);
       setView('selectCenter');
     } else {
-      onAuthenticated();
+      onAuthenticated(nextSession);
     }
   };
 
@@ -44,7 +52,7 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }
           </div>
 
           {view === 'selectCenter' ? (
-            <LoginCenterSelector onSelected={onAuthenticated} />
+            <LoginCenterSelector onSelected={() => session && onAuthenticated(session)} />
           ) : view === 'login' ? (
             <>
               <header className="flex flex-col gap-1 text-center">

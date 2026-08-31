@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, ShieldCheck } from 'lucide-react';
 import { isInvitableRole } from '@centresoutien/domain';
 import {
   Badge,
@@ -26,10 +26,12 @@ export function UserTable({
   users,
   onReissue,
   reissuingId,
+  onManagePermissions,
 }: {
   users: readonly UserView[];
   onReissue: (user: UserView) => void;
   reissuingId: string | null;
+  onManagePermissions: (user: UserView) => void;
 }) {
   const { t } = useTranslation();
   const rows = sortUsersForRoster(users);
@@ -100,6 +102,19 @@ export function UserTable({
                   >
                     <KeyRound className="h-4 w-4" aria-hidden="true" />
                     {t('team.reissue.action')}
+                  </Button>
+                ) : null}
+                {/* An owner's own permissions are never consulted (always every
+                    screen), so the dialog only makes sense for non-owner accounts. */}
+                {user.role !== 'owner' ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onManagePermissions(user)}
+                  >
+                    <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                    {t('team.permissions.action')}
                   </Button>
                 ) : null}
               </TableCell>

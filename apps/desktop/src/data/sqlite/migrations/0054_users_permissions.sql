@@ -1,0 +1,30 @@
+-- 0054_users_permissions.sql
+-- What: adds `permissions` to `users` — a JSON array of the per-user
+--       PermissionFlag tokens (packages/domain/src/permissions/permissions.ts)
+--       this account may see: which hideable screens (payments, payroll,
+--       sensitive settings) the owner has left checked for this employee.
+-- Why:  the owner needs to hide payroll/payments/sensitive-settings from a
+--       specific assistant without demoting their role. A `Role` is one fixed
+--       bundle shared by every `secretary`; this column lets the owner toggle
+--       individual screens per account from the team roster.
+-- Rollback: additive-only; logical undo is dropping the column (never applied
+--       to a released DB in place).
+-- First ships in: v2.x (assistant-visibility).
+--
+-- NOT NULL DEFAULT, not nullable-with-fallback: the default is a CONSTANT (every
+-- flag defined as of this migration), so SQLite fills it for every existing row
+-- at ALTER time with no UPDATE statement — no `updated_at`/`updated_by`/`version`
+-- touched, so this is sync-neutral (migration-authoring skill §3): every replica
+-- converges on the identical stored value independently, zero sync traffic. The
+-- effective default is "opt-out" (nothing hidden) for every account that existed
+-- before this shipped, matching what CreateUser now stores for a freshly created
+-- one. `role: 'owner'` rows also get this value; it is simply never consulted
+-- (hasUserPermission always grants an owner every flag).
+--
+-- A future new flag added to the domain's PERMISSION_FLAGS array does NOT get a
+-- new migration: an omitted flag in a pre-existing row's array is read as "not
+-- granted" by the domain's set membership check, so a newly introduced screen is
+-- gated by default for existing employees until the owner opts them in — the
+-- pre-existing constant literal below is never revisited.
+ALTER TABLE users ADD COLUMN permissions TEXT NOT NULL
+  DEFAULT '["nav.payments","nav.payroll","settings.sensitive"]';

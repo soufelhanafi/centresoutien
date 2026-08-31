@@ -10,6 +10,7 @@ import type {
   NiveauId,
   Organization,
   Payment,
+  PermissionFlag,
   Session,
   Subject,
   SubjectId,
@@ -287,6 +288,14 @@ function toNullableIsoString(value: Date | string | null): string | null {
   return value === null ? null : toIsoString(value);
 }
 
+// A same-process write hands this a live `Set` (the domain shape); a payload
+// that crossed the wire (change_log replay/sync-apply) hands back the plain
+// array `serializeChangeLogPayload`'s Set-replacer produced — mirrors
+// `toIsoString` tolerating both a `Date` and its already-stringified form.
+function toPermissionsJson(value: ReadonlySet<PermissionFlag> | readonly PermissionFlag[]): string {
+  return JSON.stringify(Array.isArray(value) ? value : [...value]);
+}
+
 function userEntityToRow(entity: unknown): Record<string, unknown> {
   const user = entity as User;
   return {
@@ -308,6 +317,7 @@ function userEntityToRow(entity: unknown): Record<string, unknown> {
     setup_code_expires_at: user.setupCodeExpiresAt,
     setup_code_redeemed_at: toNullableIsoString(user.setupCodeRedeemedAt),
     email: user.email ?? null,
+    permissions: toPermissionsJson(user.permissions),
   };
 }
 

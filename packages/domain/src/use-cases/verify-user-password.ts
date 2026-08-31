@@ -30,6 +30,6 @@ export class VerifyUserPassword {
     const matches = await this.hasher.verify(user.passwordHash, input.password);
     if (!matches) return null;
 
-    return { userId: user.id, username: user.username, role: user.role };
+    return { userId: user.id, username: user.username, role: user.role, permissions: user.permissions };
   }
 }

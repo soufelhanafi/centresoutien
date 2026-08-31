@@ -13,6 +13,7 @@ type UserListContentProps = {
   onInvite: () => void;
   onReissue: (user: UserView) => void;
   reissuingId: string | null;
+  onManagePermissions: (user: UserView) => void;
 };
 
 /** Renders the correct state for the team roster: loading, error, empty, or table. */
@@ -23,6 +24,7 @@ export function UserListContent({
   onInvite,
   onReissue,
   reissuingId,
+  onManagePermissions,
 }: UserListContentProps) {
   const { t } = useTranslation();
 
@@ -66,5 +68,12 @@ export function UserListContent({
     );
   }
 
-  return <UserTable users={users} onReissue={onReissue} reissuingId={reissuingId} />;
+  return (
+    <UserTable
+      users={users}
+      onReissue={onReissue}
+      reissuingId={reissuingId}
+      onManagePermissions={onManagePermissions}
+    />
+  );
 }

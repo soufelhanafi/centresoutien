@@ -93,6 +93,7 @@ import {
   GeneratedScheduleSeatFitGuard,
   CreateAdminAccount,
   CreateUser,
+  UpdateUserPermissions,
   RedeemSetupCode,
   ValidateSetupCode,
   ReissueSetupCode,
@@ -1415,6 +1416,7 @@ export function buildContainer(options: ContainerOptions): Container {
 
   const random = new NodeSecureRandom();
   const createUser = new CreateUser(userRepo, hasher, clock, ids);
+  const updateUserPermissions = new UpdateUserPermissions(userRepo, clock);
   const redeemSetupCode = new RedeemSetupCode(userRepo, hasher, clock);
   const validateSetupCode = new ValidateSetupCode(userRepo, hasher, clock);
   const reissueSetupCode = new ReissueSetupCode(userRepo, hasher, random, clock);
@@ -1909,6 +1911,7 @@ export function buildContainer(options: ContainerOptions): Container {
     validateSetupCode,
     reissueSetupCode,
     recoverPassword,
+    updateUserPermissions,
     listUsers: () => userRepo.listActive(context.centerCode),
     now: () => clock.now(),
     changeAdminPassword,

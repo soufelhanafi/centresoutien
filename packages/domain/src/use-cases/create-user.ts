@@ -8,6 +8,7 @@ import { newEnvelope } from '../entities/envelope';
 import { createUserInputSchema, type CreateUserInput } from '../schemas/user';
 import { USER_ID_PREFIX, type User } from '../entities/user';
 import { InvalidUserRoleError, RoleNotInvitableError } from '../errors/user-errors';
+import { ALL_PERMISSION_FLAGS } from '../permissions/permissions';
 
 export type CreateUserCommand = CreateUserInput & {
   centerCode: CenterCode;
@@ -69,6 +70,10 @@ export class CreateUser {
       setupCodeExpiresAt: null,
       setupCodeRedeemedAt: null,
       email: null,
+      // Opt-out default (CLAUDE.md §permissions): a freshly created employee sees
+      // everything their role otherwise would; the owner unchecks specific screens
+      // afterward from the team roster.
+      permissions: ALL_PERMISSION_FLAGS,
     };
 
     await this.users.createLocalAccount(user);
