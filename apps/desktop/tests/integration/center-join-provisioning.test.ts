@@ -154,7 +154,7 @@ function makeJoiner() {
 
 describe('SqliteCenterJoinProvisioning cold-bootstrap (SOU-318)', () => {
   it('rebuilds the center, owner, and data into a fresh local DB from the hub feed', async () => {
-    const result = await makeJoiner().provisionFromHub({ baseUrl, token: TOKEN, centerCode: CENTER });
+    const result = await makeJoiner().provisionFromHub({ baseUrls: [baseUrl], token: TOKEN, centerCode: CENTER });
 
     expect(result.centerCode).toBe(CENTER);
     // The hub-client config was persisted so the joined center keeps syncing.
@@ -192,7 +192,7 @@ describe('SqliteCenterJoinProvisioning cold-bootstrap (SOU-318)', () => {
   it('normalizes the hub URL to its origin and persists the clean base URL', async () => {
     const result = await makeJoiner().provisionFromHub({
       // Trailing path + whitespace must be stripped before the HTTP client / config see it.
-      baseUrl: `  ${baseUrl}/hub/v1/extra?q=1  `,
+      baseUrls: [`  ${baseUrl}/hub/v1/extra?q=1  `],
       token: TOKEN,
       centerCode: CENTER,
     });
@@ -203,7 +203,7 @@ describe('SqliteCenterJoinProvisioning cold-bootstrap (SOU-318)', () => {
 
   it('rejects a non-http(s) hub URL and leaves no center behind', async () => {
     await expect(
-      makeJoiner().provisionFromHub({ baseUrl: 'ftp://nope', token: TOKEN, centerCode: CENTER }),
+      makeJoiner().provisionFromHub({ baseUrls: ['ftp://nope'], token: TOKEN, centerCode: CENTER }),
     ).rejects.toBeInstanceOf(CenterJoinError);
     expect(readdirSync(joinDir).filter((f) => f.startsWith('centre-'))).toEqual([]);
     expect(written).toEqual([]);
@@ -211,7 +211,7 @@ describe('SqliteCenterJoinProvisioning cold-bootstrap (SOU-318)', () => {
 
   it('rejects a wrong pairing token and leaves no center behind', async () => {
     await expect(
-      makeJoiner().provisionFromHub({ baseUrl, token: 'WRONG-TOKEN', centerCode: CENTER }),
+      makeJoiner().provisionFromHub({ baseUrls: [baseUrl], token: 'WRONG-TOKEN', centerCode: CENTER }),
     ).rejects.toBeInstanceOf(CenterJoinError);
 
     expect(readdirSync(joinDir).filter((f) => f.startsWith('centre-'))).toEqual([]);
@@ -220,7 +220,7 @@ describe('SqliteCenterJoinProvisioning cold-bootstrap (SOU-318)', () => {
 
   it('fails when the hub serves no matching center (empty feed)', async () => {
     await expect(
-      makeJoiner().provisionFromHub({ baseUrl, token: TOKEN, centerCode: 'CS-OTHER-999' as CenterCode }),
+      makeJoiner().provisionFromHub({ baseUrls: [baseUrl], token: TOKEN, centerCode: 'CS-OTHER-999' as CenterCode }),
     ).rejects.toBeInstanceOf(CenterJoinError);
 
     expect(readdirSync(joinDir).filter((f) => f.startsWith('centre-'))).toEqual([]);
@@ -248,14 +248,63 @@ describe('SqliteCenterJoinProvisioning cold-bootstrap (SOU-318)', () => {
     });
 
     await expect(
-      joiner.provisionFromHub({ baseUrl, token: TOKEN, centerCode: CENTER }),
+      joiner.provisionFromHub({ baseUrls: [baseUrl], token: TOKEN, centerCode: CENTER }),
     ).rejects.toBeInstanceOf(CenterJoinError);
 
     expect(readdirSync(joinDir).filter((f) => f.startsWith('centre-'))).toEqual([]);
   });
 
+  // The reported onboarding failure: a hub responder advertises EVERY IPv4 of its
+  // machine while the listener binds exactly one, so the address a joining laptop
+  // is handed first is regularly one nothing is listening on.
+  it('falls through to a working address when the first candidate does not answer', async () => {
+    // Port 1 is privileged and unbound — a connection refused, not a timeout.
+    const dead = 'http://127.0.0.1:1';
+
+    const result = await makeJoiner().provisionFromHub({
+      baseUrls: [dead, baseUrl],
+      token: TOKEN,
+      centerCode: CENTER,
+    });
+
+    expect(result.centerCode).toBe(CENTER);
+    // It commits to the address that actually answered, so every later sync on
+    // this device goes straight there instead of re-walking the dead one.
+    expect(written).toEqual([{ centreId: result.centreId, config: { baseUrl, token: TOKEN } }]);
+  });
+
+  it('reports every address tried when no candidate answers, and leaves nothing behind', async () => {
+    await expect(
+      makeJoiner().provisionFromHub({
+        baseUrls: ['http://127.0.0.1:1', 'http://127.0.0.1:2'],
+        token: TOKEN,
+        centerCode: CENTER,
+      }),
+    ).rejects.toMatchObject({
+      code: 'center-join-unreachable',
+      attemptedAddresses: ['http://127.0.0.1:1', 'http://127.0.0.1:2'],
+    });
+
+    expect(readdirSync(joinDir).filter((f) => f.startsWith('centre-'))).toEqual([]);
+    expect(written).toEqual([]);
+  });
+
+  it('stops at a rejected pairing code instead of trying the remaining addresses', async () => {
+    // A refused token is refused at every address of the same hub, so walking the
+    // rest would only delay telling the director the one thing they can fix.
+    await expect(
+      makeJoiner().provisionFromHub({
+        baseUrls: [baseUrl, 'http://127.0.0.1:1'],
+        token: 'WRONG-TOKEN',
+        centerCode: CENTER,
+      }),
+    ).rejects.toMatchObject({ code: 'center-join-unauthorized' });
+
+    expect(readdirSync(joinDir).filter((f) => f.startsWith('centre-'))).toEqual([]);
+  });
+
   it('discard removes the center DB and its SOU-302 recovery-escrow sibling', async () => {
-    const result = await makeJoiner().provisionFromHub({ baseUrl, token: TOKEN, centerCode: CENTER });
+    const result = await makeJoiner().provisionFromHub({ baseUrls: [baseUrl], token: TOKEN, centerCode: CENTER });
 
     // The switch-in seals a `.recovery` blob next to the published DB; a later
     // switch failure rolls the join back through discard(), which must remove it.

@@ -1,8 +1,20 @@
 import type { CenterCode } from '../value-objects/ids';
 
 export type JoinCenterFromHubInput = {
-  /** The hub's LAN URL (e.g. `http://192.168.1.20:4747`), from discovery. */
-  readonly baseUrl: string;
+  /**
+   * The hub's candidate LAN URLs (e.g. `http://192.168.1.20:4747`), best first.
+   *
+   * A list, not one address, because mDNS advertises EVERY non-internal IPv4 of
+   * the host machine while the hub binds exactly ONE of them: an unplugged
+   * Ethernet port, a second Wi-Fi adapter, or a container/VPN bridge all get
+   * advertised alongside the address that actually serves. The implementation
+   * must try them in order and commit to the first that answers, rather than
+   * trusting whichever the responder happened to list first.
+   *
+   * Manual entry supplies a single-element list, so both entry paths share one
+   * shape.
+   */
+  readonly baseUrls: readonly string[];
   /** The per-center pairing token the director read off the host. */
   readonly token: string;
   /** The center's tenant code (from the discovered TXT record) — the pull is

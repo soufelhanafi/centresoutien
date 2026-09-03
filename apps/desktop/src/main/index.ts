@@ -31,7 +31,7 @@ import {
 import { randomBytes } from 'node:crypto';
 import { sweepStaleTempPdfs } from '../data/fs/temp-pdf';
 import { LEGACY_DEMO_CENTRE_ID, resolveInitialCentreId } from './initial-centre-id';
-import { HubHostConfigStore, isActiveLanAddress, resolveLanBindHost } from './infra/hub-host-config-store';
+import { HubHostConfigStore, isPreferredLanAddress, resolveLanBindHost } from './infra/hub-host-config-store';
 import { HubClientConfigStore } from './infra/hub-client-config-store';
 import { DEFAULT_HUB_PORT } from '../shared/hub';
 import { BonjourHubMdns } from './hub-discovery/mdns-adapters';
@@ -270,13 +270,16 @@ app.whenReady().then(async () => {
       const fromEnv = resolveHubConfigFromEnv();
       if (fromEnv) return fromEnv;
       const persisted = hubHostConfigStore.read(centreId);
-      if (persisted === null || isActiveLanAddress(persisted.bindHost)) return persisted;
-      // The stored LAN address is gone (the machine moved networks). Re-resolve so
-      // the hub binds a reachable interface — and rewrite the config so hosting
-      // status reflects the address it actually serves, instead of the hub failing
-      // to bind while the UI still reads "hosting". Token + port are preserved.
+      if (persisted === null || isPreferredLanAddress(persisted.bindHost)) return persisted;
+      // The stored LAN address is gone (the machine moved networks) OR it names an
+      // adapter we would no longer choose — a container/VPN bridge picked by a
+      // build that predates the denylist, which stays live forever and so would
+      // never re-resolve on a liveness check alone. Either way re-resolve so the
+      // hub binds a reachable interface, and rewrite the config so hosting status
+      // reflects the address it actually serves. Token + port are preserved, so a
+      // laptop that already paired keeps its code.
       const healed = resolveLanBindHost();
-      if (healed === null) return persisted;
+      if (healed === null || healed === persisted.bindHost) return persisted;
       const next = { ...persisted, bindHost: healed };
       hubHostConfigStore.write(centreId, next);
       return next;

@@ -91,4 +91,22 @@ describe('HttpSyncHubClient request timeout', () => {
 
     await expect(client.getCursor(DEVICE, CENTRE)).resolves.toEqual({ seq: 42 });
   });
+
+  // The join probes each candidate address in turn, so a short budget is what
+  // keeps a host that DROPS packets (a firewall, rather than a refused
+  // connection) from costing 30s per address on the joining laptop's screen.
+  it('honours a shorter per-request timeout when one is configured', async () => {
+    const client = new HttpSyncHubClient({
+      baseUrl: 'http://192.168.1.20:7071',
+      token: 'pair-token',
+      fetchImpl: neverAnsweringFetch(),
+      timeoutMs: 3_000,
+    });
+
+    const cursor = client.getCursor(DEVICE, CENTRE);
+    const assertion = expect(cursor).rejects.toMatchObject({ code: 'unreachable' });
+
+    await vi.advanceTimersByTimeAsync(3_000);
+    await assertion;
+  });
 });

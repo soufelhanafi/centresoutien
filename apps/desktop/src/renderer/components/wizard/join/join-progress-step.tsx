@@ -14,11 +14,16 @@ import { useJoinProgress } from '../../../hooks/hub/use-join-progress';
 export function JoinProgressStep({
   isError,
   error,
+  attemptedAddresses,
   onRetry,
   onBack,
 }: {
   isError: boolean;
   error: unknown;
+  /** The addresses this join tried — listed under an "unreachable" failure so the
+   *  director (or whoever they send a screenshot to) can see exactly what was
+   *  contacted, instead of a message that fits every possible cause. */
+  attemptedAddresses: readonly string[];
   onRetry: () => void;
   onBack: () => void;
 }) {
@@ -26,18 +31,29 @@ export function JoinProgressStep({
   const applied = useJoinProgress();
 
   if (isError) {
+    const code = joinCenterErrorCode(error);
     return (
       <div className="flex flex-col gap-6">
         <ErrorState
           icon={<PlugZap className="h-5 w-5" aria-hidden="true" />}
           title={t('hub.join.progress.errorTitle')}
-          description={t(`hub.join.errors.${joinCenterErrorCode(error)}`)}
+          description={t(`hub.join.errors.${code}`)}
           action={
             <Button type="button" variant="outline" size="sm" onClick={onRetry}>
               {t('hub.join.progress.retry')}
             </Button>
           }
         />
+        {code === 'center-join-unreachable' && attemptedAddresses.length > 0 && (
+          <div className="flex flex-col gap-1 rounded-md border border-border bg-muted p-3">
+            <span className="text-xs font-medium text-foreground">{t('hub.join.errors.attemptedLabel')}</span>
+            {attemptedAddresses.map((address) => (
+              <code key={address} className="font-mono text-xs text-muted-foreground" dir="ltr">
+                {address}
+              </code>
+            ))}
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" onClick={onBack}>
             {t('wizard.back')}

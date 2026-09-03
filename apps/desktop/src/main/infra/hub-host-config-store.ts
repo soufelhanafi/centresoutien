@@ -160,6 +160,40 @@ export function isActiveLanAddress(address: string): boolean {
   return false;
 }
 
+/**
+ * Whether `address` is one this machine would still CHOOSE to host on — live, and
+ * on an adapter {@link pickLanBindHost} would not skip.
+ *
+ * Stricter than {@link isActiveLanAddress} on purpose. A `bindHost` chosen before
+ * the virtual-adapter denylist existed stays live indefinitely (the Docker bridge
+ * or VPN tunnel it names is still up), so a liveness-only check would keep serving
+ * an address nothing else in the room can reach and never re-resolve. Boot uses
+ * this so a config poisoned by an older build heals itself on the next launch
+ * instead of waiting for the human to disable and re-enable hosting.
+ */
+export function isPreferredLanAddress(address: string): boolean {
+  return isPreferredLanAddressIn(networkInterfaces(), address);
+}
+
+/** Extracted for unit testing against a synthetic interface map, like
+ *  {@link pickLanBindHost}. */
+export function isPreferredLanAddressIn(
+  interfaces: NodeJS.Dict<readonly MinimalInterfaceInfo[]>,
+  address: string,
+): boolean {
+  for (const [name, addresses] of Object.entries(interfaces)) {
+    for (const info of addresses ?? []) {
+      if (info.family !== 'IPv4' || info.internal || info.address !== address) continue;
+      // Deliberately NOT "is this exactly what the picker would return now": a
+      // machine with both Ethernet and Wi-Fi has two equally reachable addresses,
+      // and rewriting to the picker's favourite on every boot would move the
+      // pairing address a director already wrote down, for no gain.
+      return !VIRTUAL_INTERFACE_NAME_PATTERN.test(name) && isPrivateIpv4(address);
+    }
+  }
+  return false;
+}
+
 function isPrivateIpv4(address: string): boolean {
   const octets = address.split('.').map(Number);
   if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {

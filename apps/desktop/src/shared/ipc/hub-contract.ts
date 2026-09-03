@@ -23,7 +23,12 @@ export const hubHostingStatusSchema = z.discriminatedUnion('hosting', [
 
 export const discoveredHubSchema = z.object({
   name: z.string(),
+  /** The address shown to the human — the best-ranked of `hosts`. */
   host: z.string(),
+  /** Every plausible address for this hub, best first: the responder advertises
+   *  all of its machine's IPv4s but the hub binds only one, so the join tries
+   *  them in order. */
+  hosts: z.array(z.string()).min(1),
   port: z.number().int().min(1).max(65535),
   centreId: z.string(),
   centerCode: z.string(),
@@ -48,7 +53,8 @@ export const hubIpcContract = {
   },
   'hub.joinCenter': {
     request: z.object({
-      baseUrl: z.string().min(1),
+      /** Candidate hub URLs, best first; manual entry sends exactly one. */
+      baseUrls: z.array(z.string().min(1)).min(1),
       token: z.string().min(1),
       centerCode: z.string().min(1),
     }),

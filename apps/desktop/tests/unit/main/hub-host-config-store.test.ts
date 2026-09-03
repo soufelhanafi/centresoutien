@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   HubHostConfigStore,
+  isPreferredLanAddressIn,
   pickLanBindHost,
   resolveLanBindHost,
   type HubHostConfig,
@@ -136,5 +137,46 @@ describe('pickLanBindHost', () => {
       ],
     });
     expect(host).toBe('192.168.1.5');
+  });
+});
+
+describe('isPreferredLanAddressIn', () => {
+  const ipv4 = (address: string, internal = false) => [{ family: 'IPv4' as const, address, internal }];
+
+  it('accepts an address on a real LAN adapter', () => {
+    expect(isPreferredLanAddressIn({ 'Wi-Fi': ipv4('192.168.1.42') }, '192.168.1.42')).toBe(true);
+  });
+
+  // The reason boot re-resolves on more than liveness: a bindHost chosen before
+  // the virtual-adapter denylist existed stays live for as long as Docker/the VPN
+  // is installed, so a liveness-only check would serve an unreachable address
+  // forever and never heal.
+  it('rejects a live address that sits on a virtual adapter', () => {
+    const interfaces = { docker0: ipv4('172.17.0.1'), 'Wi-Fi': ipv4('192.168.1.42') };
+
+    expect(isPreferredLanAddressIn(interfaces, '172.17.0.1')).toBe(false);
+  });
+
+  it('rejects a VPN tunnel address', () => {
+    expect(isPreferredLanAddressIn({ tailscale0: ipv4('100.101.102.103') }, '100.101.102.103')).toBe(false);
+  });
+
+  it('rejects an address that no longer exists on this machine', () => {
+    expect(isPreferredLanAddressIn({ 'Wi-Fi': ipv4('192.168.1.42') }, '192.168.9.9')).toBe(false);
+  });
+
+  it('rejects a non-private address even on a real adapter', () => {
+    expect(isPreferredLanAddressIn({ eth0: ipv4('203.0.113.5') }, '203.0.113.5')).toBe(false);
+  });
+
+  it('rejects an internal (loopback) address', () => {
+    expect(isPreferredLanAddressIn({ lo: ipv4('127.0.0.1', true) }, '127.0.0.1')).toBe(false);
+  });
+
+  it('accepts either address on a machine with two real adapters, so a written-down pairing address is not moved', () => {
+    const interfaces = { eth0: ipv4('192.168.1.10'), 'Wi-Fi': ipv4('192.168.1.42') };
+
+    expect(isPreferredLanAddressIn(interfaces, '192.168.1.10')).toBe(true);
+    expect(isPreferredLanAddressIn(interfaces, '192.168.1.42')).toBe(true);
   });
 });

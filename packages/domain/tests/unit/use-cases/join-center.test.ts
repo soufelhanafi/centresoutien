@@ -35,7 +35,7 @@ function recordingSwitcher(): CenterSwitchPort & { readonly switched: string[] }
 
 function validInput(overrides: Partial<JoinCenterInput> = {}): JoinCenterInput {
   return {
-    baseUrl: 'http://192.168.1.20:4747',
+    baseUrls: ['http://192.168.1.20:4747'],
     token: 'PAIR-CODE-1234',
     centerCode: 'CS-CASA-001',
     ...overrides,
@@ -63,7 +63,7 @@ describe('JoinCenter', () => {
     const switcher = recordingSwitcher();
     const useCase = new JoinCenter(new PlanPolicy(PLANS.pro), provisioner, switcher);
 
-    await expect(useCase.execute(validInput({ baseUrl: 'ftp://nope' }))).rejects.toThrow();
+    await expect(useCase.execute(validInput({ baseUrls: ['ftp://nope'] }))).rejects.toThrow();
     expect(provisioner.joined).toEqual([]);
     expect(switcher.switched).toEqual([]);
   });

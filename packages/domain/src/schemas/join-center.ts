@@ -14,9 +14,9 @@ import { z } from 'zod';
 const HTTP_URL = /^https?:\/\/[^\s/]+/i;
 
 export const joinCenterSchema = z.object({
-  baseUrl: z
-    .string()
-    .refine((value) => HTTP_URL.test(value), { message: 'hub URL must be an http(s) address' }),
+  baseUrls: z
+    .array(z.string().refine((value) => HTTP_URL.test(value), { message: 'hub URL must be an http(s) address' }))
+    .min(1),
   token: z.string().min(1),
   centerCode: z.string().min(1),
 });

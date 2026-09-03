@@ -1,4 +1,6 @@
+import { networkInterfaces } from 'node:os';
 import { Bonjour, type Service } from 'bonjour-service';
+import { orderHubCandidates, type LocalInterfaceAddress } from './hub-candidates';
 import {
   HUB_MDNS_TYPE,
   decodeHubTxt,
@@ -43,8 +45,11 @@ export class BonjourHubMdns implements HubAdvertiserPort, HubDiscovererPort {
   discover(timeoutMs: number): Promise<readonly DiscoveredHub[]> {
     return new Promise((resolve) => {
       const found = new Map<string, DiscoveredHub>();
+      // Read once per browse, not per responder: the ranking compares every
+      // advertised address against the networks THIS machine is on.
+      const localAddresses = Object.values(networkInterfaces()).flatMap((addresses) => addresses ?? []);
       const browser = this.bonjour.find({ type: HUB_MDNS_TYPE }, (service: Service) => {
-        const hub = toDiscoveredHub(service);
+        const hub = toDiscoveredHub(service, localAddresses);
         if (hub !== null) found.set(`${hub.centreId}@${hub.host}:${hub.port}`, hub);
       });
       setTimeout(() => {
@@ -69,23 +74,22 @@ export class BonjourHubMdns implements HubAdvertiserPort, HubDiscovererPort {
 
 /** Narrows a Bonjour responder into a {@link DiscoveredHub}, or null when its TXT
  *  identity is missing/foreign or it advertised no usable IPv4. */
-function toDiscoveredHub(service: Service): DiscoveredHub | null {
+export function toDiscoveredHub(service: Service, localAddresses: readonly LocalInterfaceAddress[]): DiscoveredHub | null {
   const txt = decodeHubTxt(service.txt);
   if (txt === null) return null;
-  const host = pickIpv4(service.addresses) ?? (service.host || null);
-  if (host === null) return null;
+  const hosts = orderHubCandidates(service.addresses ?? [], localAddresses);
+  // The SRV target is the last resort: a responder that advertised no usable A
+  // record can still be reachable by its `.local` name where mDNS resolution works.
+  const fallback = service.host || null;
+  const candidates = hosts.length > 0 ? hosts : fallback === null ? [] : [fallback];
+  const [host] = candidates;
+  if (host === undefined) return null;
   return {
     name: txt.name,
     host,
+    hosts: candidates,
     port: service.port,
     centreId: txt.centreId,
     centerCode: txt.centerCode,
   };
-}
-
-function pickIpv4(addresses: readonly string[] | undefined): string | null {
-  for (const address of addresses ?? []) {
-    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(address)) return address;
-  }
-  return null;
 }
