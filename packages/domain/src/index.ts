@@ -9,7 +9,13 @@ export const DOMAIN_PACKAGE = '@centresoutien/domain' as const;
 // Value objects
 export type { Brand } from './value-objects/brand';
 export type { CenterCode, DeviceId, UserId, EntityId } from './value-objects/ids';
-export { ULID_REGEX, isUlid, hasIdPrefix, toEntityId } from './value-objects/ids';
+export {
+  ULID_REGEX,
+  isUlid,
+  hasIdPrefix,
+  hasDeterministicIdPrefix,
+  toEntityId,
+} from './value-objects/ids';
 export type { PhoneNumber, PhoneRegion } from './value-objects/phone-number';
 export { normalizePhone, InvalidPhoneNumberError } from './value-objects/phone-number';
 export type { Email } from './value-objects/email';
@@ -980,6 +986,8 @@ export type { SubjectAttributedAmount } from './policies/subject-revenue-attribu
 export { updateFormula, deactivateFormula } from './policies/formula-policy';
 export type { FormulaPatch } from './policies/formula-policy';
 export { validateFormulaSubjects } from './policies/validate-formula-subjects';
+export { deriveInvoiceId, deriveInvoiceLineId } from './policies/invoice-id';
+export { deriveTeacherPayoutId } from './policies/teacher-payout-id';
 
 // First-run wizard state machine (SOU-25) — a pure, portable sequencer.
 export type { WizardStepId } from './wizard/wizard-steps';

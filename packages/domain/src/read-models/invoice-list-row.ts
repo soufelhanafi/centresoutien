@@ -49,11 +49,14 @@ export type InvoiceListFilters = {
   openOnly?: boolean;
   /** Case-insensitive substring over the student's `fr`/`ar` name. Applied in SQL. */
   search?: string;
-  /** Keyset cursor: exclusive upper-bound invoice id. Pages descend by `id`
-   *  (ULIDs are time-sortable), so "the next page" is every row with `id < cursor`.
-   *  Omitted for the first page. Only honored when `pageSize` is set. */
+  /** Opaque keyset cursor for the next page — an exclusive upper bound on the
+   *  adapter's own `(created_at, id)` ordering. Invoice ids are a deterministic
+   *  composite key (`deriveInvoiceId`), not a time-sortable ULID, so recency is
+   *  carried by `created_at`, with `id` only as the tiebreaker; the packing is
+   *  the SQLite adapter's own concern, never inspected by callers. Omitted for
+   *  the first page. Only honored when `pageSize` is set. */
   cursor?: string;
-  /** Bounded page size. When set, the read is paginated (ordered by `id DESC`) and
+  /** Bounded page size. When set, the read is paginated (ordered by `created_at DESC, id DESC`) and
    *  returns a `nextCursor`; the adapter clamps to {@link INVOICE_LIST_MAX_PAGE_SIZE}.
    *  When omitted, every matching row is returned and `nextCursor` is `null`. */
   pageSize?: number;

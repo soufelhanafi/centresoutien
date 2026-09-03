@@ -43,3 +43,14 @@ export function hasIdPrefix(value: string, prefix: string): boolean {
   if (!value.startsWith(marker)) return false;
   return isUlid(value.slice(marker.length));
 }
+
+/**
+ * The loose counterpart to {@link hasIdPrefix}, for ids that are a deterministic
+ * composite key rather than a random ULID — `InvoiceId` / `InvoiceLineId` /
+ * `TeacherPayoutId` (`deriveInvoiceId`, `deriveInvoiceLineId`,
+ * `deriveTeacherPayoutId`), whose suffix is `centerCode`/`studentId`/`month` (or
+ * similar) concatenated, not a ULID. Checks the prefix only.
+ */
+export function hasDeterministicIdPrefix(value: string, prefix: string): boolean {
+  return value.startsWith(`${prefix}_`);
+}

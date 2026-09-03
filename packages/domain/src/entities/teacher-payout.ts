@@ -4,9 +4,12 @@ import type { TeacherId } from './teacher';
 import type { TeacherPayrollRuleKind } from './teacher-payroll-rule';
 
 /**
- * ULID id prefix for teacher payouts: `pyo_01HW…`. Not `pay_` — that prefix is
- * already `Payment`'s (the append-only money ledger); `pyo` keeps the two
- * entities unambiguous by id alone, alongside `pyr_` (`TeacherPayrollRule`).
+ * Id prefix for teacher payouts. Not `pay_` — that prefix is already `Payment`'s
+ * (the append-only money ledger); `pyo` keeps the two entities unambiguous by id
+ * alone, alongside `pyr_` (`TeacherPayrollRule`). Not a random ULID either: a
+ * payout's id is `deriveTeacherPayoutId(centerCode, teacherId, month)`, so two
+ * devices computing the same teacher's month independently compute the
+ * identical id.
  */
 export const TEACHER_PAYOUT_ID_PREFIX = 'pyo';
 

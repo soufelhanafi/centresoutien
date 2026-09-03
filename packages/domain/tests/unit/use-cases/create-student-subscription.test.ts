@@ -93,12 +93,11 @@ describe('CreateStudentSubscription', () => {
 
   function build(plan: Plan): CreateStudentSubscription {
     const policy = new PlanPolicy(plan);
-    const createInvoiceDraft = new CreateInvoiceDraft(invoices, fakeClock(CLOCK_ISO), ids, policy);
+    const createInvoiceDraft = new CreateInvoiceDraft(invoices, fakeClock(CLOCK_ISO), policy);
     const generateStudentMonthInvoice = new GenerateStudentMonthInvoice(
       invoices,
       createInvoiceDraft,
       fakeClock(CLOCK_ISO),
-      ids,
       policy,
     );
     return new CreateStudentSubscription(

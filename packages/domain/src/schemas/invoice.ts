@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { hasIdPrefix } from '../value-objects/ids';
+import { hasIdPrefix, hasDeterministicIdPrefix } from '../value-objects/ids';
 import { STUDENT_ID_PREFIX } from '../entities/student';
 import { FORMULA_ID_PREFIX } from '../entities/formula';
 import { INVOICE_ID_PREFIX } from '../entities/invoice';
@@ -66,13 +66,17 @@ export const generateMonthlyInvoicesSchema = z.object({
 });
 export type GenerateMonthlyInvoicesFields = z.infer<typeof generateMonthlyInvoicesSchema>;
 
+// Deterministic composite ids (`deriveInvoiceId` / `deriveInvoiceLineId`), not
+// random ULIDs — `hasDeterministicIdPrefix` checks the prefix only.
 const invoiceRef = z
   .string()
-  .refine((value) => hasIdPrefix(value, INVOICE_ID_PREFIX), { message: 'invalid-id' });
+  .refine((value) => hasDeterministicIdPrefix(value, INVOICE_ID_PREFIX), { message: 'invalid-id' });
 
 const invoiceLineRef = z
   .string()
-  .refine((value) => hasIdPrefix(value, INVOICE_LINE_ID_PREFIX), { message: 'invalid-id' });
+  .refine((value) => hasDeterministicIdPrefix(value, INVOICE_LINE_ID_PREFIX), {
+    message: 'invalid-id',
+  });
 
 /**
  * The director's draft-line amount edit (SOU-289). Strictly positive, unlike the

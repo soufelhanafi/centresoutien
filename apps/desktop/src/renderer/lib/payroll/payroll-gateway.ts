@@ -11,6 +11,13 @@ export type ConfirmMonthlyResult = {
   readonly skippedAlreadyPaid: number;
 };
 
+export type ComputeMonthlyResult = {
+  readonly created: number;
+  readonly updated: number;
+  readonly skippedNoRule: number;
+  readonly skippedAlreadyPaid: number;
+};
+
 export type PayrollProjectionResult = {
   readonly projections: readonly TeacherPayrollProjectionView[];
   readonly projectedBreakdown: readonly TeacherProjectedAttributionView[];
@@ -26,6 +33,8 @@ export interface PayrollGateway {
   listPayouts(month: string): Promise<readonly TeacherPayoutView[]>;
   confirmPayout(teacherPayoutId: string): Promise<TeacherPayoutView>;
   confirmMonthly(month: string): Promise<ConfirmMonthlyResult>;
+  /** Computes/upserts the month's draft payouts, one per active teacher with a payroll rule (idempotent). */
+  computeMonthly(month: string): Promise<ComputeMonthlyResult>;
   attributionBreakdown(month: string): Promise<readonly TeacherAttributionBreakdownEntryView[]>;
   getProjection(month: string): Promise<PayrollProjectionResult>;
 }

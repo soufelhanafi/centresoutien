@@ -19,7 +19,6 @@ import type { StudentId } from '../../../src/entities/student';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryInvoiceRepository } from '../fakes/in-memory-invoice-repository';
 import { fakeClock } from '../fakes/clock';
-import { fakeIds } from '../fakes/ids';
 import { planWithoutFeature } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
@@ -42,7 +41,6 @@ describe('UpdateDraftInvoiceLineAmount', () => {
     const create = new CreateInvoiceDraft(
       invoices,
       fakeClock(DRAFT_CLOCK_ISO),
-      fakeIds(1),
       new PlanPolicy(PLANS.essentiel),
     );
     const { invoice, lines } = await create.execute({
@@ -185,7 +183,6 @@ describe('UpdateDraftInvoiceLineAmount', () => {
       const other = new CreateInvoiceDraft(
         invoices,
         fakeClock(DRAFT_CLOCK_ISO),
-        fakeIds(50),
         new PlanPolicy(PLANS.essentiel),
       );
       const { lines } = await other.execute({

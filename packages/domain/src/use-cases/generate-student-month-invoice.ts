@@ -1,15 +1,11 @@
 import type { InvoiceRepository } from '../ports/invoice-repository';
 import type { Clock } from '../ports/clock';
-import type { IdGenerator } from '../ports/id-generator';
 import type { PlanPolicy } from '../plans/plan-policy';
 import type { CreateInvoiceDraft } from './create-invoice-draft';
 import { newEnvelope } from '../entities/envelope';
 import type { Invoice, InvoiceId } from '../entities/invoice';
-import {
-  INVOICE_LINE_ID_PREFIX,
-  type InvoiceLine,
-  type InvoiceLineId,
-} from '../entities/invoice-line';
+import type { InvoiceLine } from '../entities/invoice-line';
+import { deriveInvoiceLineId } from '../policies/invoice-id';
 import { createInvoiceDraftSchema, type InvoiceLineSnapshot } from '../schemas/invoice';
 import { DuplicateInvoiceError } from '../errors/invoice-errors';
 import type { StudentId } from '../entities/student';
@@ -86,7 +82,6 @@ export class GenerateStudentMonthInvoice {
     private readonly invoices: InvoiceRepository,
     private readonly createInvoiceDraft: Pick<CreateInvoiceDraft, 'execute'>,
     private readonly clock: Clock,
-    private readonly ids: IdGenerator,
     private readonly plan: PlanPolicy,
   ) {}
 
@@ -155,7 +150,7 @@ export class GenerateStudentMonthInvoice {
     input: GenerateStudentMonthInvoiceInput,
   ): InvoiceLine {
     return {
-      id: this.ids.next(INVOICE_LINE_ID_PREFIX) as InvoiceLineId,
+      id: deriveInvoiceLineId(invoice.id, snapshot.formulaId as FormulaId, snapshot.kind),
       ...newEnvelope(
         {
           centerCode: input.centerCode,

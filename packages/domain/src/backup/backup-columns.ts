@@ -43,8 +43,16 @@ export type BackupColumn = {
 
 export type BackupSheetSpec = {
   name: BackupSheetName;
-  /** The ULID id prefix (`'stu'`, `'prt'`, …) this sheet's rows must carry. */
+  /** The id prefix (`'stu'`, `'prt'`, …) this sheet's rows must carry. */
   idPrefix: string;
+  /**
+   * `true` for the handful of sheets whose id is a deterministic composite key
+   * (`invoices`/`invoice-lines` — `deriveInvoiceId`/`deriveInvoiceLineId`)
+   * rather than a random ULID, so the classifier checks the prefix only
+   * instead of requiring a ULID suffix. Defaults to `false` (ULID-shaped) when
+   * omitted.
+   */
+  idIsDeterministic?: boolean;
   /** People-like sheets match duplicates by `naturalKey` (parents-first anchor). */
   peopleLike: boolean;
   /** Column name carrying the natural key; set exactly when `peopleLike`. */

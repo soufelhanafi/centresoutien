@@ -15,7 +15,6 @@ import type { StudentId } from '../../../src/entities/student';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import { InMemoryInvoiceRepository } from '../fakes/in-memory-invoice-repository';
 import { fakeClock } from '../fakes/clock';
-import { fakeIds } from '../fakes/ids';
 import { planWithoutFeature } from '../fakes/plans';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
@@ -49,13 +48,11 @@ describe('GenerateStudentMonthInvoice', () => {
 
   function build(plan: Plan = PLANS.essentiel): GenerateStudentMonthInvoice {
     const policy = new PlanPolicy(plan);
-    const ids = fakeIds(1);
-    const createInvoiceDraft = new CreateInvoiceDraft(invoices, fakeClock(CLOCK_ISO), ids, policy);
+    const createInvoiceDraft = new CreateInvoiceDraft(invoices, fakeClock(CLOCK_ISO), policy);
     return new GenerateStudentMonthInvoice(
       invoices,
       createInvoiceDraft,
       fakeClock(CLOCK_ISO),
-      ids,
       policy,
     );
   }
@@ -169,13 +166,7 @@ describe('GenerateStudentMonthInvoice', () => {
       delegate: Pick<CreateInvoiceDraft, 'execute'>,
     ): GenerateStudentMonthInvoice {
       const policy = new PlanPolicy(PLANS.essentiel);
-      return new GenerateStudentMonthInvoice(
-        invoices,
-        delegate,
-        fakeClock(CLOCK_ISO),
-        fakeIds(900),
-        policy,
-      );
+      return new GenerateStudentMonthInvoice(invoices, delegate, fakeClock(CLOCK_ISO), policy);
     }
 
     // Simulates the single-process async interleaving: another generator creates the
@@ -186,7 +177,6 @@ describe('GenerateStudentMonthInvoice', () => {
       const concurrentCreate = new CreateInvoiceDraft(
         invoices,
         fakeClock(CLOCK_ISO),
-        fakeIds(500),
         new PlanPolicy(PLANS.essentiel),
       );
       return {

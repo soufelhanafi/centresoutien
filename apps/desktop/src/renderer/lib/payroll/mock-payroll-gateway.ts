@@ -1,5 +1,10 @@
 import { encodeDomainError } from '../../../shared/ipc/domain-error';
-import type { ConfirmMonthlyResult, PayrollGateway, PayrollProjectionResult } from './payroll-gateway';
+import type {
+  ComputeMonthlyResult,
+  ConfirmMonthlyResult,
+  PayrollGateway,
+  PayrollProjectionResult,
+} from './payroll-gateway';
 import type { TeacherAttributionBreakdownEntryView, TeacherPayoutView } from './teacher-payout-view';
 import { ATTRIBUTION_BREAKDOWN_SEED, TEACHER_PAYOUT_SEED } from './mock-payroll-seed';
 
@@ -53,6 +58,19 @@ export class MockPayrollGateway implements PayrollGateway {
       confirmed += 1;
     }
     return { confirmed, skippedAlreadyPaid };
+  }
+
+  /**
+   * Dev-only stub: the real draft-computation logic (reading payroll rules and
+   * upserting drafts) lives in the domain use case, not this seam. It only
+   * counts the seeded payouts already `paid` this month, so the toolbar's
+   * skip figure isn't always zero in the mock.
+   */
+  async computeMonthly(month: string): Promise<ComputeMonthlyResult> {
+    const skippedAlreadyPaid = [...this.payouts.values()].filter(
+      (payout) => payout.month === month && payout.status === 'paid',
+    ).length;
+    return { created: 0, updated: 0, skippedNoRule: 0, skippedAlreadyPaid };
   }
 
   async attributionBreakdown(month: string): Promise<readonly TeacherAttributionBreakdownEntryView[]> {

@@ -78,9 +78,8 @@ describe('CloseStudentSubscription', () => {
       new InMemoryFormulaRepository(),
       new GenerateStudentMonthInvoice(
         invoices,
-        new CreateInvoiceDraft(invoices, seedClock, seedIds, seedPolicy),
+        new CreateInvoiceDraft(invoices, seedClock, seedPolicy),
         seedClock,
-        seedIds,
         seedPolicy,
       ),
       seedClock,

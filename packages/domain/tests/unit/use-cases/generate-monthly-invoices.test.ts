@@ -78,13 +78,11 @@ describe('GenerateMonthlyInvoices', () => {
 
   function build(plan: Plan): GenerateMonthlyInvoices {
     const policy = new PlanPolicy(plan);
-    const ids = fakeIds(1);
-    const createInvoiceDraft = new CreateInvoiceDraft(invoices, fakeClock(CLOCK_ISO), ids, policy);
+    const createInvoiceDraft = new CreateInvoiceDraft(invoices, fakeClock(CLOCK_ISO), policy);
     const generateStudentMonthInvoice = new GenerateStudentMonthInvoice(
       invoices,
       createInvoiceDraft,
       fakeClock(CLOCK_ISO),
-      ids,
       policy,
     );
     return new GenerateMonthlyInvoices(subscriptions, formulas, generateStudentMonthInvoice, new PlanPolicy(plan));
@@ -211,8 +209,8 @@ describe('GenerateMonthlyInvoices', () => {
       seedSubscription(subscriptions, { studentId: studentA, formulaId: formula.id });
       seedSubscription(subscriptions, { studentId: studentB, formulaId: formula.id });
 
-      // One job instance, run twice — mirrors two runs sharing the same id
-      // generator, the way two separate app launches would each mint fresh ids.
+      // One job instance, run twice — mirrors two separate app launches, each of
+      // which independently derives the same deterministic invoice id.
       const job = build(PLANS.essentiel);
       const first = await job.execute(validInput());
       expect(first).toEqual({ created: 2, skipped: 0, unresolved: 0 });
@@ -233,7 +231,6 @@ describe('GenerateMonthlyInvoices', () => {
       const enrollmentDraft = new CreateInvoiceDraft(
         invoices,
         fakeClock(CLOCK_ISO),
-        fakeIds(500),
         new PlanPolicy(PLANS.essentiel),
       );
       await enrollmentDraft.execute({
@@ -270,7 +267,6 @@ describe('GenerateMonthlyInvoices', () => {
       const enrollmentDraft = new CreateInvoiceDraft(
         invoices,
         fakeClock(CLOCK_ISO),
-        fakeIds(500),
         new PlanPolicy(PLANS.essentiel),
       );
       await enrollmentDraft.execute({
