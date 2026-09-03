@@ -31,7 +31,8 @@ import {
 import { randomBytes } from 'node:crypto';
 import { sweepStaleTempPdfs } from '../data/fs/temp-pdf';
 import { LEGACY_DEMO_CENTRE_ID, resolveInitialCentreId } from './initial-centre-id';
-import { HubHostConfigStore, isPreferredLanAddress, resolveLanBindHost } from './infra/hub-host-config-store';
+import { HubHostConfigStore } from './infra/hub-host-config-store';
+import { isPreferredLanAddress, resolveLanBindHost } from './infra/lan-address-selection';
 import { HubClientConfigStore } from './infra/hub-client-config-store';
 import { DEFAULT_HUB_PORT } from '../shared/hub';
 import { BonjourHubMdns } from './hub-discovery/mdns-adapters';
