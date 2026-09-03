@@ -8,6 +8,7 @@ import type {
 } from './invoice-view';
 import type { InvoicePaymentSummaryView, PaymentView } from './payment-view';
 import type {
+  GenerateMonthlyInvoicesResult,
   InvoicesGateway,
   RecordPaymentInput,
   UpdateInvoiceLineAmountInput,
@@ -56,6 +57,11 @@ export class MockInvoicesGateway implements InvoicesGateway {
     return [...this.invoices.values()]
       .filter((invoice) => matches(invoice, filters))
       .sort((a, b) => b.month.localeCompare(a.month));
+  }
+
+  /** Dev-only stub: the real generation logic lives in the domain use case, not this seam. */
+  async generateMonthly(): Promise<GenerateMonthlyInvoicesResult> {
+    return { created: 0, skipped: 0, unresolved: 0 };
   }
 
   async listOpen(query: OpenInvoicesQuery): Promise<OpenInvoicesPage> {

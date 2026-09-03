@@ -1,14 +1,10 @@
 import type { InvoiceRepository } from '../ports/invoice-repository';
 import type { Clock } from '../ports/clock';
-import type { IdGenerator } from '../ports/id-generator';
 import type { PlanPolicy } from '../plans/plan-policy';
 import { newEnvelope } from '../entities/envelope';
-import { INVOICE_ID_PREFIX, type Invoice, type InvoiceId } from '../entities/invoice';
-import {
-  INVOICE_LINE_ID_PREFIX,
-  type InvoiceLine,
-  type InvoiceLineId,
-} from '../entities/invoice-line';
+import type { Invoice } from '../entities/invoice';
+import type { InvoiceLine } from '../entities/invoice-line';
+import { deriveInvoiceId, deriveInvoiceLineId } from '../policies/invoice-id';
 import { createInvoiceDraftSchema } from '../schemas/invoice';
 import { DuplicateInvoiceError } from '../errors/invoice-errors';
 import type { StudentId } from '../entities/student';
@@ -51,9 +47,15 @@ export type CreateInvoiceDraftResult = {
  *     for `(centerCode, studentId, month)`, throw {@link DuplicateInvoiceError}. The
  *     lookup is center-scoped in the query, not a post-filter. This is the domain
  *     idempotency guard (no DB unique index, so concurrent same-month creates converge
- *     on sync-resolve, CLAUDE.md §5bis).
+ *     on sync-resolve, CLAUDE.md §5bis) — guaranteed, not just aspirational, because
+ *     the invoice's id is itself `deriveInvoiceId(centerCode, studentId, month)`: two
+ *     devices racing to create the same student-month independently compute the same
+ *     id, so the second push lands on the ordinary version-conflict retry path rather
+ *     than creating a second row.
  *  4. Build the `draft` header and one {@link InvoiceLine} per snapshot, each with its
- *     own fresh envelope, and persist them in one transaction via `createDraft`.
+ *     own fresh envelope and a `deriveInvoiceLineId(invoiceId, formulaId, kind)` id
+ *     (the same convergence guarantee, one level down), and persist them in one
+ *     transaction via `createDraft`.
  *
  * A fresh draft is always born `status: 'draft'`, `issuedAt`/`cancelledAt` null,
  * `version` 0, alive — the caller cannot smuggle a lifecycle state in.
@@ -62,7 +64,6 @@ export class CreateInvoiceDraft {
   constructor(
     private readonly invoices: InvoiceRepository,
     private readonly clock: Clock,
-    private readonly ids: IdGenerator,
     private readonly plan: PlanPolicy,
   ) {}
 
@@ -80,7 +81,7 @@ export class CreateInvoiceDraft {
       throw new DuplicateInvoiceError(studentId, fields.month);
     }
 
-    const invoiceId = this.ids.next(INVOICE_ID_PREFIX) as InvoiceId;
+    const invoiceId = deriveInvoiceId(input.centerCode, studentId, fields.month);
     const invoice: Invoice = {
       id: invoiceId,
       ...newEnvelope(
@@ -100,7 +101,7 @@ export class CreateInvoiceDraft {
     };
 
     const lines: InvoiceLine[] = fields.lines.map((snapshot) => ({
-      id: this.ids.next(INVOICE_LINE_ID_PREFIX) as InvoiceLineId,
+      id: deriveInvoiceLineId(invoiceId, snapshot.formulaId as FormulaId, snapshot.kind),
       ...newEnvelope(
         {
           centerCode: input.centerCode,

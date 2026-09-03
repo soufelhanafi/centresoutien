@@ -88,6 +88,7 @@ export const BACKUP_SHEETS_B: readonly BackupSheetSpec[] = [
   {
     name: 'invoices',
     idPrefix: 'inv',
+    idIsDeterministic: true,
     peopleLike: false,
     naturalKeyColumn: null,
     restoreConflict: 'upsert',
@@ -103,6 +104,7 @@ export const BACKUP_SHEETS_B: readonly BackupSheetSpec[] = [
   {
     name: 'invoice-lines',
     idPrefix: 'invl',
+    idIsDeterministic: true,
     peopleLike: false,
     naturalKeyColumn: null,
     restoreConflict: 'upsert',

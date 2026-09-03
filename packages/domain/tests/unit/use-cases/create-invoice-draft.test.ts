@@ -10,10 +10,8 @@ import { DuplicateInvoiceError } from '../../../src/errors/invoice-errors';
 import { invoiceTotalMad } from '../../../src/policies/invoice-total';
 import type { CenterCode, DeviceId, UserId } from '../../../src/value-objects/ids';
 import type { StudentId } from '../../../src/entities/student';
-import type { IdGenerator } from '../../../src/ports/id-generator';
 import { InMemoryInvoiceRepository } from '../fakes/in-memory-invoice-repository';
 import { fakeClock } from '../fakes/clock';
-import { fakeIds } from '../fakes/ids';
 
 const CENTER = 'CS-CASA-001' as CenterCode;
 const OTHER_CENTER = 'CS-RABAT-002' as CenterCode;
@@ -44,15 +42,13 @@ function validInput(overrides: Partial<CreateInvoiceDraftInput> = {}): CreateInv
 
 describe('CreateInvoiceDraft', () => {
   let invoices: InMemoryInvoiceRepository;
-  let ids: IdGenerator;
 
   function build(plan: Plan): CreateInvoiceDraft {
-    return new CreateInvoiceDraft(invoices, fakeClock(CLOCK_ISO), ids, new PlanPolicy(plan));
+    return new CreateInvoiceDraft(invoices, fakeClock(CLOCK_ISO), new PlanPolicy(plan));
   }
 
   beforeEach(() => {
     invoices = new InMemoryInvoiceRepository();
-    ids = fakeIds();
   });
 
   describe('happy path', () => {
@@ -72,6 +68,11 @@ describe('CreateInvoiceDraft', () => {
       expect(invoice.updatedAt).toEqual(invoice.createdAt);
       expect(invoice.deletedAt).toBeNull();
       expect(invoice.version).toBe(0);
+    });
+
+    it('derives the id deterministically from (centerCode, studentId, month) — same triple, same id', async () => {
+      const { invoice } = await build(PLANS.essentiel).execute(validInput());
+      expect(invoice.id).toBe(`inv_${CENTER}_${STUDENT_ID}_2026-09`);
     });
 
     it('creates one line per snapshot, each with a prefixed id, the invoice ref, and an envelope', async () => {
@@ -156,12 +157,16 @@ describe('CreateInvoiceDraft', () => {
       expect(invoice.month).toBe('2026-10');
     });
 
-    it('allows recreating after the prior invoice was discarded (tombstone does not count)', async () => {
+    it('allows recreating after the prior invoice was discarded (tombstone does not count), resurrecting the same deterministic id', async () => {
       const first = await build(PLANS.essentiel).execute(validInput());
       await invoices.softDelete(first.invoice.id, new Date('2026-08-01T00:00:00Z'), USER);
 
       const second = await build(PLANS.essentiel).execute(validInput());
-      expect(second.invoice.id).not.toBe(first.invoice.id);
+      // The id is a pure function of (centerCode, studentId, month) — recreating
+      // for the same student-month always resurrects the same id, never mints a
+      // second one for one billed month.
+      expect(second.invoice.id).toBe(first.invoice.id);
+      expect(second.invoice.deletedAt).toBeNull();
     });
 
     it('is center-scoped: a foreign center’s same-month row is not a duplicate, a same-center repeat still is', async () => {

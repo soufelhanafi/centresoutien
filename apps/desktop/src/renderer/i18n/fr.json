@@ -2473,6 +2473,14 @@
     "search": "Rechercher un élève…",
     "searchLabel": "Rechercher une facture par nom d'élève",
     "unknownStudent": "Élève inconnu",
+    "actions": {
+      "generateMonthly": "Générer les factures du mois",
+      "generatingMonthly": "Génération…"
+    },
+    "toasts": {
+      "monthlyGenerated": "{{created}} facture(s) générée(s), {{skipped}} déjà existante(s).",
+      "monthlyGenerateError": "La génération des factures a échoué. Réessayez."
+    },
     "filters": {
       "monthLabel": "Filtrer par mois",
       "statusLabel": "Filtrer par statut de paiement",
@@ -2648,6 +2656,8 @@
     "subtitle": "Confirmez les versements du mois et générez les bulletins de paie.",
     "monthLabel": "Filtrer par mois",
     "actions": {
+      "computeMonthly": "Calculer la paie du mois",
+      "computingMonthly": "Calcul…",
       "generatePayslips": "Générer les bulletins",
       "generatingPayslips": "Génération…",
       "markAllPaid": "Marquer tout payé",
@@ -2699,7 +2709,9 @@
       "bulkConfirmSuccess": "{{confirmed}} versement(s) confirmé(s), {{skipped}} déjà payé(s).",
       "bulkConfirmError": "La confirmation groupée a échoué. Réessayez.",
       "payslipsGenerated": "{{count}} bulletin(s) généré(s).",
-      "payslipsPartial": "{{succeeded}} bulletin(s) généré(s), {{failed}} échec(s)."
+      "payslipsPartial": "{{succeeded}} bulletin(s) généré(s), {{failed}} échec(s).",
+      "monthlyComputed": "{{created}} versement(s) créé(s), {{updated}} mis à jour.",
+      "monthlyComputeError": "Le calcul de la paie a échoué. Réessayez."
     }
   },
   "arrears": {

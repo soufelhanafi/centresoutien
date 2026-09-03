@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { Search } from 'lucide-react';
-import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@centresoutien/ui';
+import { FileText, Search } from 'lucide-react';
+import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, toast } from '@centresoutien/ui';
 import type { PaymentStatus } from '../../lib/invoices/invoice-view';
+import { useGenerateMonthlyInvoices } from '../../hooks/invoice/use-generate-monthly-invoices';
+import { currentMonth } from '../../lib/payroll/month';
 
 const ALL = '__all__';
 const PAYMENT_STATUSES: readonly PaymentStatus[] = ['unpaid', 'partially-paid', 'paid'];
@@ -15,7 +17,7 @@ type InvoiceListToolbarProps = {
   onPaymentStatusChange: (value: PaymentStatus | '') => void;
 };
 
-/** Student-name search + month + derived payment-status filters (SOU-69). */
+/** Student-name search + month + derived payment-status filters, plus the monthly-generation bulk action (SOU-69). */
 export function InvoiceListToolbar({
   search,
   onSearchChange,
@@ -25,6 +27,16 @@ export function InvoiceListToolbar({
   onPaymentStatusChange,
 }: InvoiceListToolbarProps) {
   const { t } = useTranslation();
+  const generateMonthly = useGenerateMonthlyInvoices();
+
+  const onGenerateMonthly = async () => {
+    try {
+      const { created, skipped } = await generateMonthly.mutateAsync(month !== '' ? month : currentMonth());
+      toast.success(t('invoices.toasts.monthlyGenerated', { created, skipped }));
+    } catch {
+      toast.error(t('invoices.toasts.monthlyGenerateError'));
+    }
+  };
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -68,6 +80,11 @@ export function InvoiceListToolbar({
           ))}
         </SelectContent>
       </Select>
+
+      <Button onClick={onGenerateMonthly} disabled={generateMonthly.isPending}>
+        <FileText className="h-4 w-4" aria-hidden="true" />
+        {generateMonthly.isPending ? t('invoices.actions.generatingMonthly') : t('invoices.actions.generateMonthly')}
+      </Button>
     </div>
   );
 }

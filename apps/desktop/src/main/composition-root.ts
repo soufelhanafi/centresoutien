@@ -172,6 +172,8 @@ import {
   JoinCenter,
   CenterProvisioningError,
   CenterJoinError,
+  PlanFeatureUnavailableError,
+  previousMonth,
 } from '@centresoutien/domain';
 import type {
   PlanId,
@@ -818,12 +820,11 @@ export function buildContainer(options: ContainerOptions): Container {
   // student's first invoice through the exact same path (and dedup key) as the
   // monthly batch below.
   const invoiceRepo = new SqliteInvoiceRepository(db);
-  const createInvoiceDraft = new CreateInvoiceDraft(invoiceRepo, clock, ids, plan);
+  const createInvoiceDraft = new CreateInvoiceDraft(invoiceRepo, clock, plan);
   const generateStudentMonthInvoice = new GenerateStudentMonthInvoice(
     invoiceRepo,
     createInvoiceDraft,
     clock,
-    ids,
     plan,
   );
   const createStudentSubscription = new CreateStudentSubscription(
@@ -1018,7 +1019,6 @@ export function buildContainer(options: ContainerOptions): Container {
     payoutRepo,
     monthlyFeeAttribution,
     clock,
-    ids,
     plan,
   );
 
@@ -1449,6 +1449,41 @@ export function buildContainer(options: ContainerOptions): Container {
   );
   const deviceSessions = new DeviceSessionService(new SqliteDeviceSessionStore(db), clock, ids);
   const { resolveUpdatedBy, ...principalControls } = wireSessionPrincipal(deviceSessions, userRepo, DEV_USER);
+
+  // Auto-run the two monthly batch jobs every time this center's DB becomes the
+  // live one — `buildContainer` is the single choke point for both app startup
+  // (the initial center) and every center swap (`CenterHost`'s `buildForCenter`
+  // is `openCenter`, which always calls back into this function), so wiring it
+  // here covers both without a second call site. Both jobs are idempotent
+  // (re-running for an already-processed month upserts in place), so calling
+  // them unconditionally on every open is safe. Invoices are drafted for THIS
+  // calendar month; payroll is computed for the month that just ended, since a
+  // percentage payout should reflect fees actually collected over a completed
+  // month, not one still in progress.
+  const autoRunCurrentMonth = clock.now().toISOString().slice(0, 7);
+  const autoRunPayrollMonth = previousMonth(autoRunCurrentMonth);
+  void generateMonthlyInvoices
+    .execute({
+      centerCode: options.centerCode,
+      month: autoRunCurrentMonth,
+      deviceOrigin,
+      updatedBy: resolveUpdatedBy(),
+    })
+    .catch((error: unknown) => {
+      if (error instanceof PlanFeatureUnavailableError) return;
+      console.error('[invoicing] automatic monthly draft generation failed', error);
+    });
+  void computeMonthlyPayrolls
+    .execute({
+      centerCode: options.centerCode,
+      month: autoRunPayrollMonth,
+      deviceOrigin,
+      updatedBy: resolveUpdatedBy(),
+    })
+    .catch((error: unknown) => {
+      if (error instanceof PlanFeatureUnavailableError) return;
+      console.error('[payroll] automatic monthly payroll compute failed', error);
+    });
 
   // Add-a-center flow (SOU-310). `CreateCenter` gates the Premium `org.multi-center`
   // feature server-side, provisions a fresh isolated per-center DB, then hands off

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isUlid, hasIdPrefix, ULID_REGEX } from '../../../src/value-objects/ids';
+import { isUlid, hasIdPrefix, hasDeterministicIdPrefix, ULID_REGEX } from '../../../src/value-objects/ids';
 
 describe('isUlid', () => {
   it('accepts a canonical 26-char Crockford ULID', () => {
@@ -25,6 +25,22 @@ describe('hasIdPrefix', () => {
     expect(hasIdPrefix('tch_01JBX3ZK9P7Q8R5V6W7X8Y9Z0A', 'stu')).toBe(false);
     expect(hasIdPrefix('stu_not-a-ulid', 'stu')).toBe(false);
     expect(hasIdPrefix('01JBX3ZK9P7Q8R5V6W7X8Y9Z0A', 'stu')).toBe(false);
+  });
+});
+
+describe('hasDeterministicIdPrefix', () => {
+  it('is true whenever the prefix matches, regardless of what follows — no ULID requirement', () => {
+    expect(hasDeterministicIdPrefix('inv_CS-CASA-001_stu_01JBX3ZK9P7Q8R5V6W7X8Y9Z0A_2026-09', 'inv')).toBe(
+      true,
+    );
+    expect(hasDeterministicIdPrefix('inv_01JBX3ZK9P7Q8R5V6W7X8Y9Z0A', 'inv')).toBe(true); // still accepts a ULID suffix
+    expect(hasDeterministicIdPrefix('invl_CS-CASA-001', 'inv')).toBe(false); // 'inv' is not a prefix of 'invl_'
+  });
+
+  it('is false when the prefix does not match', () => {
+    expect(hasDeterministicIdPrefix('pyo_CS-CASA-001_tch_01JBX3ZK9P7Q8R5V6W7X8Y9Z0A_2026-08', 'inv')).toBe(
+      false,
+    );
   });
 });
 

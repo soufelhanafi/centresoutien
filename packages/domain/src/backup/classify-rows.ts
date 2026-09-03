@@ -1,5 +1,5 @@
 import type { BackupRow, BackupSheetSpec } from './backup-workbook';
-import { hasIdPrefix } from '../value-objects/ids';
+import { hasIdPrefix, hasDeterministicIdPrefix } from '../value-objects/ids';
 import type { CenterCode } from '../value-objects/ids';
 import type { TimeOfDay } from '../value-objects/time-of-day';
 import { areOrderedNonOverlappingWindows, type TimeWindow } from '../value-objects/time-window';
@@ -226,7 +226,12 @@ export function classifyImportRow(input: {
 
   const id = row['id'];
   if (id !== null && id !== undefined) {
-    if (typeof id !== 'string' || !hasIdPrefix(id, spec.idPrefix)) {
+    const idIsValid =
+      typeof id === 'string' &&
+      (spec.idIsDeterministic === true
+        ? hasDeterministicIdPrefix(id, spec.idPrefix)
+        : hasIdPrefix(id, spec.idPrefix));
+    if (!idIsValid) {
       return { status: 'invalid', reason: 'invalid-id' };
     }
     // An id-carrying row restores an existing entity, so its envelope must be

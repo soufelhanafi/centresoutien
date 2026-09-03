@@ -183,14 +183,26 @@ describe('SqliteInvoiceRepository', () => {
       expect(await repo.findById(invoice.id)).toBeNull();
     });
 
-    it('keeps lines write-once: re-inserting a line id fails', async () => {
+    it('resurrects a tombstoned line via upsert instead of failing on the reused deterministic id', async () => {
+      // Invoice line ids are now `deriveInvoiceLineId(invoiceId, formulaId, kind)`
+      // (deterministic), not a random ULID: discarding a draft and regenerating
+      // the same student-month with the same formula bundle re-inserts the exact
+      // same id as a still-present, but tombstoned, row. `INSERT_LINE_SQL`'s
+      // `ON CONFLICT(id) DO UPDATE` resurrects it with the fresh snapshot instead
+      // of failing the whole draft transaction on a primary-key clash.
       const invoice = makeInvoice();
-      const line = makeLine(invoice.id);
+      const line = makeLine(invoice.id, { amountMad: 20000 });
       await repo.createDraft(invoice, [line]);
+      await repo.softDelete(invoice.id, new Date('2026-08-01T00:00:00Z'), USER);
 
-      const other = makeInvoice({ id: 'inv_00000000000000000000000002' as InvoiceId });
-      // Same line id reused — the plain INSERT (no upsert) must reject it.
-      await expect(repo.createDraft(other, [{ ...line, invoiceId: other.id }])).rejects.toThrow();
+      const resurrectedLine: InvoiceLine = { ...line, amountMad: 25000, deletedAt: null };
+      await repo.createDraft(invoice, [resurrectedLine]);
+
+      const read = await repo.listLines(invoice.id);
+      expect(read).toHaveLength(1);
+      expect(read[0]?.id).toBe(line.id);
+      expect(read[0]?.amountMad).toBe(25000);
+      expect(read[0]?.deletedAt).toBeNull();
     });
   });
 
@@ -657,7 +669,7 @@ describe('SqliteInvoiceRepository', () => {
       expect(rows.map((r) => r.invoice.id)).toEqual([owing.id]);
     });
 
-    it('paginates by keyset (id DESC) with a nextCursor, then drains to null', async () => {
+    it('paginates by keyset (created_at DESC, id tiebreaker) with a nextCursor, then drains to null', async () => {
       const ids = [
         'inv_00000000000000000000000071',
         'inv_00000000000000000000000072',
@@ -669,15 +681,57 @@ describe('SqliteInvoiceRepository', () => {
       }
 
       const page1 = await repo.listInvoices(CENTER, { pageSize: 2 });
-      // id DESC → newest id first.
+      // Every row shares the same createdAt (AT) here, so the tiebreaker (id DESC)
+      // alone decides order — same as ULID recency used to, by coincidence.
       expect(page1.rows.map((r) => r.invoice.id)).toEqual([ids[2], ids[1]]);
-      expect(page1.nextCursor).toBe(ids[1]);
+      expect(page1.nextCursor).not.toBeNull();
 
       const page2 = await repo.listInvoices(CENTER, {
         pageSize: 2,
         cursor: page1.nextCursor ?? undefined,
       });
       expect(page2.rows.map((r) => r.invoice.id)).toEqual([ids[0]]);
+      expect(page2.nextCursor).toBeNull();
+    });
+
+    it('orders by recency (created_at), not by the deterministic id\'s own lexicographic order', async () => {
+      // A deliberately adversarial id/time pairing: the invoice created MOST
+      // recently has the LEXICOGRAPHICALLY SMALLEST id, and vice versa. Invoice
+      // ids are now a deterministic composite key (centerCode+studentId+month),
+      // not a time-sortable ULID, so a correct keyset must ignore id order for
+      // recency and use `created_at` — this is exactly the bug `ORDER BY id DESC`
+      // would reintroduce.
+      const oldest = makeInvoice({
+        id: 'inv_zz-oldest' as InvoiceId,
+        studentId: STUDENT_A,
+        month: '2026-01',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      });
+      const middle = makeInvoice({
+        id: 'inv_mm-middle' as InvoiceId,
+        studentId: STUDENT_A,
+        month: '2026-02',
+        createdAt: new Date('2026-02-01T00:00:00Z'),
+      });
+      const newest = makeInvoice({
+        id: 'inv_aa-newest' as InvoiceId,
+        studentId: STUDENT_A,
+        month: '2026-03',
+        createdAt: new Date('2026-03-01T00:00:00Z'),
+      });
+      for (const inv of [oldest, middle, newest]) {
+        await repo.createDraft(inv, [makeLine(inv.id, { amountMad: 10000 })]);
+      }
+
+      const page1 = await repo.listInvoices(CENTER, { pageSize: 2 });
+      expect(page1.rows.map((r) => r.invoice.id)).toEqual([newest.id, middle.id]);
+      expect(page1.nextCursor).not.toBeNull();
+
+      const page2 = await repo.listInvoices(CENTER, {
+        pageSize: 2,
+        cursor: page1.nextCursor ?? undefined,
+      });
+      expect(page2.rows.map((r) => r.invoice.id)).toEqual([oldest.id]);
       expect(page2.nextCursor).toBeNull();
     });
 

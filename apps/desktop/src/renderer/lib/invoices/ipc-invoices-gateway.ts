@@ -7,6 +7,7 @@ import type {
 } from './invoice-view';
 import type { InvoicePaymentSummaryView } from './payment-view';
 import type {
+  GenerateMonthlyInvoicesResult,
   InvoicesGateway,
   RecordPaymentInput,
   UpdateInvoiceLineAmountInput,
@@ -26,6 +27,10 @@ class IpcInvoicesGateway implements InvoicesGateway {
       ...(filters.paymentStatus !== undefined && { paymentStatus: filters.paymentStatus }),
     });
     return invoices;
+  }
+
+  async generateMonthly(month: string): Promise<GenerateMonthlyInvoicesResult> {
+    return window.api.invoke('invoice.generateMonthly', { month });
   }
 
   async listOpen(query: OpenInvoicesQuery): Promise<OpenInvoicesPage> {

@@ -1,4 +1,9 @@
-import type { ConfirmMonthlyResult, PayrollGateway, PayrollProjectionResult } from './payroll-gateway';
+import type {
+  ComputeMonthlyResult,
+  ConfirmMonthlyResult,
+  PayrollGateway,
+  PayrollProjectionResult,
+} from './payroll-gateway';
 import type { TeacherAttributionBreakdownEntryView, TeacherPayoutView } from './teacher-payout-view';
 
 /**
@@ -18,6 +23,10 @@ class IpcPayrollGateway implements PayrollGateway {
 
   async confirmMonthly(month: string): Promise<ConfirmMonthlyResult> {
     return window.api.invoke('payroll.confirmMonthly', { month });
+  }
+
+  async computeMonthly(month: string): Promise<ComputeMonthlyResult> {
+    return window.api.invoke('payroll.computeMonthly', { month });
   }
 
   async attributionBreakdown(month: string): Promise<readonly TeacherAttributionBreakdownEntryView[]> {

@@ -33,10 +33,19 @@ export class InMemoryInvoiceRepository
   private readonly netPaidByInvoice = new Map<InvoiceId, number>();
   private readonly studentNameById = new Map<StudentId, { fr: string; ar: string }>();
 
+  // Mirrors the SQLite adapter's `INSERT_LINE_SQL` upsert: a line's id is
+  // deterministic (`deriveInvoiceLineId`), so a discard-then-regenerate of the
+  // same student-month can legitimately re-insert an id that already exists as a
+  // tombstoned row — resurrect it in place rather than pushing a duplicate.
   async createDraft(invoice: Invoice, lines: readonly InvoiceLine[]): Promise<void> {
     await this.save(invoice);
     for (const line of lines) {
-      this.lines.push(structuredClone(line));
+      const index = this.lines.findIndex((stored) => stored.id === line.id);
+      if (index === -1) {
+        this.lines.push(structuredClone(line));
+      } else {
+        this.lines[index] = structuredClone(line);
+      }
     }
   }
 

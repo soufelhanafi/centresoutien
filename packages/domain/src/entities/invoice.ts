@@ -3,7 +3,13 @@ import type { EntityEnvelope } from './envelope';
 import type { StudentId } from './student';
 import type { SubjectId } from './subject';
 
-/** ULID id prefix for invoices: `inv_01HW…`. */
+/**
+ * Id prefix for invoices. Not a random ULID: an invoice's id is
+ * `deriveInvoiceId(centerCode, studentId, month)` — `inv_CS-CASA-001_stu_01HW…_2026-09` —
+ * a deterministic function of the same triple the entity is identified by (see
+ * below), so two devices generating the same student-month independently
+ * compute the identical id.
+ */
 export const INVOICE_ID_PREFIX = 'inv';
 
 export type InvoiceId = Brand<string, 'InvoiceId'>;
@@ -49,7 +55,10 @@ export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
  * information — sync ordering is decided by `version`, never these wall-clocks.
  *
  * Not people-like, so it carries no `naturalKey` — an invoice is identified by its
- * `(studentId, month)` relationship, not a matching key. Soft-delete only: a draft
+ * `(studentId, month)` relationship, not a matching key. That relationship IS the
+ * id itself (deterministic, see {@link INVOICE_ID_PREFIX}), which is what makes two
+ * independently-generated laptops' invoices for the same student-month actually
+ * converge on sync, rather than merely being expected to. Soft-delete only: a draft
  * can be discarded via `deletedAt`; a tombstoned row still syncs.
  */
 export type Invoice = EntityEnvelope & {

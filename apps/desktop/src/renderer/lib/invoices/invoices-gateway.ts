@@ -15,6 +15,12 @@ export type RecordPaymentInput = RecordPaymentFields;
 /** A direct alias of the domain's `updateDraftInvoiceLineAmountSchema` shape (SOU-289). */
 export type UpdateInvoiceLineAmountInput = UpdateDraftInvoiceLineAmountFields;
 
+export type GenerateMonthlyInvoicesResult = {
+  readonly created: number;
+  readonly skipped: number;
+  readonly unresolved: number;
+};
+
 /**
  * The seam the Invoice UI depends on (Dependency Inversion). Hooks call this
  * interface, never `window.api` directly, so the concrete adapter is
@@ -22,6 +28,8 @@ export type UpdateInvoiceLineAmountInput = UpdateDraftInvoiceLineAmountFields;
  */
 export interface InvoicesGateway {
   list(filters: InvoiceListFilters): Promise<readonly InvoiceListItemView[]>;
+  /** Generates the month's draft invoices, one per active subscription (idempotent). */
+  generateMonthly(month: string): Promise<GenerateMonthlyInvoicesResult>;
   /**
    * One keyset page of the center's still-open invoices (`openOnly`, SQL-side),
    * filtered by student name — the cash-desk payment picker's bounded read

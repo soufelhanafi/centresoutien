@@ -49,6 +49,12 @@ describe('MockPayrollGateway', () => {
     expect(july.every((payout) => payout.status === 'paid')).toBe(true);
   });
 
+  it('computes the monthly draft payouts, reporting the already-paid ones as skipped', async () => {
+    const gateway = new MockPayrollGateway();
+    const result = await gateway.computeMonthly('2026-07');
+    expect(result).toEqual({ created: 0, updated: 0, skippedNoRule: 0, skippedAlreadyPaid: 1 });
+  });
+
   it('narrows the attribution breakdown to teachers with a live payout in that month', async () => {
     const gateway = new MockPayrollGateway();
     const breakdown = await gateway.attributionBreakdown('2026-07');

@@ -4,7 +4,12 @@ import type { InvoiceId } from './invoice';
 import type { GroupKind } from './group';
 import type { FormulaId } from './formula';
 
-/** ULID id prefix for invoice lines: `invl_01HW…`. */
+/**
+ * Id prefix for invoice lines. Not a random ULID: a line's id is
+ * `deriveInvoiceLineId(invoiceId, formulaId, kind)` — `invl_<invoiceId>_<formulaId>_<kind>` —
+ * so two devices independently appending the same not-yet-billed `(formulaId, kind)`
+ * line to the same draft compute the identical id instead of double-billing it.
+ */
 export const INVOICE_LINE_ID_PREFIX = 'invl';
 
 export type InvoiceLineId = Brand<string, 'InvoiceLineId'>;

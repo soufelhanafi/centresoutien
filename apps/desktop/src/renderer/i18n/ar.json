@@ -2560,6 +2560,14 @@
     "search": "ابحث عن طالب…",
     "searchLabel": "ابحث عن فاتورة باسم الطالب",
     "unknownStudent": "طالب غير معروف",
+    "actions": {
+      "generateMonthly": "إنشاء فواتير الشهر",
+      "generatingMonthly": "جارٍ الإنشاء…"
+    },
+    "toasts": {
+      "monthlyGenerated": "تم إنشاء {{created}} فاتورة، و{{skipped}} موجودة مسبقًا.",
+      "monthlyGenerateError": "فشل إنشاء الفواتير. أعد المحاولة."
+    },
     "filters": {
       "monthLabel": "التصفية حسب الشهر",
       "statusLabel": "التصفية حسب حالة الدفع",
@@ -2735,6 +2743,8 @@
     "subtitle": "أكّد استحقاقات الشهر وأنشئ كشوف الأجور.",
     "monthLabel": "التصفية حسب الشهر",
     "actions": {
+      "computeMonthly": "احتساب أجور الشهر",
+      "computingMonthly": "جارٍ الاحتساب…",
       "generatePayslips": "إنشاء كشوف الأجور",
       "generatingPayslips": "جارٍ الإنشاء…",
       "markAllPaid": "تعليم الكل كمدفوع",
@@ -2786,7 +2796,9 @@
       "bulkConfirmSuccess": "تم تأكيد {{confirmed}} استحقاق(ات)، {{skipped}} مدفوع(ة) مسبقًا.",
       "bulkConfirmError": "فشل التأكيد الجماعي. أعد المحاولة.",
       "payslipsGenerated": "تم إنشاء {{count}} كشف أجر.",
-      "payslipsPartial": "تم إنشاء {{succeeded}} كشف أجر، وفشل {{failed}}."
+      "payslipsPartial": "تم إنشاء {{succeeded}} كشف أجر، وفشل {{failed}}.",
+      "monthlyComputed": "تم إنشاء {{created}} استحقاق(ات)، وتحديث {{updated}}.",
+      "monthlyComputeError": "فشل احتساب الأجور. أعد المحاولة."
     }
   },
   "arrears": {

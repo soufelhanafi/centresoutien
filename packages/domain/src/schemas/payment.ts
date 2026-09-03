@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { hasIdPrefix } from '../value-objects/ids';
+import { hasIdPrefix, hasDeterministicIdPrefix } from '../value-objects/ids';
 import { INVOICE_ID_PREFIX } from '../entities/invoice';
 import { PAYMENT_ID_PREFIX, PAYMENT_METHODS } from '../entities/payment';
 import { isCalendarDate } from './student';
@@ -14,9 +14,11 @@ import { isCalendarDate } from './student';
  * i18n-agnostic and the renderer resolves each code via `t(\`errors.${code}\`)`.
  */
 
+// Deterministic composite id (`deriveInvoiceId`), not a random ULID —
+// `hasDeterministicIdPrefix` checks the prefix only.
 const invoiceRef = z
   .string()
-  .refine((value) => hasIdPrefix(value, INVOICE_ID_PREFIX), { message: 'invalid-id' });
+  .refine((value) => hasDeterministicIdPrefix(value, INVOICE_ID_PREFIX), { message: 'invalid-id' });
 
 /** A payment id's shape at any IPC/domain boundary — exported so callers outside this
  * file (e.g. the receipt print/export IPC contract) validate the same way voiding does,

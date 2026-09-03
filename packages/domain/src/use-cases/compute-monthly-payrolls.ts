@@ -2,18 +2,14 @@ import type { TeacherRepository } from '../ports/teacher-repository';
 import type { TeacherPayrollRuleRepository } from '../ports/teacher-payroll-rule-repository';
 import type { TeacherPayoutRepository } from '../ports/teacher-payout-repository';
 import type { Clock } from '../ports/clock';
-import type { IdGenerator } from '../ports/id-generator';
 import type { PlanPolicy } from '../plans/plan-policy';
 import type { MonthlyFeeAttributionService } from '../services/monthly-fee-attribution-service';
 import type { TeacherId } from '../entities/teacher';
 import type { CenterCode, DeviceId, UserId } from '../value-objects/ids';
 import { newEnvelope } from '../entities/envelope';
 import { isPayrollRuleActiveInMonth } from '../policies/teacher-payroll-rule-policy';
-import {
-  TEACHER_PAYOUT_ID_PREFIX,
-  type TeacherPayout,
-  type TeacherPayoutId,
-} from '../entities/teacher-payout';
+import { deriveTeacherPayoutId } from '../policies/teacher-payout-id';
+import type { TeacherPayout } from '../entities/teacher-payout';
 import { computeMonthlyPayrollsSchema } from '../schemas/teacher-payout';
 
 export type ComputeMonthlyPayrollsInput = {
@@ -39,11 +35,11 @@ export type ComputeMonthlyPayrollsResult = {
  * `MonthlyFeeAttributionService`, wrapping the SOU-73 policy) × `percent` for
  * `percentage-of-monthly-fees` — and upserts a `draft` `TeacherPayout`.
  *
- * **Idempotent by the `(teacherId, month)` natural key**, not the row id:
- * re-running the job for a month it already computed replaces the existing
- * `draft` row's amount in place rather than inserting a second one, so a second
- * run produces zero duplicates (Done-when). A payout already confirmed `paid`
- * is read and then left untouched — paid payouts are immutable (CLAUDE.md
+ * **Idempotent by the `(teacherId, month)` natural key** — which is also the
+ * row's own id (see below): re-running the job for a month it already computed
+ * replaces the existing `draft` row's amount in place rather than inserting a
+ * second one, so a second run produces zero duplicates (Done-when). A payout
+ * already confirmed `paid` is read and then left untouched — paid payouts are immutable (CLAUDE.md
  * §6/§13), so a re-run after confirmation must never resurrect or amend it;
  * that teacher is counted in `skippedAlreadyPaid` instead.
  *
@@ -54,6 +50,12 @@ export type ComputeMonthlyPayrollsResult = {
  * — never session/attendance data — so the result never varies with how many
  * sessions actually happened that month.
  *
+ * The upsert key is `(teacherId, month)`, and so is the payout's own id
+ * (`deriveTeacherPayoutId(centerCode, teacherId, month)`, not a random ULID):
+ * two laptops computing the same teacher's month before syncing independently
+ * land on the identical id, so their rows converge through the ordinary
+ * version-conflict retry path instead of becoming two payouts for one month.
+ *
  * Gated by `payroll.teacher` (Pro+).
  */
 export class ComputeMonthlyPayrolls {
@@ -63,7 +65,6 @@ export class ComputeMonthlyPayrolls {
     private readonly payouts: TeacherPayoutRepository,
     private readonly attribution: MonthlyFeeAttributionService,
     private readonly clock: Clock,
-    private readonly ids: IdGenerator,
     private readonly plan: PlanPolicy,
   ) {}
 
@@ -126,7 +127,7 @@ export class ComputeMonthlyPayrolls {
         updated += 1;
       } else {
         const payout: TeacherPayout = {
-          id: this.ids.next(TEACHER_PAYOUT_ID_PREFIX) as TeacherPayoutId,
+          id: deriveTeacherPayoutId(input.centerCode, teacher.id, month),
           ...newEnvelope(
             { centerCode: input.centerCode, deviceOrigin: input.deviceOrigin, updatedBy: input.updatedBy },
             this.clock,

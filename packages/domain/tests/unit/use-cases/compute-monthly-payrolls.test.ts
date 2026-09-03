@@ -72,7 +72,6 @@ describe('ComputeMonthlyPayrolls', () => {
       payouts,
       attribution,
       clock(),
-      fakeIds(100),
       new PlanPolicy(plan),
     );
   }

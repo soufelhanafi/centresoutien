@@ -101,6 +101,27 @@ function parseGuardianIds(json: string | null): ParentId[] {
   return parsed.filter((value): value is string => typeof value === 'string') as ParentId[];
 }
 
+/**
+ * `listInvoices`'s keyset pagination cursor, packed as an opaque string so the
+ * domain's `cursor?: string` type never has to know it is secretly two values.
+ * `::` is a safe separator: `createdAt` is an ISO-8601 timestamp and `id` is a
+ * `inv_...` composite id, neither of which contains it.
+ */
+function packInvoiceListCursor(createdAt: string, id: string): string {
+  return `${createdAt}::${id}`;
+}
+
+/** Returns `null` for a malformed cursor rather than throwing — a stray/hand-edited
+ *  cursor degrades to "start from the first page" instead of crashing the read. */
+function parseInvoiceListCursor(cursor: string): { createdAt: string; id: string } | null {
+  const separatorIndex = cursor.indexOf('::');
+  if (separatorIndex === -1) return null;
+  const createdAt = cursor.slice(0, separatorIndex);
+  const id = cursor.slice(separatorIndex + 2);
+  if (createdAt === '' || id === '') return null;
+  return { createdAt, id };
+}
+
 function invoiceFromRow(row: InvoiceRow): Invoice {
   return {
     id: row.id as InvoiceId,
@@ -215,9 +236,16 @@ const SAVE_INVOICE_SQL = `
     subject_allocation = excluded.subject_allocation
 `;
 
-// A plain INSERT with no ON CONFLICT clause: re-inserting a line id fails loudly.
-// New lines are only ever born through the two draft writers (`createDraft`,
-// `appendLinesToDraft`), both of which verify the header is a live draft first.
+// An upsert, not a plain INSERT: line ids are now deterministic
+// (`deriveInvoiceLineId(invoiceId, formulaId, kind)`, SOU id-determinism follow-up),
+// so `createDraft` can legitimately re-insert an id that already exists as a
+// TOMBSTONED row — a director discards a draft, then regenerates the same
+// student's month with the same formula bundle. `ON CONFLICT` resurrects that row
+// with the fresh snapshot/envelope instead of failing the whole draft transaction
+// on a primary-key clash. `appendLinesToDraft` never actually hits the conflict
+// branch: its `billedKeys` check (live lines only) already excludes any id that
+// could collide, since a line only ever dies by cascading from its own invoice's
+// tombstone, and `appendLinesToDraft` only ever runs against a live draft.
 const INSERT_LINE_SQL = `
   INSERT INTO invoice_lines
     (id, center_code, device_origin, created_at, updated_at, updated_by, deleted_at,
@@ -225,6 +253,14 @@ const INSERT_LINE_SQL = `
   VALUES
     (@id, @center_code, @device_origin, @created_at, @updated_at, @updated_by, @deleted_at,
      @version, @invoice_id, @formula_id, @label_fr, @label_ar, @kind, @amount_mad)
+  ON CONFLICT(id) DO UPDATE SET
+    updated_at = excluded.updated_at,
+    updated_by = excluded.updated_by,
+    deleted_at = excluded.deleted_at,
+    version    = excluded.version,
+    label_fr   = excluded.label_fr,
+    label_ar   = excluded.label_ar,
+    amount_mad = excluded.amount_mad
 `;
 
 /**
@@ -236,8 +272,10 @@ const INSERT_LINE_SQL = `
  * `updateDraftLineAmount` both re-check, inside their own transaction, that the
  * header is a live `draft` before touching a line — the port's contract, enforced
  * structurally here as well (mirroring how the payment ledger unit-of-work re-checks
- * its invariant in-transaction). Beyond those two, the only line UPDATE is the
- * tombstone that `softDelete` cascades from the header. Mirrors
+ * its invariant in-transaction). Beyond those two, the only other line UPDATEs are
+ * the tombstone that `softDelete` cascades from the header, and `createDraft`'s
+ * `INSERT_LINE_SQL` upsert resurrecting a tombstoned line with the same
+ * deterministic id (a discard-then-regenerate on the same student-month). Mirrors
  * {@link SqliteEnrollmentRepository}.
  *
  * Also implements {@link OverdueInvoiceViewReadPort} (SOU-103) — the Impayés
@@ -403,8 +441,18 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
   // with a LIMIT, so any filter that ran after the LIMIT would hand back short,
   // wrongly-cursored pages. `openOnly` is a plain `outstanding > 0` on the join's
   // already-computed totals, not the status enum, so it duplicates no formula.
-  // Pagination (`pageSize` set) descends by ULID id — a keyset `id < cursor`, never
-  // an OFFSET — and over-fetches one row to decide whether a `nextCursor` exists.
+  //
+  // Pagination (`pageSize` set) descends by a composite `(created_at, id)` keyset,
+  // never an OFFSET, and over-fetches one row to decide whether a `nextCursor`
+  // exists. Invoice ids are now deterministic (`deriveInvoiceId`, centerCode +
+  // studentId + month) rather than time-sortable ULIDs, so `id` alone can no
+  // longer serve as a recency cursor and would also disagree with the
+  // unpaginated branch's `ORDER BY i.month DESC, i.created_at DESC`. `id` stays
+  // as the tiebreaker for two rows sharing one `created_at` (guarantees a stable
+  // total order, mirroring how the rest of this file compares ISO-8601
+  // `updated_at`/`created_at` TEXT columns as strings). The domain's `cursor` type
+  // stays an opaque `string` end-to-end; this file alone packs/unpacks both
+  // values into it via `packInvoiceListCursor`/`parseInvoiceListCursor`.
   async listInvoices(
     centerCode: CenterCode,
     filters: InvoiceListFilters,
@@ -446,10 +494,16 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
     if (paginated) {
       pageSize = Math.min(Math.max(1, filters.pageSize ?? 1), INVOICE_LIST_MAX_PAGE_SIZE);
       if (filters.cursor !== undefined) {
-        conditions.push('i.id < @cursor');
-        params['cursor'] = filters.cursor;
+        const cursor = parseInvoiceListCursor(filters.cursor);
+        if (cursor !== null) {
+          conditions.push(
+            '(i.created_at < @cursor_created_at OR (i.created_at = @cursor_created_at AND i.id < @cursor_id))',
+          );
+          params['cursor_created_at'] = cursor.createdAt;
+          params['cursor_id'] = cursor.id;
+        }
       }
-      orderAndLimit = 'ORDER BY i.id DESC LIMIT @limit';
+      orderAndLimit = 'ORDER BY i.created_at DESC, i.id DESC LIMIT @limit';
       params['limit'] = pageSize + 1;
     }
 
@@ -483,7 +537,8 @@ export class SqliteInvoiceRepository implements InvoiceRepository, OverdueInvoic
 
     const hasMore = paginated && fetched.length > pageSize;
     const headerRows = hasMore ? fetched.slice(0, pageSize) : fetched;
-    const nextCursor = hasMore ? (headerRows[headerRows.length - 1]?.id ?? null) : null;
+    const lastRow = headerRows[headerRows.length - 1];
+    const nextCursor = hasMore && lastRow ? packInvoiceListCursor(lastRow.created_at, lastRow.id) : null;
 
     if (headerRows.length === 0) return { rows: [], nextCursor: null };
 
