@@ -26,7 +26,7 @@ export function JoinCenterFlow() {
     setToken(nextToken);
     setTarget(joinTarget);
     setStep('joining');
-    join.mutate({ baseUrl: joinTarget.baseUrl, token: nextToken, centerCode: joinTarget.centerCode });
+    join.mutate({ baseUrls: joinTarget.baseUrls, token: nextToken, centerCode: joinTarget.centerCode });
   };
 
   if (step === 'discover') {
@@ -55,6 +55,7 @@ export function JoinCenterFlow() {
     <JoinProgressStep
       isError={join.isError}
       error={join.error}
+      attemptedAddresses={target?.baseUrls ?? []}
       onRetry={() => target && startJoin(token, target)}
       onBack={() => {
         join.reset();

@@ -57,14 +57,14 @@ export function createHubHandlers(deps: HubHandlerDeps): Pick<
     'hub.discoverCenters': async () => {
       deps.plan.require('sync.multi-device');
       const centers = deps.hubDiscoverer === null ? [] : await deps.hubDiscoverer.discover(DISCOVERY_WINDOW_MS);
-      return { centers: [...centers] };
+      return { centers: centers.map((center) => ({ ...center, hosts: [...center.hosts] })) };
     },
     // The use case owns the `sync.multi-device` gate + the cold-bootstrap + the
     // switch-in (and its rollback); the handler only forwards the discovered
     // target + the human-entered token.
     'hub.joinCenter': (request) =>
       deps.joinCenter.execute({
-        baseUrl: request.baseUrl,
+        baseUrls: request.baseUrls,
         token: request.token,
         centerCode: request.centerCode,
       }),

@@ -38,6 +38,7 @@ function hostingService() {
 const DISCOVERED: DiscoveredHub = {
   name: 'Centre Al Ilm',
   host: '192.168.1.5',
+  hosts: ['192.168.1.5'],
   port: 4747,
   centreId: 'local',
   centerCode: 'CS-CASA-001',
@@ -155,12 +156,18 @@ describe('createHubHandlers', () => {
     });
 
     const result = await handlers['hub.joinCenter']({
-      baseUrl: 'http://192.168.1.5:4747',
+      baseUrls: ['http://192.168.1.5:4747', 'http://10.8.0.3:4747'],
       token: 'PAIR-CODE',
       centerCode: 'CS-CASA-001',
     });
 
     expect(result).toEqual({ ok: true, centreId: 'ctr_joined', centerCode: 'CS-CASA-001' });
-    expect(calls).toEqual([{ baseUrl: 'http://192.168.1.5:4747', token: 'PAIR-CODE', centerCode: 'CS-CASA-001' }]);
+    expect(calls).toEqual([
+      {
+        baseUrls: ['http://192.168.1.5:4747', 'http://10.8.0.3:4747'],
+        token: 'PAIR-CODE',
+        centerCode: 'CS-CASA-001',
+      },
+    ]);
   });
 });

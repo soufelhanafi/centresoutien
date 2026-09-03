@@ -5,7 +5,8 @@ import type { CenterCode } from '../value-objects/ids';
 import { joinCenterSchema } from '../schemas/join-center';
 
 export type JoinCenterInput = {
-  readonly baseUrl: string;
+  /** Candidate hub URLs, best first — see {@link JoinCenterFromHubInput.baseUrls}. */
+  readonly baseUrls: readonly string[];
   readonly token: string;
   readonly centerCode: string;
 };
@@ -36,7 +37,7 @@ export class JoinCenter {
     this.plan.require('sync.multi-device');
     const parsed = joinCenterSchema.parse(input);
     const { centreId, centerCode } = await this.provisioner.provisionFromHub({
-      baseUrl: parsed.baseUrl,
+      baseUrls: parsed.baseUrls,
       token: parsed.token,
       centerCode: parsed.centerCode as CenterCode,
     });

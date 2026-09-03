@@ -14,7 +14,11 @@ export type HubHostingStatusView =
 /** One hub found during a LAN browse: the center's identity plus where it lives. */
 export type DiscoveredHubView = {
   name: string;
+  /** The address shown in the list — the best-ranked of `hosts`. */
   host: string;
+  /** Every plausible address for this hub, best first; the join tries them in
+   *  order because the responder advertises more addresses than the hub binds. */
+  hosts: readonly string[];
   port: number;
   centreId: string;
   centerCode: string;
@@ -26,9 +30,9 @@ export type JoinCenterResultView = {
   centerCode: string;
 };
 
-/** The address + token a joining device needs to pair with a discovered hub. */
+/** The addresses + token a joining device needs to pair with a discovered hub. */
 export type JoinCenterRequest = {
-  baseUrl: string;
+  baseUrls: readonly string[];
   token: string;
   centerCode: string;
 };
@@ -61,7 +65,10 @@ export const windowHubGateway: HubGateway = {
   },
   discoverCenters: async () => (await window.api.invoke('hub.discoverCenters', {})).centers,
   joinCenter: async (request) => {
-    const { centreId, centerCode } = await window.api.invoke('hub.joinCenter', request);
+    const { centreId, centerCode } = await window.api.invoke('hub.joinCenter', {
+      ...request,
+      baseUrls: [...request.baseUrls],
+    });
     return { centreId, centerCode };
   },
 };

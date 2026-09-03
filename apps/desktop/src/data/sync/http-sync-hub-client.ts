@@ -80,10 +80,18 @@ export class HttpSyncHubClient implements SyncHubPort {
   private readonly token: string;
   private readonly fetchImpl: typeof fetch;
 
-  constructor(config: { baseUrl: string; token: string; fetchImpl?: typeof fetch }) {
+  /** Per-request deadline. Overridable so a cheap reachability probe can fail in
+   *  seconds instead of the 30s a real sync body is allowed: a firewall that
+   *  DROPS rather than refuses gives no answer at all, and walking several
+   *  candidate addresses at the full timeout would strand the joiner's screen for
+   *  minutes. */
+  private readonly timeoutMs: number;
+
+  constructor(config: { baseUrl: string; token: string; fetchImpl?: typeof fetch; timeoutMs?: number }) {
     this.baseUrl = config.baseUrl.replace(/\/+$/, '');
     this.token = config.token;
     this.fetchImpl = config.fetchImpl ?? fetch;
+    this.timeoutMs = config.timeoutMs ?? REQUEST_TIMEOUT_MS;
   }
 
   async pullChanges(
@@ -159,7 +167,7 @@ export class HttpSyncHubClient implements SyncHubPort {
    */
   private async request(path: string, init: { method: string; body?: string }): Promise<HubResponse> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const response = await this.fetchImpl(`${this.baseUrl}/hub/v1${path}`, {
         ...init,

@@ -51,8 +51,53 @@ export class CenterProvisioningError extends DomainError {
  * `JoinCenter` before the hub is ever contacted.
  */
 export class CenterJoinError extends DomainError {
-  readonly code = 'center-join-failed';
+  readonly code: CenterJoinErrorCode = 'center-join-failed';
   constructor(readonly reason: string) {
     super(`Center join failed: ${reason}`);
+  }
+}
+
+/**
+ * The stable codes a failed join can carry. Only `code` and `message` survive the
+ * IPC hop (`shared/ipc/domain-error`), so the reason a join failed has to BE the
+ * code — a joining director otherwise sees one generic "connexion échouée" whether
+ * they mistyped the pairing code, the host is behind a firewall, or the address
+ * discovery offered belongs to an adapter the hub never bound. Those three need
+ * three different actions from the human, so they get three different codes.
+ */
+export type CenterJoinErrorCode =
+  | 'center-join-failed'
+  | 'center-join-unreachable'
+  | 'center-join-unauthorized'
+  | 'center-join-wrong-center';
+
+/**
+ * No candidate address answered. Distinct from a rejected token: the hub was never
+ * reached at all, so the fix is network-shaped (host laptop asleep, firewall
+ * blocking the port, the two laptops on different networks) — never "retype the
+ * code". Carries every address tried so the UI can name them.
+ */
+export class CenterJoinUnreachableError extends CenterJoinError {
+  override readonly code = 'center-join-unreachable';
+  constructor(readonly attemptedAddresses: readonly string[]) {
+    super(`no hub answered at ${attemptedAddresses.join(', ')}`);
+  }
+}
+
+/** The hub answered and rejected the pairing token — the one case where retyping
+ *  the code is the right next step. */
+export class CenterJoinUnauthorizedError extends CenterJoinError {
+  override readonly code = 'center-join-unauthorized';
+  constructor(readonly address: string) {
+    super(`the hub at ${address} rejected the pairing code`);
+  }
+}
+
+/** The hub answered, authenticated, and served a different center than the one the
+ *  joiner picked — a real mix-up on a LAN hosting more than one center. */
+export class CenterJoinWrongCenterError extends CenterJoinError {
+  override readonly code = 'center-join-wrong-center';
+  constructor(readonly servedCenterCode: string) {
+    super(`the hub served a different center (${servedCenterCode})`);
   }
 }

@@ -1,8 +1,22 @@
 import type { DiscoveredHubView, HubGateway, HubHostingStatusView } from './hub-gateway';
 
 const SEED_CENTERS: readonly DiscoveredHubView[] = [
-  { name: 'Centre Al Amal — Casablanca', host: '192.168.1.24', port: 8787, centreId: 'ctr_casa_001', centerCode: 'CS-CASA-001' },
-  { name: 'Centre Annajah — Rabat', host: '192.168.1.31', port: 8787, centreId: 'ctr_rabat_002', centerCode: 'CS-RABAT-002' },
+  {
+    name: 'Centre Al Amal — Casablanca',
+    host: '192.168.1.24',
+    hosts: ['192.168.1.24'],
+    port: 8787,
+    centreId: 'ctr_casa_001',
+    centerCode: 'CS-CASA-001',
+  },
+  {
+    name: 'Centre Annajah — Rabat',
+    host: '192.168.1.31',
+    hosts: ['192.168.1.31'],
+    port: 8787,
+    centreId: 'ctr_rabat_002',
+    centerCode: 'CS-RABAT-002',
+  },
 ];
 
 /**

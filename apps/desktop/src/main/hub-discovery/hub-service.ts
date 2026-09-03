@@ -14,8 +14,19 @@ export const HUB_MDNS_TYPE = 'centresoutien-hub';
 export type DiscoveredHub = {
   /** The center's human display name (from the advertised TXT record). */
   readonly name: string;
-  /** The LAN IPv4 the hub listens on. */
+  /** The most likely LAN IPv4 to reach the hub on — `hosts[0]`, kept as its own
+   *  field because it is what the discovery list shows the human. */
   readonly host: string;
+  /**
+   * Every advertised IPv4 that could plausibly reach the hub, best first.
+   *
+   * A responder advertises ALL of its machine's non-internal IPv4s (an unplugged
+   * Ethernet port, a second Wi-Fi adapter, a container or VPN bridge) while the
+   * hub binds exactly ONE of them, and the order they arrive in is whatever the
+   * host's interface enumeration produced. So the join tries these in order
+   * rather than trusting the first — see `orderHubCandidates`.
+   */
+  readonly hosts: readonly string[];
   readonly port: number;
   readonly centreId: string;
   readonly centerCode: string;

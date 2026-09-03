@@ -3,9 +3,11 @@ import { join } from 'node:path';
 import type { Database as DB } from 'better-sqlite3';
 import {
   CenterJoinError,
+  CenterJoinWrongCenterError,
   DuplicateMatcher,
   SyncEngine,
   newCenterTrial,
+  type CenterCode,
   type CenterJoinProvisioningPort,
   type Clock,
   type IdGenerator,
@@ -14,6 +16,7 @@ import {
   type PlanPolicy,
   type UserId,
 } from '@centresoutien/domain';
+import { normalizeHubUrl, resolveReachableHub } from './hub-address-resolution';
 import { centreDbFileName, openDatabaseAt } from './db';
 import { recoveryBlobPathFor } from './recovery-blob-path';
 import { applyMigrations, type Migration } from './migration-runner';
@@ -82,11 +85,14 @@ export class SqliteCenterJoinProvisioning implements CenterJoinProvisioningPort 
   constructor(private readonly deps: CenterJoinProvisioningDeps) {}
 
   async provisionFromHub(input: JoinCenterFromHubInput): Promise<JoinCenterFromHubResult> {
-    // The domain schema only shape-checks the URL (it compiles without `URL`);
-    // parse it for real here and persist only the clean origin, so a stray
-    // path/whitespace can never reach the HTTP client or the stored client config.
-    const baseUrl = normalizeHubUrl(input.baseUrl);
     const { token, centerCode } = input;
+    // The domain schema only shape-checks the URLs (it compiles without `URL`);
+    // parse them for real here and keep only clean origins, so a stray
+    // path/whitespace can never reach the HTTP client or the stored client config.
+    const candidates = input.baseUrls.map(normalizeHubUrl);
+    // Pick the address that actually answers BEFORE touching the disk, so an
+    // unreachable host or a mistyped code fails fast with nothing to clean up.
+    const baseUrl = await resolveReachableHub(candidates, token, centerCode);
     const centreId = this.allocateCentreId();
     const finalFile = join(this.deps.dir, centreDbFileName(centreId));
     // The temp name does NOT match the switcher's `centre-*.db` scan, so a
@@ -132,7 +138,7 @@ export class SqliteCenterJoinProvisioning implements CenterJoinProvisioningPort 
 
   private async coldBootstrap(
     db: DB,
-    { baseUrl, token, centerCode }: JoinCenterFromHubInput,
+    { baseUrl, token, centerCode }: { baseUrl: string; token: string; centerCode: CenterCode },
   ): Promise<void> {
     const deviceOrigin = readOrCreateDeviceOrigin(db, this.deps.ids);
     const local = new SqliteLocalSyncRepository(db, this.deps.clock, deviceOrigin, centerCode);
@@ -178,7 +184,7 @@ export class SqliteCenterJoinProvisioning implements CenterJoinProvisioningPort 
       throw new CenterJoinError('the hub returned no center for this pairing token');
     }
     if (center.centerCode !== centerCode) {
-      throw new CenterJoinError(`the hub served a different center (${center.centerCode})`);
+      throw new CenterJoinWrongCenterError(center.centerCode);
     }
 
     // The trial is device-local (never synced), so a pulled center has none. Seed
@@ -225,25 +231,6 @@ function removeCenterFiles(file: string): void {
       // Best effort — see the doc above.
     }
   }
-}
-
-/**
- * Parses + normalizes a hub URL to its bare origin (scheme + host + port), or
- * throws {@link CenterJoinError}. Enforces http(s) and drops any path/query/hash,
- * so only a clean base URL ever reaches {@link HttpSyncHubClient} (which builds
- * request paths by string concatenation) or the persisted client config.
- */
-function normalizeHubUrl(raw: string): string {
-  let parsed: URL;
-  try {
-    parsed = new URL(raw.trim());
-  } catch {
-    throw new CenterJoinError('the hub address is not a valid URL');
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new CenterJoinError('the hub address must be an http(s) URL');
-  }
-  return parsed.origin;
 }
 
 function reasonFrom(error: unknown): string {

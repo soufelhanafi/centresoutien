@@ -3066,7 +3066,11 @@
         "retry": "Réessayer"
       },
       "errors": {
-        "center-join-failed": "La connexion a échoué. Vérifiez le code d'appairage et que l'ordinateur hôte est bien accessible.",
+        "center-join-failed": "La connexion au centre a échoué. Réessayez.",
+        "center-join-unreachable": "Aucun ordinateur n'a répondu à cette adresse. Vérifiez que l'ordinateur hôte est allumé, connecté au même réseau Wi-Fi, et que son pare-feu autorise l'application.",
+        "center-join-unauthorized": "Le code d'appairage a été refusé. Vérifiez le code affiché sur l'ordinateur hôte et saisissez-le à nouveau.",
+        "center-join-wrong-center": "Cet ordinateur héberge un autre centre. Revenez en arrière et sélectionnez le bon centre dans la liste.",
+        "attemptedLabel": "Adresses essayées :",
         "plan-feature-unavailable": "Cette fonctionnalité n'est pas disponible sur votre plan.",
         "unknown": "Une erreur inattendue s'est produite. Réessayez."
       }
