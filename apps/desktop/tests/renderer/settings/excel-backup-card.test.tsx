@@ -169,6 +169,61 @@ describe('Excel backup card — import preview and apply', () => {
     expect(screen.getByText('Raison inconnue.')).toBeInTheDocument();
   });
 
+  it('translates every failure on a row that carries more than one reason, instead of garbling them together', async () => {
+    mockSelectFile.mockResolvedValue({ token: 'token-import', path: '/tmp/backup.xlsx' });
+    window.api.invoke = vi.fn(async (channel: string) => {
+      if (channel === 'backup.excel.preview') {
+        return {
+          preview: {
+            sheets: ['rooms'],
+            unknownSheets: [],
+            counts: { created: 0, updated: 0, duplicate: 0, invalid: 1 },
+            rows: [
+              { sheetName: 'rooms', rowNumber: 2, status: 'invalid', reason: 'missing-field:phone;bad-type:capacity' },
+            ],
+          },
+        };
+      }
+      return { reply: 'pong' };
+    });
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(screen.getByRole('button', { name: 'Importer un fichier Excel' }));
+
+    expect(
+      await screen.findByText('Champ manquant : phone, Valeur invalide pour le champ capacity'),
+    ).toBeInTheDocument();
+    // Neither raw token soup nor a second reason swallowed into the first's field.
+    expect(screen.queryByText(/phone;bad-type:capacity/)).not.toBeInTheDocument();
+  });
+
+  it('shows a real message for an invalid center-hours windows cell instead of "unknown reason"', async () => {
+    mockSelectFile.mockResolvedValue({ token: 'token-import', path: '/tmp/backup.xlsx' });
+    window.api.invoke = vi.fn(async (channel: string) => {
+      if (channel === 'backup.excel.preview') {
+        return {
+          preview: {
+            sheets: ['center-hours'],
+            unknownSheets: [],
+            counts: { created: 0, updated: 0, duplicate: 0, invalid: 1 },
+            rows: [{ sheetName: 'center-hours', rowNumber: 2, status: 'invalid', reason: 'invalid-windows' }],
+          },
+        };
+      }
+      return { reply: 'pong' };
+    });
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(screen.getByRole('button', { name: 'Importer un fichier Excel' }));
+
+    expect(
+      await screen.findByText('Les horaires de cette journée sont invalides (créneaux mal formés ou qui se chevauchent).'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Raison inconnue.')).not.toBeInTheDocument();
+  });
+
   it('offers apply only when rows are actionable, then commits over IPC', async () => {
     mockSelectFile.mockResolvedValue({ token: 'token-import', path: '/tmp/backup.xlsx' });
     const invoke = vi.fn(async (channel: string) => {
