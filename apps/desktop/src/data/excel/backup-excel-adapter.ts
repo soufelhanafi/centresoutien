@@ -7,7 +7,28 @@ import type {
   BackupWorkbook,
 } from '@centresoutien/domain';
 
-/** Normalize any exceljs cell value to the portable {@link BackupCellValue}. */
+type ExceljsCellObject = {
+  text?: unknown;
+  richText?: unknown;
+  formula?: unknown;
+  sharedFormula?: unknown;
+  result?: unknown;
+  error?: unknown;
+};
+
+/**
+ * Normalize any exceljs cell value to the portable {@link BackupCellValue}.
+ *
+ * A formula cell (`=TODAY()`, a drag-filled `=A2`, a checkbox-style `=TRUE()`)
+ * round-trips through exceljs as `{ formula, result }` rather than the plain
+ * value — someone filling in the exported template by hand routinely leaves
+ * such formulas behind, so the cached `result` is unwrapped the same way a
+ * plain cell would be, instead of falling through to `String(value)` and
+ * producing the literal text `"[object Object]"` (which then fails every
+ * column-type check downstream). A bare formula/computation error (`#DIV/0!`,
+ * `#REF!`, …) has no usable value and becomes `null`, which the row validator
+ * already treats as a normal missing/invalid cell.
+ */
 function toCellValue(value: unknown): BackupCellValue {
   if (value === null || value === undefined) return null;
   if (value instanceof Date) return value.toISOString();
@@ -15,10 +36,14 @@ function toCellValue(value: unknown): BackupCellValue {
     return value;
   }
   if (typeof value === 'object') {
-    const candidate = value as { text?: unknown; richText?: unknown };
+    const candidate = value as ExceljsCellObject;
+    if (typeof candidate.error === 'string') return null;
     if (typeof candidate.text === 'string') return candidate.text;
     if (Array.isArray(candidate.richText)) {
       return candidate.richText.map((part) => part.text).join('');
+    }
+    if ('formula' in candidate || 'sharedFormula' in candidate) {
+      return toCellValue(candidate.result);
     }
   }
   return String(value);
