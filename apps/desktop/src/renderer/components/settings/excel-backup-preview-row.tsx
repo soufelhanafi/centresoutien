@@ -27,20 +27,18 @@ const SIMPLE_REASON_TOKENS = new Set([
   'id-required',
   'natural-key-exists',
   'already-exists',
+  'invalid-windows',
+  'invalid-weekly-windows',
 ]);
 
-/** Map a stable classification token to an i18n key. Tokens may carry a field
+type ReasonView = { key: string; params?: Record<string, string> };
+
+/** Map one stable classification token to an i18n key. Tokens may carry a field
  *  suffix (`missing-field:capacity`); unknown tokens fall back to a generic
  *  "unknown reason" label, never raw token soup. */
-function reasonLookup(reason: string): { key: string; params?: Record<string, string> } {
-  const separator = reason.indexOf(':');
-  const token = separator === -1 ? reason : reason.slice(0, separator);
-  const field = separator === -1 ? '' : reason.slice(separator + 1).trim();
-
+function reasonLookup(token: string, field: string): ReasonView {
   if (token === 'missing-field' || token === 'bad-type') {
-    const mapped: { key: string; params?: Record<string, string> } = {
-      key: `${REASON_KEY_PREFIX}.${token}`,
-    };
+    const mapped: ReasonView = { key: `${REASON_KEY_PREFIX}.${token}` };
     if (field) mapped.params = { field };
     return mapped;
   }
@@ -48,10 +46,32 @@ function reasonLookup(reason: string): { key: string; params?: Record<string, st
   return { key: `${REASON_KEY_PREFIX}.unknown` };
 }
 
+/**
+ * `classifyImportRow` can bundle several structural failures on one row into a
+ * single `;`-joined reason (`missing-field:phone;bad-type:capacity`) — split on
+ * `;` first so each failure is looked up and translated on its own. Feeding the
+ * whole joined string through a single `token:field` split swallowed every
+ * failure after the first into the `{{field}}` slot of the first, rendering
+ * garbled text like "Champ manquant : phone;bad-type:capacity" instead of a
+ * real explanation.
+ */
+function reasonSegments(reason: string): ReasonView[] {
+  return reason.split(';').map((segment) => {
+    const separator = segment.indexOf(':');
+    const token = separator === -1 ? segment : segment.slice(0, separator);
+    const field = separator === -1 ? '' : segment.slice(separator + 1).trim();
+    return reasonLookup(token, field);
+  });
+}
+
 /** One workbook row's verdict: sheet, Excel row number, status badge, reason. */
 export function ExcelBackupPreviewRow({ row }: { row: BackupImportRowReport }) {
   const { t } = useTranslation();
-  const reason = row.reason ? reasonLookup(row.reason) : null;
+  const reasonText = row.reason
+    ? reasonSegments(row.reason)
+        .map((segment) => (segment.params ? t(segment.key, segment.params) : t(segment.key)))
+        .join(', ')
+    : null;
 
   return (
     <DataTableRow>
@@ -69,7 +89,7 @@ export function ExcelBackupPreviewRow({ row }: { row: BackupImportRowReport }) {
         </Badge>
       </DataTableCell>
       <DataTableCell className="break-words">
-        {reason ? (reason.params ? t(reason.key, reason.params) : t(reason.key)) : <span className="text-muted-foreground">—</span>}
+        {reasonText ?? <span className="text-muted-foreground">—</span>}
       </DataTableCell>
     </DataTableRow>
   );

@@ -2199,6 +2199,8 @@
           "id-required": "Un identifiant est requis pour cette feuille.",
           "natural-key-exists": "Un enregistrement avec cette clé naturelle existe déjà.",
           "already-exists": "Cette ligne correspond à un enregistrement existant qui sera laissé tel quel.",
+          "invalid-windows": "Les horaires de cette journée sont invalides (créneaux mal formés ou qui se chevauchent).",
+          "invalid-weekly-windows": "Les horaires hebdomadaires sont invalides (une journée manque, ou des créneaux sont mal formés ou se chevauchent).",
           "unknown": "Raison inconnue.",
           "missing-field": "Champ manquant : {{field}}",
           "bad-type": "Valeur invalide pour le champ {{field}}"
