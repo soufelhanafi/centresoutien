@@ -1,11 +1,11 @@
-import { findBackupSheet } from '../backup/backup-workbook';
-import { classifyImportRow, normalizeBackupRow } from '../backup/classify-rows';
+import type { BackupSheetName } from '../backup/backup-workbook';
+import { resolveWorkbookReferences } from '../backup/resolve-references';
 import {
   emptyImportCounts,
   type BackupImportPreview,
   type BackupImportRowReport,
 } from '../backup/import-reports';
-import { buildExistingIndex, readBackupWorkbook } from '../backup/import-context';
+import { buildExistingIndex, classifyWorkbook, readBackupWorkbook } from '../backup/import-context';
 import type { BackupStore } from '../ports/backup-store';
 import type { BackupExcelPort } from '../ports/backup-excel-port';
 import type { PlanPolicy } from '../plans/plan-policy';
@@ -17,12 +17,15 @@ export type PreviewImportBackupInput = {
 };
 
 /**
- * Dry-run of a backup import (SOU-44): parses the workbook, classifies every row
- * against the center's existing rows (`created` / `updated` / `duplicate` /
- * `invalid`), and returns a per-row report — it writes nothing. The renderer
- * shows this preview (created/updated counts, duplicates to review, per-row
- * errors) before the admin confirms the atomic apply. Gated on Pro+
- * `io.excel.import`.
+ * Dry-run of a backup import (SOU-44): parses the workbook, classifies every
+ * row against the center's existing rows (`created` / `updated` / `duplicate` /
+ * `invalid`), then repairs dangling references the same way `ApplyImportBackup`
+ * will (SOU-317: a missing catalog id gets a placeholder row reported as an
+ * extra `created` entry; a missing financial/scheduling link either drops the
+ * field or forces the row `invalid`) — so the preview never promises something
+ * the apply won't actually do. It writes nothing. The renderer shows this
+ * preview (created/updated counts, duplicates to review, per-row errors)
+ * before the admin confirms the atomic apply. Gated on Pro+ `io.excel.import`.
  */
 export class PreviewImportBackup {
   constructor(
@@ -36,48 +39,48 @@ export class PreviewImportBackup {
 
     const workbook = await readBackupWorkbook(this.excel, input.filePath);
     const existing = await buildExistingIndex(this.store);
+    const { classifiedBySheet, knownIdsBySheet } = classifyWorkbook(workbook, existing, input.centerCode);
+    const { placeholders, outcomesBySheet } = resolveWorkbookReferences(classifiedBySheet, knownIdsBySheet);
 
     const rows: BackupImportRowReport[] = [];
     const counts = emptyImportCounts();
     const unknownSheets: string[] = [];
 
     for (const sheet of workbook.sheets) {
-      const spec = findBackupSheet(sheet.name);
-      if (spec === null) {
+      const classified = classifiedBySheet.get(sheet.name as BackupSheetName);
+      if (classified === undefined) {
         unknownSheets.push(sheet.name);
         continue;
       }
-      const index = existing.get(spec.name);
-      // Working copies that grow as rows are classified — a second row in the
-      // same workbook landing on an already-classified id / naturalKey is a
-      // duplicate, exactly as apply sees it (preview and apply in lockstep).
-      const knownIds = new Set(index?.ids ?? EMPTY_IDS);
-      const knownNaturalKeys = new Set(index?.naturalKeys ?? EMPTY_IDS);
-      for (const [offset, row] of sheet.rows.entries()) {
-        const classification = classifyImportRow({
-          spec,
-          // Legacy center-hours rows (open/close, no windows) are upcast first
-          // so preview and apply classify the same normalized row (lockstep).
-          row: normalizeBackupRow(spec, row),
-          existingIds: knownIds,
-          existingNaturalKeys: knownNaturalKeys,
-          centerCode: input.centerCode,
-        });
-        counts[classification.status] += 1;
-        if (classification.status === 'created' || classification.status === 'updated') {
-          if (typeof row['id'] === 'string') knownIds.add(row['id']);
-          const naturalKeyColumn = spec.naturalKeyColumn ?? 'naturalKey';
-          const naturalKey = row[naturalKeyColumn];
-          if (typeof naturalKey === 'string' && naturalKey.length > 0) knownNaturalKeys.add(naturalKey);
-        }
+      const outcomes = outcomesBySheet.get(sheet.name as BackupSheetName) ?? [];
+      for (const [offset, entry] of classified.entries()) {
+        const outcome = outcomes[offset];
+        const broken = outcome?.brokenLinkReason ?? null;
+        const status = broken !== null ? 'invalid' : entry.status;
+        const reason =
+          broken ?? (outcome !== undefined && outcome.droppedLinkReasons.length > 0
+            ? outcome.droppedLinkReasons.join(';')
+            : entry.reason);
+        counts[status] += 1;
         rows.push({
-          sheetName: spec.name,
+          sheetName: sheet.name,
           // Header is row 1, so the first data row is row 2 — matches Excel.
           rowNumber: offset + 2,
-          status: classification.status,
-          reason: classification.reason,
+          status,
+          reason,
         });
       }
+    }
+
+    for (const placeholder of placeholders) {
+      counts.created += 1;
+      rows.push({
+        sheetName: placeholder.sheet,
+        // Not a real workbook row — synthesized to repair a dangling reference.
+        rowNumber: 0,
+        status: 'created',
+        reason: 'auto-created-placeholder',
+      });
     }
 
     return {
@@ -88,5 +91,3 @@ export class PreviewImportBackup {
     };
   }
 }
-
-const EMPTY_IDS: ReadonlySet<string> = new Set();

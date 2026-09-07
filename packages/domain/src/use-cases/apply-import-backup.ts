@@ -1,11 +1,8 @@
-import {
-  BACKUP_SHEETS,
-  type BackupRow,
-  type BackupSheetSpec,
-} from '../backup/backup-workbook';
-import { classifyImportRow, normalizeBackupRow } from '../backup/classify-rows';
+import { BACKUP_SHEETS, type BackupRow, type BackupSheetSpec } from '../backup/backup-workbook';
+import { resolveWorkbookReferences } from '../backup/resolve-references';
+import { buildPlaceholderRow } from '../backup/placeholder-rows';
 import { emptyImportCounts, type BackupImportApplyResult } from '../backup/import-reports';
-import { buildExistingIndex, readBackupWorkbook } from '../backup/import-context';
+import { buildExistingIndex, classifyWorkbook, readBackupWorkbook } from '../backup/import-context';
 import type { BackupStore, BackupSheetWrite } from '../ports/backup-store';
 import type { BackupExcelPort } from '../ports/backup-excel-port';
 import type { IdGenerator } from '../ports/id-generator';
@@ -21,12 +18,16 @@ export type ApplyImportBackupInput = {
 
 /**
  * Atomic backup restore (SOU-44): re-parses the workbook, re-classifies every
- * row (same rules as {@link PreviewImportBackup}), and applies the `created` +
- * `updated` rows in the registry's dependency order in **one transaction** —
- * any failure rolls the whole import back. Duplicates and invalid rows are
- * skipped (they are never silently merged or repaired by a backup restore; the
- * sync engine owns merging). A people-like row without an `id` is created fresh
- * with a new ULID + envelope. Gated on Pro+ `io.excel.import`.
+ * row (same rules as {@link PreviewImportBackup}), repairs dangling references
+ * the same way the preview reported them (SOU-317: a missing catalog id gets a
+ * minimal placeholder row so the reference resolves; a missing financial/
+ * scheduling link is dropped when nullable or forces the row `invalid`
+ * otherwise — never fabricated), and applies everything in the registry's
+ * dependency order in **one transaction** — any failure rolls the whole
+ * import back. Duplicates and invalid rows are skipped (they are never
+ * silently merged or repaired beyond reference resolution; the sync engine
+ * owns merging). A people-like row without an `id` is created fresh with a
+ * new ULID + envelope. Gated on Pro+ `io.excel.import`.
  */
 export class ApplyImportBackup {
   constructor(
@@ -44,46 +45,44 @@ export class ApplyImportBackup {
 
     const workbook = await readBackupWorkbook(this.excel, input.filePath);
     const existing = await buildExistingIndex(this.store);
-    const byName = new Map(workbook.sheets.map((sheet) => [sheet.name, sheet]));
+    const { classifiedBySheet, knownIdsBySheet } = classifyWorkbook(workbook, existing, input.centerCode);
+    const { placeholders, outcomesBySheet } = resolveWorkbookReferences(classifiedBySheet, knownIdsBySheet);
 
     const counts = emptyImportCounts();
     const sheetsToApply: BackupSheetWrite[] = [];
     let totalRows = 0;
+    const now = this.clock.now().toISOString();
 
     for (const spec of BACKUP_SHEETS) {
-      const sheet = byName.get(spec.name);
-      if (sheet === undefined) continue;
-
-      // Working copies of the DB snapshot: as a row is classified as
-      // created/updated, its id / naturalKey joins the index, so a second row in
-      // the SAME workbook that would land on it classifies as `duplicate` (the
-      // preview sees the same thing, keeping preview and apply in lockstep).
-      const index = existing.get(spec.name);
-      const knownIds = new Set(index?.ids ?? EMPTY_IDS);
-      const knownNaturalKeys = new Set(index?.naturalKeys ?? EMPTY_IDS);
+      const classified = classifiedBySheet.get(spec.name);
       const rowsToApply: BackupRow[] = [];
 
-      for (const row of sheet.rows) {
-        totalRows += 1;
-        // Legacy center-hours rows (open/close, no windows) are upcast so both
-        // the classification and the persisted row use the current shape.
-        const normalizedRow = normalizeBackupRow(spec, row);
-        const classification = classifyImportRow({
-          spec,
-          row: normalizedRow,
-          existingIds: knownIds,
-          existingNaturalKeys: knownNaturalKeys,
-          centerCode: input.centerCode,
-        });
-        counts[classification.status] += 1;
-
-        if (classification.status === 'created' || classification.status === 'updated') {
-          rowsToApply.push(this.prepareRow(spec, normalizedRow, input.centerCode));
-          if (typeof normalizedRow['id'] === 'string') knownIds.add(normalizedRow['id']);
-          const naturalKeyColumn = spec.naturalKeyColumn ?? 'naturalKey';
-          const naturalKey = normalizedRow[naturalKeyColumn];
-          if (typeof naturalKey === 'string' && naturalKey.length > 0) knownNaturalKeys.add(naturalKey);
+      // A sheet's own rows only exist when the workbook carries that sheet —
+      // but a placeholder can still target it below even when it doesn't
+      // (an older or partial export can omit a sheet entirely).
+      if (classified !== undefined) {
+        totalRows += classified.length;
+        const outcomes = outcomesBySheet.get(spec.name) ?? [];
+        for (const [offset, entry] of classified.entries()) {
+          const outcome = outcomes[offset];
+          if (outcome?.brokenLinkReason != null) {
+            counts.invalid += 1;
+            continue;
+          }
+          counts[entry.status] += 1;
+          if (entry.status === 'created' || entry.status === 'updated') {
+            const sourceRow = outcome?.row ?? entry.row;
+            rowsToApply.push(this.prepareRow(spec, sourceRow, input.centerCode));
+          }
         }
+      }
+
+      for (const placeholder of placeholders) {
+        if (placeholder.sheet !== spec.name) continue;
+        rowsToApply.push(
+          buildPlaceholderRow(spec, placeholder.id, input.centerCode, now, this.deviceOrigin, this.updatedBy),
+        );
+        counts.created += 1;
       }
 
       if (rowsToApply.length > 0) {
@@ -130,5 +129,3 @@ export class ApplyImportBackup {
     };
   }
 }
-
-const EMPTY_IDS: ReadonlySet<string> = new Set();
