@@ -141,22 +141,36 @@ function parseWeeklyWindowsJson(value: string): unknown {
  * The bilingual AR name/label columns (SOU-271). AR is optional data entry now:
  * an unused AR value is stored as `''` (never null) in its `TEXT NOT NULL` column.
  * exceljs reads an empty cell back as `null`, so a FR-only workbook arrives with
- * `name_ar`/`label_ar` = null — see {@link coerceEmptyArColumns}.
+ * `name_ar`/`label_ar` = null — see {@link coerceEmptyStringColumns}.
+ *
+ * The comma-joined id-list columns (`guardianIds`, `subjectIds`, `niveauIds`) hit
+ * the exact same exceljs round-trip: a teacher/student with no ids in the list
+ * exports as an empty string, which comes back as `null`. `niveauIds` in
+ * particular is routinely empty (level coverage is optional, SOU-260), so every
+ * such teacher's re-import failed with `bad-type:niveauIds` until this joined
+ * the AR-column coercion below.
  */
-const EMPTY_ALLOWED_AR_COLUMNS: ReadonlySet<string> = new Set(['name_ar', 'label_ar']);
+const EMPTY_ALLOWED_STRING_COLUMNS: ReadonlySet<string> = new Set([
+  'name_ar',
+  'label_ar',
+  'guardianIds',
+  'subjectIds',
+  'niveauIds',
+]);
 
 /**
- * Coerce a null/absent AR name-or-label cell back to `''` before classification
- * and apply (SOU-271). Without this a FR-only workbook — whose empty AR cell
- * round-trips through exceljs as `null` — would fail the `string` type check
- * (`bad-type`) and, even if it passed, bind `null` into the `NOT NULL` column on
- * restore. Only the AR columns a sheet actually declares are touched, so no other
- * required-string column loosens.
+ * Coerce a null/absent AR name-or-label or id-list cell back to `''` before
+ * classification and apply (SOU-271, SOU-260). Without this, a value that
+ * legitimately round-trips through exceljs as an empty string — a FR-only AR
+ * cell, or a teacher/student with no ids in a comma-joined list — arrives back
+ * as `null` and fails the `string` type check (`bad-type`), and would otherwise
+ * bind `null` into the `NOT NULL` column on restore. Only the columns a sheet
+ * actually declares are touched, so no other required-string column loosens.
  */
-function coerceEmptyArColumns(spec: BackupSheetSpec, row: BackupRow): BackupRow {
+function coerceEmptyStringColumns(spec: BackupSheetSpec, row: BackupRow): BackupRow {
   let coerced: BackupRow | null = null;
   for (const column of spec.columns) {
-    if (!EMPTY_ALLOWED_AR_COLUMNS.has(column.name)) continue;
+    if (!EMPTY_ALLOWED_STRING_COLUMNS.has(column.name)) continue;
     const value = row[column.name];
     if (value === null || value === undefined) {
       coerced ??= { ...row };
@@ -176,7 +190,7 @@ function coerceEmptyArColumns(spec: BackupSheetSpec, row: BackupRow): BackupRow 
  * cells are coerced to `''` here too (SOU-271) so preview and apply agree.
  */
 export function normalizeBackupRow(spec: BackupSheetSpec, row: BackupRow): BackupRow {
-  const withArDefaults = coerceEmptyArColumns(spec, row);
+  const withArDefaults = coerceEmptyStringColumns(spec, row);
   if (spec.name !== 'center-hours') return withArDefaults;
   if ('windows' in withArDefaults) return withArDefaults;
   const open = withArDefaults['open'];

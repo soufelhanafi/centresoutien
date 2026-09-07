@@ -140,6 +140,40 @@ describe('Excel backup card — import preview and apply', () => {
     expect(screen.getByText('Champ manquant : centerCode')).toBeInTheDocument();
   });
 
+  it('filters the row table by status when a count chip is clicked, and clears on a second click', async () => {
+    mockSelectFile.mockResolvedValue({ token: 'token-import', path: '/tmp/backup.xlsx' });
+    window.api.invoke = vi.fn(async (channel: string) => {
+      if (channel === 'backup.excel.preview') return previewResponse;
+      return { reply: 'pong' };
+    });
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(screen.getByRole('button', { name: 'Importer un fichier Excel' }));
+    await screen.findByText('Créées');
+
+    // Both rows visible before filtering: one created, one invalid.
+    expect(screen.getByText('Créée')).toBeInTheDocument();
+    expect(screen.getByText('Invalide')).toBeInTheDocument();
+
+    const invalidChip = screen.getByRole('button', { name: /Invalides/ });
+    expect(invalidChip).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(invalidChip);
+    expect(invalidChip).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByText('Créée')).not.toBeInTheDocument();
+    expect(screen.getByText('Invalide')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Afficher toutes les lignes' }));
+    expect(invalidChip).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('Créée')).toBeInTheDocument();
+    expect(screen.getByText('Invalide')).toBeInTheDocument();
+
+    const updatedChip = screen.getByRole('button', { name: /Mises à jour/ });
+    await user.click(updatedChip);
+    expect(screen.getByText('Aucune ligne ne correspond à ce filtre.')).toBeInTheDocument();
+  });
+
   it('localizes classification reason tokens via the reason.* keys', async () => {
     mockSelectFile.mockResolvedValue({ token: 'token-import', path: '/tmp/backup.xlsx' });
     window.api.invoke = vi.fn(async (channel: string) => {

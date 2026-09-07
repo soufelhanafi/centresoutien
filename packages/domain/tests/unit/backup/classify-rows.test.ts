@@ -302,3 +302,40 @@ describe('normalizeBackupRow — empty AR name/label cells (SOU-271)', () => {
     expect(classify('students', normalizeBackupRow(spec, raw))).toEqual({ status: 'created', reason: null });
   });
 });
+
+describe('normalizeBackupRow — empty comma-joined id-list cells (SOU-260)', () => {
+  // A teacher with no niveaux (or a student with no guardians) exports its
+  // id-list column as '', which exceljs reads back as `null` — the same
+  // round-trip as the AR columns above. Uncoerced, this fails `bad-type` on
+  // every teacher without a niveau, which SOU-260 made a common case.
+  it.each([
+    ['teachers', 'niveauIds'],
+    ['teachers', 'subjectIds'],
+    ['students', 'guardianIds'],
+  ] as const)('coerces a null %s.%s cell to an empty string', (sheet, column) => {
+    const spec = findBackupSheet(sheet)!;
+    const row = validBackupRow(sheet, { [column]: null });
+    expect(normalizeBackupRow(spec, row)[column]).toBe('');
+  });
+
+  it('rejects a null niveauIds before normalization, then accepts it after (import path)', () => {
+    const spec = findBackupSheet('teachers')!;
+    const raw = validBackupRow('teachers', { niveauIds: null });
+    expect(validateBackupRow(spec, raw)).toContain('bad-type:niveauIds');
+    expect(validateBackupRow(spec, normalizeBackupRow(spec, raw))).toEqual([]);
+  });
+
+  it('classifies a teacher row with no niveaux (empty niveauIds) as created once normalized', () => {
+    const spec = findBackupSheet('teachers')!;
+    const raw = validBackupRow('teachers', { niveauIds: null });
+    expect(
+      classifyImportRow({
+        spec,
+        row: normalizeBackupRow(spec, raw),
+        existingIds: new Set<string>(),
+        existingNaturalKeys: new Set<string>(),
+        centerCode: CENTER_CODE,
+      }),
+    ).toEqual({ status: 'created', reason: null });
+  });
+});
