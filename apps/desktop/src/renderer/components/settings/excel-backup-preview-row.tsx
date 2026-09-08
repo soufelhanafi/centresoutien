@@ -29,7 +29,13 @@ const SIMPLE_REASON_TOKENS = new Set([
   'already-exists',
   'invalid-windows',
   'invalid-weekly-windows',
+  // SOU-317: the row was synthesized to repair a dangling reference from
+  // another row — see reasonLookup's dedicated handling below for the two
+  // field-carrying reference tokens (missing-link / dropped-missing-link).
+  'auto-created-placeholder',
 ]);
+
+const FIELD_REASON_TOKENS = new Set(['missing-field', 'bad-type', 'missing-link', 'dropped-missing-link']);
 
 type ReasonView = { key: string; params?: Record<string, string> };
 
@@ -37,7 +43,7 @@ type ReasonView = { key: string; params?: Record<string, string> };
  *  suffix (`missing-field:capacity`); unknown tokens fall back to a generic
  *  "unknown reason" label, never raw token soup. */
 function reasonLookup(token: string, field: string): ReasonView {
-  if (token === 'missing-field' || token === 'bad-type') {
+  if (FIELD_REASON_TOKENS.has(token)) {
     const mapped: ReasonView = { key: `${REASON_KEY_PREFIX}.${token}` };
     if (field) mapped.params = { field };
     return mapped;
@@ -81,7 +87,11 @@ export function ExcelBackupPreviewRow({ row }: { row: BackupImportRowReport }) {
         </span>
       </DataTableCell>
       <DataTableCell>
-        <Numeric>{row.rowNumber}</Numeric>
+        {/* A non-positive rowNumber marks a placeholder row synthesized to
+         *  repair a dangling reference (SOU-317) — it has no real Excel row.
+         *  Each placeholder gets its own negative number so two on the same
+         *  sheet never collide on the row list's React key. */}
+        {row.rowNumber > 0 ? <Numeric>{row.rowNumber}</Numeric> : <span className="text-muted-foreground">—</span>}
       </DataTableCell>
       <DataTableCell>
         <Badge variant={STATUS_TONE[row.status]} dot>

@@ -1,9 +1,16 @@
-import type { BackupColumn, BackupColumnType, BackupSheetSpec } from './backup-columns';
+import type { BackupColumn, BackupColumnReference, BackupColumnType, BackupSheetSpec } from './backup-columns';
 import { BACKUP_ENVELOPE_COLUMNS, NATURAL_KEY_COLUMN } from './backup-columns';
 
 /** Compact column literal — `name` + `type`, non-optional by default. */
 function createRequiredColumn(name: string, type: BackupColumnType): BackupColumn {
   return { name, type };
+}
+
+/** Same as {@link createRequiredColumn}, plus a reference the import engine
+ *  can repair (create a placeholder or drop the link) instead of only ever
+ *  rejecting the row — see {@link BackupColumnReference}. */
+function referenceColumn(name: string, type: BackupColumnType, reference: BackupColumnReference): BackupColumn {
+  return { name, type, reference };
 }
 
 /** First half of the registry: people-like + the pricing/scheduling core. */
@@ -37,10 +44,10 @@ export const BACKUP_SHEETS_A: readonly BackupSheetSpec[] = [
       createRequiredColumn('name_ar', 'string'),
       createRequiredColumn('birthDate', 'string'),
       createRequiredColumn('level', 'string'),
-      createRequiredColumn('niveauId', 'string-or-null'),
+      referenceColumn('niveauId', 'string-or-null', { sheet: 'niveaux', kind: 'catalog', multiplicity: 'single' }),
       createRequiredColumn('school', 'string-or-null'),
       createRequiredColumn('notes', 'string-or-null'),
-      createRequiredColumn('guardianIds', 'string'),
+      referenceColumn('guardianIds', 'string', { sheet: 'parents', kind: 'catalog', multiplicity: 'list' }),
     ],
   },
   {
@@ -57,8 +64,8 @@ export const BACKUP_SHEETS_A: readonly BackupSheetSpec[] = [
       createRequiredColumn('cin', 'string-or-null'),
       createRequiredColumn('phone', 'string'),
       createRequiredColumn('email', 'string-or-null'),
-      createRequiredColumn('subjectIds', 'string'),
-      createRequiredColumn('niveauIds', 'string'),
+      referenceColumn('subjectIds', 'string', { sheet: 'subjects', kind: 'catalog', multiplicity: 'list' }),
+      referenceColumn('niveauIds', 'string', { sheet: 'niveaux', kind: 'catalog', multiplicity: 'list' }),
       createRequiredColumn('active', 'boolean'),
     ],
   },
@@ -112,9 +119,9 @@ export const BACKUP_SHEETS_A: readonly BackupSheetSpec[] = [
     restoreConflict: 'upsert',
     columns: [
       ...BACKUP_ENVELOPE_COLUMNS,
-      createRequiredColumn('subjectId', 'string'),
-      createRequiredColumn('teacherId', 'string-or-null'),
-      createRequiredColumn('niveauId', 'string-or-null'),
+      referenceColumn('subjectId', 'string', { sheet: 'subjects', kind: 'catalog', multiplicity: 'single' }),
+      referenceColumn('teacherId', 'string-or-null', { sheet: 'teachers', kind: 'catalog', multiplicity: 'single' }),
+      referenceColumn('niveauId', 'string-or-null', { sheet: 'niveaux', kind: 'catalog', multiplicity: 'single' }),
       createRequiredColumn('level', 'string'),
       createRequiredColumn('capacity', 'number'),
       createRequiredColumn('kind', 'string'),
@@ -131,7 +138,7 @@ export const BACKUP_SHEETS_A: readonly BackupSheetSpec[] = [
       ...BACKUP_ENVELOPE_COLUMNS,
       createRequiredColumn('name_fr', 'string'),
       createRequiredColumn('name_ar', 'string'),
-      createRequiredColumn('subjectIds', 'string'),
+      referenceColumn('subjectIds', 'string', { sheet: 'subjects', kind: 'catalog', multiplicity: 'list' }),
       createRequiredColumn('priceMad', 'number'),
       createRequiredColumn('kind', 'string'),
       createRequiredColumn('isImmutable', 'boolean'),

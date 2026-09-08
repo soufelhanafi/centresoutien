@@ -298,4 +298,153 @@ describe('ApplyImportBackup', () => {
     expect(store.applied.map((sheet) => sheet.sheetName)).toEqual(['parents', 'students', 'sessions']);
     expect(BACKUP_SHEET_NAMES.indexOf('parents')).toBeLessThan(BACKUP_SHEET_NAMES.indexOf('students'));
   });
+
+  describe('dangling references (SOU-317)', () => {
+    it('creates a placeholder niveau for a teacher referencing one that does not exist', async () => {
+      const missingNiveau = validId('niv');
+      const teacher = validBackupRow('teachers', { id: validId('tch'), niveauIds: missingNiveau, subjectIds: '' });
+
+      await seedWorkbook([
+        {
+          name: 'teachers',
+          columns: ['id', 'centerCode', 'naturalKey', 'name_fr', 'name_ar', 'phone', 'subjectIds', 'niveauIds', 'active'],
+          rows: [teacher],
+        },
+      ]);
+
+      const result = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+
+      expect(result.counts).toEqual({ created: 2, updated: 0, duplicate: 0, invalid: 0 });
+      expect(store.allRows('teachers')[0]!['niveauIds']).toBe(missingNiveau);
+      const placeholder = store.allRows('niveaux').find((row) => row['id'] === missingNiveau);
+      expect(placeholder).toBeDefined();
+      expect(placeholder!['centerCode']).toBe(CENTER);
+      expect(placeholder!['active']).toBe(true);
+      // niveaux is applied before teachers in registry order, so the FK-free
+      // reference resolves regardless of write order — but placeholders still
+      // land on their own sheet.
+      expect(store.applied.map((sheet) => sheet.sheetName)).toEqual(['teachers', 'niveaux']);
+    });
+
+    it('reuses one placeholder when two rows reference the same missing parent', async () => {
+      const missingParent = validId('prt');
+      const studentA = validBackupRow('students', { id: validId('stu', '01HWAAAAAAAAAAAAAAAAAAAAA1'), guardianIds: missingParent });
+      const studentB = validBackupRow('students', { id: validId('stu', '01HWAAAAAAAAAAAAAAAAAAAAA2'), guardianIds: missingParent });
+
+      await seedWorkbook([
+        {
+          name: 'students',
+          columns: ['id', 'centerCode', 'naturalKey', 'name_fr', 'name_ar', 'guardianIds'],
+          rows: [studentA, studentB],
+        },
+      ]);
+
+      const result = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+
+      expect(result.counts).toEqual({ created: 3, updated: 0, duplicate: 0, invalid: 0 });
+      expect(store.allRows('parents')).toHaveLength(1);
+      expect(store.allRows('parents')[0]!['id']).toBe(missingParent);
+    });
+
+    it('drops a nullable link that points nowhere and still applies the row', async () => {
+      const missingGroup = validId('grp');
+      const existingRoom = validBackupRow('rooms');
+      store.seed('rooms', [existingRoom]);
+      const wrs = validBackupRow('weekly-recurring-sessions', {
+        id: validId('wrs'),
+        groupId: missingGroup,
+        teacherId: null,
+        roomId: existingRoom['id'],
+      });
+
+      await seedWorkbook([
+        {
+          name: 'weekly-recurring-sessions',
+          columns: ['id', 'centerCode', 'roomId', 'teacherId', 'groupId', 'dayOfWeek', 'start', 'end', 'active'],
+          rows: [wrs],
+        },
+      ]);
+
+      const result = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+      expect(result.counts.invalid).toBe(0);
+      expect(store.allRows('weekly-recurring-sessions')[0]!['groupId']).toBeNull();
+    });
+
+    it('rejects a row whose required link points nowhere, without touching the rest of the import', async () => {
+      const missingStudent = validId('stu');
+      const missingFormula = validId('fml');
+      const room = validBackupRow('rooms', { id: validId('rom') });
+      const subscription = validBackupRow('student-subscriptions', {
+        id: validId('sbs'),
+        studentId: missingStudent,
+        formulaId: missingFormula,
+      });
+
+      await seedWorkbook([
+        { name: 'rooms', columns: ['id', 'centerCode', 'name', 'capacity', 'active'], rows: [room] },
+        {
+          name: 'student-subscriptions',
+          columns: ['id', 'centerCode', 'studentId', 'formulaId', 'kind', 'subjectIds', 'startMonth', 'endMonth'],
+          rows: [subscription],
+        },
+      ]);
+
+      const result = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+      expect(result.counts).toEqual({ created: 1, updated: 0, duplicate: 0, invalid: 1 });
+      expect(store.allRows('student-subscriptions')).toHaveLength(0);
+      expect(store.allRows('rooms')).toHaveLength(1);
+      // no placeholder student/formula — those are financial links, never fabricated
+      expect(store.allRows('students')).toHaveLength(0);
+      expect(store.allRows('formulas')).toHaveLength(0);
+    });
+
+    it('never fabricates a placeholder over a real existing row when its sheet is omitted from the workbook', async () => {
+      const realParent = validBackupRow('parents', { id: validId('prt'), name: 'Fatima Zahra Alaoui' });
+      store.seed('parents', [realParent]);
+
+      const student = validBackupRow('students', { id: validId('stu'), guardianIds: realParent['id'] as string });
+      // The workbook carries only `students` — `parents` is entirely absent,
+      // exactly the "older/partial export" case the reference-repair feature
+      // must not treat as "this parent doesn't exist".
+      await seedWorkbook([
+        {
+          name: 'students',
+          columns: ['id', 'centerCode', 'naturalKey', 'name_fr', 'name_ar', 'guardianIds'],
+          rows: [student],
+        },
+      ]);
+
+      await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+
+      expect(store.allRows('parents')).toHaveLength(1);
+      expect(store.allRows('parents')[0]!['name']).toBe('Fatima Zahra Alaoui');
+      expect(store.applied.some((sheet) => sheet.sheetName === 'parents')).toBe(false);
+    });
+
+    it('does not drop a nullable link into a sheet omitted from the workbook when its target really exists', async () => {
+      const realGroup = validBackupRow('groups', { id: validId('grp') });
+      store.seed('groups', [realGroup]);
+      const room = validBackupRow('rooms');
+      store.seed('rooms', [room]);
+
+      const wrs = validBackupRow('weekly-recurring-sessions', {
+        id: validId('wrs'),
+        groupId: realGroup['id'],
+        teacherId: null,
+        roomId: room['id'],
+      });
+      // `groups` is entirely absent from this workbook — only its existing DB
+      // row should decide whether the reference resolves.
+      await seedWorkbook([
+        {
+          name: 'weekly-recurring-sessions',
+          columns: ['id', 'centerCode', 'roomId', 'teacherId', 'groupId', 'dayOfWeek', 'start', 'end', 'active'],
+          rows: [wrs],
+        },
+      ]);
+
+      await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+      expect(store.allRows('weekly-recurring-sessions')[0]!['groupId']).toBe(realGroup['id']);
+    });
+  });
 });

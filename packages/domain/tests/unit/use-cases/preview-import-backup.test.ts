@@ -139,4 +139,118 @@ describe('PreviewImportBackup', () => {
       useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode }),
     ).rejects.toBeInstanceOf(PlanFeatureUnavailableError);
   });
+
+  describe('dangling references (SOU-317)', () => {
+    it('reports the placeholder it will create for a missing catalog reference', async () => {
+      const missingNiveau = validId('niv');
+      const teacher = validBackupRow('teachers', { id: validId('tch'), niveauIds: missingNiveau, subjectIds: '' });
+
+      await seedWorkbook([
+        {
+          name: 'teachers',
+          columns: ['id', 'centerCode', 'naturalKey', 'name_fr', 'name_ar', 'phone', 'subjectIds', 'niveauIds', 'active'],
+          rows: [teacher],
+        },
+      ]);
+
+      const preview = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+      expect(preview.counts).toEqual({ created: 2, updated: 0, duplicate: 0, invalid: 0 });
+      const placeholderRow = preview.rows.find((row) => row.sheetName === 'niveaux');
+      expect(placeholderRow).toEqual({ sheetName: 'niveaux', rowNumber: -1, status: 'created', reason: 'auto-created-placeholder' });
+      const teacherRow = preview.rows.find((row) => row.sheetName === 'teachers')!;
+      expect(teacherRow.status).toBe('created');
+      expect(teacherRow.reason).toBeNull();
+    });
+
+    it('reports a dropped nullable link without failing the row', async () => {
+      const missingGroup = validId('grp');
+      const existingRoom = validBackupRow('rooms');
+      store.seed('rooms', [existingRoom]);
+      const wrs = validBackupRow('weekly-recurring-sessions', {
+        id: validId('wrs'),
+        groupId: missingGroup,
+        teacherId: null,
+        roomId: existingRoom['id'],
+      });
+
+      await seedWorkbook([
+        {
+          name: 'weekly-recurring-sessions',
+          columns: ['id', 'centerCode', 'roomId', 'teacherId', 'groupId', 'dayOfWeek', 'start', 'end', 'active'],
+          rows: [wrs],
+        },
+      ]);
+
+      const preview = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+      const row = preview.rows.find((r) => r.sheetName === 'weekly-recurring-sessions')!;
+      expect(row.status).toBe('created');
+      expect(row.reason).toBe('dropped-missing-link:groupId');
+    });
+
+    it('reports a row invalid when a required financial link is missing, and never invents a placeholder for it', async () => {
+      const missingStudent = validId('stu');
+      const missingFormula = validId('fml');
+      const subscription = validBackupRow('student-subscriptions', {
+        id: validId('sbs'),
+        studentId: missingStudent,
+        formulaId: missingFormula,
+      });
+
+      await seedWorkbook([
+        {
+          name: 'student-subscriptions',
+          columns: ['id', 'centerCode', 'studentId', 'formulaId', 'kind', 'subjectIds', 'startMonth', 'endMonth'],
+          rows: [subscription],
+        },
+      ]);
+
+      const preview = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+      expect(preview.counts).toEqual({ created: 0, updated: 0, duplicate: 0, invalid: 1 });
+      const row = preview.rows[0]!;
+      expect(row.status).toBe('invalid');
+      expect(row.reason).toBe('missing-link:studentId;missing-link:formulaId');
+      expect(preview.rows.some((r) => r.sheetName === 'students')).toBe(false);
+      expect(preview.rows.some((r) => r.sheetName === 'formulas')).toBe(false);
+    });
+
+    it('gives two placeholders on the same sheet distinct rowNumbers, so their report rows never collide on a UI key', async () => {
+      const missingParentA = validId('prt', '01HWAAAAAAAAAAAAAAAAAAAAA1');
+      const missingParentB = validId('prt', '01HWAAAAAAAAAAAAAAAAAAAAA2');
+      const studentA = validBackupRow('students', { id: validId('stu', '01HWAAAAAAAAAAAAAAAAAAAAA3'), guardianIds: missingParentA });
+      const studentB = validBackupRow('students', { id: validId('stu', '01HWAAAAAAAAAAAAAAAAAAAAA4'), guardianIds: missingParentB });
+
+      await seedWorkbook([
+        {
+          name: 'students',
+          columns: ['id', 'centerCode', 'naturalKey', 'name_fr', 'name_ar', 'guardianIds'],
+          rows: [studentA, studentB],
+        },
+      ]);
+
+      const preview = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+      const placeholderRows = preview.rows.filter((row) => row.sheetName === 'parents');
+      expect(placeholderRows).toHaveLength(2);
+      const keys = placeholderRows.map((row) => `${row.sheetName}-${row.rowNumber}`);
+      expect(new Set(keys).size).toBe(2);
+      expect(placeholderRows.every((row) => row.rowNumber < 0)).toBe(true);
+    });
+
+    it('never fabricates a placeholder over a real existing row when its sheet is omitted from the workbook', async () => {
+      const realParent = validBackupRow('parents', { id: validId('prt'), name: 'Fatima Zahra Alaoui' });
+      store.seed('parents', [realParent]);
+      const student = validBackupRow('students', { id: validId('stu'), guardianIds: realParent['id'] as string });
+
+      await seedWorkbook([
+        {
+          name: 'students',
+          columns: ['id', 'centerCode', 'naturalKey', 'name_fr', 'name_ar', 'guardianIds'],
+          rows: [student],
+        },
+      ]);
+
+      const preview = await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+      expect(preview.rows.some((row) => row.sheetName === 'parents')).toBe(false);
+      expect(preview.counts).toEqual({ created: 1, updated: 0, duplicate: 0, invalid: 0 });
+    });
+  });
 });

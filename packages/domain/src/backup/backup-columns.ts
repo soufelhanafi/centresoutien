@@ -30,6 +30,28 @@ export type BackupWorkbook = {
 
 export type BackupColumnType = 'string' | 'string-or-null' | 'number' | 'boolean';
 
+/**
+ * Declares that a column's value(s) are id(s) of another sheet's rows, so the
+ * import engine can repair a dangling reference instead of only ever
+ * rejecting the row (SOU-317). Two kinds, matched to how safely a missing
+ * target can be handled:
+ *
+ * - `catalog`: the target is a simple lookup entity (parent, teacher, room,
+ *   subject, niveau). A referenced id that doesn't exist gets a minimal
+ *   placeholder row created for it — never blocks the referencing row.
+ * - `link`: the target is a financial/scheduling entity (student, group,
+ *   formula, invoice, payment, …) that can never be safely fabricated. A
+ *   missing target is dropped to `null` when the column is nullable, or
+ *   forces the referencing row `invalid` when it isn't — never silently
+ *   invented.
+ */
+export type BackupColumnReference = {
+  sheet: BackupSheetName;
+  kind: 'catalog' | 'link';
+  /** `list` for a comma-joined id list (`guardianIds`); `single` otherwise. */
+  multiplicity: 'single' | 'list';
+};
+
 export type BackupColumn = {
   name: string;
   type: BackupColumnType;
@@ -39,6 +61,8 @@ export type BackupColumn = {
    * are ever optional — all are always present on export.
    */
   optional?: boolean;
+  /** Set when this column's value(s) reference another sheet's rows. */
+  reference?: BackupColumnReference;
 };
 
 export type BackupSheetSpec = {

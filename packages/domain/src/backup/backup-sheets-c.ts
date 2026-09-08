@@ -1,9 +1,16 @@
-import type { BackupColumn, BackupColumnType, BackupSheetSpec } from './backup-columns';
+import type { BackupColumn, BackupColumnReference, BackupColumnType, BackupSheetSpec } from './backup-columns';
 import { BACKUP_ENVELOPE_COLUMNS } from './backup-columns';
 
 // Compact column literal — `name` + `type`, non-optional by default.
 function createRequiredColumn(name: string, type: BackupColumnType): BackupColumn {
   return { name, type };
+}
+
+// Same as createRequiredColumn, plus a reference the import engine can
+// repair (create a placeholder or drop the link) instead of only ever
+// rejecting the row — see BackupColumnReference.
+function referenceColumn(name: string, type: BackupColumnType, reference: BackupColumnReference): BackupColumn {
+  return { name, type, reference };
 }
 
 // Third half of the registry: the synced settings tables (SOU-264) — the
@@ -36,7 +43,7 @@ export const BACKUP_SHEETS_C: readonly BackupSheetSpec[] = [
     restoreConflict: 'upsert',
     columns: [
       ...BACKUP_ENVELOPE_COLUMNS,
-      createRequiredColumn('teacherId', 'string'),
+      referenceColumn('teacherId', 'string', { sheet: 'teachers', kind: 'catalog', multiplicity: 'single' }),
       // Same opaque weekly-window JSON contract as `hoursByWeekday`.
       createRequiredColumn('weeklyWindows', 'string'),
     ],
@@ -49,7 +56,7 @@ export const BACKUP_SHEETS_C: readonly BackupSheetSpec[] = [
     restoreConflict: 'upsert',
     columns: [
       ...BACKUP_ENVELOPE_COLUMNS,
-      createRequiredColumn('teacherId', 'string'),
+      referenceColumn('teacherId', 'string', { sheet: 'teachers', kind: 'catalog', multiplicity: 'single' }),
       createRequiredColumn('startDate', 'string'),
       createRequiredColumn('endDate', 'string'),
       createRequiredColumn('label', 'string-or-null'),
