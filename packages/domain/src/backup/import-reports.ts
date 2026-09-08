@@ -9,7 +9,11 @@ export type BackupImportCounts = {
 };
 
 /** One workbook row's verdict — `rowNumber` is 1-based including the header row,
- *  so it matches what the user sees in Excel (row 2 is the first data row). */
+ *  so it matches what the user sees in Excel (row 2 is the first data row).
+ *  A row with no real Excel position — a placeholder synthesized to repair a
+ *  dangling reference (SOU-317) — carries a distinct negative `rowNumber`
+ *  instead (never `0` or positive), so it can never collide with a real row
+ *  or with another placeholder on the same sheet. */
 export type BackupImportRowReport = {
   sheetName: string;
   rowNumber: number;

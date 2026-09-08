@@ -397,5 +397,54 @@ describe('ApplyImportBackup', () => {
       expect(store.allRows('students')).toHaveLength(0);
       expect(store.allRows('formulas')).toHaveLength(0);
     });
+
+    it('never fabricates a placeholder over a real existing row when its sheet is omitted from the workbook', async () => {
+      const realParent = validBackupRow('parents', { id: validId('prt'), name: 'Fatima Zahra Alaoui' });
+      store.seed('parents', [realParent]);
+
+      const student = validBackupRow('students', { id: validId('stu'), guardianIds: realParent['id'] as string });
+      // The workbook carries only `students` — `parents` is entirely absent,
+      // exactly the "older/partial export" case the reference-repair feature
+      // must not treat as "this parent doesn't exist".
+      await seedWorkbook([
+        {
+          name: 'students',
+          columns: ['id', 'centerCode', 'naturalKey', 'name_fr', 'name_ar', 'guardianIds'],
+          rows: [student],
+        },
+      ]);
+
+      await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+
+      expect(store.allRows('parents')).toHaveLength(1);
+      expect(store.allRows('parents')[0]!['name']).toBe('Fatima Zahra Alaoui');
+      expect(store.applied.some((sheet) => sheet.sheetName === 'parents')).toBe(false);
+    });
+
+    it('does not drop a nullable link into a sheet omitted from the workbook when its target really exists', async () => {
+      const realGroup = validBackupRow('groups', { id: validId('grp') });
+      store.seed('groups', [realGroup]);
+      const room = validBackupRow('rooms');
+      store.seed('rooms', [room]);
+
+      const wrs = validBackupRow('weekly-recurring-sessions', {
+        id: validId('wrs'),
+        groupId: realGroup['id'],
+        teacherId: null,
+        roomId: room['id'],
+      });
+      // `groups` is entirely absent from this workbook — only its existing DB
+      // row should decide whether the reference resolves.
+      await seedWorkbook([
+        {
+          name: 'weekly-recurring-sessions',
+          columns: ['id', 'centerCode', 'roomId', 'teacherId', 'groupId', 'dayOfWeek', 'start', 'end', 'active'],
+          rows: [wrs],
+        },
+      ]);
+
+      await useCase.execute({ filePath: PATH, centerCode: CENTER as CenterCode });
+      expect(store.allRows('weekly-recurring-sessions')[0]!['groupId']).toBe(realGroup['id']);
+    });
   });
 });

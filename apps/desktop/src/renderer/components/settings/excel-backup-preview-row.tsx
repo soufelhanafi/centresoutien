@@ -87,8 +87,10 @@ export function ExcelBackupPreviewRow({ row }: { row: BackupImportRowReport }) {
         </span>
       </DataTableCell>
       <DataTableCell>
-        {/* rowNumber 0 marks a placeholder row synthesized to repair a
-         *  dangling reference (SOU-317) — it has no real Excel row. */}
+        {/* A non-positive rowNumber marks a placeholder row synthesized to
+         *  repair a dangling reference (SOU-317) — it has no real Excel row.
+         *  Each placeholder gets its own negative number so two on the same
+         *  sheet never collide on the row list's React key. */}
         {row.rowNumber > 0 ? <Numeric>{row.rowNumber}</Numeric> : <span className="text-muted-foreground">—</span>}
       </DataTableCell>
       <DataTableCell>

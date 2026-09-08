@@ -63,11 +63,20 @@ export function classifyWorkbook(
   const knownIdsBySheet = new Map<BackupSheetName, ReadonlySet<string>>();
 
   for (const spec of BACKUP_SHEETS) {
+    // Seeded from the DB for every sheet, whether or not the workbook carries
+    // it — an omitted sheet (older/partial export) still has real rows in the
+    // center, and `resolveWorkbookReferences` trusts this set completely to
+    // decide what's missing. Skipping this for an absent sheet would make
+    // every reference into it look dangling even when the target exists,
+    // fabricating a placeholder over a real row on `catalog` references and
+    // wrongly dropping/invalidating real `link` references.
+    const index = existing.get(spec.name);
+    const knownIds = new Set(index?.ids ?? EMPTY_IDS);
+    knownIdsBySheet.set(spec.name, knownIds);
+
     const sheet = byName.get(spec.name);
     if (sheet === undefined) continue;
 
-    const index = existing.get(spec.name);
-    const knownIds = new Set(index?.ids ?? EMPTY_IDS);
     const knownNaturalKeys = new Set(index?.naturalKeys ?? EMPTY_IDS);
     const classified: ClassifiedRow[] = [];
 
@@ -90,7 +99,6 @@ export function classifyWorkbook(
     }
 
     classifiedBySheet.set(spec.name, classified);
-    knownIdsBySheet.set(spec.name, knownIds);
   }
 
   return { classifiedBySheet, knownIdsBySheet };

@@ -72,16 +72,21 @@ export class PreviewImportBackup {
       }
     }
 
-    for (const placeholder of placeholders) {
+    // Not real workbook rows — synthesized to repair a dangling reference.
+    // Every placeholder gets its own negative `rowNumber`: a real row is
+    // always >= 2 (header is row 1), so this can never collide with one, and
+    // giving each placeholder a distinct number (rather than a shared `0`)
+    // keeps `${sheetName}-${rowNumber}` unique for the renderer's row list
+    // key even when a single sheet gets more than one placeholder.
+    placeholders.forEach((placeholder, index) => {
       counts.created += 1;
       rows.push({
         sheetName: placeholder.sheet,
-        // Not a real workbook row — synthesized to repair a dangling reference.
-        rowNumber: 0,
+        rowNumber: -1 - index,
         status: 'created',
         reason: 'auto-created-placeholder',
       });
-    }
+    });
 
     return {
       sheets: workbook.sheets.map((sheet) => sheet.name),
